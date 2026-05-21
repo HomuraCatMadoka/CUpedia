@@ -4,7 +4,13 @@ Thanks for your interest in contributing!
 
 ## Getting Started
 
-1. Fork the repo and clone your fork
+1. [Fork the repo](https://github.com/HomuraCatMadoka/CUpedia/fork) on GitHub, then clone your fork:
+
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/CUpedia.git
+   cd CUpedia
+   ```
+
 2. Start the infrastructure:
 
    ```bash
@@ -45,7 +51,12 @@ Thanks for your interest in contributing!
    git commit -m "feat: add something useful"
    ```
 
-5. Push and open a PR against `main`.
+5. Push to your fork and open a PR against `main`:
+
+   ```bash
+   git push origin feat/my-feature
+   # Then open a PR on GitHub from your fork to HomuraCatMadoka/CUpedia:main
+   ```
 
 ## Proposing New Features
 
