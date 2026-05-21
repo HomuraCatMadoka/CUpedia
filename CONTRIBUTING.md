@@ -47,10 +47,20 @@ Thanks for your interest in contributing!
 
 5. Push and open a PR against `main`.
 
+## Proposing New Features
+
+**Bug fixes can go straight to a PR.** But for new features, please open a [Feature Request Discussion](https://github.com/HomuraCatMadoka/CUpedia/discussions/new?category=ideas) first. This lets us:
+
+1. Validate the idea with the community
+2. Discuss the scope and approach before you write code
+3. Avoid duplicate work
+
+Once the feature is accepted, reference the discussion in your PR.
+
 ## What We're Looking For
 
 - Bug fixes
-- New wiki features
+- New wiki features (please open a Discussion first)
 - UI/UX improvements
 - Accessibility improvements
 - Documentation

@@ -8,6 +8,10 @@ on:
     branches: [main]
     paths: ['CUpedia/**']
 
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 defaults:
   run:
     working-directory: CUpedia

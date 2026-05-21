@@ -1,0 +1,49 @@
+area: auth:
+  - changed-files:
+      - any-glob-to-any-file:
+          - CUpedia/src/lib/auth*.ts
+          - CUpedia/src/app/(auth)/**
+          - CUpedia/src/app/api/auth/**
+
+area: wiki:
+  - changed-files:
+      - any-glob-to-any-file:
+          - CUpedia/src/lib/wiki-actions.ts
+          - CUpedia/src/lib/wiki-homepage.ts
+          - CUpedia/src/app/(main)/wiki/**
+          - CUpedia/src/components/wiki/**
+
+area: admin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - CUpedia/src/lib/admin-actions.ts
+          - CUpedia/src/app/admin/**
+          - CUpedia/src/components/admin/**
+
+area: ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - CUpedia/src/components/ui/**
+          - CUpedia/src/components/layout/**
+          - CUpedia/src/app/globals.css
+
+area: db:
+  - changed-files:
+      - any-glob-to-any-file:
+          - CUpedia/src/db/**
+          - CUpedia/drizzle.config.ts
+
+area: infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - CUpedia/Dockerfile
+          - CUpedia/Caddyfile
+          - docker-compose.yml
+          - .github/**
+
+area: docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - CUpedia/AGENTS.md
+          - CONTRIBUTING.md
