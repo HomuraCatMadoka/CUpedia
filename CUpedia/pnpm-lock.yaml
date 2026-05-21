@@ -12,7 +12,7 @@ importers:
         specifier: ^1.11.2
         version: 1.11.2(nodemailer@7.0.13)
       '@aws-sdk/client-s3':
-        specifier: ^3.1049.0
+        specifier: ^3.1051.0
         version: 3.1051.0
       '@base-ui/react':
         specifier: ^1.4.1
