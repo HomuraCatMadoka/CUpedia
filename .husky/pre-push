@@ -1,0 +1,10 @@
+protected_branch='main'
+
+protected_ref="refs/heads/$protected_branch"
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  if [ "$remote_ref" = "$protected_ref" ]; then
+    echo "Direct push to '$protected_branch' is not allowed. Use a pull request." >&2
+    echo "To bypass: git push --no-verify" >&2
+    exit 1
+  fi
+done

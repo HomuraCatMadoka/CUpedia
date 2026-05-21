@@ -43,6 +43,15 @@
     "unified": "^11.0.5",
     "vditor": "^3.11.2"
   },
+  "lint-staged": {
+    "*.{ts,tsx,mjs}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,css,yml}": [
+      "prettier --write"
+    ]
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/diff": "^7.0.2",
@@ -54,6 +63,9 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.5",
+    "prettier": "^3.8.3",
     "tailwindcss": "^4",
     "tsx": "^4.22.2",
     "typescript": "^5",
