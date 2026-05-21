@@ -1,0 +1,33 @@
+name: Bug Report
+description: Report a CUpedia bug.
+type: Bug
+body:
+  - type: textarea
+    attributes:
+      label: To Reproduce
+      description: Step-by-step instructions to reproduce the issue.
+      placeholder: |
+        1. Go to /wiki/...
+        2. Click ...
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Current vs. Expected behavior
+      description: What happened vs. what you expected.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Environment
+      description: Browser, OS, and any relevant setup info.
+      placeholder: |
+        Browser: Chrome 126
+        OS: macOS 15
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Additional context
+      description: Screenshots, logs, or anything else that helps.
