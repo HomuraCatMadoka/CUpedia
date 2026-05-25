@@ -1,4 +1,4 @@
-export function register() {
+export async function register() {
   if (
     process.env.SKIP_EMAIL_WHITELIST === "true" &&
     process.env.NODE_ENV === "production"
@@ -7,5 +7,11 @@ export function register() {
       "SKIP_EMAIL_WHITELIST must not be enabled in production. " +
         "Remove it from your environment variables.",
     );
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+    const { db } = await import("@/db");
+    await migrate(db, { migrationsFolder: "./src/db/migrations" });
   }
 }
