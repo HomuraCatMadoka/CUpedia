@@ -257,6 +257,13 @@ pnpm test
 
 If either fails, fix first. Do not create a PR or claim completion with failing checks.
 
+## PR Requirements
+
+- Each GitHub issue MUST have its own independent PR. Do NOT combine multiple issues into one PR.
+- PR description MUST contain one line starting with `Issue Number:` and reference related issue(s) using `close #<id>` or `ref #<id>`.
+- When issues have dependencies, merge them in order: merge the blocker PR first, then create the next PR based on updated main.
+- Avoid force-push when possible; prefer follow-up commits and squash merge.
+
 ## Commit Style
 
 - Concise, descriptive messages focused on what changed and why
