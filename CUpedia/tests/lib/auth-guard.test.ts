@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockRedirect, mockAuth, mockDbQueryUsers } = vi.hoisted(() => ({
-  mockRedirect: vi.fn(),
-  mockAuth: vi.fn(),
-  mockDbQueryUsers: { findFirst: vi.fn() },
-}));
+const { mockRedirect, mockGetSession, mockDbQueryUsers, mockHeaders } =
+  vi.hoisted(() => ({
+    mockRedirect: vi.fn(),
+    mockGetSession: vi.fn(),
+    mockDbQueryUsers: { findFirst: vi.fn() },
+    mockHeaders: vi.fn().mockResolvedValue(new Headers()),
+  }));
 
 vi.mock("next/navigation", () => ({
   redirect: (...args: unknown[]) => {
@@ -13,8 +15,16 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("next/headers", () => ({
+  headers: mockHeaders,
+}));
+
 vi.mock("@/lib/auth", () => ({
-  auth: () => mockAuth(),
+  auth: {
+    api: {
+      getSession: (opts: unknown) => mockGetSession(opts),
+    },
+  },
 }));
 
 vi.mock("@/db", () => ({
@@ -31,25 +41,24 @@ beforeEach(() => {
 
 describe("requireAuth", () => {
   it("redirects to /login when no session", async () => {
-    mockAuth.mockResolvedValue(null);
+    mockGetSession.mockResolvedValue(null);
     await expect(requireAuth()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/login");
   });
 
   it("redirects to /login when no user in session", async () => {
-    mockAuth.mockResolvedValue({ user: null });
+    mockGetSession.mockResolvedValue({ user: null });
     await expect(requireAuth()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/login");
   });
 
-  it("rejects a currently banned DB user even if JWT says unbanned", async () => {
-    mockAuth.mockResolvedValue({
+  it("rejects a currently banned DB user even if session says unbanned", async () => {
+    mockGetSession.mockResolvedValue({
       user: {
         id: "user-1",
         email: "u@cuhk.edu.hk",
-        banned: false,
-        role: "user",
-        nickname: "Test",
+        name: null,
+        image: null,
       },
     });
     mockDbQueryUsers.findFirst.mockResolvedValue({
@@ -64,13 +73,12 @@ describe("requireAuth", () => {
   });
 
   it("returns user with fresh DB values when not banned", async () => {
-    mockAuth.mockResolvedValue({
+    mockGetSession.mockResolvedValue({
       user: {
         id: "user-1",
         email: "u@cuhk.edu.hk",
-        banned: false,
-        role: "user",
-        nickname: "OldNick",
+        name: null,
+        image: null,
       },
     });
     mockDbQueryUsers.findFirst.mockResolvedValue({
@@ -87,13 +95,12 @@ describe("requireAuth", () => {
   });
 
   it("redirects when DB user is missing", async () => {
-    mockAuth.mockResolvedValue({
+    mockGetSession.mockResolvedValue({
       user: {
         id: "deleted-user",
         email: "u@cuhk.edu.hk",
-        banned: false,
-        role: "user",
-        nickname: "X",
+        name: null,
+        image: null,
       },
     });
     mockDbQueryUsers.findFirst.mockResolvedValue(undefined);

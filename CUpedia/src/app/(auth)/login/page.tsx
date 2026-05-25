@@ -1,39 +1,25 @@
 "use client";
 
-import { signIn } from "next-auth/react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isAllowedEmail } from "@/lib/email";
 
-const NEUTRAL_MSG = "如果该邮箱可以登录，登录链接将发送至你的邮箱";
-
-async function fetchJson(url: string, body: unknown) {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok && res.status >= 500) {
-    return { ok: false, code: "INTERNAL_ERROR" };
-  }
-  try {
-    return await res.json();
-  } catch {
-    return { ok: false, code: "INTERNAL_ERROR" };
-  }
-}
+type Tab = "password" | "otp";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("password");
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
-  const [sentMessage, setSentMessage] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
@@ -44,93 +30,94 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const preflight = await fetchJson("/api/auth/magic-link/preflight", {
+      const { error: authError } = await authClient.signIn.email({
         email,
+        password,
       });
-
-      if (!preflight.ok) {
-        switch (preflight.code) {
-          case "INVALID_EMAIL":
-            setError("请输入有效邮箱地址");
-            return;
-          case "INVALID_EMAIL_DOMAIN":
-            setError("仅支持 CUHK 邮箱注册");
-            return;
-          case "RATE_LIMITED":
-            setError(
-              `发送过于频繁，请 ${preflight.retryAfterSeconds} 秒后重试`,
-            );
-            return;
-          case "SUPPRESSED":
-            setSentMessage(NEUTRAL_MSG);
-            setSent(true);
-            return;
-          default:
-            setError("发送失败，请稍后重试");
-            return;
-        }
-      }
-
-      const result = await signIn("email", { email, redirect: false });
-
-      if (result?.error) {
-        const recheck = await fetchJson("/api/auth/magic-link/preflight", {
-          email,
-        });
-
-        if (!recheck.ok && recheck.code === "RATE_LIMITED") {
-          setError(`发送过于频繁，请 ${recheck.retryAfterSeconds} 秒后重试`);
-        } else {
-          setSentMessage(NEUTRAL_MSG);
-          setSent(true);
-        }
+      if (authError) {
+        setError(authError.message ?? "登录失败，请检查邮箱和密码");
       } else {
-        setSentMessage(`登录链接已发送至 ${email}，点击链接即可登录。`);
-        setSent(true);
+        router.push("/wiki");
+        router.refresh();
       }
     } catch {
-      setError("发送失败，请稍后重试");
+      setError("登录失败，请稍后重试");
     } finally {
       setLoading(false);
     }
   }
 
-  if (sent) {
-    return (
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>查看你的邮箱</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{sentMessage}</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const tabClass = (t: Tab) =>
+    `flex-1 py-2 text-center text-sm font-medium transition-colors ${
+      tab === t
+        ? "border-b-2 border-primary text-primary"
+        : "text-muted-foreground hover:text-foreground"
+    }`;
 
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>登录 CUpedia</CardTitle>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">CUHK 邮箱</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="1155xxxxxx@link.cuhk.edu.hk"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+      <CardContent className="space-y-4">
+        <div className="flex border-b">
+          <button
+            type="button"
+            className={tabClass("password")}
+            onClick={() => {
+              setTab("password");
+              setError("");
+            }}
+          >
+            密码登录
+          </button>
+          <button
+            type="button"
+            className={tabClass("otp")}
+            onClick={() => {
+              setTab("otp");
+              setError("");
+            }}
+          >
+            验证码登录
+          </button>
+        </div>
+
+        {tab === "password" ? (
+          <form onSubmit={handlePasswordLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">CUHK 邮箱</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="1155xxxxxx@link.cuhk.edu.hk"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">密码</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="输入密码"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+              />
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "登录中..." : "登录"}
+            </Button>
+          </form>
+        ) : (
+          <div className="py-8 text-center text-sm text-muted-foreground">
+            验证码登录即将上线，敬请期待
           </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "发送中..." : "发送登录链接"}
-          </Button>
-        </form>
+        )}
       </CardContent>
     </Card>
   );

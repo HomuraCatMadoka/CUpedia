@@ -44,10 +44,11 @@ describe("schema", () => {
     expect(cols.expires).toBeDefined();
   });
 
-  it("sessions table has required Auth.js fields", () => {
+  it("sessions table has required Better Auth fields", () => {
     const cols = getTableColumns(sessions);
-    expect(cols.sessionToken).toBeDefined();
+    expect(cols.id).toBeDefined();
+    expect(cols.token).toBeDefined();
     expect(cols.userId).toBeDefined();
-    expect(cols.expires).toBeDefined();
+    expect(cols.expiresAt).toBeDefined();
   });
 });

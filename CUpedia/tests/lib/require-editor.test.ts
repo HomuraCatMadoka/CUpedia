@@ -1,13 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockRedirect, mockAuth, mockDbQueryUsers, mockDbExecute } = vi.hoisted(
-  () => ({
-    mockRedirect: vi.fn(),
-    mockAuth: vi.fn(),
-    mockDbQueryUsers: { findFirst: vi.fn() },
-    mockDbExecute: vi.fn(),
-  }),
-);
+const {
+  mockRedirect,
+  mockGetSession,
+  mockDbQueryUsers,
+  mockDbExecute,
+  mockHeaders,
+} = vi.hoisted(() => ({
+  mockRedirect: vi.fn(),
+  mockGetSession: vi.fn(),
+  mockDbQueryUsers: { findFirst: vi.fn() },
+  mockDbExecute: vi.fn(),
+  mockHeaders: vi.fn().mockResolvedValue(new Headers()),
+}));
 
 vi.mock("next/navigation", () => ({
   redirect: (...args: unknown[]) => {
@@ -16,8 +21,16 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("next/headers", () => ({
+  headers: mockHeaders,
+}));
+
 vi.mock("@/lib/auth", () => ({
-  auth: () => mockAuth(),
+  auth: {
+    api: {
+      getSession: (opts: unknown) => mockGetSession(opts),
+    },
+  },
 }));
 
 vi.mock("@/db", () => ({
@@ -31,8 +44,8 @@ import { requireEditor, requireEditorOrRedirect } from "@/lib/auth-guard";
 import { _clearCache } from "@/lib/site-settings";
 
 function mockAuthenticatedUser(role: string) {
-  mockAuth.mockResolvedValue({
-    user: { id: "user-1", email: "u@cuhk.edu.hk" },
+  mockGetSession.mockResolvedValue({
+    user: { id: "user-1", email: "u@cuhk.edu.hk", name: null, image: null },
   });
   mockDbQueryUsers.findFirst.mockResolvedValue({
     id: "user-1",
