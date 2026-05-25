@@ -4,8 +4,11 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth-guard";
-import { escapeLikePattern } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+
+export function escapeLikePattern(pattern: string): string {
+  return pattern.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
 
 export async function getUsers({
   page = 1,
@@ -31,19 +34,18 @@ export async function getUsers({
     }
   }
 
-  const countResult = await db.execute(
-    sql`SELECT count(*)::int as count FROM ${users} WHERE ${whereClause}`,
-  );
-  const total =
-    (countResult.rows?.[0] as Record<string, number> | undefined)?.count ?? 0;
+  const countResult = (await db.execute(
+    sql`SELECT count(*)::int as count FROM ${users} WHERE ${whereClause}`
+  )) as any;
+  const total = countResult.rows?.[0]?.count ?? countResult[0]?.count ?? 0;
 
-  const result = await db.execute(
+  const result = (await db.execute(
     sql`SELECT id, email, nickname, role, banned, created_at, updated_at
         FROM ${users}
         WHERE ${whereClause}
         ORDER BY created_at DESC
-        LIMIT ${pageSize} OFFSET ${offset}`,
-  );
+        LIMIT ${pageSize} OFFSET ${offset}`
+  )) as any;
   const rows = result.rows ?? result;
 
   return { users: rows, total, page, pageSize };
@@ -52,7 +54,7 @@ export async function getUsers({
 export async function setUserBanned(
   userId: string,
   banned: boolean,
-  expectedUpdatedAt?: string,
+  expectedUpdatedAt?: string
 ) {
   const admin = await requireAdmin();
 
@@ -61,15 +63,10 @@ export async function setUserBanned(
   }
 
   return db.transaction(async (tx) => {
-    const result = await tx.execute(
-      sql`SELECT id, role, banned, updated_at FROM ${users} WHERE id = ${userId} FOR UPDATE`,
-    );
-    const rows = (result.rows ?? result) as {
-      id: string;
-      role: string;
-      banned: boolean;
-      updated_at: string | Date;
-    }[];
+    const result = (await tx.execute(
+      sql`SELECT id, role, banned, updated_at FROM ${users} WHERE id = ${userId} FOR UPDATE`
+    )) as any;
+    const rows = result.rows ?? result;
 
     if (!rows || rows.length === 0) {
       throw new Error("USER_NOT_FOUND");
@@ -85,10 +82,10 @@ export async function setUserBanned(
     }
 
     if (banned && target.role === "admin" && !target.banned) {
-      const acResult = await tx.execute(
-        sql`SELECT count(*)::int as count FROM ${users} WHERE role = 'admin' AND banned = false`,
-      );
-      const acRows = (acResult.rows ?? acResult) as Record<string, number>[];
+      const acResult = (await tx.execute(
+        sql`SELECT count(*)::int as count FROM ${users} WHERE role = 'admin' AND banned = false`
+      )) as any;
+      const acRows = acResult.rows ?? acResult;
       if (acRows[0]?.count <= 1) {
         throw new Error("LAST_ADMIN");
       }
@@ -96,7 +93,7 @@ export async function setUserBanned(
 
     const now = new Date();
     await tx.execute(
-      sql`UPDATE ${users} SET banned = ${banned}, updated_at = ${now} WHERE id = ${userId}`,
+      sql`UPDATE ${users} SET banned = ${banned}, updated_at = ${now} WHERE id = ${userId}`
     );
 
     revalidatePath("/admin/users");

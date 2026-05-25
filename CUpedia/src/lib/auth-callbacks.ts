@@ -3,10 +3,7 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { isAllowedEmail, normalizeEmail } from "@/lib/email";
 
-export async function checkSignIn(user: {
-  id?: string;
-  email?: string | null;
-}): Promise<boolean> {
+export async function checkSignIn(user: { id?: string; email?: string | null }): Promise<boolean> {
   if (!user.email || !isAllowedEmail(user.email)) return false;
 
   const normalized = normalizeEmail(user.email);
@@ -20,10 +17,10 @@ export async function checkSignIn(user: {
 }
 
 export async function refreshTokenFromDb(
-  token: Record<string, unknown>,
-  trigger: string | undefined,
-): Promise<Record<string, unknown>> {
-  if (trigger !== "update" || typeof token.sub !== "string") return token;
+  token: Record<string, any>,
+  trigger: string | undefined
+): Promise<Record<string, any>> {
+  if (trigger !== "update" || !token.sub) return token;
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, token.sub),

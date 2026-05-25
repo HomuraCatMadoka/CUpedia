@@ -1,13 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const {
-  mockRedirect,
-  mockAuth,
-  mockDbExecute,
-  mockDbTransaction,
-  mockRevalidatePath,
-  mockDbQueryUsers,
-} = vi.hoisted(() => ({
+const { mockRedirect, mockAuth, mockDbExecute, mockDbTransaction, mockRevalidatePath, mockDbQueryUsers } = vi.hoisted(() => ({
   mockRedirect: vi.fn(),
   mockAuth: vi.fn(),
   mockDbExecute: vi.fn(),
@@ -17,7 +10,7 @@ const {
 }));
 
 vi.mock("next/navigation", () => ({
-  redirect: (...args: unknown[]) => {
+  redirect: (...args: any[]) => {
     mockRedirect(...args);
     throw new Error("NEXT_REDIRECT");
   },
@@ -34,14 +27,16 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/db", () => ({
   db: {
     query: { users: mockDbQueryUsers },
-    execute: (...args: unknown[]) => mockDbExecute(...args),
-    transaction: (fn: (tx: unknown) => Promise<unknown>) =>
-      mockDbTransaction(fn),
+    execute: (...args: any[]) => mockDbExecute(...args),
+    transaction: (fn: any) => mockDbTransaction(fn),
   },
 }));
 
-import { getUsers, setUserBanned } from "@/lib/admin-actions";
-import { escapeLikePattern } from "@/lib/utils";
+import {
+  escapeLikePattern,
+  getUsers,
+  setUserBanned,
+} from "@/lib/admin-actions";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -49,13 +44,7 @@ beforeEach(() => {
 
 function mockAdminSession(id = "admin-1", role = "admin") {
   mockAuth.mockResolvedValue({
-    user: {
-      id,
-      role,
-      email: "admin@cuhk.edu.hk",
-      nickname: "Admin",
-      banned: false,
-    },
+    user: { id, role, email: "admin@cuhk.edu.hk", nickname: "Admin", banned: false },
   });
   mockDbQueryUsers.findFirst.mockResolvedValue({
     id,
@@ -68,13 +57,7 @@ function mockAdminSession(id = "admin-1", role = "admin") {
 
 function mockNonAdminSession() {
   mockAuth.mockResolvedValue({
-    user: {
-      id: "user-1",
-      role: "user",
-      email: "user@cuhk.edu.hk",
-      nickname: "User",
-      banned: false,
-    },
+    user: { id: "user-1", role: "user", email: "user@cuhk.edu.hk", nickname: "User", banned: false },
   });
   mockDbQueryUsers.findFirst.mockResolvedValue({
     id: "user-1",
@@ -119,14 +102,14 @@ describe("getUsers", () => {
   it("rejects non-admin caller", async () => {
     mockNonAdminSession();
     await expect(getUsers({ page: 1, pageSize: 10 })).rejects.toThrow(
-      "NEXT_REDIRECT",
+      "NEXT_REDIRECT"
     );
   });
 
   it("rejects unauthenticated caller", async () => {
     mockNoSession();
     await expect(getUsers({ page: 1, pageSize: 10 })).rejects.toThrow(
-      "NEXT_REDIRECT",
+      "NEXT_REDIRECT"
     );
   });
 
@@ -142,7 +125,7 @@ describe("setUserBanned", () => {
   it("rejects non-admin caller", async () => {
     mockNonAdminSession();
     await expect(setUserBanned("user-2", true)).rejects.toThrow(
-      "NEXT_REDIRECT",
+      "NEXT_REDIRECT"
     );
   });
 
@@ -160,7 +143,7 @@ describe("setUserBanned", () => {
       return fn(tx);
     });
     await expect(setUserBanned("nonexistent", true)).rejects.toThrow(
-      "USER_NOT_FOUND",
+      "USER_NOT_FOUND"
     );
   });
 
@@ -181,7 +164,9 @@ describe("setUserBanned", () => {
       };
       return fn(tx);
     });
-    await expect(setUserBanned("admin-2", true)).rejects.toThrow("LAST_ADMIN");
+    await expect(setUserBanned("admin-2", true)).rejects.toThrow(
+      "LAST_ADMIN"
+    );
   });
 
   it("rejects stale expectedUpdatedAt", async () => {
@@ -197,7 +182,7 @@ describe("setUserBanned", () => {
       return fn(tx);
     });
     await expect(
-      setUserBanned("user-2", true, "2026-01-01T00:00:00.000Z"),
+      setUserBanned("user-2", true, "2026-01-01T00:00:00.000Z")
     ).rejects.toThrow("STALE_USER_ROW");
   });
 

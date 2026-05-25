@@ -1,5 +1,3 @@
-export const dynamic = "force-dynamic";
-
 import Link from "next/link";
 import { getWikiTree } from "@/lib/wiki-actions";
 import { getCategoryCards, getRecentPages } from "@/lib/wiki-homepage";
@@ -65,9 +63,8 @@ export default async function WikiIndexPage() {
                   >
                     <div className="text-sm">{p.title}</div>
                     <div className="text-xs text-muted-foreground">
-                      {(p as { updatedByUser?: { nickname: string } })
-                        .updatedByUser?.nickname ?? "未知"}{" "}
-                      · {p.updatedAt.toLocaleDateString("zh-CN")}
+                      {(p as any).updatedByUser?.nickname ?? "未知"} ·{" "}
+                      {p.updatedAt.toLocaleDateString("zh-CN")}
                     </div>
                   </Link>
                 ))}

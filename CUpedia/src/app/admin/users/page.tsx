@@ -15,17 +15,7 @@ export default async function AdminUsersPage({
 
   return (
     <UserTable
-      users={
-        result.users as {
-          id: string;
-          email: string;
-          nickname: string;
-          role: string;
-          banned: boolean;
-          created_at: string;
-          updated_at: string;
-        }[]
-      }
+      users={result.users as any[]}
       page={page}
       totalPages={totalPages}
       total={result.total}

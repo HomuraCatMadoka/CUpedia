@@ -20,7 +20,7 @@ function SidebarWrapper({
   pages,
   children,
 }: {
-  pages: { id: string; slug: string; title: string; parentId: string | null }[];
+  pages: any[];
   children: React.ReactNode;
 }) {
   return (
@@ -46,7 +46,10 @@ export default async function HistoryPage({
   const { slug: slugParts } = await params;
   const slug = slugParts.map(decodeURIComponent).join("/");
   const sp = await searchParams;
-  const [page, pages] = await Promise.all([getWikiPage(slug), getWikiTree()]);
+  const [page, pages] = await Promise.all([
+    getWikiPage(slug),
+    getWikiTree(),
+  ]);
   if (!page) notFound();
 
   const revisions = await getRevisions(page.id);
