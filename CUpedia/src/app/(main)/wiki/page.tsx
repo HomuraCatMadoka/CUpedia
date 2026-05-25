@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { getWikiTree } from "@/lib/wiki-actions";
 import { getCategoryCards, getRecentPages } from "@/lib/wiki-homepage";
