@@ -20,13 +20,6 @@ export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
       >
         ☰
       </button>
-      <Link
-        href="/wiki/search"
-        className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-[var(--sidebar-active-bg)]"
-        aria-label="搜索"
-      >
-        🔍
-      </Link>
       {canEdit && (
         <Link
           href="/wiki/new"

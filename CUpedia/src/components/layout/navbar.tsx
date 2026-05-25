@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useSidebar } from "@/components/layout/sidebar-provider";
+import { CommandSearch } from "@/components/layout/command-search";
 
 export function Navbar() {
   const { data: session } = authClient.useSession();
@@ -75,9 +76,7 @@ export function Navbar() {
             </Link>
           </div>
           <nav className="flex items-center gap-4">
-            <Link href="/wiki/search" className="text-sm hover:underline">
-              搜索
-            </Link>
+            <CommandSearch />
             {session?.user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="rounded-md px-3 py-1.5 text-sm hover:bg-accent">
