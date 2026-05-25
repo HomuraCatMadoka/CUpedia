@@ -49,9 +49,10 @@ export async function peekMagicLinkRateLimit(
   });
   if (existing?.banned) return { ok: false, code: "SUPPRESSED" };
 
-  const rows = await db.execute<{ last_attempted_at: string }>(
+  const result = await db.execute(
     sql`SELECT last_attempted_at FROM ${magicLinkRateLimits} WHERE ${magicLinkRateLimits.identifier} = ${parsed.email}`,
   );
+  const rows = (result.rows ?? result) as { last_attempted_at: string }[];
   if (rows.length > 0) {
     const lastAttemptedAt = toDate(rows[0].last_attempted_at);
     const elapsed = (now.getTime() - lastAttemptedAt.getTime()) / 1000;
@@ -89,11 +90,14 @@ export async function consumeMagicLinkRateLimit(
           ON CONFLICT (identifier) DO NOTHING`,
     );
 
-    const lockRows = await tx.execute<{ last_attempted_at: string }>(
+    const lockResult = await tx.execute(
       sql`SELECT last_attempted_at FROM ${magicLinkRateLimits}
           WHERE ${magicLinkRateLimits.identifier} = ${parsed.email}
           FOR UPDATE`,
     );
+    const lockRows = (lockResult.rows ?? lockResult) as {
+      last_attempted_at: string;
+    }[];
 
     const lastAttemptedAt = toDate(lockRows[0].last_attempted_at);
     const elapsed = (attemptedAt.getTime() - lastAttemptedAt.getTime()) / 1000;

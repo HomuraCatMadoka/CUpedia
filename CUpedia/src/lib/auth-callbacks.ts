@@ -23,7 +23,7 @@ export async function refreshTokenFromDb(
   token: Record<string, unknown>,
   trigger: string | undefined,
 ): Promise<Record<string, unknown>> {
-  if (trigger !== "update" || !token.sub) return token;
+  if (trigger !== "update" || typeof token.sub !== "string") return token;
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, token.sub),

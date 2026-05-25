@@ -116,7 +116,7 @@ export async function deleteWikiPage(pageId: string) {
   await requireAdmin();
   const now = new Date();
 
-  const descendants = await db.execute<{ id: string }>(sql`
+  const descendantResult = await db.execute(sql`
     WITH RECURSIVE tree AS (
       SELECT id FROM wiki_pages WHERE id = ${pageId}
       UNION ALL
@@ -125,7 +125,9 @@ export async function deleteWikiPage(pageId: string) {
     SELECT id FROM tree
   `);
 
-  const ids = descendants.map((r) => r.id);
+  const ids = (
+    (descendantResult.rows ?? descendantResult) as { id: string }[]
+  ).map((r) => r.id);
   if (ids.length === 0) return;
 
   await db
@@ -137,7 +139,7 @@ export async function deleteWikiPage(pageId: string) {
 export async function restoreWikiPage(pageId: string) {
   await requireAdmin();
 
-  const related = await db.execute<{ id: string }>(sql`
+  const relatedResult = await db.execute(sql`
     WITH RECURSIVE ancestors AS (
       SELECT id, parent_id FROM wiki_pages WHERE id = ${pageId}
       UNION ALL
@@ -153,7 +155,9 @@ export async function restoreWikiPage(pageId: string) {
     SELECT id FROM descendants
   `);
 
-  const ids = related.map((r) => r.id);
+  const ids = ((relatedResult.rows ?? relatedResult) as { id: string }[]).map(
+    (r) => r.id,
+  );
   if (ids.length === 0) return;
 
   await db

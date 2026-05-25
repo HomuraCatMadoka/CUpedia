@@ -64,7 +64,12 @@ export async function setUserBanned(
     const result = await tx.execute(
       sql`SELECT id, role, banned, updated_at FROM ${users} WHERE id = ${userId} FOR UPDATE`,
     );
-    const rows = (result.rows ?? result) as Record<string, unknown>[];
+    const rows = (result.rows ?? result) as {
+      id: string;
+      role: string;
+      banned: boolean;
+      updated_at: string | Date;
+    }[];
 
     if (!rows || rows.length === 0) {
       throw new Error("USER_NOT_FOUND");
