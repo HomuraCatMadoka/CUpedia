@@ -30,14 +30,6 @@ export default async function WikiIndexPage() {
             由同学们共同维护的校园生活指南
           </p>
 
-          <Link
-            href="/wiki/search"
-            className="mt-6 flex items-center gap-2 rounded-lg border bg-[var(--sidebar-bg)] px-4 py-3 text-sm text-muted-foreground hover:border-foreground/20"
-            style={{ borderColor: "var(--sidebar-border-color)" }}
-          >
-            🔍 搜索页面...
-          </Link>
-
           {categories.length > 0 && (
             <div className="mt-8">
               <h2 className="text-sm font-semibold">分类</h2>
