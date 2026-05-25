@@ -8,6 +8,7 @@ import {
   index,
   primaryKey,
 } from "drizzle-orm/pg-core";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const users = pgTable("users", {
@@ -42,7 +43,7 @@ export const accounts = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.provider, table.providerAccountId] }),
-  ]
+  ],
 );
 
 export const verificationTokens = pgTable(
@@ -52,9 +53,7 @@ export const verificationTokens = pgTable(
     token: text("token").notNull().unique(),
     expires: timestamp("expires", { mode: "date" }).notNull(),
   },
-  (table) => [
-    primaryKey({ columns: [table.identifier, table.token] }),
-  ]
+  (table) => [primaryKey({ columns: [table.identifier, table.token] })],
 );
 
 export const sessions = pgTable("sessions", {
@@ -78,7 +77,7 @@ export const wikiPages = pgTable(
     slug: text("slug").notNull().unique(),
     title: text("title").notNull(),
     content: text("content").notNull().default(""),
-    parentId: uuid("parent_id").references((): any => wikiPages.id),
+    parentId: uuid("parent_id").references((): AnyPgColumn => wikiPages.id),
     sortOrder: integer("sort_order").notNull().default(0),
     deletedAt: timestamp("deleted_at"),
     createdBy: uuid("created_by")
@@ -93,7 +92,7 @@ export const wikiPages = pgTable(
   (table) => [
     index("wiki_pages_parent_id_idx").on(table.parentId),
     index("wiki_pages_slug_idx").on(table.slug),
-  ]
+  ],
 );
 
 export const wikiRevisions = pgTable(
@@ -111,9 +110,7 @@ export const wikiRevisions = pgTable(
     editSummary: text("edit_summary"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [
-    index("wiki_revisions_page_id_idx").on(table.pageId),
-  ]
+  (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
 );
 
 export const wikiPagesRelations = relations(wikiPages, ({ one }) => ({

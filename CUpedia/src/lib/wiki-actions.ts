@@ -93,8 +93,8 @@ export async function updateWikiPage(data: {
       .where(
         and(
           eq(wikiPages.id, existing.id),
-          eq(wikiPages.updatedAt, new Date(data.expectedUpdatedAt))
-        )
+          eq(wikiPages.updatedAt, new Date(data.expectedUpdatedAt)),
+        ),
       )
       .returning();
 
@@ -116,7 +116,7 @@ export async function deleteWikiPage(pageId: string) {
   await requireAdmin();
   const now = new Date();
 
-  const descendants = await db.execute(sql`
+  const descendants = await db.execute<{ id: string }>(sql`
     WITH RECURSIVE tree AS (
       SELECT id FROM wiki_pages WHERE id = ${pageId}
       UNION ALL
@@ -125,7 +125,7 @@ export async function deleteWikiPage(pageId: string) {
     SELECT id FROM tree
   `);
 
-  const ids = (descendants as any).rows.map((r: any) => r.id);
+  const ids = descendants.map((r) => r.id);
   if (ids.length === 0) return;
 
   await db
@@ -137,7 +137,7 @@ export async function deleteWikiPage(pageId: string) {
 export async function restoreWikiPage(pageId: string) {
   await requireAdmin();
 
-  const related = await db.execute(sql`
+  const related = await db.execute<{ id: string }>(sql`
     WITH RECURSIVE ancestors AS (
       SELECT id, parent_id FROM wiki_pages WHERE id = ${pageId}
       UNION ALL
@@ -153,7 +153,7 @@ export async function restoreWikiPage(pageId: string) {
     SELECT id FROM descendants
   `);
 
-  const ids = (related as any).rows.map((r: any) => r.id);
+  const ids = related.map((r) => r.id);
   if (ids.length === 0) return;
 
   await db
@@ -174,7 +174,10 @@ export async function getRevisions(pageId: string) {
 
 export async function getRevision(pageId: string, revisionId: string) {
   return db.query.wikiRevisions.findFirst({
-    where: and(eq(wikiRevisions.id, revisionId), eq(wikiRevisions.pageId, pageId)),
+    where: and(
+      eq(wikiRevisions.id, revisionId),
+      eq(wikiRevisions.pageId, pageId),
+    ),
   });
 }
 

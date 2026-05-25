@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { peekMagicLinkRateLimit } from "@/lib/magic-link-rate-limit";
 
 export async function POST(req: Request) {
-  let body: any;
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json(
       { ok: false, code: "INVALID_EMAIL" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     console.error("preflight error:", e);
     return NextResponse.json(
       { ok: false, code: "INTERNAL_ERROR" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

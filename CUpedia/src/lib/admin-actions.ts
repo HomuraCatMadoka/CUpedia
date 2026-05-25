@@ -4,11 +4,8 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth-guard";
+import { escapeLikePattern } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
-
-function escapeLikePattern(pattern: string): string {
-  return pattern.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-}
 
 export async function getUsers({
   page = 1,

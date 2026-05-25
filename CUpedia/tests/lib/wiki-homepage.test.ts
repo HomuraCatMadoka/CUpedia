@@ -7,8 +7,10 @@ const mockSelect = vi.fn();
 
 vi.mock("@/db", () => ({
   db: {
-    select: (...args: any[]) => mockSelect(...args),
-    query: { wikiPages: { findMany: (...args: any[]) => mockFindMany(...args) } },
+    select: (...args: unknown[]) => mockSelect(...args),
+    query: {
+      wikiPages: { findMany: (...args: unknown[]) => mockFindMany(...args) },
+    },
   },
 }));
 
@@ -29,8 +31,8 @@ vi.mock("drizzle-orm", () => ({
   isNull: vi.fn(),
   desc: vi.fn(),
   sql: Object.assign(
-    (...args: any[]) => ({ as: vi.fn(() => "childCount_col"), args }),
-    { raw: vi.fn() }
+    (...args: unknown[]) => ({ as: vi.fn(() => "childCount_col"), args }),
+    { raw: vi.fn() },
   ),
   count: vi.fn(() => ({ as: vi.fn(() => "cnt_col") })),
 }));

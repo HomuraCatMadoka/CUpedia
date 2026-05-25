@@ -63,8 +63,9 @@ export default async function WikiIndexPage() {
                   >
                     <div className="text-sm">{p.title}</div>
                     <div className="text-xs text-muted-foreground">
-                      {(p as any).updatedByUser?.nickname ?? "未知"} ·{" "}
-                      {p.updatedAt.toLocaleDateString("zh-CN")}
+                      {(p as { updatedByUser?: { nickname: string } })
+                        .updatedByUser?.nickname ?? "未知"}{" "}
+                      · {p.updatedAt.toLocaleDateString("zh-CN")}
                     </div>
                   </Link>
                 ))}

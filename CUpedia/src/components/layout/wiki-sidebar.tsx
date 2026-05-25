@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ type TreeNode = {
 };
 
 function buildTree(
-  pages: { id: string; slug: string; title: string; parentId: string | null }[]
+  pages: { id: string; slug: string; title: string; parentId: string | null }[],
 ): TreeNode[] {
   const map = new Map<string, TreeNode>();
   const roots: TreeNode[] = [];
@@ -32,7 +32,7 @@ function buildTree(
 
 function getAncestorIds(
   pages: { id: string; parentId: string | null }[],
-  activeId: string | undefined
+  activeId: string | undefined,
 ): Set<string> {
   if (!activeId) return new Set();
   const byId = new Map(pages.map((p) => [p.id, p]));
@@ -82,7 +82,7 @@ function TreeItem({
           onClick={isMobile ? closeMobile : undefined}
           className={cn(
             "block flex-1 truncate rounded px-2 py-1 text-sm hover:bg-[var(--sidebar-active-bg)]",
-            active && "bg-[var(--sidebar-active-bg)] font-medium"
+            active && "bg-[var(--sidebar-active-bg)] font-medium",
           )}
           style={{ paddingLeft: `${depth * 12}px` }}
         >
@@ -122,10 +122,15 @@ export function WikiSidebar({
   const ancestorIds = getAncestorIds(pages, activePage?.id);
 
   const [expandedIds, setExpandedIds] = useState<Set<string>>(ancestorIds);
+  const [prevPathname, setPrevPathname] = useState(pathname);
 
-  useEffect(() => {
-    setExpandedIds((prev) => new Set([...prev, ...ancestorIds]));
-  }, [pathname]);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    const merged = new Set([...expandedIds, ...ancestorIds]);
+    if (merged.size !== expandedIds.size) {
+      setExpandedIds(merged);
+    }
+  }
 
   const onToggle = (id: string) => {
     setExpandedIds((prev) => {
@@ -143,17 +148,12 @@ export function WikiSidebar({
   return (
     <>
       {isOverlay && (
-        <div
-          className="fixed inset-0 z-40 bg-black/30"
-          onClick={closeMobile}
-        />
+        <div className="fixed inset-0 z-40 bg-black/30" onClick={closeMobile} />
       )}
       <nav
         className={cn(
           "flex h-[calc(100vh-3.5rem)] w-[var(--sidebar-width)] shrink-0 flex-col overflow-y-auto border-r bg-[var(--sidebar-bg)]",
-          isOverlay
-            ? "fixed left-0 top-14 z-50 shadow-lg"
-            : "sticky top-14"
+          isOverlay ? "fixed left-0 top-14 z-50 shadow-lg" : "sticky top-14",
         )}
         style={{
           borderColor: "var(--sidebar-border-color)",

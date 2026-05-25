@@ -1,11 +1,11 @@
-area: auth:
+"area: auth":
   - changed-files:
       - any-glob-to-any-file:
           - CUpedia/src/lib/auth*.ts
           - CUpedia/src/app/(auth)/**
           - CUpedia/src/app/api/auth/**
 
-area: wiki:
+"area: wiki":
   - changed-files:
       - any-glob-to-any-file:
           - CUpedia/src/lib/wiki-actions.ts
@@ -13,27 +13,27 @@ area: wiki:
           - CUpedia/src/app/(main)/wiki/**
           - CUpedia/src/components/wiki/**
 
-area: admin:
+"area: admin":
   - changed-files:
       - any-glob-to-any-file:
           - CUpedia/src/lib/admin-actions.ts
           - CUpedia/src/app/admin/**
           - CUpedia/src/components/admin/**
 
-area: ui:
+"area: ui":
   - changed-files:
       - any-glob-to-any-file:
           - CUpedia/src/components/ui/**
           - CUpedia/src/components/layout/**
           - CUpedia/src/app/globals.css
 
-area: db:
+"area: db":
   - changed-files:
       - any-glob-to-any-file:
           - CUpedia/src/db/**
           - CUpedia/drizzle.config.ts
 
-area: infra:
+"area: infra":
   - changed-files:
       - any-glob-to-any-file:
           - CUpedia/Dockerfile
@@ -41,7 +41,7 @@ area: infra:
           - docker-compose.yml
           - .github/**
 
-area: docs:
+"area: docs":
   - changed-files:
       - any-glob-to-any-file:
           - '**/*.md'

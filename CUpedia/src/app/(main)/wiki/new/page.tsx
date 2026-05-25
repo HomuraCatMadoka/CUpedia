@@ -18,8 +18,8 @@ export default async function NewWikiPage() {
     try {
       const page = await createWikiPage(data);
       return { slug: page.slug };
-    } catch (e: any) {
-      return { error: e.message };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : String(e) };
     }
   }
 
