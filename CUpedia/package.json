@@ -55,11 +55,13 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/diff": "^7.0.2",
+    "@types/mdast": "^4.0.4",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.0",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/unist": "^3.0.3",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
@@ -71,6 +73,7 @@
     "tailwindcss": "^4",
     "tsx": "^4.22.2",
     "typescript": "^5",
+    "unist-util-visit": "^5.1.0",
     "vitest": "^4.1.6"
   }
 }
