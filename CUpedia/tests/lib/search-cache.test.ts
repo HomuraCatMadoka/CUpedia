@@ -135,7 +135,7 @@ describe("cache invalidation — revalidateTag called", () => {
     );
 
     await createWikiPage({ slug: "test", title: "Test", content: "content" });
-    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages");
+    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 
   it("updateWikiPage calls revalidateTag", async () => {
@@ -168,7 +168,7 @@ describe("cache invalidation — revalidateTag called", () => {
       content: "new",
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
-    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages");
+    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 
   it("deleteWikiPage calls revalidateTag", async () => {
@@ -180,7 +180,7 @@ describe("cache invalidation — revalidateTag called", () => {
     });
 
     await deleteWikiPage("1");
-    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages");
+    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 
   it("restoreWikiPage calls revalidateTag", async () => {
@@ -192,7 +192,7 @@ describe("cache invalidation — revalidateTag called", () => {
     });
 
     await restoreWikiPage("1");
-    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages");
+    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 
   it("rollbackToRevision calls revalidateTag", async () => {
@@ -222,6 +222,6 @@ describe("cache invalidation — revalidateTag called", () => {
     );
 
     await rollbackToRevision("1", "rev-1");
-    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages");
+    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 });

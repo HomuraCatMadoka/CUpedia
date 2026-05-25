@@ -67,7 +67,7 @@ export async function createWikiPage(data: {
     return p;
   });
 
-  revalidateTag("wiki-pages");
+  revalidateTag("wiki-pages", "max");
   return page;
 }
 
@@ -115,7 +115,7 @@ export async function updateWikiPage(data: {
     return updated[0];
   });
 
-  revalidateTag("wiki-pages");
+  revalidateTag("wiki-pages", "max");
   return result;
 }
 
@@ -142,7 +142,7 @@ export async function deleteWikiPage(pageId: string) {
     .set({ deletedAt: now })
     .where(inArray(wikiPages.id, ids));
 
-  revalidateTag("wiki-pages");
+  revalidateTag("wiki-pages", "max");
 }
 
 export async function restoreWikiPage(pageId: string) {
@@ -174,7 +174,7 @@ export async function restoreWikiPage(pageId: string) {
     .set({ deletedAt: null })
     .where(inArray(wikiPages.id, ids));
 
-  revalidateTag("wiki-pages");
+  revalidateTag("wiki-pages", "max");
 }
 
 export async function getRevisions(pageId: string) {
@@ -226,7 +226,7 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
     });
   });
 
-  revalidateTag("wiki-pages");
+  revalidateTag("wiki-pages", "max");
 }
 
 const getCachedPages = unstable_cache(
