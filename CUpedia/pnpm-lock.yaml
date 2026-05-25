@@ -157,7 +157,7 @@ importers:
         specifier: ^4
         version: 4.3.0
       tsx:
-        specifier: ^4.22.2
+        specifier: ^4.22.3
         version: 4.22.3
       typescript:
         specifier: ^5

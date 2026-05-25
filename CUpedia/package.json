@@ -71,7 +71,7 @@
     "prettier": "^3.8.3",
     "remark-stringify": "^11.0.0",
     "tailwindcss": "^4",
-    "tsx": "^4.22.2",
+    "tsx": "^4.22.3",
     "typescript": "^5",
     "unist-util-visit": "^5.1.0",
     "vitest": "^4.1.6"
