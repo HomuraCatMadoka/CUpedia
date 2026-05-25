@@ -14,7 +14,11 @@ type PeekResult =
   | { ok: true }
   | {
       ok: false;
-      code: "INVALID_EMAIL" | "INVALID_EMAIL_DOMAIN" | "RATE_LIMITED" | "SUPPRESSED";
+      code:
+        | "INVALID_EMAIL"
+        | "INVALID_EMAIL_DOMAIN"
+        | "RATE_LIMITED"
+        | "SUPPRESSED";
       retryAfterSeconds?: number;
     };
 
@@ -22,13 +26,17 @@ type ConsumeResult =
   | { ok: true }
   | {
       ok: false;
-      code: "INVALID_EMAIL" | "INVALID_EMAIL_DOMAIN" | "BANNED" | "RATE_LIMITED";
+      code:
+        | "INVALID_EMAIL"
+        | "INVALID_EMAIL_DOMAIN"
+        | "BANNED"
+        | "RATE_LIMITED";
       retryAfterSeconds?: number;
     };
 
 export async function peekMagicLinkRateLimit(
   email: string,
-  now = new Date()
+  now = new Date(),
 ): Promise<PeekResult> {
   const parsed = parseEmail(email);
   if (!parsed.ok) return { ok: false, code: "INVALID_EMAIL" };
@@ -41,10 +49,10 @@ export async function peekMagicLinkRateLimit(
   });
   if (existing?.banned) return { ok: false, code: "SUPPRESSED" };
 
-  const result = (await db.execute(
-    sql`SELECT last_attempted_at FROM ${magicLinkRateLimits} WHERE ${magicLinkRateLimits.identifier} = ${parsed.email}`
-  )) as any;
-  const rows = result.rows ?? result;
+  const result = await db.execute(
+    sql`SELECT last_attempted_at FROM ${magicLinkRateLimits} WHERE ${magicLinkRateLimits.identifier} = ${parsed.email}`,
+  );
+  const rows = (result.rows ?? result) as { last_attempted_at: string }[];
   if (rows.length > 0) {
     const lastAttemptedAt = toDate(rows[0].last_attempted_at);
     const elapsed = (now.getTime() - lastAttemptedAt.getTime()) / 1000;
@@ -62,7 +70,7 @@ export async function peekMagicLinkRateLimit(
 
 export async function consumeMagicLinkRateLimit(
   email: string,
-  attemptedAt = new Date()
+  attemptedAt = new Date(),
 ): Promise<ConsumeResult> {
   const parsed = parseEmail(email);
   if (!parsed.ok) return { ok: false, code: "INVALID_EMAIL" };
@@ -79,19 +87,20 @@ export async function consumeMagicLinkRateLimit(
     await tx.execute(
       sql`INSERT INTO ${magicLinkRateLimits} (identifier, last_attempted_at, updated_at)
           VALUES (${parsed.email}, to_timestamp(0), to_timestamp(0))
-          ON CONFLICT (identifier) DO NOTHING`
+          ON CONFLICT (identifier) DO NOTHING`,
     );
 
-    const lockResult = (await tx.execute(
+    const lockResult = await tx.execute(
       sql`SELECT last_attempted_at FROM ${magicLinkRateLimits}
           WHERE ${magicLinkRateLimits.identifier} = ${parsed.email}
-          FOR UPDATE`
-    )) as any;
-    const lockRows = lockResult.rows ?? lockResult;
+          FOR UPDATE`,
+    );
+    const lockRows = (lockResult.rows ?? lockResult) as {
+      last_attempted_at: string;
+    }[];
 
     const lastAttemptedAt = toDate(lockRows[0].last_attempted_at);
-    const elapsed =
-      (attemptedAt.getTime() - lastAttemptedAt.getTime()) / 1000;
+    const elapsed = (attemptedAt.getTime() - lastAttemptedAt.getTime()) / 1000;
 
     if (elapsed < RATE_LIMIT_SECONDS) {
       return {
@@ -104,7 +113,7 @@ export async function consumeMagicLinkRateLimit(
     await tx.execute(
       sql`UPDATE ${magicLinkRateLimits}
           SET last_attempted_at = ${attemptedAt}, updated_at = ${attemptedAt}
-          WHERE ${magicLinkRateLimits.identifier} = ${parsed.email}`
+          WHERE ${magicLinkRateLimits.identifier} = ${parsed.email}`,
     );
 
     return { ok: true as const };

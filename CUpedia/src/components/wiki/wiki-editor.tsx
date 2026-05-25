@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type VditorType from "vditor";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,7 +35,7 @@ export function WikiEditor({
   onSubmit,
 }: WikiEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const vditorRef = useRef<any>(null);
+  const vditorRef = useRef<VditorType | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [slug, setSlug] = useState(initialSlug);
   const [editSummary, setEditSummary] = useState("");
@@ -44,18 +45,32 @@ export function WikiEditor({
 
   useEffect(() => {
     import("vditor/dist/index.css");
-    let vditor: any;
+    let vditor: VditorType | undefined;
     import("vditor").then((Vditor) => {
       vditor = new Vditor.default(editorRef.current!, {
         height: 500,
         mode: "wysiwyg",
         value: initialContent,
         toolbar: [
-          "headings", "bold", "italic", "strike", "|",
-          "list", "ordered-list", "check", "|",
-          "quote", "code", "inline-code", "|",
-          "upload", "link", "table", "|",
-          "undo", "redo",
+          "headings",
+          "bold",
+          "italic",
+          "strike",
+          "|",
+          "list",
+          "ordered-list",
+          "check",
+          "|",
+          "quote",
+          "code",
+          "inline-code",
+          "|",
+          "upload",
+          "link",
+          "table",
+          "|",
+          "undo",
+          "redo",
         ],
         upload: {
           url: "/api/upload",

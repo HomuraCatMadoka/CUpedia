@@ -63,8 +63,9 @@ export function UserTable({
       try {
         await setUserBanned(user.id, banned, user.updated_at);
         router.refresh();
-      } catch (e: any) {
-        alert(e.message === "STALE_USER_ROW" ? "数据已过期，请刷新页面" : e.message);
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        alert(msg === "STALE_USER_ROW" ? "数据已过期，请刷新页面" : msg);
       }
     });
     setConfirmTarget(null);
@@ -108,11 +109,7 @@ export function UserTable({
                 <td className="px-4 py-2">{user.role}</td>
                 <td className="px-4 py-2">
                   <span
-                    className={
-                      user.banned
-                        ? "text-red-600"
-                        : "text-green-600"
-                    }
+                    className={user.banned ? "text-red-600" : "text-green-600"}
                   >
                     {user.banned ? "已封禁" : "正常"}
                   </span>
@@ -185,16 +182,11 @@ export function UserTable({
           </DialogHeader>
           <p className="text-sm">
             确定要封禁用户{" "}
-            <strong>
-              {confirmTarget?.nickname || confirmTarget?.email}
-            </strong>{" "}
+            <strong>{confirmTarget?.nickname || confirmTarget?.email}</strong>{" "}
             吗？封禁后该用户将无法登录。
           </p>
           <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setConfirmTarget(null)}
-            >
+            <Button variant="outline" onClick={() => setConfirmTarget(null)}>
               取消
             </Button>
             <Button

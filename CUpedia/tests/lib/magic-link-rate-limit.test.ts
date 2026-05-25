@@ -21,19 +21,21 @@ const mockDb = vi.mocked(db);
 
 function mockUserLookup(result: { banned: boolean } | undefined) {
   (mockDb.query.users.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(
-    result
+    result,
   );
 }
 
 function mockRateLimitRow(lastAttemptedAt: Date | null) {
-  mockDb.execute = vi.fn().mockResolvedValue(
-    lastAttemptedAt ? [{ last_attempted_at: lastAttemptedAt }] : []
-  );
+  mockDb.execute = vi
+    .fn()
+    .mockResolvedValue(
+      lastAttemptedAt ? [{ last_attempted_at: lastAttemptedAt }] : [],
+    );
 }
 
 function mockTransaction(
   lockResult: { lastAttemptedAt: Date } | null,
-  shouldUpdate = true
+  shouldUpdate = true,
 ) {
   mockDb.transaction = vi.fn().mockImplementation(async (fn) => {
     const tx = {
@@ -43,7 +45,7 @@ function mockTransaction(
     tx.execute.mockResolvedValueOnce([]);
     // SELECT FOR UPDATE
     tx.execute.mockResolvedValueOnce(
-      lockResult ? [{ last_attempted_at: lockResult.lastAttemptedAt }] : []
+      lockResult ? [{ last_attempted_at: lockResult.lastAttemptedAt }] : [],
     );
     if (shouldUpdate) {
       // UPDATE
@@ -73,7 +75,9 @@ describe("peekMagicLinkRateLimit", () => {
     mockRateLimitRow(null);
     const result = await peekMagicLinkRateLimit("user@cuhk.edu.hk");
     expect(result).toMatchObject({ ok: false, code: "SUPPRESSED" });
-    expect((result as any).code).not.toBe("BANNED");
+    expect(
+      (result as { retryAfterSeconds?: number; code?: string }).code,
+    ).not.toBe("BANNED");
   });
 
   it("returns RATE_LIMITED with retryAfterSeconds within 60s window", async () => {
@@ -83,7 +87,10 @@ describe("peekMagicLinkRateLimit", () => {
     mockRateLimitRow(lastAttempt);
     const result = await peekMagicLinkRateLimit("user@cuhk.edu.hk", now);
     expect(result).toMatchObject({ ok: false, code: "RATE_LIMITED" });
-    expect((result as any).retryAfterSeconds).toBe(30);
+    expect(
+      (result as { retryAfterSeconds?: number; code?: string })
+        .retryAfterSeconds,
+    ).toBe(30);
   });
 
   it("returns ok when no prior attempt", async () => {
@@ -134,7 +141,7 @@ describe("consumeMagicLinkRateLimit", () => {
     const attemptedAt = new Date("2026-01-01T12:00:00Z");
     const result = await consumeMagicLinkRateLimit(
       "user@cuhk.edu.hk",
-      attemptedAt
+      attemptedAt,
     );
     expect(result).toEqual({ ok: true });
   });
@@ -146,10 +153,13 @@ describe("consumeMagicLinkRateLimit", () => {
     const attemptedAt = new Date("2026-01-01T12:00:30Z");
     const result = await consumeMagicLinkRateLimit(
       "user@cuhk.edu.hk",
-      attemptedAt
+      attemptedAt,
     );
     expect(result).toMatchObject({ ok: false, code: "RATE_LIMITED" });
-    expect((result as any).retryAfterSeconds).toBe(30);
+    expect(
+      (result as { retryAfterSeconds?: number; code?: string })
+        .retryAfterSeconds,
+    ).toBe(30);
   });
 
   it("succeeds after 60s window", async () => {
@@ -159,7 +169,7 @@ describe("consumeMagicLinkRateLimit", () => {
     const attemptedAt = new Date("2026-01-01T12:01:01Z");
     const result = await consumeMagicLinkRateLimit(
       "user@cuhk.edu.hk",
-      attemptedAt
+      attemptedAt,
     );
     expect(result).toEqual({ ok: true });
   });
@@ -179,9 +189,12 @@ describe("consumeMagicLinkRateLimit", () => {
     const attemptedAt = new Date("2026-01-01T12:00:59Z");
     const result = await consumeMagicLinkRateLimit(
       "user@cuhk.edu.hk",
-      attemptedAt
+      attemptedAt,
     );
     expect(result).toMatchObject({ ok: false, code: "RATE_LIMITED" });
-    expect((result as any).retryAfterSeconds).toBe(1);
+    expect(
+      (result as { retryAfterSeconds?: number; code?: string })
+        .retryAfterSeconds,
+    ).toBe(1);
   });
 });

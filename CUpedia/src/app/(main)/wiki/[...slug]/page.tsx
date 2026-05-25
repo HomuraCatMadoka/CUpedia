@@ -63,8 +63,10 @@ export default async function WikiReadPage({
             </div>
           </div>
           <div className="mt-1 text-xs text-muted-foreground">
-            最后编辑：{(page as any).updatedByUser?.nickname ?? "未知用户"} ·{" "}
-            {page.updatedAt.toLocaleDateString("zh-CN")}
+            最后编辑：
+            {(page as { updatedByUser?: { nickname: string } }).updatedByUser
+              ?.nickname ?? "未知用户"}{" "}
+            · {page.updatedAt.toLocaleDateString("zh-CN")}
           </div>
           <div className="mt-6 border-t pt-6">
             <WikiRenderer content={page.content} />

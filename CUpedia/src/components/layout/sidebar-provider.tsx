@@ -25,26 +25,31 @@ const SidebarContext = createContext<SidebarContextValue | null>(null);
 const STORAGE_KEY = "wiki-sidebar-state";
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<SidebarState>("expanded");
   const [isMobile, setIsMobile] = useState(false);
+  const [state, setState] = useState<SidebarState>(() => {
+    if (typeof window === "undefined") return "expanded";
+    if (window.matchMedia("(max-width: 767px)").matches) return "collapsed";
+    return localStorage.getItem(STORAGE_KEY) === "collapsed"
+      ? "collapsed"
+      : "expanded";
+  });
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
-    const update = () => setIsMobile(mq.matches);
+    const update = () => {
+      const mobile = mq.matches;
+      setIsMobile(mobile);
+      if (mobile) {
+        setState("collapsed");
+      } else {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        setState(saved === "collapsed" ? "collapsed" : "expanded");
+      }
+    };
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
-
-  useEffect(() => {
-    if (isMobile) {
-      setState("collapsed");
-      return;
-    }
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "collapsed") setState("collapsed");
-    else setState("expanded");
-  }, [isMobile]);
 
   const expand = useCallback(() => {
     setState("expanded");

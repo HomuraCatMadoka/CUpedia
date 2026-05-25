@@ -13,10 +13,7 @@ export default async function EditWikiPage({
   await requireAuth();
   const { slug: slugParts } = await params;
   const slug = slugParts.map(decodeURIComponent).join("/");
-  const [page, pages] = await Promise.all([
-    getWikiPage(slug),
-    getWikiTree(),
-  ]);
+  const [page, pages] = await Promise.all([getWikiPage(slug), getWikiTree()]);
   if (!page) notFound();
 
   async function handleUpdate(data: {
@@ -36,8 +33,8 @@ export default async function EditWikiPage({
         expectedUpdatedAt: data.expectedUpdatedAt!,
       });
       return { slug: updated.slug };
-    } catch (e: any) {
-      return { error: e.message };
+    } catch (e: unknown) {
+      return { error: e instanceof Error ? e.message : String(e) };
     }
   }
 
