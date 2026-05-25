@@ -123,6 +123,9 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.15)
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
@@ -141,6 +144,9 @@ importers:
       prettier:
         specifier: ^3.8.3
         version: 3.8.3
+      remark-stringify:
+        specifier: ^11.0.0
+        version: 11.0.0
       tailwindcss:
         specifier: ^4
         version: 4.3.0
