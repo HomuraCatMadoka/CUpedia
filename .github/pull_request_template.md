@@ -4,7 +4,8 @@
 
 ## Why?
 
-<!-- Why is this change needed? Link related issues with `Fixes #number`. -->
+<!-- Why is this change needed? Link related issues. -->
+Fixes #
 
 ## How?
 

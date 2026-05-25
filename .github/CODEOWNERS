@@ -1,0 +1,5 @@
+# Auth — session, access control
+CUpedia/src/lib/auth*.ts @HomuraCatMadoka
+
+# Database — schema and migrations
+CUpedia/src/db/ @HomuraCatMadoka

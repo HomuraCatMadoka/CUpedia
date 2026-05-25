@@ -217,6 +217,46 @@ Use skills for deep-dive workflows. Keep baseline rules in this file.
 - For API changes: test with curl or browser
 - When unclear how to verify, ask.
 
+## Agent Output Contract
+
+When completing a task, report exactly:
+
+1. **Files changed** — every file added, modified, or deleted
+2. **Commands run** — every lint, test, or build command and its result (pass/fail)
+3. **Not verified** — anything you could not verify and why
+
+No summaries of what the code does — the diff shows that. Example:
+
+```
+Files: src/lib/wiki-actions.ts, tests/wiki-actions.test.ts
+Ran: pnpm lint (pass), pnpm test (pass)
+Not verified: browser test for edit conflict UI (no browser available)
+```
+
+## Verification Profiles
+
+### WIP — during development
+
+Run only what is relevant to changed files:
+
+```bash
+pnpm eslint $(git diff --name-only --diff-filter=d HEAD -- '*.ts' '*.tsx')
+pnpm test -- tests/<related-test>.test.ts
+```
+
+Do not claim the task is complete under WIP.
+
+### Ready — before completion or PR
+
+Full suite. Both must pass before claiming done or creating a PR:
+
+```bash
+pnpm lint
+pnpm test
+```
+
+If either fails, fix first. Do not create a PR or claim completion with failing checks.
+
 ## Commit Style
 
 - Concise, descriptive messages focused on what changed and why

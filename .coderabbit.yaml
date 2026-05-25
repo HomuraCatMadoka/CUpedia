@@ -1,0 +1,32 @@
+language: "zh-CN"
+tone_instructions: "简洁直接，关注安全和性能问题"
+
+reviews:
+  profile: "assertive"
+  high_level_summary: true
+  auto_review:
+    enabled: true
+    drafts: false
+    ignore_title_keywords: ["WIP", "DO NOT MERGE"]
+  path_filters:
+    - "!CUpedia/src/components/ui/**"
+    - "!**/*.md"
+    - "!CUpedia/drizzle/**"
+  path_instructions:
+    - path: "CUpedia/src/lib/auth*.ts"
+      instructions: "重点检查认证安全：session 处理、token 存储、权限校验"
+    - path: "CUpedia/src/lib/wiki-actions.ts"
+      instructions: "所有 wiki 写操作必须经过权限检查，检查 SQL 注入风险"
+    - path: "CUpedia/src/db/**"
+      instructions: "schema 变更必须配套 migration，检查是否有破坏性变更"
+    - path: "CUpedia/src/app/api/**"
+      instructions: "检查输入验证、错误处理、rate limiting"
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: true
+
+tools:
+  eslint:
+    enabled: true
+  gitleaks:
+    enabled: true
