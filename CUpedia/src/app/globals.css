@@ -124,6 +124,7 @@
     --sidebar-bg: #f7f7f5;
     --sidebar-border-color: #e8e5e0;
     --sidebar-active-bg: #e8e5e0;
+    --sidebar-active-border: #3b82f6;
     --sidebar-transition: 200ms ease;
     --content-max-width: 720px;
   }
