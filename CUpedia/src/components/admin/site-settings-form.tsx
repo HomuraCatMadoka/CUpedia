@@ -40,9 +40,10 @@ export function SiteSettingsForm({
         router.refresh();
       } catch {
         toast.error("更新失败");
+      } finally {
+        setPendingValue(null);
       }
     });
-    setPendingValue(null);
   }
 
   return (

@@ -66,7 +66,11 @@ export default async function HistoryPage({
 
     async function handleRollback() {
       "use server";
-      await rollbackToRevision(page!.id, sp.view!);
+      try {
+        await rollbackToRevision(page!.id, sp.view!);
+      } catch {
+        redirect(`/wiki/history/${slug}?view=${sp.view}`);
+      }
       redirect(`/wiki/${slug}`);
     }
 

@@ -113,6 +113,9 @@ export async function getWikiEditRoleSetting() {
 }
 
 export async function updateWikiEditRole(role: "admin" | "user") {
+  if (role !== "admin" && role !== "user") {
+    throw new Error("INVALID_ROLE");
+  }
   await requireAdmin();
   await _setWikiEditRole(role);
   revalidatePath("/admin/settings");

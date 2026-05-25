@@ -3,4 +3,4 @@ CREATE TABLE "site_settings" (
 	"value" text NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "wiki_pages" DROP COLUMN "search_vector";
+ALTER TABLE "wiki_pages" DROP COLUMN IF EXISTS "search_vector";

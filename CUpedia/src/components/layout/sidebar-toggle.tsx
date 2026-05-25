@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 
-export function SidebarToggle({ canEdit = true }: { canEdit?: boolean } = {}) {
+export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
   const { state, isMobile, toggle, openMobile } = useSidebar();
 
   if (state === "expanded" || state === "mobile-open") return null;
