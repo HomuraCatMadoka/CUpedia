@@ -118,8 +118,8 @@ docker compose down -v && docker compose up -d db minio
 Copy `.env.example` to `.env.local`. Required variables:
 
 - `DATABASE_URL` — PostgreSQL connection string (port 5433)
-- `BETTER_AUTH_SECRET` — any string (dev default provided in `.env.example`)
-- `BETTER_AUTH_URL` — `http://localhost:3000`
+- `AUTH_SECRET` — any string (dev default provided in `.env.example`)
+- `AUTH_URL` — `http://localhost:3000`
 - `MINIO_*` — Object storage config (defaults work with local MinIO)
 
 ## Database
