@@ -14,6 +14,8 @@ type TreeNode = {
   children: TreeNode[];
 };
 
+const STORAGE_KEY = "wiki-sidebar-collapsed";
+
 function buildTree(
   pages: { id: string; slug: string; title: string; parentId: string | null }[],
 ): TreeNode[] {
@@ -30,30 +32,33 @@ function buildTree(
   return roots;
 }
 
-function getAncestorIds(
-  pages: { id: string; parentId: string | null }[],
-  activeId: string | undefined,
-): Set<string> {
-  if (!activeId) return new Set();
-  const byId = new Map(pages.map((p) => [p.id, p]));
-  const ids = new Set<string>();
-  let node = byId.get(activeId);
-  while (node?.parentId) {
-    ids.add(node.parentId);
-    node = byId.get(node.parentId);
+function loadCollapsed(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
   }
-  return ids;
 }
 
-function TreeItem({
+function saveCollapsed(ids: Set<string>) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* noop */
+  }
+}
+
+function ChildItem({
   node,
   depth,
-  expandedIds,
+  collapsedIds,
   onToggle,
 }: {
   node: TreeNode;
   depth: number;
-  expandedIds: Set<string>;
+  collapsedIds: Set<string>;
   onToggle: (id: string) => void;
 }) {
   const pathname = usePathname();
@@ -61,7 +66,7 @@ function TreeItem({
   const href = `/wiki/${node.slug}`;
   const active = pathname === href;
   const hasChildren = node.children.length > 0;
-  const expanded = expandedIds.has(node.id);
+  const collapsed = collapsedIds.has(node.id);
 
   return (
     <li>
@@ -70,9 +75,9 @@ function TreeItem({
           <button
             onClick={() => onToggle(node.id)}
             className="flex h-5 w-5 shrink-0 items-center justify-center text-xs text-muted-foreground"
-            aria-label={expanded ? "折叠" : "展开"}
+            aria-label={collapsed ? "展开" : "折叠"}
           >
-            {expanded ? "▼" : "▶"}
+            {collapsed ? "▶" : "▼"}
           </button>
         ) : (
           <span className="w-5 shrink-0" />
@@ -82,21 +87,76 @@ function TreeItem({
           onClick={isMobile ? closeMobile : undefined}
           className={cn(
             "block flex-1 truncate rounded px-2 py-1 text-sm hover:bg-[var(--sidebar-active-bg)]",
-            active && "bg-[var(--sidebar-active-bg)] font-medium",
+            active &&
+              "border-l-2 border-[var(--sidebar-active-border)] bg-[var(--sidebar-active-bg)] font-medium",
           )}
           style={{ paddingLeft: `${depth * 12}px` }}
         >
           {node.title}
         </Link>
       </div>
-      {hasChildren && expanded && (
+      {hasChildren && !collapsed && (
         <ul>
           {node.children.map((child) => (
-            <TreeItem
+            <ChildItem
               key={child.id}
               node={child}
               depth={depth + 1}
-              expandedIds={expandedIds}
+              collapsedIds={collapsedIds}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+function SectionGroup({
+  node,
+  collapsedIds,
+  onToggle,
+}: {
+  node: TreeNode;
+  collapsedIds: Set<string>;
+  onToggle: (id: string) => void;
+}) {
+  const pathname = usePathname();
+  const { closeMobile, isMobile } = useSidebar();
+  const href = `/wiki/${node.slug}`;
+  const active = pathname === href;
+  const collapsed = collapsedIds.has(node.id);
+
+  return (
+    <li className="mt-4 first:mt-0">
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onToggle(node.id)}
+          className="flex h-4 w-4 shrink-0 items-center justify-center text-[10px] text-muted-foreground"
+          aria-label={collapsed ? "展开" : "折叠"}
+        >
+          {collapsed ? "▶" : "▼"}
+        </button>
+        <Link
+          href={href}
+          onClick={isMobile ? closeMobile : undefined}
+          className={cn(
+            "block flex-1 truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground",
+            active &&
+              "border-l-2 border-[var(--sidebar-active-border)] pl-1 text-foreground",
+          )}
+        >
+          {node.title}
+        </Link>
+      </div>
+      {!collapsed && node.children.length > 0 && (
+        <ul className="mt-1 space-y-0.5">
+          {node.children.map((child) => (
+            <ChildItem
+              key={child.id}
+              node={child}
+              depth={0}
+              collapsedIds={collapsedIds}
               onToggle={onToggle}
             />
           ))}
@@ -112,31 +172,16 @@ export function WikiSidebar({
   pages: { id: string; slug: string; title: string; parentId: string | null }[];
 }) {
   const { state, collapse, closeMobile } = useSidebar();
-  const pathname = usePathname();
   const tree = buildTree(pages);
 
-  const activeSlug = pathname.startsWith("/wiki/")
-    ? decodeURIComponent(pathname.slice(6))
-    : undefined;
-  const activePage = pages.find((p) => p.slug === activeSlug);
-  const ancestorIds = getAncestorIds(pages, activePage?.id);
-
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(ancestorIds);
-  const [prevPathname, setPrevPathname] = useState(pathname);
-
-  if (prevPathname !== pathname) {
-    setPrevPathname(pathname);
-    const merged = new Set([...expandedIds, ...ancestorIds]);
-    if (merged.size !== expandedIds.size) {
-      setExpandedIds(merged);
-    }
-  }
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsed);
 
   const onToggle = (id: string) => {
-    setExpandedIds((prev) => {
+    setCollapsedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      saveCollapsed(next);
       return next;
     });
   };
@@ -175,13 +220,12 @@ export function WikiSidebar({
             ✕
           </button>
         </div>
-        <ul className="flex-1 space-y-0.5 p-2">
+        <ul className="flex-1 p-2">
           {tree.map((node) => (
-            <TreeItem
+            <SectionGroup
               key={node.id}
               node={node}
-              depth={0}
-              expandedIds={expandedIds}
+              collapsedIds={collapsedIds}
               onToggle={onToggle}
             />
           ))}
