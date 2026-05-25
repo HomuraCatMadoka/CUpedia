@@ -6,9 +6,13 @@ import {
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 
+const endpoint = process.env.MINIO_PORT
+  ? `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}`
+  : process.env.MINIO_ENDPOINT!;
+
 const s3 = new S3Client({
-  endpoint: `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}`,
-  region: "us-east-1",
+  endpoint,
+  region: process.env.MINIO_REGION ?? "us-east-1",
   credentials: {
     accessKeyId: process.env.MINIO_ACCESS_KEY!,
     secretAccessKey: process.env.MINIO_SECRET_KEY!,
@@ -18,12 +22,21 @@ const s3 = new S3Client({
 
 const bucket = process.env.MINIO_BUCKET!;
 
-export async function uploadFile(file: Buffer, filename: string, contentType: string) {
+export async function uploadFile(
+  file: Buffer,
+  filename: string,
+  contentType: string,
+) {
   const ext = filename.split(".").pop();
   const key = `${randomUUID()}.${ext}`;
 
   await s3.send(
-    new PutObjectCommand({ Bucket: bucket, Key: key, Body: file, ContentType: contentType })
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: file,
+      ContentType: contentType,
+    }),
   );
 
   return `${process.env.MINIO_PUBLIC_URL}/${key}`;
@@ -32,13 +45,18 @@ export async function uploadFile(file: Buffer, filename: string, contentType: st
 export async function uploadAsset(
   file: Buffer,
   filename: string,
-  contentType: string
+  contentType: string,
 ): Promise<{ key: string; url: string }> {
   const ext = filename.split(".").pop();
   const key = `wiki-assets/${randomUUID()}.${ext}`;
 
   await s3.send(
-    new PutObjectCommand({ Bucket: bucket, Key: key, Body: file, ContentType: contentType })
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: file,
+      ContentType: contentType,
+    }),
   );
 
   return { key, url: `/api/wiki-assets/${key}` };
@@ -54,6 +72,6 @@ export async function deleteObjects(keys: string[]) {
     new DeleteObjectsCommand({
       Bucket: bucket,
       Delete: { Objects: keys.map((Key) => ({ Key })) },
-    })
+    }),
   );
 }
