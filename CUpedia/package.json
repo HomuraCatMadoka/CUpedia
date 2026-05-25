@@ -72,7 +72,7 @@
     "remark-stringify": "^11.0.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.2",
-    "typescript": "^5",
+    "typescript": "^6",
     "unist-util-visit": "^5.1.0",
     "vitest": "^4.1.6"
   }
