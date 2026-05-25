@@ -74,6 +74,6 @@
     "tsx": "^4.22.2",
     "typescript": "^5",
     "unist-util-visit": "^5.1.0",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.7"
   }
 }
