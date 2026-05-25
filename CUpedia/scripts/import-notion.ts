@@ -4,7 +4,11 @@ import path from "path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
 import { Pool } from "pg";
-import { S3Client, PutObjectCommand, DeleteObjectsCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectsCommand,
+} from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { wikiPages, wikiRevisions } from "../src/db/schema";
 import { generateSlug, validateSlug } from "../src/lib/slug";
@@ -14,13 +18,39 @@ import {
   processImages,
 } from "./import-notion-transforms";
 
-export function parseNotionFilename(filename: string): { title: string; uuid: string } {
+export function parseNotionFilename(filename: string): {
+  title: string;
+  uuid: string;
+} {
   const match = filename.match(/^(.+)\s+([a-f0-9]{32})\.md$/);
   if (!match) return { title: filename.replace(/\.md$/, ""), uuid: "" };
   return { title: match[1], uuid: match[2] };
 }
 
-function makeImportSlug(title: string, parentSlug: string | undefined, usedSlugs: Set<string>): string {
+export function extractLinkOrder(content: string): string[] {
+  const linkRe = /\]\(([^)]+\.md)\)/g;
+  const titles: string[] = [];
+  let match;
+  while ((match = linkRe.exec(content)) !== null) {
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(match[1]);
+    } catch {
+      continue;
+    }
+    const { title } = parseNotionFilename(path.basename(decoded));
+    if (title && !titles.includes(title)) {
+      titles.push(title);
+    }
+  }
+  return titles;
+}
+
+function makeImportSlug(
+  title: string,
+  parentSlug: string | undefined,
+  usedSlugs: Set<string>,
+): string {
   const basePart = generateSlug(title) || "untitled";
   const base = parentSlug ? `${parentSlug}/${basePart}` : basePart;
   let candidate = base;
@@ -49,10 +79,11 @@ function scanDir(
   exportRoot: string,
   pathToSlug: Map<string, string>,
   parentSlug?: string,
-  usedSlugs = new Set<string>()
+  usedSlugs = new Set<string>(),
 ): ImportEntry[] {
   const entries: ImportEntry[] = [];
   const items = fs.readdirSync(dir);
+  const scannedDirs = new Set<string>();
 
   for (const item of items) {
     const fullPath = path.join(dir, item);
@@ -63,13 +94,31 @@ function scanDir(
       const slug = makeImportSlug(title, parentSlug, usedSlugs);
       const content = fs.readFileSync(fullPath, "utf-8");
 
-      const relPath = path.relative(exportRoot, fullPath).split(path.sep).join("/");
+      const relPath = path
+        .relative(exportRoot, fullPath)
+        .split(path.sep)
+        .join("/");
       pathToSlug.set(relPath, slug);
 
       const children: ImportEntry[] = [];
       const subDir = path.join(dir, title);
       if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
-        children.push(...scanDir(subDir, exportRoot, pathToSlug, slug, usedSlugs));
+        scannedDirs.add(title);
+        children.push(
+          ...scanDir(subDir, exportRoot, pathToSlug, slug, usedSlugs),
+        );
+      }
+
+      if (children.length > 1) {
+        const linkOrder = extractLinkOrder(content);
+        if (linkOrder.length > 0) {
+          const orderMap = new Map(linkOrder.map((t, i) => [t, i]));
+          children.sort((a, b) => {
+            const ai = orderMap.get(a.title) ?? Infinity;
+            const bi = orderMap.get(b.title) ?? Infinity;
+            return ai - bi;
+          });
+        }
       }
 
       entries.push({
@@ -83,6 +132,32 @@ function scanDir(
     }
   }
 
+  // Scan orphan directories (Notion database views exported as CSV + subdirectory)
+  for (const item of items) {
+    if (scannedDirs.has(item)) continue;
+    const fullPath = path.join(dir, item);
+    try {
+      if (!fs.statSync(fullPath).isDirectory()) continue;
+    } catch {
+      continue;
+    }
+    if (item === ".DS_Store") continue;
+
+    const orphaned = scanDir(
+      fullPath,
+      exportRoot,
+      pathToSlug,
+      parentSlug,
+      usedSlugs,
+    );
+    if (orphaned.length > 0) {
+      console.log(
+        `Recovered ${orphaned.length} pages from orphan directory: ${path.relative(exportRoot, fullPath)}`,
+      );
+      entries.push(...orphaned);
+    }
+  }
+
   return entries;
 }
 
@@ -90,7 +165,11 @@ async function processEntry(
   entry: ImportEntry,
   exportRoot: string,
   pathToSlug: Map<string, string>,
-  uploadFn: (buffer: Buffer, filename: string, contentType: string) => Promise<{ key: string; url: string }>
+  uploadFn: (
+    buffer: Buffer,
+    filename: string,
+    contentType: string,
+  ) => Promise<{ key: string; url: string }>,
 ): Promise<void> {
   let content = entry.content;
   content = stripMetadata(content);
@@ -107,7 +186,7 @@ async function insertEntries(
   db: ReturnType<typeof drizzle>,
   adminUserId: string,
   entries: ImportEntry[],
-  parentId: string | null
+  parentId: string | null,
 ) {
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
@@ -162,7 +241,12 @@ function createUploader() {
     const key = `wiki-assets/${randomUUID()}.${ext}`;
 
     await s3.send(
-      new PutObjectCommand({ Bucket: bucket, Key: key, Body: buffer, ContentType: contentType })
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: key,
+        Body: buffer,
+        ContentType: contentType,
+      }),
     );
 
     uploadedKeys.push(key);
@@ -176,7 +260,7 @@ function createUploader() {
       new DeleteObjectsCommand({
         Bucket: bucket,
         Delete: { Objects: uploadedKeys.map((Key) => ({ Key })) },
-      })
+      }),
     );
   }
 
@@ -185,15 +269,13 @@ function createUploader() {
 
 async function checkSchema(db: ReturnType<typeof drizzle>) {
   const result = await db.execute(sql`
-    SELECT column_name FROM information_schema.columns
-    WHERE table_name = 'wiki_pages' AND column_name = 'search_vector'
+    SELECT table_name FROM information_schema.tables
+    WHERE table_name = 'wiki_pages'
   `);
   if (result.rows.length === 0) {
     console.error(
-      "ERROR: wiki_pages.search_vector column is missing.\n" +
-      "Run the migration first:\n" +
-      "  ALTER TABLE wiki_pages ADD COLUMN search_vector tsvector;\n" +
-      "  CREATE INDEX wiki_pages_search_idx ON wiki_pages USING gin(search_vector);"
+      "ERROR: wiki_pages table does not exist.\n" +
+        "Run migrations first: pnpm drizzle-kit migrate",
     );
     process.exit(1);
   }
@@ -202,7 +284,9 @@ async function checkSchema(db: ReturnType<typeof drizzle>) {
 async function main() {
   const notionDir = process.argv[2];
   if (!notionDir) {
-    console.error("Usage: npx tsx scripts/import-notion.ts <notion-export-dir>");
+    console.error(
+      "Usage: npx tsx scripts/import-notion.ts <notion-export-dir>",
+    );
     process.exit(1);
   }
 
@@ -223,13 +307,50 @@ async function main() {
 
   await checkSchema(db);
 
-  const existingPages = await db.select({ slug: wikiPages.slug }).from(wikiPages);
+  const existingPages = await db
+    .select({ slug: wikiPages.slug })
+    .from(wikiPages);
   const usedSlugs = new Set(existingPages.map((page) => page.slug));
 
   console.log(`Scanning ${exportRoot}...`);
   const pathToSlug = new Map<string, string>();
-  const entries = scanDir(exportRoot, exportRoot, pathToSlug, undefined, usedSlugs);
-  console.log(`Found ${entries.length} top-level pages, ${pathToSlug.size} total pages`);
+  let entries = scanDir(
+    exportRoot,
+    exportRoot,
+    pathToSlug,
+    undefined,
+    usedSlugs,
+  );
+  console.log(
+    `Found ${entries.length} top-level pages, ${pathToSlug.size} total pages`,
+  );
+
+  // Unwrap single root: promote its children to top-level
+  if (entries.length === 1 && entries[0].children.length > 0) {
+    const root = entries[0];
+    const prefix = `${root.slug}/`;
+    console.log(
+      `Unwrapping single root: "${root.title}" (${root.children.length} children)`,
+    );
+
+    function stripPrefix(entry: ImportEntry) {
+      if (entry.slug.startsWith(prefix)) {
+        entry.slug = entry.slug.slice(prefix.length);
+      }
+      entry.content = entry.content.replaceAll(`/wiki/${prefix}`, "/wiki/");
+      for (const child of entry.children) stripPrefix(child);
+    }
+    for (const child of root.children) stripPrefix(child);
+
+    // Update pathToSlug to reflect stripped slugs
+    for (const [key, val] of pathToSlug) {
+      if (val.startsWith(prefix)) {
+        pathToSlug.set(key, val.slice(prefix.length));
+      }
+    }
+
+    entries = root.children;
+  }
 
   const { upload, rollback } = createUploader();
 

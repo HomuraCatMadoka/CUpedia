@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { stripMetadata, convertLinks, resolveImagePath, validateImageFile, processImages } from "../../scripts/import-notion-transforms";
+import {
+  stripMetadata,
+  convertLinks,
+  resolveImagePath,
+  validateImageFile,
+  processImages,
+} from "../../scripts/import-notion-transforms";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -56,8 +62,14 @@ Owner: 这不是元数据，是正文里的`;
 
 describe("convertLinks", () => {
   const pathToSlug = new Map([
-    ["入学准备（必读）/生活物品 afea2c2e1ae541e88b320cabc0d2864c.md", "入学准备-必读/生活物品"],
-    ["序/第一版编者按（2021ver） 6d69ec3e2aa34f7393a6ea630a5b7425.md", "序/第一版编者按-2021ver"],
+    [
+      "入学准备（必读）/生活物品 afea2c2e1ae541e88b320cabc0d2864c.md",
+      "入学准备-必读/生活物品",
+    ],
+    [
+      "序/第一版编者按（2021ver） 6d69ec3e2aa34f7393a6ea630a5b7425.md",
+      "序/第一版编者按-2021ver",
+    ],
   ]);
 
   it("converts a URL-encoded Notion link to wiki route", () => {
@@ -101,6 +113,34 @@ describe("convertLinks", () => {
     const result = convertLinks(input, ".", pathToSlug);
     expect(result).not.toContain("data:");
   });
+
+  it("converts empty link with image URL to image syntax", () => {
+    const input = `[](https://docimg9.docs.qq.com/image/test?w=100&h=200)`;
+    const result = convertLinks(input, ".", pathToSlug);
+    expect(result).toContain("![");
+    expect(result).toContain("docimg9.docs.qq.com/image/test");
+  });
+
+  it("converts empty link with .png URL to image syntax", () => {
+    const input = `[](http://example.com/photo.png)`;
+    const result = convertLinks(input, ".", pathToSlug);
+    expect(result).toContain("![");
+    expect(result).toContain("http://example.com/photo.png");
+  });
+
+  it("makes empty non-image link visible with hostname", () => {
+    const input = `[](https://www.cuhk.edu.hk/some/page.pdf)`;
+    const result = convertLinks(input, ".", pathToSlug);
+    expect(result).toContain("www.cuhk.edu.hk");
+    expect(result).not.toContain("[](");
+  });
+
+  it("preserves GFM tables through round-trip", () => {
+    const input = `| Col1 | Col2 |\n| --- | --- |\n| A | B |\n`;
+    const result = convertLinks(input, ".", pathToSlug);
+    expect(result).toContain("| Col1 | Col2 |");
+    expect(result).toMatch(/\|\s*A\s*\|\s*B\s*\|/);
+  });
 });
 
 describe("resolveImagePath", () => {
@@ -131,25 +171,35 @@ describe("resolveImagePath", () => {
   });
 
   it("rejects absolute paths", async () => {
-    await expect(resolveImagePath("/etc/passwd", tmpDir, tmpDir)).rejects.toThrow("Unsafe image path");
+    await expect(
+      resolveImagePath("/etc/passwd", tmpDir, tmpDir),
+    ).rejects.toThrow("Unsafe image path");
   });
 
   it("rejects paths with NUL bytes", async () => {
-    await expect(resolveImagePath("sub\0dir/img.png", tmpDir, tmpDir)).rejects.toThrow("Unsafe image path");
+    await expect(
+      resolveImagePath("sub\0dir/img.png", tmpDir, tmpDir),
+    ).rejects.toThrow("Unsafe image path");
   });
 
   it("rejects paths escaping export root via ..", async () => {
-    await expect(resolveImagePath("../../etc/passwd", tmpDir, tmpDir)).rejects.toThrow("escapes export root");
+    await expect(
+      resolveImagePath("../../etc/passwd", tmpDir, tmpDir),
+    ).rejects.toThrow("escapes export root");
   });
 
   it("rejects symlinks", async () => {
     const linkPath = path.join(tmpDir, "link.png");
     fs.symlinkSync("/etc/passwd", linkPath);
-    await expect(resolveImagePath("link.png", tmpDir, tmpDir)).rejects.toThrow("Symlink");
+    await expect(resolveImagePath("link.png", tmpDir, tmpDir)).rejects.toThrow(
+      "Symlink",
+    );
   });
 
   it("rejects non-existent files", async () => {
-    await expect(resolveImagePath("nope.png", tmpDir, tmpDir)).rejects.toThrow();
+    await expect(
+      resolveImagePath("nope.png", tmpDir, tmpDir),
+    ).rejects.toThrow();
   });
 });
 
@@ -167,7 +217,9 @@ describe("validateImageFile", () => {
   it("rejects unsupported extensions", async () => {
     const svgPath = path.join(tmpDir, "icon.svg");
     fs.writeFileSync(svgPath, "<svg></svg>");
-    await expect(validateImageFile(svgPath)).rejects.toThrow("Unsupported image extension");
+    await expect(validateImageFile(svgPath)).rejects.toThrow(
+      "Unsupported image extension",
+    );
   });
 
   it("rejects files over 10 MiB", async () => {
@@ -179,15 +231,12 @@ describe("validateImageFile", () => {
   it("accepts a real PNG file", async () => {
     const pngPath = path.join(tmpDir, "real.png");
     const pngSignature = Buffer.from([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde,
-      0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54,
-      0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, 0x00,
-      0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33,
-      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
-      0xae, 0x42, 0x60, 0x82,
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00,
+      0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00,
+      0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00,
+      0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
     ]);
     fs.writeFileSync(pngPath, pngSignature);
     const result = await validateImageFile(pngPath);
@@ -198,9 +247,8 @@ describe("validateImageFile", () => {
     const fakePath = path.join(tmpDir, "fake.png");
     // Minimal JPEG: SOI + APP0 header
     const jpegBytes = Buffer.from([
-      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46,
-      0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01,
-      0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
+      0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+      0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xff, 0xd9,
     ]);
     fs.writeFileSync(fakePath, jpegBytes);
     const result = await validateImageFile(fakePath);
@@ -217,15 +265,12 @@ describe("validateImageFile", () => {
 describe("processImages", () => {
   let tmpDir: string;
   const PNG_BYTES = Buffer.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-    0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde,
-    0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54,
-    0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, 0x00,
-    0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33,
-    0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44,
-    0xae, 0x42, 0x60, 0x82,
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+    0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00,
+    0x0c, 0x49, 0x44, 0x41, 0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00,
+    0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, 0x33, 0x00, 0x00, 0x00,
+    0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
   ]);
 
   beforeEach(() => {
