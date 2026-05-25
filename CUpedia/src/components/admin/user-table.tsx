@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { setUserBanned } from "@/lib/admin-actions";
-import { useSession } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 
 interface UserRow {
   id: string;
@@ -38,7 +38,7 @@ export function UserTable({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data: session } = useSession();
+  const { data: session } = authClient.useSession();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(q);
   const [confirmTarget, setConfirmTarget] = useState<UserRow | null>(null);

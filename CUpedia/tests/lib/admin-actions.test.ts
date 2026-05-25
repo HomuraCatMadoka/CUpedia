@@ -2,18 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const {
   mockRedirect,
-  mockAuth,
+  mockGetSession,
   mockDbExecute,
   mockDbTransaction,
   mockRevalidatePath,
   mockDbQueryUsers,
+  mockHeaders,
 } = vi.hoisted(() => ({
   mockRedirect: vi.fn(),
-  mockAuth: vi.fn(),
+  mockGetSession: vi.fn(),
   mockDbExecute: vi.fn(),
   mockDbTransaction: vi.fn(),
   mockRevalidatePath: vi.fn(),
   mockDbQueryUsers: { findFirst: vi.fn(), findMany: vi.fn() },
+  mockHeaders: vi.fn().mockResolvedValue(new Headers()),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -23,12 +25,20 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("next/headers", () => ({
+  headers: mockHeaders,
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: mockRevalidatePath,
 }));
 
 vi.mock("@/lib/auth", () => ({
-  auth: () => mockAuth(),
+  auth: {
+    api: {
+      getSession: (opts: unknown) => mockGetSession(opts),
+    },
+  },
 }));
 
 vi.mock("@/db", () => ({
@@ -48,13 +58,13 @@ beforeEach(() => {
 });
 
 function mockAdminSession(id = "admin-1", role = "admin") {
-  mockAuth.mockResolvedValue({
+  mockGetSession.mockResolvedValue({
     user: {
       id,
       role,
       email: "admin@cuhk.edu.hk",
-      nickname: "Admin",
-      banned: false,
+      name: null,
+      image: null,
     },
   });
   mockDbQueryUsers.findFirst.mockResolvedValue({
@@ -67,13 +77,12 @@ function mockAdminSession(id = "admin-1", role = "admin") {
 }
 
 function mockNonAdminSession() {
-  mockAuth.mockResolvedValue({
+  mockGetSession.mockResolvedValue({
     user: {
       id: "user-1",
-      role: "user",
       email: "user@cuhk.edu.hk",
-      nickname: "User",
-      banned: false,
+      name: null,
+      image: null,
     },
   });
   mockDbQueryUsers.findFirst.mockResolvedValue({
@@ -86,7 +95,7 @@ function mockNonAdminSession() {
 }
 
 function mockNoSession() {
-  mockAuth.mockResolvedValue(null);
+  mockGetSession.mockResolvedValue(null);
 }
 
 describe("escapeLikePattern", () => {
@@ -134,7 +143,7 @@ describe("getUsers", () => {
     mockAdminSession();
     mockDbExecute.mockResolvedValue([{ count: 0 }]);
     await getUsers({ page: 1, pageSize: 10 });
-    expect(mockAuth).toHaveBeenCalled();
+    expect(mockGetSession).toHaveBeenCalled();
   });
 });
 

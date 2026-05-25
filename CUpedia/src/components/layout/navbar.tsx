@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,7 @@ import {
 import { useSidebar } from "@/components/layout/sidebar-provider";
 
 export function Navbar() {
-  const { data: session, update } = useSession();
+  const { data: session } = authClient.useSession();
   const { isMobile, openMobile } = useSidebar();
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
@@ -42,7 +42,6 @@ export function Navbar() {
         setNicknameError(data.error || "保存失败");
         return;
       }
-      await update();
       setNicknameOpen(false);
     } finally {
       setSaving(false);
@@ -50,7 +49,9 @@ export function Navbar() {
   }
 
   function openNicknameDialog() {
-    setNickname(session?.user?.nickname || "");
+    setNickname(
+      ((session?.user as Record<string, unknown>)?.nickname as string) || "",
+    );
     setNicknameError("");
     setNicknameOpen(true);
   }
@@ -80,13 +81,14 @@ export function Navbar() {
             {session?.user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="rounded-md px-3 py-1.5 text-sm hover:bg-accent">
-                  {session.user.nickname || session.user.email}
+                  {((session.user as Record<string, unknown>)
+                    .nickname as string) || session.user.email}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onSelect={openNicknameDialog}>
                     修改昵称
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => signOut()}>
+                  <DropdownMenuItem onSelect={() => authClient.signOut()}>
                     登出
                   </DropdownMenuItem>
                 </DropdownMenuContent>

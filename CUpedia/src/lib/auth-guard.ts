@@ -4,9 +4,12 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { getWikiEditRoleFresh } from "@/lib/site-settings";
+import { headers } from "next/headers";
 
 export async function requireAuth() {
-  const session = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   if (!session?.user?.id) redirect("/login");
 
   const dbUser = await db.query.users.findFirst({
@@ -58,6 +61,8 @@ export async function requireEditorOrRedirect() {
 }
 
 export async function getOptionalUser() {
-  const session = await auth();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   return session?.user ?? null;
 }
