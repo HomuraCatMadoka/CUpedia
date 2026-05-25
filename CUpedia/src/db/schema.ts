@@ -6,7 +6,6 @@ import {
   boolean,
   integer,
   index,
-  primaryKey,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -66,25 +65,7 @@ export const verifications = pgTable("verifications", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-// ── Legacy NextAuth tables (kept for cleanup in #25) ──
-
-export const verificationTokens = pgTable(
-  "verification_tokens",
-  {
-    identifier: text("identifier").notNull(),
-    token: text("token").notNull().unique(),
-    expires: timestamp("expires", { mode: "date" }).notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.identifier, table.token] })],
-);
-
 // ── Application tables ──
-
-export const magicLinkRateLimits = pgTable("magic_link_rate_limits", {
-  identifier: text("identifier").primaryKey(),
-  lastAttemptedAt: timestamp("last_attempted_at").notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
