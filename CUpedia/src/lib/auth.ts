@@ -4,6 +4,8 @@ import { emailOTP } from "better-auth/plugins";
 import { db } from "@/db";
 
 export const auth = betterAuth({
+  secret: process.env.AUTH_SECRET,
+  baseURL: process.env.AUTH_URL,
   database: drizzleAdapter(db, { provider: "pg" }),
   user: {
     modelName: "users",
