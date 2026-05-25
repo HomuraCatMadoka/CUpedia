@@ -70,31 +70,45 @@ describe("validateNickname", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("counts emoji by grapheme cluster", () => {
-    // 20 emoji = 20 grapheme clusters, should pass
-    const twentyEmoji = "😀".repeat(20);
-    expect(validateNickname(twentyEmoji)).toEqual({
+  it("accepts ASCII alphanumeric with underscores", () => {
+    expect(validateNickname("test_user")).toEqual({
       ok: true,
-      nickname: twentyEmoji,
+      nickname: "test_user",
     });
-
-    // 21 emoji = 21 grapheme clusters, should fail
-    const twentyOneEmoji = "😀".repeat(21);
-    expect(validateNickname(twentyOneEmoji).ok).toBe(false);
   });
 
-  it("counts combining characters by grapheme cluster", () => {
-    // é = e + combining acute = 1 grapheme cluster
-    const withCombining = "é".repeat(20);
-    expect(validateNickname(withCombining).ok).toBe(true);
-
-    const tooMany = "é".repeat(21);
-    expect(validateNickname(tooMany).ok).toBe(false);
+  it("accepts Chinese (Han) characters", () => {
+    expect(validateNickname("小明")).toEqual({ ok: true, nickname: "小明" });
   });
 
-  it("allows duplicate-looking plain strings", () => {
-    expect(validateNickname("test").ok).toBe(true);
-    expect(validateNickname("test").ok).toBe(true);
+  it("accepts mixed ASCII and Han", () => {
+    expect(validateNickname("test_小明")).toEqual({
+      ok: true,
+      nickname: "test_小明",
+    });
+  });
+
+  it("accepts spaces between words", () => {
+    expect(validateNickname("hello world")).toEqual({
+      ok: true,
+      nickname: "hello world",
+    });
+  });
+
+  it("rejects emoji", () => {
+    expect(validateNickname("🎉party").ok).toBe(false);
+  });
+
+  it("rejects Hiragana", () => {
+    expect(validateNickname("こんにちは").ok).toBe(false);
+  });
+
+  it("rejects Hangul", () => {
+    expect(validateNickname("한국어").ok).toBe(false);
+  });
+
+  it("rejects special symbols", () => {
+    expect(validateNickname("user@name").ok).toBe(false);
   });
 
   it("counts Chinese characters correctly", () => {
