@@ -4,6 +4,8 @@ import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { getOptionalUser } from "@/lib/auth-guard";
+import { getWikiEditRole } from "@/lib/site-settings";
 
 export default async function SearchPage({
   searchParams,
@@ -11,14 +13,18 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const [results, pages] = await Promise.all([
+  const [results, pages, user, editRole] = await Promise.all([
     q ? searchWikiPages(q) : [],
     getWikiTree(),
+    getOptionalUser(),
+    getWikiEditRole(),
   ]);
+
+  const canEdit = !!user && (editRole === "user" || user?.role === "admin");
 
   return (
     <>
-      <SidebarToggle />
+      <SidebarToggle canEdit={canEdit} />
       <WikiSidebar pages={pages} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] space-y-4 px-6 py-6">

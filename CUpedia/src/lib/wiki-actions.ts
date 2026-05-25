@@ -4,7 +4,7 @@ import Fuse from "fuse.js";
 import { db } from "@/db";
 import { wikiPages, wikiRevisions } from "@/db/schema";
 import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
-import { requireAuth, requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 
 export async function getWikiPage(slug: string) {
@@ -39,7 +39,7 @@ export async function createWikiPage(data: {
   content: string;
   parentId?: string | null;
 }) {
-  const user = await requireAuth();
+  const user = await requireEditor();
   if (!validateSlug(data.slug)) throw new Error("Invalid slug");
 
   return db.transaction(async (tx) => {
@@ -74,7 +74,7 @@ export async function updateWikiPage(data: {
   editSummary?: string;
   expectedUpdatedAt: string;
 }) {
-  const user = await requireAuth();
+  const user = await requireEditor();
 
   const existing = await db.query.wikiPages.findFirst({
     where: eq(wikiPages.slug, data.slug),
@@ -186,7 +186,7 @@ export async function getRevision(pageId: string, revisionId: string) {
 }
 
 export async function rollbackToRevision(pageId: string, revisionId: string) {
-  const user = await requireAuth();
+  const user = await requireEditor();
   const revision = await getRevision(pageId, revisionId);
   if (!revision) throw new Error("Revision not found");
 

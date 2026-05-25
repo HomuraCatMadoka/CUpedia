@@ -6,6 +6,7 @@ import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { getOptionalUser } from "@/lib/auth-guard";
+import { getWikiEditRole } from "@/lib/site-settings";
 
 export default async function WikiReadPage({
   params,
@@ -14,17 +15,20 @@ export default async function WikiReadPage({
 }) {
   const { slug: slugParts } = await params;
   const slug = slugParts.map(decodeURIComponent).join("/");
-  const [page, pages, user] = await Promise.all([
+  const [page, pages, user, editRole] = await Promise.all([
     getWikiPage(slug),
     getWikiTree(),
     getOptionalUser(),
+    getWikiEditRole(),
   ]);
 
   if (!page) notFound();
 
+  const canEdit = !!user && (editRole === "user" || user.role === "admin");
+
   return (
     <>
-      <SidebarToggle />
+      <SidebarToggle canEdit={canEdit} />
       <WikiSidebar pages={pages} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-6">
@@ -37,7 +41,7 @@ export default async function WikiReadPage({
                   历史
                 </span>
               </Link>
-              {user && (
+              {canEdit && (
                 <Link href={`/wiki/edit/${slug}`}>
                   <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
                     编辑

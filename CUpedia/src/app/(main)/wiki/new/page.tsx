@@ -1,11 +1,11 @@
-import { requireAuth } from "@/lib/auth-guard";
+import { requireEditorOrRedirect } from "@/lib/auth-guard";
 import { createWikiPage, getWikiTree } from "@/lib/wiki-actions";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 
 export default async function NewWikiPage() {
-  await requireAuth();
+  await requireEditorOrRedirect();
   const pages = await getWikiTree();
 
   async function handleCreate(data: {

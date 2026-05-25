@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/admin/deleted", label: "已删除页面" },
   { href: "/admin/users", label: "用户管理" },
+  { href: "/admin/settings", label: "站点设置" },
 ];
 
 export function AdminTabs() {

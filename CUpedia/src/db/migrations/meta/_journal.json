@@ -29,6 +29,13 @@
       "when": 1779436800000,
       "tag": "0003_replace_zhparser_with_trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779719350169,
+      "tag": "0004_amusing_justin_hammer",
+      "breakpoints": true
     }
   ]
 }

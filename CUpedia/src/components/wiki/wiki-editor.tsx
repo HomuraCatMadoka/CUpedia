@@ -118,6 +118,11 @@ export function WikiEditor({
       setSubmitting(false);
       return;
     }
+    if (result.error === "EDIT_PERMISSION_DENIED") {
+      setError("编辑权限不足，请联系管理员。");
+      setSubmitting(false);
+      return;
+    }
     if (result.error) {
       setError(result.error);
       setSubmitting(false);

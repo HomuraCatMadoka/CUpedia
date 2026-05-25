@@ -70,6 +70,11 @@ export const magicLinkRateLimits = pgTable("magic_link_rate_limits", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const siteSettings = pgTable("site_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const wikiPages = pgTable(
   "wiki_pages",
   {
