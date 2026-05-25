@@ -4,7 +4,7 @@ import { normalizeEmail, parseEmail, isAllowedEmail } from "@/lib/email";
 describe("normalizeEmail", () => {
   it("trims whitespace and lowercases", () => {
     expect(normalizeEmail("  Student@LINK.CUHK.EDU.HK  ")).toBe(
-      "student@link.cuhk.edu.hk"
+      "student@link.cuhk.edu.hk",
     );
   });
 
@@ -56,12 +56,29 @@ describe("parseEmail", () => {
 });
 
 describe("isAllowedEmail", () => {
-  it("allows @link.cuhk.edu.hk", () => {
-    expect(isAllowedEmail("student@link.cuhk.edu.hk")).toBe(true);
+  it("allows 10-digit 1155 prefix @link.cuhk.edu.hk", () => {
+    expect(isAllowedEmail("1155123456@link.cuhk.edu.hk")).toBe(true);
   });
 
-  it("allows @cuhk.edu.hk", () => {
+  it("rejects non-digit prefix @link.cuhk.edu.hk", () => {
+    expect(isAllowedEmail("john.doe@link.cuhk.edu.hk")).toBe(false);
+  });
+
+  it("rejects fewer than 10 digits @link.cuhk.edu.hk", () => {
+    expect(isAllowedEmail("12345@link.cuhk.edu.hk")).toBe(false);
+  });
+
+  it("rejects 1155 prefix with only 9 digits @link.cuhk.edu.hk", () => {
+    expect(isAllowedEmail("115512345@link.cuhk.edu.hk")).toBe(false);
+  });
+
+  it("rejects 10 digits without 1155 prefix @link.cuhk.edu.hk", () => {
+    expect(isAllowedEmail("1234567890@link.cuhk.edu.hk")).toBe(false);
+  });
+
+  it("allows any prefix @cuhk.edu.hk (staff)", () => {
     expect(isAllowedEmail("prof@cuhk.edu.hk")).toBe(true);
+    expect(isAllowedEmail("staff@cuhk.edu.hk")).toBe(true);
   });
 
   it("rejects @gmail.com", () => {
@@ -77,11 +94,39 @@ describe("isAllowedEmail", () => {
   });
 
   it("normalizes whitespace and case", () => {
-    expect(isAllowedEmail(" Student@LINK.CUHK.EDU.HK ")).toBe(true);
+    expect(isAllowedEmail(" 1155123456@LINK.CUHK.EDU.HK ")).toBe(true);
   });
 
   it("uses parseEmail internally — rejects malformed", () => {
     expect(isAllowedEmail("")).toBe(false);
     expect(isAllowedEmail("@@cuhk.edu.hk")).toBe(false);
+  });
+
+  describe("SKIP_EMAIL_WHITELIST bypass", () => {
+    const originalEnv = process.env.SKIP_EMAIL_WHITELIST;
+
+    afterEach(() => {
+      if (originalEnv === undefined) {
+        delete process.env.SKIP_EMAIL_WHITELIST;
+      } else {
+        process.env.SKIP_EMAIL_WHITELIST = originalEnv;
+      }
+    });
+
+    it("bypasses all checks when SKIP_EMAIL_WHITELIST=true", () => {
+      process.env.SKIP_EMAIL_WHITELIST = "true";
+      expect(isAllowedEmail("anyone@gmail.com")).toBe(true);
+      expect(isAllowedEmail("test@test.com")).toBe(true);
+    });
+
+    it("does not bypass when SKIP_EMAIL_WHITELIST is unset", () => {
+      delete process.env.SKIP_EMAIL_WHITELIST;
+      expect(isAllowedEmail("anyone@gmail.com")).toBe(false);
+    });
+
+    it("does not bypass when SKIP_EMAIL_WHITELIST=false", () => {
+      process.env.SKIP_EMAIL_WHITELIST = "false";
+      expect(isAllowedEmail("anyone@gmail.com")).toBe(false);
+    });
   });
 });

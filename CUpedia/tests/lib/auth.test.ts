@@ -16,8 +16,8 @@ beforeEach(() => {
 });
 
 describe("auth domain restriction", () => {
-  it("allows @link.cuhk.edu.hk", () => {
-    expect(isAllowedEmail("student@link.cuhk.edu.hk")).toBe(true);
+  it("allows @link.cuhk.edu.hk with valid student ID", () => {
+    expect(isAllowedEmail("1155123456@link.cuhk.edu.hk")).toBe(true);
   });
 
   it("allows @cuhk.edu.hk", () => {
@@ -37,7 +37,7 @@ describe("auth domain restriction", () => {
   });
 
   it("normalizes whitespace and case", () => {
-    expect(isAllowedEmail(" Student@LINK.CUHK.EDU.HK ")).toBe(true);
+    expect(isAllowedEmail(" 1155123456@LINK.CUHK.EDU.HK ")).toBe(true);
   });
 });
 
@@ -52,23 +52,21 @@ describe("checkSignIn", () => {
 
   it("rejects banned user consuming a valid magic link", async () => {
     mockDbQueryUsers.findFirst.mockResolvedValue({ banned: true });
-    expect(
-      await checkSignIn({ id: "1", email: "user@cuhk.edu.hk" })
-    ).toBe(false);
+    expect(await checkSignIn({ id: "1", email: "user@cuhk.edu.hk" })).toBe(
+      false,
+    );
   });
 
   it("allows non-banned existing user", async () => {
     mockDbQueryUsers.findFirst.mockResolvedValue({ banned: false });
-    expect(
-      await checkSignIn({ id: "1", email: "user@cuhk.edu.hk" })
-    ).toBe(true);
+    expect(await checkSignIn({ id: "1", email: "user@cuhk.edu.hk" })).toBe(
+      true,
+    );
   });
 
   it("allows new user (no DB row yet)", async () => {
     mockDbQueryUsers.findFirst.mockResolvedValue(undefined);
-    expect(
-      await checkSignIn({ id: "1", email: "new@cuhk.edu.hk" })
-    ).toBe(true);
+    expect(await checkSignIn({ id: "1", email: "new@cuhk.edu.hk" })).toBe(true);
   });
 });
 

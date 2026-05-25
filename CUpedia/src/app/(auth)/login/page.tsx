@@ -58,7 +58,7 @@ export default function LoginPage() {
             return;
           case "RATE_LIMITED":
             setError(
-              `发送过于频繁，请 ${preflight.retryAfterSeconds} 秒后重试`
+              `发送过于频繁，请 ${preflight.retryAfterSeconds} 秒后重试`,
             );
             return;
           case "SUPPRESSED":
@@ -79,9 +79,7 @@ export default function LoginPage() {
         });
 
         if (!recheck.ok && recheck.code === "RATE_LIMITED") {
-          setError(
-            `发送过于频繁，请 ${recheck.retryAfterSeconds} 秒后重试`
-          );
+          setError(`发送过于频繁，请 ${recheck.retryAfterSeconds} 秒后重试`);
         } else {
           setSentMessage(NEUTRAL_MSG);
           setSent(true);
@@ -122,7 +120,7 @@ export default function LoginPage() {
             <Input
               id="email"
               type="email"
-              placeholder="sid@link.cuhk.edu.hk"
+              placeholder="1155xxxxxx@link.cuhk.edu.hk"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
