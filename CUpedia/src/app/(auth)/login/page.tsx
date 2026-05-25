@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +113,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "登录中..." : "登录"}
             </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              还没有账号？
+              <Link href="/register" className="text-primary hover:underline">
+                注册
+              </Link>
+            </p>
           </form>
         ) : (
           <div className="py-8 text-center text-sm text-muted-foreground">
