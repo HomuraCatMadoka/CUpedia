@@ -73,6 +73,26 @@ pnpm lint --fix             # Auto-fix lint issues
 
 ## Local Development Setup
 
+### Quick Start
+
+```bash
+git clone <repo> && cd CUpedia
+pnpm install
+docker compose up -d db minio
+cp .env.example .env.local        # defaults work out of the box
+pnpm drizzle-kit push             # apply schema to DB
+pnpm seed                         # create test users + sample wiki pages
+pnpm dev                          # http://localhost:3000
+```
+
+Seed accounts (all with password `password123`):
+
+| Email           | Role  | Notes  |
+| --------------- | ----- | ------ |
+| admin@test.com  | admin | —      |
+| user@test.com   | user  | —      |
+| banned@test.com | user  | banned |
+
 ### Docker Services
 
 ```bash
@@ -98,10 +118,9 @@ docker compose down -v && docker compose up -d db minio
 Copy `.env.example` to `.env.local`. Required variables:
 
 - `DATABASE_URL` — PostgreSQL connection string (port 5433)
-- `AUTH_SECRET` — `openssl rand -base64 32`
-- `AUTH_URL` — `http://localhost:3000`
-- `BREVO_API_KEY` — Email delivery
-- `MINIO_*` — Object storage config
+- `BETTER_AUTH_SECRET` — any string (dev default provided in `.env.example`)
+- `BETTER_AUTH_URL` — `http://localhost:3000`
+- `MINIO_*` — Object storage config (defaults work with local MinIO)
 
 ## Database
 
