@@ -7,6 +7,7 @@ import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getWikiEditRole } from "@/lib/site-settings";
+import { extractHeadings } from "@/lib/headings";
 
 export default async function WikiReadPage({
   params,
@@ -25,11 +26,25 @@ export default async function WikiReadPage({
   if (!page) notFound();
 
   const canEdit = !!user && (editRole === "user" || user.role === "admin");
+  const headings = extractHeadings(page.content);
+
+  const parentPage = page.parentId
+    ? pages.find((p) => p.id === page.parentId)
+    : undefined;
 
   return (
     <>
       <SidebarToggle canEdit={canEdit} />
-      <WikiSidebar pages={pages} />
+      <WikiSidebar
+        pages={pages}
+        currentPage={{
+          title: page.title,
+          slug: slug,
+          parentTitle: parentPage?.title,
+          parentSlug: parentPage?.slug,
+        }}
+        headings={headings}
+      />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-6">
           <Breadcrumb pages={pages} currentSlug={slug} />

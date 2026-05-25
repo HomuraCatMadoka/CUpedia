@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-provider";
+import { PageToc } from "@/components/layout/page-toc";
+import type { Heading } from "@/lib/headings";
 
 type TreeNode = {
   id: string;
@@ -168,8 +170,17 @@ function SectionGroup({
 
 export function WikiSidebar({
   pages,
+  currentPage,
+  headings,
 }: {
   pages: { id: string; slug: string; title: string; parentId: string | null }[];
+  currentPage?: {
+    title: string;
+    slug: string;
+    parentTitle?: string;
+    parentSlug?: string;
+  };
+  headings?: Heading[];
 }) {
   const { state, collapse, closeMobile } = useSidebar();
   const tree = buildTree(pages);
@@ -220,16 +231,25 @@ export function WikiSidebar({
             ✕
           </button>
         </div>
-        <ul className="flex-1 p-2">
-          {tree.map((node) => (
-            <SectionGroup
-              key={node.id}
-              node={node}
-              collapsedIds={collapsedIds}
-              onToggle={onToggle}
-            />
-          ))}
-        </ul>
+        {currentPage && headings && headings.length > 0 ? (
+          <PageToc
+            headings={headings}
+            pageTitle={currentPage.title}
+            parentTitle={currentPage.parentTitle}
+            parentSlug={currentPage.parentSlug}
+          />
+        ) : (
+          <ul className="flex-1 p-2">
+            {tree.map((node) => (
+              <SectionGroup
+                key={node.id}
+                node={node}
+                collapsedIds={collapsedIds}
+                onToggle={onToggle}
+              />
+            ))}
+          </ul>
+        )}
       </nav>
     </>
   );
