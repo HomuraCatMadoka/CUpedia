@@ -6,6 +6,10 @@ import { sql } from "drizzle-orm";
 import { requireAdmin } from "@/lib/auth-guard";
 import { escapeLikePattern } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
+import {
+  getWikiEditRoleFresh,
+  setWikiEditRole as _setWikiEditRole,
+} from "@/lib/site-settings";
 
 export async function getUsers({
   page = 1,
@@ -101,4 +105,18 @@ export async function setUserBanned(
 
     revalidatePath("/admin/users");
   });
+}
+
+export async function getWikiEditRoleSetting() {
+  await requireAdmin();
+  return getWikiEditRoleFresh();
+}
+
+export async function updateWikiEditRole(role: "admin" | "user") {
+  if (role !== "admin" && role !== "user") {
+    throw new Error("INVALID_ROLE");
+  }
+  await requireAdmin();
+  await _setWikiEditRole(role);
+  revalidatePath("/admin/settings");
 }

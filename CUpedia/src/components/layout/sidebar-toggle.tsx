@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 
-export function SidebarToggle() {
+export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
   const { state, isMobile, toggle, openMobile } = useSidebar();
 
   if (state === "expanded" || state === "mobile-open") return null;
@@ -27,13 +27,15 @@ export function SidebarToggle() {
       >
         🔍
       </Link>
-      <Link
-        href="/wiki/new"
-        className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-[var(--sidebar-active-bg)]"
-        aria-label="新建页面"
-      >
-        +
-      </Link>
+      {canEdit && (
+        <Link
+          href="/wiki/new"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-[var(--sidebar-active-bg)]"
+          aria-label="新建页面"
+        >
+          +
+        </Link>
+      )}
     </div>
   );
 }

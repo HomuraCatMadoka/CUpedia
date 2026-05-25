@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
+import { getWikiEditRoleFresh } from "@/lib/site-settings";
 
 export async function requireAuth() {
   const session = await auth();
@@ -10,7 +11,13 @@ export async function requireAuth() {
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
-    columns: { id: true, email: true, nickname: true, role: true, banned: true },
+    columns: {
+      id: true,
+      email: true,
+      nickname: true,
+      role: true,
+      banned: true,
+    },
   });
 
   if (!dbUser || dbUser.banned) redirect("/login?error=banned");
@@ -29,6 +36,24 @@ export async function requireAuth() {
 export async function requireAdmin() {
   const user = await requireAuth();
   if (user.role !== "admin") redirect("/");
+  return user;
+}
+
+export async function requireEditor() {
+  const user = await requireAuth();
+  const editRole = await getWikiEditRoleFresh();
+  if (editRole === "admin" && user.role !== "admin") {
+    throw new Error("EDIT_PERMISSION_DENIED");
+  }
+  return user;
+}
+
+export async function requireEditorOrRedirect() {
+  const user = await requireAuth();
+  const editRole = await getWikiEditRoleFresh();
+  if (editRole === "admin" && user.role !== "admin") {
+    redirect("/wiki");
+  }
   return user;
 }
 

@@ -5,17 +5,23 @@ import { getWikiTree } from "@/lib/wiki-actions";
 import { getCategoryCards, getRecentPages } from "@/lib/wiki-homepage";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { getOptionalUser } from "@/lib/auth-guard";
+import { getWikiEditRole } from "@/lib/site-settings";
 
 export default async function WikiIndexPage() {
-  const [pages, categories, recentPages] = await Promise.all([
+  const [pages, categories, recentPages, user, editRole] = await Promise.all([
     getWikiTree(),
     getCategoryCards(),
     getRecentPages(),
+    getOptionalUser(),
+    getWikiEditRole(),
   ]);
+
+  const canEdit = !!user && (editRole === "user" || user?.role === "admin");
 
   return (
     <>
-      <SidebarToggle />
+      <SidebarToggle canEdit={canEdit} />
       <WikiSidebar pages={pages} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-8">

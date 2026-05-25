@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireAuth } from "@/lib/auth-guard";
+import { requireEditorOrRedirect } from "@/lib/auth-guard";
 import { getWikiPage, getWikiTree, updateWikiPage } from "@/lib/wiki-actions";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
@@ -10,7 +10,7 @@ export default async function EditWikiPage({
 }: {
   params: Promise<{ slug: string[] }>;
 }) {
-  await requireAuth();
+  await requireEditorOrRedirect();
   const { slug: slugParts } = await params;
   const slug = slugParts.map(decodeURIComponent).join("/");
   const [page, pages] = await Promise.all([getWikiPage(slug), getWikiTree()]);
