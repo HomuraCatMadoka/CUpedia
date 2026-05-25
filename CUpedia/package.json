@@ -28,7 +28,7 @@
     "nodemailer": "^7.0.13",
     "pg": "^8.21.0",
     "pinyin-pro": "^3.28.1",
-    "react": "19.2.4",
+    "react": "19.2.6",
     "react-dom": "19.2.4",
     "rehype-highlight": "^7.0.2",
     "rehype-sanitize": "^6.0.0",
