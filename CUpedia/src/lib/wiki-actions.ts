@@ -1,11 +1,12 @@
 "use server";
 
-import Fuse from "fuse.js";
 import { db } from "@/db";
 import { wikiPages, wikiRevisions } from "@/db/schema";
 import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
+import { unstable_cache, revalidateTag } from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
+import { searchPages } from "@/lib/search";
 
 export async function getWikiPage(slug: string) {
   const page = await db.query.wikiPages.findFirst({
@@ -42,8 +43,8 @@ export async function createWikiPage(data: {
   const user = await requireEditor();
   if (!validateSlug(data.slug)) throw new Error("Invalid slug");
 
-  return db.transaction(async (tx) => {
-    const [page] = await tx
+  const page = await db.transaction(async (tx) => {
+    const [p] = await tx
       .insert(wikiPages)
       .values({
         slug: data.slug,
@@ -56,15 +57,18 @@ export async function createWikiPage(data: {
       .returning();
 
     await tx.insert(wikiRevisions).values({
-      pageId: page.id,
+      pageId: p.id,
       title: data.title,
       content: data.content,
       editedBy: user.id,
       editSummary: "创建页面",
     });
 
-    return page;
+    return p;
   });
+
+  revalidateTag("wiki-pages", "max");
+  return page;
 }
 
 export async function updateWikiPage(data: {
@@ -81,7 +85,7 @@ export async function updateWikiPage(data: {
   });
   if (!existing) throw new Error("Page not found");
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const updated = await tx
       .update(wikiPages)
       .set({
@@ -110,6 +114,9 @@ export async function updateWikiPage(data: {
 
     return updated[0];
   });
+
+  revalidateTag("wiki-pages", "max");
+  return result;
 }
 
 export async function deleteWikiPage(pageId: string) {
@@ -134,6 +141,8 @@ export async function deleteWikiPage(pageId: string) {
     .update(wikiPages)
     .set({ deletedAt: now })
     .where(inArray(wikiPages.id, ids));
+
+  revalidateTag("wiki-pages", "max");
 }
 
 export async function restoreWikiPage(pageId: string) {
@@ -164,6 +173,8 @@ export async function restoreWikiPage(pageId: string) {
     .update(wikiPages)
     .set({ deletedAt: null })
     .where(inArray(wikiPages.id, ids));
+
+  revalidateTag("wiki-pages", "max");
 }
 
 export async function getRevisions(pageId: string) {
@@ -214,35 +225,29 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
       editSummary: `回滚至版本 ${revisionId}`,
     });
   });
+
+  revalidateTag("wiki-pages", "max");
 }
+
+const getCachedPages = unstable_cache(
+  async () =>
+    db
+      .select({
+        id: wikiPages.id,
+        slug: wikiPages.slug,
+        title: wikiPages.title,
+        content: wikiPages.content,
+      })
+      .from(wikiPages)
+      .where(isNull(wikiPages.deletedAt)),
+  ["wiki-pages-search"],
+  { tags: ["wiki-pages"] },
+);
 
 export async function searchWikiPages(query: string) {
   if (!query.trim()) return [];
-
-  const pages = await db
-    .select({
-      id: wikiPages.id,
-      slug: wikiPages.slug,
-      title: wikiPages.title,
-      content: wikiPages.content,
-    })
-    .from(wikiPages)
-    .where(isNull(wikiPages.deletedAt));
-
-  const fuse = new Fuse(pages, {
-    keys: [
-      { name: "title", weight: 2 },
-      { name: "content", weight: 1 },
-    ],
-    threshold: 0.4,
-    includeScore: true,
-  });
-
-  return fuse.search(query, { limit: 50 }).map((r) => ({
-    id: r.item.id,
-    slug: r.item.slug,
-    title: r.item.title,
-  }));
+  const pages = await getCachedPages();
+  return searchPages(pages, query);
 }
 
 export async function getDeletedPages() {
