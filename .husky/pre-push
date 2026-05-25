@@ -8,3 +8,9 @@ while read -r _local_ref _local_sha remote_ref _remote_sha; do
     exit 1
   fi
 done
+
+cd CUpedia || exit 0
+echo "Running pre-push checks..."
+pnpm lint || exit 1
+pnpm test || exit 1
+pnpm build || exit 1
