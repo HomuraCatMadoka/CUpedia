@@ -4,14 +4,20 @@ updates:
     directory: /CUpedia
     schedule:
       interval: weekly
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     labels:
       - dependencies
+    allow:
+      - dependency-type: all
+        update-type: "security"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-    open-pull-requests-limit: 5
+      interval: monthly
+    open-pull-requests-limit: 3
     labels:
       - dependencies
+    allow:
+      - dependency-type: all
+        update-type: "security"
