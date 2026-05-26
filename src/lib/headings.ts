@@ -1,7 +1,4 @@
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import { visit } from "unist-util-visit";
-import type { Heading as MdastHeading, Text } from "mdast";
+import { deserializeContent } from "./plate-utils";
 
 export type Heading = { id: string; text: string; level: 2 | 3 };
 
@@ -13,23 +10,40 @@ export function headingSlug(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
-export function extractHeadings(markdown: string): Heading[] {
-  const tree = unified().use(remarkParse).parse(markdown);
+type SlateNode = {
+  type?: string;
+  text?: string;
+  children?: SlateNode[];
+};
+
+function extractText(node: SlateNode): string {
+  if (typeof node.text === "string") return node.text;
+  if (!node.children) return "";
+  return node.children.map(extractText).join("");
+}
+
+export function extractHeadingsFromNodes(nodes: SlateNode[]): Heading[] {
   const headings: Heading[] = [];
   const seen = new Map<string, number>();
 
-  visit(tree, "heading", (node: MdastHeading) => {
-    if (node.depth !== 2 && node.depth !== 3) return;
-    const text = node.children
-      .filter((c): c is Text => c.type === "text")
-      .map((c) => c.value)
-      .join("");
+  for (const node of nodes) {
+    if (node.type !== "h2" && node.type !== "h3") continue;
+    const text = extractText(node);
+    if (!text.trim()) continue;
+
     let id = headingSlug(text);
     const count = seen.get(id) ?? 0;
     seen.set(id, count + 1);
     if (count > 0) id = `${id}-${count}`;
-    headings.push({ id, text, level: node.depth as 2 | 3 });
-  });
+
+    headings.push({ id, text, level: node.type === "h2" ? 2 : 3 });
+  }
 
   return headings;
+}
+
+export function extractHeadings(content: string): Heading[] {
+  if (!content.trim()) return [];
+  const nodes = deserializeContent(content) as SlateNode[];
+  return extractHeadingsFromNodes(nodes);
 }

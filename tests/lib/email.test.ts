@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { normalizeEmail, parseEmail, isAllowedEmail } from "@/lib/email";
 
 describe("normalizeEmail", () => {

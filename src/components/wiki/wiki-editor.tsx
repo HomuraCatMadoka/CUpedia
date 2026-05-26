@@ -1,17 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import type VditorType from "vditor";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Plate, usePlateEditor } from "platejs/react";
+
+import { BasicNodesKit } from "@/components/editor/plugins/basic-nodes-kit";
+import { CodeBlockKit } from "@/components/editor/plugins/code-block-kit";
+import { LinkKit } from "@/components/editor/plugins/link-kit";
+import { ListKit } from "@/components/editor/plugins/list-kit";
+import { MediaKit } from "@/components/editor/plugins/media-kit";
+import { TableKit } from "@/components/editor/plugins/table-kit";
+import { SlashKit } from "@/components/editor/plugins/slash-kit";
+import { FloatingToolbarKit } from "@/components/editor/plugins/floating-toolbar-kit";
+import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
+import { EditorContainer, Editor } from "@/components/ui/editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { PlateValue } from "@/lib/plate-utils";
 
 interface WikiEditorProps {
   mode: "create" | "edit";
   initialTitle?: string;
-  initialContent?: string;
+  initialValue?: PlateValue;
   initialSlug?: string;
   expectedUpdatedAt?: string;
   parentId?: string | null;
@@ -28,14 +40,12 @@ interface WikiEditorProps {
 export function WikiEditor({
   mode,
   initialTitle = "",
-  initialContent = "",
+  initialValue,
   initialSlug = "",
   expectedUpdatedAt,
   parentId,
   onSubmit,
 }: WikiEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const vditorRef = useRef<VditorType | null>(null);
   const [title, setTitle] = useState(initialTitle);
   const [slug, setSlug] = useState(initialSlug);
   const [editSummary, setEditSummary] = useState("");
@@ -43,66 +53,32 @@ export function WikiEditor({
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    import("vditor/dist/index.css");
-    let vditor: VditorType | undefined;
-    import("vditor").then((Vditor) => {
-      vditor = new Vditor.default(editorRef.current!, {
-        height: 500,
-        mode: "wysiwyg",
-        value: initialContent,
-        toolbar: [
-          "headings",
-          "bold",
-          "italic",
-          "strike",
-          "|",
-          "list",
-          "ordered-list",
-          "check",
-          "|",
-          "quote",
-          "code",
-          "inline-code",
-          "|",
-          "upload",
-          "link",
-          "table",
-          "|",
-          "undo",
-          "redo",
-        ],
-        upload: {
-          url: "/api/upload",
-          fieldName: "file",
-          max: 5 * 1024 * 1024,
-          accept: "image/jpeg,image/png,image/gif,image/webp",
-          format(files: File[], responseText: string) {
-            const res = JSON.parse(responseText);
-            return JSON.stringify({
-              msg: "",
-              code: 0,
-              data: { errFiles: [], succMap: { [files[0].name]: res.url } },
-            });
-          },
-        },
-        cache: { enable: false },
-      });
-      vditorRef.current = vditor;
-    });
-    return () => vditor?.destroy();
-  }, [initialContent]);
+  const editor = usePlateEditor({
+    plugins: [
+      ...BasicNodesKit,
+      ...CodeBlockKit,
+      ...LinkKit,
+      ...ListKit,
+      ...MediaKit,
+      ...TableKit,
+      ...SlashKit,
+      ...FloatingToolbarKit,
+      ...MarkdownKit,
+    ],
+    value: initialValue,
+  });
 
-  async function handleSubmit() {
+  const handleSubmit = useCallback(async () => {
     setError("");
     setSubmitting(true);
 
-    const content = vditorRef.current?.getValue() ?? "";
     if (!title.trim()) {
       setError("标题不能为空");
       setSubmitting(false);
       return;
     }
+
+    const content = editor.api.markdown.serialize();
 
     const result = await onSubmit({
       slug,
@@ -130,7 +106,16 @@ export function WikiEditor({
     }
 
     router.push(`/wiki/${result.slug}`);
-  }
+  }, [
+    title,
+    slug,
+    editSummary,
+    parentId,
+    expectedUpdatedAt,
+    editor,
+    onSubmit,
+    router,
+  ]);
 
   return (
     <div className="space-y-4">
@@ -154,7 +139,13 @@ export function WikiEditor({
           />
         </div>
       )}
-      <div ref={editorRef} />
+      <div className="rounded-lg border">
+        <Plate editor={editor}>
+          <EditorContainer>
+            <Editor variant="fullWidth" placeholder="开始编辑..." />
+          </EditorContainer>
+        </Plate>
+      </div>
       <div className="space-y-2">
         <Label htmlFor="summary">编辑摘要（可选）</Label>
         <Textarea

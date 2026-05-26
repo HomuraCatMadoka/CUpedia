@@ -4,6 +4,7 @@ import { getWikiPage, getWikiTree, updateWikiPage } from "@/lib/wiki-actions";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { deserializeContent } from "@/lib/plate-utils";
 
 export default async function EditWikiPage({
   params,
@@ -48,7 +49,7 @@ export default async function EditWikiPage({
           <WikiEditor
             mode="edit"
             initialTitle={page.title}
-            initialContent={page.content}
+            initialValue={deserializeContent(page.content)}
             initialSlug={page.slug}
             expectedUpdatedAt={page.updatedAt.toISOString()}
             onSubmit={handleUpdate}
