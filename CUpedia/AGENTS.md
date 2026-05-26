@@ -286,7 +286,7 @@ When using git worktrees for parallel development:
 2. **Bootstrap**: `cd wt/<name>/CUpedia && pnpm install`
 3. **Code & verify**: use WIP profile while iterating, Ready profile before commit
 4. **Push**: confirm push succeeds before any cleanup
-5. **Merge**: squash merge via `gh pr merge --squash --delete-branch`
+5. **Merge**: `gh pr merge --squash --delete-branch`
 6. **Cleanup**: `git worktree remove wt/<name>` only after merge is confirmed
 
 If push fails: diagnose and retry — do not delete the worktree or branch. Commits in an unpushed worktree are unrecoverable once the worktree is removed.
