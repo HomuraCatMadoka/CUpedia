@@ -213,6 +213,7 @@ When adding tests for lib functions, follow existing patterns in `tests/`.
 - **Don't serve files directly from MinIO** — use the `/api/wiki-assets/` route for access control
 - **Don't use `drizzle-kit push` in production** — use `generate` + `migrate`
 - **Don't forget to start Docker services** — `docker compose up -d db minio` before `pnpm dev`
+- **Don't delete worktree before push succeeds** — commits in an unpushed worktree are unrecoverable
 
 ## Context-Efficient Workflows
 
@@ -267,14 +268,40 @@ Do not claim the task is complete under WIP.
 
 ### Ready — before completion or PR
 
-Full suite. Both must pass before claiming done or creating a PR:
+Full suite. All must pass before claiming done or creating a PR:
 
 ```bash
 pnpm lint
 pnpm test
+pnpm tsc --noEmit
 ```
 
-If either fails, fix first. Do not create a PR or claim completion with failing checks.
+If any fails, fix first. Do not create a PR or claim completion with failing checks.
+
+## Worktree Workflow
+
+When using git worktrees for parallel development:
+
+1. **Create**: `git worktree add wt/<name> -b <branch> main`
+2. **Bootstrap**: `cd wt/<name>/CUpedia && pnpm install`
+3. **Code & verify**: use WIP profile while iterating, Ready profile before commit
+4. **Push**: confirm push succeeds before any cleanup
+5. **Merge**: squash merge via `gh pr merge --squash --delete-branch`
+6. **Cleanup**: `git worktree remove wt/<name>` only after merge is confirmed
+
+If push fails: diagnose and retry — do not delete the worktree or branch. Commits in an unpushed worktree are unrecoverable once the worktree is removed.
+
+## Task → Validation Matrix
+
+| Change scope                        | Minimum validation                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| `src/lib/**` pure functions         | Targeted unit test (`pnpm test -- tests/lib/<name>.test.ts`)           |
+| `src/components/**` or `src/app/**` | lint + test + manual browser check at localhost:3000                   |
+| `src/db/schema.ts`                  | `pnpm drizzle-kit generate` + `pnpm drizzle-kit migrate` + `pnpm test` |
+| `package.json` deps changed         | `pnpm install` + full lint + test + `pnpm build`                       |
+| CSS / Tailwind only                 | Manual browser check                                                   |
+
+If browser verification is not possible, report it explicitly in the Agent Output Contract under "Not verified".
 
 ## PR Requirements
 

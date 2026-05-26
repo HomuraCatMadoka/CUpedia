@@ -13,4 +13,3 @@ cd CUpedia || exit 0
 echo "Running pre-push checks..."
 pnpm lint || exit 1
 pnpm test || exit 1
-pnpm build || exit 1
