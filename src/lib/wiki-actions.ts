@@ -8,7 +8,7 @@ import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 
-export const getWikiPage = unstable_cache(
+const getCachedWikiPage = unstable_cache(
   async (slug: string) => {
     const page = await db.query.wikiPages.findFirst({
       where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
@@ -23,7 +23,11 @@ export const getWikiPage = unstable_cache(
   { tags: ["wiki-pages"] },
 );
 
-export const getWikiTree = unstable_cache(
+export async function getWikiPage(slug: string) {
+  return getCachedWikiPage(slug);
+}
+
+const getCachedWikiTree = unstable_cache(
   async () => {
     const pages = await db
       .select({
@@ -41,6 +45,10 @@ export const getWikiTree = unstable_cache(
   ["wiki-tree"],
   { tags: ["wiki-pages"] },
 );
+
+export async function getWikiTree() {
+  return getCachedWikiTree();
+}
 
 export async function createWikiPage(data: {
   slug: string;
