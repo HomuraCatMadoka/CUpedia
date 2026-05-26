@@ -2,13 +2,21 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 import { db } from "@/db";
+import { users, sessions, accounts, verifications } from "@/db/schema";
 
 export const auth = betterAuth({
   secret: process.env.AUTH_SECRET,
   baseURL: process.env.AUTH_URL,
-  database: drizzleAdapter(db, { provider: "pg" }),
+  database: drizzleAdapter(db, {
+    provider: "pg",
+    schema: {
+      user: users,
+      session: sessions,
+      account: accounts,
+      verification: verifications,
+    },
+  }),
   user: {
-    modelName: "users",
     additionalFields: {
       nickname: { type: "string", required: false, defaultValue: "" },
       role: {
@@ -70,6 +78,9 @@ export const auth = betterAuth({
       expiresIn: 300,
     }),
   ],
+  advanced: {
+    database: { generateId: "uuid" },
+  },
   session: {
     cookieCache: {
       enabled: true,
