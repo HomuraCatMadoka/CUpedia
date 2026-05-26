@@ -2,21 +2,31 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const {
   mockRevalidateTag,
+  mockUnstableCache,
+  unstableCacheCalls,
   mockDbSelect,
   mockDbExecute,
   mockDbUpdate,
   mockDbTransaction,
   mockDbQueryWikiPages,
   mockDbQueryWikiRevisions,
-} = vi.hoisted(() => ({
-  mockRevalidateTag: vi.fn(),
-  mockDbSelect: vi.fn(),
-  mockDbExecute: vi.fn(),
-  mockDbUpdate: vi.fn(),
-  mockDbTransaction: vi.fn(),
-  mockDbQueryWikiPages: { findFirst: vi.fn() },
-  mockDbQueryWikiRevisions: { findFirst: vi.fn(), findMany: vi.fn() },
-}));
+} = vi.hoisted(() => {
+  const unstableCacheCalls: unknown[][] = [];
+  return {
+    mockRevalidateTag: vi.fn(),
+    mockUnstableCache: vi.fn((...args: unknown[]) => {
+      unstableCacheCalls.push(args);
+      return args[0];
+    }),
+    unstableCacheCalls,
+    mockDbSelect: vi.fn(),
+    mockDbExecute: vi.fn(),
+    mockDbUpdate: vi.fn(),
+    mockDbTransaction: vi.fn(),
+    mockDbQueryWikiPages: { findFirst: vi.fn() },
+    mockDbQueryWikiRevisions: { findFirst: vi.fn(), findMany: vi.fn() },
+  };
+});
 
 vi.mock("@/db", () => ({
   db: {
@@ -59,7 +69,7 @@ vi.mock("drizzle-orm", () => ({
 }));
 
 vi.mock("next/cache", () => ({
-  unstable_cache: (fn: (...a: unknown[]) => unknown) => fn,
+  unstable_cache: (...args: unknown[]) => mockUnstableCache(...args),
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
@@ -74,6 +84,8 @@ vi.mock("@/lib/slug", () => ({
 
 import {
   searchWikiPages,
+  getWikiTree,
+  getWikiPage,
   createWikiPage,
   updateWikiPage,
   deleteWikiPage,
@@ -223,5 +235,60 @@ describe("cache invalidation — revalidateTag called", () => {
 
     await rollbackToRevision("1", "rev-1");
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
+  });
+});
+
+describe("read caching — getWikiTree & getWikiPage", () => {
+  const treeData = [
+    { id: "1", slug: "guide", title: "Guide", parentId: null, sortOrder: 0 },
+    { id: "2", slug: "faq", title: "FAQ", parentId: null, sortOrder: 1 },
+  ];
+  const pageData = {
+    id: "1",
+    slug: "guide",
+    title: "Guide",
+    content: "# Guide",
+    createdByUser: { nickname: "test" },
+    updatedByUser: { nickname: "test" },
+  };
+
+  it("getWikiTree is wrapped with unstable_cache tagged wiki-pages", () => {
+    const call = unstableCacheCalls.find(
+      (c) => Array.isArray(c[1]) && (c[1] as string[]).includes("wiki-tree"),
+    );
+    expect(call).toBeDefined();
+    expect((call![2] as { tags: string[] }).tags).toContain("wiki-pages");
+  });
+
+  it("getWikiPage is wrapped with unstable_cache tagged wiki-pages", () => {
+    const call = unstableCacheCalls.find(
+      (c) => Array.isArray(c[1]) && (c[1] as string[]).includes("wiki-page"),
+    );
+    expect(call).toBeDefined();
+    expect((call![2] as { tags: string[] }).tags).toContain("wiki-pages");
+  });
+
+  it("getWikiTree returns tree data", async () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue(treeData),
+        }),
+      }),
+    });
+    const result = await getWikiTree();
+    expect(result).toEqual(treeData);
+  });
+
+  it("getWikiPage returns page by slug", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValue(pageData);
+    const result = await getWikiPage("guide");
+    expect(result).toEqual(pageData);
+  });
+
+  it("getWikiPage returns null for missing page", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
+    const result = await getWikiPage("nonexistent");
+    expect(result).toBeNull();
   });
 });

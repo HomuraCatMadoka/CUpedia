@@ -8,31 +8,39 @@ import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 
-export async function getWikiPage(slug: string) {
-  const page = await db.query.wikiPages.findFirst({
-    where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
-    with: {
-      createdByUser: { columns: { nickname: true } },
-      updatedByUser: { columns: { nickname: true } },
-    },
-  });
-  return page ?? null;
-}
+export const getWikiPage = unstable_cache(
+  async (slug: string) => {
+    const page = await db.query.wikiPages.findFirst({
+      where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
+      with: {
+        createdByUser: { columns: { nickname: true } },
+        updatedByUser: { columns: { nickname: true } },
+      },
+    });
+    return page ?? null;
+  },
+  ["wiki-page"],
+  { tags: ["wiki-pages"] },
+);
 
-export async function getWikiTree() {
-  const pages = await db
-    .select({
-      id: wikiPages.id,
-      slug: wikiPages.slug,
-      title: wikiPages.title,
-      parentId: wikiPages.parentId,
-      sortOrder: wikiPages.sortOrder,
-    })
-    .from(wikiPages)
-    .where(isNull(wikiPages.deletedAt))
-    .orderBy(wikiPages.sortOrder);
-  return pages;
-}
+export const getWikiTree = unstable_cache(
+  async () => {
+    const pages = await db
+      .select({
+        id: wikiPages.id,
+        slug: wikiPages.slug,
+        title: wikiPages.title,
+        parentId: wikiPages.parentId,
+        sortOrder: wikiPages.sortOrder,
+      })
+      .from(wikiPages)
+      .where(isNull(wikiPages.deletedAt))
+      .orderBy(wikiPages.sortOrder);
+    return pages;
+  },
+  ["wiki-tree"],
+  { tags: ["wiki-pages"] },
+);
 
 export async function createWikiPage(data: {
   slug: string;
