@@ -97,9 +97,12 @@
     "jsdom": "^29.1.1",
     "lint-staged": "^17.0.5",
     "prettier": "^3.8.3",
+    "remark-stringify": "^11.0.0",
     "tailwindcss": "^4",
     "tsx": "^4.22.2",
     "typescript": "^5",
+    "unified": "^11.0.5",
+    "unist-util-visit": "^5.1.0",
     "vitest": "^4.1.6"
   }
 }
