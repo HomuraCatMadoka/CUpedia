@@ -51,7 +51,7 @@ export default async function EditWikiPage({
             initialTitle={page.title}
             initialValue={deserializeContent(page.content)}
             initialSlug={page.slug}
-            expectedUpdatedAt={page.updatedAt.toISOString()}
+            expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
             onSubmit={handleUpdate}
           />
         </div>

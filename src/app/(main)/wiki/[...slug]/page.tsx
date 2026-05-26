@@ -87,7 +87,7 @@ export default async function WikiReadPage({
             最后编辑：
             {(page as { updatedByUser?: { nickname: string } }).updatedByUser
               ?.nickname ?? "未知用户"}{" "}
-            · {page.updatedAt.toLocaleDateString("zh-CN")}
+            · {new Date(page.updatedAt).toLocaleDateString("zh-CN")}
           </div>
           <div className="mt-6 border-t pt-6">
             <WikiRenderer value={plateValue} />

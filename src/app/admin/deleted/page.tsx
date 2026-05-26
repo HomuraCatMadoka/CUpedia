@@ -13,11 +13,17 @@ export default async function DeletedPagesPage() {
       ) : (
         <div className="space-y-2">
           {pages.map((page) => (
-            <div key={page.id} className="flex items-center justify-between rounded border p-3">
+            <div
+              key={page.id}
+              className="flex items-center justify-between rounded border p-3"
+            >
               <div>
                 <p className="font-medium">{page.title}</p>
                 <p className="text-xs text-muted-foreground">
-                  /{page.slug} · 删除于 {page.deletedAt?.toLocaleString("zh-CN")}
+                  /{page.slug} · 删除于{" "}
+                  {page.deletedAt
+                    ? new Date(page.deletedAt).toLocaleString("zh-CN")
+                    : ""}
                 </p>
               </div>
               <form

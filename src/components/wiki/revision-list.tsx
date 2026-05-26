@@ -22,13 +22,16 @@ export function RevisionList({
   return (
     <div className="space-y-2">
       {revisions.map((rev, i) => (
-        <div key={rev.id} className="flex items-center justify-between rounded border p-3">
+        <div
+          key={rev.id}
+          className="flex items-center justify-between rounded border p-3"
+        >
           <div>
             <p className="text-sm font-medium">
               {rev.editedByUser?.nickname ?? "未知用户"}
             </p>
             <p className="text-xs text-muted-foreground">
-              {rev.createdAt.toLocaleString("zh-CN")}
+              {new Date(rev.createdAt).toLocaleString("zh-CN")}
               {rev.editSummary && ` · ${rev.editSummary}`}
             </p>
           </div>

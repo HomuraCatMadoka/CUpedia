@@ -85,7 +85,7 @@ export default async function HistoryPage({
         </Link>
         <h1 className="text-xl font-bold">历史版本：{rev.title}</h1>
         <p className="text-xs text-muted-foreground">
-          {rev.createdAt.toLocaleString("zh-CN")}
+          {new Date(rev.createdAt).toLocaleString("zh-CN")}
         </p>
         {canEdit && (
           <form action={handleRollback}>
@@ -118,8 +118,8 @@ export default async function HistoryPage({
         <RevisionDiff
           oldText={older.content}
           newText={newer.content}
-          oldLabel={older.createdAt.toLocaleString("zh-CN")}
-          newLabel={newer.createdAt.toLocaleString("zh-CN")}
+          oldLabel={new Date(older.createdAt).toLocaleString("zh-CN")}
+          newLabel={new Date(newer.createdAt).toLocaleString("zh-CN")}
         />
       </SidebarWrapper>
     );
