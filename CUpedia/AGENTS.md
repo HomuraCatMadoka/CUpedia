@@ -268,14 +268,15 @@ Do not claim the task is complete under WIP.
 
 ### Ready — before completion or PR
 
-Full suite. Both must pass before claiming done or creating a PR:
+Full suite. All must pass before claiming done or creating a PR:
 
 ```bash
 pnpm lint
 pnpm test
+pnpm tsc --noEmit
 ```
 
-If either fails, fix first. Do not create a PR or claim completion with failing checks.
+If any fails, fix first. Do not create a PR or claim completion with failing checks.
 
 ## Worktree Workflow
 
