@@ -9,6 +9,7 @@ import { CalloutKit } from "@/components/editor/plugins/callout-kit";
 import { CodeBlockKit } from "@/components/editor/plugins/code-block-kit";
 import { DndKit } from "@/components/editor/plugins/dnd-kit";
 import { LinkKit } from "@/components/editor/plugins/link-kit";
+import { MathKit } from "@/components/editor/plugins/math-kit";
 import { ListKit } from "@/components/editor/plugins/list-kit";
 import { MediaKit } from "@/components/editor/plugins/media-kit";
 import { TableKit } from "@/components/editor/plugins/table-kit";
@@ -63,6 +64,7 @@ export function WikiEditor({
       ...CodeBlockKit,
       ...LinkKit,
       ...ListKit,
+      ...MathKit,
       ...MediaKit,
       ...TableKit,
       ...TocKit,

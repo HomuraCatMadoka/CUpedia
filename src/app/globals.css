@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 @plugin "tailwind-scrollbar-hide";
 @import "tw-animate-css";

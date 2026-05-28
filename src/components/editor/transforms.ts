@@ -5,6 +5,7 @@ import type { PlateEditor } from "platejs/react";
 import { insertCallout } from "@platejs/callout";
 import { insertCodeBlock, toggleCodeBlock } from "@platejs/code-block";
 import { triggerFloatingLink } from "@platejs/link/react";
+import { insertEquation } from "@platejs/math";
 import { insertMedia } from "@platejs/media";
 import { TablePlugin } from "@platejs/table/react";
 import { insertToc } from "@platejs/toc";
@@ -50,6 +51,7 @@ const insertBlockMap: Record<
   [KEYS.table]: (editor) =>
     editor.getTransforms(TablePlugin).insert.table({}, { select: true }),
   [KEYS.toc]: (editor) => insertToc(editor, { select: true }),
+  [KEYS.equation]: (editor) => insertEquation(editor, { select: true }),
 };
 
 const insertInlineMap: Record<

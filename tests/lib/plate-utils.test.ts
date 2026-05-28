@@ -90,6 +90,19 @@ describe("toMarkdown", () => {
     expect(md).toContain("Body");
   });
 
+  it("serializes block equation to $$ markdown", async () => {
+    const json = JSON.stringify([
+      {
+        type: "equation",
+        texExpression: "E = mc^2",
+        children: [{ text: "" }],
+      },
+    ]);
+    const md = await toMarkdown(json);
+    expect(md).toContain("$$");
+    expect(md).toContain("E = mc^2");
+  });
+
   it("preserves callout text in markdown output", async () => {
     const json = JSON.stringify([
       {
@@ -124,6 +137,16 @@ describe("fromMarkdown", () => {
     const md = await toMarkdown(json);
     expect(md).toContain("## Hello");
     expect(md).toContain("World");
+  });
+
+  it("deserializes $$ block equation from markdown", async () => {
+    const json = await fromMarkdown("$$\nE = mc^2\n$$");
+    const nodes = JSON.parse(json);
+    expect(nodes.some((n: { type: string }) => n.type === "equation")).toBe(
+      true,
+    );
+    const eq = nodes.find((n: { type: string }) => n.type === "equation");
+    expect(eq.texExpression).toBe("E = mc^2");
   });
 
   it("converts GFM tables", async () => {

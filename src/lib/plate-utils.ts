@@ -51,6 +51,8 @@ async function createHeadlessEditor() {
   } = await import("@platejs/basic-nodes");
   const { BaseCalloutPlugin } = await import("@platejs/callout");
   const { BaseTocPlugin } = await import("@platejs/toc");
+  const { BaseEquationPlugin, BaseInlineEquationPlugin } =
+    await import("@platejs/math");
   const { BaseCodeBlockPlugin, BaseCodeLinePlugin } =
     await import("@platejs/code-block");
   const { BaseLinkPlugin } = await import("@platejs/link");
@@ -63,6 +65,7 @@ async function createHeadlessEditor() {
     BaseTableCellHeaderPlugin,
   } = await import("@platejs/table");
   const remarkGfm = (await import("remark-gfm")).default;
+  const remarkMath = (await import("remark-math")).default;
   const { calloutMarkdownRules } =
     await import("@/components/editor/plugins/markdown-kit");
 
@@ -93,9 +96,11 @@ async function createHeadlessEditor() {
       BaseTableCellPlugin,
       BaseTableCellHeaderPlugin,
       BaseTocPlugin,
+      BaseEquationPlugin,
+      BaseInlineEquationPlugin,
       MarkdownPlugin.configure({
         options: {
-          remarkPlugins: [remarkGfm, remarkMdx],
+          remarkPlugins: [remarkGfm, remarkMdx, remarkMath],
           rules: calloutMarkdownRules,
         },
       }),

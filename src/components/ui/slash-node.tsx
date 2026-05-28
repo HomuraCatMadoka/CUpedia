@@ -15,6 +15,7 @@ import {
   ListOrdered,
   ListTreeIcon,
   MessageSquareWarningIcon,
+  RadicalIcon,
   MinusIcon,
   PilcrowIcon,
   Quote,
@@ -129,6 +130,12 @@ const groups: Group[] = [
         keywords: ["toc", "table of contents", "outline"],
         label: "目录",
         value: KEYS.toc,
+      },
+      {
+        icon: <RadicalIcon />,
+        keywords: ["math", "formula", "equation", "latex", "katex"],
+        label: "公式",
+        value: KEYS.equation,
       },
     ].map((item) => ({
       ...item,

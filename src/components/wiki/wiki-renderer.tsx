@@ -6,6 +6,7 @@ import { BasicNodesKit } from "@/components/editor/plugins/basic-nodes-kit";
 import { CalloutKit } from "@/components/editor/plugins/callout-kit";
 import { CodeBlockKit } from "@/components/editor/plugins/code-block-kit";
 import { LinkKit } from "@/components/editor/plugins/link-kit";
+import { MathBaseKit } from "@/components/editor/plugins/math-base-kit";
 import { ListKit } from "@/components/editor/plugins/list-kit";
 import { MediaKit } from "@/components/editor/plugins/media-kit";
 import { TableKit } from "@/components/editor/plugins/table-kit";
@@ -22,6 +23,7 @@ export function WikiRenderer({ value }: { value: PlateValue }) {
       ...CodeBlockKit,
       ...LinkKit,
       ...ListKit,
+      ...MathBaseKit,
       ...MediaKit,
       ...TableKit,
       ...BaseTocKit,
