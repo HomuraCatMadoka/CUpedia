@@ -1,5 +1,3 @@
-"use client";
-
 import type { SlateElementProps } from "platejs/static";
 
 import { SlateElement } from "platejs/static";

@@ -33,7 +33,7 @@ export function extractText(content: string): string {
 
 async function createHeadlessEditor() {
   const { createSlateEditor, BaseParagraphPlugin } = await import("platejs");
-  const { MarkdownPlugin } = await import("@platejs/markdown");
+  const { MarkdownPlugin, remarkMdx } = await import("@platejs/markdown");
   const {
     BaseH1Plugin,
     BaseH2Plugin,
@@ -94,7 +94,10 @@ async function createHeadlessEditor() {
       BaseTableCellHeaderPlugin,
       BaseTocPlugin,
       MarkdownPlugin.configure({
-        options: { remarkPlugins: [remarkGfm], rules: calloutMarkdownRules },
+        options: {
+          remarkPlugins: [remarkGfm, remarkMdx],
+          rules: calloutMarkdownRules,
+        },
       }),
     ],
   });

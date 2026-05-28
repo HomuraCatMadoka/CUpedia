@@ -32,16 +32,14 @@ export function TocElement(props: PlateElementProps) {
         ) : (
           <ul className="space-y-0.5">
             {headings.map((heading) => (
-              <li key={heading.id ?? headingSlug(heading.title)}>
+              <li key={heading.path.join("-")}>
                 <a
                   href={`#${headingSlug(heading.title)}`}
                   className={cn(
                     "block rounded px-2 py-0.5 text-sm text-foreground/80 hover:bg-accent hover:text-foreground",
                     heading.depth === 3 && "pl-6",
                   )}
-                  onClick={(e) =>
-                    tocProps.onClick(e, heading, "smooth" as ScrollBehavior)
-                  }
+                  onClick={(e) => tocProps.onClick(e, heading, "smooth")}
                 >
                   {heading.title}
                 </a>
