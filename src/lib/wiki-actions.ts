@@ -7,6 +7,7 @@ import { unstable_cache, revalidateTag } from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
+import { extractText } from "@/lib/plate-utils";
 
 const getCachedWikiPage = unstable_cache(
   async (slug: string) => {
@@ -263,7 +264,11 @@ const getCachedPages = unstable_cache(
 export async function searchWikiPages(query: string) {
   if (!query.trim()) return [];
   const pages = await getCachedPages();
-  return searchPages(pages, query);
+  const searchable = pages.map((p) => ({
+    ...p,
+    content: extractText(p.content),
+  }));
+  return searchPages(searchable, query);
 }
 
 export async function getDeletedPages() {

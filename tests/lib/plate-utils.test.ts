@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseContent } from "@/lib/plate-utils";
+import { parseContent, extractText } from "@/lib/plate-utils";
 
 describe("parseContent", () => {
   it("returns empty paragraph for empty string", () => {
@@ -24,5 +24,41 @@ describe("parseContent", () => {
 
   it("throws on invalid JSON", () => {
     expect(() => parseContent("not json")).toThrow();
+  });
+});
+
+describe("extractText", () => {
+  it("extracts text from paragraphs", () => {
+    const json = JSON.stringify([
+      { type: "p", children: [{ text: "Hello world" }] },
+    ]);
+    expect(extractText(json)).toBe("Hello world");
+  });
+
+  it("joins multiple blocks with newlines", () => {
+    const json = JSON.stringify([
+      { type: "h2", children: [{ text: "Title" }] },
+      { type: "p", children: [{ text: "Body text" }] },
+    ]);
+    expect(extractText(json)).toBe("Title\nBody text");
+  });
+
+  it("extracts text from inline formatting", () => {
+    const json = JSON.stringify([
+      {
+        type: "p",
+        children: [
+          { text: "normal " },
+          { text: "bold", bold: true },
+          { text: " end" },
+        ],
+      },
+    ]);
+    expect(extractText(json)).toBe("normal bold end");
+  });
+
+  it("returns empty string for empty content", () => {
+    expect(extractText("")).toBe("");
+    expect(extractText("  ")).toBe("");
   });
 });

@@ -94,8 +94,20 @@ import {
 } from "@/lib/wiki-actions";
 
 const mockPages = [
-  { id: "1", slug: "衣", title: "衣", content: "需要穿正装的场合" },
-  { id: "2", slug: "食", title: "觅食指南", content: "推荐美食" },
+  {
+    id: "1",
+    slug: "衣",
+    title: "衣",
+    content: JSON.stringify([
+      { type: "p", children: [{ text: "需要穿正装的场合" }] },
+    ]),
+  },
+  {
+    id: "2",
+    slug: "食",
+    title: "觅食指南",
+    content: JSON.stringify([{ type: "p", children: [{ text: "推荐美食" }] }]),
+  },
 ];
 
 beforeEach(() => {
