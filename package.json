@@ -58,6 +58,8 @@
     "pinyin-pro": "^3.28.1",
     "platejs": "^53.0.5",
     "react": "19.2.4",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "19.2.4",
     "react-lite-youtube-embed": "^3.5.1",
     "react-player": "^3.4.0",

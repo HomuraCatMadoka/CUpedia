@@ -7,6 +7,7 @@ import { Plate, usePlateEditor } from "platejs/react";
 import { BasicNodesKit } from "@/components/editor/plugins/basic-nodes-kit";
 import { CalloutKit } from "@/components/editor/plugins/callout-kit";
 import { CodeBlockKit } from "@/components/editor/plugins/code-block-kit";
+import { DndKit } from "@/components/editor/plugins/dnd-kit";
 import { LinkKit } from "@/components/editor/plugins/link-kit";
 import { ListKit } from "@/components/editor/plugins/list-kit";
 import { MediaKit } from "@/components/editor/plugins/media-kit";
@@ -64,6 +65,7 @@ export function WikiEditor({
       ...MediaKit,
       ...TableKit,
       ...SlashKit,
+      ...DndKit,
       ...FloatingToolbarKit,
       ...MarkdownKit,
     ],
