@@ -19,6 +19,7 @@
     "@base-ui/react": "^1.4.1",
     "@platejs/basic-nodes": "^53.0.0",
     "@platejs/basic-styles": "^53.0.0",
+    "@platejs/callout": "^53.0.0",
     "@platejs/caption": "^53.0.0",
     "@platejs/code-block": "^53.0.0",
     "@platejs/combobox": "^53.0.0",

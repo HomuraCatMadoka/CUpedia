@@ -49,6 +49,7 @@ async function createHeadlessEditor() {
     BaseCodePlugin,
     BaseStrikethroughPlugin,
   } = await import("@platejs/basic-nodes");
+  const { BaseCalloutPlugin } = await import("@platejs/callout");
   const { BaseCodeBlockPlugin, BaseCodeLinePlugin } =
     await import("@platejs/code-block");
   const { BaseLinkPlugin } = await import("@platejs/link");
@@ -65,6 +66,7 @@ async function createHeadlessEditor() {
   return createSlateEditor({
     plugins: [
       BaseParagraphPlugin,
+      BaseCalloutPlugin,
       BaseH1Plugin,
       BaseH2Plugin,
       BaseH3Plugin,

@@ -3,13 +3,17 @@
 import type { PlateEditor, PlateElementProps } from "platejs/react";
 
 import {
+  AlertTriangleIcon,
   Code2,
   Heading1Icon,
   Heading2Icon,
   Heading3Icon,
   ImageIcon,
+  InfoIcon,
+  LightbulbIcon,
   ListIcon,
   ListOrdered,
+  MessageSquareWarningIcon,
   MinusIcon,
   PilcrowIcon,
   Quote,
@@ -17,6 +21,7 @@ import {
   Table,
 } from "lucide-react";
 import { type TComboboxInputElement, KEYS } from "platejs";
+import { insertCallout } from "@platejs/callout";
 import { PlateElement } from "platejs/react";
 
 import { insertBlock } from "@/components/editor/transforms";
@@ -124,6 +129,51 @@ const groups: Group[] = [
         insertBlock(editor, value, { upsert: true });
       },
     })),
+  },
+  {
+    group: "提示框",
+    items: [
+      {
+        icon: <InfoIcon />,
+        keywords: ["callout", "info", "admonition"],
+        label: "信息",
+        value: "callout_info",
+        onSelect: (editor: PlateEditor) => {
+          insertCallout(editor, { select: true, variant: "info", icon: "ℹ️" });
+        },
+      },
+      {
+        icon: <LightbulbIcon />,
+        keywords: ["callout", "tip", "hint"],
+        label: "提示",
+        value: "callout_tip",
+        onSelect: (editor: PlateEditor) => {
+          insertCallout(editor, { select: true, variant: "tip", icon: "💡" });
+        },
+      },
+      {
+        icon: <AlertTriangleIcon />,
+        keywords: ["callout", "warning", "caution"],
+        label: "警告",
+        value: "callout_warning",
+        onSelect: (editor: PlateEditor) => {
+          insertCallout(editor, {
+            select: true,
+            variant: "warning",
+            icon: "⚠️",
+          });
+        },
+      },
+      {
+        icon: <MessageSquareWarningIcon />,
+        keywords: ["callout", "error", "danger"],
+        label: "危险",
+        value: "callout_error",
+        onSelect: (editor: PlateEditor) => {
+          insertCallout(editor, { select: true, variant: "error", icon: "🚫" });
+        },
+      },
+    ],
   },
 ];
 

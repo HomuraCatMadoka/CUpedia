@@ -66,6 +66,17 @@ describe("extractText", () => {
     expect(extractText("")).toBe("");
     expect(extractText("  ")).toBe("");
   });
+
+  it("extracts text from callout blocks", () => {
+    const json = JSON.stringify([
+      {
+        type: "callout",
+        variant: "warning",
+        children: [{ text: "This is a warning" }],
+      },
+    ]);
+    expect(extractText(json)).toBe("This is a warning");
+  });
 });
 
 describe("toMarkdown", () => {
