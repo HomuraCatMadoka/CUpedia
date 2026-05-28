@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getWikiEditRole } from "@/lib/site-settings";
 import { redirect } from "next/navigation";
-import { parseContent } from "@/lib/plate-utils";
+import { parseContent, toMarkdown } from "@/lib/plate-utils";
 
 function SidebarWrapper({
   pages,
@@ -106,6 +106,11 @@ export default async function HistoryPage({
     ]);
     if (!older || !newer) notFound();
 
+    const [oldMd, newMd] = await Promise.all([
+      toMarkdown(older.content),
+      toMarkdown(newer.content),
+    ]);
+
     return (
       <SidebarWrapper pages={pages} canEdit={canEdit}>
         <Link
@@ -116,8 +121,8 @@ export default async function HistoryPage({
         </Link>
         <h1 className="text-xl font-bold">版本对比</h1>
         <RevisionDiff
-          oldText={older.content}
-          newText={newer.content}
+          oldText={oldMd}
+          newText={newMd}
           oldLabel={new Date(older.createdAt).toLocaleString("zh-CN")}
           newLabel={new Date(newer.createdAt).toLocaleString("zh-CN")}
         />

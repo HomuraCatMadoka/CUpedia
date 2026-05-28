@@ -30,3 +30,70 @@ export function extractText(content: string): string {
   const nodes = JSON.parse(content) as Node[];
   return nodes.map((n) => collectText(n.children ?? [])).join("\n");
 }
+
+export async function toMarkdown(content: string): Promise<string> {
+  if (!content.trim()) return "";
+  const { createSlateEditor, BaseParagraphPlugin } = await import("platejs");
+  const { MarkdownPlugin } = await import("@platejs/markdown");
+  const {
+    BaseH1Plugin,
+    BaseH2Plugin,
+    BaseH3Plugin,
+    BaseH4Plugin,
+    BaseH5Plugin,
+    BaseH6Plugin,
+    BaseBlockquotePlugin,
+    BaseHorizontalRulePlugin,
+    BaseBoldPlugin,
+    BaseItalicPlugin,
+    BaseUnderlinePlugin,
+    BaseCodePlugin,
+    BaseStrikethroughPlugin,
+  } = await import("@platejs/basic-nodes");
+  const { BaseCodeBlockPlugin, BaseCodeLinePlugin } =
+    await import("@platejs/code-block");
+  const { BaseLinkPlugin } = await import("@platejs/link");
+  const { BaseListPlugin } = await import("@platejs/list");
+  const { BaseImagePlugin } = await import("@platejs/media");
+  const {
+    BaseTablePlugin,
+    BaseTableRowPlugin,
+    BaseTableCellPlugin,
+    BaseTableCellHeaderPlugin,
+  } = await import("@platejs/table");
+  const remarkGfm = (await import("remark-gfm")).default;
+
+  const editor = createSlateEditor({
+    plugins: [
+      BaseParagraphPlugin,
+      BaseH1Plugin,
+      BaseH2Plugin,
+      BaseH3Plugin,
+      BaseH4Plugin,
+      BaseH5Plugin,
+      BaseH6Plugin,
+      BaseBlockquotePlugin,
+      BaseHorizontalRulePlugin,
+      BaseBoldPlugin,
+      BaseItalicPlugin,
+      BaseUnderlinePlugin,
+      BaseCodePlugin,
+      BaseStrikethroughPlugin,
+      BaseCodeBlockPlugin,
+      BaseCodeLinePlugin,
+      BaseLinkPlugin,
+      BaseListPlugin,
+      BaseImagePlugin,
+      BaseTablePlugin,
+      BaseTableRowPlugin,
+      BaseTableCellPlugin,
+      BaseTableCellHeaderPlugin,
+      MarkdownPlugin.configure({
+        options: { remarkPlugins: [remarkGfm] },
+      }),
+    ],
+  });
+
+  const value = JSON.parse(content) as PlateValue;
+  return editor.api.markdown.serialize({ value } as never);
+}

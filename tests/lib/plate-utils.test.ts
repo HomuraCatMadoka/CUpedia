@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseContent, extractText } from "@/lib/plate-utils";
+import { parseContent, extractText, toMarkdown } from "@/lib/plate-utils";
 
 describe("parseContent", () => {
   it("returns empty paragraph for empty string", () => {
@@ -60,5 +60,17 @@ describe("extractText", () => {
   it("returns empty string for empty content", () => {
     expect(extractText("")).toBe("");
     expect(extractText("  ")).toBe("");
+  });
+});
+
+describe("toMarkdown", () => {
+  it("serializes heading and paragraph to markdown", async () => {
+    const json = JSON.stringify([
+      { type: "h2", children: [{ text: "Title" }] },
+      { type: "p", children: [{ text: "Body" }] },
+    ]);
+    const md = await toMarkdown(json);
+    expect(md).toContain("## Title");
+    expect(md).toContain("Body");
   });
 });
