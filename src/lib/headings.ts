@@ -1,4 +1,4 @@
-import { deserializeContent } from "./plate-utils";
+import { parseContent } from "./plate-utils";
 
 export type Heading = { id: string; text: string; level: 2 | 3 };
 
@@ -44,6 +44,6 @@ export function extractHeadingsFromNodes(nodes: SlateNode[]): Heading[] {
 
 export function extractHeadings(content: string): Heading[] {
   if (!content.trim()) return [];
-  const nodes = deserializeContent(content) as SlateNode[];
+  const nodes = parseContent(content) as SlateNode[];
   return extractHeadingsFromNodes(nodes);
 }

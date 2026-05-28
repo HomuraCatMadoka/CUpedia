@@ -78,7 +78,7 @@ export function WikiEditor({
       return;
     }
 
-    const content = editor.api.markdown.serialize();
+    const content = JSON.stringify(editor.children);
 
     const result = await onSubmit({
       slug,

@@ -8,7 +8,7 @@ import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getWikiEditRole } from "@/lib/site-settings";
 import { extractHeadings } from "@/lib/headings";
-import { deserializeContent } from "@/lib/plate-utils";
+import { parseContent } from "@/lib/plate-utils";
 
 export default async function WikiReadPage({
   params,
@@ -28,7 +28,7 @@ export default async function WikiReadPage({
 
   const canEdit = !!user && (editRole === "user" || user.role === "admin");
   const headings = extractHeadings(page.content);
-  const plateValue = deserializeContent(page.content);
+  const plateValue = parseContent(page.content);
 
   const parentPage = page.parentId
     ? pages.find((p) => p.id === page.parentId)

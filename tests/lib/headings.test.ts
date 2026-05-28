@@ -122,29 +122,7 @@ describe("extractHeadings with Plate JSON string", () => {
     expect(extractHeadings("")).toEqual([]);
   });
 
-  it("returns empty for invalid JSON by falling back to Plate deserialization", () => {
-    const result = extractHeadings("not json at all");
-    expect(Array.isArray(result)).toBe(true);
-  });
-});
-
-describe("extractHeadings with Markdown string (transitional bridge)", () => {
-  it("extracts headings from markdown via Plate deserialization", () => {
-    const md = "## Section One\n\n### Sub Section\n\n## Section Two\n";
-    const result = extractHeadings(md);
-    expect(result).toEqual([
-      { id: "section-one", text: "Section One", level: 2 },
-      { id: "sub-section", text: "Sub Section", level: 3 },
-      { id: "section-two", text: "Section Two", level: 2 },
-    ]);
-  });
-
-  it("extracts CJK headings from markdown", () => {
-    const md = "## 入学前\n\n### 过关攻略\n";
-    const result = extractHeadings(md);
-    expect(result).toEqual([
-      { id: "入学前", text: "入学前", level: 2 },
-      { id: "过关攻略", text: "过关攻略", level: 3 },
-    ]);
+  it("throws on invalid JSON content", () => {
+    expect(() => extractHeadings("not json at all")).toThrow();
   });
 });

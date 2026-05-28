@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getWikiEditRole } from "@/lib/site-settings";
 import { redirect } from "next/navigation";
-import { deserializeContent } from "@/lib/plate-utils";
+import { parseContent } from "@/lib/plate-utils";
 
 function SidebarWrapper({
   pages,
@@ -94,7 +94,7 @@ export default async function HistoryPage({
             </Button>
           </form>
         )}
-        <WikiRenderer value={deserializeContent(rev.content)} />
+        <WikiRenderer value={parseContent(rev.content)} />
       </SidebarWrapper>
     );
   }
