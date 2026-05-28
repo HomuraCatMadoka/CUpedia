@@ -9,6 +9,7 @@ import { LinkKit } from "@/components/editor/plugins/link-kit";
 import { ListKit } from "@/components/editor/plugins/list-kit";
 import { MediaKit } from "@/components/editor/plugins/media-kit";
 import { TableKit } from "@/components/editor/plugins/table-kit";
+import { TocKit } from "@/components/editor/plugins/toc-kit";
 import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
 import { EditorContainer, Editor } from "@/components/ui/editor";
 import type { PlateValue } from "@/lib/plate-utils";
@@ -23,6 +24,7 @@ export function WikiRenderer({ value }: { value: PlateValue }) {
       ...ListKit,
       ...MediaKit,
       ...TableKit,
+      ...TocKit,
       ...MarkdownKit,
     ],
     value,

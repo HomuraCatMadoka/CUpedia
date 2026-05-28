@@ -13,6 +13,7 @@ import {
   LightbulbIcon,
   ListIcon,
   ListOrdered,
+  ListTreeIcon,
   MessageSquareWarningIcon,
   MinusIcon,
   PilcrowIcon,
@@ -122,6 +123,12 @@ const groups: Group[] = [
         keywords: ["image", "picture", "photo"],
         label: "图片",
         value: KEYS.img,
+      },
+      {
+        icon: <ListTreeIcon />,
+        keywords: ["toc", "table of contents", "outline"],
+        label: "目录",
+        value: KEYS.toc,
       },
     ].map((item) => ({
       ...item,

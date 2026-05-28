@@ -7,6 +7,7 @@ import { insertCodeBlock, toggleCodeBlock } from "@platejs/code-block";
 import { triggerFloatingLink } from "@platejs/link/react";
 import { insertMedia } from "@platejs/media";
 import { TablePlugin } from "@platejs/table/react";
+import { insertToc } from "@platejs/toc";
 import {
   type NodeEntry,
   type Path,
@@ -48,6 +49,7 @@ const insertBlockMap: Record<
   [KEYS.img]: (editor) => insertMedia(editor, { select: true, type: KEYS.img }),
   [KEYS.table]: (editor) =>
     editor.getTransforms(TablePlugin).insert.table({}, { select: true }),
+  [KEYS.toc]: (editor) => insertToc(editor, { select: true }),
 };
 
 const insertInlineMap: Record<

@@ -12,6 +12,7 @@ import { LinkKit } from "@/components/editor/plugins/link-kit";
 import { ListKit } from "@/components/editor/plugins/list-kit";
 import { MediaKit } from "@/components/editor/plugins/media-kit";
 import { TableKit } from "@/components/editor/plugins/table-kit";
+import { TocKit } from "@/components/editor/plugins/toc-kit";
 import { SlashKit } from "@/components/editor/plugins/slash-kit";
 import { FloatingToolbarKit } from "@/components/editor/plugins/floating-toolbar-kit";
 import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
@@ -64,6 +65,7 @@ export function WikiEditor({
       ...ListKit,
       ...MediaKit,
       ...TableKit,
+      ...TocKit,
       ...SlashKit,
       ...DndKit,
       ...FloatingToolbarKit,
