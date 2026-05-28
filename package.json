@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "seed": "tsx scripts/seed.ts"
+    "seed": "tsx scripts/seed.ts",
+    "migrate-content": "tsx scripts/migrate-content.ts",
+    "migrate-content:dry": "tsx scripts/migrate-content.ts --dry-run"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",

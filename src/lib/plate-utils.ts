@@ -31,8 +31,7 @@ export function extractText(content: string): string {
   return nodes.map((n) => collectText(n.children ?? [])).join("\n");
 }
 
-export async function toMarkdown(content: string): Promise<string> {
-  if (!content.trim()) return "";
+async function createHeadlessEditor() {
   const { createSlateEditor, BaseParagraphPlugin } = await import("platejs");
   const { MarkdownPlugin } = await import("@platejs/markdown");
   const {
@@ -63,7 +62,7 @@ export async function toMarkdown(content: string): Promise<string> {
   } = await import("@platejs/table");
   const remarkGfm = (await import("remark-gfm")).default;
 
-  const editor = createSlateEditor({
+  return createSlateEditor({
     plugins: [
       BaseParagraphPlugin,
       BaseH1Plugin,
@@ -93,7 +92,18 @@ export async function toMarkdown(content: string): Promise<string> {
       }),
     ],
   });
+}
 
+export async function toMarkdown(content: string): Promise<string> {
+  if (!content.trim()) return "";
+  const editor = await createHeadlessEditor();
   const value = JSON.parse(content) as PlateValue;
   return editor.api.markdown.serialize({ value } as never);
+}
+
+export async function fromMarkdown(markdown: string): Promise<string> {
+  if (!markdown.trim()) return JSON.stringify(EMPTY_VALUE);
+  const editor = await createHeadlessEditor();
+  const value = editor.api.markdown.deserialize(markdown);
+  return JSON.stringify(value);
 }

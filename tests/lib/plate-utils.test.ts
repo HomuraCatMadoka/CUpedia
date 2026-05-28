@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { parseContent, extractText, toMarkdown } from "@/lib/plate-utils";
+import {
+  parseContent,
+  extractText,
+  toMarkdown,
+  fromMarkdown,
+} from "@/lib/plate-utils";
 
 describe("parseContent", () => {
   it("returns empty paragraph for empty string", () => {
@@ -72,5 +77,34 @@ describe("toMarkdown", () => {
     const md = await toMarkdown(json);
     expect(md).toContain("## Title");
     expect(md).toContain("Body");
+  });
+});
+
+describe("fromMarkdown", () => {
+  it("converts heading and paragraph to Plate JSON string", async () => {
+    const json = await fromMarkdown("## Title\n\nBody text");
+    const nodes = JSON.parse(json);
+    expect(nodes[0]).toMatchObject({ type: "h2" });
+    expect(nodes.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("returns empty paragraph JSON for empty string", async () => {
+    const json = await fromMarkdown("");
+    const nodes = JSON.parse(json);
+    expect(nodes).toEqual([{ type: "p", children: [{ text: "" }] }]);
+  });
+
+  it("round-trips: fromMarkdown → toMarkdown preserves content", async () => {
+    const original = "## Hello\n\nWorld";
+    const json = await fromMarkdown(original);
+    const md = await toMarkdown(json);
+    expect(md).toContain("## Hello");
+    expect(md).toContain("World");
+  });
+
+  it("converts GFM tables", async () => {
+    const json = await fromMarkdown("| A | B |\n| --- | --- |\n| 1 | 2 |");
+    const nodes = JSON.parse(json);
+    expect(nodes.some((n: { type: string }) => n.type === "table")).toBe(true);
   });
 });
