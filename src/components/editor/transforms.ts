@@ -43,7 +43,7 @@ const insertBlockMap: Record<
   [KEYS.ol]: insertList,
   [KEYS.ul]: insertList,
   [KEYS.callout]: (editor) =>
-    insertCallout(editor, { select: true, icon: "ℹ️" }),
+    insertCallout(editor, { select: true, variant: "info", icon: "ℹ️" }),
   [KEYS.codeBlock]: (editor) => insertCodeBlock(editor, { select: true }),
   [KEYS.img]: (editor) => insertMedia(editor, { select: true, type: KEYS.img }),
   [KEYS.table]: (editor) =>

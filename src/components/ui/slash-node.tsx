@@ -140,6 +140,7 @@ const groups: Group[] = [
         value: "callout_info",
         onSelect: (editor: PlateEditor) => {
           insertCallout(editor, { select: true, variant: "info", icon: "ℹ️" });
+          editor.tf.removeNodes({ previousEmptyBlock: true });
         },
       },
       {
@@ -149,6 +150,7 @@ const groups: Group[] = [
         value: "callout_tip",
         onSelect: (editor: PlateEditor) => {
           insertCallout(editor, { select: true, variant: "tip", icon: "💡" });
+          editor.tf.removeNodes({ previousEmptyBlock: true });
         },
       },
       {
@@ -162,6 +164,7 @@ const groups: Group[] = [
             variant: "warning",
             icon: "⚠️",
           });
+          editor.tf.removeNodes({ previousEmptyBlock: true });
         },
       },
       {
@@ -171,6 +174,7 @@ const groups: Group[] = [
         value: "callout_error",
         onSelect: (editor: PlateEditor) => {
           insertCallout(editor, { select: true, variant: "error", icon: "🚫" });
+          editor.tf.removeNodes({ previousEmptyBlock: true });
         },
       },
     ],

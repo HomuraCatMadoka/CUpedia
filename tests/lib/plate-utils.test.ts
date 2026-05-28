@@ -89,6 +89,19 @@ describe("toMarkdown", () => {
     expect(md).toContain("## Title");
     expect(md).toContain("Body");
   });
+
+  it("preserves callout text in markdown output", async () => {
+    const json = JSON.stringify([
+      {
+        type: "callout",
+        variant: "warning",
+        icon: "⚠️",
+        children: [{ text: "Warning content here" }],
+      },
+    ]);
+    const md = await toMarkdown(json);
+    expect(md).toContain("Warning content here");
+  });
 });
 
 describe("fromMarkdown", () => {

@@ -62,6 +62,8 @@ async function createHeadlessEditor() {
     BaseTableCellHeaderPlugin,
   } = await import("@platejs/table");
   const remarkGfm = (await import("remark-gfm")).default;
+  const { calloutMarkdownRules } =
+    await import("@/components/editor/plugins/markdown-kit");
 
   return createSlateEditor({
     plugins: [
@@ -90,7 +92,7 @@ async function createHeadlessEditor() {
       BaseTableCellPlugin,
       BaseTableCellHeaderPlugin,
       MarkdownPlugin.configure({
-        options: { remarkPlugins: [remarkGfm] },
+        options: { remarkPlugins: [remarkGfm], rules: calloutMarkdownRules },
       }),
     ],
   });
