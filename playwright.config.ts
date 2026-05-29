@@ -28,5 +28,6 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
+    env: { E2E_TEST: "1" },
   },
 });
