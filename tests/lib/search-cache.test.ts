@@ -4,6 +4,7 @@ const {
   mockRevalidateTag,
   mockUnstableCache,
   unstableCacheCalls,
+  cacheStore,
   mockDbSelect,
   mockDbExecute,
   mockDbUpdate,
@@ -12,13 +13,20 @@ const {
   mockDbQueryWikiRevisions,
 } = vi.hoisted(() => {
   const unstableCacheCalls: unknown[][] = [];
+  const cacheStore = new Map<string, unknown>();
   return {
-    mockRevalidateTag: vi.fn(),
+    mockRevalidateTag: vi.fn((..._a: unknown[]) => cacheStore.clear()),
     mockUnstableCache: vi.fn((...args: unknown[]) => {
       unstableCacheCalls.push(args);
-      return args[0];
+      const loader = args[0] as () => Promise<unknown>;
+      const key = JSON.stringify(args[1]);
+      return async () => {
+        if (!cacheStore.has(key)) cacheStore.set(key, await loader());
+        return cacheStore.get(key);
+      };
     }),
     unstableCacheCalls,
+    cacheStore,
     mockDbSelect: vi.fn(),
     mockDbExecute: vi.fn(),
     mockDbUpdate: vi.fn(),
@@ -82,6 +90,17 @@ vi.mock("@/lib/slug", () => ({
   validateSlug: vi.fn().mockReturnValue(true),
 }));
 
+vi.mock("@/lib/plate-utils", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/plate-utils")>(
+      "@/lib/plate-utils",
+    );
+  return { ...actual, extractText: vi.fn(actual.extractText) };
+});
+
+import { extractText } from "@/lib/plate-utils";
+const mockExtractText = vi.mocked(extractText);
+
 import {
   searchWikiPages,
   getWikiTree,
@@ -112,6 +131,7 @@ const mockPages = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cacheStore.clear();
 });
 
 describe("searchWikiPages (cached)", () => {
@@ -138,6 +158,30 @@ describe("searchWikiPages (cached)", () => {
   it("returns empty for empty string", async () => {
     const results = await searchWikiPages("");
     expect(results).toEqual([]);
+  });
+
+  it("falls back to fuzzy match when no exact match", async () => {
+    const results = await searchWikiPages("觅食");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].id).toBe("2");
+  });
+
+  it("extracts text inside the cached loader, not per search call", async () => {
+    mockExtractText.mockClear();
+    await searchWikiPages("正装");
+    await searchWikiPages("美食");
+    // extractText runs once per page within the cached data loader,
+    // and is not re-run by searchWikiPages on each request.
+    expect(mockExtractText).toHaveBeenCalledTimes(mockPages.length);
+  });
+
+  it("cached search loader is tagged wiki-pages for invalidation", () => {
+    const call = unstableCacheCalls.find(
+      (c) =>
+        Array.isArray(c[1]) && (c[1] as string[]).includes("wiki-pages-search"),
+    );
+    expect(call).toBeDefined();
+    expect((call![2] as { tags: string[] }).tags).toContain("wiki-pages");
   });
 });
 

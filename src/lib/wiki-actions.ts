@@ -246,9 +246,9 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
   revalidateTag("wiki-pages", "max");
 }
 
-const getCachedPages = unstable_cache(
-  async () =>
-    db
+const getCachedSearchablePages = unstable_cache(
+  async () => {
+    const pages = await db
       .select({
         id: wikiPages.id,
         slug: wikiPages.slug,
@@ -256,18 +256,16 @@ const getCachedPages = unstable_cache(
         content: wikiPages.content,
       })
       .from(wikiPages)
-      .where(isNull(wikiPages.deletedAt)),
+      .where(isNull(wikiPages.deletedAt));
+    return pages.map((p) => ({ ...p, content: extractText(p.content) }));
+  },
   ["wiki-pages-search"],
   { tags: ["wiki-pages"] },
 );
 
 export async function searchWikiPages(query: string) {
   if (!query.trim()) return [];
-  const pages = await getCachedPages();
-  const searchable = pages.map((p) => ({
-    ...p,
-    content: extractText(p.content),
-  }));
+  const searchable = await getCachedSearchablePages();
   return searchPages(searchable, query);
 }
 
