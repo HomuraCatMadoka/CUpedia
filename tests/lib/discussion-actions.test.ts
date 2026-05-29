@@ -191,14 +191,38 @@ describe("resolveDiscussion", () => {
     );
   });
 
-  it("resolves an existing discussion", async () => {
-    mockAuthSession();
-    mockDbQueryDiscussions.findFirst.mockResolvedValue({ id: "d1" });
+  it("rejects non-owner non-admin from resolving", async () => {
+    mockAuthSession("user-2");
+    mockDbQueryDiscussions.findFirst.mockResolvedValue({
+      id: "d1",
+      userId: "user-1",
+    });
+    await expect(resolveDiscussion("d1")).rejects.toThrow("Permission denied");
+  });
+
+  it("allows owner to resolve their discussion", async () => {
+    mockAuthSession("user-1");
+    mockDbQueryDiscussions.findFirst.mockResolvedValue({
+      id: "d1",
+      userId: "user-1",
+    });
     const chain = mockDbUpdate();
     chain.where.mockResolvedValue(undefined);
 
     await expect(resolveDiscussion("d1")).resolves.not.toThrow();
     expect(mockDbUpdate).toHaveBeenCalled();
+  });
+
+  it("allows admin to resolve any discussion", async () => {
+    mockAuthSession("admin-1", "admin");
+    mockDbQueryDiscussions.findFirst.mockResolvedValue({
+      id: "d1",
+      userId: "user-1",
+    });
+    const chain = mockDbUpdate();
+    chain.where.mockResolvedValue(undefined);
+
+    await expect(resolveDiscussion("d1")).resolves.not.toThrow();
   });
 });
 

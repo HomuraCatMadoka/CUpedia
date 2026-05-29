@@ -30,21 +30,27 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
   const handleNewComment = (content: string) => {
     startTransition(async () => {
       const commentId = nanoid(10);
-      const id = await createDiscussion(pageId, commentId, content);
-      if (id) {
-        const draftNodes = commentApi.comment.nodes({ isDraft: true });
-        for (const [node] of draftNodes) {
-          editor.tf.unsetNodes([getDraftCommentKey()], {
-            at: [],
-            match: (n) => n === node,
+      try {
+        const id = await createDiscussion(pageId, commentId, content);
+        if (id) {
+          editor.tf.withoutNormalizing(() => {
+            const draftNodes = commentApi.comment.nodes({ isDraft: true });
+            for (const [node] of draftNodes) {
+              editor.tf.setNodes(
+                {
+                  [getDraftCommentKey()]: undefined,
+                  [getCommentKey(commentId)]: true,
+                },
+                { at: [], match: (n) => n === node },
+              );
+            }
           });
-          editor.tf.setNodes(
-            { [getCommentKey(commentId)]: true },
-            { at: [], match: (n) => n === node },
-          );
+          setActiveCommentId(commentId);
+          refresh();
         }
-        setActiveCommentId(commentId);
-        refresh();
+      } catch {
+        commentTf.comment.removeMark();
+        setActiveCommentId(null);
       }
     });
   };

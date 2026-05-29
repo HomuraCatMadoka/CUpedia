@@ -110,13 +110,17 @@ export async function addReply(discussionId: string, content: string) {
 }
 
 export async function resolveDiscussion(discussionId: string) {
-  await requireAuth();
+  const user = await requireAuth();
 
   const discussion = await db.query.discussions.findFirst({
     where: and(eq(discussions.id, discussionId), isNull(discussions.parentId)),
-    columns: { id: true },
+    columns: { id: true, userId: true },
   });
   if (!discussion) throw new Error("Discussion not found");
+
+  if (discussion.userId !== user.id && user.role !== "admin") {
+    throw new Error("Permission denied");
+  }
 
   await db
     .update(discussions)

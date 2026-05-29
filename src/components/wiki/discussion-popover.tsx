@@ -39,9 +39,11 @@ function DiscussionMessage({ discussion }: { discussion: Discussion }) {
 export function DiscussionThread({
   discussion,
   onUpdate,
+  readOnly = false,
 }: {
   discussion: Discussion;
   onUpdate: () => void;
+  readOnly?: boolean;
 }) {
   const [reply, setReply] = useState("");
   const [pending, startTransition] = useTransition();
@@ -77,7 +79,7 @@ export function DiscussionThread({
         </div>
       ))}
 
-      {!discussion.resolved && (
+      {!discussion.resolved && !readOnly && (
         <>
           <div className="flex gap-2">
             <Textarea

@@ -27,12 +27,10 @@ export default async function WikiReadPage({
 
   if (!page) notFound();
 
-  const [canEdit, headings, plateValue, discussions] = [
-    !!user && (editRole === "user" || user.role === "admin"),
-    extractHeadings(page.content),
-    parseContent(page.content),
-    await getDiscussions(page.id),
-  ];
+  const canEdit = !!user && (editRole === "user" || user.role === "admin");
+  const headings = extractHeadings(page.content);
+  const plateValue = parseContent(page.content);
+  const discussions = await getDiscussions(page.id);
 
   const parentPage = page.parentId
     ? pages.find((p) => p.id === page.parentId)
@@ -98,6 +96,7 @@ export default async function WikiReadPage({
               value={plateValue}
               pageId={page.id}
               discussions={discussions}
+              canComment={!!user}
             />
           </div>
         </div>
