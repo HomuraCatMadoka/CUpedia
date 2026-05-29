@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plate, usePlateEditor } from "platejs/react";
+
+import { useAutosave } from "@/hooks/use-autosave";
 
 import { BasicNodesKit } from "@/components/editor/plugins/basic-nodes-kit";
 import { CalloutKit } from "@/components/editor/plugins/callout-kit";
@@ -44,8 +46,15 @@ interface WikiEditorProps {
     editSummary?: string;
     parentId?: string | null;
     expectedUpdatedAt?: string;
-  }) => Promise<{ error?: string; slug?: string }>;
+  }) => Promise<{ error?: string; slug?: string; updatedAt?: string }>;
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  unsaved: "未保存",
+  saving: "保存中...",
+  saved: "已保存",
+  error: "保存失败",
+};
 
 export function WikiEditor({
   mode,
@@ -63,7 +72,11 @@ export function WikiEditor({
   const [editSummary, setEditSummary] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [content, setContent] = useState(() => JSON.stringify(initialValue));
   const router = useRouter();
+
+  const baselineRef = useRef(expectedUpdatedAt);
+  const autosaveEnabled = mode === "edit" && Boolean(pageId);
 
   const editor = usePlateEditor({
     plugins: [
@@ -85,26 +98,37 @@ export function WikiEditor({
     value: initialValue,
   });
 
+  const save = useCallback(
+    async (next: string) => {
+      const result = await onSubmit({
+        slug,
+        title,
+        content: next,
+        editSummary: editSummary || undefined,
+        parentId,
+        expectedUpdatedAt: baselineRef.current,
+      });
+      if (result.updatedAt) baselineRef.current = result.updatedAt;
+      return result;
+    },
+    [slug, title, editSummary, parentId, onSubmit],
+  );
+
+  const autosave = useAutosave({
+    content,
+    onSave: save,
+    enabled: autosaveEnabled,
+  });
+
   const handleSubmit = useCallback(async () => {
     setError("");
-    setSubmitting(true);
-
     if (!title.trim()) {
       setError("标题不能为空");
-      setSubmitting(false);
       return;
     }
+    setSubmitting(true);
 
-    const content = JSON.stringify(editor.children);
-
-    const result = await onSubmit({
-      slug,
-      title,
-      content,
-      editSummary: editSummary || undefined,
-      parentId,
-      expectedUpdatedAt,
-    });
+    const result = await save(JSON.stringify(editor.children));
 
     if (result.error === "EDIT_CONFLICT") {
       setError("编辑冲突：该页面已被其他用户修改。请刷新页面查看最新版本。");
@@ -123,16 +147,30 @@ export function WikiEditor({
     }
 
     router.push(`/wiki/${result.slug}`);
-  }, [
-    title,
-    slug,
-    editSummary,
-    parentId,
-    expectedUpdatedAt,
-    editor,
-    onSubmit,
-    router,
-  ]);
+  }, [title, save, editor, router]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (autosaveEnabled) void autosave.save();
+        else void handleSubmit();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [autosaveEnabled, autosave, handleSubmit]);
+
+  useEffect(() => {
+    if (!autosave.isDirty) return;
+    const handler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement)?.closest("a");
+      if (!anchor || anchor.target === "_blank") return;
+      if (!window.confirm("有未保存的修改，确定要离开吗？")) e.preventDefault();
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, [autosave.isDirty]);
 
   return (
     <div className="space-y-4">
@@ -156,7 +194,10 @@ export function WikiEditor({
           />
         </div>
       )}
-      <Plate editor={editor}>
+      <Plate
+        editor={editor}
+        onValueChange={({ value }) => setContent(JSON.stringify(value))}
+      >
         <DiscussionProvider
           pageId={pageId ?? ""}
           initialDiscussions={initialDiscussions}
@@ -186,9 +227,16 @@ export function WikiEditor({
         />
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
-      <Button onClick={handleSubmit} disabled={submitting}>
-        {submitting ? "保存中..." : "保存"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button onClick={handleSubmit} disabled={submitting}>
+          {submitting ? "保存中..." : "保存"}
+        </Button>
+        {autosaveEnabled && autosave.status !== "idle" && (
+          <span className="text-sm text-muted-foreground">
+            {STATUS_LABEL[autosave.status]}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

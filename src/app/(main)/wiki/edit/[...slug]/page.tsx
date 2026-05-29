@@ -35,7 +35,10 @@ export default async function EditWikiPage({
         editSummary: data.editSummary,
         expectedUpdatedAt: data.expectedUpdatedAt!,
       });
-      return { slug: updated.slug };
+      return {
+        slug: updated.slug,
+        updatedAt: new Date(updated.updatedAt).toISOString(),
+      };
     } catch (e: unknown) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
