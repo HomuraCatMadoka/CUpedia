@@ -110,6 +110,74 @@ describe("useAutosave", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(result.current.isDirty).toBe(false);
   });
+
+  it("serializes overlapping saves instead of issuing concurrent requests", async () => {
+    let resolve!: (v: { error?: string }) => void;
+    const onSave = vi.fn(
+      () => new Promise<{ error?: string }>((r) => (resolve = r)),
+    );
+    const { result, rerender } = renderHook(
+      (props) => useAutosaveHarness(props),
+      { initialProps: { content: "a", onSave } },
+    );
+
+    rerender({ content: "b", onSave });
+    // First flush starts and stays in flight.
+    let first!: Promise<void>;
+    act(() => {
+      first = result.current.save();
+    });
+    expect(result.current.status).toBe("saving");
+    // A second trigger while in flight must be dropped, not run concurrently.
+    await act(async () => {
+      await result.current.save();
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolve({});
+      await first;
+    });
+    expect(result.current.status).toBe("saved");
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves the trailing edit made while a save is in flight", async () => {
+    let resolveFirst!: (v: { error?: string }) => void;
+    const onSave = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise<{ error?: string }>((r) => (resolveFirst = r)),
+      )
+      .mockResolvedValue({});
+    const { result, rerender } = renderHook(
+      (props) => useAutosaveHarness(props),
+      { initialProps: { content: "a", onSave } },
+    );
+
+    rerender({ content: "b", onSave });
+    let first!: Promise<void>;
+    act(() => {
+      first = result.current.save();
+    });
+    expect(onSave).toHaveBeenNthCalledWith(1, "b");
+
+    // User keeps typing while "b" is still saving.
+    rerender({ content: "c", onSave });
+    await act(async () => {
+      resolveFirst({});
+      await first;
+    });
+    // Trailing edit must not be silently lost.
+    expect(result.current.isDirty).toBe(true);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(onSave).toHaveBeenLastCalledWith("c");
+    expect(result.current.status).toBe("saved");
+    expect(result.current.isDirty).toBe(false);
+  });
 });
 
 interface HarnessProps {
