@@ -1,1 +1,1 @@
-ALTER TABLE "wiki_pages" ADD COLUMN "search_vector" "tsvector";
+ALTER TABLE "wiki_pages" ADD COLUMN IF NOT EXISTS "search_vector" "tsvector";
