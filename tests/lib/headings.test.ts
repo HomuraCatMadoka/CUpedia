@@ -122,7 +122,7 @@ describe("extractHeadings with Plate JSON string", () => {
     expect(extractHeadings("")).toEqual([]);
   });
 
-  it("throws on invalid JSON content", () => {
-    expect(() => extractHeadings("not json at all")).toThrow();
+  it("returns no headings for non-JSON (legacy) content", () => {
+    expect(extractHeadings("not json at all")).toEqual([]);
   });
 });

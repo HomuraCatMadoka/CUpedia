@@ -8,7 +8,13 @@ const EMPTY_VALUE: PlateValue = [
 
 export function parseContent(content: string): PlateValue {
   if (!content.trim()) return EMPTY_VALUE;
-  return JSON.parse(content) as PlateValue;
+  try {
+    return JSON.parse(content) as PlateValue;
+  } catch {
+    // Legacy/non-JSON (e.g. raw markdown) content: degrade to a plain-text
+    // paragraph instead of crashing the editor/render route.
+    return [{ type: "p", children: [{ text: content }] }] as PlateValue;
+  }
 }
 
 type Node = { text?: string; children?: Node[] };
@@ -27,7 +33,12 @@ function collectText(nodes: Node[]): string {
 
 export function extractText(content: string): string {
   if (!content.trim()) return "";
-  const nodes = JSON.parse(content) as Node[];
+  let nodes: Node[];
+  try {
+    nodes = JSON.parse(content) as Node[];
+  } catch {
+    return content;
+  }
   return nodes.map((n) => collectText(n.children ?? [])).join("\n");
 }
 

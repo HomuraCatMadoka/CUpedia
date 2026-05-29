@@ -27,8 +27,11 @@ describe("parseContent", () => {
     expect(result[1]).toMatchObject({ type: "p" });
   });
 
-  it("throws on invalid JSON", () => {
-    expect(() => parseContent("not json")).toThrow();
+  it("degrades non-JSON content to a plain-text paragraph", () => {
+    const result = parseContent("# Welcome\n\nlegacy markdown");
+    expect(result).toEqual([
+      { type: "p", children: [{ text: "# Welcome\n\nlegacy markdown" }] },
+    ]);
   });
 });
 
