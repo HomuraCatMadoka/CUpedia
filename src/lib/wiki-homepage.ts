@@ -10,16 +10,19 @@ export async function getCategoryCards() {
     .groupBy(wikiPages.parentId)
     .as("children");
 
+  // inner join drops top-level pages with no children (childCount === 0)
   return db
     .select({
       id: wikiPages.id,
       slug: wikiPages.slug,
       title: wikiPages.title,
-      childCount: sql<number>`COALESCE(${children.cnt}, 0)`.as("childCount"),
+      childCount: sql<number>`${children.cnt}`.as("childCount"),
     })
     .from(wikiPages)
-    .leftJoin(children, eq(wikiPages.id, children.parentId))
-    .where(sql`${wikiPages.parentId} IS NULL AND ${wikiPages.deletedAt} IS NULL`)
+    .innerJoin(children, eq(wikiPages.id, children.parentId))
+    .where(
+      sql`${wikiPages.parentId} IS NULL AND ${wikiPages.deletedAt} IS NULL`,
+    )
     .orderBy(wikiPages.sortOrder);
 }
 
