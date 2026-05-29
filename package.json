@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
     "seed": "tsx scripts/seed.ts",
     "migrate-content": "tsx scripts/migrate-content.ts",
     "migrate-content:dry": "tsx scripts/migrate-content.ts --dry-run"
@@ -90,6 +91,7 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

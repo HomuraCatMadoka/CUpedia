@@ -14,8 +14,10 @@ const eslintConfig = defineConfig([
         {
           devDependencies: [
             "tests/**",
+            "e2e/**",
             "scripts/**",
             "vitest.config.*",
+            "playwright.config.*",
             "eslint.config.*",
             "drizzle.config.*",
           ],

@@ -4,6 +4,8 @@ import path from "path";
 export default defineConfig({
   test: {
     globals: true,
+    include: ["tests/**/*.{test,spec}.{ts,tsx}"],
+    exclude: ["e2e/**", "node_modules/**"],
     server: {
       deps: { inline: [/@platejs\/math/, /katex/] },
     },
