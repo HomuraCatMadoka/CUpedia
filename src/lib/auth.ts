@@ -81,6 +81,9 @@ export const auth = betterAuth({
   advanced: {
     database: { generateId: "uuid" },
   },
+  // Disable the per-IP request rate limit only under e2e, where many serial
+  // sign-ins in one window would otherwise trip better-auth's 429 default.
+  rateLimit: { enabled: process.env.E2E_TEST !== "1" },
   session: {
     cookieCache: {
       enabled: true,

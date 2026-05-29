@@ -1,9 +1,9 @@
 "use client";
 
-import { getCommentKeyId, getCommentKeys } from "@platejs/comment";
 import type { TCommentText } from "platejs";
 import type { PlateLeafProps } from "platejs/react";
 import { PlateLeaf } from "platejs/react";
+import { commentLeafId } from "@/lib/comment-leaf-id";
 import { useDiscussions } from "@/components/wiki/discussion-context";
 import { cn } from "@/lib/utils";
 
@@ -11,10 +11,7 @@ export function CommentLeaf(props: PlateLeafProps<TCommentText>) {
   const { children, leaf, text } = props;
   const { activeCommentId, setActiveCommentId } = useDiscussions();
 
-  const node = leaf ?? text;
-  const keys = node ? getCommentKeys(node) : [];
-  const leafId =
-    keys.length > 0 ? getCommentKeyId(keys[keys.length - 1]) : null;
+  const leafId = commentLeafId(leaf ?? text);
   const isActive = leafId !== null && leafId === activeCommentId;
 
   return (
