@@ -211,7 +211,9 @@ export function WikiSidebar({
       <nav
         className={cn(
           "flex h-[calc(100vh-3.5rem)] w-[var(--sidebar-width)] shrink-0 flex-col overflow-y-auto border-r bg-[var(--sidebar-bg)]",
-          isOverlay ? "fixed left-0 top-14 z-50 shadow-lg" : "sticky top-14",
+          isOverlay
+            ? "fixed left-0 top-14 z-50 shadow-lg"
+            : "sticky top-14 max-md:hidden",
         )}
         style={{
           borderColor: "var(--sidebar-border-color)",
