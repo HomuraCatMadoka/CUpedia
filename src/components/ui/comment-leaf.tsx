@@ -8,10 +8,11 @@ import { useDiscussions } from "@/components/wiki/discussion-context";
 import { cn } from "@/lib/utils";
 
 export function CommentLeaf(props: PlateLeafProps<TCommentText>) {
-  const { children, leaf } = props;
+  const { children, leaf, text } = props;
   const { activeCommentId, setActiveCommentId } = useDiscussions();
 
-  const keys = getCommentKeys(leaf);
+  const node = leaf ?? text;
+  const keys = node ? getCommentKeys(node) : [];
   const leafId =
     keys.length > 0 ? getCommentKeyId(keys[keys.length - 1]) : null;
   const isActive = leafId !== null && leafId === activeCommentId;

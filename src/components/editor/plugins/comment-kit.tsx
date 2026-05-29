@@ -5,6 +5,6 @@ import { CommentLeaf } from "@/components/ui/comment-leaf";
 
 export const CommentKit = [
   CommentPlugin.configure({
-    node: { component: CommentLeaf },
+    node: { component: CommentLeaf, isDecoration: false },
   }),
 ];
