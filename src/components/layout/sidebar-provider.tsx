@@ -7,6 +7,7 @@ import {
   useEffect,
   useCallback,
 } from "react";
+import { serializeSidebarCookie } from "@/lib/sidebar-cookie";
 
 type SidebarState = "expanded" | "collapsed" | "mobile-open";
 
@@ -22,49 +23,48 @@ interface SidebarContextValue {
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
 
-const STORAGE_KEY = "wiki-sidebar-state";
+function persist(collapsed: boolean) {
+  document.cookie = serializeSidebarCookie(collapsed);
+}
 
-export function SidebarProvider({ children }: { children: React.ReactNode }) {
+export function SidebarProvider({
+  children,
+  initialCollapsed = false,
+}: {
+  children: React.ReactNode;
+  initialCollapsed?: boolean;
+}) {
   const [isMobile, setIsMobile] = useState(false);
-  const [state, setState] = useState<SidebarState>(() => {
-    if (typeof window === "undefined") return "expanded";
-    if (window.matchMedia("(max-width: 767px)").matches) return "collapsed";
-    return localStorage.getItem(STORAGE_KEY) === "collapsed"
-      ? "collapsed"
-      : "expanded";
-  });
+  const [state, setState] = useState<SidebarState>(
+    initialCollapsed ? "collapsed" : "expanded",
+  );
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     const update = () => {
       const mobile = mq.matches;
       setIsMobile(mobile);
-      if (mobile) {
-        setState("collapsed");
-      } else {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        setState(saved === "collapsed" ? "collapsed" : "expanded");
-      }
+      setState(mobile || initialCollapsed ? "collapsed" : "expanded");
     };
     update();
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
-  }, []);
+  }, [initialCollapsed]);
 
   const expand = useCallback(() => {
     setState("expanded");
-    if (!isMobile) localStorage.setItem(STORAGE_KEY, "expanded");
+    if (!isMobile) persist(false);
   }, [isMobile]);
 
   const collapse = useCallback(() => {
     setState("collapsed");
-    if (!isMobile) localStorage.setItem(STORAGE_KEY, "collapsed");
+    if (!isMobile) persist(true);
   }, [isMobile]);
 
   const toggle = useCallback(() => {
     setState((s) => {
       const next = s === "expanded" ? "collapsed" : "expanded";
-      if (!isMobile) localStorage.setItem(STORAGE_KEY, next);
+      if (!isMobile) persist(next === "collapsed");
       return next;
     });
   }, [isMobile]);
