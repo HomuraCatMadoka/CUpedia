@@ -1,16 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 
 export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
   const { state, isMobile, toggle, openMobile } = useSidebar();
 
-  if (state === "expanded" || state === "mobile-open") return null;
+  // Overlay state hides the rail entirely. The expanded state still renders the
+  // rail but only at the mobile breakpoint (`md:hidden`), so the first paint on
+  // small screens is the collapsed rail via CSS — no expand→collapse flash.
+  if (state === "mobile-open") return null;
 
   return (
     <div
-      className="flex h-full w-[var(--sidebar-collapsed-width)] shrink-0 flex-col items-center gap-2 border-r bg-[var(--sidebar-bg)] pt-3"
+      className={cn(
+        "flex h-full w-[var(--sidebar-collapsed-width)] shrink-0 flex-col items-center gap-2 border-r bg-[var(--sidebar-bg)] pt-3",
+        state === "expanded" && "md:hidden",
+      )}
       style={{ borderColor: "var(--sidebar-border-color)" }}
     >
       <button
