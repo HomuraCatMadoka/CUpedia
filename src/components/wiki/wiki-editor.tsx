@@ -6,6 +6,7 @@ import { Plate, usePlateEditor } from "platejs/react";
 
 import { BasicNodesKit } from "@/components/editor/plugins/basic-nodes-kit";
 import { CalloutKit } from "@/components/editor/plugins/callout-kit";
+import { CommentKit } from "@/components/editor/plugins/comment-kit";
 import { CodeBlockKit } from "@/components/editor/plugins/code-block-kit";
 import { DndKit } from "@/components/editor/plugins/dnd-kit";
 import { LinkKit } from "@/components/editor/plugins/link-kit";
@@ -22,15 +23,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DiscussionProvider } from "@/components/wiki/discussion-context";
+import { DiscussionSidebar } from "@/components/wiki/discussion-sidebar";
+import type { Discussion } from "@/lib/discussion-actions";
 import type { PlateValue } from "@/lib/plate-utils";
 
 interface WikiEditorProps {
   mode: "create" | "edit";
+  pageId?: string;
   initialTitle?: string;
   initialValue?: PlateValue;
   initialSlug?: string;
   expectedUpdatedAt?: string;
   parentId?: string | null;
+  initialDiscussions?: Discussion[];
   onSubmit: (data: {
     slug: string;
     title: string;
@@ -43,11 +49,13 @@ interface WikiEditorProps {
 
 export function WikiEditor({
   mode,
+  pageId,
   initialTitle = "",
   initialValue,
   initialSlug = "",
   expectedUpdatedAt,
   parentId,
+  initialDiscussions = [],
   onSubmit,
 }: WikiEditorProps) {
   const [title, setTitle] = useState(initialTitle);
@@ -62,6 +70,7 @@ export function WikiEditor({
       ...BasicNodesKit,
       ...CalloutKit,
       ...CodeBlockKit,
+      ...CommentKit,
       ...LinkKit,
       ...ListKit,
       ...MathKit,
@@ -147,13 +156,25 @@ export function WikiEditor({
           />
         </div>
       )}
-      <div className="rounded-lg border">
-        <Plate editor={editor}>
-          <EditorContainer>
-            <Editor variant="fullWidth" placeholder="开始编辑..." />
-          </EditorContainer>
-        </Plate>
-      </div>
+      <Plate editor={editor}>
+        <DiscussionProvider
+          pageId={pageId ?? ""}
+          initialDiscussions={initialDiscussions}
+        >
+          <div className="flex gap-4">
+            <div className="min-w-0 flex-1 rounded-lg border">
+              <EditorContainer>
+                <Editor variant="fullWidth" placeholder="开始编辑..." />
+              </EditorContainer>
+            </div>
+            {mode === "edit" && pageId && (
+              <div className="w-72 shrink-0">
+                <DiscussionSidebar pageId={pageId} />
+              </div>
+            )}
+          </div>
+        </DiscussionProvider>
+      </Plate>
       <div className="space-y-2">
         <Label htmlFor="summary">编辑摘要（可选）</Label>
         <Textarea

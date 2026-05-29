@@ -6,6 +6,7 @@ import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { getOptionalUser } from "@/lib/auth-guard";
+import { getDiscussions } from "@/lib/discussion-actions";
 import { getWikiEditRole } from "@/lib/site-settings";
 import { extractHeadings } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
@@ -26,9 +27,12 @@ export default async function WikiReadPage({
 
   if (!page) notFound();
 
-  const canEdit = !!user && (editRole === "user" || user.role === "admin");
-  const headings = extractHeadings(page.content);
-  const plateValue = parseContent(page.content);
+  const [canEdit, headings, plateValue, discussions] = [
+    !!user && (editRole === "user" || user.role === "admin"),
+    extractHeadings(page.content),
+    parseContent(page.content),
+    await getDiscussions(page.id),
+  ];
 
   const parentPage = page.parentId
     ? pages.find((p) => p.id === page.parentId)
@@ -90,7 +94,11 @@ export default async function WikiReadPage({
             · {new Date(page.updatedAt).toLocaleDateString("zh-CN")}
           </div>
           <div className="mt-6 border-t pt-6">
-            <WikiRenderer value={plateValue} />
+            <WikiRenderer
+              value={plateValue}
+              pageId={page.id}
+              discussions={discussions}
+            />
           </div>
         </div>
       </div>

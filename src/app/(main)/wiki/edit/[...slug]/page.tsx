@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireEditorOrRedirect } from "@/lib/auth-guard";
 import { getWikiPage, getWikiTree, updateWikiPage } from "@/lib/wiki-actions";
+import { getDiscussions } from "@/lib/discussion-actions";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
@@ -16,6 +17,7 @@ export default async function EditWikiPage({
   const slug = slugParts.map(decodeURIComponent).join("/");
   const [page, pages] = await Promise.all([getWikiPage(slug), getWikiTree()]);
   if (!page) notFound();
+  const discussions = await getDiscussions(page.id);
 
   async function handleUpdate(data: {
     slug: string;
@@ -48,10 +50,12 @@ export default async function EditWikiPage({
           <h1 className="mb-6 text-2xl font-bold">编辑：{page.title}</h1>
           <WikiEditor
             mode="edit"
+            pageId={page.id}
             initialTitle={page.title}
             initialValue={parseContent(page.content)}
             initialSlug={page.slug}
             expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
+            initialDiscussions={discussions}
             onSubmit={handleUpdate}
           />
         </div>

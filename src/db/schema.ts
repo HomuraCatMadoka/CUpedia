@@ -115,6 +115,46 @@ export const wikiRevisions = pgTable(
   (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
 );
 
+export const discussions = pgTable(
+  "discussions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    commentMarkId: text("comment_mark_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    resolved: boolean("resolved").notNull().default(false),
+    parentId: uuid("parent_id").references((): AnyPgColumn => discussions.id, {
+      onDelete: "cascade",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("discussions_page_id_idx").on(table.pageId),
+    index("discussions_comment_mark_id_idx").on(table.commentMarkId),
+  ],
+);
+
+export const discussionsRelations = relations(discussions, ({ one }) => ({
+  page: one(wikiPages, {
+    fields: [discussions.pageId],
+    references: [wikiPages.id],
+  }),
+  user: one(users, {
+    fields: [discussions.userId],
+    references: [users.id],
+  }),
+  parent: one(discussions, {
+    fields: [discussions.parentId],
+    references: [discussions.id],
+  }),
+}));
+
 export const wikiPagesRelations = relations(wikiPages, ({ one }) => ({
   createdByUser: one(users, {
     fields: [wikiPages.createdBy],
