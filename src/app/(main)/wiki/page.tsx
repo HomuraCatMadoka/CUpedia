@@ -25,7 +25,7 @@ export default async function WikiIndexPage() {
       <WikiSidebar pages={pages} />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-8">
-          <h1 className="text-2xl font-bold">CUpedia</h1>
+          <h1 className="text-2xl font-bold">你的中大百科全书</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             由同学们共同维护的校园生活指南
           </p>

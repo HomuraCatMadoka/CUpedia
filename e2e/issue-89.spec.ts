@@ -41,7 +41,7 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
 
     // Page rendered.
     await expect(
-      page.getByRole("heading", { name: "CUpedia", level: 1 }),
+      page.getByRole("heading", { name: "你的中大百科全书", level: 1 }),
     ).toBeVisible();
 
     // No hydration mismatch reported.

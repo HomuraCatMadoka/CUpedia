@@ -11,6 +11,6 @@ test("wiki index loads", async ({ page }) => {
   const response = await page.goto("/wiki");
   expect(response?.status()).toBe(200);
   await expect(
-    page.getByRole("heading", { name: "CUpedia", level: 1 }),
+    page.getByRole("heading", { name: "你的中大百科全书", level: 1 }),
   ).toBeVisible();
 });
