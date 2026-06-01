@@ -34,6 +34,7 @@ const eslintConfig = defineConfig([
     "CUpedia/**",
     "cu-claw/**",
     "pi-mono/**",
+    "wt/**",
   ]),
 ]);
 
