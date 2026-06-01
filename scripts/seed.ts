@@ -9,7 +9,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { sql } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
-import { users, accounts, wikiPages, wikiRevisions } from "../src/db/schema";
+import {
+  users,
+  accounts,
+  wikiPages,
+  wikiRevisions,
+  siteSettings,
+} from "../src/db/schema";
 import {
   USER_IDS,
   ACCOUNT_IDS,
@@ -39,7 +45,7 @@ async function main() {
 
   console.log("Seeding database...");
 
-  const { pages, revisions } = await buildSeedData();
+  const { pages, revisions, siteSettings: settings } = await buildSeedData();
   const hashedPassword = await hashPassword(PASSWORD);
   const now = new Date();
 
@@ -66,6 +72,7 @@ async function main() {
         name: u.nickname,
         email: u.email,
         emailVerified: true,
+        image: u.image ?? null,
         nickname: u.nickname,
         role: u.role,
         banned: u.banned,
@@ -94,8 +101,9 @@ async function main() {
         content: p.content,
         parentId: p.parentId,
         sortOrder: p.sortOrder,
-        createdBy: USER_IDS.admin,
-        updatedBy: USER_IDS.admin,
+        deletedAt: p.deletedAt,
+        createdBy: p.createdBy,
+        updatedBy: p.updatedBy,
         createdAt: now,
         updatedAt: now,
       });
@@ -109,13 +117,25 @@ async function main() {
         pageId: r.pageId,
         title: r.title,
         content: r.content,
-        editedBy: USER_IDS.admin,
+        editedBy: r.editedBy,
         editSummary: r.editSummary,
         createdAt: now,
       });
     }
 
     console.log(`  Created ${revisions.length} wiki revisions`);
+
+    for (const s of settings) {
+      await tx
+        .insert(siteSettings)
+        .values({ key: s.key, value: s.value })
+        .onConflictDoUpdate({
+          target: siteSettings.key,
+          set: { value: s.value },
+        });
+    }
+
+    console.log(`  Seeded ${settings.length} site settings`);
   });
 
   await pool.end();

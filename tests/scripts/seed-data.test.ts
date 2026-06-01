@@ -32,3 +32,84 @@ describe("seed data content format", () => {
     }
   });
 });
+
+function collectTypes(nodes: unknown[], acc: Set<string>): Set<string> {
+  for (const node of nodes as Array<Record<string, unknown>>) {
+    if (typeof node.type === "string") acc.add(node.type);
+    if (Array.isArray(node.children)) collectTypes(node.children, acc);
+  }
+  return acc;
+}
+
+describe("thickened seed fixtures", () => {
+  it("includes a soft-deleted page (deletedAt set)", async () => {
+    const { pages } = await buildSeedData();
+    const deleted = pages.filter((p) => p.deletedAt != null);
+    expect(deleted.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("has a page with 3+ revisions by 2+ distinct editors", async () => {
+    const { revisions } = await buildSeedData();
+    const byPage = new Map<string, Set<string>>();
+    const counts = new Map<string, number>();
+    for (const r of revisions) {
+      counts.set(r.pageId, (counts.get(r.pageId) ?? 0) + 1);
+      (
+        byPage.get(r.pageId) ?? byPage.set(r.pageId, new Set()).get(r.pageId)!
+      ).add(r.editedBy);
+    }
+    const multi = [...counts.entries()].find(
+      ([id]) => (counts.get(id) ?? 0) >= 3,
+    );
+    expect(multi, "a page with >=3 revisions").toBeDefined();
+    expect(byPage.get(multi![0])!.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("has pages authored by 2+ distinct users", async () => {
+    const { pages } = await buildSeedData();
+    const authors = new Set(pages.map((p) => p.createdBy));
+    expect(authors.size).toBeGreaterThanOrEqual(2);
+  });
+
+  it("has a rich page containing math, table, code, callout and TOC nodes", async () => {
+    const { pages } = await buildSeedData();
+    const rich = pages.find((p) => {
+      const types = collectTypes(JSON.parse(p.content), new Set());
+      return types.has("callout") && types.has("toc");
+    });
+    expect(rich, "a rich-content page").toBeDefined();
+    const types = collectTypes(JSON.parse(rich!.content), new Set());
+    for (const t of [
+      "toc",
+      "equation",
+      "inline_equation",
+      "table",
+      "code_block",
+      "callout",
+    ]) {
+      expect(types.has(t), `node type ${t}`).toBe(true);
+    }
+  });
+
+  it("seeds the wiki edit-role site setting", async () => {
+    const { siteSettings } = await buildSeedData();
+    expect(siteSettings.some((s) => s.key === "wiki_edit_role")).toBe(true);
+  });
+
+  it("builds a hierarchy at least 3 levels deep", async () => {
+    const { pages } = await buildSeedData();
+    const byId = new Map(pages.map((p) => [p.id, p]));
+    const depth = (p: (typeof pages)[number]): number => {
+      let d = 1;
+      let cur = p;
+      while (cur.parentId) {
+        const parent = byId.get(cur.parentId);
+        if (!parent) break;
+        d++;
+        cur = parent;
+      }
+      return d;
+    };
+    expect(Math.max(...pages.map(depth))).toBeGreaterThanOrEqual(3);
+  });
+});
