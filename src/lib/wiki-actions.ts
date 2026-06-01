@@ -9,6 +9,7 @@ import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
 import { extractWikiLinkTargets } from "@/lib/wiki-links";
+import { threeWayMergeContent } from "@/lib/merge-content";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -127,32 +128,40 @@ export async function createWikiPage(data: {
   return page;
 }
 
-export async function updateWikiPage(data: {
-  slug: string;
-  title: string;
-  content: string;
-  editSummary?: string;
-  expectedUpdatedAt: string;
-}) {
-  const user = await requireEditor();
+export interface UpdateConflict {
+  conflict: true;
+  /** Server's current content, for manual resolution. */
+  theirContent: string;
+  theirTitle: string;
+  theirUpdatedAt: string;
+}
 
-  const existing = await db.query.wikiPages.findFirst({
-    where: eq(wikiPages.slug, data.slug),
-  });
-  if (!existing) throw new Error("Page not found");
+type WikiPageRow = typeof wikiPages.$inferSelect;
 
-  const result = await db.transaction(async (tx) => {
+/** Optimistically-locked write; throws EDIT_CONFLICT if updatedAt moved. */
+async function writeWikiPage(
+  data: {
+    slug: string;
+    title: string;
+    content: string;
+    editSummary?: string;
+    expectedUpdatedAt: string;
+  },
+  userId: string,
+  pageId: string,
+): Promise<WikiPageRow> {
+  return db.transaction(async (tx) => {
     const updated = await tx
       .update(wikiPages)
       .set({
         title: data.title,
         content: data.content,
-        updatedBy: user.id,
+        updatedBy: userId,
         updatedAt: new Date(),
       })
       .where(
         and(
-          eq(wikiPages.id, existing.id),
+          eq(wikiPages.id, pageId),
           eq(wikiPages.updatedAt, new Date(data.expectedUpdatedAt)),
         ),
       )
@@ -161,19 +170,71 @@ export async function updateWikiPage(data: {
     if (updated.length === 0) throw new Error("EDIT_CONFLICT");
 
     await tx.insert(wikiRevisions).values({
-      pageId: existing.id,
+      pageId,
       title: data.title,
       content: data.content,
-      editedBy: user.id,
+      editedBy: userId,
       editSummary: data.editSummary ?? null,
     });
 
-    await syncWikiLinks(tx, existing.id, data.content);
+    await syncWikiLinks(tx, pageId, data.content);
     return updated[0];
   });
+}
 
-  revalidateTag("wiki-pages", "max");
-  return result;
+export async function updateWikiPage(data: {
+  slug: string;
+  title: string;
+  content: string;
+  editSummary?: string;
+  expectedUpdatedAt: string;
+  /** Ancestor content (editor's initialValue) for three-way merge. */
+  baseContent?: string;
+}): Promise<WikiPageRow | UpdateConflict> {
+  const user = await requireEditor();
+
+  const existing = await db.query.wikiPages.findFirst({
+    where: eq(wikiPages.slug, data.slug),
+  });
+  if (!existing) throw new Error("Page not found");
+
+  try {
+    const result = await writeWikiPage(data, user.id, existing.id);
+    revalidateTag("wiki-pages", "max");
+    return result;
+  } catch (e) {
+    if (!(e instanceof Error && e.message === "EDIT_CONFLICT")) throw e;
+  }
+
+  const latest = await db.query.wikiPages.findFirst({
+    where: eq(wikiPages.id, existing.id),
+  });
+  if (!latest) throw new Error("Page not found");
+  const theirUpdatedAt = new Date(latest.updatedAt).toISOString();
+
+  if (data.baseContent !== undefined) {
+    const merged = await threeWayMergeContent({
+      base: data.baseContent,
+      mine: data.content,
+      theirs: latest.content,
+    });
+    if (merged.clean && merged.content) {
+      const result = await writeWikiPage(
+        { ...data, content: merged.content, expectedUpdatedAt: theirUpdatedAt },
+        user.id,
+        existing.id,
+      );
+      revalidateTag("wiki-pages", "max");
+      return result;
+    }
+  }
+
+  return {
+    conflict: true,
+    theirContent: latest.content,
+    theirTitle: latest.title,
+    theirUpdatedAt,
+  };
 }
 
 export async function deleteWikiPage(pageId: string) {

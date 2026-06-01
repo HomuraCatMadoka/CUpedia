@@ -25,6 +25,7 @@ export default async function EditWikiPage({
     content: string;
     editSummary?: string;
     expectedUpdatedAt?: string;
+    baseContent?: string;
   }) {
     "use server";
     try {
@@ -34,7 +35,16 @@ export default async function EditWikiPage({
         content: data.content,
         editSummary: data.editSummary,
         expectedUpdatedAt: data.expectedUpdatedAt!,
+        baseContent: data.baseContent,
       });
+      if ("conflict" in updated) {
+        return {
+          conflict: true as const,
+          theirContent: updated.theirContent,
+          theirTitle: updated.theirTitle,
+          theirUpdatedAt: updated.theirUpdatedAt,
+        };
+      }
       return {
         slug: updated.slug,
         updatedAt: new Date(updated.updatedAt).toISOString(),
