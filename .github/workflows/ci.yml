@@ -56,3 +56,61 @@ jobs:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
           AUTH_SECRET: ci-placeholder-secret
           AUTH_URL: http://localhost:3000
+
+  # Non-blocking gate (not in branch-protection required checks yet): runs the
+  # Playwright suite against the same zhparser Postgres the dev stack uses, so
+  # cross-spec regressions (e.g. the #90 H1 break) surface on every PR. Promote
+  # to required once it proves stable.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
+      AUTH_SECRET: ci-placeholder-secret
+      AUTH_URL: http://localhost:3100
+      SKIP_EMAIL_WHITELIST: "true"
+      MINIO_ENDPOINT: localhost
+      MINIO_PORT: "9000"
+      MINIO_REGION: us-east-1
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      MINIO_BUCKET: cuclaw-uploads
+      MINIO_PUBLIC_URL: http://localhost:9000/cuclaw-uploads
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Start Postgres (zhparser)
+        run: docker compose up -d --wait db
+
+      - name: Apply migrations
+        run: pnpm drizzle-kit migrate
+
+      - name: Build
+        run: pnpm build
+
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e
+        run: pnpm test:e2e
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

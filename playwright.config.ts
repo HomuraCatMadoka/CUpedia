@@ -27,7 +27,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `pnpm build && pnpm start --port ${PORT}`,
+    // CI builds in a dedicated step so the cold build never races the 180s
+    // server-start window; locally we build+start in one shot and reuse.
+    command: process.env.CI
+      ? `pnpm start --port ${PORT}`
+      : `pnpm build && pnpm start --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
