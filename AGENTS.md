@@ -10,7 +10,7 @@ Next.js 16 App Router wiki application for CUHK students ("你的中大百科全
 .
 ├── src/
 │   ├── app/              # App Router pages & API routes
-│   │   ├── (auth)/       # Login, nickname setup
+│   │   ├── (auth)/       # Login, register, nickname setup
 │   │   ├── (main)/       # Homepage, wiki (read/edit/search/history)
 │   │   ├── admin/        # User management, deleted pages
 │   │   └── api/          # Auth, upload, wiki-assets
@@ -24,17 +24,18 @@ Next.js 16 App Router wiki application for CUHK students ("你的中大百科全
 │   │   ├── index.ts      # DB connection
 │   │   └── migrations/   # Generated SQL migrations
 │   └── lib/              # Server actions & utilities
-│       ├── auth.ts       # NextAuth config (Email provider, JWT, DrizzleAdapter)
-│       ├── auth-guard.ts # requireAuth(), requireAdmin(), getOptionalUser()
-│       ├── wiki-actions.ts   # CRUD, search, revision, soft-delete, rollback
+│       ├── auth.ts       # better-auth config (email+password, OTP, Drizzle adapter)
+│       ├── auth-guard.ts # requireAuth/requireAdmin/requireEditor/getOptionalUser
+│       ├── wiki-actions.ts   # CRUD, revision, soft-delete, rollback
 │       ├── admin-actions.ts  # User listing, ban/unban
-│       ├── markdown.ts       # remark/rehype pipeline
+│       ├── search.ts         # Fuse.js fuzzy search
+│       ├── plate-utils.ts    # Plate JSON ↔ markdown (headless editor)
 │       ├── minio.ts          # MinIO S3 storage
 │       ├── email.ts          # Domain whitelist, normalization
 │       ├── slug.ts           # CJK-aware slug generation
 │       └── nickname.ts       # Grapheme-safe validation
 ├── tests/                # Vitest unit tests
-├── scripts/              # Utility scripts (Notion import)
+├── scripts/              # bootstrap (setup.ts), seed, Notion import
 ├── docker-compose.yml    # PostgreSQL + MinIO + Caddy
 ├── Dockerfile            # Multi-stage standalone build
 └── Caddyfile             # Reverse proxy template
@@ -43,14 +44,17 @@ Next.js 16 App Router wiki application for CUHK students ("你的中大百科全
 ### Key Entry Points
 
 - Wiki CRUD: `src/lib/wiki-actions.ts`
-- Auth flow: `src/lib/auth.ts` → `auth-callbacks.ts` → `auth-guard.ts`
+- Auth flow: `src/lib/auth.ts` (better-auth) → `auth-guard.ts`
 - DB schema: `src/db/schema.ts`
-- Markdown: `src/lib/markdown.ts` (unified pipeline)
+- Content format: `src/lib/plate-utils.ts` (Plate JSON, with markdown conversion)
 - Storage: `src/lib/minio.ts` (MinIO S3)
 
 ## Essential Commands
 
 ```bash
+# One-command setup (env + docker + bucket + migrate + seed)
+pnpm bootstrap              # idempotent; safe to re-run
+
 # Development
 pnpm dev                    # Start Next.js dev server (port 3000)
 pnpm build                  # Production build (standalone output)
@@ -58,9 +62,9 @@ pnpm start                  # Start production server
 
 # Database
 pnpm drizzle-kit generate   # Generate migration from schema changes
-pnpm drizzle-kit migrate    # Apply pending migrations
-pnpm drizzle-kit push       # Push schema directly (dev only)
+pnpm drizzle-kit migrate    # Apply pending migrations (canonical, local + CI)
 pnpm drizzle-kit studio     # Visual DB browser
+pnpm seed                   # (Re)load idempotent dev fixtures
 
 # Testing
 pnpm test                   # Run Vitest
@@ -78,20 +82,33 @@ pnpm lint --fix             # Auto-fix lint issues
 ```bash
 git clone <repo> && cd CUpedia
 pnpm install
-docker compose up -d db minio
-cp .env.example .env.local        # defaults work out of the box
-pnpm drizzle-kit push             # apply schema to DB
-pnpm seed                         # create test users + sample wiki pages
+pnpm bootstrap                    # one command, idempotent
 pnpm dev                          # http://localhost:3000
 ```
 
+`pnpm bootstrap` (`scripts/setup.ts`) runs the whole local setup end-to-end:
+
+1. Creates `.env.local` from `.env.example` if missing (defaults work out of the box)
+2. Starts the `db` + `minio` containers and waits for their healthchecks
+3. Creates the `cuclaw-uploads` MinIO bucket (via the `createbuckets` service)
+4. Applies the schema with `pnpm drizzle-kit migrate` (not `push` — see below)
+5. Loads dev fixtures with `pnpm seed`
+
+Re-running it is safe — every step is idempotent.
+
 Seed accounts (all with password `password123`):
 
-| Email           | Role  | Notes  |
-| --------------- | ----- | ------ |
-| admin@test.com  | admin | —      |
-| user@test.com   | user  | —      |
-| banned@test.com | user  | banned |
+| Email                | Role  | Notes         |
+| -------------------- | ----- | ------------- |
+| admin@test.com       | admin | —             |
+| user@test.com        | user  | —             |
+| banned@test.com      | user  | banned        |
+| contributor@test.com | user  | second author |
+
+Seed data also covers the main feature surfaces: a rich-content page
+(math/table/code/callout/TOC), a page with 3 revisions by different editors
+(history/diff/rollback), a soft-deleted page (admin restore panel), a depth-3
+page hierarchy, and the `wiki_edit_role` site setting.
 
 ### Docker Services
 
@@ -102,8 +119,8 @@ docker compose up -d db minio
 # Start full stack (includes app + Caddy)
 docker compose --profile production up -d
 
-# Reset database
-docker compose down -v && docker compose up -d db minio
+# Reset everything (drops volumes), then re-bootstrap
+docker compose down -v && pnpm bootstrap
 ```
 
 | Service       | Port | Credentials           |
@@ -121,6 +138,8 @@ Copy `.env.example` to `.env.local`. Required variables:
 - `AUTH_SECRET` — any string (dev default provided in `.env.example`)
 - `AUTH_URL` — `http://localhost:3000`
 - `MINIO_*` — Object storage config (defaults work with local MinIO)
+- `BREVO_API_KEY` / `EMAIL_FROM` — only needed to send real OTP emails (register a
+  new account). Seed accounts log in with a password and skip OTP entirely.
 
 ## Database
 
@@ -128,13 +147,13 @@ ORM: Drizzle with PostgreSQL dialect. Schema in `src/db/schema.ts`.
 
 ### Core Tables
 
-| Table                                        | Purpose                                                        |
-| -------------------------------------------- | -------------------------------------------------------------- |
-| `users`                                      | Email, nickname, role (user/admin), banned flag                |
-| `wikiPages`                                  | Hierarchical pages (slug, title, content, parentId, deletedAt) |
-| `wikiRevisions`                              | Full edit history per page                                     |
-| `magicLinkRateLimits`                        | 60s cooldown per email                                         |
-| `accounts`, `sessions`, `verificationTokens` | Auth.js adapter tables                                         |
+| Table                                   | Purpose                                                        |
+| --------------------------------------- | -------------------------------------------------------------- |
+| `users`                                 | Email, nickname, role (user/admin), banned flag                |
+| `wikiPages`                             | Hierarchical pages (slug, title, content, parentId, deletedAt) |
+| `wikiRevisions`                         | Full edit history per page                                     |
+| `siteSettings`                          | Key/value app config (e.g. `wiki_edit_role`)                   |
+| `accounts`, `sessions`, `verifications` | better-auth adapter tables                                     |
 
 ### Schema Change Workflow
 
@@ -146,21 +165,38 @@ ORM: Drizzle with PostgreSQL dialect. Schema in `src/db/schema.ts`.
 
 For the full step-by-step workflow with verification, use the `$db-migration` skill.
 
+### Apply with `migrate`, not `push`
+
+Local setup uses `drizzle-kit migrate`, never `push`. The migration chain
+contains hand-written SQL that is **not** derivable from `schema.ts`:
+
+- `0003` — `CREATE EXTENSION pg_trgm` plus trigram GIN indexes
+- `0007` — Better Auth table repair (transforms the legacy NextAuth tables)
+
+`push` only diffs `schema.ts` against the DB, so it would silently skip those
+statements and produce a database that diverges from CI and production. `migrate`
+replays the journal in order and reproduces the exact schema.
+
 ## Authentication
 
-- **Provider**: Email magic link (no passwords)
-- **Strategy**: JWT via NextAuth
-- **Allowed domains**: `@cuhk.edu.hk`, `@link.cuhk.edu.hk`
-- **Rate limit**: 60s cooldown per email, DB-backed with row locks
-- **Roles**: `user` (default), `admin`
+- **Library**: [better-auth](https://better-auth.com) with the Drizzle adapter (`src/lib/auth.ts`)
+- **Provider**: email + password (`minPasswordLength: 8`); email verification and
+  sign-in OTP via the `emailOTP` plugin (6-digit code, 5-min expiry, sent through Brevo)
+- **Allowed domains**: `@cuhk.edu.hk`, `@link.cuhk.edu.hk` (enforced in `email.ts`)
+- **IDs**: UUID (`advanced.database.generateId: "uuid"`)
+- **Roles**: `user` (default), `admin`; `banned` flag — both as better-auth additional fields
 - **First login**: Forces nickname setup before proceeding
+
+> Seed accounts log in with email + password `password123` — no OTP needed,
+> since they are created with `emailVerified: true`.
 
 ### Access Control Pattern
 
 ```typescript
-// In server actions / API routes:
+// In server actions / API routes (src/lib/auth-guard.ts):
 const user = await requireAuth(); // Throws if not authenticated
 const admin = await requireAdmin(); // Throws if not admin
+const editor = await requireEditor(); // Throws unless allowed to edit
 const maybe = await getOptionalUser(); // Returns null if not authenticated
 ```
 
@@ -176,13 +212,20 @@ const maybe = await getOptionalUser(); // Returns null if not authenticated
 - **Search**: Fuse.js fuzzy search with weighted title (0.7) / content (0.3)
 - **Slug generation**: CJK-aware, reserved prefixes: `edit`, `history`, `new`, `search`
 
-### Markdown Pipeline
+### Content Format
 
-```
-remark-parse → remark-gfm → remark-rehype → rehype-highlight → rehype-sanitize → rehype-stringify
-```
+Wiki content is stored as **Plate JSON** (the editor's document model), not
+markdown or HTML. `src/lib/plate-utils.ts` is the single boundary:
 
-Custom sanitization allows: `img` (src/alt/title), `a` (href/target/rel), `code` (className for highlights).
+- `parseContent(content)` — JSON string → Plate value (degrades non-JSON to a plain paragraph)
+- `extractText(content)` — flatten to plain text (search/excerpts)
+- `fromMarkdown(markdown)` — markdown → Plate JSON (headless Plate editor; used by seed/import)
+- `toMarkdown(content)` — Plate JSON → markdown (used by the history/diff path)
+
+`fromMarkdown`/`toMarkdown` run a headless Plate editor with the same plugin
+set as the UI (math, tables, code, callout, TOC, links, lists). Block
+equations, callouts, and the TOC have no markdown syntax, so they cannot be
+produced by `fromMarkdown` — they exist only as hand-authored Plate nodes.
 
 ## Testing
 
@@ -211,7 +254,7 @@ When adding tests for lib functions, follow existing patterns in `tests/`.
 - **Don't skip conflict detection** — always compare `updatedAt` when updating wiki pages
 - **Don't hardcode email domains** — use the whitelist in `email.ts`
 - **Don't serve files directly from MinIO** — use the `/api/wiki-assets/` route for access control
-- **Don't use `drizzle-kit push` in production** — use `generate` + `migrate`
+- **Don't use `drizzle-kit push`** — local and CI both apply schema with `migrate`; the migration chain has SQL (`pg_trgm`, auth repair) that `push` would skip
 - **Don't forget to start Docker services** — `docker compose up -d db minio` before `pnpm dev`
 - **Don't delete worktree before push succeeds** — commits in an unpushed worktree are unrecoverable
 
@@ -233,7 +276,7 @@ Use skills for deep-dive workflows. Keep baseline rules in this file.
 - Split work into individually verifiable steps. Verify each before proceeding.
 - For DB changes: verify with `pnpm drizzle-kit generate` + `pnpm test`
 - For UI changes: verify in browser at `localhost:3000`
-- For auth changes: test the full login flow (magic link → nickname → redirect)
+- For auth changes: test the full login flow (register/login → nickname → redirect)
 - For API changes: test with curl or browser
 - When unclear how to verify, ask.
 
