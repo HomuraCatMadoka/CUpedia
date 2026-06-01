@@ -6,13 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "bootstrap": "tsx scripts/setup.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "seed": "tsx scripts/seed.ts",
-    "migrate-content": "tsx scripts/migrate-content.ts",
-    "migrate-content:dry": "tsx scripts/migrate-content.ts --dry-run"
+    "seed": "node --import tsx --import ./scripts/css-stub.mjs scripts/seed.ts",
+    "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
+    "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",

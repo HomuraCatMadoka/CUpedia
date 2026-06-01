@@ -50,6 +50,13 @@
       "when": 1780282723875,
       "tag": "0006_add_wiki_links",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780302237156,
+      "tag": "0007_repair_auth_tables",
+      "breakpoints": true
     }
   ]
 }
