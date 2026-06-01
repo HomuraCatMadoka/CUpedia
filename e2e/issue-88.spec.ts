@@ -19,9 +19,12 @@ dotenv.config({ path: resolve(__dirname, "../.env.local") });
 const SEED_EMAIL = "admin@test.com";
 const SEED_PASSWORD = "password123";
 const ADMIN_ID = "00000000-0000-4000-a000-000000000001";
-const PAGE_ID = "00000000-0000-4000-c000-000000000005";
-const REV_ID = "00000000-0000-4000-d000-000000000005";
-const DISCUSSION_ID = "00000000-0000-4000-e000-000000000001";
+// Fixture ids live in a high range the seed never touches (seed pages use
+// ...c000-0001‥0008). Reusing a seed id would make the `on conflict (id)`
+// upsert below keep the seed row's slug, so /wiki/annotated would 404.
+const PAGE_ID = "00000000-0000-4000-c000-0000000000e8";
+const REV_ID = "00000000-0000-4000-d000-0000000000e8";
+const DISCUSSION_ID = "00000000-0000-4000-e000-0000000000e8";
 const MARK_ID = "seed-annotation-1";
 const THREAD = "This is a seeded annotation thread.";
 
