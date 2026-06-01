@@ -59,7 +59,7 @@ describe("getCategoryCards", () => {
 
     const mainChain = {
       from: vi.fn().mockReturnThis(),
-      leftJoin: vi.fn().mockReturnThis(),
+      innerJoin: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
       orderBy: vi.fn().mockResolvedValue(expected),
     };
@@ -74,6 +74,8 @@ describe("getCategoryCards", () => {
 
     expect(result).toEqual(expected);
     expect(mockSelect).toHaveBeenCalledTimes(2);
+    // empty categories (childCount === 0) are excluded via inner join
+    expect(mainChain.innerJoin).toHaveBeenCalledTimes(1);
   });
 });
 

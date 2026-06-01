@@ -5,6 +5,8 @@ import { getWikiTree } from "@/lib/wiki-actions";
 import { getCategoryCards, getRecentPages } from "@/lib/wiki-homepage";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { Card, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getWikiEditRole } from "@/lib/site-settings";
 
@@ -39,13 +41,18 @@ export default async function WikiIndexPage() {
                     key={cat.id}
                     href={`/wiki/${cat.slug}`}
                     prefetch={false}
-                    className="rounded-lg border bg-[var(--sidebar-bg)] p-4 hover:border-foreground/20"
-                    style={{ borderColor: "var(--sidebar-border-color)" }}
                   >
-                    <div className="text-sm font-semibold">{cat.title}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      {cat.childCount} 篇
-                    </div>
+                    <Card
+                      size="sm"
+                      className="transition-colors hover:ring-foreground/20"
+                    >
+                      <CardHeader>
+                        <CardTitle className="text-sm">{cat.title}</CardTitle>
+                        <CardAction>
+                          <Badge variant="secondary">{cat.childCount} 篇</Badge>
+                        </CardAction>
+                      </CardHeader>
+                    </Card>
                   </Link>
                 ))}
               </div>

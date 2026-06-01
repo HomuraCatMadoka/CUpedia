@@ -1,13 +1,35 @@
 "use server";
 
 import { db } from "@/db";
-import { wikiPages, wikiRevisions } from "@/db/schema";
+import { wikiPages, wikiRevisions, wikiLinks } from "@/db/schema";
 import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
+import { extractWikiLinkTargets } from "@/lib/wiki-links";
+import { threeWayMergeContent } from "@/lib/merge-content";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Rewrite the outgoing wiki-link rows for a source page from its content. */
+async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
+  await tx.delete(wikiLinks).where(eq(wikiLinks.sourceId, sourceId));
+  const targets = extractWikiLinkTargets(content).filter(
+    (id) => id !== sourceId,
+  );
+  if (targets.length === 0) return;
+  const live = await tx
+    .select({ id: wikiPages.id })
+    .from(wikiPages)
+    .where(and(inArray(wikiPages.id, targets), isNull(wikiPages.deletedAt)));
+  const valid = new Set(live.map((p) => p.id));
+  const rows = targets
+    .filter((id) => valid.has(id))
+    .map((targetId) => ({ sourceId, targetId }));
+  if (rows.length > 0) await tx.insert(wikiLinks).values(rows);
+}
 
 const getCachedWikiPage = unstable_cache(
   async (slug: string) => {
@@ -26,6 +48,23 @@ const getCachedWikiPage = unstable_cache(
 
 export async function getWikiPage(slug: string) {
   return getCachedWikiPage(slug);
+}
+
+const getCachedBacklinks = unstable_cache(
+  async (pageId: string) => {
+    return db
+      .select({ slug: wikiPages.slug, title: wikiPages.title })
+      .from(wikiLinks)
+      .innerJoin(wikiPages, eq(wikiLinks.sourceId, wikiPages.id))
+      .where(and(eq(wikiLinks.targetId, pageId), isNull(wikiPages.deletedAt)))
+      .orderBy(wikiPages.title);
+  },
+  ["wiki-backlinks"],
+  { tags: ["wiki-pages"] },
+);
+
+export async function getBacklinks(pageId: string) {
+  return getCachedBacklinks(pageId);
 }
 
 const getCachedWikiTree = unstable_cache(
@@ -81,6 +120,7 @@ export async function createWikiPage(data: {
       editSummary: "创建页面",
     });
 
+    await syncWikiLinks(tx, p.id, data.content);
     return p;
   });
 
@@ -88,32 +128,40 @@ export async function createWikiPage(data: {
   return page;
 }
 
-export async function updateWikiPage(data: {
-  slug: string;
-  title: string;
-  content: string;
-  editSummary?: string;
-  expectedUpdatedAt: string;
-}) {
-  const user = await requireEditor();
+export interface UpdateConflict {
+  conflict: true;
+  /** Server's current content, for manual resolution. */
+  theirContent: string;
+  theirTitle: string;
+  theirUpdatedAt: string;
+}
 
-  const existing = await db.query.wikiPages.findFirst({
-    where: eq(wikiPages.slug, data.slug),
-  });
-  if (!existing) throw new Error("Page not found");
+type WikiPageRow = typeof wikiPages.$inferSelect;
 
-  const result = await db.transaction(async (tx) => {
+/** Optimistically-locked write; throws EDIT_CONFLICT if updatedAt moved. */
+async function writeWikiPage(
+  data: {
+    slug: string;
+    title: string;
+    content: string;
+    editSummary?: string;
+    expectedUpdatedAt: string;
+  },
+  userId: string,
+  pageId: string,
+): Promise<WikiPageRow> {
+  return db.transaction(async (tx) => {
     const updated = await tx
       .update(wikiPages)
       .set({
         title: data.title,
         content: data.content,
-        updatedBy: user.id,
+        updatedBy: userId,
         updatedAt: new Date(),
       })
       .where(
         and(
-          eq(wikiPages.id, existing.id),
+          eq(wikiPages.id, pageId),
           eq(wikiPages.updatedAt, new Date(data.expectedUpdatedAt)),
         ),
       )
@@ -122,18 +170,71 @@ export async function updateWikiPage(data: {
     if (updated.length === 0) throw new Error("EDIT_CONFLICT");
 
     await tx.insert(wikiRevisions).values({
-      pageId: existing.id,
+      pageId,
       title: data.title,
       content: data.content,
-      editedBy: user.id,
+      editedBy: userId,
       editSummary: data.editSummary ?? null,
     });
 
+    await syncWikiLinks(tx, pageId, data.content);
     return updated[0];
   });
+}
 
-  revalidateTag("wiki-pages", "max");
-  return result;
+export async function updateWikiPage(data: {
+  slug: string;
+  title: string;
+  content: string;
+  editSummary?: string;
+  expectedUpdatedAt: string;
+  /** Ancestor content (editor's initialValue) for three-way merge. */
+  baseContent?: string;
+}): Promise<WikiPageRow | UpdateConflict> {
+  const user = await requireEditor();
+
+  const existing = await db.query.wikiPages.findFirst({
+    where: eq(wikiPages.slug, data.slug),
+  });
+  if (!existing) throw new Error("Page not found");
+
+  try {
+    const result = await writeWikiPage(data, user.id, existing.id);
+    revalidateTag("wiki-pages", "max");
+    return result;
+  } catch (e) {
+    if (!(e instanceof Error && e.message === "EDIT_CONFLICT")) throw e;
+  }
+
+  const latest = await db.query.wikiPages.findFirst({
+    where: eq(wikiPages.id, existing.id),
+  });
+  if (!latest) throw new Error("Page not found");
+  const theirUpdatedAt = new Date(latest.updatedAt).toISOString();
+
+  if (data.baseContent !== undefined) {
+    const merged = await threeWayMergeContent({
+      base: data.baseContent,
+      mine: data.content,
+      theirs: latest.content,
+    });
+    if (merged.clean && merged.content) {
+      const result = await writeWikiPage(
+        { ...data, content: merged.content, expectedUpdatedAt: theirUpdatedAt },
+        user.id,
+        existing.id,
+      );
+      revalidateTag("wiki-pages", "max");
+      return result;
+    }
+  }
+
+  return {
+    conflict: true,
+    theirContent: latest.content,
+    theirTitle: latest.title,
+    theirUpdatedAt,
+  };
 }
 
 export async function deleteWikiPage(pageId: string) {
@@ -246,9 +347,9 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
   revalidateTag("wiki-pages", "max");
 }
 
-const getCachedPages = unstable_cache(
-  async () =>
-    db
+const getCachedSearchablePages = unstable_cache(
+  async () => {
+    const pages = await db
       .select({
         id: wikiPages.id,
         slug: wikiPages.slug,
@@ -256,18 +357,16 @@ const getCachedPages = unstable_cache(
         content: wikiPages.content,
       })
       .from(wikiPages)
-      .where(isNull(wikiPages.deletedAt)),
+      .where(isNull(wikiPages.deletedAt));
+    return pages.map((p) => ({ ...p, content: extractText(p.content) }));
+  },
   ["wiki-pages-search"],
   { tags: ["wiki-pages"] },
 );
 
 export async function searchWikiPages(query: string) {
   if (!query.trim()) return [];
-  const pages = await getCachedPages();
-  const searchable = pages.map((p) => ({
-    ...p,
-    content: extractText(p.content),
-  }));
+  const searchable = await getCachedSearchablePages();
   return searchPages(searchable, query);
 }
 

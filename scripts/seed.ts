@@ -9,7 +9,13 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { sql } from "drizzle-orm";
 import { hashPassword } from "better-auth/crypto";
-import { users, accounts, wikiPages, wikiRevisions } from "../src/db/schema";
+import {
+  users,
+  accounts,
+  wikiPages,
+  wikiRevisions,
+  discussions,
+} from "../src/db/schema";
 
 // ── Fixed UUIDs ──
 
@@ -30,6 +36,7 @@ const PAGE_IDS = {
   gettingStarted: "00000000-0000-4000-c000-000000000002",
   campusLife: "00000000-0000-4000-c000-000000000003",
   dining: "00000000-0000-4000-c000-000000000004",
+  annotated: "00000000-0000-4000-c000-000000000005",
 } as const;
 
 const REVISION_IDS = {
@@ -37,7 +44,32 @@ const REVISION_IDS = {
   gettingStarted: "00000000-0000-4000-d000-000000000002",
   campusLife: "00000000-0000-4000-d000-000000000003",
   dining: "00000000-0000-4000-d000-000000000004",
+  annotated: "00000000-0000-4000-d000-000000000005",
 } as const;
+
+// Inline-comment mark id shared by the annotated page body and its discussion.
+const ANNOTATION_MARK_ID = "seed-annotation-1";
+const DISCUSSION_ID = "00000000-0000-4000-e000-000000000001";
+
+// Plate JSON so parseContent keeps the inline comment mark (#88 read path).
+const ANNOTATED_CONTENT = JSON.stringify([
+  {
+    type: "h1",
+    children: [{ text: "Annotated Page" }],
+  },
+  {
+    type: "p",
+    children: [
+      { text: "This sentence has an " },
+      {
+        text: "annotated phrase",
+        comment: true,
+        [`comment_${ANNOTATION_MARK_ID}`]: true,
+      },
+      { text: " for the reader." },
+    ],
+  },
+]);
 
 // ── Seed data ──
 
@@ -107,6 +139,14 @@ const SEED_PAGES = [
     parentId: PAGE_IDS.campusLife,
     sortOrder: 0,
   },
+  {
+    id: PAGE_IDS.annotated,
+    slug: "annotated",
+    title: "Annotated Page",
+    content: ANNOTATED_CONTENT,
+    parentId: null,
+    sortOrder: 3,
+  },
 ];
 
 // ── Main ──
@@ -128,6 +168,9 @@ async function main() {
 
   await db.transaction(async (tx) => {
     // Clear existing seed data (reverse FK order)
+    await tx
+      .delete(discussions)
+      .where(sql`${discussions.id} = ${DISCUSSION_ID}::uuid`);
     await tx.delete(wikiRevisions).where(
       sql`${wikiRevisions.id} IN (${sql.join(
         Object.values(REVISION_IDS).map((id) => sql`${id}::uuid`),
@@ -214,6 +257,20 @@ async function main() {
     }
 
     console.log(`  Created ${revisionEntries.length} wiki revisions`);
+
+    // Insert one discussion matching the annotated page's inline comment mark.
+    await tx.insert(discussions).values({
+      id: DISCUSSION_ID,
+      pageId: PAGE_IDS.annotated,
+      commentMarkId: ANNOTATION_MARK_ID,
+      userId: USER_IDS.admin,
+      content: "This is a seeded annotation thread.",
+      resolved: false,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    console.log("  Created 1 discussion");
   });
 
   await pool.end();

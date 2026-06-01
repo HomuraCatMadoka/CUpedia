@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 
 export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
@@ -20,21 +21,26 @@ export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
       )}
       style={{ borderColor: "var(--sidebar-border-color)" }}
     >
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={isMobile ? openMobile : toggle}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-[var(--sidebar-active-bg)]"
+        className="h-7 w-7 text-muted-foreground"
         aria-label="展开导航"
       >
         ☰
-      </button>
+      </Button>
+      {/* New-page entry is redundant on mobile (the drawer already exposes it),
+          so it is hidden there; only the expand toggle remains as the rail. */}
       {canEdit && (
-        <Link
-          href="/wiki/new"
-          className="flex h-7 w-7 items-center justify-center rounded-md text-sm text-muted-foreground hover:bg-[var(--sidebar-active-bg)]"
-          aria-label="新建页面"
+        <Button
+          render={<Link href="/wiki/new" aria-label="新建页面" />}
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground max-md:hidden"
         >
           +
-        </Link>
+        </Button>
       )}
     </div>
   );

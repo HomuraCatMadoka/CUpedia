@@ -4,6 +4,7 @@ const {
   mockRevalidateTag,
   mockUnstableCache,
   unstableCacheCalls,
+  cacheStore,
   mockDbSelect,
   mockDbExecute,
   mockDbUpdate,
@@ -12,13 +13,20 @@ const {
   mockDbQueryWikiRevisions,
 } = vi.hoisted(() => {
   const unstableCacheCalls: unknown[][] = [];
+  const cacheStore = new Map<string, unknown>();
   return {
-    mockRevalidateTag: vi.fn(),
+    mockRevalidateTag: vi.fn((..._a: unknown[]) => cacheStore.clear()),
     mockUnstableCache: vi.fn((...args: unknown[]) => {
       unstableCacheCalls.push(args);
-      return args[0];
+      const loader = args[0] as () => Promise<unknown>;
+      const key = JSON.stringify(args[1]);
+      return async () => {
+        if (!cacheStore.has(key)) cacheStore.set(key, await loader());
+        return cacheStore.get(key);
+      };
     }),
     unstableCacheCalls,
+    cacheStore,
     mockDbSelect: vi.fn(),
     mockDbExecute: vi.fn(),
     mockDbUpdate: vi.fn(),
@@ -57,6 +65,10 @@ vi.mock("@/db/schema", () => ({
     pageId: "pageId",
     createdAt: "createdAt",
   },
+  wikiLinks: {
+    sourceId: "sourceId",
+    targetId: "targetId",
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -82,10 +94,22 @@ vi.mock("@/lib/slug", () => ({
   validateSlug: vi.fn().mockReturnValue(true),
 }));
 
+vi.mock("@/lib/plate-utils", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/plate-utils")>(
+      "@/lib/plate-utils",
+    );
+  return { ...actual, extractText: vi.fn(actual.extractText) };
+});
+
+import { extractText } from "@/lib/plate-utils";
+const mockExtractText = vi.mocked(extractText);
+
 import {
   searchWikiPages,
   getWikiTree,
   getWikiPage,
+  getBacklinks,
   createWikiPage,
   updateWikiPage,
   deleteWikiPage,
@@ -112,6 +136,7 @@ const mockPages = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cacheStore.clear();
 });
 
 describe("searchWikiPages (cached)", () => {
@@ -139,6 +164,30 @@ describe("searchWikiPages (cached)", () => {
     const results = await searchWikiPages("");
     expect(results).toEqual([]);
   });
+
+  it("falls back to fuzzy match when no exact match", async () => {
+    const results = await searchWikiPages("觅食");
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0].id).toBe("2");
+  });
+
+  it("extracts text inside the cached loader, not per search call", async () => {
+    mockExtractText.mockClear();
+    await searchWikiPages("正装");
+    await searchWikiPages("美食");
+    // extractText runs once per page within the cached data loader,
+    // and is not re-run by searchWikiPages on each request.
+    expect(mockExtractText).toHaveBeenCalledTimes(mockPages.length);
+  });
+
+  it("cached search loader is tagged wiki-pages for invalidation", () => {
+    const call = unstableCacheCalls.find(
+      (c) =>
+        Array.isArray(c[1]) && (c[1] as string[]).includes("wiki-pages-search"),
+    );
+    expect(call).toBeDefined();
+    expect((call![2] as { tags: string[] }).tags).toContain("wiki-pages");
+  });
 });
 
 describe("cache invalidation — revalidateTag called", () => {
@@ -152,6 +201,9 @@ describe("cache invalidation — revalidateTag called", () => {
                 .fn()
                 .mockResolvedValue([{ id: "new-1", slug: "t", title: "T" }]),
             }),
+          }),
+          delete: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(undefined),
           }),
         };
         return fn(tx);
@@ -180,6 +232,9 @@ describe("cache invalidation — revalidateTag called", () => {
           }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockResolvedValue(undefined),
+          }),
+          delete: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(undefined),
           }),
         };
         return fn(tx);
@@ -302,5 +357,29 @@ describe("read caching — getWikiTree & getWikiPage", () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
     const result = await getWikiPage("nonexistent");
     expect(result).toBeNull();
+  });
+
+  it("getBacklinks is wrapped with unstable_cache tagged wiki-pages", () => {
+    const call = unstableCacheCalls.find(
+      (c) =>
+        Array.isArray(c[1]) && (c[1] as string[]).includes("wiki-backlinks"),
+    );
+    expect(call).toBeDefined();
+    expect((call![2] as { tags: string[] }).tags).toContain("wiki-pages");
+  });
+
+  it("getBacklinks returns linking source pages", async () => {
+    const rows = [{ slug: "a", title: "Page A" }];
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue(rows),
+          }),
+        }),
+      }),
+    });
+    const result = await getBacklinks("target-1");
+    expect(result).toEqual(rows);
   });
 });

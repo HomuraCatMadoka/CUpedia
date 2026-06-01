@@ -18,6 +18,11 @@ import { MediaKit } from "@/components/editor/plugins/media-kit";
 import { TableKit } from "@/components/editor/plugins/table-kit";
 import { TocKit } from "@/components/editor/plugins/toc-kit";
 import { SlashKit } from "@/components/editor/plugins/slash-kit";
+import { WikiLinkKit } from "@/components/editor/plugins/wiki-link-kit";
+import {
+  WikiLinkPagesProvider,
+  type WikiLinkPage,
+} from "@/components/ui/wiki-link-node";
 import { FloatingToolbarKit } from "@/components/editor/plugins/floating-toolbar-kit";
 import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
 import { EditorContainer, Editor } from "@/components/ui/editor";
@@ -27,8 +32,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DiscussionProvider } from "@/components/wiki/discussion-context";
 import { DiscussionSidebar } from "@/components/wiki/discussion-sidebar";
+import {
+  EditConflictDialog,
+  type EditConflict,
+} from "@/components/wiki/edit-conflict-dialog";
 import type { Discussion } from "@/lib/discussion-actions";
-import type { PlateValue } from "@/lib/plate-utils";
+import { extractText, parseContent, type PlateValue } from "@/lib/plate-utils";
 
 interface WikiEditorProps {
   mode: "create" | "edit";
@@ -38,6 +47,7 @@ interface WikiEditorProps {
   initialSlug?: string;
   expectedUpdatedAt?: string;
   parentId?: string | null;
+  linkablePages?: WikiLinkPage[];
   initialDiscussions?: Discussion[];
   onSubmit: (data: {
     slug: string;
@@ -46,7 +56,16 @@ interface WikiEditorProps {
     editSummary?: string;
     parentId?: string | null;
     expectedUpdatedAt?: string;
-  }) => Promise<{ error?: string; slug?: string; updatedAt?: string }>;
+    baseContent?: string;
+  }) => Promise<{
+    error?: string;
+    slug?: string;
+    updatedAt?: string;
+    conflict?: boolean;
+    theirContent?: string;
+    theirTitle?: string;
+    theirUpdatedAt?: string;
+  }>;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -64,6 +83,7 @@ export function WikiEditor({
   initialSlug = "",
   expectedUpdatedAt,
   parentId,
+  linkablePages = [],
   initialDiscussions = [],
   onSubmit,
 }: WikiEditorProps) {
@@ -73,9 +93,11 @@ export function WikiEditor({
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [content, setContent] = useState(() => JSON.stringify(initialValue));
+  const [conflict, setConflict] = useState<EditConflict | null>(null);
   const router = useRouter();
 
   const baselineRef = useRef(expectedUpdatedAt);
+  const baseContentRef = useRef(JSON.stringify(initialValue));
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
 
   const editor = usePlateEditor({
@@ -91,6 +113,7 @@ export function WikiEditor({
       ...TableKit,
       ...TocKit,
       ...SlashKit,
+      ...WikiLinkKit,
       ...DndKit,
       ...FloatingToolbarKit,
       ...MarkdownKit,
@@ -107,8 +130,22 @@ export function WikiEditor({
         editSummary: editSummary || undefined,
         parentId,
         expectedUpdatedAt: baselineRef.current,
+        baseContent: baseContentRef.current,
       });
-      if (result.updatedAt) baselineRef.current = result.updatedAt;
+      // A clean three-way merge advances the baseline to the new revision.
+      if (result.updatedAt) {
+        baselineRef.current = result.updatedAt;
+        baseContentRef.current = next;
+      }
+      if (result.conflict && result.theirContent) {
+        setConflict({
+          theirContent: result.theirContent,
+          theirTitle: result.theirTitle ?? title,
+          theirUpdatedAt: result.theirUpdatedAt ?? baselineRef.current ?? "",
+        });
+        // Surface as an error so autosave halts rather than dropping the edit.
+        return { ...result, error: "EDIT_CONFLICT" };
+      }
       return result;
     },
     [slug, title, editSummary, parentId, onSubmit],
@@ -130,8 +167,12 @@ export function WikiEditor({
 
     const result = await save(JSON.stringify(editor.children));
 
-    if (result.error === "EDIT_CONFLICT") {
-      setError("编辑冲突：该页面已被其他用户修改。请刷新页面查看最新版本。");
+    if (result.conflict && result.theirContent) {
+      setConflict({
+        theirContent: result.theirContent,
+        theirTitle: result.theirTitle ?? title,
+        theirUpdatedAt: result.theirUpdatedAt ?? baselineRef.current ?? "",
+      });
       setSubmitting(false);
       return;
     }
@@ -148,6 +189,29 @@ export function WikiEditor({
 
     router.push(`/wiki/${result.slug}`);
   }, [title, save, editor, router]);
+
+  const keepMine = useCallback(async () => {
+    if (!conflict) return;
+    setSubmitting(true);
+    baselineRef.current = conflict.theirUpdatedAt;
+    const result = await save(JSON.stringify(editor.children));
+    if (result.error) {
+      setError(result.error);
+      setSubmitting(false);
+      return;
+    }
+    setConflict(null);
+    router.push(`/wiki/${result.slug}`);
+  }, [conflict, save, editor, router]);
+
+  const discardMine = useCallback(() => {
+    if (!conflict) return;
+    editor.tf.setValue(parseContent(conflict.theirContent));
+    baselineRef.current = conflict.theirUpdatedAt;
+    baseContentRef.current = conflict.theirContent;
+    setContent(conflict.theirContent);
+    setConflict(null);
+  }, [conflict, editor]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -198,23 +262,25 @@ export function WikiEditor({
         editor={editor}
         onValueChange={({ value }) => setContent(JSON.stringify(value))}
       >
-        <DiscussionProvider
-          pageId={pageId ?? ""}
-          initialDiscussions={initialDiscussions}
-        >
-          <div className="flex gap-4">
-            <div className="min-w-0 flex-1 rounded-lg border">
-              <EditorContainer>
-                <Editor variant="fullWidth" placeholder="开始编辑..." />
-              </EditorContainer>
-            </div>
-            {mode === "edit" && pageId && (
-              <div className="w-72 shrink-0">
-                <DiscussionSidebar pageId={pageId} />
+        <WikiLinkPagesProvider pages={linkablePages}>
+          <DiscussionProvider
+            pageId={pageId ?? ""}
+            initialDiscussions={initialDiscussions}
+          >
+            <div className="flex gap-4">
+              <div className="min-w-0 flex-1 rounded-lg border">
+                <EditorContainer>
+                  <Editor variant="fullWidth" placeholder="开始编辑..." />
+                </EditorContainer>
               </div>
-            )}
-          </div>
-        </DiscussionProvider>
+              {mode === "edit" && pageId && (
+                <div className="w-72 shrink-0">
+                  <DiscussionSidebar pageId={pageId} />
+                </div>
+              )}
+            </div>
+          </DiscussionProvider>
+        </WikiLinkPagesProvider>
       </Plate>
       <div className="space-y-2">
         <Label htmlFor="summary">编辑摘要（可选）</Label>
@@ -237,6 +303,16 @@ export function WikiEditor({
           </span>
         )}
       </div>
+      {conflict && (
+        <EditConflictDialog
+          mineText={extractText(JSON.stringify(editor.children))}
+          theirText={extractText(conflict.theirContent)}
+          saving={submitting}
+          onKeepMine={() => void keepMine()}
+          onDiscard={discardMine}
+          onCancel={() => setConflict(null)}
+        />
+      )}
     </div>
   );
 }

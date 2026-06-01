@@ -25,6 +25,7 @@ export default async function EditWikiPage({
     content: string;
     editSummary?: string;
     expectedUpdatedAt?: string;
+    baseContent?: string;
   }) {
     "use server";
     try {
@@ -34,7 +35,16 @@ export default async function EditWikiPage({
         content: data.content,
         editSummary: data.editSummary,
         expectedUpdatedAt: data.expectedUpdatedAt!,
+        baseContent: data.baseContent,
       });
+      if ("conflict" in updated) {
+        return {
+          conflict: true as const,
+          theirContent: updated.theirContent,
+          theirTitle: updated.theirTitle,
+          theirUpdatedAt: updated.theirUpdatedAt,
+        };
+      }
       return {
         slug: updated.slug,
         updatedAt: new Date(updated.updatedAt).toISOString(),
@@ -58,6 +68,9 @@ export default async function EditWikiPage({
             initialValue={parseContent(page.content)}
             initialSlug={page.slug}
             expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
+            linkablePages={pages
+              .filter((p) => p.id !== page.id)
+              .map((p) => ({ id: p.id, slug: p.slug, title: p.title }))}
             initialDiscussions={discussions}
             onSubmit={handleUpdate}
           />

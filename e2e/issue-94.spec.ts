@@ -9,12 +9,20 @@ const ADMIN_PASSWORD = "password123";
  * the browser context's jar and is shared with subsequent page navigations.
  */
 async function login(page: Page) {
-  const res = await page.request.post("/api/auth/sign-in/email", {
-    data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-  });
-  expect(res.ok(), `login failed: ${res.status()} ${await res.text()}`).toBe(
-    true,
-  );
+  // better-auth applies a strict per-path rate limit to /sign-in/email; when
+  // several specs sign in within the shared window the endpoint returns 429.
+  // Retry with backoff so a transient throttle self-heals within the timeout.
+  let last = "";
+  for (let attempt = 0; attempt < 6; attempt++) {
+    const res = await page.request.post("/api/auth/sign-in/email", {
+      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
+    });
+    if (res.ok()) return;
+    last = `${res.status()} ${await res.text()}`;
+    if (res.status() !== 429) break;
+    await page.waitForTimeout(2000);
+  }
+  expect(false, `login failed: ${last}`).toBe(true);
 }
 
 // ── #89: sidebar SSR/hydration on mobile ──────────────────────────────────
