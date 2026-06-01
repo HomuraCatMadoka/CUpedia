@@ -115,6 +115,22 @@ export const wikiRevisions = pgTable(
   (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
 );
 
+export const wikiLinks = pgTable(
+  "wiki_links",
+  {
+    sourceId: uuid("source_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    targetId: uuid("target_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("wiki_links_source_id_idx").on(table.sourceId),
+    index("wiki_links_target_id_idx").on(table.targetId),
+  ],
+);
+
 export const discussions = pgTable(
   "discussions",
   {
@@ -152,6 +168,19 @@ export const discussionsRelations = relations(discussions, ({ one }) => ({
   parent: one(discussions, {
     fields: [discussions.parentId],
     references: [discussions.id],
+  }),
+}));
+
+export const wikiLinksRelations = relations(wikiLinks, ({ one }) => ({
+  source: one(wikiPages, {
+    fields: [wikiLinks.sourceId],
+    references: [wikiPages.id],
+    relationName: "linkSource",
+  }),
+  target: one(wikiPages, {
+    fields: [wikiLinks.targetId],
+    references: [wikiPages.id],
+    relationName: "linkTarget",
   }),
 }));
 

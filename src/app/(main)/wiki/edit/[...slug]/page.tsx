@@ -58,6 +58,9 @@ export default async function EditWikiPage({
             initialValue={parseContent(page.content)}
             initialSlug={page.slug}
             expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
+            linkablePages={pages
+              .filter((p) => p.id !== page.id)
+              .map((p) => ({ id: p.id, slug: p.slug, title: p.title }))}
             initialDiscussions={discussions}
             onSubmit={handleUpdate}
           />

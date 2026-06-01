@@ -1,6 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { getWikiPage, getWikiTree, deleteWikiPage } from "@/lib/wiki-actions";
+import {
+  getWikiPage,
+  getWikiTree,
+  deleteWikiPage,
+  getBacklinks,
+} from "@/lib/wiki-actions";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -10,6 +15,7 @@ import { getDiscussions } from "@/lib/discussion-actions";
 import { getWikiEditRole } from "@/lib/site-settings";
 import { extractHeadings } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
+import { Backlinks } from "@/components/wiki/backlinks";
 
 export default async function WikiReadPage({
   params,
@@ -30,7 +36,10 @@ export default async function WikiReadPage({
   const canEdit = !!user && (editRole === "user" || user.role === "admin");
   const headings = extractHeadings(page.content);
   const plateValue = parseContent(page.content);
-  const discussions = await getDiscussions(page.id);
+  const [discussions, backlinks] = await Promise.all([
+    getDiscussions(page.id),
+    getBacklinks(page.id),
+  ]);
 
   const parentPage = page.parentId
     ? pages.find((p) => p.id === page.parentId)
@@ -98,6 +107,7 @@ export default async function WikiReadPage({
               discussions={discussions}
               canComment={!!user}
             />
+            <Backlinks links={backlinks} />
           </div>
         </div>
       </div>

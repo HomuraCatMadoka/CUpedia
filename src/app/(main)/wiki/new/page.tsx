@@ -30,7 +30,15 @@ export default async function NewWikiPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-4xl px-6 py-6">
           <h1 className="mb-6 text-2xl font-bold">新建页面</h1>
-          <WikiEditor mode="create" onSubmit={handleCreate} />
+          <WikiEditor
+            mode="create"
+            linkablePages={pages.map((p) => ({
+              id: p.id,
+              slug: p.slug,
+              title: p.title,
+            }))}
+            onSubmit={handleCreate}
+          />
         </div>
       </div>
     </>

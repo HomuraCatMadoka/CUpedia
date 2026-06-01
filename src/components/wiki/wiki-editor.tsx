@@ -18,6 +18,11 @@ import { MediaKit } from "@/components/editor/plugins/media-kit";
 import { TableKit } from "@/components/editor/plugins/table-kit";
 import { TocKit } from "@/components/editor/plugins/toc-kit";
 import { SlashKit } from "@/components/editor/plugins/slash-kit";
+import { WikiLinkKit } from "@/components/editor/plugins/wiki-link-kit";
+import {
+  WikiLinkPagesProvider,
+  type WikiLinkPage,
+} from "@/components/ui/wiki-link-node";
 import { FloatingToolbarKit } from "@/components/editor/plugins/floating-toolbar-kit";
 import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
 import { EditorContainer, Editor } from "@/components/ui/editor";
@@ -38,6 +43,7 @@ interface WikiEditorProps {
   initialSlug?: string;
   expectedUpdatedAt?: string;
   parentId?: string | null;
+  linkablePages?: WikiLinkPage[];
   initialDiscussions?: Discussion[];
   onSubmit: (data: {
     slug: string;
@@ -64,6 +70,7 @@ export function WikiEditor({
   initialSlug = "",
   expectedUpdatedAt,
   parentId,
+  linkablePages = [],
   initialDiscussions = [],
   onSubmit,
 }: WikiEditorProps) {
@@ -91,6 +98,7 @@ export function WikiEditor({
       ...TableKit,
       ...TocKit,
       ...SlashKit,
+      ...WikiLinkKit,
       ...DndKit,
       ...FloatingToolbarKit,
       ...MarkdownKit,
@@ -198,23 +206,25 @@ export function WikiEditor({
         editor={editor}
         onValueChange={({ value }) => setContent(JSON.stringify(value))}
       >
-        <DiscussionProvider
-          pageId={pageId ?? ""}
-          initialDiscussions={initialDiscussions}
-        >
-          <div className="flex gap-4">
-            <div className="min-w-0 flex-1 rounded-lg border">
-              <EditorContainer>
-                <Editor variant="fullWidth" placeholder="开始编辑..." />
-              </EditorContainer>
-            </div>
-            {mode === "edit" && pageId && (
-              <div className="w-72 shrink-0">
-                <DiscussionSidebar pageId={pageId} />
+        <WikiLinkPagesProvider pages={linkablePages}>
+          <DiscussionProvider
+            pageId={pageId ?? ""}
+            initialDiscussions={initialDiscussions}
+          >
+            <div className="flex gap-4">
+              <div className="min-w-0 flex-1 rounded-lg border">
+                <EditorContainer>
+                  <Editor variant="fullWidth" placeholder="开始编辑..." />
+                </EditorContainer>
               </div>
-            )}
-          </div>
-        </DiscussionProvider>
+              {mode === "edit" && pageId && (
+                <div className="w-72 shrink-0">
+                  <DiscussionSidebar pageId={pageId} />
+                </div>
+              )}
+            </div>
+          </DiscussionProvider>
+        </WikiLinkPagesProvider>
       </Plate>
       <div className="space-y-2">
         <Label htmlFor="summary">编辑摘要（可选）</Label>

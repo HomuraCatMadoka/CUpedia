@@ -43,6 +43,13 @@
       "when": 1748448000000,
       "tag": "0005_add_discussions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780282723875,
+      "tag": "0006_add_wiki_links",
+      "breakpoints": true
     }
   ]
 }

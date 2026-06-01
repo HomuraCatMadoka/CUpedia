@@ -65,6 +65,10 @@ vi.mock("@/db/schema", () => ({
     pageId: "pageId",
     createdAt: "createdAt",
   },
+  wikiLinks: {
+    sourceId: "sourceId",
+    targetId: "targetId",
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -105,6 +109,7 @@ import {
   searchWikiPages,
   getWikiTree,
   getWikiPage,
+  getBacklinks,
   createWikiPage,
   updateWikiPage,
   deleteWikiPage,
@@ -197,6 +202,9 @@ describe("cache invalidation — revalidateTag called", () => {
                 .mockResolvedValue([{ id: "new-1", slug: "t", title: "T" }]),
             }),
           }),
+          delete: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(undefined),
+          }),
         };
         return fn(tx);
       },
@@ -224,6 +232,9 @@ describe("cache invalidation — revalidateTag called", () => {
           }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockResolvedValue(undefined),
+          }),
+          delete: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(undefined),
           }),
         };
         return fn(tx);
@@ -346,5 +357,29 @@ describe("read caching — getWikiTree & getWikiPage", () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
     const result = await getWikiPage("nonexistent");
     expect(result).toBeNull();
+  });
+
+  it("getBacklinks is wrapped with unstable_cache tagged wiki-pages", () => {
+    const call = unstableCacheCalls.find(
+      (c) =>
+        Array.isArray(c[1]) && (c[1] as string[]).includes("wiki-backlinks"),
+    );
+    expect(call).toBeDefined();
+    expect((call![2] as { tags: string[] }).tags).toContain("wiki-pages");
+  });
+
+  it("getBacklinks returns linking source pages", async () => {
+    const rows = [{ slug: "a", title: "Page A" }];
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockResolvedValue(rows),
+          }),
+        }),
+      }),
+    });
+    const result = await getBacklinks("target-1");
+    expect(result).toEqual(rows);
   });
 });

@@ -1,13 +1,34 @@
 "use server";
 
 import { db } from "@/db";
-import { wikiPages, wikiRevisions } from "@/db/schema";
+import { wikiPages, wikiRevisions, wikiLinks } from "@/db/schema";
 import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
+import { extractWikiLinkTargets } from "@/lib/wiki-links";
+
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/** Rewrite the outgoing wiki-link rows for a source page from its content. */
+async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
+  await tx.delete(wikiLinks).where(eq(wikiLinks.sourceId, sourceId));
+  const targets = extractWikiLinkTargets(content).filter(
+    (id) => id !== sourceId,
+  );
+  if (targets.length === 0) return;
+  const live = await tx
+    .select({ id: wikiPages.id })
+    .from(wikiPages)
+    .where(and(inArray(wikiPages.id, targets), isNull(wikiPages.deletedAt)));
+  const valid = new Set(live.map((p) => p.id));
+  const rows = targets
+    .filter((id) => valid.has(id))
+    .map((targetId) => ({ sourceId, targetId }));
+  if (rows.length > 0) await tx.insert(wikiLinks).values(rows);
+}
 
 const getCachedWikiPage = unstable_cache(
   async (slug: string) => {
@@ -26,6 +47,23 @@ const getCachedWikiPage = unstable_cache(
 
 export async function getWikiPage(slug: string) {
   return getCachedWikiPage(slug);
+}
+
+const getCachedBacklinks = unstable_cache(
+  async (pageId: string) => {
+    return db
+      .select({ slug: wikiPages.slug, title: wikiPages.title })
+      .from(wikiLinks)
+      .innerJoin(wikiPages, eq(wikiLinks.sourceId, wikiPages.id))
+      .where(and(eq(wikiLinks.targetId, pageId), isNull(wikiPages.deletedAt)))
+      .orderBy(wikiPages.title);
+  },
+  ["wiki-backlinks"],
+  { tags: ["wiki-pages"] },
+);
+
+export async function getBacklinks(pageId: string) {
+  return getCachedBacklinks(pageId);
 }
 
 const getCachedWikiTree = unstable_cache(
@@ -81,6 +119,7 @@ export async function createWikiPage(data: {
       editSummary: "创建页面",
     });
 
+    await syncWikiLinks(tx, p.id, data.content);
     return p;
   });
 
@@ -129,6 +168,7 @@ export async function updateWikiPage(data: {
       editSummary: data.editSummary ?? null,
     });
 
+    await syncWikiLinks(tx, existing.id, data.content);
     return updated[0];
   });
 

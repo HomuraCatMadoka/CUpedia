@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { getTableColumns } from "drizzle-orm";
-import { users, wikiPages, wikiRevisions, sessions } from "@/db/schema";
+import {
+  users,
+  wikiPages,
+  wikiRevisions,
+  sessions,
+  wikiLinks,
+} from "@/db/schema";
 
 describe("schema", () => {
   it("users table has required custom fields", () => {
@@ -29,6 +35,12 @@ describe("schema", () => {
     expect(cols.content).toBeDefined();
     expect(cols.editedBy).toBeDefined();
     expect(cols.editSummary).toBeDefined();
+  });
+
+  it("wikiLinks table has source/target columns", () => {
+    const cols = getTableColumns(wikiLinks);
+    expect(cols.sourceId).toBeDefined();
+    expect(cols.targetId).toBeDefined();
   });
 
   it("sessions table has required Better Auth fields", () => {
