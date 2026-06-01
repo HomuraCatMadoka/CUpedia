@@ -68,7 +68,6 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
       AUTH_URL: http://localhost:3100
-      SKIP_EMAIL_WHITELIST: "true"
       MINIO_ENDPOINT: localhost
       MINIO_PORT: "9000"
       MINIO_REGION: us-east-1
