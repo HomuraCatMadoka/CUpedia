@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Response } from "@playwright/test";
 import dotenv from "dotenv";
 import { Pool } from "pg";
 
@@ -112,5 +112,45 @@ test.describe("#88 read path: static render + clickable annotations", () => {
 
     // Static render emits no contenteditable editing surface.
     await expect(page.locator("[contenteditable]")).toHaveCount(0);
+  });
+
+  test("read path ships less JS than the edit path", async ({
+    browser,
+    baseURL,
+  }) => {
+    // Measure JS bytes on a fresh context per route so neither run reuses the
+    // other's chunk cache. The read page renders via Plate static; the edit
+    // page mounts the full editor — the #88 win is the read page shipping less.
+    const measureJs = async (path: string) => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const signedIn = await signIn(page, baseURL!);
+      const jsResponses: Response[] = [];
+      page.on("response", (res) => {
+        if ((res.headers()["content-type"] ?? "").includes("javascript")) {
+          jsResponses.push(res);
+        }
+      });
+      await page.goto(path, { waitUntil: "networkidle" });
+      let bytes = 0;
+      for (const res of jsResponses) {
+        try {
+          bytes += (await res.body()).length;
+        } catch {
+          // response without a retrievable body (e.g. from cache) — skip
+        }
+      }
+      await context.close();
+      return { bytes, signedIn };
+    };
+
+    const read = await measureJs("/wiki/annotated");
+    const edit = await measureJs("/wiki/edit/annotated");
+    test.skip(
+      !read.signedIn || !edit.signedIn,
+      "could not sign in with seed account",
+    );
+
+    expect(read.bytes).toBeLessThan(edit.bytes);
   });
 });

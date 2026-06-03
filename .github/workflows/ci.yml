@@ -92,8 +92,8 @@ jobs:
       - name: Start Postgres (zhparser)
         run: docker compose up -d --wait db
 
-      - name: Apply migrations
-        run: pnpm drizzle-kit migrate
+      # global-setup provisions the isolated `cuclaw_e2e` db (create + zhparser
+      # + migrate + seed), so no separate migrate step is needed here.
 
       - name: Build
         run: pnpm build

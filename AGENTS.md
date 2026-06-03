@@ -238,6 +238,19 @@ pnpm test -- tests/slug.test.ts    # Specific file
 
 When adding tests for lib functions, follow existing patterns in `tests/`.
 
+### End-to-End (Playwright)
+
+```bash
+pnpm exec playwright install chromium   # one-time: fetch the browser
+pnpm test:e2e                           # run the e2e suite
+```
+
+`e2e/global-setup.ts` provisions an **isolated** database so the suite never
+touches your dev data. It defaults to `<dev-db>_e2e` (e.g. `cuclaw_e2e`),
+creating it with the zhparser config on first run, then migrating and seeding
+it. Set `E2E_DATABASE_URL` to give a parallel worktree its own db. The dev
+`db` container must be running (`docker compose up -d db`).
+
 ## Code Style
 
 - **Framework**: Tailwind CSS 4 + shadcn/ui (base-nova style, neutral palette)
