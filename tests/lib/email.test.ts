@@ -1,5 +1,10 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { normalizeEmail, parseEmail, isAllowedEmail } from "@/lib/email";
+import {
+  normalizeEmail,
+  parseEmail,
+  isAllowedEmail,
+  shouldRejectOtpRequest,
+} from "@/lib/email";
 
 describe("normalizeEmail", () => {
   it("trims whitespace and lowercases", () => {
@@ -128,5 +133,36 @@ describe("isAllowedEmail", () => {
       process.env.SKIP_EMAIL_WHITELIST = "false";
       expect(isAllowedEmail("anyone@gmail.com")).toBe(false);
     });
+  });
+});
+
+describe("shouldRejectOtpRequest", () => {
+  const SEND = "/email-otp/send-verification-otp";
+  const VERIFY = "/sign-in/email-otp";
+
+  it("rejects ineligible email on the send path", () => {
+    expect(shouldRejectOtpRequest(SEND, "attacker@gmail.com")).toBe(true);
+  });
+
+  it("rejects ineligible email on the verify path", () => {
+    expect(shouldRejectOtpRequest(VERIFY, "attacker@gmail.com")).toBe(true);
+  });
+
+  it("allows eligible CUHK email on both gated paths", () => {
+    expect(shouldRejectOtpRequest(SEND, "1155123456@link.cuhk.edu.hk")).toBe(
+      false,
+    );
+    expect(shouldRejectOtpRequest(VERIFY, "prof@cuhk.edu.hk")).toBe(false);
+  });
+
+  it("does not gate unrelated endpoints", () => {
+    expect(shouldRejectOtpRequest("/sign-in/email", "attacker@gmail.com")).toBe(
+      false,
+    );
+  });
+
+  it("defers missing/non-string email to better-auth validation", () => {
+    expect(shouldRejectOtpRequest(SEND, undefined)).toBe(false);
+    expect(shouldRejectOtpRequest(SEND, ["x@gmail.com"])).toBe(false);
   });
 });

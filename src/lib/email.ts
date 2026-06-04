@@ -35,3 +35,16 @@ export function isAllowedEmail(email: string): boolean {
 
   return true;
 }
+
+const OTP_WHITELIST_PATHS = new Set([
+  "/email-otp/send-verification-otp",
+  "/sign-in/email-otp",
+]);
+
+// Authoritative server-side eligible-account gate for the email-OTP endpoints.
+// The login/register pages also call isAllowedEmail, but that client check is
+// bypassable; this gate (wired in the auth.ts before-hook) is the real boundary.
+export function shouldRejectOtpRequest(path: string, email: unknown): boolean {
+  if (!OTP_WHITELIST_PATHS.has(path)) return false;
+  return typeof email === "string" && !isAllowedEmail(email);
+}
