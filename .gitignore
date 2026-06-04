@@ -57,6 +57,13 @@ next-env.d.ts
 # local-only directories
 pi-mono/
 cu-claw/
+CUpedia/
+.superpowers/
+docs/superpowers/
+wt/
+
+# local debug artifacts
+edit-snapshot.txt
 
 # assets
 design.png
