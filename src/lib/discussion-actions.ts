@@ -31,7 +31,12 @@ export async function getDiscussions(pageId: string): Promise<Discussion[]> {
     .from(discussions)
     .innerJoin(users, eq(discussions.userId, users.id))
     .where(eq(discussions.pageId, pageId))
-    .orderBy(asc(discussions.createdAt));
+    .orderBy(asc(discussions.createdAt))
+    // Auxiliary read path — degrade to empty rather than failing the page.
+    .catch((error: unknown) => {
+      console.error("getDiscussions: query failed", error);
+      return [];
+    });
 
   const map = new Map<string, Discussion>();
   const roots: Discussion[] = [];

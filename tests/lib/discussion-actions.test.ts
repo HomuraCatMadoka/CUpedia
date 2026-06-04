@@ -130,6 +130,19 @@ describe("getDiscussions", () => {
     expect(result[0].replies).toHaveLength(1);
     expect(result[0].replies[0].id).toBe("d2");
   });
+
+  it("degrades to empty list when the query fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const chain = mockDbSelect();
+    chain.orderBy.mockRejectedValueOnce(
+      new Error('relation "discussions" does not exist'),
+    );
+
+    const result = await getDiscussions("page-1");
+    expect(result).toEqual([]);
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
 });
 
 describe("createDiscussion", () => {

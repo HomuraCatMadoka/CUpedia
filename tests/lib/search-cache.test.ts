@@ -382,4 +382,27 @@ describe("read caching — getWikiTree & getWikiPage", () => {
     const result = await getBacklinks("target-1");
     expect(result).toEqual(rows);
   });
+
+  it("getBacklinks degrades to empty list when the query fails", async () => {
+    cacheStore.clear();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        innerJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi
+              .fn()
+              .mockRejectedValue(
+                new Error('relation "wiki_links" does not exist'),
+              ),
+          }),
+        }),
+      }),
+    });
+
+    const result = await getBacklinks("target-2");
+    expect(result).toEqual([]);
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
 });

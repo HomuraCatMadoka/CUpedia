@@ -64,7 +64,13 @@ const getCachedBacklinks = unstable_cache(
 );
 
 export async function getBacklinks(pageId: string) {
-  return getCachedBacklinks(pageId);
+  // Auxiliary read path — degrade to empty rather than failing the page.
+  try {
+    return await getCachedBacklinks(pageId);
+  } catch (error) {
+    console.error("getBacklinks: query failed", error);
+    return [];
+  }
 }
 
 const getCachedWikiTree = unstable_cache(
