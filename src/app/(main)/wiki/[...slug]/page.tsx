@@ -48,8 +48,11 @@ export default async function WikiReadPage({
   return (
     <>
       <SidebarToggle canEdit={canEdit} />
+      {/* The sidebar shows the TOC here, not the tree — only ship the tree
+          for the no-headings fallback. WikiSidebar is a client component, so
+          its props land in every navigation's RSC payload (#136). */}
       <WikiSidebar
-        pages={pages}
+        pages={headings.length > 0 ? undefined : pages}
         currentPage={{
           title: page.title,
           slug: slug,

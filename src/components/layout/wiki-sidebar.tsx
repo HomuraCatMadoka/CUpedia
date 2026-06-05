@@ -175,7 +175,13 @@ export function WikiSidebar({
   currentPage,
   headings,
 }: {
-  pages: { id: string; slug: string; title: string; parentId: string | null }[];
+  /** Omit when the TOC branch renders — keeps the full tree out of the RSC payload (#136). */
+  pages?: {
+    id: string;
+    slug: string;
+    title: string;
+    parentId: string | null;
+  }[];
   currentPage?: {
     title: string;
     slug: string;
@@ -185,7 +191,7 @@ export function WikiSidebar({
   headings?: Heading[];
 }) {
   const { state, collapse, closeMobile } = useSidebar();
-  const tree = buildTree(pages);
+  const tree = buildTree(pages ?? []);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsed);
 
