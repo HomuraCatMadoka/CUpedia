@@ -1,19 +1,13 @@
-import { auth } from "@/lib/auth";
 import { getObject } from "@/lib/minio";
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 
+// Assets are public, like the wiki pages that embed them (#139). Keys are
+// random UUIDs (immutable content), so cache aggressively: max-age for the
+// browser, s-maxage for Vercel's edge cache.
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ key: string[] }> },
 ) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { key: keySegments } = await params;
   const key = keySegments.join("/");
 
@@ -30,7 +24,8 @@ export async function GET(
     return new NextResponse(stream, {
       headers: {
         "Content-Type": response.ContentType ?? "application/octet-stream",
-        "Cache-Control": "private, max-age=86400",
+        "Cache-Control":
+          "public, max-age=31536000, immutable, s-maxage=31536000",
       },
     });
   } catch {

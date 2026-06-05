@@ -267,7 +267,7 @@ seeding. Set `E2E_DATABASE_URL` to give a parallel worktree its own db. The dev
 - **Don't modify migration files** — they are generated; edit `schema.ts` instead
 - **Don't skip conflict detection** — always compare `updatedAt` when updating wiki pages
 - **Don't hardcode email domains** — use the whitelist in `email.ts`
-- **Don't serve files directly from MinIO** — use the `/api/wiki-assets/` route for access control
+- **Don't serve files directly from MinIO** — use the `/api/wiki-assets/` route (path validation + immutable cache headers; assets are public, #139)
 - **Don't use `drizzle-kit push`** — local and CI both apply schema with `migrate`; the migration chain has SQL (`pg_trgm`, auth repair) that `push` would skip
 - **Don't forget to start Docker services** — `docker compose up -d db minio` before `pnpm dev`
 - **Don't delete worktree before push succeeds** — commits in an unpushed worktree are unrecoverable
