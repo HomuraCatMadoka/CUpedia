@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-provider";
+import { PrefetchLink } from "@/components/layout/prefetch-link";
 import { PageToc } from "@/components/layout/page-toc";
 import type { Heading } from "@/lib/headings";
 
@@ -84,9 +84,8 @@ function ChildItem({
         ) : (
           <span className="w-5 shrink-0" />
         )}
-        <Link
+        <PrefetchLink
           href={href}
-          prefetch={false}
           onClick={isMobile ? closeMobile : undefined}
           className={cn(
             "block flex-1 truncate rounded px-2 py-1 text-sm hover:bg-[var(--sidebar-active-bg)]",
@@ -96,7 +95,7 @@ function ChildItem({
           style={{ paddingLeft: `${depth * 12}px` }}
         >
           {node.title}
-        </Link>
+        </PrefetchLink>
       </div>
       {hasChildren && !collapsed && (
         <ul>
@@ -140,9 +139,8 @@ function SectionGroup({
         >
           {collapsed ? "▶" : "▼"}
         </button>
-        <Link
+        <PrefetchLink
           href={href}
-          prefetch={false}
           onClick={isMobile ? closeMobile : undefined}
           className={cn(
             "block flex-1 truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground",
@@ -151,7 +149,7 @@ function SectionGroup({
           )}
         >
           {node.title}
-        </Link>
+        </PrefetchLink>
       </div>
       {!collapsed && node.children.length > 0 && (
         <ul className="mt-1 space-y-0.5">

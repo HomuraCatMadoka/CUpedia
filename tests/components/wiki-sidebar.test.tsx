@@ -8,6 +8,7 @@ import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/wiki/guide",
+  useRouter: () => ({ prefetch: () => {} }),
 }));
 
 const PAGES = [
