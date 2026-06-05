@@ -302,9 +302,18 @@ export async function restoreWikiPage(pageId: string) {
 }
 
 export async function getRevisions(pageId: string) {
+  // The history list renders only metadata — never the body. Project away the
+  // full `content` (a whole Plate document per row) so it isn't hauled over the
+  // app↔db link for nothing (#142).
   return db.query.wikiRevisions.findMany({
     where: eq(wikiRevisions.pageId, pageId),
     orderBy: [desc(wikiRevisions.createdAt)],
+    columns: {
+      id: true,
+      title: true,
+      editSummary: true,
+      createdAt: true,
+    },
     with: {
       editedByUser: { columns: { nickname: true } },
     },

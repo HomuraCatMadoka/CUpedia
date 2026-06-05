@@ -53,7 +53,6 @@ export default async function HistoryPage({
   const [page, pages] = await Promise.all([getWikiPage(slug), getWikiTree()]);
   if (!page) notFound();
 
-  const revisions = await getRevisions(page.id);
   const [user, editRole] = await Promise.all([
     getOptionalUser(),
     getWikiEditRole(),
@@ -129,6 +128,8 @@ export default async function HistoryPage({
       </SidebarWrapper>
     );
   }
+
+  const revisions = await getRevisions(page.id);
 
   return (
     <SidebarWrapper pages={pages} canEdit={canEdit}>
