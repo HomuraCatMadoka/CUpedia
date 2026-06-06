@@ -146,6 +146,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="username"
               />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
@@ -218,6 +219,17 @@ export default function RegisterPage() {
 
         {step === "profile" && (
           <form onSubmit={handleProfileSubmit} className="space-y-4">
+            {/* Hidden username field so password managers save email+password,
+                not nickname+password. */}
+            <input
+              type="email"
+              value={email}
+              autoComplete="username"
+              readOnly
+              tabIndex={-1}
+              className="sr-only"
+              aria-hidden
+            />
             <div className="space-y-2">
               <Label htmlFor="reg-nickname">昵称</Label>
               <Input
@@ -228,6 +240,7 @@ export default function RegisterPage() {
                 required
                 minLength={2}
                 maxLength={20}
+                autoComplete="nickname"
                 autoFocus
               />
             </div>
@@ -241,6 +254,7 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
+                autoComplete="new-password"
               />
             </div>
             <div className="space-y-2">
@@ -253,6 +267,7 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={8}
+                autoComplete="new-password"
               />
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}

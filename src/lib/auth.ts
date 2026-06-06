@@ -65,7 +65,7 @@ export const auth = betterAuth({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            sender: { email: process.env.EMAIL_FROM },
+            sender: { email: process.env.EMAIL_FROM, name: "CUpedia" },
             to: [{ email }],
             subject,
             textContent: text,
