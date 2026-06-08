@@ -55,4 +55,23 @@ test("register sets the password and logs the user in", async ({
     data: { email: EMAIL, password: PASSWORD },
   });
   expect(login.status()).toBe(200);
+
+  // check-email reflects the now-registered state.
+  const check = await request.post("/api/auth/check-email", {
+    data: { email: EMAIL },
+  });
+  expect((await check.json()).registered).toBe(true);
+
+  // A registered email cannot re-register — blocked before OTP validation
+  // (so the bogus OTP never matters), preventing silent password/nickname
+  // clobber. 409, not 200.
+  const dup = await request.post("/api/auth/register", {
+    data: {
+      email: EMAIL,
+      otp: "000000",
+      password: "another-pw-1",
+      nickname: "重复",
+    },
+  });
+  expect(dup.status()).toBe(409);
 });

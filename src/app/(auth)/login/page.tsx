@@ -192,16 +192,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "登录中..." : "登录"}
             </Button>
-            <button
-              type="button"
+            <Link
+              href="/reset-password"
               className="block w-full text-center text-sm text-muted-foreground hover:text-primary"
-              onClick={() => {
-                setTab("otp");
-                setError("");
-              }}
             >
-              忘记密码？使用邮箱验证码登录
-            </button>
+              忘记密码？
+            </Link>
             <p className="text-center text-sm text-muted-foreground">
               还没有账号？
               <Link href="/register" className="text-primary hover:underline">

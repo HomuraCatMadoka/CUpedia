@@ -39,6 +39,8 @@ export function isAllowedEmail(email: string): boolean {
 const OTP_WHITELIST_PATHS = new Set([
   "/email-otp/send-verification-otp",
   "/sign-in/email-otp",
+  "/email-otp/request-password-reset",
+  "/email-otp/reset-password",
 ]);
 
 // Authoritative server-side eligible-account gate for the email-OTP endpoints.

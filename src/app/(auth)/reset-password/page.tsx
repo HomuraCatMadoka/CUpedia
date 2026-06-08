@@ -9,18 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isAllowedEmail } from "@/lib/email";
-import { validateNickname } from "@/lib/nickname";
 
-type Step = "email" | "otp" | "profile";
+type Step = "email" | "reset" | "done";
 
 const OTP_EXPIRY_SECONDS = 300;
 
-export default function RegisterPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
-  const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -36,16 +34,13 @@ export default function RegisterPage() {
   const sendOtp = useCallback(async () => {
     setError("");
     if (!isAllowedEmail(email)) {
-      setError("仅支持 CUHK 邮箱注册");
+      setError("仅支持 CUHK 邮箱");
       return false;
     }
     setLoading(true);
     try {
       const { error: sendError } =
-        await authClient.emailOtp.sendVerificationOtp({
-          email,
-          type: "sign-in",
-        });
+        await authClient.emailOtp.requestPasswordReset({ email });
       if (sendError) {
         setError(sendError.message ?? "发送验证码失败");
         return false;
@@ -62,51 +57,15 @@ export default function RegisterPage() {
 
   async function handleEmailSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    if (!isAllowedEmail(email)) {
-      setError("仅支持 CUHK 邮箱注册");
-      return;
-    }
-    // Warn before sending an OTP if the email already has an account — the
-    // register route also blocks it, this just saves a wasted code.
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/check-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      if (data.registered) {
-        setError("该邮箱已注册，请直接登录");
-        setLoading(false);
-        return;
-      }
-    } catch {
-      // Check failed — don't block; the register route still guards.
-    }
-    setLoading(false);
     const ok = await sendOtp();
-    if (ok) setStep("otp");
+    if (ok) setStep("reset");
   }
 
-  function handleOtpSubmit(e: React.FormEvent) {
+  async function handleResetSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (otp.length !== 6) {
       setError("请输入 6 位验证码");
-      return;
-    }
-    setStep("profile");
-  }
-
-  async function handleProfileSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-
-    const nicknameResult = validateNickname(nickname);
-    if (!nicknameResult.ok) {
-      setError(nicknameResult.error);
       return;
     }
     if (password.length < 8) {
@@ -117,31 +76,20 @@ export default function RegisterPage() {
       setError("两次输入的密码不一致");
       return;
     }
-
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email,
-          otp,
-          password,
-          nickname: nicknameResult.nickname,
-        }),
+      const { error: resetError } = await authClient.emailOtp.resetPassword({
+        email,
+        otp,
+        password,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "注册失败");
-        if (data.error?.includes("验证码") || data.error?.includes("过期")) {
-          setStep("otp");
-        }
+      if (resetError) {
+        setError(resetError.message ?? "重置失败，请检查验证码");
         return;
       }
-      router.push("/wiki");
-      router.refresh();
+      setStep("done");
     } catch {
-      setError("注册失败，请稍后重试");
+      setError("重置失败，请稍后重试");
     } finally {
       setLoading(false);
     }
@@ -156,15 +104,15 @@ export default function RegisterPage() {
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
-        <CardTitle>注册 CUpedia</CardTitle>
+        <CardTitle>重置密码</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {step === "email" && (
           <form onSubmit={handleEmailSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="reg-email">CUHK 邮箱</Label>
+              <Label htmlFor="reset-email">CUHK 邮箱</Label>
               <Input
-                id="reg-email"
+                id="reset-email"
                 type="email"
                 placeholder="1155xxxxxx@link.cuhk.edu.hk"
                 value={email}
@@ -178,23 +126,34 @@ export default function RegisterPage() {
               {loading ? "发送中..." : "发送验证码"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
-              已有账号？
+              想起密码了？
               <Link href="/login" className="text-primary hover:underline">
-                登录
+                返回登录
               </Link>
             </p>
           </form>
         )}
 
-        {step === "otp" && (
-          <form onSubmit={handleOtpSubmit} className="space-y-4">
+        {step === "reset" && (
+          <form onSubmit={handleResetSubmit} className="space-y-4">
             <p className="text-sm text-muted-foreground">
               验证码已发送至 <span className="font-medium">{email}</span>
             </p>
+            {/* Hidden username field so password managers update email+password. */}
+            <input
+              type="email"
+              name="email"
+              value={email}
+              autoComplete="username"
+              readOnly
+              tabIndex={-1}
+              className="sr-only"
+              aria-hidden
+            />
             <div className="space-y-2">
-              <Label htmlFor="reg-otp">验证码</Label>
+              <Label htmlFor="reset-otp">验证码</Label>
               <Input
-                id="reg-otp"
+                id="reset-otp"
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]{6}"
@@ -206,6 +165,32 @@ export default function RegisterPage() {
                 }
                 required
                 autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reset-password">新密码</Label>
+              <Input
+                id="reset-password"
+                type="password"
+                placeholder="至少 8 个字符"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="reset-confirm">确认新密码</Label>
+              <Input
+                id="reset-confirm"
+                type="password"
+                placeholder="再次输入新密码"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="new-password"
               />
             </div>
             <div className="flex items-center justify-between text-sm">
@@ -235,81 +220,21 @@ export default function RegisterPage() {
               </button>
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full">
-              下一步
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "重置中..." : "重置密码"}
             </Button>
           </form>
         )}
 
-        {step === "profile" && (
-          <form onSubmit={handleProfileSubmit} className="space-y-4">
-            {/* Hidden username field so password managers save email+password,
-                not nickname+password. */}
-            <input
-              type="email"
-              name="email"
-              value={email}
-              autoComplete="username"
-              readOnly
-              tabIndex={-1}
-              className="sr-only"
-              aria-hidden
-            />
-            <div className="space-y-2">
-              <Label htmlFor="reg-nickname">昵称</Label>
-              <Input
-                id="reg-nickname"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="中英文、数字、下划线，2-20 字符"
-                required
-                minLength={2}
-                maxLength={20}
-                autoComplete="nickname"
-                autoFocus
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="reg-password">密码</Label>
-              <Input
-                id="reg-password"
-                type="password"
-                placeholder="至少 8 个字符"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete="new-password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="reg-confirm">确认密码</Label>
-              <Input
-                id="reg-confirm"
-                type="password"
-                placeholder="再次输入密码"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete="new-password"
-              />
-            </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "注册中..." : "注册"}
+        {step === "done" && (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              密码已重置，请使用新密码登录。
+            </p>
+            <Button className="w-full" onClick={() => router.push("/login")}>
+              前往登录
             </Button>
-            <button
-              type="button"
-              className="block w-full text-center text-sm text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                setStep("otp");
-                setError("");
-              }}
-            >
-              返回上一步
-            </button>
-          </form>
+          </div>
         )}
       </CardContent>
     </Card>
