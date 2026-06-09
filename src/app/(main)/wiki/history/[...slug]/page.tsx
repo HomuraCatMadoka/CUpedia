@@ -12,6 +12,7 @@ import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { RevisionList } from "@/components/wiki/revision-list";
 import { RevisionDiff } from "@/components/wiki/revision-diff";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
+import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
 import { Button } from "@/components/ui/button";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getWikiEditRole } from "@/lib/site-settings";
@@ -93,7 +94,9 @@ export default async function HistoryPage({
             </Button>
           </form>
         )}
-        <WikiRenderer value={parseContent(rev.content)} />
+        <WikiRenderer>
+          <WikiStaticContent value={parseContent(rev.content)} />
+        </WikiRenderer>
       </SidebarWrapper>
     );
   }

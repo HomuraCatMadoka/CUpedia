@@ -10,6 +10,7 @@ import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
+import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getDiscussions } from "@/lib/discussion-actions";
 import { getWikiEditRole } from "@/lib/site-settings";
@@ -105,11 +106,12 @@ export default async function WikiReadPage({
           </div>
           <div className="mt-6 border-t pt-6">
             <WikiRenderer
-              value={plateValue}
               pageId={page.id}
               discussions={discussions}
               canComment={!!user}
-            />
+            >
+              <WikiStaticContent value={plateValue} />
+            </WikiRenderer>
             <Backlinks links={backlinks} />
           </div>
         </div>
