@@ -14,7 +14,7 @@ import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getDiscussions } from "@/lib/discussion-actions";
 import { getWikiEditRole } from "@/lib/site-settings";
-import { extractHeadings } from "@/lib/headings";
+import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
 
@@ -36,7 +36,7 @@ export default async function WikiReadPage({
 
   const canEdit = !!user && (editRole === "user" || user.role === "admin");
   const headings = extractHeadings(page.content);
-  const plateValue = parseContent(page.content);
+  const plateValue = stripTitleHeading(parseContent(page.content), page.title);
   const [discussions, backlinks] = await Promise.all([
     getDiscussions(page.id),
     getBacklinks(page.id),

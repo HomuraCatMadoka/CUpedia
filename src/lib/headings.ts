@@ -1,4 +1,4 @@
-import { parseContent } from "./plate-utils";
+import { parseContent, type PlateValue } from "./plate-utils";
 
 export type Heading = { id: string; text: string; level: 2 | 3 };
 
@@ -46,4 +46,19 @@ export function extractHeadings(content: string): Heading[] {
   if (!content.trim()) return [];
   const nodes = parseContent(content) as SlateNode[];
   return extractHeadingsFromNodes(nodes);
+}
+
+// The read view renders the page title in its header, so a body whose first h1
+// repeats it shows the title twice. Drop that h1 for display only (stored
+// content is untouched). The first h1 may trail a leading toc node, so scan for
+// it rather than assuming index 0; only strip when it matches the title. #149
+export function stripTitleHeading(
+  value: PlateValue,
+  title: string,
+): PlateValue {
+  const idx = value.findIndex((n) => (n as SlateNode).type === "h1");
+  if (idx === -1) return value;
+  if (extractText(value[idx] as SlateNode).trim() !== title.trim())
+    return value;
+  return [...value.slice(0, idx), ...value.slice(idx + 1)];
 }

@@ -3,7 +3,9 @@ import {
   extractHeadings,
   extractHeadingsFromNodes,
   headingSlug,
+  stripTitleHeading,
 } from "@/lib/headings";
+import type { PlateValue } from "@/lib/plate-utils";
 
 describe("headingSlug", () => {
   it("handles CJK text", () => {
@@ -124,5 +126,77 @@ describe("extractHeadings with Plate JSON string", () => {
 
   it("returns no headings for non-JSON (legacy) content", () => {
     expect(extractHeadings("not json at all")).toEqual([]);
+  });
+});
+
+describe("stripTitleHeading", () => {
+  const body = [
+    { type: "h2", children: [{ text: "Section" }] },
+    { type: "p", children: [{ text: "Content" }] },
+  ];
+
+  it("drops a leading h1 matching the page title", () => {
+    const value = [
+      { type: "h1", children: [{ text: "My Page" }] },
+      ...body,
+    ] as PlateValue;
+    expect(stripTitleHeading(value, "My Page")).toEqual(body);
+  });
+
+  it("drops the first h1 even when a toc node precedes it", () => {
+    const value = [
+      { type: "toc", children: [{ text: "" }] },
+      { type: "h1", children: [{ text: "My Page" }] },
+      ...body,
+    ] as PlateValue;
+    expect(stripTitleHeading(value, "My Page")).toEqual([
+      { type: "toc", children: [{ text: "" }] },
+      ...body,
+    ]);
+  });
+
+  it("compares titles after trimming whitespace", () => {
+    const value = [
+      { type: "h1", children: [{ text: "  My Page " }] },
+      ...body,
+    ] as PlateValue;
+    expect(stripTitleHeading(value, "My Page")).toEqual(body);
+  });
+
+  it("flattens inline formatting in the title h1", () => {
+    const value = [
+      {
+        type: "h1",
+        children: [{ text: "My " }, { text: "Page", bold: true }],
+      },
+      ...body,
+    ] as PlateValue;
+    expect(stripTitleHeading(value, "My Page")).toEqual(body);
+  });
+
+  it("keeps the first h1 when its text differs from the title", () => {
+    const value = [
+      { type: "h1", children: [{ text: "Other Title" }] },
+      ...body,
+    ] as PlateValue;
+    expect(stripTitleHeading(value, "My Page")).toBe(value);
+  });
+
+  it("only inspects the first h1, ignoring a later same-named one", () => {
+    const value = [
+      { type: "h1", children: [{ text: "Other Title" }] },
+      { type: "h1", children: [{ text: "My Page" }] },
+    ] as PlateValue;
+    expect(stripTitleHeading(value, "My Page")).toBe(value);
+  });
+
+  it("keeps the content when there is no h1", () => {
+    const value = [...body] as PlateValue;
+    expect(stripTitleHeading(value, "Section")).toBe(value);
+  });
+
+  it("handles an empty value", () => {
+    const value = [] as PlateValue;
+    expect(stripTitleHeading(value, "My Page")).toBe(value);
   });
 });
