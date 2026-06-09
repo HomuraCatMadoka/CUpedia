@@ -96,6 +96,35 @@ describe("convertLinks", () => {
     expect(result).toContain("unknown%20abc123.md");
   });
 
+  it("resolves links whose title mixes full-width '（' with half-width ')'", () => {
+    // The literal ')' truncated the CommonMark link destination, leaving the
+    // page unlinked and leaking the UUID tail as visible text.
+    const map = new Map([
+      [
+        "讨新亚檄文（by DVD) fa4b93c41a0b4e46b039cf6c19fe31a4.md",
+        "书院/讨新亚檄文-by-dvd",
+      ],
+    ]);
+    const input = `[讨新亚檄文（by DVD)](%E8%AE%A8%E6%96%B0%E4%BA%9A%E6%AA%84%E6%96%87%EF%BC%88by%20DVD)%20fa4b93c41a0b4e46b039cf6c19fe31a4.md)`;
+    const result = convertLinks(input, ".", map);
+    expect(result).toContain("/wiki/书院/讨新亚檄文-by-dvd");
+    expect(result).not.toContain("fa4b93c41a0b4e46b039cf6c19fe31a4");
+    expect(result).not.toContain(".md");
+  });
+
+  it("resolves mixed-paren titles that also contain '&'", () => {
+    const map = new Map([
+      [
+        "逸夫书院测评 （by Littleboer & ily) 14655dd483e545488ba5b4d3592532ef.md",
+        "书院/逸夫书院测评-by-littleboer-ily",
+      ],
+    ]);
+    const input = `[逸夫书院测评 （by. Littleboer & ily)](%E9%80%B8%E5%A4%AB%E4%B9%A6%E9%99%A2%E6%B5%8B%E8%AF%84%20%EF%BC%88by%20Littleboer%20&%20ily)%2014655dd483e545488ba5b4d3592532ef.md)`;
+    const result = convertLinks(input, ".", map);
+    expect(result).toContain("/wiki/书院/逸夫书院测评-by-littleboer-ily");
+    expect(result).not.toContain("14655dd483e545488ba5b4d3592532ef");
+  });
+
   it("does not touch image links", () => {
     const input = `![Untitled](images/Untitled.png)`;
     const result = convertLinks(input, ".", pathToSlug);
