@@ -56,7 +56,7 @@ export function WikiRenderer({
     <DiscussionProvider pageId={pageId ?? ""} initialDiscussions={discussions}>
       <div className="flex gap-4">
         <div className="min-w-0 flex-1">
-          <EditorStatic editor={editor} variant="fullWidth" />
+          <EditorStatic editor={editor} variant="none" className="text-base" />
         </div>
         <ReadOnlyDiscussionSidebar canComment={canComment} />
       </div>
