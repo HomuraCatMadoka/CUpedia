@@ -7,7 +7,7 @@ export default defineConfig({
     include: ["tests/**/*.{test,spec}.{ts,tsx}"],
     exclude: ["e2e/**", "node_modules/**"],
     server: {
-      deps: { inline: [/@platejs\/math/, /katex/] },
+      deps: { inline: [/@platejs\/math/, /katex/, /react-tweet/] },
     },
   },
   resolve: {

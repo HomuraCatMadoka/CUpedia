@@ -10,6 +10,7 @@ import {
 import { KEYS } from "platejs";
 
 import { AudioElementStatic } from "@/components/ui/media-audio-node-static";
+import { MediaEmbedElementStatic } from "@/components/ui/media-embed-node-static";
 import { FileElementStatic } from "@/components/ui/media-file-node-static";
 import { ImageElementStatic } from "@/components/ui/media-image-node-static";
 import { VideoElementStatic } from "@/components/ui/media-video-node-static";
@@ -26,6 +27,6 @@ export const BaseMediaKit = [
       },
     },
   }),
-  BaseMediaEmbedPlugin,
+  BaseMediaEmbedPlugin.withComponent(MediaEmbedElementStatic),
   BasePlaceholderPlugin,
 ];
