@@ -52,12 +52,32 @@ export function stripMetadata(content: string): string {
 
 const UNSAFE_SCHEMES = /^(javascript|data|vbscript):/i;
 
+// Notion exports internal links as `[text](<encoded-path> <32-hex-id>.md)`.
+// When a title mixes a full-width '（' with a half-width ')', the export leaves
+// that ')' literal in the destination. CommonMark ends an unbracketed link
+// destination at the first unbalanced ')', truncating the path so it no longer
+// ends in `.md` and stops resolving (the UUID tail leaks as visible text).
+// Percent-encode literal parens inside Notion .md destinations so the whole
+// path survives parsing; decoding later restores the original characters.
+const NOTION_MD_DEST = /(\]\()([^\n]*?[0-9a-f]{32}\.md)(\))/g;
+
+export function encodeNotionLinkParens(content: string): string {
+  return content.replace(
+    NOTION_MD_DEST,
+    (_, open, dest, close) =>
+      open + dest.replace(/\(/g, "%28").replace(/\)/g, "%29") + close,
+  );
+}
+
 export function convertLinks(
   content: string,
   relativeDir: string,
   pathToSlug: Map<string, string>,
 ): string {
-  const tree = unified().use(remarkParse).use(remarkGfm).parse(content);
+  const tree = unified()
+    .use(remarkParse)
+    .use(remarkGfm)
+    .parse(encodeNotionLinkParens(content));
 
   visit(tree, "link", (node: Link, index, parent) => {
     const url = node.url;

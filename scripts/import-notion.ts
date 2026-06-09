@@ -16,6 +16,7 @@ import {
   stripMetadata,
   convertLinks,
   processImages,
+  encodeNotionLinkParens,
 } from "./import-notion-transforms";
 
 export function parseNotionFilename(filename: string): {
@@ -31,7 +32,9 @@ export function extractLinkOrder(content: string): string[] {
   const linkRe = /\]\(([^)]+\.md)\)/g;
   const titles: string[] = [];
   let match;
-  while ((match = linkRe.exec(content)) !== null) {
+  // Normalize stray parens first so mixed full-/half-width titles still match.
+  const normalized = encodeNotionLinkParens(content);
+  while ((match = linkRe.exec(normalized)) !== null) {
     let decoded: string;
     try {
       decoded = decodeURIComponent(match[1]);
