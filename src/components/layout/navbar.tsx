@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -23,6 +25,7 @@ import { CommandSearch } from "@/components/layout/command-search";
 export function Navbar() {
   const { data: session } = authClient.useSession();
   const { isMobile, openMobile } = useSidebar();
+  const pathname = usePathname();
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
   const [nicknameError, setNicknameError] = useState("");
@@ -74,6 +77,30 @@ export function Navbar() {
             <Link href="/wiki" className="text-lg font-bold">
               CUpedia
             </Link>
+            <nav className="hidden items-center gap-1 text-sm md:flex">
+              <Link
+                href="/wiki"
+                className={cn(
+                  "rounded-md px-3 py-1.5 transition-colors hover:bg-accent",
+                  pathname.startsWith("/wiki")
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                百科
+              </Link>
+              <Link
+                href="/courses"
+                className={cn(
+                  "rounded-md px-3 py-1.5 transition-colors hover:bg-accent",
+                  pathname.startsWith("/courses")
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                课程
+              </Link>
+            </nav>
           </div>
           <nav className="flex items-center gap-4">
             <CommandSearch />

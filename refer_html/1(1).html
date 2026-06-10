@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CUpedia - CUHK Course Review</title>
+    <!-- 引入 Tailwind CSS 提供现代、干净的样式 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #FAFAFA;
+            color: #1A1A1A;
+        }
+        /* 隐藏滚动条但保持可滚动 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-neutral-200">
+
+    <!-- 1. 顶部导航 (Minimal Navbar) -->
+    <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-neutral-100">
+        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-12">
+                <a href="#" class="text-xl font-semibold tracking-tight text-neutral-900">CUpedia</a>
+                <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-neutral-500">
+                    <a href="#" class="text-neutral-900 transition-colors">首页</a>
+                    <a href="#" class="hover:text-neutral-900 transition-colors">课程</a>
+                    <a href="#" class="hover:text-neutral-900 transition-colors">贡献</a>
+                </nav>
+            </div>
+            <div class="flex items-center">
+                <!-- 极简账户图标 -->
+                <button class="p-1 text-neutral-400 hover:text-neutral-900 transition-colors" aria-label="Account">
+                    <svg class="w-6 h-6 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容布局 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-12 flex flex-col lg:flex-row gap-12">
+        
+        <!-- 2. 左侧筛选栏 (Minimal Sidebar) -->
+        <aside class="w-full lg:w-48 shrink-0 space-y-8">
+            <div>
+                <h3 class="text-xs font-semibold tracking-wider text-neutral-400 uppercase mb-4">学院</h3>
+                <ul class="space-y-3 text-sm text-neutral-500">
+                    <li><a href="#" class="text-neutral-900 font-medium">工程学院 (ERG)</a></li>
+                    <li><a href="#" class="hover:text-neutral-900 transition-colors">理学院 (SCI)</a></li>
+                    <li><a href="#" class="hover:text-neutral-900 transition-colors">文学院 (ARTS)</a></li>
+                    <li><a href="#" class="hover:text-neutral-900 transition-colors">商学院 (BA)</a></li>
+                </ul>
+            </div>
+            <div>
+                <h3 class="text-xs font-semibold tracking-wider text-neutral-400 uppercase mb-4">学分</h3>
+                <ul class="space-y-3 text-sm text-neutral-500">
+                    <li><a href="#" class="hover:text-neutral-900 transition-colors">3 学分</a></li>
+                    <li><a href="#" class="hover:text-neutral-900 transition-colors">2 学分</a></li>
+                    <li><a href="#" class="hover:text-neutral-900 transition-colors">1 学分</a></li>
+                </ul>
+            </div>
+        </aside>
+
+        <!-- 右侧核心区域 -->
+        <section class="flex-1 space-y-10">
+            
+            <!-- 3. 搜索框 (Minimal Search) -->
+            <div class="relative max-w-lg">
+                <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-neutral-400">
+                    <svg class="w-5 h-5 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </span>
+                <input type="text" placeholder="搜索课程代码或名称..." class="w-full pl-11 pr-4 py-3 bg-white border border-neutral-200/80 rounded-xl text-sm placeholder-neutral-400 focus:outline-none focus:border-neutral-900 transition-colors">
+            </div>
+
+            <!-- 4. 课程卡片网格 (Course Cards) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <!-- 卡片 1 (点击可触发弹窗示例) -->
+                <div onclick="openModal()" class="group bg-white border border-neutral-200/60 rounded-2xl p-6 hover:border-neutral-900/40 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[160px]">
+                    <div>
+                        <span class="text-xs font-medium tracking-wide text-neutral-400 uppercase">CENG</span>
+                        <h2 class="text-lg font-medium text-neutral-900 mt-1 group-hover:text-black transition-colors">CSCI 3150</h2>
+                        <p class="text-sm text-neutral-500 mt-1">Introduction to Operating Systems</p>
+                    </div>
+                    <!-- 类似虎扑风格的终极简化大字打分 -->
+                    <div class="mt-6 flex items-baseline justify-between">
+                        <span class="text-xs text-neutral-400">推荐指数</span>
+                        <span class="text-2xl font-semibold tracking-tight text-neutral-900">9.4<span class="text-xs font-normal text-neutral-400"> /10</span></span>
+                    </div>
+                </div>
+
+                <!-- 卡片 2 -->
+                <div class="group bg-white border border-neutral-200/60 rounded-2xl p-6 hover:border-neutral-900/40 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[160px]">
+                    <div>
+                        <span class="text-xs font-medium tracking-wide text-neutral-400 uppercase">CENG</span>
+                        <h2 class="text-lg font-medium text-neutral-900 mt-1">CSCI 3100</h2>
+                        <p class="text-sm text-neutral-500 mt-1">Software Engineering</p>
+                    </div>
+                    <div class="mt-6 flex items-baseline justify-between">
+                        <span class="text-xs text-neutral-400">推荐指数</span>
+                        <span class="text-2xl font-semibold tracking-tight text-neutral-900">8.1<span class="text-xs font-normal text-neutral-400"> /10</span></span>
+                    </div>
+                </div>
+
+                <!-- 卡片 3 -->
+                <div class="group bg-white border border-neutral-200/60 rounded-2xl p-6 hover:border-neutral-900/40 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[160px]">
+                    <div>
+                        <span class="text-xs font-medium tracking-wide text-neutral-400 uppercase">CENG</span>
+                        <h2 class="text-lg font-medium text-neutral-900 mt-1">CSCI 2100</h2>
+                        <p class="text-sm text-neutral-500 mt-1">Data Structures</p>
+                    </div>
+                    <div class="mt-6 flex items-baseline justify-between">
+                        <span class="text-xs text-neutral-400">推荐指数</span>
+                        <span class="text-2xl font-semibold tracking-tight text-neutral-900">9.6<span class="text-xs font-normal text-neutral-400"> /10</span></span>
+                    </div>
+                </div>
+
+                <!-- 卡片 4 -->
+                <div class="group bg-white border border-neutral-200/60 rounded-2xl p-6 hover:border-neutral-900/40 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[160px]">
+                    <div>
+                        <span class="text-xs font-medium tracking-wide text-neutral-400 uppercase">MATH</span>
+                        <h2 class="text-lg font-medium text-neutral-900 mt-1">MATH 1510</h2>
+                        <p class="text-sm text-neutral-500 mt-1">Calculus for Engineers</p>
+                    </div>
+                    <div class="mt-6 flex items-baseline justify-between">
+                        <span class="text-xs text-neutral-400">推荐指数</span>
+                        <span class="text-2xl font-semibold tracking-tight text-neutral-900">7.2<span class="text-xs font-normal text-neutral-400"> /10</span></span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- 5. 极简弹出详情 (Minimal Modal) -->
+    <div id="courseModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+        <!-- 磨砂玻璃背景遮罩 -->
+        <div onclick="closeModal()" class="absolute inset-0 bg-neutral-900/20 backdrop-blur-sm"></div>
+        
+        <!-- 弹窗主体 -->
+        <div class="relative bg-white w-full max-w-md rounded-2xl p-8 shadow-xl border border-neutral-100 transform transition-all">
+            <!-- 关闭按钮 -->
+            <button onclick="closeModal()" class="absolute top-6 right-6 text-neutral-400 hover:text-neutral-900 transition-colors">
+                <svg class="w-5 h-5 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <!-- 详情头部 -->
+            <div class="text-center mt-4">
+                <span class="text-xs font-medium tracking-wide text-neutral-400 uppercase">CENG</span>
+                <h3 class="text-2xl font-semibold text-neutral-900 mt-1">CSCI 3150</h3>
+                <p class="text-sm text-neutral-500 mt-2">Introduction to Operating Systems</p>
+            </div>
+
+            <!-- 极简单一总体评分展示 (类虎扑) -->
+            <div class="my-10 py-6 bg-neutral-50 rounded-xl text-center">
+                <p class="text-xs text-neutral-400 font-medium uppercase tracking-wider">综合推荐指数</p>
+                <p class="text-5xl font-light tracking-tighter text-neutral-900 mt-2">9.4</p>
+                <p class="text-xs text-neutral-400 mt-2">基于 142 个真实评价</p>
+            </div>
+
+            <!-- 唯一的极简操作按钮 -->
+            <button class="w-full py-3 bg-neutral-950 text-white text-sm font-medium rounded-xl hover:bg-neutral-800 active:scale-[0.99] transition-all">
+                写评论 / 打分
+            </button>
+        </div>
+    </div>
+
+    <!-- 6. 底部 (Minimal Footer) -->
+    <footer class="border-t border-neutral-100 bg-white py-8 mt-auto">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-xs text-neutral-400 gap-4">
+            <div>&copy; 2026 CUpedia. Built for CUHK.</div>
+            <div class="flex space-x-6">
+                <a href="https://github.com/HomuraCatMadoka/CUpedia" target="_blank" class="hover:text-neutral-900 transition-colors">GitHub</a>
+                <a href="#" class="hover:text-neutral-900 transition-colors">关于我们</a>
+                <a href="#" class="hover:text-neutral-900 transition-colors">免责声明</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 简易弹窗交互脚本 -->
+    <script>
+        function openModal() {
+            const modal = document.getElementById('courseModal');
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+        function closeModal() {
+            const modal = document.getElementById('courseModal');
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+    </script>
+</body>
+</html>
