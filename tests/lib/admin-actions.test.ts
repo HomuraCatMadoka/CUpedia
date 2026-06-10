@@ -282,6 +282,26 @@ describe("setUserBanned", () => {
     });
     await expect(setUserBanned("user-2", false)).resolves.not.toThrow();
   });
+
+  it("unbans a banned admin (unban path unaffected by the ban guard)", async () => {
+    mockAdminSession("admin-1");
+    const bannedAdmin = {
+      id: "admin-2",
+      role: "admin",
+      banned: true,
+      updated_at: new Date("2026-01-01"),
+    };
+    mockDbTransaction.mockImplementation(async (fn) => {
+      const tx = {
+        execute: vi
+          .fn()
+          .mockResolvedValueOnce([bannedAdmin])
+          .mockResolvedValueOnce([]),
+      };
+      return fn(tx);
+    });
+    await expect(setUserBanned("admin-2", false)).resolves.not.toThrow();
+  });
 });
 
 describe("setUserRole", () => {
