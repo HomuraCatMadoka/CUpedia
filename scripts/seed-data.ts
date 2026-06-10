@@ -42,10 +42,13 @@ export const REVISION_IDS = {
 
 export const PASSWORD = "password123";
 
-// Mirrors WIKI_EDIT_ROLE_KEY / DEFAULT_ROLE in src/lib/site-settings.ts.
-// Hardcoded here to keep seed data free of server-only DB imports.
+// Mirrors the setting keys in src/lib/site-settings.ts. Hardcoded here to keep
+// seed data free of server-only DB imports. owner_user_id designates the site
+// Owner (站长); in dev it is the seed admin. Production sets it once in the DB
+// to the real operator — see docs/adr/0004-owner-tier-via-site-setting.md.
 export const SEED_SITE_SETTINGS: SeedSiteSetting[] = [
   { key: "wiki_edit_role", value: "admin" },
+  { key: "owner_user_id", value: USER_IDS.admin },
 ];
 
 const DELETED_AT = new Date("2024-05-01T00:00:00Z");

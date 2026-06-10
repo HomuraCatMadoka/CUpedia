@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { users, accounts } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { getWikiEditRoleFresh } from "@/lib/site-settings";
+import { getWikiEditRoleFresh, getOwnerUserId } from "@/lib/site-settings";
 import { normalizeEmail } from "@/lib/email";
 import { headers } from "next/headers";
 
@@ -58,6 +58,16 @@ export async function requireAuth() {
 export async function requireAdmin() {
   const user = await requireAuth();
   if (user.role !== "admin") redirect("/");
+  return user;
+}
+
+/** The site Owner: an admin recorded in siteSettings.owner_user_id. Both the
+ * role (via requireAuth) and the owner id are read fresh from the DB, so a
+ * just-promoted/transferred Owner is recognized without session-cache lag. */
+export async function requireOwner() {
+  const user = await requireAdmin();
+  const ownerId = await getOwnerUserId();
+  if (!ownerId || user.id !== ownerId) redirect("/");
   return user;
 }
 

@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { setUserBanned } from "@/lib/admin-actions";
+import { setUserBanned, setUserRole } from "@/lib/admin-actions";
 import { authClient } from "@/lib/auth-client";
 
 interface UserRow {
@@ -29,12 +29,14 @@ export function UserTable({
   totalPages,
   total,
   q,
+  ownerUserId,
 }: {
   users: UserRow[];
   page: number;
   totalPages: number;
   total: number;
   q: string;
+  ownerUserId: string | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,6 +44,7 @@ export function UserTable({
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState(q);
   const [confirmTarget, setConfirmTarget] = useState<UserRow | null>(null);
+  const [roleTarget, setRoleTarget] = useState<UserRow | null>(null);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +74,23 @@ export function UserTable({
     setConfirmTarget(null);
   }
 
+  async function handleSetRole(user: UserRow, role: "admin" | "user") {
+    startTransition(async () => {
+      try {
+        await setUserRole(user.id, role, user.updated_at);
+        router.refresh();
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e);
+        alert(msg === "STALE_USER_ROW" ? "数据已过期，请刷新页面" : msg);
+      }
+    });
+    setRoleTarget(null);
+  }
+
   const isCurrentUser = (userId: string) => session?.user?.id === userId;
+  // Owner identity comes fresh from the server; only the Owner sees role
+  // controls. The server (requireOwner) re-checks, so this is UI gating only.
+  const isOwnerViewer = !!ownerUserId && session?.user?.id === ownerUserId;
 
   return (
     <div className="space-y-4">
@@ -106,7 +125,14 @@ export function UserTable({
               <tr key={user.id} className="border-b">
                 <td className="px-4 py-2">{user.nickname || "—"}</td>
                 <td className="px-4 py-2">{user.email}</td>
-                <td className="px-4 py-2">{user.role}</td>
+                <td className="px-4 py-2">
+                  {user.role}
+                  {ownerUserId === user.id && (
+                    <span className="ml-1.5 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
+                      站长
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-2">
                   <span
                     className={user.banned ? "text-red-600" : "text-green-600"}
@@ -118,29 +144,52 @@ export function UserTable({
                   {new Date(user.created_at).toLocaleDateString("zh-CN")}
                 </td>
                 <td className="px-4 py-2">
-                  {isCurrentUser(user.id) ? (
-                    <span className="text-xs text-muted-foreground">
-                      当前用户
-                    </span>
-                  ) : user.banned ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() => handleBan(user, false)}
-                    >
-                      解封
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={isPending}
-                      onClick={() => setConfirmTarget(user)}
-                    >
-                      封禁
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {isOwnerViewer &&
+                      ownerUserId !== user.id &&
+                      (user.role === "admin" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() => handleSetRole(user, "user")}
+                        >
+                          取消管理员
+                        </Button>
+                      ) : !user.banned ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={isPending}
+                          onClick={() => setRoleTarget(user)}
+                        >
+                          设为管理员
+                        </Button>
+                      ) : null)}
+                    {isCurrentUser(user.id) ? (
+                      <span className="text-xs text-muted-foreground">
+                        当前用户
+                      </span>
+                    ) : user.banned ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => handleBan(user, false)}
+                      >
+                        解封
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => setConfirmTarget(user)}
+                      >
+                        封禁
+                      </Button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -195,6 +244,30 @@ export function UserTable({
               onClick={() => confirmTarget && handleBan(confirmTarget, true)}
             >
               确认封禁
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!roleTarget} onOpenChange={() => setRoleTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认设为管理员</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">
+            确定要将{" "}
+            <strong>{roleTarget?.nickname || roleTarget?.email}</strong>{" "}
+            设为管理员吗？管理员可封禁用户、删除/恢复页面、管理讨论。
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setRoleTarget(null)}>
+              取消
+            </Button>
+            <Button
+              disabled={isPending}
+              onClick={() => roleTarget && handleSetRole(roleTarget, "admin")}
+            >
+              确认设为管理员
             </Button>
           </div>
         </DialogContent>

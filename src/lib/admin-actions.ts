@@ -3,12 +3,13 @@
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { sql } from "drizzle-orm";
-import { requireAdmin } from "@/lib/auth-guard";
+import { requireAdmin, requireOwner } from "@/lib/auth-guard";
 import { escapeLikePattern } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 import {
   getWikiEditRoleFresh,
   setWikiEditRole as _setWikiEditRole,
+  getOwnerUserId,
 } from "@/lib/site-settings";
 
 export async function getUsers({
@@ -49,8 +50,9 @@ export async function getUsers({
         LIMIT ${pageSize} OFFSET ${offset}`,
   );
   const rows = result.rows ?? result;
+  const ownerUserId = await getOwnerUserId();
 
-  return { users: rows, total, page, pageSize };
+  return { users: rows, total, page, pageSize, ownerUserId };
 }
 
 export async function setUserBanned(
@@ -101,6 +103,57 @@ export async function setUserBanned(
     const now = new Date();
     await tx.execute(
       sql`UPDATE ${users} SET banned = ${banned}, updated_at = ${now} WHERE id = ${userId}`,
+    );
+
+    revalidatePath("/admin/users");
+  });
+}
+
+export async function setUserRole(
+  userId: string,
+  role: "admin" | "user",
+  expectedUpdatedAt?: string,
+) {
+  const owner = await requireOwner();
+
+  if (role !== "admin" && role !== "user") {
+    throw new Error("INVALID_ROLE");
+  }
+  if (owner.id === userId) {
+    throw new Error("SELF_ROLE_CHANGE");
+  }
+
+  return db.transaction(async (tx) => {
+    const result = await tx.execute(
+      sql`SELECT id, role, banned, updated_at FROM ${users} WHERE id = ${userId} FOR UPDATE`,
+    );
+    const rows = (result.rows ?? result) as {
+      id: string;
+      role: string;
+      banned: boolean;
+      updated_at: string | Date;
+    }[];
+
+    if (!rows || rows.length === 0) {
+      throw new Error("USER_NOT_FOUND");
+    }
+
+    const target = rows[0];
+
+    if (
+      expectedUpdatedAt &&
+      new Date(target.updated_at).toISOString() !== expectedUpdatedAt
+    ) {
+      throw new Error("STALE_USER_ROW");
+    }
+
+    if (role === "admin" && target.banned) {
+      throw new Error("USER_BANNED");
+    }
+
+    const now = new Date();
+    await tx.execute(
+      sql`UPDATE ${users} SET role = ${role}, updated_at = ${now} WHERE id = ${userId}`,
     );
 
     revalidatePath("/admin/users");

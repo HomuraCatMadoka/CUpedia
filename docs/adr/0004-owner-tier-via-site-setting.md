@@ -15,3 +15,15 @@
 - 站长是**信任根,只能从数据库诞生与移交**:首次设置 `owner_user_id`、日后移交都走 DB,应用内不提供引导/移交入口。未设置时,全站无人可改角色(角色按钮对所有人隐藏),为预期的未引导锁定态。
 - `setUserRole` 无需 `LAST_ADMIN` 护栏:站长是永久 Admin,降级永远清不到零管理员。
 - 单站长带来 bus-factor 风险(站长账号丢失即无人能任免),以"运营者握有数据库直接访问"作为终极兜底。
+
+## Bootstrap(生产首次设站长)
+
+部署后在生产库执行一次,把 `owner_user_id` 指向**真实运营者**账号的 id(不复用 seed 的 `admin@test.com`)。未设置前,角色管理对所有人锁定(`requireOwner` 一律 redirect),为预期的未引导态。
+
+```sql
+INSERT INTO site_settings (key, value)
+VALUES ('owner_user_id', '<运营者的 users.id>')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+```
+
+日后移交站长 = 重跑上面的 upsert,改成新运营者的 id。dev 环境由 `pnpm seed` 自动写入 seed admin 的 id。

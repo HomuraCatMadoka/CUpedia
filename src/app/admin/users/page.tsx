@@ -30,6 +30,7 @@ export default async function AdminUsersPage({
       totalPages={totalPages}
       total={result.total}
       q={q ?? ""}
+      ownerUserId={result.ownerUserId}
     />
   );
 }

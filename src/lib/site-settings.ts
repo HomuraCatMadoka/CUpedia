@@ -33,3 +33,16 @@ export async function setWikiEditRole(role: WikiEditRole) {
   );
   _clearCache();
 }
+
+const OWNER_USER_ID_KEY = "owner_user_id";
+
+// The site Owner (站长) — the single admin allowed to manage roles. Read fresh
+// every call (no module cache): a freshly set/transferred Owner must take effect
+// immediately for role-management gating, not lag behind a cache.
+export async function getOwnerUserId(): Promise<string | null> {
+  const result = await db.execute(
+    sql`SELECT ${siteSettings.value} FROM ${siteSettings} WHERE ${siteSettings.key} = ${OWNER_USER_ID_KEY}`,
+  );
+  const rows = (result.rows ?? result) as { value: string }[];
+  return rows[0]?.value ?? null;
+}
