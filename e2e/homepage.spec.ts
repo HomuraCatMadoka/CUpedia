@@ -1,13 +1,17 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Issue #90 — wiki homepage hides empty (0-篇) category cards.
+ * Homepage e2e — ref #90 #97
  *
- * Seed top-level pages: "Welcome to CUpedia" and "Getting Started" have no
- * children; "Campus Life" has one child ("Dining on Campus"). The homepage
- * must render only non-empty categories, so no "0 篇" card may appear and the
- * empty categories' titles must be absent from the 分类 grid.
+ * #90: wiki homepage hides empty (0-篇) category cards. Seed top-level pages
+ *      "Welcome to CUpedia" / "Getting Started" have no children; "Campus Life"
+ *      has one ("Dining on Campus"). Only non-empty categories render, so no
+ *      "0 篇" card appears and empty categories are absent from the 分类 grid.
+ * #97: brand/title unified — the navbar renders the "CUpedia" brand, so the
+ *      wiki home must show it exactly once, and the wiki home shares the
+ *      landing page tagline.
  */
+
 test.describe("#90 homepage filters empty categories", () => {
   test("no '0 篇' category card is rendered", async ({ page }) => {
     const response = await page.goto("/wiki", { waitUntil: "networkidle" });
@@ -35,5 +39,28 @@ test.describe("#90 homepage filters empty categories", () => {
     await expect(
       grid.getByRole("link", { name: /Welcome to CUpedia/ }),
     ).toHaveCount(0);
+  });
+});
+
+const BRAND = "CUpedia";
+const TAGLINE = "你的中大百科全书";
+
+test.describe("#97 wiki home brand & tagline", () => {
+  test("wiki home shows the brand name exactly once", async ({ page }) => {
+    const response = await page.goto("/wiki");
+    expect(response?.status()).toBe(200);
+
+    const count = await page.getByText(BRAND, { exact: true }).count();
+    expect(count).toBe(1);
+  });
+
+  test("wiki home and landing page share the same tagline", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(page.getByText(TAGLINE)).toBeVisible();
+
+    await page.goto("/wiki");
+    await expect(page.getByText(TAGLINE)).toBeVisible();
   });
 });
