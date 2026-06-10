@@ -6,9 +6,12 @@ import {
   boolean,
   integer,
   index,
+  uniqueIndex,
+  primaryKey,
+  check,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // ── Better Auth core tables ──
 
@@ -115,6 +118,101 @@ export const wikiRevisions = pgTable(
   (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
 );
 
+export const courses = pgTable(
+  "courses",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    code: text("code").notNull().unique(),
+    title: text("title").notNull(),
+    department: text("department"),
+    credits: integer("credits"),
+    description: text("description").notNull().default(""),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("courses_code_idx").on(table.code),
+    index("courses_department_idx").on(table.department),
+  ],
+);
+
+export const courseReviews = pgTable(
+  "course_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseId: uuid("course_id")
+      .notNull()
+      .references(() => courses.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    term: text("term"),
+    instructor: text("instructor"),
+    rating: integer("rating").notNull(),
+    difficulty: integer("difficulty").notNull(),
+    workload: integer("workload").notNull(),
+    grading: integer("grading").notNull(),
+    content: text("content").notNull(),
+    anonymous: boolean("anonymous").notNull().default(false),
+    helpfulScore: integer("helpful_score").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("course_reviews_course_id_idx").on(table.courseId),
+    index("course_reviews_user_id_idx").on(table.userId),
+    uniqueIndex("course_reviews_course_user_unique").on(
+      table.courseId,
+      table.userId,
+    ),
+    check("course_reviews_rating_range", sql`${table.rating} between 1 and 5`),
+    check(
+      "course_reviews_difficulty_range",
+      sql`${table.difficulty} between 1 and 5`,
+    ),
+    check(
+      "course_reviews_workload_range",
+      sql`${table.workload} between 1 and 5`,
+    ),
+    check("course_reviews_grading_range", sql`${table.grading} between 1 and 5`),
+  ],
+);
+
+export const courseReviewVotes = pgTable(
+  "course_review_votes",
+  {
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => courseReviews.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    value: integer("value").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.reviewId, table.userId],
+      name: "course_review_votes_pk",
+    }),
+    index("course_review_votes_user_id_idx").on(table.userId),
+    check("course_review_votes_value_range", sql`${table.value} in (-1, 1)`),
+  ],
+);
+
+export const courseAggregates = pgTable("course_aggregates", {
+  courseId: uuid("course_id")
+    .primaryKey()
+    .references(() => courses.id, { onDelete: "cascade" }),
+  reviewCount: integer("review_count").notNull().default(0),
+  ratingSum: integer("rating_sum").notNull().default(0),
+  difficultySum: integer("difficulty_sum").notNull().default(0),
+  workloadSum: integer("workload_sum").notNull().default(0),
+  gradingSum: integer("grading_sum").notNull().default(0),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const wikiLinks = pgTable(
   "wiki_links",
   {
@@ -170,6 +268,53 @@ export const discussionsRelations = relations(discussions, ({ one }) => ({
     references: [discussions.id],
   }),
 }));
+
+export const coursesRelations = relations(courses, ({ many, one }) => ({
+  reviews: many(courseReviews),
+  aggregate: one(courseAggregates, {
+    fields: [courses.id],
+    references: [courseAggregates.courseId],
+  }),
+}));
+
+export const courseReviewsRelations = relations(
+  courseReviews,
+  ({ one, many }) => ({
+    course: one(courses, {
+      fields: [courseReviews.courseId],
+      references: [courses.id],
+    }),
+    user: one(users, {
+      fields: [courseReviews.userId],
+      references: [users.id],
+    }),
+    votes: many(courseReviewVotes),
+  }),
+);
+
+export const courseReviewVotesRelations = relations(
+  courseReviewVotes,
+  ({ one }) => ({
+    review: one(courseReviews, {
+      fields: [courseReviewVotes.reviewId],
+      references: [courseReviews.id],
+    }),
+    user: one(users, {
+      fields: [courseReviewVotes.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const courseAggregatesRelations = relations(
+  courseAggregates,
+  ({ one }) => ({
+    course: one(courses, {
+      fields: [courseAggregates.courseId],
+      references: [courses.id],
+    }),
+  }),
+);
 
 export const wikiLinksRelations = relations(wikiLinks, ({ one }) => ({
   source: one(wikiPages, {
