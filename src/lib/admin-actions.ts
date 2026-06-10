@@ -60,11 +60,7 @@ export async function setUserBanned(
   banned: boolean,
   expectedUpdatedAt?: string,
 ) {
-  const admin = await requireAdmin();
-
-  if (admin.id === userId) {
-    throw new Error("SELF_BAN");
-  }
+  await requireAdmin();
 
   return db.transaction(async (tx) => {
     const result = await tx.execute(
@@ -90,14 +86,11 @@ export async function setUserBanned(
       throw new Error("STALE_USER_ROW");
     }
 
-    if (banned && target.role === "admin" && !target.banned) {
-      const acResult = await tx.execute(
-        sql`SELECT count(*)::int as count FROM ${users} WHERE role = 'admin' AND banned = false`,
-      );
-      const acRows = (acResult.rows ?? acResult) as Record<string, number>[];
-      if (acRows[0]?.count <= 1) {
-        throw new Error("LAST_ADMIN");
-      }
+    // Ban targets regular Users only. Admins (站长 included, since the Owner is
+    // role "admin") cannot be banned — that would be a coup backdoor around role
+    // protection (ADR 0004). To ban an admin, the Owner first demotes them.
+    if (banned && target.role === "admin") {
+      throw new Error("CANNOT_BAN_ADMIN");
     }
 
     const now = new Date();

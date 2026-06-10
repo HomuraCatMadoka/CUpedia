@@ -179,7 +179,7 @@ export function UserTable({
                       >
                         解封
                       </Button>
-                    ) : (
+                    ) : user.role === "user" ? (
                       <Button
                         variant="destructive"
                         size="sm"
@@ -188,7 +188,7 @@ export function UserTable({
                       >
                         封禁
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </td>
               </tr>

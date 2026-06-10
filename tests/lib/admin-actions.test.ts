@@ -162,9 +162,21 @@ describe("setUserBanned", () => {
     );
   });
 
-  it("rejects banning self", async () => {
+  it("rejects banning self (an admin)", async () => {
     mockAdminSession("admin-1");
-    await expect(setUserBanned("admin-1", true)).rejects.toThrow("SELF_BAN");
+    const self = {
+      id: "admin-1",
+      role: "admin",
+      banned: false,
+      updated_at: new Date("2026-01-01"),
+    };
+    mockDbTransaction.mockImplementation(async (fn) => {
+      const tx = { execute: vi.fn().mockResolvedValueOnce([self]) };
+      return fn(tx);
+    });
+    await expect(setUserBanned("admin-1", true)).rejects.toThrow(
+      "CANNOT_BAN_ADMIN",
+    );
   });
 
   it("rejects banning nonexistent user", async () => {
@@ -180,7 +192,7 @@ describe("setUserBanned", () => {
     );
   });
 
-  it("rejects banning the last active admin", async () => {
+  it("rejects banning an admin", async () => {
     mockAdminSession("admin-1");
     const targetAdmin = {
       id: "admin-2",
@@ -189,15 +201,29 @@ describe("setUserBanned", () => {
       updated_at: new Date("2026-01-01"),
     };
     mockDbTransaction.mockImplementation(async (fn) => {
-      const tx = {
-        execute: vi
-          .fn()
-          .mockResolvedValueOnce([targetAdmin])
-          .mockResolvedValueOnce([{ count: 1 }]),
-      };
+      const tx = { execute: vi.fn().mockResolvedValueOnce([targetAdmin]) };
       return fn(tx);
     });
-    await expect(setUserBanned("admin-2", true)).rejects.toThrow("LAST_ADMIN");
+    await expect(setUserBanned("admin-2", true)).rejects.toThrow(
+      "CANNOT_BAN_ADMIN",
+    );
+  });
+
+  it("rejects banning the owner (an admin)", async () => {
+    mockAdminSession("admin-1");
+    const owner = {
+      id: "owner-1",
+      role: "admin",
+      banned: false,
+      updated_at: new Date("2026-01-01"),
+    };
+    mockDbTransaction.mockImplementation(async (fn) => {
+      const tx = { execute: vi.fn().mockResolvedValueOnce([owner]) };
+      return fn(tx);
+    });
+    await expect(setUserBanned("owner-1", true)).rejects.toThrow(
+      "CANNOT_BAN_ADMIN",
+    );
   });
 
   it("rejects stale expectedUpdatedAt", async () => {
