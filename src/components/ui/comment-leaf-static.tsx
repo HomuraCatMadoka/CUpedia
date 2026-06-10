@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { TCommentText } from "platejs";
 import type { SlateLeafProps } from "platejs/static";
 import { SlateLeaf } from "platejs/static";
@@ -14,6 +15,25 @@ export function CommentLeafStatic(props: SlateLeafProps<TCommentText>) {
 
   const leafId = commentLeafId(leaf);
   const isActive = leafId !== null && leafId === activeCommentId;
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Clear any pending single-click timeout
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+
+    // Only handle single clicks; wait to confirm it's not a double-click
+    if (e.detail === 1) {
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+        if (leafId && leafId !== "draft") {
+          setActiveCommentId(isActive ? null : leafId);
+        }
+      }, 250);
+    }
+  };
 
   return (
     <SlateLeaf
@@ -23,13 +43,7 @@ export function CommentLeafStatic(props: SlateLeafProps<TCommentText>) {
         isActive && "bg-yellow-200/60 dark:bg-yellow-800/40",
       )}
     >
-      <span
-        onClick={() => {
-          if (leafId && leafId !== "draft") {
-            setActiveCommentId(isActive ? null : leafId);
-          }
-        }}
-      >
+      <span onClick={handleClick}>
         {children}
       </span>
     </SlateLeaf>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import type { TCommentText } from "platejs";
 import type { PlateLeafProps } from "platejs/react";
 import { PlateLeaf } from "platejs/react";
@@ -13,6 +14,25 @@ export function CommentLeaf(props: PlateLeafProps<TCommentText>) {
 
   const leafId = commentLeafId(leaf ?? text);
   const isActive = leafId !== null && leafId === activeCommentId;
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Clear any pending single-click timeout
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+
+    // Only handle single clicks; wait to confirm it's not a double-click
+    if (e.detail === 1) {
+      clickTimerRef.current = setTimeout(() => {
+        clickTimerRef.current = null;
+        if (leafId && leafId !== "draft") {
+          setActiveCommentId(isActive ? null : leafId);
+        }
+      }, 250);
+    }
+  };
 
   return (
     <PlateLeaf
@@ -22,13 +42,7 @@ export function CommentLeaf(props: PlateLeafProps<TCommentText>) {
         isActive && "bg-yellow-200/60 dark:bg-yellow-800/40",
       )}
     >
-      <span
-        onClick={() => {
-          if (leafId && leafId !== "draft") {
-            setActiveCommentId(isActive ? null : leafId);
-          }
-        }}
-      >
+      <span onClick={handleClick}>
         {children}
       </span>
     </PlateLeaf>

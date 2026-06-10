@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>食堂菜单 | 寻味CU — CUpedia</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #FAFAFA; color: #1A1A1A; }
+  .sidebar-link { transition: background 0.15s; }
+  .sidebar-link:hover { background: #e8e5e0; }
+  .sidebar-link.active { background: #e8e5e0; border-left: 3px solid #3b82f6; font-weight: 500; }
+  .dish-pill { display: inline-block; padding: 0.15rem 0.625rem; background: #f7f7f5; border-radius: 9999px; font-size: 0.75rem; color: #1a1a1a; }
+  /* 菜品行布局 — 大众点评风格 */
+  .dish-row { transition: box-shadow 0.2s, transform 0.15s, border-color 0.15s; cursor: pointer; }
+  .dish-row:hover { border-color: #a3a3a3; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.08); transform: translateY(-2px); }
+  .dish-row-img { width: 110px; height: 82px; object-fit: cover; border-radius: 0.625rem; flex-shrink: 0; background: #f4f4f1; }
+  .add-dish-card { transition: border-color 0.15s, background 0.15s; }
+  .add-dish-card:hover { border-color: #a3a3a3; background: #fafaf9; }
+  /* 浮动窗口星级 */
+  .star-filled { color: #e5c01b; }
+  .star-empty { color: #d4d4d4; }
+  .star-click { cursor: pointer; transition: transform 0.1s; }
+  .star-click:hover { transform: scale(1.15); }
+  /* 营业状态点 */
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .status-dot.open { background: #16a34a; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15); }
+  .status-dot.closed { background: #a3a3a3; }
+  /* 可点击的简介区域 */
+  .canteen-header { transition: box-shadow 0.15s, border-color 0.15s; cursor: pointer; }
+  .canteen-header:hover { border-color: #a3a3a3; box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.06); }
+  /* 地图占位 */
+  .map-placeholder { background: linear-gradient(135deg, #f5f5f0 0%, #eaeae5 100%); }
+  /* 赞踩交互按钮 */
+  .vote-btn { transition: color 0.15s, transform 0.1s; }
+  .vote-btn:hover { transform: scale(1.08); }
+  .vote-btn:active { transform: scale(0.94); }
+  .vote-btn.like-active  { color: #1a1a1a !important; }
+  .vote-btn.dislike-active { color: #525252 !important; }
+  /* 悬浮气泡遮罩层 */
+  #bubbleOverlay { transition: opacity 0.3s; }
+  #bubbleOverlay.fade-in  { opacity: 1; }
+  #bubbleOverlay.fade-out { opacity: 0; }
+  #bubbleStage { position: absolute; inset: 0; pointer-events: none; }
+  .dish-row.lifted { position: relative; z-index: 51; box-shadow: 0 8px 30px rgba(0,0,0,0.15); border-radius: 0.75rem; background: #fff; }
+  /* 评论气泡 */
+  .comment-bubble { position: absolute; max-width: 230px; min-width: 140px; border-radius: 1rem; padding: 0.7rem 1rem; box-shadow: 0 6px 20px rgba(0,0,0,0.12); z-index: 10; animation: bubblePop 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+  .comment-bubble.like-bubble  { background: #FFF0F3; border: 1px solid #FECDD3; }
+  .comment-bubble.dislike-bubble { background: #F5F5F5; border: 1px solid #E5E5E5; }
+  .comment-bubble .bubble-author { font-size: 0.7rem; font-weight: 600; margin-bottom: 0.2rem; }
+  .comment-bubble.like-bubble  .bubble-author { color: #BE185D; }
+  .comment-bubble.dislike-bubble .bubble-author { color: #737373; }
+  .comment-bubble .bubble-badge { display: inline-block; font-size: 0.6rem; font-weight: 600; padding: 0.08rem 0.45rem; border-radius: 9999px; margin-right: 0.35rem; }
+  .comment-bubble.like-bubble  .bubble-badge { background: #FECDD3; color: #BE185D; }
+  .comment-bubble.dislike-bubble .bubble-badge { background: #E5E5E5; color: #737373; }
+  /* 食堂爱好者称号徽章 (canteen lover title badge) */
+  .comment-bubble .bubble-title { display: inline-block; font-size: 0.56rem; font-weight: 700; padding: 0.06rem 0.45rem; border-radius: 9999px; margin-left: 0.3rem; letter-spacing: 0.01em; }
+  .comment-bubble .bubble-title.lover  { background: #FCE7F3; color: #BE185D; }
+  .comment-bubble .bubble-title.expert { background: #E11D48; color: #fff; }
+  /* 支付方式徽章 */
+  .pay-badge { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.2rem 0.65rem; border-radius: 9999px; font-size: 0.7rem; font-weight: 500; background: #f4f4f1; color: #525252; }
+  /* 无评论提示 toast */
+  .no-review-toast {
+    position: fixed; z-index: 52;
+    background: #fff; border: 1px solid #e8e5e0; border-radius: 1rem;
+    padding: 0.7rem 1.25rem; font-size: 0.85rem; color: #525252;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1); white-space: nowrap;
+    animation: toastIn 0.3s ease-out, toastOut 0.3s ease-in 2.7s forwards;
+    pointer-events: none;
+  }
+  @keyframes toastIn  { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  @keyframes toastOut { from { opacity: 1; } to { opacity: 0; } }
+  .comment-bubble .bubble-text { font-size: 0.8rem; line-height: 1.5; color: #404040; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .comment-bubble .bubble-tail { position: absolute; width: 14px; height: 14px; background: inherit; border: inherit; border-top: none; border-left: none; transform: rotate(45deg); }
+  @keyframes bubblePop { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 100% { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+  /* 二级分类栏 */
+  .cat-pill { display: inline-block; padding: 0.4rem 1.25rem; font-size: 0.8125rem; font-weight: 500; border-radius: 9999px; border: 1px solid #e8e5e0; color: #737373; cursor: default; transition: all 0.15s; user-select: none; }
+  .cat-pill.active { background: #2a2a2a; color: #fafafa; border-color: #2a2a2a; }
+  /* 功能提示条 */
+  .hint-bar { background: #fefce8; border: 1px solid #fef08a; border-radius: 0.75rem; }
+  /* 双击评价弹窗 */
+  #reviewPopup { transition: opacity 0.2s, transform 0.2s; }
+  #reviewPopup.popup-show { opacity: 1; transform: scale(1); }
+  #reviewPopup textarea:focus { border-color: #a3a3a3; }
+  .review-type-btn { transition: all 0.15s; cursor: pointer; user-select: none; }
+  .review-type-btn.active-like    { background: #FFF0F3; border-color: #F43F5E; color: #BE185D !important; }
+  .review-type-btn.active-dislike { background: #F5F5F5; border-color: #A3A3A3; color: #525252 !important; }
+</style>
+</head>
+<body class="min-h-screen flex flex-col antialiased">
+
+<!-- 顶部导航 — 对齐 CUpedia 源码 -->
+<header class="sticky top-0 z-30 border-b bg-white">
+    <div class="flex h-14 items-center justify-between px-4 w-full">
+        <div class="flex items-center gap-3">
+            <a href="index.html" class="text-lg font-bold text-neutral-900">CUpedia</a>
+            <nav class="hidden md:flex items-center gap-1 text-xs text-neutral-500" aria-label="面包屑导航">
+                <a href="index.html" class="hover:text-neutral-900 hover:underline transition-colors">首页</a>
+                <span class="text-neutral-300">/</span>
+                <a href="index.html" class="hover:text-neutral-900 hover:underline transition-colors">寻味CU</a>
+                <span class="text-neutral-300">/</span>
+                <span class="text-neutral-900 font-medium">食堂菜单</span>
+            </nav>
+        </div>
+        <nav class="flex items-center gap-4">
+            <button class="flex h-8 w-8 items-center justify-center rounded-md text-sm text-neutral-500 hover:bg-neutral-100 transition-colors" aria-label="搜索">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            </button>
+            <a href="#" class="inline-flex items-center justify-center rounded-md px-3 py-1.5 text-sm font-medium bg-neutral-900 text-white hover:bg-neutral-800 transition-colors">登录</a>
+        </nav>
+    </div>
+</header>
+
+<div class="flex min-h-0 flex-1">
+  <aside class="w-48 flex-shrink-0 bg-neutral-50/80 border-r border-neutral-100 overflow-y-auto">
+    <div class="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">食堂列表</div>
+    <nav class="pb-4">
+      <div class="sidebar-link active flex items-center justify-between px-4 py-2 text-sm text-neutral-900 border-l-[3px] border-l-transparent cursor-default select-none">善衡书院餐厅<span class="text-xs text-neutral-400 font-normal">12</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">和声书院餐厅<span class="text-xs text-neutral-400 font-normal">10</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">伍宜孙书院餐厅<span class="text-xs text-neutral-400 font-normal">9</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">崇基学院餐厅<span class="text-xs text-neutral-400 font-normal">11</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">新亚书院餐厅<span class="text-xs text-neutral-400 font-normal">8</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">联合书院餐厅<span class="text-xs text-neutral-400 font-normal">10</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">逸夫书院餐厅<span class="text-xs text-neutral-400 font-normal">7</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">晨兴书院餐厅<span class="text-xs text-neutral-400 font-normal">6</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">敬文书院餐厅<span class="text-xs text-neutral-400 font-normal">8</span></div>
+      <div class="sidebar-link flex items-center justify-between px-4 py-2 text-sm text-neutral-700 border-l-[3px] border-l-transparent cursor-default select-none">大学餐厅<span class="text-xs text-neutral-400 font-normal">9</span></div>
+    </nav>
+  </aside>
+
+  <main class="flex-1 min-w-0 overflow-y-auto p-6 lg:p-8">
+    <div class="max-w-5xl mx-auto">
+
+    <!-- 食堂简介卡片 — 可点击触发悬浮窗口 -->
+    <div class="canteen-header bg-white border border-neutral-200/60 rounded-2xl p-5 lg:p-6 mb-6 flex items-start gap-4" onclick="openCanteenModal()">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-3 mb-1.5">
+          <h1 class="text-xl font-bold tracking-tight text-neutral-900">善衡书院餐厅</h1>
+          <span class="text-xs text-neutral-400 hover:text-neutral-600 transition-colors" title="点击查看详情">ⓘ</span>
+        </div>
+        <div class="flex items-center gap-2 text-sm text-neutral-500 flex-wrap mb-2">
+          <span class="font-medium text-neutral-700 flex-shrink-0">推荐菜品</span>
+          <span class="dish-pill">红烧牛肉面</span>
+          <span class="dish-pill">叉烧饭</span>
+          <span class="dish-pill">番茄炒蛋饭</span>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="pay-badge"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="1"/><line x1="6" y1="10" x2="6" y2="14"/><line x1="10" y1="10" x2="10" y2="14"/></svg>Cash</span>
+          <span class="pay-badge"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="5" y1="8" x2="19" y2="8"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="16" x2="12" y2="16"/></svg>WeChat</span>
+          <span class="pay-badge"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>Octopus</span>
+          <span class="pay-badge"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Alipay</span>
+        </div>
+      </div>
+      <div class="flex-shrink-0">
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-neutral-700 bg-white border border-neutral-200 rounded-lg cursor-default select-none whitespace-nowrap">
+          <span class="status-dot open"></span>营业中
+        </span>
+      </div>
+    </div>
+
+    <!-- 二级分类栏：早餐/午餐/晚餐 -->
+    <div class="flex items-center justify-center gap-2 mb-5 max-w-3xl mx-auto">
+      <span class="cat-pill active">全部</span>
+      <span class="cat-pill">🌅 早餐</span>
+      <span class="cat-pill">☀️ 午餐</span>
+      <span class="cat-pill">🌙 晚餐</span>
+    </div>
+
+    <!-- 功能提示条 -->
+    <div class="hint-bar flex items-center justify-center gap-3 px-4 py-2.5 mb-5 max-w-3xl mx-auto text-sm">
+      <span class="text-amber-600">💡</span>
+      <span class="text-neutral-700 font-medium">评论气泡模式</span>
+      <span class="text-neutral-300">—</span>
+      <span class="text-neutral-600">单击菜品呼起气泡</span>
+      <span class="text-neutral-300">|</span>
+      <span class="text-neutral-600">点击「写评论」按钮呼起评论区</span>
+      <span class="text-neutral-300">|</span>
+      <span class="text-neutral-600">ESC 或点击背景关闭</span>
+    </div>
+
+    <div class="flex items-center justify-between mb-4 max-w-3xl mx-auto"><span class="text-sm text-neutral-500">共 12 道菜品</span></div>
+
+    <!-- 菜品列表 — 大众点评风格单列布局 -->
+    <div class="flex flex-col gap-3 max-w-3xl mx-auto">
+
+      <div data-dish-id="0" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/char-siu-rice/220/164" alt="叉烧饭" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">叉烧饭</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 32</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>98</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>7</span>
+        </div>
+      </div>
+
+      <div data-dish-id="1" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/curry-chicken/220/164" alt="咖喱鸡饭" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">咖喱鸡饭</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 35</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>85</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>9</span>
+        </div>
+      </div>
+
+      <div data-dish-id="2" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/beef-noodle-soup/220/164" alt="红烧牛肉面" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">红烧牛肉面</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 42</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>128</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>3</span>
+        </div>
+      </div>
+
+      <div data-dish-id="3" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/roast-duo/220/164" alt="烧味双拼" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">烧味双拼</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 45</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>112</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>8</span>
+        </div>
+      </div>
+
+      <div data-dish-id="4" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/tomato-egg/220/164" alt="番茄炒蛋饭" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">番茄炒蛋饭</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 28</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>56</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>18</span>
+        </div>
+      </div>
+
+      <div data-dish-id="5" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/mapo-tofu/220/164" alt="麻婆豆腐饭" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">麻婆豆腐饭</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 30</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>91</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>10</span>
+        </div>
+      </div>
+
+      <div data-dish-id="6" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/pad-thai/220/164" alt="泰式炒河粉" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">泰式炒河粉</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 38</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>73</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>15</span>
+        </div>
+      </div>
+
+      <div data-dish-id="7" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/iced-lemon-tea/220/164" alt="冻柠茶" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">冻柠茶</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 12</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>88</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>6</span>
+        </div>
+      </div>
+
+      <div data-dish-id="8" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/shrimp-wonton/220/164" alt="鲜虾云吞面" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">鲜虾云吞面</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 36</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>118</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>4</span>
+        </div>
+      </div>
+
+      <div data-dish-id="9" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/hainanese-chicken/220/164" alt="海南鸡饭" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">海南鸡饭</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 40</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>106</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>5</span>
+        </div>
+      </div>
+
+      <div data-dish-id="10" class="dish-row flex items-center gap-4 bg-white border border-neutral-200/60 rounded-xl p-3">
+        <img class="dish-row-img" src="https://picsum.photos/seed/fried-rice-yangzhou/220/164" alt="扬州炒饭" loading="lazy">
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-semibold text-neutral-900 mb-1">扬州炒饭</div>
+          <div class="text-sm font-medium text-neutral-500">HKD 33</div>
+        </div>
+        <div class="flex items-center gap-4 flex-shrink-0">
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-600"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>64</span>
+          <span class="inline-flex items-center gap-1.5 text-sm text-neutral-400"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>19</span>
+        </div>
+      </div>
+
+      <!-- 添加菜品 — 整行 -->
+      <div class="add-dish-card flex items-center justify-center gap-3 bg-white rounded-xl border-2 border-dashed border-neutral-300 py-5 px-4 cursor-default">
+        <div class="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center"><svg class="w-4.5 h-4.5 text-neutral-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+        <span class="text-sm font-medium text-neutral-500">添加菜品</span>
+        <span class="text-xs text-neutral-400">提交新菜品需审核</span>
+      </div>
+
+    </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ====== 食堂介绍悬浮窗口 ====== -->
+<div id="canteenModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div onclick="closeCanteenModal()" class="absolute inset-0 bg-neutral-900/20 backdrop-blur-sm"></div>
+  <div class="relative bg-white w-full max-w-md rounded-2xl p-8 shadow-xl border border-neutral-100 transform transition-all max-h-[90vh] overflow-y-auto">
+    <button onclick="closeCanteenModal()" class="absolute top-6 right-6 text-neutral-400 hover:text-neutral-900 transition-colors">
+      <svg class="w-5 h-5 stroke-[1.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    </button>
+    <div class="text-center mb-7">
+      <h3 class="text-xl font-bold text-neutral-900">善衡书院餐厅</h3>
+      <p class="text-xs text-neutral-400 mt-1">S.H. Ho College Canteen</p>
+    </div>
+    <div class="mb-7 pb-7 border-b border-neutral-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3 text-center">综合评价</p>
+      <div class="text-center">
+        <div class="flex justify-center gap-1.5 mb-2 text-2xl star-click select-none" id="canteenStars">
+          <span class="star-filled" data-star="1">★</span>
+          <span class="star-filled" data-star="2">★</span>
+          <span class="star-filled" data-star="3">★</span>
+          <span class="star-filled" data-star="4">★</span>
+          <span class="star-empty" data-star="5">★</span>
+        </div>
+        <div class="flex items-center justify-center gap-2">
+          <span class="text-2xl font-bold text-neutral-900">4.2</span>
+          <span class="text-sm text-neutral-400">/ 5.0</span>
+        </div>
+        <p class="text-xs text-neutral-400 mt-1">基于 328 个评价</p>
+      </div>
+    </div>
+    <div class="mb-7 pb-7 border-b border-neutral-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">食堂地点</p>
+      <div class="flex items-start gap-2 mb-3">
+        <svg class="w-4 h-4 text-neutral-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0116 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span class="text-sm text-neutral-700">香港中文大学善衡书院地下 G/F</span>
+      </div>
+      <div class="map-placeholder rounded-xl h-36 flex items-center justify-center border border-neutral-100">
+        <div class="text-center">
+          <svg class="w-8 h-8 text-neutral-300 mx-auto mb-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          <span class="text-xs text-neutral-400">地图即将接入…</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">开放时间</p>
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-neutral-50"><span class="text-neutral-600">周一</span><span class="text-neutral-900 font-medium">10:00 – 19:00</span></div>
+        <div class="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-neutral-50"><span class="text-neutral-600">周二</span><span class="text-neutral-900 font-medium">10:00 – 19:00</span></div>
+        <div class="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-neutral-50"><span class="text-neutral-600">周三</span><span class="text-neutral-900 font-medium">10:00 – 19:00</span></div>
+        <div class="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-neutral-50"><span class="text-neutral-600">周四</span><span class="text-neutral-900 font-medium">10:00 – 19:00</span></div>
+        <div class="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-neutral-50"><span class="text-neutral-600">周五</span><span class="text-neutral-900 font-medium">10:00 – 19:00</span></div>
+        <div class="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg bg-neutral-50"><span class="text-neutral-600">周六</span><span class="text-neutral-900 font-medium">10:00 – 17:00</span></div>
+        <div class="flex items-center justify-between text-sm py-1.5 px-3 rounded-lg" style="background:#fef2f2;"><span class="text-red-500">周日</span><span class="text-red-500 font-medium">休息</span></div>
+      </div>
+    </div>
+    <div class="mt-7 pt-7 border-t border-neutral-100">
+      <p class="text-xs font-semibold uppercase tracking-wider text-neutral-400 mb-3">支付方式</p>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="pay-badge">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="1"/><line x1="6" y1="10" x2="6" y2="14"/><line x1="10" y1="10" x2="10" y2="14"/></svg>
+          Cash
+        </span>
+        <span class="pay-badge">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="5" y1="8" x2="19" y2="8"/><line x1="5" y1="12" x2="19" y2="12"/><line x1="5" y1="16" x2="12" y2="16"/></svg>
+          WeChat Pay
+        </span>
+        <span class="pay-badge">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+          Octopus
+        </span>
+        <span class="pay-badge">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          Alipay
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ====== 悬浮气泡遮罩层 ====== -->
+<div id="bubbleOverlay" class="hidden fixed inset-0 z-50 flex items-center justify-center" style="opacity:0;">
+  <div class="absolute inset-0 bg-neutral-900/20 backdrop-blur-sm" onclick="hideBubbles()"></div>
+  <div id="bubbleStage" class="relative"></div>
+</div>
+
+<!-- ====== 双击评价弹窗 ====== -->
+<div id="reviewPopup" class="hidden fixed z-[60] bg-white rounded-2xl shadow-xl border border-neutral-100 p-5 w-[320px]" style="opacity:0;transform:scale(0.9);">
+  <div class="flex items-center justify-between mb-4">
+    <span class="text-sm font-semibold text-neutral-900">撰写评价</span>
+    <button onclick="closeReviewPopup()" class="text-neutral-400 hover:text-neutral-900 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="flex gap-3 mb-3 select-none">
+    <div class="review-type-btn flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-600" data-review-type="like" onclick="selectReviewType(this,'like')">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11M2 13v7a2 2 0 002 2h12.4a2 2 0 001.94-1.52l2.1-8.4A2 2 0 0018.5 10H15V5a3 3 0 00-3-3l-1.4 1.4a4.25 4.25 0 00-1.17 2.35L8.5 11"/></svg>
+      <span>赞</span>
+    </div>
+    <div class="review-type-btn flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-sm text-neutral-500" data-review-type="dislike" onclick="selectReviewType(this,'dislike')">
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m5-2v-7a2 2 0 00-2-2H7.6a2 2 0 00-1.94 1.52l-2.1 8.4A2 2 0 005.5 14H9v5a3 3 0 003 3l1.4-1.4a4.25 4.25 0 001.17-2.35L15.5 13"/></svg>
+      <span>踩</span>
+    </div>
+  </div>
+  <textarea id="reviewText" class="w-full px-3 py-2.5 text-sm font-sans border border-neutral-200 rounded-lg resize-y min-h-[80px] mb-3 outline-none placeholder-neutral-400 transition-colors" placeholder="说点什么吧…"></textarea>
+  <input id="reviewAuthor" type="text" class="w-full px-3 py-2 text-sm border border-neutral-200 rounded-lg mb-3 outline-none placeholder-neutral-400 transition-colors" placeholder="你的昵称" maxlength="12">
+  <div class="flex items-center justify-between gap-2">
+    <span class="text-xs text-neutral-400">以评论气泡形式发布</span>
+    <button onclick="submitReview()" class="px-4 py-2 text-sm font-medium bg-neutral-900 text-white rounded-lg hover:bg-neutral-800 transition-colors">提交</button>
+  </div>
+</div>
+
+<script>
+  // ====== 食堂爱好者称号体系 ======
+  // 称号基于用户在特定食堂的评论数量
+  const CANTEEN_LOVER_CONFIG = {
+    name: '善衡书院餐厅',
+    shortName: 'SHHO',
+    loverThreshold: 1,   // ≥1 条评论即获得 Lover
+    expertThreshold: 4,  // ≥4 条评论升级为 Expert
+  };
+
+  function getCanteenTitle(reviewCount) {
+    if (reviewCount >= CANTEEN_LOVER_CONFIG.expertThreshold) {
+      return { label: CANTEEN_LOVER_CONFIG.shortName + ' Canteen Expert', tier: 'expert' };
+    }
+    return { label: CANTEEN_LOVER_CONFIG.shortName + ' Canteen Lover', tier: 'lover' };
+  }
+
+  // ====== Mock 评论数据 (部分评论者跨菜品出现） ======
+  const dishReviews = {
+    0: [
+      { type:'like', author:'美食猎人', text:'叉烧肥瘦相间，蜜汁入味十足，每次来善衡都必点！' },
+      { type:'like', author:'港式茶记', text:'正宗港式叉烧风味，饭量也很足，HKD 32 性价比高。' },
+      { type:'dislike', author:'挑剔食客', text:'有时叉烧偏干偏柴，出品不太稳定，整体还行。' },
+    ],
+    1: [
+      { type:'like', author:'咖喱控', text:'咖喱浓郁椰香十足，鸡肉嫩滑，配饭一流！' },
+      { type:'like', author:'美食猎人', text:'咖喱饭也相当不错，想不到善衡还有这手！' },
+      { type:'dislike', author:'清淡派', text:'略嫌油腻，吃完有点腻。口味偏重，份量一般。' },
+    ],
+    2: [
+      { type:'like', author:'牛肉面死忠', text:'牛肉炖得软烂入味，汤头浓郁！中大第一牛肉面当之无愧。' },
+      { type:'like', author:'美食猎人', text:'手工面条劲道爽滑，红烧汁有家的味道，每周必吃。' },
+      { type:'like', author:'新同学', text:'来港读书第一碗惊艳到我的面，强烈推荐给所有新生！' },
+      { type:'dislike', author:'急性子食客', text:'排队实在太久了…味道好但时间成本太高。' },
+    ],
+    3: [
+      { type:'like', author:'烧味专家', text:'双拼份量很足，烧鸭皮脆肉嫩，叉烧蜜汁香甜。' },
+      { type:'like', author:'美食猎人', text:'HKD 45 这个份量在香港算良心了，肉比饭多！' },
+    ],
+    4: [
+      { type:'like', author:'家常味道', text:'番茄炒蛋酸甜适中，简单却美味，很有家的感觉。' },
+      { type:'dislike', author:'重口味星人', text:'味道清淡，适合口味不重的人。我觉得有点太素了。' },
+      { type:'dislike', author:'挑剔食客', text:'番茄太酸了，蛋又不够滑。可能是我运气不好。' },
+    ],
+    5: [
+      { type:'like', author:'川味爱好者', text:'麻辣够味，豆腐嫩滑，在港难得吃到正宗麻婆豆腐！' },
+      { type:'like', author:'日常食客', text:'HKD 30 就能吃到饱，性价比无敌，日常之选。' },
+      { type:'like', author:'美食猎人', text:'麻婆豆腐饭辣度刚好，每次都吃得很过瘾！' },
+    ],
+    6: [
+      { type:'like', author:'东南亚胃', text:'pad thai 味道很正宗！酸辣开胃，河粉炒得刚刚好。' },
+      { type:'dislike', author:'传统口味', text:'不太习惯泰式口味，偏甜。但朋友都说好吃。' },
+    ],
+    7: [
+      { type:'like', author:'冻柠茶达人', text:'茶味浓郁柠檬新鲜，HKD 12 超值！解暑必备。' },
+      { type:'like', author:'美食猎人', text:'冻柠茶配叉烧饭是绝配！每次来都这么吃。' },
+    ],
+    8: [
+      // 暂无评论 — 演示无评论 toast 提示
+    ],
+    9: [
+      { type:'like', author:'海南鸡饭专家', text:'鸡皮爽滑鸡肉鲜嫩，油饭香而不腻，酱料很地道。' },
+      { type:'like', author:'南洋胃', text:'酱料是灵魂！三种酱都很正，HKD 40 值得。' },
+      { type:'dislike', author:'大胃王', text:'份量偏少，男生不太够吃。建议外卖加底。' },
+    ],
+    10: [
+      { type:'like', author:'炒饭达人', text:'粒粒分明，镬气十足！扬州炒饭就该是这个味道。' },
+      { type:'like', author:'日常食客', text:'HKD 33 管饱，简单实在，不知道吃什么时候的首选。' },
+    ],
+  };
+
+  // ====== 计算每个用户的评论总数和食堂称号 ======
+  function computeUserTitles() {
+    const counts = {};
+    for (const dishId in dishReviews) {
+      dishReviews[dishId].forEach(r => {
+        counts[r.author] = (counts[r.author] || 0) + 1;
+      });
+    }
+    const titles = {};
+    for (const author in counts) {
+      titles[author] = getCanteenTitle(counts[author]);
+    }
+    return titles;
+  }
+  const userTitles = computeUserTitles();
+
+  // ====== 悬浮气泡状态 ======
+  let activeDishId = null;
+  let activeDishRow = null;
+  let activeReviewDishId = null;
+  let reviewType = 'like';
+
+  // ====== 赞踩交互 + 单击/双击事件绑定 ======
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.dish-row').forEach(row => {
+      const container = row.querySelector('.flex.items-center.gap-4.flex-shrink-0');
+      if (!container) return;
+
+      // 阻止点击赞踩区触发气泡
+      container.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); });
+
+      const likeSpan  = container.children[0];
+      const disSpan   = container.children[1];
+      const likeCount = parseInt(likeSpan.textContent.trim());
+      const disCount  = parseInt(disSpan.textContent.trim());
+
+      const likeSvgHTML = likeSpan.querySelector('svg').outerHTML;
+      likeSpan.innerHTML = likeSvgHTML + ' <span class="count">' + likeCount + '</span>';
+      likeSpan.dataset.state = 'neutral';
+      likeSpan.dataset.type  = 'like';
+      likeSpan.classList.add('vote-btn', 'cursor-pointer', 'select-none');
+
+      const disSvgHTML = disSpan.querySelector('svg').outerHTML;
+      disSpan.innerHTML = disSvgHTML + ' <span class="count">' + disCount + '</span>';
+      disSpan.dataset.state = 'neutral';
+      disSpan.dataset.type  = 'dislike';
+      disSpan.classList.add('vote-btn', 'cursor-pointer', 'select-none');
+
+      const likeSvg = likeSpan.querySelector('svg');
+      const disSvg  = disSpan.querySelector('svg');
+
+      likeSpan.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); toggleVote(likeSpan, disSpan, likeSvg, disSvg, 'like'); });
+      disSpan.addEventListener('click',  e => { e.preventDefault(); e.stopPropagation(); toggleVote(disSpan, likeSpan, disSvg, likeSvg, 'dislike'); });
+
+      // ---- 单击 → 评论气泡 ----
+      row.addEventListener('click', function(e) {
+        if (e.target.closest('.vote-btn')) return;
+        showBubbles(row);
+      });
+    });
+
+    function toggleVote(self, other, selfSvg, otherSvg, type) {
+      const countEl  = self.querySelector('.count');
+      const otherCountEl = other.querySelector('.count');
+      if (!countEl || !otherCountEl) return;
+      const cur  = self.dataset.state;
+      const oCur = other.dataset.state;
+
+      if (type === 'like') {
+        if (cur === 'liked') {
+          countEl.textContent = parseInt(countEl.textContent) - 1;
+          self.dataset.state = 'neutral';
+          self.classList.remove('like-active');
+          selfSvg.setAttribute('fill', 'none');
+          selfSvg.setAttribute('stroke', 'currentColor');
+        } else {
+          if (cur === 'neutral') countEl.textContent = parseInt(countEl.textContent) + 1;
+          self.dataset.state = 'liked';
+          self.classList.add('like-active');
+          selfSvg.setAttribute('fill', 'currentColor');
+          selfSvg.setAttribute('stroke', 'none');
+          if (oCur === 'disliked') {
+            otherCountEl.textContent = parseInt(otherCountEl.textContent) - 1;
+            other.dataset.state = 'neutral';
+            other.classList.remove('dislike-active');
+            otherSvg.setAttribute('fill', 'none');
+            otherSvg.setAttribute('stroke', 'currentColor');
+          }
+        }
+      } else {
+        if (cur === 'disliked') {
+          countEl.textContent = parseInt(countEl.textContent) - 1;
+          self.dataset.state = 'neutral';
+          self.classList.remove('dislike-active');
+          selfSvg.setAttribute('fill', 'none');
+          selfSvg.setAttribute('stroke', 'currentColor');
+        } else {
+          if (cur === 'neutral') countEl.textContent = parseInt(countEl.textContent) + 1;
+          self.dataset.state = 'disliked';
+          self.classList.add('dislike-active');
+          selfSvg.setAttribute('fill', 'currentColor');
+          selfSvg.setAttribute('stroke', 'none');
+          if (oCur === 'liked') {
+            otherCountEl.textContent = parseInt(otherCountEl.textContent) - 1;
+            other.dataset.state = 'neutral';
+            other.classList.remove('like-active');
+            otherSvg.setAttribute('fill', 'none');
+            otherSvg.setAttribute('stroke', 'currentColor');
+          }
+        }
+      }
+    }
+
+    // ---- ESC 关闭气泡和评价弹窗 ----
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if (activeReviewDishId !== null) {
+          closeReviewPopup();
+        } else if (activeDishId !== null) {
+          hideBubbles();
+        }
+      }
+    });
+  });
+
+  // ====== 显示气泡（单击触发） ======
+  function showBubbles(row) {
+    // 如果已有气泡在显示且是同一道菜，则关闭（toggle行为）
+    const dishId = parseInt(row.getAttribute('data-dish-id'));
+    if (activeDishId === dishId && activeDishRow) {
+      hideBubbles();
+      return;
+    }
+
+    const reviews = dishReviews[dishId];
+
+    // 先关掉之前的
+    dismissToast();
+    hideBubblesInstant();
+    closeReviewPopup();
+
+    activeDishId  = dishId;
+    activeDishRow = row;
+    const overlay = document.getElementById('bubbleOverlay');
+    const stage   = document.getElementById('bubbleStage');
+
+    row.classList.add('lifted');
+
+    const rect = row.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top  + rect.height / 2;
+
+    stage.innerHTML = '';
+
+    if (!reviews || reviews.length === 0) {
+      // 无评论：显示轻提示
+      const toast = document.createElement('div');
+      toast.className = 'no-review-toast';
+      toast.textContent = '该菜品暂时无评论，期待你的评论 OvO';
+      toast.style.left = centerX + 'px';
+      toast.style.top  = (rect.bottom + 10) + 'px';
+      toast.style.transform = 'translateX(-50%)';
+      stage.appendChild(toast);
+      // 延长轻提示时间，不自动消失（因为下面还要放按钮）
+    } else {
+      const positions = computeBubblePositions(reviews.length);
+      reviews.forEach((review, i) => {
+        const bubble = document.createElement('div');
+        bubble.className = 'comment-bubble ' + (review.type === 'like' ? 'like-bubble' : 'dislike-bubble');
+        bubble.style.animationDelay = (i * 0.08) + 's';
+        const pos = positions[i];
+        bubble.style.left = (centerX + pos.x) + 'px';
+        bubble.style.top  = (centerY + pos.y) + 'px';
+
+        const badgeLabel = review.type === 'like' ? '👍 赞' : '👎 踩';
+        const titleData = userTitles[review.author] || getCanteenTitle(1);
+        bubble.innerHTML =
+          '<div class="bubble-author"><span class="bubble-badge">' + badgeLabel + '</span>' + escapeHTML(review.author) + '<span class="bubble-title ' + titleData.tier + '">' + titleData.label + '</span></div>' +
+          '<div class="bubble-text">' + escapeHTML(review.text) + '</div>';
+
+        stage.appendChild(bubble);
+      });
+    }
+
+    // 写评论按钮 — 气泡层内、菜品下方
+    const btn = document.createElement('button');
+    btn.className = 'write-review-btn';
+    btn.textContent = '✏️ 写评论';
+    btn.style.cssText = 'position:absolute;left:' + centerX + 'px;top:' + (rect.bottom + 10) + 'px;'
+      + 'transform:translateX(-50%);z-index:51;pointer-events:auto;'
+      + 'display:inline-flex;align-items:center;gap:6px;padding:8px 18px;'
+      + 'border:none;border-radius:9999px;background:#1a1a1a;color:#fafafa;'
+      + 'font-size:0.875rem;font-weight:500;cursor:pointer;'
+      + 'box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:transform 0.15s;';
+    btn.addEventListener('mouseenter', function() { this.style.transform = 'translateX(-50%) scale(1.05)'; });
+    btn.addEventListener('mouseleave', function() { this.style.transform = 'translateX(-50%) scale(1)'; });
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const dishId = parseInt(row.getAttribute('data-dish-id'));
+      hideBubblesInstant();
+      showReviewPopupForRow(row, dishId);
+    });
+    stage.appendChild(btn);
+
+    overlay.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      overlay.style.opacity = '1';
+      document.body.classList.add('overflow-hidden');
+    });
+  }
+
+  // ====== 隐藏气泡（同时关闭评价弹窗） ======
+  function hideBubbles() {
+    closeReviewPopup();
+    if (activeDishRow) {
+      activeDishRow.classList.remove('lifted');
+      activeDishRow = null;
+    }
+    activeDishId = null;
+    const overlay = document.getElementById('bubbleOverlay');
+    overlay.style.opacity = '0';
+    setTimeout(() => {
+      overlay.classList.add('hidden');
+      document.getElementById('bubbleStage').innerHTML = '';
+    }, 300);
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  function hideBubblesInstant() {
+    if (activeDishRow) {
+      activeDishRow.classList.remove('lifted');
+      activeDishRow = null;
+    }
+    activeDishId = null;
+    document.getElementById('bubbleStage').innerHTML = '';
+  }
+
+  // ====== 无评论提示 toast ======
+  function showNoReviewToast(row) {
+    const toast = document.createElement('div');
+    toast.className = 'no-review-toast';
+    toast.textContent = '该菜品暂时无评论，期待你的评论 OvO';
+    const rect = row.getBoundingClientRect();
+    toast.style.left = (rect.left + rect.width / 2) + 'px';
+    toast.style.top  = (rect.bottom + 10) + 'px';
+    document.body.appendChild(toast);
+    setTimeout(() => { if (toast.parentNode) toast.remove(); }, 3000);
+  }
+
+  function dismissToast() {
+    document.querySelectorAll('.no-review-toast').forEach(t => t.remove());
+  }
+
+  // ====== 气泡位置计算 ======
+  function computeBubblePositions(count) {
+    const positions = [];
+    const cx = 0;
+    const cy = 0;
+
+    if (count <= 4) {
+      const angles = count === 1 ? [-90] :
+                     count === 2 ? [-120, -60] :
+                     count === 3 ? [-135, -90, -45] :
+                                   [-150, -90, -30, 60];
+      angles.forEach(angle => {
+        const rad = (angle * Math.PI) / 180;
+        const rx = 240 + Math.random() * 40;
+        const ry = 180 + Math.random() * 30;
+        positions.push({ x: cx + Math.cos(rad) * rx, y: cy + Math.sin(rad) * ry });
+      });
+    } else if (count <= 8) {
+      for (let i = 0; i < count; i++) {
+        const angle = -165 + (150 / (count - 1)) * i;
+        const rad = (angle * Math.PI) / 180;
+        const rx = 230 + (i % 3) * 30;
+        const ry = 200 + (i % 2) * 40;
+        positions.push({ x: cx + Math.cos(rad) * rx, y: cy + Math.sin(rad) * ry });
+      }
+    } else {
+      for (let i = 0; i < count; i++) {
+        const angle = (360 / count) * i - 90;
+        const rad = (angle * Math.PI) / 180;
+        const rx = 230 + Math.random() * 60;
+        const ry = 190 + Math.random() * 50;
+        positions.push({ x: cx + Math.cos(rad) * rx, y: cy + Math.sin(rad) * ry });
+      }
+    }
+    return positions;
+  }
+
+  // ====== HTML 转义 ======
+  function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // ====== 评价弹窗 — 定位在菜品行下方 ======
+  function showReviewPopupForRow(row, dishId) {
+    activeReviewDishId = dishId;
+    const popup = document.getElementById('reviewPopup');
+
+    reviewType = 'like';
+    document.getElementById('reviewText').value = '';
+    document.getElementById('reviewAuthor').value = '';
+    popup.querySelectorAll('.review-type-btn').forEach(btn => {
+      btn.classList.remove('active-like', 'active-dislike');
+    });
+    const likeBtn = popup.querySelector('[data-review-type="like"]');
+    likeBtn.classList.add('active-like');
+
+    const rect = row.getBoundingClientRect();
+    const pw = 320;
+    let left = rect.left + rect.width / 2 - pw / 2;
+    let top  = rect.bottom + 8;
+    if (left < 10) left = 10;
+    if (left + pw > window.innerWidth - 10) left = window.innerWidth - pw - 10;
+    if (top + 300 > window.innerHeight - 10) top = rect.top - 300 - 8;
+
+    popup.style.left = left + 'px';
+    popup.style.top  = top + 'px';
+    popup.style.zIndex = '60';
+    popup.classList.remove('hidden');
+    popup.style.opacity = '1';
+    popup.style.transform = 'scale(1)';
+
+    document.getElementById('reviewText').focus();
+  }
+
+  function closeReviewPopup() {
+    const popup = document.getElementById('reviewPopup');
+    popup.style.opacity = '0';
+    popup.style.transform = 'scale(0.9)';
+    setTimeout(() => { popup.classList.add('hidden'); }, 200);
+    activeReviewDishId = null;
+  }
+
+  function selectReviewType(btn, type) {
+    reviewType = type;
+    btn.parentElement.querySelectorAll('.review-type-btn').forEach(b => {
+      b.classList.remove('active-like', 'active-dislike');
+    });
+    btn.classList.add(type === 'like' ? 'active-like' : 'active-dislike');
+  }
+
+  function submitReview() {
+    const text   = document.getElementById('reviewText').value.trim();
+    const author = document.getElementById('reviewAuthor').value.trim() || '匿名食客';
+    if (!text || activeReviewDishId === null) return;
+
+    if (!dishReviews[activeReviewDishId]) dishReviews[activeReviewDishId] = [];
+    const newReview = { type: reviewType, author: author, text: text };
+    dishReviews[activeReviewDishId].push(newReview);
+
+    // 更新称号映射（新用户可能增加评论数）
+    const newTitles = computeUserTitles();
+    for (const key in newTitles) { userTitles[key] = newTitles[key]; }
+
+    closeReviewPopup();
+
+    // 刷新当前气泡
+    if (activeDishId === activeReviewDishId && activeDishRow) {
+      document.getElementById('bubbleStage').innerHTML = '';
+      renderBubblesFor(activeDishRow);
+    }
+  }
+
+  function renderBubblesFor(row) {
+    const dishId  = parseInt(row.getAttribute('data-dish-id'));
+    const reviews = dishReviews[dishId];
+    const stage = document.getElementById('bubbleStage');
+    stage.innerHTML = '';
+
+    const rect = row.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top  + rect.height / 2;
+
+    if (!reviews || reviews.length === 0) {
+      const toast = document.createElement('div');
+      toast.className = 'no-review-toast';
+      toast.textContent = '该菜品暂时无评论，期待你的评论 OvO';
+      toast.style.left = centerX + 'px';
+      toast.style.top  = (rect.bottom + 10) + 'px';
+      toast.style.transform = 'translateX(-50%)';
+      stage.appendChild(toast);
+    } else {
+      const positions = computeBubblePositions(reviews.length);
+      reviews.forEach((review, i) => {
+        const bubble = document.createElement('div');
+        bubble.className = 'comment-bubble ' + (review.type === 'like' ? 'like-bubble' : 'dislike-bubble');
+        bubble.style.animationDelay = (i * 0.06) + 's';
+        const pos = positions[i];
+        bubble.style.left = (centerX + pos.x) + 'px';
+        bubble.style.top  = (centerY + pos.y) + 'px';
+        const badgeLabel = review.type === 'like' ? '👍 赞' : '👎 踩';
+        const titleData = userTitles[review.author] || getCanteenTitle(1);
+        bubble.innerHTML =
+          '<div class="bubble-author"><span class="bubble-badge">' + badgeLabel + '</span>' + escapeHTML(review.author) + '<span class="bubble-title ' + titleData.tier + '">' + titleData.label + '</span></div>' +
+          '<div class="bubble-text">' + escapeHTML(review.text) + '</div>';
+        stage.appendChild(bubble);
+      });
+    }
+
+    // 写评论按钮
+    const btn = document.createElement('button');
+    btn.className = 'write-review-btn';
+    btn.textContent = '✏️ 写评论';
+    btn.style.cssText = 'position:absolute;left:' + centerX + 'px;top:' + (rect.bottom + 10) + 'px;'
+      + 'transform:translateX(-50%);z-index:51;pointer-events:auto;'
+      + 'display:inline-flex;align-items:center;gap:6px;padding:8px 18px;'
+      + 'border:none;border-radius:9999px;background:#1a1a1a;color:#fafafa;'
+      + 'font-size:0.875rem;font-weight:500;cursor:pointer;'
+      + 'box-shadow:0 4px 16px rgba(0,0,0,0.15);transition:transform 0.15s;';
+    btn.addEventListener('mouseenter', function() { this.style.transform = 'translateX(-50%) scale(1.05)'; });
+    btn.addEventListener('mouseleave', function() { this.style.transform = 'translateX(-50%) scale(1)'; });
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const dishId = parseInt(row.getAttribute('data-dish-id'));
+      hideBubblesInstant();
+      showReviewPopupForRow(row, dishId);
+    });
+    stage.appendChild(btn);
+  }
+</script>
+
+<script>
+  // ====== 食堂悬浮窗口 ======
+  function openCanteenModal() {
+    document.getElementById('canteenModal').classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  }
+  function closeCanteenModal() {
+    document.getElementById('canteenModal').classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+  }
+  document.getElementById('canteenModal').addEventListener('click', function(e) {
+    if (e.target === this) closeCanteenModal();
+  });
+</script>
+
+</body>
+</html>
