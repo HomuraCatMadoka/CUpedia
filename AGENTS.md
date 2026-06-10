@@ -252,6 +252,25 @@ zhparser config on first run, then migrating, wiping it to a clean slate, and
 seeding. Set `E2E_DATABASE_URL` to give a parallel worktree its own db. The dev
 `db` container must be running (`docker compose up -d db`).
 
+### Test naming
+
+Name e2e specs by the **feature/behavior** they exercise, never by the issue
+that introduced them. `issue-<N>.spec.ts` is banned — a name like
+`issue-92.spec.ts` tells a future reader nothing, and the one-issue-per-spec
+model drifts (the same behavior ends up duplicated across two issue files).
+
+- **Feature-named, flat directory**: `wiki-read.spec.ts`, `wiki-search.spec.ts`,
+  `sidebar.spec.ts`, `homepage.spec.ts`.
+- **Prefix as a namespace** to group an area's specs: `wiki-*`, `auth-*`.
+- **Dot-suffix for variants** once a single feature's file grows:
+  `wiki-edit.autosave.spec.ts`, `wiki-edit.conflict.spec.ts`.
+- **Issue traceability lives inside the test**, not the filename: keep `#<N>` in
+  the `test.describe` title or a `ref #<N>` file-header comment.
+
+This is orthogonal to the "one PR per issue" rule (see PR Requirements) — PRs
+still map to issues; only the spec _filename_ is feature-based. Unit tests in
+`tests/` already follow this. See ADR 0007.
+
 ## Code Style
 
 - **Framework**: Tailwind CSS 4 + shadcn/ui (base-nova style, neutral palette)
