@@ -65,9 +65,16 @@ export default defineConfig({
     // SKIP_EMAIL_WHITELIST is on. Neutralize it here so a dev's .env.local
     // (which usually enables it) can't crash the e2e server — seed accounts
     // sign in by password and don't need the whitelist bypass anyway.
+    //
+    // AUTH_URL must be this server's real address. The dev .env.local sets it
+    // to the :3000 dev port, but e2e serves on :3100; left uncorrected,
+    // better-auth derives trustedOrigins from the stale :3000 and rejects
+    // browser-driven sign-in (Origin :3100) as cross-origin. Deriving it from
+    // PORT keeps the declared origin honest wherever e2e runs.
     env: {
       E2E_TEST: "1",
       SKIP_EMAIL_WHITELIST: "false",
+      AUTH_URL: baseURL,
       ...(E2E_DATABASE_URL ? { DATABASE_URL: E2E_DATABASE_URL } : {}),
     },
   },
