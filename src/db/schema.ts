@@ -5,6 +5,8 @@ import {
   uuid,
   boolean,
   integer,
+  numeric,
+  jsonb,
   index,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -203,3 +205,97 @@ export const wikiRevisionsRelations = relations(wikiRevisions, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ── 课程技能树：课程数据 + 主修骨架（#157 / #161 / #162）──
+// 数据来源裁定见 ADR 0005「决议（#157）」。课号为稳定锚点。
+
+export const courses = pgTable(
+  "courses",
+  {
+    code: text("code").primaryKey(),
+    subject: text("subject").notNull(),
+    title: text("title").notNull(),
+    units: numeric("units").notNull(),
+    description: text("description").notNull().default(""),
+    // 开课季节（如 ["T1","T2"]），严格模式按此匹配学期
+    terms: jsonb("terms").$type<string[]>().notNull().default([]),
+    requirementsRaw: text("requirements_raw").notNull().default(""),
+    // 解析占位列：先修布尔逻辑与排斥课号，由 #164 parseRequirements 填充
+    prerequisite: jsonb("prerequisite"),
+    exclusions: jsonb("exclusions").$type<string[]>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [index("courses_subject_idx").on(table.subject)],
+);
+
+export const majors = pgTable("majors", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  faculty: text("faculty"),
+  totalUnits: numeric("total_units"),
+  normativeYears: integer("normative_years").notNull().default(4),
+  handbookYear: text("handbook_year").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const majorCategories = pgTable(
+  "major_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    majorId: uuid("major_id")
+      .notNull()
+      .references(() => majors.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(), // required | one-of | basket
+    unitsRequired: numeric("units_required"),
+    pickN: integer("pick_n"),
+  },
+  (table) => [index("major_categories_major_id_idx").on(table.majorId)],
+);
+
+export const categoryCourses = pgTable(
+  "category_courses",
+  {
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => majorCategories.id, { onDelete: "cascade" }),
+    // 成员课号；可指向主修树外的课，故不设 FK 到 courses
+    courseCode: text("course_code").notNull(),
+    // 别名映射未命中、课号在 courses 缺失/改名时为 true（占位 + 黄色告警，不静默隐藏）
+    missing: boolean("missing").notNull().default(false),
+  },
+  (table) => [index("category_courses_category_id_idx").on(table.categoryId)],
+);
+
+// 版本对齐：旧课号 → 新课号别名映射（含 DSME→DOTE），摄取/解析前先重映射
+export const courseAliases = pgTable("course_aliases", {
+  oldCode: text("old_code").primaryKey(),
+  newCode: text("new_code").notNull(),
+});
+
+export const majorsRelations = relations(majors, ({ many }) => ({
+  categories: many(majorCategories),
+}));
+
+export const majorCategoriesRelations = relations(
+  majorCategories,
+  ({ one, many }) => ({
+    major: one(majors, {
+      fields: [majorCategories.majorId],
+      references: [majors.id],
+    }),
+    courses: many(categoryCourses),
+  }),
+);
+
+export const categoryCoursesRelations = relations(
+  categoryCourses,
+  ({ one }) => ({
+    category: one(majorCategories, {
+      fields: [categoryCourses.categoryId],
+      references: [majorCategories.id],
+    }),
+  }),
+);

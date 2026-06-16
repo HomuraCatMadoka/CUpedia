@@ -13,6 +13,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "seed": "node --import tsx --import ./scripts/css-stub.mjs scripts/seed.ts",
+    "ingest:courses": "node --import tsx scripts/ingest-courses.ts",
+    "ingest:skeleton": "node --import tsx scripts/ingest-skeleton.ts",
+    "oracle:check": "node --import tsx scripts/oracle-check.ts",
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
     "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run"
   },

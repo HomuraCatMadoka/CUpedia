@@ -1,0 +1,13 @@
+[project]
+name = "cupedia-scraper"
+version = "0.1.0"
+description = "Offline scrapers for CUHK course catalog + handbook study schemes (isolated from the app; not part of pnpm/CI/runtime — see docs/adr/0005)."
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "ddddocr>=1.4",          # 4-char captcha OCR for the AQS catalog
+]
+
+[tool.setuptools]
+py-modules = ["common", "scrape_courses", "scrape_handbook"]
