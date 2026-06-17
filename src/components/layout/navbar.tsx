@@ -19,12 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useSidebar } from "@/components/layout/sidebar-provider";
 import { CommandSearch } from "@/components/layout/command-search";
 
-export function Navbar() {
+export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const { data: session } = authClient.useSession();
-  const { isMobile, openMobile } = useSidebar();
   const pathname = usePathname();
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
@@ -65,15 +63,7 @@ export function Navbar() {
       <header className="sticky top-0 z-30 border-b bg-white">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            {isMobile && (
-              <button
-                onClick={openMobile}
-                className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
-                aria-label="打开导航"
-              >
-                ☰
-              </button>
-            )}
+            {leading}
             <Link href="/wiki" className="text-lg font-bold">
               CUpedia
             </Link>
