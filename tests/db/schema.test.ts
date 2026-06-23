@@ -6,6 +6,8 @@ import {
   wikiRevisions,
   sessions,
   wikiLinks,
+  canteens,
+  canteenMenuItems,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -49,5 +51,22 @@ describe("schema", () => {
     expect(cols.token).toBeDefined();
     expect(cols.userId).toBeDefined();
     expect(cols.expiresAt).toBeDefined();
+  });
+
+  it("canteens table has required fields", () => {
+    const cols = getTableColumns(canteens);
+    expect(cols.name).toBeDefined();
+    expect(cols.location).toBeDefined();
+    expect(cols.deletedAt).toBeUndefined();
+  });
+
+  it("canteenMenuItems table has meal period and cascade fk", () => {
+    const cols = getTableColumns(canteenMenuItems);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.name).toBeDefined();
+    expect(cols.price).toBeDefined();
+    expect(cols.mealPeriod).toBeDefined();
+    expect(cols.sortOrder).toBeDefined();
+    expect(cols.svgKey).toBeDefined();
   });
 });

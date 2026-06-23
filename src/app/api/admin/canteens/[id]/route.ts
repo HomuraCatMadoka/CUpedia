@@ -1,0 +1,69 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getCanteenById } from "@/lib/canteen-actions";
+import {
+  deleteCanteen,
+  getCanteenDeleteImpact,
+  updateCanteen,
+} from "@/lib/canteen-admin-actions";
+import { requireAdminApi } from "@/lib/admin-api";
+
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireAdminApi();
+  if (auth.response) return auth.response;
+  const { id } = await context.params;
+  const canteen = await getCanteenById(id);
+  if (!canteen) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  return NextResponse.json({ canteen });
+}
+
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireAdminApi();
+  if (auth.response) return auth.response;
+  const { id } = await context.params;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+  try {
+    const canteen = await updateCanteen(id, body as Record<string, unknown>);
+    return NextResponse.json({ canteen });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Bad request";
+    if (message === "CANTEEN_NOT_FOUND") {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
+    if (message === "INVALID_NAME" || message === "INVALID_LOCATION") {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    throw e;
+  }
+}
+
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const auth = await requireAdminApi();
+  if (auth.response) return auth.response;
+  const { id } = await context.params;
+  try {
+    await deleteCanteen(id);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Bad request";
+    if (message === "CANTEEN_NOT_FOUND") {
+      return NextResponse.json({ error: message }, { status: 404 });
+    }
+    throw e;
+  }
+}

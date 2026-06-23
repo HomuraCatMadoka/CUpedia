@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/admin/deleted", label: "已删除页面" },
   { href: "/admin/users", label: "用户管理" },
+  { href: "/admin/canteens", label: "食堂管理" },
   { href: "/admin/settings", label: "站点设置" },
 ];
 
@@ -19,7 +20,7 @@ export function AdminTabs() {
           key={tab.href}
           href={tab.href}
           className={`border-b-2 px-1 pb-2 text-sm ${
-            pathname === tab.href
+            pathname === tab.href || pathname.startsWith(`${tab.href}/`)
               ? "border-foreground font-medium"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}

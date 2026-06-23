@@ -203,3 +203,54 @@ export const wikiRevisionsRelations = relations(wikiRevisions, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// ── Canteen subsystem (hard delete; no deletedAt — unlike wiki soft delete) ──
+
+export const MEAL_PERIODS = ["breakfast", "lunch", "dinner"] as const;
+export type MealPeriod = (typeof MEAL_PERIODS)[number];
+
+export const canteens = pgTable("canteens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  location: text("location"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const canteenMenuItems = pgTable(
+  "canteen_menu_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    price: integer("price"),
+    mealPeriod: text("meal_period").notNull().default("lunch"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    svgKey: text("svg_key").notNull().default("default"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_menu_items_canteen_id_idx").on(table.canteenId),
+    index("canteen_menu_items_canteen_meal_idx").on(
+      table.canteenId,
+      table.mealPeriod,
+    ),
+  ],
+);
+
+export const canteensRelations = relations(canteens, ({ many }) => ({
+  menuItems: many(canteenMenuItems),
+}));
+
+export const canteenMenuItemsRelations = relations(
+  canteenMenuItems,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [canteenMenuItems.canteenId],
+      references: [canteens.id],
+    }),
+  }),
+);
