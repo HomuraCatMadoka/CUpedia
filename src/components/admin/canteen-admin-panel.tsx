@@ -48,11 +48,17 @@ export function CanteenAdminPanel({
   const [location, setLocation] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Canteen | null>(null);
   const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null);
+  const [editTarget, setEditTarget] = useState<Canteen | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLocation, setEditLocation] = useState("");
 
   const basePath = previewMode ? "/canteen/manage" : "/admin/canteens";
   const createCanteen = previewMode
     ? previewActions.previewCreateCanteen
     : liveActions.createCanteen;
+  const updateCanteen = previewMode
+    ? previewActions.previewUpdateCanteen
+    : liveActions.updateCanteen;
   const deleteCanteen = previewMode
     ? previewActions.previewDeleteCanteen
     : liveActions.deleteCanteen;
@@ -76,6 +82,29 @@ export function CanteenAdminPanel({
         router.refresh();
       } catch (err) {
         alert(err instanceof Error ? err.message : "创建失败");
+      }
+    });
+  }
+
+  function openEditDialog(canteen: Canteen) {
+    setEditTarget(canteen);
+    setEditName(canteen.name);
+    setEditLocation(canteen.location ?? "");
+  }
+
+  function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editTarget) return;
+    startTransition(async () => {
+      try {
+        await updateCanteen(editTarget.id, {
+          name: editName,
+          location: editLocation || null,
+        });
+        setEditTarget(null);
+        router.refresh();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "更新失败");
       }
     });
   }
@@ -160,6 +189,15 @@ export function CanteenAdminPanel({
                   <Link href={`${basePath}/${canteen.id}`}>管理菜单</Link>
                 </Button>
                 <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={isPending}
+                  onClick={() => openEditDialog(canteen)}
+                >
+                  编辑
+                </Button>
+                <Button
                   variant="destructive"
                   size="sm"
                   className="rounded-full"
@@ -198,6 +236,52 @@ export function CanteenAdminPanel({
               删除
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!editTarget}
+        onOpenChange={(open) => {
+          if (!open) setEditTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <form onSubmit={handleEdit}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>编辑食堂</AlertDialogTitle>
+            </AlertDialogHeader>
+            <div className="grid gap-3 py-4">
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="edit-canteen-name">
+                  名称
+                </label>
+                <Input
+                  id="edit-canteen-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  required
+                  maxLength={200}
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium" htmlFor="edit-canteen-location">
+                  位置
+                </label>
+                <Input
+                  id="edit-canteen-location"
+                  value={editLocation}
+                  onChange={(e) => setEditLocation(e.target.value)}
+                  maxLength={500}
+                />
+              </div>
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel type="button">取消</AlertDialogCancel>
+              <AlertDialogAction type="submit" disabled={isPending}>
+                保存
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </form>
         </AlertDialogContent>
       </AlertDialog>
     </CanteenShell>

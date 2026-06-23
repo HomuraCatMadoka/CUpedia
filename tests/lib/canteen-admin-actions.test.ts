@@ -60,7 +60,14 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { createCanteen } from "@/lib/canteen-admin-actions";
+import {
+  createCanteen,
+  createMenuItem,
+  deleteCanteen,
+  deleteMenuItem,
+  updateCanteen,
+  updateMenuItem,
+} from "@/lib/canteen-admin-actions";
 import { getAdminUserForApi } from "@/lib/auth-guard-api";
 
 beforeEach(() => {
@@ -135,6 +142,101 @@ describe("canteen-admin-actions", () => {
       const { resetCanteenMockState } = await import("@/lib/canteen-mock");
       resetCanteenMockState();
     }
+  });
+
+  it("updateCanteen updates for admin", async () => {
+    mockAdminSession();
+    const returning = vi.fn().mockResolvedValue([
+      {
+        id: "c1",
+        name: "Renamed",
+        location: "B",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    mockDbUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning }),
+      }),
+    });
+
+    const row = await updateCanteen("c1", { name: "Renamed", location: "B" });
+    expect(row.name).toBe("Renamed");
+    expect(mockDbUpdate).toHaveBeenCalled();
+  });
+
+  it("deleteCanteen removes row for admin", async () => {
+    mockAdminSession();
+    const returning = vi.fn().mockResolvedValue([{ id: "c1" }]);
+    mockDbDelete.mockReturnValue({
+      where: vi.fn().mockReturnValue({ returning }),
+    });
+
+    await deleteCanteen("c1");
+    expect(mockDbDelete).toHaveBeenCalled();
+  });
+
+  it("createMenuItem inserts for admin", async () => {
+    mockAdminSession();
+    mockDbQueryCanteens.findFirst.mockResolvedValue({ id: "c1" });
+    const returning = vi.fn().mockResolvedValue([
+      {
+        id: "i1",
+        canteenId: "c1",
+        name: "饭",
+        price: 10,
+        mealPeriod: "lunch",
+        sortOrder: 0,
+        svgKey: "default",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning }) });
+
+    const row = await createMenuItem("c1", { name: "饭", mealPeriod: "lunch" });
+    expect(row.name).toBe("饭");
+  });
+
+  it("updateMenuItem updates for admin", async () => {
+    mockAdminSession();
+    const returning = vi.fn().mockResolvedValue([
+      {
+        id: "i1",
+        canteenId: "c1",
+        name: "新名",
+        price: 12,
+        mealPeriod: "dinner",
+        sortOrder: 0,
+        svgKey: "default",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    mockDbUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning }),
+      }),
+    });
+
+    const row = await updateMenuItem("c1", "i1", {
+      name: "新名",
+      mealPeriod: "dinner",
+    });
+    expect(row.name).toBe("新名");
+    expect(row.mealPeriod).toBe("dinner");
+  });
+
+  it("deleteMenuItem removes row for admin", async () => {
+    mockAdminSession();
+    const returning = vi.fn().mockResolvedValue([{ id: "i1", canteenId: "c1" }]);
+    mockDbDelete.mockReturnValue({
+      where: vi.fn().mockReturnValue({ returning }),
+    });
+
+    await deleteMenuItem("c1", "i1");
+    expect(mockDbDelete).toHaveBeenCalled();
   });
 });
 

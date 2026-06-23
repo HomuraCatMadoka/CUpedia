@@ -9,6 +9,7 @@ import {
   mockDeleteMenuItem,
   mockDeleteImpactForCanteen,
   mockDeleteImpactForMenuItem,
+  mockUpdateCanteen,
   mockUpdateMenuItem,
 } from "@/lib/canteen-mock";
 
@@ -26,6 +27,18 @@ export async function previewCreateCanteen(input: {
   const row = mockCreateCanteen(input);
   revalidatePath("/canteen");
   revalidatePath("/canteen/manage");
+  return row;
+}
+
+export async function previewUpdateCanteen(
+  id: string,
+  input: { name?: unknown; location?: unknown },
+) {
+  assertPreview();
+  const row = mockUpdateCanteen(id, input);
+  revalidatePath("/canteen");
+  revalidatePath("/canteen/manage");
+  revalidatePath(`/canteen/manage/${id}`);
   return row;
 }
 
@@ -61,7 +74,13 @@ export async function previewCreateMenuItem(
 export async function previewUpdateMenuItem(
   canteenId: string,
   itemId: string,
-  input: { mealPeriod?: unknown },
+  input: {
+    name?: unknown;
+    price?: unknown;
+    mealPeriod?: unknown;
+    sortOrder?: unknown;
+    svgKey?: unknown;
+  },
 ) {
   assertPreview();
   const row = mockUpdateMenuItem(canteenId, itemId, input);

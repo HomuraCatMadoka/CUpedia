@@ -17,56 +17,27 @@ function now() {
 
 function seedState(): MockState {
   const t = now();
-  const c1: Canteen = {
-    id: "mock-canteen-union",
-    name: "和声书院食堂",
-    location: "SHB G/F",
-    createdAt: t,
-    updatedAt: t,
-  };
-  const c2: Canteen = {
-    id: "mock-canteen-wei",
-    name: "伟伦学生餐厅",
-    location: "WLB",
+  const demo: Canteen = {
+    id: "mock-canteen-demo",
+    name: "演示食堂",
+    location: null,
     createdAt: t,
     updatedAt: t,
   };
   const items: CanteenMenuItem[] = [
     {
-      id: "mock-item-1",
-      canteenId: c1.id,
-      name: "叉烧焗饭",
-      price: 28,
+      id: "mock-item-demo",
+      canteenId: demo.id,
+      name: "演示菜品",
+      price: 10,
       mealPeriod: "lunch",
       sortOrder: 0,
-      svgKey: "rice",
-      createdAt: t,
-      updatedAt: t,
-    },
-    {
-      id: "mock-item-2",
-      canteenId: c1.id,
-      name: "皮蛋瘦肉粥",
-      price: 12,
-      mealPeriod: "breakfast",
-      sortOrder: 0,
-      svgKey: "bowl",
-      createdAt: t,
-      updatedAt: t,
-    },
-    {
-      id: "mock-item-3",
-      canteenId: c2.id,
-      name: "麻辣香锅",
-      price: 35,
-      mealPeriod: "dinner",
-      sortOrder: 0,
-      svgKey: "spicy",
+      svgKey: "default",
       createdAt: t,
       updatedAt: t,
     },
   ];
-  return { canteens: [c1, c2], items };
+  return { canteens: [demo], items };
 }
 
 let state: MockState | null = null;
