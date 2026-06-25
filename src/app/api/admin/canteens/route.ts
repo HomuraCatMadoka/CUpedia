@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCanteens } from "@/lib/canteen-actions";
 import { createCanteen } from "@/lib/canteen-admin-actions";
-import { requireAdminApi } from "@/lib/admin-api";
+import { getAdminUserForApi } from "@/lib/auth-guard";
 
 export async function GET() {
-  const auth = await requireAdminApi();
-  if (auth.response) return auth.response;
+  if (!(await getAdminUserForApi())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const canteens = await getCanteens();
   return NextResponse.json({ canteens });
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdminApi();
-  if (auth.response) return auth.response;
+  if (!(await getAdminUserForApi())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   let body: unknown;
   try {
     body = await request.json();
@@ -20,8 +22,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
   const input = body as { name?: unknown; location?: unknown };
+  if (input.name === undefined) {
+    return NextResponse.json({ error: "INVALID_NAME" }, { status: 400 });
+  }
   try {
-    const canteen = await createCanteen(input);
+    const canteen = await createCanteen({
+      name: input.name,
+      location: input.location,
+    });
     return NextResponse.json({ canteen }, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Bad request";

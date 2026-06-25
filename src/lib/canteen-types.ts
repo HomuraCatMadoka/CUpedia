@@ -2,6 +2,16 @@ import { MEAL_PERIODS, type MealPeriod } from "@/db/schema";
 
 export { MEAL_PERIODS, type MealPeriod };
 
+const MEAL_PERIOD_ORDER: Record<MealPeriod, number> = {
+  breakfast: 0,
+  lunch: 1,
+  dinner: 2,
+};
+
+export function compareMealPeriods(a: MealPeriod, b: MealPeriod): number {
+  return MEAL_PERIOD_ORDER[a] - MEAL_PERIOD_ORDER[b];
+}
+
 export type Canteen = {
   id: string;
   name: string;

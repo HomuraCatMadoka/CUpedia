@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  deleteMenuItem,
-  getMenuItemDeleteImpact,
-  updateMenuItem,
-} from "@/lib/canteen-admin-actions";
-import { requireAdminApi } from "@/lib/admin-api";
+import { deleteMenuItem, updateMenuItem } from "@/lib/canteen-admin-actions";
+import { getAdminUserForApi } from "@/lib/auth-guard";
 
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string; itemId: string }> },
 ) {
-  const auth = await requireAdminApi();
-  if (auth.response) return auth.response;
+  if (!(await getAdminUserForApi())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const { id, itemId } = await context.params;
   let body: unknown;
   try {
@@ -20,7 +17,17 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
   try {
-    const item = await updateMenuItem(id, itemId, body as Record<string, unknown>);
+    const item = await updateMenuItem(
+      id,
+      itemId,
+      body as {
+        name?: unknown;
+        price?: unknown;
+        mealPeriod?: unknown;
+        sortOrder?: unknown;
+        svgKey?: unknown;
+      },
+    );
     return NextResponse.json({ item });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Bad request";
@@ -38,8 +45,9 @@ export async function DELETE(
   _request: NextRequest,
   context: { params: Promise<{ id: string; itemId: string }> },
 ) {
-  const auth = await requireAdminApi();
-  if (auth.response) return auth.response;
+  if (!(await getAdminUserForApi())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const { id, itemId } = await context.params;
   try {
     await deleteMenuItem(id, itemId);

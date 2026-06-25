@@ -68,7 +68,7 @@ import {
   updateCanteen,
   updateMenuItem,
 } from "@/lib/canteen-admin-actions";
-import { getAdminUserForApi } from "@/lib/auth-guard-api";
+import { getAdminUserForApi } from "@/lib/auth-guard";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -230,13 +230,25 @@ describe("canteen-admin-actions", () => {
 
   it("deleteMenuItem removes row for admin", async () => {
     mockAdminSession();
-    const returning = vi.fn().mockResolvedValue([{ id: "i1", canteenId: "c1" }]);
+    const returning = vi.fn().mockResolvedValue([{ id: "i1" }]);
     mockDbDelete.mockReturnValue({
       where: vi.fn().mockReturnValue({ returning }),
     });
 
     await deleteMenuItem("c1", "i1");
     expect(mockDbDelete).toHaveBeenCalled();
+  });
+
+  it("deleteMenuItem does not delete item from another canteen", async () => {
+    mockAdminSession();
+    const returning = vi.fn().mockResolvedValue([]);
+    mockDbDelete.mockReturnValue({
+      where: vi.fn().mockReturnValue({ returning }),
+    });
+
+    await expect(deleteMenuItem("c1", "i-other")).rejects.toThrow(
+      "MENU_ITEM_NOT_FOUND",
+    );
   });
 });
 

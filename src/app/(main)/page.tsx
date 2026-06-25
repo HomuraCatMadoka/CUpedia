@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { isCanteenMockMode } from "@/lib/canteen-mock";
 
 export default function HomePage() {
   const modules = [
@@ -11,7 +10,7 @@ export default function HomePage() {
       title: "食堂",
       href: "/canteen",
       description: "食堂测评",
-      disabled: !isCanteenMockMode(),
+      disabled: false,
     },
     { title: "生活", href: "/life", description: "生活指南", disabled: true },
     { title: "交换", href: "/exchange", description: "交换经验", disabled: true },

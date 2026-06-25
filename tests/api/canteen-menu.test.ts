@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { NextRequest } from "next/server";
 
 const { mockGetCanteenById, mockGetCanteenMenuItems } = vi.hoisted(() => ({
   mockGetCanteenById: vi.fn(),
@@ -20,7 +21,7 @@ describe("GET /api/canteens/[id]/menu", () => {
   it("returns 404 when canteen does not exist", async () => {
     mockGetCanteenById.mockResolvedValue(null);
 
-    const res = await GET({} as Request, {
+    const res = await GET(new NextRequest("http://localhost/api/canteens/missing/menu"), {
       params: Promise.resolve({ id: "missing" }),
     });
 
@@ -51,7 +52,7 @@ describe("GET /api/canteens/[id]/menu", () => {
     mockGetCanteenById.mockResolvedValue(canteen);
     mockGetCanteenMenuItems.mockResolvedValue(items);
 
-    const res = await GET({} as Request, {
+    const res = await GET(new NextRequest("http://localhost/api/canteens/c1/menu"), {
       params: Promise.resolve({ id: "c1" }),
     });
     const json = await res.json();

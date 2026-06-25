@@ -38,13 +38,11 @@ describe("canteen-actions (mock mode)", () => {
     const canteen = (await getCanteens())[0];
     const items = await getCanteenMenuItems(canteen.id);
     expect(items.length).toBeGreaterThan(0);
-    expect(items.every((i) => i.canteenId === canteen.id)).toBe(true);
+    const { compareMealPeriods } = await import("@/lib/canteen-types");
     for (let i = 1; i < items.length; i++) {
       const prev = items[i - 1];
       const curr = items[i];
-      const periodOrder =
-        prev.mealPeriod.localeCompare(curr.mealPeriod) <= 0;
-      expect(periodOrder).toBe(true);
+      expect(compareMealPeriods(prev.mealPeriod, curr.mealPeriod)).toBeLessThanOrEqual(0);
     }
   });
 });

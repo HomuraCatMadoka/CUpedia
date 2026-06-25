@@ -1,17 +1,13 @@
 import Link from "next/link";
-import { getCanteens, getCanteenMenuItems } from "@/lib/canteen-actions";
+import { getCanteens, getCanteenMenuItemCounts } from "@/lib/canteen-actions";
 import { CanteenCard, CanteenShell } from "@/components/canteen/canteen-shell";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
 
 export default async function CanteenBrowsePage() {
-  const canteens = await getCanteens();
-  const counts = await Promise.all(
-    canteens.map(async (c) => ({
-      id: c.id,
-      count: (await getCanteenMenuItems(c.id)).length,
-    })),
-  );
-  const countMap = Object.fromEntries(counts.map((c) => [c.id, c.count]));
+  const [canteens, countMap] = await Promise.all([
+    getCanteens(),
+    getCanteenMenuItemCounts(),
+  ]);
 
   return (
     <CanteenShell

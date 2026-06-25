@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
@@ -19,6 +19,7 @@ import { CanteenCard, CanteenShell, PreviewBanner } from "@/components/canteen/c
 import type { Canteen, DeleteImpact } from "@/lib/canteen-types";
 import * as liveActions from "@/lib/canteen-admin-actions";
 import * as previewActions from "@/lib/canteen-preview-actions";
+import { cn } from "@/lib/utils";
 
 function formatDeleteImpact(impact: DeleteImpact, kind: "canteen" | "item") {
   const parts: string[] = [];
@@ -185,9 +186,12 @@ export function CanteenAdminPanel({
             <div key={canteen.id} className={`canteen-fade-in ${i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}`}>
               <CanteenCard canteen={canteen} href={`${basePath}/${canteen.id}`} />
               <div className="mt-2 flex justify-end gap-2 px-1">
-                <Button variant="outline" size="sm" asChild className="rounded-full">
-                  <Link href={`${basePath}/${canteen.id}`}>管理菜单</Link>
-                </Button>
+                <Link
+                  href={`${basePath}/${canteen.id}`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-full")}
+                >
+                  管理菜单
+                </Link>
                 <Button
                   variant="outline"
                   size="sm"

@@ -301,10 +301,15 @@ export async function deleteMenuItem(
   }
   const result = await db
     .delete(canteenMenuItems)
-    .where(eq(canteenMenuItems.id, itemId))
-    .returning({ id: canteenMenuItems.id, canteenId: canteenMenuItems.canteenId });
+    .where(
+      and(
+        eq(canteenMenuItems.id, itemId),
+        eq(canteenMenuItems.canteenId, canteenId),
+      ),
+    )
+    .returning({ id: canteenMenuItems.id });
 
-  if (result.length === 0 || result[0].canteenId !== canteenId) {
+  if (result.length === 0) {
     throw new Error("MENU_ITEM_NOT_FOUND");
   }
 

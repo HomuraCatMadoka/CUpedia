@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   MEAL_PERIODS,
+  compareMealPeriods,
   parseMealPeriod,
   validateCanteenName,
   validateLocation,
@@ -12,6 +13,12 @@ import {
 describe("canteen-types", () => {
   it("re-exports MEAL_PERIODS for UI consumers", () => {
     expect(MEAL_PERIODS).toEqual(["breakfast", "lunch", "dinner"]);
+  });
+
+  it("compareMealPeriods orders breakfast before lunch before dinner", () => {
+    expect(compareMealPeriods("breakfast", "lunch")).toBeLessThan(0);
+    expect(compareMealPeriods("lunch", "dinner")).toBeLessThan(0);
+    expect(compareMealPeriods("breakfast", "dinner")).toBeLessThan(0);
   });
 
   it("parseMealPeriod accepts valid periods", () => {

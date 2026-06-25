@@ -2,8 +2,9 @@
 
 import { db } from "@/db";
 import { canteenMenuItems, canteens } from "@/db/schema";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, count } from "drizzle-orm";
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
+import { compareMealPeriods } from "@/lib/canteen-types";
 import {
   isCanteenMockMode,
   mockGetCanteen,
@@ -45,7 +46,7 @@ export async function getCanteenMenuItems(
   canteenId: string,
 ): Promise<CanteenMenuItem[]> {
   if (isCanteenMockMode()) return mockListMenuItems(canteenId);
-  return db
+  const rows = (await db
     .select({
       id: canteenMenuItems.id,
       canteenId: canteenMenuItems.canteenId,
@@ -58,10 +59,29 @@ export async function getCanteenMenuItems(
       updatedAt: canteenMenuItems.updatedAt,
     })
     .from(canteenMenuItems)
-    .where(eq(canteenMenuItems.canteenId, canteenId))
-    .orderBy(
-      asc(canteenMenuItems.mealPeriod),
-      asc(canteenMenuItems.sortOrder),
-      asc(canteenMenuItems.name),
-    ) as Promise<CanteenMenuItem[]>;
+    .where(eq(canteenMenuItems.canteenId, canteenId))) as CanteenMenuItem[];
+
+  return rows.sort((a, b) => {
+    const periodCmp = compareMealPeriods(a.mealPeriod, b.mealPeriod);
+    if (periodCmp !== 0) return periodCmp;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export async function getCanteenMenuItemCounts(): Promise<Record<string, number>> {
+  if (isCanteenMockMode()) {
+    const list = mockListCanteens();
+    return Object.fromEntries(
+      list.map((c) => [c.id, mockListMenuItems(c.id).length]),
+    );
+  }
+  const rows = await db
+    .select({
+      canteenId: canteenMenuItems.canteenId,
+      value: count(),
+    })
+    .from(canteenMenuItems)
+    .groupBy(canteenMenuItems.canteenId);
+  return Object.fromEntries(rows.map((r) => [r.canteenId, r.value]));
 }

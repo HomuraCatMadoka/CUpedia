@@ -1,5 +1,5 @@
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
-import { parseMealPeriod, validateCanteenName, validateLocation, validateMenuItemName, validatePrice, validateSortOrder, validateSvgKey } from "@/lib/canteen-types";
+import { parseMealPeriod, validateCanteenName, validateLocation, validateMenuItemName, validatePrice, validateSortOrder, validateSvgKey, compareMealPeriods } from "@/lib/canteen-types";
 
 /** Dev/demo mode: in-memory canteen data, no PostgreSQL required. */
 export function isCanteenMockMode(): boolean {
@@ -59,9 +59,8 @@ export function mockListMenuItems(canteenId: string): CanteenMenuItem[] {
   return getState()
     .items.filter((i) => i.canteenId === canteenId)
     .sort((a, b) => {
-      if (a.mealPeriod !== b.mealPeriod) {
-        return a.mealPeriod.localeCompare(b.mealPeriod);
-      }
+      const periodCmp = compareMealPeriods(a.mealPeriod, b.mealPeriod);
+      if (periodCmp !== 0) return periodCmp;
       if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
       return a.name.localeCompare(b.name);
     });

@@ -57,7 +57,7 @@ describe("schema", () => {
     const cols = getTableColumns(canteens);
     expect(cols.name).toBeDefined();
     expect(cols.location).toBeDefined();
-    expect(cols.deletedAt).toBeUndefined();
+    expect("deletedAt" in cols).toBe(false);
   });
 
   it("canteenMenuItems table has meal period and cascade fk", () => {

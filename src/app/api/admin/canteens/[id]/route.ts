@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCanteenById } from "@/lib/canteen-actions";
-import {
-  deleteCanteen,
-  getCanteenDeleteImpact,
-  updateCanteen,
-} from "@/lib/canteen-admin-actions";
-import { requireAdminApi } from "@/lib/admin-api";
+import { deleteCanteen, updateCanteen } from "@/lib/canteen-admin-actions";
+import { getAdminUserForApi } from "@/lib/auth-guard";
 
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireAdminApi();
-  if (auth.response) return auth.response;
+  if (!(await getAdminUserForApi())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const { id } = await context.params;
   const canteen = await getCanteenById(id);
   if (!canteen) {
@@ -25,8 +22,9 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireAdminApi();
-  if (auth.response) return auth.response;
+  if (!(await getAdminUserForApi())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const { id } = await context.params;
   let body: unknown;
   try {
@@ -35,7 +33,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
   try {
-    const canteen = await updateCanteen(id, body as Record<string, unknown>);
+    const canteen = await updateCanteen(
+      id,
+      body as { name?: unknown; location?: unknown },
+    );
     return NextResponse.json({ canteen });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Bad request";
@@ -53,8 +54,9 @@ export async function DELETE(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireAdminApi();
-  if (auth.response) return auth.response;
+  if (!(await getAdminUserForApi())) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const { id } = await context.params;
   try {
     await deleteCanteen(id);

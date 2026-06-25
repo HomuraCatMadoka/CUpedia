@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockRequireAdminApi, mockGetCanteens } = vi.hoisted(() => ({
-  mockRequireAdminApi: vi.fn(),
+const { mockGetAdminUserForApi, mockGetCanteens } = vi.hoisted(() => ({
+  mockGetAdminUserForApi: vi.fn(),
   mockGetCanteens: vi.fn(),
 }));
 
-vi.mock("@/lib/admin-api", () => ({
-  requireAdminApi: () => mockRequireAdminApi(),
+vi.mock("@/lib/auth-guard", () => ({
+  getAdminUserForApi: () => mockGetAdminUserForApi(),
 }));
 
 vi.mock("@/lib/canteen-actions", () => ({
@@ -22,22 +22,14 @@ beforeEach(() => {
 
 describe("admin /api/admin/canteens", () => {
   it("GET returns 403 when not admin", async () => {
-    mockRequireAdminApi.mockResolvedValue({
-      user: null,
-      response: new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-      }),
-    });
+    mockGetAdminUserForApi.mockResolvedValue(null);
 
     const res = await GET();
     expect(res.status).toBe(403);
   });
 
   it("GET returns canteens for admin", async () => {
-    mockRequireAdminApi.mockResolvedValue({
-      user: { id: "admin-1" },
-      response: null,
-    });
+    mockGetAdminUserForApi.mockResolvedValue({ id: "admin-1", role: "admin" });
     mockGetCanteens.mockResolvedValue([]);
 
     const res = await GET();
@@ -45,12 +37,7 @@ describe("admin /api/admin/canteens", () => {
   });
 
   it("POST returns 403 when not admin", async () => {
-    mockRequireAdminApi.mockResolvedValue({
-      user: null,
-      response: new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
-      }),
-    });
+    mockGetAdminUserForApi.mockResolvedValue(null);
 
     const req = new NextRequest("http://localhost/api/admin/canteens", {
       method: "POST",
