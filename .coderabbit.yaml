@@ -24,9 +24,8 @@ reviews:
   suggested_labels: true
   auto_apply_labels: false
   suggested_reviewers: true
-
-tools:
-  eslint:
-    enabled: true
-  gitleaks:
-    enabled: true
+  tools:
+    eslint:
+      enabled: true
+    gitleaks:
+      enabled: true
