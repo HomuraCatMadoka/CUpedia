@@ -1,0 +1,64 @@
+.canteen-zone {
+  --canteen-rice: #f8f4ed;
+  --canteen-tray: #ebe3d6;
+  --canteen-bamboo: #b8956a;
+  --canteen-purple: #5c2d6e;
+  --canteen-morning: #d4922a;
+  --canteen-noon: #2f6b52;
+  --canteen-evening: #3d4f6b;
+  --canteen-ink: #2a2420;
+  --canteen-muted: #6b635a;
+
+  font-family: var(--font-canteen-body), system-ui, sans-serif;
+  color: var(--canteen-ink);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(184, 149, 106, 0.18), transparent 55%),
+    linear-gradient(180deg, var(--canteen-rice) 0%, #f0e8dc 100%);
+}
+
+.canteen-zone h1,
+.canteen-zone h2,
+.canteen-zone .canteen-display {
+  font-family: var(--font-canteen-display), serif;
+}
+
+.canteen-steam {
+  background-image: radial-gradient(
+    circle at 30% 20%,
+    rgba(255, 255, 255, 0.55) 0%,
+    transparent 50%
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .canteen-fade-in {
+    animation: canteen-fade-in 0.5s ease-out both;
+  }
+
+  .canteen-fade-in-delay-1 {
+    animation-delay: 0.08s;
+  }
+
+  .canteen-fade-in-delay-2 {
+    animation-delay: 0.16s;
+  }
+
+  @keyframes canteen-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canteen-fade-in,
+  .canteen-fade-in-delay-1,
+  .canteen-fade-in-delay-2 {
+    animation: none;
+  }
+}
