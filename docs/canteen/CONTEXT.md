@@ -1,6 +1,6 @@
 # 食堂（Canteen）
 
-大众口味测评与避雷的子系统：管理员维护食堂与菜单，用户浏览菜单并投票/评论（投票与评论在后续切片）。
+大众口味测评与避雷的子系统：管理员维护食堂与菜单，用户浏览菜单并投票/评论。
 
 ## Language
 
@@ -22,3 +22,4 @@ _Avoid_: 把 mock 数据当作生产 seed。
 ## Related ADRs
 
 - [0008 — 食堂硬删除与 mock 模式](../adr/0008-canteen-hard-delete-and-mock-mode.md)
+- [0009 — 食堂匿名投票写权限](../adr/0009-canteen-anonymous-vote-only.md)

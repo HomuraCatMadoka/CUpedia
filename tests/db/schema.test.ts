@@ -8,6 +8,7 @@ import {
   wikiLinks,
   canteens,
   canteenMenuItems,
+  canteenDishVotes,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -68,5 +69,13 @@ describe("schema", () => {
     expect(cols.mealPeriod).toBeDefined();
     expect(cols.sortOrder).toBeDefined();
     expect(cols.svgKey).toBeDefined();
+  });
+
+  it("canteenDishVotes table has vote identity columns", () => {
+    const cols = getTableColumns(canteenDishVotes);
+    expect(cols.menuItemId).toBeDefined();
+    expect(cols.userId).toBeDefined();
+    expect(cols.anonymousSessionId).toBeDefined();
+    expect(cols.vote).toBeDefined();
   });
 });

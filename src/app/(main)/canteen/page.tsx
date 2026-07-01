@@ -13,7 +13,7 @@ export default async function CanteenBrowsePage() {
     <CanteenShell
       eyebrow="中大食堂"
       title="今天吃什么"
-      subtitle="浏览各食堂菜单，后续可参与大众口味测评与避雷。菜单由管理员维护。"
+      subtitle="浏览各食堂菜单，行内点赞/点踩参与大众口味测评。菜单由管理员维护。"
       action={
         isCanteenMockMode() && process.env.NODE_ENV === "development" ? (
           <Link

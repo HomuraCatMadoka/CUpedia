@@ -96,6 +96,40 @@ export async function getOptionalUser() {
   return session?.user ?? null;
 }
 
+/** Logged-in voter eligible to write (not banned). Anonymous callers get null. */
+export async function getVoteEligibleUser(): Promise<{ id: string } | null> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user?.id) return null;
+
+  if (process.env.CANTEEN_MOCK_DATA === "true") {
+    return { id: session.user.id };
+  }
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+    columns: { id: true, banned: true },
+  });
+  if (!dbUser || dbUser.banned) return null;
+  return { id: dbUser.id };
+}
+
+/** Session present but user is banned — block even anonymous fallback voting. */
+export async function isBannedSessionUser(): Promise<boolean> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user?.id) return false;
+  if (process.env.CANTEEN_MOCK_DATA === "true") return false;
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+    columns: { banned: true },
+  });
+  return Boolean(dbUser?.banned);
+}
+
 /** For API routes: returns null when caller is not an admin (no redirect). */
 export async function getAdminUserForApi() {
   const session = await auth.api.getSession({

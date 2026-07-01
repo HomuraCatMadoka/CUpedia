@@ -6,7 +6,7 @@ alwaysApply: false
 
 # 食堂子系统
 
-读 `docs/canteen/CONTEXT.md` 与 ADR 0008。
+读 `docs/canteen/CONTEXT.md` 与 ADR 0008、0009。
 
 - 公开读：`/canteen`、`/api/canteens` 无鉴权（ADR 0001）。
 - Admin 写：`requireAdmin()` in actions；API 用 `getAdminUserForApi()`。

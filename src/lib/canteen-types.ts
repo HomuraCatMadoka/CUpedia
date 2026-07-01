@@ -38,6 +38,19 @@ export type DeleteImpact = {
   commentCount: number;
 };
 
+export type VoteChoice = "like" | "dislike" | null;
+
+export type MenuItemVoteCounts = {
+  likes: number;
+  dislikes: number;
+};
+
+export function parseVote(input: unknown): VoteChoice {
+  if (input === null || input === undefined || input === "") return null;
+  if (input === "like" || input === "dislike") return input;
+  throw new Error("INVALID_VOTE");
+}
+
 export function parseMealPeriod(value: string): MealPeriod | null {
   return (MEAL_PERIODS as readonly string[]).includes(value)
     ? (value as MealPeriod)

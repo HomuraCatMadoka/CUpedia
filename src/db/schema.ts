@@ -6,9 +6,11 @@ import {
   boolean,
   integer,
   index,
+  uniqueIndex,
+  check,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // ── Better Auth core tables ──
 
@@ -247,10 +249,63 @@ export const canteensRelations = relations(canteens, ({ many }) => ({
 
 export const canteenMenuItemsRelations = relations(
   canteenMenuItems,
-  ({ one }) => ({
+  ({ one, many }) => ({
     canteen: one(canteens, {
       fields: [canteenMenuItems.canteenId],
       references: [canteens.id],
+    }),
+    votes: many(canteenDishVotes),
+  }),
+);
+
+export const VOTE_VALUES = ["like", "dislike"] as const;
+export type VoteValue = (typeof VOTE_VALUES)[number];
+
+export const canteenDishVotes = pgTable(
+  "canteen_dish_votes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    menuItemId: uuid("menu_item_id")
+      .notNull()
+      .references(() => canteenMenuItems.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id),
+    anonymousSessionId: uuid("anonymous_session_id"),
+    vote: text("vote"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_dish_votes_menu_item_id_idx").on(table.menuItemId),
+    index("canteen_dish_votes_user_id_idx").on(table.userId),
+    index("canteen_dish_votes_anon_session_id_idx").on(
+      table.anonymousSessionId,
+    ),
+    uniqueIndex("canteen_dish_votes_user_menu_item_uidx")
+      .on(table.userId, table.menuItemId)
+      .where(sql`${table.userId} IS NOT NULL`),
+    uniqueIndex("canteen_dish_votes_anon_menu_item_uidx")
+      .on(table.anonymousSessionId, table.menuItemId)
+      .where(sql`${table.anonymousSessionId} IS NOT NULL`),
+    check(
+      "canteen_dish_votes_identity_chk",
+      sql`(
+        (${table.userId} IS NOT NULL AND ${table.anonymousSessionId} IS NULL) OR
+        (${table.userId} IS NULL AND ${table.anonymousSessionId} IS NOT NULL)
+      )`,
+    ),
+  ],
+);
+
+export const canteenDishVotesRelations = relations(
+  canteenDishVotes,
+  ({ one }) => ({
+    menuItem: one(canteenMenuItems, {
+      fields: [canteenDishVotes.menuItemId],
+      references: [canteenMenuItems.id],
+    }),
+    user: one(users, {
+      fields: [canteenDishVotes.userId],
+      references: [users.id],
     }),
   }),
 );
