@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertDishVote } from "@/lib/canteen-vote-actions";
+import { parseVote } from "@/lib/canteen-types";
 
 function mapVoteError(message: string): number {
   switch (message) {
@@ -30,8 +31,15 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  let vote;
   try {
-    const result = await upsertDishVote(itemId, body.vote);
+    vote = parseVote(body.vote);
+  } catch {
+    return NextResponse.json({ error: "INVALID_VOTE" }, { status: 400 });
+  }
+
+  try {
+    const result = await upsertDishVote(itemId, vote);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "VOTE_FAILED";
