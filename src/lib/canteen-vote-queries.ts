@@ -2,6 +2,8 @@ import { and, count, eq, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishVotes, canteenMenuItems } from "@/db/schema";
 
+export const CANTEEN_VOTE_COUNTS_TAG = "canteen-vote-counts";
+
 export async function countVotesForCanteen(canteenId: string): Promise<number> {
   const result = await db
     .select({ value: count() })

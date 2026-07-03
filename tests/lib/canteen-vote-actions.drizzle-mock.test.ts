@@ -55,8 +55,8 @@ vi.mock("@/db", () => ({
   },
 }));
 
+import { CANTEEN_VOTE_COUNTS_TAG } from "@/lib/canteen-vote-queries";
 import {
-  CANTEEN_VOTE_COUNTS_TAG,
   getMenuItemVoteCounts,
   getMyVotesForCanteen,
   upsertDishVote,

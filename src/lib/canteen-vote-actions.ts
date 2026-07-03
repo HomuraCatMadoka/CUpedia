@@ -24,8 +24,7 @@ import {
 import type { MenuItemVoteCounts, VoteChoice } from "@/lib/canteen-types";
 import { parseVote } from "@/lib/canteen-types";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
-
-export const CANTEEN_VOTE_COUNTS_TAG = "canteen-vote-counts";
+import { CANTEEN_VOTE_COUNTS_TAG } from "@/lib/canteen-vote-queries";
 
 type VoterIdentity =
   | { userId: string }
