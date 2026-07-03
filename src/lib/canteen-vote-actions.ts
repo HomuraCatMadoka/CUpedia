@@ -1,15 +1,11 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { unstable_cache } from "next/cache";
-import { and, count, eq, isNotNull, sql } from "drizzle-orm";
+import { revalidateTag, unstable_cache } from "next/cache";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishVotes, canteenMenuItems } from "@/db/schema";
-import {
-  getOptionalUser,
-  getVoteEligibleUser,
-  isBannedSessionUser,
-} from "@/lib/auth-guard";
+import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
 import {
   CANTEEN_ANON_SESSION_COOKIE,
   createAnonSessionCookieValue,
@@ -21,12 +17,15 @@ import {
   mockGetRateLimitKey,
   mockGetMyVotesForCanteen,
   mockGetVoteCountsForCanteen,
+  mockMenuItemExists,
   mockSetVoterUserId,
   mockUpsertDishVote,
 } from "@/lib/canteen-mock";
 import type { MenuItemVoteCounts, VoteChoice } from "@/lib/canteen-types";
 import { parseVote } from "@/lib/canteen-types";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
+
+export const CANTEEN_VOTE_COUNTS_TAG = "canteen-vote-counts";
 
 type VoterIdentity =
   | { userId: string }
@@ -40,12 +39,9 @@ async function readAnonSessionId(): Promise<string | null> {
 }
 
 async function resolveVoterIdentityForWrite(): Promise<VoterIdentity> {
-  if (await isBannedSessionUser()) {
-    throw new Error("USER_BANNED");
-  }
-
-  const eligible = await getVoteEligibleUser();
-  if (eligible) return { userId: eligible.id };
+  const sessionUser = await getSessionVoterUser();
+  if (sessionUser?.banned) throw new Error("USER_BANNED");
+  if (sessionUser) return { userId: sessionUser.id };
 
   const anonId =
     (await readAnonSessionId()) ?? (await ensureCanteenAnonSession());
@@ -59,23 +55,38 @@ function rateLimitKey(identity: VoterIdentity): string {
 }
 
 async function syncMockVoterFromSession(): Promise<void> {
-  if (await isBannedSessionUser()) {
+  const sessionUser = await getSessionVoterUser();
+  if (sessionUser?.banned) {
     mockSetVoterUserId(null);
     return;
   }
-  const user = await getOptionalUser();
-  mockSetVoterUserId(user?.id ?? null);
+  mockSetVoterUserId(sessionUser?.id ?? null);
 }
 
 async function resolveVoterIdentityForRead(): Promise<VoterIdentity | null> {
-  if (await isBannedSessionUser()) return null;
-
-  const eligible = await getVoteEligibleUser();
-  if (eligible) return { userId: eligible.id };
+  const sessionUser = await getSessionVoterUser();
+  if (sessionUser?.banned) return null;
+  if (sessionUser) return { userId: sessionUser.id };
 
   const anonId = await readAnonSessionId();
   if (!anonId) return null;
   return { anonymousSessionId: anonId };
+}
+
+async function assertMenuItemExists(menuItemId: string): Promise<void> {
+  if (isCanteenMockMode()) {
+    if (!mockMenuItemExists(menuItemId)) {
+      throw new Error("MENU_ITEM_NOT_FOUND");
+    }
+    return;
+  }
+
+  const items = await db
+    .select({ id: canteenMenuItems.id })
+    .from(canteenMenuItems)
+    .where(eq(canteenMenuItems.id, menuItemId))
+    .limit(1);
+  if (!items[0]) throw new Error("MENU_ITEM_NOT_FOUND");
 }
 
 async function upsertVoteRow(
@@ -96,6 +107,7 @@ async function upsertVoteRow(
       })
       .onConflictDoUpdate({
         target: [canteenDishVotes.userId, canteenDishVotes.menuItemId],
+        targetWhere: isNotNull(canteenDishVotes.userId),
         set: { vote, updatedAt: now },
       });
     return;
@@ -113,6 +125,7 @@ async function upsertVoteRow(
         canteenDishVotes.anonymousSessionId,
         canteenDishVotes.menuItemId,
       ],
+      targetWhere: isNotNull(canteenDishVotes.anonymousSessionId),
       set: { vote, updatedAt: now },
     });
 }
@@ -146,7 +159,7 @@ const getCachedVoteCounts = unstable_cache(
     );
   },
   ["canteen-vote-counts"],
-  { revalidate: 60 },
+  { tags: [CANTEEN_VOTE_COUNTS_TAG], revalidate: 60 },
 );
 
 export async function ensureCanteenAnonSession(): Promise<string> {
@@ -219,14 +232,13 @@ export async function upsertDishVote(
 ): Promise<{ menuItemId: string; vote: VoteChoice }> {
   const vote = parseVote(voteInput);
 
+  await assertMenuItemExists(menuItemId);
+
   if (isCanteenMockMode()) {
     await syncMockVoterFromSession();
-    if (await isBannedSessionUser()) {
-      throw new Error("USER_BANNED");
-    }
-    if (!(await getVoteEligibleUser())) {
-      mockEnsureAnonSession();
-    }
+    const sessionUser = await getSessionVoterUser();
+    if (sessionUser?.banned) throw new Error("USER_BANNED");
+    if (!sessionUser) mockEnsureAnonSession();
     const key = mockGetRateLimitKey();
     if (!key) throw new Error("ANON_SESSION_REQUIRED");
     if (!checkVoteRateLimit(key)) throw new Error("RATE_LIMIT_EXCEEDED");
@@ -238,44 +250,8 @@ export async function upsertDishVote(
     throw new Error("RATE_LIMIT_EXCEEDED");
   }
 
-  const items = await db
-    .select({ id: canteenMenuItems.id })
-    .from(canteenMenuItems)
-    .where(eq(canteenMenuItems.id, menuItemId))
-    .limit(1);
-  if (!items[0]) throw new Error("MENU_ITEM_NOT_FOUND");
-
   await upsertVoteRow(menuItemId, identity, vote);
+  revalidateTag(CANTEEN_VOTE_COUNTS_TAG, "max");
 
   return { menuItemId, vote };
-}
-
-export async function countVotesForCanteen(canteenId: string): Promise<number> {
-  const result = await db
-    .select({ value: count() })
-    .from(canteenDishVotes)
-    .innerJoin(
-      canteenMenuItems,
-      eq(canteenDishVotes.menuItemId, canteenMenuItems.id),
-    )
-    .where(
-      and(
-        eq(canteenMenuItems.canteenId, canteenId),
-        isNotNull(canteenDishVotes.vote),
-      ),
-    );
-  return result[0]?.value ?? 0;
-}
-
-export async function countVotesForMenuItem(menuItemId: string): Promise<number> {
-  const result = await db
-    .select({ value: count() })
-    .from(canteenDishVotes)
-    .where(
-      and(
-        eq(canteenDishVotes.menuItemId, menuItemId),
-        isNotNull(canteenDishVotes.vote),
-      ),
-    );
-  return result[0]?.value ?? 0;
 }

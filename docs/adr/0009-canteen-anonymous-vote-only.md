@@ -18,7 +18,7 @@ Accepted
 3. 登录用户以 `userId` 标识票；匿名与登录票**不合并**（MVP 已知双票）。
 4. 投票 upsert：同 `(userId|anonymousSessionId, menuItemId)` 覆盖更新；取消为 `vote = NULL` 留行。
 5. 限流按 **cookie / userId**，不按 IP；`CANTEEN_VOTE_RATE_LIMIT_PER_MIN` 为礼貌限流。
-6. 菜单赞踩计数经 `unstable_cache`（`revalidate: 60`）缓存；投票时不 `revalidateTag`。「我的投票」走不缓存查询 + 乐观 UI。
+6. 菜单赞踩计数经 `unstable_cache`（`revalidate: 60`，tag `canteen-vote-counts`）缓存；**投票写入时** `revalidateTag` 该 tag，避免硬刷新后「我的投票」高亮与计数不一致。他人投票的聚合计数在未写入时仍最多约 60s 延迟。「我的投票」走不缓存查询 + 乐观 UI。
 7. Cookie 禁用者：投票 UI 显示「投票需允许 Cookie」，不开无 cookie 后门。
 
 ## Consequences

@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/auth-guard";
 import {
   countVotesForCanteen,
   countVotesForMenuItem,
-} from "@/lib/canteen-vote-actions";
+} from "@/lib/canteen-vote-queries";
 import {
   isCanteenMockMode,
   mockCreateCanteen,

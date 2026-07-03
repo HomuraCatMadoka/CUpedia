@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { isNotNull } from "drizzle-orm";
 import { encodeAnonSessionCookie } from "@/lib/canteen-anon-session";
+import { canteenDishVotes } from "@/db/schema";
+import { resetVoteRateLimitForTests } from "@/lib/canteen-vote-rate-limit";
 
 const {
   mockGetSession,
@@ -9,6 +12,7 @@ const {
   mockDbSelect,
   mockDbInsert,
   mockUnstableCache,
+  mockRevalidateTag,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockCookiesGet: vi.fn(),
@@ -17,6 +21,7 @@ const {
   mockDbSelect: vi.fn(),
   mockDbInsert: vi.fn(),
   mockUnstableCache: vi.fn((fn: unknown) => fn),
+  mockRevalidateTag: vi.fn(),
 }));
 
 let selectQueue: unknown[] = [];
@@ -39,6 +44,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("next/cache", () => ({
   unstable_cache: mockUnstableCache,
+  revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
 vi.mock("@/db", () => ({
@@ -50,6 +56,7 @@ vi.mock("@/db", () => ({
 }));
 
 import {
+  CANTEEN_VOTE_COUNTS_TAG,
   getMenuItemVoteCounts,
   getMyVotesForCanteen,
   upsertDishVote,
@@ -86,7 +93,7 @@ function mockInsertWithConflict() {
   return { values, onConflictDoUpdate };
 }
 
-describe("canteen-vote-actions (db path)", () => {
+describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
   const prevMock = process.env.CANTEEN_MOCK_DATA;
   const prevSecret = process.env.AUTH_SECRET;
   const prevLimit = process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN;
@@ -102,12 +109,14 @@ describe("canteen-vote-actions (db path)", () => {
     mockCookiesGet.mockReturnValue(undefined);
     mockUnstableCache.mockImplementation((fn: unknown) => fn);
     queueSelectResults([]);
+    resetVoteRateLimitForTests();
   });
 
   afterEach(() => {
     process.env.CANTEEN_MOCK_DATA = prevMock;
     process.env.AUTH_SECRET = prevSecret;
     process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN = prevLimit;
+    resetVoteRateLimitForTests();
   });
 
   it("inserts a vote for an anonymous diner with a signed session cookie", async () => {
@@ -129,7 +138,19 @@ describe("canteen-vote-actions (db path)", () => {
         vote: "like",
       }),
     );
-    expect(onConflictDoUpdate).toHaveBeenCalled();
+    expect(onConflictDoUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: [
+          canteenDishVotes.anonymousSessionId,
+          canteenDishVotes.menuItemId,
+        ],
+        targetWhere: isNotNull(canteenDishVotes.anonymousSessionId),
+      }),
+    );
+    expect(mockRevalidateTag).toHaveBeenCalledWith(
+      CANTEEN_VOTE_COUNTS_TAG,
+      "max",
+    );
   });
 
   it("upserts via onConflictDoUpdate when the same diner changes their vote", async () => {
@@ -147,6 +168,7 @@ describe("canteen-vote-actions (db path)", () => {
     expect(onConflictDoUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         set: expect.objectContaining({ vote: "dislike" }),
+        targetWhere: isNotNull(canteenDishVotes.anonymousSessionId),
       }),
     );
   });
@@ -163,6 +185,7 @@ describe("canteen-vote-actions (db path)", () => {
   });
 
   it("rejects writes when cookie cannot be established and user is not logged in", async () => {
+    queueSelectResults([{ id: ITEM_ID }]);
     mockCookiesGet.mockReturnValue(undefined);
     mockCookiesSet.mockImplementation(() => {
       throw new Error("Cookies disabled");
@@ -179,7 +202,7 @@ describe("canteen-vote-actions (db path)", () => {
       banned: false,
     });
     queueSelectResults([{ id: ITEM_ID }]);
-    const { values } = mockInsertWithConflict();
+    const { values, onConflictDoUpdate } = mockInsertWithConflict();
 
     await upsertDishVote(ITEM_ID, "like");
 
@@ -187,6 +210,12 @@ describe("canteen-vote-actions (db path)", () => {
       expect.objectContaining({
         userId: "user-1",
         vote: "like",
+      }),
+    );
+    expect(onConflictDoUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: [canteenDishVotes.userId, canteenDishVotes.menuItemId],
+        targetWhere: isNotNull(canteenDishVotes.userId),
       }),
     );
   });
@@ -197,6 +226,7 @@ describe("canteen-vote-actions (db path)", () => {
       id: "user-banned",
       banned: true,
     });
+    queueSelectResults([{ id: ITEM_ID }]);
 
     await expect(upsertDishVote(ITEM_ID, "like")).rejects.toThrow("USER_BANNED");
     expect(mockDbInsert).not.toHaveBeenCalled();
@@ -213,6 +243,28 @@ describe("canteen-vote-actions (db path)", () => {
     await expect(upsertDishVote("missing", "like")).rejects.toThrow(
       "MENU_ITEM_NOT_FOUND",
     );
+  });
+
+  it("does not consume rate limit when menu item is missing", async () => {
+    process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN = "1";
+    resetVoteRateLimitForTests();
+    mockCookiesGet.mockImplementation((name: string) =>
+      name === "canteen_anon_session"
+        ? { value: signedCookie() }
+        : undefined,
+    );
+    queueSelectResults([]);
+
+    await expect(upsertDishVote("missing", "like")).rejects.toThrow(
+      "MENU_ITEM_NOT_FOUND",
+    );
+
+    queueSelectResults([{ id: ITEM_ID }]);
+    mockInsertWithConflict();
+    await expect(upsertDishVote(ITEM_ID, "like")).resolves.toEqual({
+      menuItemId: ITEM_ID,
+      vote: "like",
+    });
   });
 
   it("returns my current vote immediately from the database", async () => {

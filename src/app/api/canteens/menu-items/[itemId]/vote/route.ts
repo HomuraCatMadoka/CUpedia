@@ -31,6 +31,10 @@ export async function POST(
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  if (!("vote" in body)) {
+    return NextResponse.json({ error: "INVALID_VOTE" }, { status: 400 });
+  }
+
   let vote;
   try {
     vote = parseVote(body.vote);

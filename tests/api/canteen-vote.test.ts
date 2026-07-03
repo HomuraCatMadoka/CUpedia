@@ -54,6 +54,21 @@ describe("POST /api/canteens/menu-items/[itemId]/vote", () => {
     expect(res.status).toBe(403);
   });
 
+  it("returns 400 when vote field is missing", async () => {
+    const req = new NextRequest(
+      "http://localhost/api/canteens/menu-items/item-1/vote",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+
+    const res = await POST(req, { params: Promise.resolve({ itemId: "item-1" }) });
+    expect(res.status).toBe(400);
+    expect(mockUpsertDishVote).not.toHaveBeenCalled();
+  });
+
   it("returns 400 for invalid vote before calling action", async () => {
     const req = new NextRequest(
       "http://localhost/api/canteens/menu-items/item-1/vote",

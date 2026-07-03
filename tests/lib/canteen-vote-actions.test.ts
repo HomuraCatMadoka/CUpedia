@@ -24,6 +24,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("next/cache", () => ({
   unstable_cache: (fn: (canteenId: string) => unknown) => fn,
+  revalidateTag: vi.fn(),
 }));
 
 import {

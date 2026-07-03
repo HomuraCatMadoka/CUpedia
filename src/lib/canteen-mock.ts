@@ -237,6 +237,10 @@ export function mockGetRateLimitKey(): string | null {
   return null;
 }
 
+export function mockMenuItemExists(menuItemId: string): boolean {
+  return getState().items.some((item) => item.id === menuItemId);
+}
+
 export function mockUpsertDishVote(
   menuItemId: string,
   vote: VoteChoice,
