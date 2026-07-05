@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plate, usePlateEditor } from "platejs/react";
 
@@ -37,7 +37,12 @@ import {
   type EditConflict,
 } from "@/components/wiki/edit-conflict-dialog";
 import type { Discussion } from "@/lib/discussion-actions";
-import { extractText, parseContent, type PlateValue } from "@/lib/plate-utils";
+import {
+  extractText,
+  normalizeInitialValue,
+  parseContent,
+  type PlateValue,
+} from "@/lib/plate-utils";
 
 interface WikiEditorProps {
   mode: "create" | "edit";
@@ -87,17 +92,30 @@ export function WikiEditor({
   initialDiscussions = [],
   onSubmit,
 }: WikiEditorProps) {
+  // Stabilize node ids across the SSR render and the client hydration of this
+  // `"use client"` editor: both passes normalize the same initialValue prop to
+  // identical deterministic ids, so React sees no hydration mismatch (#204).
+  // The editor value, the autosave dirty-baseline (`content`), and the
+  // three-way-merge base (`baseContentRef`) all derive from this one value so
+  // they never disagree.
+  const normalizedInitialValue = useMemo(
+    () => normalizeInitialValue(initialValue),
+    [initialValue],
+  );
+
   const [title, setTitle] = useState(initialTitle);
   const [slug, setSlug] = useState(initialSlug);
   const [editSummary, setEditSummary] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [content, setContent] = useState(() => JSON.stringify(initialValue));
+  const [content, setContent] = useState(() =>
+    JSON.stringify(normalizedInitialValue),
+  );
   const [conflict, setConflict] = useState<EditConflict | null>(null);
   const router = useRouter();
 
   const baselineRef = useRef(expectedUpdatedAt);
-  const baseContentRef = useRef(JSON.stringify(initialValue));
+  const baseContentRef = useRef(JSON.stringify(normalizedInitialValue));
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
 
   const editor = usePlateEditor({
@@ -118,7 +136,7 @@ export function WikiEditor({
       ...FloatingToolbarKit,
       ...MarkdownKit,
     ],
-    value: initialValue,
+    value: normalizedInitialValue,
   });
 
   const save = useCallback(
