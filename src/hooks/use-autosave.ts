@@ -112,7 +112,12 @@ export function useAutosave({
     }
     const next = getContentRef.current();
     if (next === savedRef.current) {
-      if (statusRef.current === "unsaved") setStatus("saved");
+      // Content is back at the persisted baseline. Converge any pending dirty
+      // state — including a "saving" left over from a drifted re-arm — so the
+      // UI does not hang on "未保存"/"保存中" for a doc that matches the server.
+      if (statusRef.current === "unsaved" || statusRef.current === "saving") {
+        setStatus("saved");
+      }
       return;
     }
     await run(next);
@@ -144,7 +149,15 @@ export function useAutosave({
     clearTimer();
     if (inFlightRef.current) return;
     const next = getContentRef.current();
-    if (next === savedRef.current && statusRef.current !== "error") return;
+    if (next === savedRef.current && statusRef.current !== "error") {
+      // Same convergence as the debounce path: we just cleared the timer that
+      // would have healed, so settle a pending dirty state here instead of
+      // leaving it stuck after a Cmd/Ctrl+S on already-in-sync content.
+      if (statusRef.current === "unsaved" || statusRef.current === "saving") {
+        setStatus("saved");
+      }
+      return;
+    }
     await run(next);
   }, [clearTimer, run]);
 

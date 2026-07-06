@@ -183,6 +183,69 @@ describe("useAutosave", () => {
     expect(h.result.current.isDirty).toBe(false);
   });
 
+  it("save() settles to saved (not stuck unsaved) when content reverted to the baseline", async () => {
+    const h = setup({ initial: "a" });
+
+    // Edit then revert to the persisted baseline; still shows unsaved + a pending
+    // debounce timer.
+    h.type("b");
+    h.type("a");
+    expect(h.result.current.status).toBe("unsaved");
+
+    // Cmd/Ctrl+S clears the timer that would have healed — it must converge here
+    // itself, not leave the doc permanently marked dirty.
+    await act(async () => {
+      await h.result.current.save();
+    });
+    expect(h.onSave).not.toHaveBeenCalled();
+    expect(h.result.current.status).toBe("saved");
+    expect(h.result.current.isDirty).toBe(false);
+
+    // No stray timer resurrects the dirty state.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(h.result.current.isDirty).toBe(false);
+  });
+
+  it("settles to saved (not stuck saving) when a drifted edit is reverted mid-flight", async () => {
+    let resolveFirst!: (v: SaveResult) => void;
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockImplementationOnce(
+        () => new Promise<SaveResult>((r) => (resolveFirst = r)),
+      )
+      .mockResolvedValue({});
+    const h = setup({ initial: "a", onSave });
+
+    h.type("b");
+    let first!: Promise<void>;
+    act(() => {
+      first = h.result.current.save();
+    });
+    expect(h.result.current.status).toBe("saving");
+
+    // Keep typing while "b" saves — content drifts to "c".
+    h.type("c");
+    await act(async () => {
+      resolveFirst({});
+      await first;
+    });
+    // "b" is saved; content is "c" so the hook re-armed and still reads saving.
+    expect(h.result.current.status).toBe("saving");
+
+    // User reverts the trailing edit back to the saved baseline "b".
+    h.type("b");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    // Nothing left to save, and the status must converge instead of hanging.
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(h.result.current.status).toBe("saved");
+    expect(h.result.current.isDirty).toBe(false);
+  });
+
   it("resetBaseline adopts external content as clean (conflict discard)", async () => {
     const h = setup({ initial: "a" });
 
