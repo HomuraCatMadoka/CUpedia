@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,6 +22,13 @@ import { CommandSearch } from "@/components/layout/command-search";
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const { data: session } = authClient.useSession();
+  // `useSession` reads a cookie-backed session snapshot synchronously on the
+  // client, so the first client render can already know the user while the
+  // server rendered the logged-out state — a hydration mismatch (React #418)
+  // that regenerates the whole layout on hydrate. Gate the auth-dependent
+  // branch on mount so the server output and the first client render agree on
+  // the logged-out markup; the real session UI swaps in right after mount.
+  const mounted = useMounted();
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
   const [nicknameError, setNicknameError] = useState("");
@@ -67,7 +75,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
           </div>
           <nav className="flex items-center gap-4">
             <CommandSearch />
-            {session?.user ? (
+            {mounted && session?.user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="rounded-md px-3 py-1.5 text-sm hover:bg-accent">
                   {((session.user as Record<string, unknown>)

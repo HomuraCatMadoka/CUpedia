@@ -18,11 +18,38 @@ import { test, expect, type Page } from "@playwright/test";
  * editor page into an error boundary. The fix merges the tooltip trigger onto
  * the control (`render=`) and unifies the tooltip on base-ui, so the toolbar
  * mounts with valid, non-nested markup.
+ *
+ * ref #202 (SSR 水合) — the always-on toolbar makes the editor page's first
+ * paint heavier, which turned a pre-existing, app-wide hydration mismatch into
+ * a hard failure: the `Navbar` renders its auth menu from `useSession()`, whose
+ * cookie-backed snapshot lets the first client render already know the user
+ * while the server rendered the logged-out link. React #418 then regenerates
+ * the whole layout on hydrate, and on a slow first paint that regeneration
+ * lands as the user clicks 保存 — detaching the button before its handler runs,
+ * so create silently never saved (a flaky create→redirect timeout in CI). The
+ * `Navbar` now gates its auth branch on mount, so SSR and the first client
+ * render agree and the mismatch cannot occur.
  */
 
 const ADMIN_EMAIL = "admin@test.com";
 const ADMIN_PASSWORD = "password123";
 const RICH_SLUG = "rich-content-demo";
+
+// e2e runs a production build, where a React hydration failure surfaces as a
+// *minified* page error ("Minified React error #418; visit …/418") — the
+// plain-text "hydration"/"did not match" wording only exists in dev. Match both
+// so the guard actually bites in CI.
+const HYDRATION_RE =
+  /hydration|did not match|server rendered html|Text content does not match|react\.dev\/errors\/(418|421|423|425)|Minified React error #(418|421|423|425)/i;
+
+function collectConsoleErrors(page: Page): string[] {
+  const errors: string[] = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error") errors.push(msg.text());
+  });
+  page.on("pageerror", (err) => errors.push(err.message));
+  return errors;
+}
 
 async function login(page: Page) {
   let last = "";
@@ -92,5 +119,29 @@ test.describe("#203 edit-page fixed toolbar", () => {
         .locator('[aria-haspopup="menu"]')
         .first(),
     ).toBeVisible();
+  });
+
+  test("the create page hydrates with no auth-state mismatch (ref #202)", async ({
+    page,
+  }) => {
+    // Guard the Navbar SSR-hydration fix. The create page is the heaviest first
+    // paint (always-on toolbar + editor), so it is where the `Navbar`
+    // auth-state mismatch used to fire React #418 and regenerate the layout on
+    // hydrate — the flake that detached the 保存 button mid-save. With the
+    // Navbar gating its auth branch on mount, SSR and the first client render
+    // agree, so no hydration error must surface.
+    const consoleErrors = collectConsoleErrors(page);
+
+    await page.goto("/wiki/new");
+    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await expect(page.getByTestId("fixed-toolbar-buttons")).toBeVisible();
+    // Let hydration settle; #418 surfaces as a page error right after mount.
+    await page.waitForTimeout(1500);
+
+    const hydrationErrors = consoleErrors.filter((e) => HYDRATION_RE.test(e));
+    expect(
+      hydrationErrors,
+      `hydration errors on /wiki/new:\n${hydrationErrors.join("\n")}`,
+    ).toHaveLength(0);
   });
 });
