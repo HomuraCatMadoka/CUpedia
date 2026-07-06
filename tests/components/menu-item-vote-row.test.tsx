@@ -2,9 +2,11 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { useState } from "react";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { MenuItemVoteRow } from "@/components/canteen/menu-item-vote-row";
-import type { CanteenMenuItem } from "@/lib/canteen-types";
+import type { CanteenMenuItem, MenuItemVoteCounts, VoteChoice } from "@/lib/canteen-types";
+import { applyVoteCountDelta } from "@/lib/canteen-types";
 
 const { mockUpsertDishVote } = vi.hoisted(() => ({
   mockUpsertDishVote: vi.fn(),
@@ -26,12 +28,32 @@ const ITEM: CanteenMenuItem = {
   updatedAt: new Date(),
 };
 
-function renderRow(
-  counts = { likes: 0, dislikes: 0 },
-  initialVote: "like" | "dislike" | null = null,
-) {
-  return render(
-    <MenuItemVoteRow item={ITEM} counts={counts} initialVote={initialVote} />,
+function VoteRowHarness({
+  initialCounts = { likes: 0, dislikes: 0 },
+  initialVote = null as VoteChoice,
+}: {
+  initialCounts?: MenuItemVoteCounts;
+  initialVote?: VoteChoice;
+}) {
+  const [counts, setCounts] = useState(initialCounts);
+  const [myVote, setMyVote] = useState<VoteChoice>(initialVote);
+
+  function handleVoteChange(
+    _itemId: string,
+    prevVote: VoteChoice,
+    nextVote: VoteChoice,
+  ) {
+    setMyVote(nextVote);
+    setCounts((current) => applyVoteCountDelta(current, prevVote, nextVote));
+  }
+
+  return (
+    <MenuItemVoteRow
+      item={ITEM}
+      counts={counts}
+      myVote={myVote}
+      onVoteChange={handleVoteChange}
+    />
   );
 }
 
@@ -49,14 +71,14 @@ describe("MenuItemVoteRow", () => {
     mockUpsertDishVote.mockImplementation(
       () => new Promise(() => {}),
     );
-    renderRow();
+    render(<VoteRowHarness />);
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
     expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("1");
   });
 
   it("toggles off like and decrements count", async () => {
     mockUpsertDishVote.mockResolvedValue({ menuItemId: ITEM.id, vote: null });
-    renderRow({ likes: 1, dislikes: 0 }, "like");
+    render(<VoteRowHarness initialCounts={{ likes: 1, dislikes: 0 }} initialVote="like" />);
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("0");
@@ -69,7 +91,7 @@ describe("MenuItemVoteRow", () => {
       menuItemId: ITEM.id,
       vote: "dislike",
     });
-    renderRow({ likes: 1, dislikes: 0 }, "like");
+    render(<VoteRowHarness initialCounts={{ likes: 1, dislikes: 0 }} initialVote="like" />);
     fireEvent.click(screen.getByRole("button", { name: "点踩" }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("0");
@@ -80,7 +102,7 @@ describe("MenuItemVoteRow", () => {
 
   it("rolls back optimistic state and shows error on failure", async () => {
     mockUpsertDishVote.mockRejectedValue(new Error("RATE_LIMIT_EXCEEDED"));
-    renderRow();
+    render(<VoteRowHarness />);
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toContain("操作太频繁");
@@ -90,7 +112,7 @@ describe("MenuItemVoteRow", () => {
 
   it("maps USER_BANNED to a readable message", async () => {
     mockUpsertDishVote.mockRejectedValue(new Error("USER_BANNED"));
-    renderRow();
+    render(<VoteRowHarness />);
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toContain("账号已封禁");

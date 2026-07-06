@@ -6,8 +6,18 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import type { CanteenMenuItem } from "@/lib/canteen-types";
 
+const { mockUpsertDishVote } = vi.hoisted(() => ({
+  mockUpsertDishVote: vi.fn(),
+}));
+
 vi.mock("@/lib/canteen-vote-actions", () => ({
-  upsertDishVote: vi.fn().mockResolvedValue({ menuItemId: "lunch-1", vote: "like" }),
+  upsertDishVote: (...args: unknown[]) => mockUpsertDishVote(...args),
+}));
+
+vi.mock("@/lib/canteen-meal-period", () => ({
+  defaultMealPeriodForHkt: () => "lunch" as const,
+  shouldShowAfternoonHint: () => false,
+  AFTERNOON_HINT_TEXT: "午后提示",
 }));
 
 function item(
@@ -36,6 +46,8 @@ const ITEMS = [
 ];
 
 beforeEach(() => {
+  mockUpsertDishVote.mockReset();
+  mockUpsertDishVote.mockResolvedValue({ menuItemId: "ln-1", vote: "like" });
   cleanup();
 });
 
@@ -85,5 +97,26 @@ describe("CanteenMenuView", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "早餐" }));
     expect(screen.getByText("该餐段暂无菜品")).toBeTruthy();
+  });
+
+  it("keeps vote state when switching view tabs", async () => {
+    render(
+      <CanteenMenuView
+        items={ITEMS}
+        voteCounts={{}}
+        myVotes={{}}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "点赞" }));
+    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("1");
+
+    fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
+    fireEvent.click(screen.getByRole("tab", { name: "菜单" }));
+
+    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("1");
+    expect(screen.getByRole("button", { name: "点赞" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
   });
 });

@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import type {
   CanteenMenuItem,
   MealPeriod,
   MenuItemVoteCounts,
   VoteChoice,
 } from "@/lib/canteen-types";
+import { applyVoteCountDelta } from "@/lib/canteen-types";
 import {
   AFTERNOON_HINT_TEXT,
   defaultMealPeriodForHkt,
@@ -47,6 +48,30 @@ export function CanteenMenuView({
       : false,
   );
   const [view, setView] = useState<CanteenViewMode>("menu");
+  const [liveVoteCounts, setLiveVoteCounts] =
+    useState<Record<string, MenuItemVoteCounts>>(voteCounts);
+  const [liveMyVotes, setLiveMyVotes] =
+    useState<Record<string, VoteChoice>>(myVotes);
+
+  const handleVoteChange = useCallback(
+    (itemId: string, prevVote: VoteChoice, nextVote: VoteChoice) => {
+      setLiveMyVotes((prev) => {
+        const next = { ...prev };
+        if (nextVote === null) delete next[itemId];
+        else next[itemId] = nextVote;
+        return next;
+      });
+      setLiveVoteCounts((prev) => ({
+        ...prev,
+        [itemId]: applyVoteCountDelta(
+          prev[itemId] ?? { likes: 0, dislikes: 0 },
+          prevVote,
+          nextVote,
+        ),
+      }));
+    },
+    [],
+  );
 
   const periodItems = useMemo(
     () => filterItemsByMealPeriod(items, period),
@@ -56,10 +81,10 @@ export function CanteenMenuView({
   const periodCounts = useMemo(() => {
     const out: Record<string, MenuItemVoteCounts> = {};
     for (const item of periodItems) {
-      out[item.id] = voteCounts[item.id] ?? { likes: 0, dislikes: 0 };
+      out[item.id] = liveVoteCounts[item.id] ?? { likes: 0, dislikes: 0 };
     }
     return out;
-  }, [periodItems, voteCounts]);
+  }, [periodItems, liveVoteCounts]);
 
   const recommendRanked = useMemo(
     () => rankRecommendDishes(periodItems, periodCounts),
@@ -105,7 +130,8 @@ export function CanteenMenuView({
               key={item.id}
               item={item}
               counts={periodCounts[item.id]}
-              initialVote={myVotes[item.id] ?? null}
+              myVote={liveMyVotes[item.id] ?? null}
+              onVoteChange={handleVoteChange}
             />
           ))}
         </ul>
