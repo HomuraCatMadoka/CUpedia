@@ -37,6 +37,7 @@ vi.mock("next/headers", () => ({
 
 vi.mock("next/cache", () => ({
   revalidatePath: mockRevalidatePath,
+  unstable_cache: (fn: (id: string) => unknown) => fn,
 }));
 
 vi.mock("@/lib/auth", () => ({

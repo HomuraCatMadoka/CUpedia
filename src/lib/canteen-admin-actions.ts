@@ -6,6 +6,10 @@ import { count, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import {
+  countVotesForCanteen,
+  countVotesForMenuItem,
+} from "@/lib/canteen-vote-queries";
+import {
   isCanteenMockMode,
   mockCreateCanteen,
   mockCreateMenuItem,
@@ -40,16 +44,8 @@ async function countMenuItems(canteenId: string): Promise<number> {
   return result[0]?.value ?? 0;
 }
 
-/** Vote/comment tables arrive in later issues; counts stay 0 until wired. */
-async function countVotesForCanteen(_canteenId: string): Promise<number> {
-  return 0;
-}
 
 async function countCommentsForCanteen(_canteenId: string): Promise<number> {
-  return 0;
-}
-
-async function countVotesForMenuItem(_menuItemId: string): Promise<number> {
   return 0;
 }
 

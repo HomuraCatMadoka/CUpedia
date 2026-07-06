@@ -8,6 +8,7 @@ import {
   validateMenuItemName,
   validatePrice,
   validateSortOrder,
+  parseVote,
 } from "@/lib/canteen-types";
 
 describe("canteen-types", () => {
@@ -52,5 +53,13 @@ describe("canteen-types", () => {
 
   it("validateMenuItemName delegates to canteen name", () => {
     expect(validateMenuItemName("叉烧饭")).toBe("叉烧饭");
+  });
+
+  it("parseVote accepts like, dislike, and cancel", () => {
+    expect(parseVote("like")).toBe("like");
+    expect(parseVote("dislike")).toBe("dislike");
+    expect(parseVote(null)).toBeNull();
+    expect(parseVote("")).toBeNull();
+    expect(() => parseVote("maybe")).toThrow("INVALID_VOTE");
   });
 });

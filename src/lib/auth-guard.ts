@@ -96,6 +96,41 @@ export async function getOptionalUser() {
   return session?.user ?? null;
 }
 
+/** One session + user fetch for canteen voting hot paths. */
+export async function getSessionVoterUser(): Promise<{
+  id: string;
+  banned: boolean;
+} | null> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user?.id) return null;
+
+  if (process.env.CANTEEN_MOCK_DATA === "true") {
+    return { id: session.user.id, banned: false };
+  }
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+    columns: { id: true, banned: true },
+  });
+  if (!dbUser) return null;
+  return { id: dbUser.id, banned: dbUser.banned };
+}
+
+/** Logged-in voter eligible to write (not banned). Anonymous callers get null. */
+export async function getVoteEligibleUser(): Promise<{ id: string } | null> {
+  const user = await getSessionVoterUser();
+  if (!user || user.banned) return null;
+  return { id: user.id };
+}
+
+/** Session present but user is banned — block even anonymous fallback voting. */
+export async function isBannedSessionUser(): Promise<boolean> {
+  const user = await getSessionVoterUser();
+  return user?.banned ?? false;
+}
+
 /** For API routes: returns null when caller is not an admin (no redirect). */
 export async function getAdminUserForApi() {
   const session = await auth.api.getSession({

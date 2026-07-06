@@ -3,8 +3,12 @@ import {
   isCanteenMockMode,
   mockCreateCanteen,
   mockDeleteCanteen,
+  mockDeleteImpactForMenuItem,
+  mockDeleteMenuItem,
+  mockEnsureAnonSession,
   mockListCanteens,
   mockListMenuItems,
+  mockUpsertDishVote,
   resetCanteenMockState,
 } from "@/lib/canteen-mock";
 
@@ -41,5 +45,20 @@ describe("canteen-mock", () => {
     expect(mockListCanteens().some((c) => c.id === created.id)).toBe(true);
     mockDeleteCanteen(created.id);
     expect(mockListCanteens().some((c) => c.id === created.id)).toBe(false);
+  });
+
+  it("reports vote rows in menu item delete impact", () => {
+    mockEnsureAnonSession();
+    mockUpsertDishVote("mock-item-demo", "like");
+    expect(mockDeleteImpactForMenuItem("mock-item-demo").voteCount).toBe(1);
+  });
+
+  it("drops vote rows when a menu item is deleted", () => {
+    const canteen = mockListCanteens()[0];
+    const item = mockListMenuItems(canteen.id)[0];
+    mockEnsureAnonSession();
+    mockUpsertDishVote(item.id, "like");
+    mockDeleteMenuItem(canteen.id, item.id);
+    expect(mockDeleteImpactForMenuItem(item.id).voteCount).toBe(0);
   });
 });
