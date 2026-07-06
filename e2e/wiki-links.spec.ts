@@ -58,16 +58,6 @@ test.describe("#95 wiki links", () => {
     await login(page);
   });
 
-  // Retry-safety: this serial group creates `SOURCE_SLUG` in test 1. On a CI
-  // retry Playwright replays the whole group from the top, so if a prior attempt
-  // already persisted the page, test 1's create would hit a unique-slug conflict
-  // (no redirect) and the retry fails for a reason unrelated to the feature.
-  // Dropping the slug up front — not only in afterAll — makes every attempt,
-  // including retries, start from a clean slate.
-  test.beforeAll(async () => {
-    await dropPageBySlug(SOURCE_SLUG);
-  });
-
   test.afterAll(async () => {
     await dropPageBySlug(SOURCE_SLUG);
   });
@@ -98,10 +88,8 @@ test.describe("#95 wiki links", () => {
     await page.getByRole("button", { name: "保存" }).click();
 
     // Create persists then redirects to the new read-only page, where the
-    // internal link is rendered. CI's constrained runner needs more headroom
-    // than a dev machine for the server-side create transaction + redirect, so
-    // allow 20s (well within the 30s test cap) instead of a tight 15s.
-    await page.waitForURL(`**/wiki/${SOURCE_SLUG}`, { timeout: 20_000 });
+    // internal link is rendered.
+    await page.waitForURL(`**/wiki/${SOURCE_SLUG}`, { timeout: 15_000 });
     await expect(
       page.locator('a[href="/wiki/getting-started"]').first(),
     ).toBeVisible();
