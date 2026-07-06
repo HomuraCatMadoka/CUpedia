@@ -3,7 +3,6 @@
 import * as React from "react";
 
 import * as ToolbarPrimitive from "@radix-ui/react-toolbar";
-import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { type VariantProps, cva } from "class-variance-authority";
 import { ChevronDown } from "lucide-react";
 
@@ -13,7 +12,11 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
-import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 export function Toolbar({
@@ -313,9 +316,16 @@ function withTooltip<T extends React.ElementType>(Component: T) {
     const component = <Component {...(props as React.ComponentProps<T>)} />;
 
     if (tooltip && mounted) {
+      // `render={component}` merges the tooltip trigger's props onto the wrapped
+      // control instead of wrapping it in a second <button>. Wrapping produced a
+      // button-in-button when the control was itself a button (or a base-ui
+      // dropdown trigger), which is invalid HTML and hard-throws on hydration.
+      // Tooltip Root/Trigger/Content all come from the same base-ui primitives
+      // (@/components/ui/tooltip) — mixing base-ui's Root with a radix Portal
+      // was what threw `TooltipPortal must be used within Tooltip` (#206).
       return (
         <Tooltip {...tooltipProps}>
-          <TooltipTrigger {...tooltipTriggerProps}>{component}</TooltipTrigger>
+          <TooltipTrigger {...tooltipTriggerProps} render={component} />
 
           <TooltipContent {...tooltipContentProps}>{tooltip}</TooltipContent>
         </Tooltip>
@@ -324,32 +334,6 @@ function withTooltip<T extends React.ElementType>(Component: T) {
 
     return component;
   };
-}
-
-function TooltipContent({
-  children,
-  className,
-  // CHANGE
-  sideOffset = 4,
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content>) {
-  return (
-    <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Content
-        className={cn(
-          "z-50 w-fit origin-(--radix-tooltip-content-transform-origin) text-balance rounded-md bg-primary px-3 py-1.5 text-primary-foreground text-xs",
-          className,
-        )}
-        data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        {...props}
-      >
-        {children}
-        {/* CHANGE */}
-        {/* <TooltipPrimitive.Arrow className="z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-primary fill-primary" /> */}
-      </TooltipPrimitive.Content>
-    </TooltipPrimitive.Portal>
-  );
 }
 
 export function ToolbarMenuGroup({

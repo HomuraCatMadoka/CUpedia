@@ -23,6 +23,7 @@ import {
   WikiLinkPagesProvider,
   type WikiLinkPage,
 } from "@/components/ui/wiki-link-node";
+import { FixedToolbarKit } from "@/components/editor/plugins/fixed-toolbar-kit";
 import { FloatingToolbarKit } from "@/components/editor/plugins/floating-toolbar-kit";
 import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
 import { EditorContainer, Editor } from "@/components/ui/editor";
@@ -133,6 +134,7 @@ export function WikiEditor({
       ...SlashKit,
       ...WikiLinkKit,
       ...DndKit,
+      ...FixedToolbarKit,
       ...FloatingToolbarKit,
       ...MarkdownKit,
     ],
