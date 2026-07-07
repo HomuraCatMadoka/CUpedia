@@ -13,6 +13,10 @@ _Avoid_: 把菜品当成全局实体——菜品始终归属某个食堂。
 **餐段（Meal period）**: `breakfast` | `lunch` | `dinner`；排序语义为早→午→晚，**不能**用字符串 `localeCompare`。
 _Avoid_: 按字母序排列（会得到早→晚→午）。
 
+**餐段 Tab**: 食堂详情页早/午/晚切换；默认 Tab 在**客户端**按 `Asia/Hong_Kong` 计算（页面可缓存）。规则见 PRD / `canteen-meal-period.ts`（11:30→午，17:30→晚；14:30–17:29 午后提示）。
+
+**大众推荐 / 大众避雷**: 按当前餐段过滤菜品后排序；推荐榜 likes↓、同分 like−dislike↓；避雷榜 dislikes↓、同分 dislike−like↓。仅统计非 NULL 票。
+
 **硬删除（Hard delete）**: 食堂与菜品无 `deletedAt`；删除行时 DB `ON DELETE CASCADE` 清理关联（votes/comments 表接入后同样适用）。
 _Avoid_: 沿用 wiki 的软删除模式。
 

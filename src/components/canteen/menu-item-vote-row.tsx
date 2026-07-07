@@ -28,47 +28,35 @@ function voteErrorMessage(code: string): string {
 type MenuItemVoteRowProps = {
   item: CanteenMenuItem;
   counts: MenuItemVoteCounts;
-  initialVote: VoteChoice;
+  myVote: VoteChoice;
+  onVoteChange: (
+    itemId: string,
+    prevVote: VoteChoice,
+    nextVote: VoteChoice,
+  ) => void;
 };
 
 export function MenuItemVoteRow({
   item,
   counts,
-  initialVote,
+  myVote,
+  onVoteChange,
 }: MenuItemVoteRowProps) {
-  const [myVote, setMyVote] = useState<VoteChoice>(initialVote);
-  const [likes, setLikes] = useState(counts.likes);
-  const [dislikes, setDislikes] = useState(counts.dislikes);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-
-  function rollbackOptimistic(
-    prevVote: VoteChoice,
-    attemptedVote: VoteChoice,
-  ) {
-    if (attemptedVote === "like") setLikes((c) => c - 1);
-    if (attemptedVote === "dislike") setDislikes((c) => c - 1);
-    if (prevVote === "like") setLikes((c) => c + 1);
-    if (prevVote === "dislike") setDislikes((c) => c + 1);
-    setMyVote(prevVote);
-  }
 
   function handleVote(choice: "like" | "dislike") {
     const nextVote: VoteChoice = myVote === choice ? null : choice;
     const prevVote = myVote;
 
-    if (prevVote === "like") setLikes((c) => c - 1);
-    if (prevVote === "dislike") setDislikes((c) => c - 1);
-    if (nextVote === "like") setLikes((c) => c + 1);
-    if (nextVote === "dislike") setDislikes((c) => c + 1);
-    setMyVote(nextVote);
+    onVoteChange(item.id, prevVote, nextVote);
     setError(null);
 
     startTransition(async () => {
       try {
         await upsertDishVote(item.id, nextVote);
       } catch (err) {
-        rollbackOptimistic(prevVote, nextVote);
+        onVoteChange(item.id, nextVote, prevVote);
         const code = err instanceof Error ? err.message : "VOTE_FAILED";
         setError(voteErrorMessage(code));
       }
@@ -117,7 +105,7 @@ export function MenuItemVoteRow({
           )}
         >
           <span aria-hidden>👍</span>
-          <span className="tabular-nums">{likes}</span>
+          <span className="tabular-nums">{counts.likes}</span>
         </button>
         <button
           type="button"
@@ -133,7 +121,7 @@ export function MenuItemVoteRow({
           )}
         >
           <span aria-hidden>👎</span>
-          <span className="tabular-nums">{dislikes}</span>
+          <span className="tabular-nums">{counts.dislikes}</span>
         </button>
       </div>
     </li>

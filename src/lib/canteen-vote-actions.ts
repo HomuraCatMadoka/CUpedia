@@ -5,7 +5,7 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishVotes, canteenMenuItems } from "@/db/schema";
-import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
+import { getSessionVoterUser } from "@/lib/auth-guard";
 import {
   CANTEEN_ANON_SESSION_COOKIE,
   createAnonSessionCookieValue,

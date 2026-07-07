@@ -37,11 +37,33 @@ function seedState(): MockState {
   };
   const items: CanteenMenuItem[] = [
     {
+      id: "mock-item-breakfast",
+      canteenId: demo.id,
+      name: "演示早餐",
+      price: 8,
+      mealPeriod: "breakfast",
+      sortOrder: 0,
+      svgKey: "default",
+      createdAt: t,
+      updatedAt: t,
+    },
+    {
       id: "mock-item-demo",
       canteenId: demo.id,
       name: "演示菜品",
       price: 10,
       mealPeriod: "lunch",
+      sortOrder: 0,
+      svgKey: "default",
+      createdAt: t,
+      updatedAt: t,
+    },
+    {
+      id: "mock-item-dinner",
+      canteenId: demo.id,
+      name: "演示晚餐",
+      price: 12,
+      mealPeriod: "dinner",
       sortOrder: 0,
       svgKey: "default",
       createdAt: t,

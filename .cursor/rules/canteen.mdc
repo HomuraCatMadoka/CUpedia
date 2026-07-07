@@ -6,11 +6,13 @@ alwaysApply: false
 
 # 食堂子系统
 
-读 `docs/canteen/CONTEXT.md` 与 ADR 0008、0009。
+读 `docs/canteen/CONTEXT.md`、ADR 0008、0009；踩坑见 `docs/canteen/LESSONS-187-188.md`。
 
 - 公开读：`/canteen`、`/api/canteens` 无鉴权（ADR 0001）。
 - Admin 写：`requireAdmin()` in actions；API 用 `getAdminUserForApi()`。
 - Mock：`CANTEEN_MOCK_DATA=true` 时走 `canteen-mock.ts`；种子仅「演示食堂 / 演示菜品」。
 - 餐段排序：`compareMealPeriods()`，顺序早→午→晚。
+- 餐段默认 Tab：客户端 `defaultMealPeriodForHkt()`，勿在 RSC 用服务器时区。
+- 排行纯函数：`canteen-rankings.ts`；`"use server"` 文件只 export async。
 - 删除菜单项：`where(and(eq(id), eq(canteenId)))`。
 - UI 链接按钮：不用 `Button asChild`（见 `pr-ready-checklist`）。

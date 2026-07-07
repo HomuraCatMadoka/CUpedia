@@ -31,13 +31,17 @@ describe("canteen-mock", () => {
     expect(isCanteenMockMode()).toBe(false);
   });
 
-  it("seeds a minimal demo canteen", () => {
+  it("seeds a minimal demo canteen with one dish per meal period", () => {
     const canteens = mockListCanteens();
     expect(canteens).toHaveLength(1);
     expect(canteens[0].name).toBe("演示食堂");
     const items = mockListMenuItems(canteens[0].id);
-    expect(items).toHaveLength(1);
-    expect(items[0].name).toBe("演示菜品");
+    expect(items).toHaveLength(3);
+    expect(items.map((i) => i.mealPeriod)).toEqual([
+      "breakfast",
+      "lunch",
+      "dinner",
+    ]);
   });
 
   it("creates and deletes canteens in memory", () => {

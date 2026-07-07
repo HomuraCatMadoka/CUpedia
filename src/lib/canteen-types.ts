@@ -45,6 +45,20 @@ export type MenuItemVoteCounts = {
   dislikes: number;
 };
 
+/** Apply a vote transition to aggregate counts (optimistic UI). */
+export function applyVoteCountDelta(
+  counts: MenuItemVoteCounts,
+  prevVote: VoteChoice,
+  nextVote: VoteChoice,
+): MenuItemVoteCounts {
+  const out = { ...counts };
+  if (prevVote === "like") out.likes -= 1;
+  if (prevVote === "dislike") out.dislikes -= 1;
+  if (nextVote === "like") out.likes += 1;
+  if (nextVote === "dislike") out.dislikes += 1;
+  return out;
+}
+
 export function parseVote(input: unknown): VoteChoice {
   if (input === null || input === undefined || input === "") return null;
   if (input === "like" || input === "dislike") return input;
