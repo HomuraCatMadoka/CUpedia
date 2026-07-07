@@ -10,6 +10,11 @@ import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
 import { extractWikiLinkTargets } from "@/lib/wiki-links";
 import { threeWayMergeContent } from "@/lib/merge-content";
+import {
+  shouldCoalesceRevision,
+  CREATE_REVISION_SUMMARY,
+  ROLLBACK_REVISION_SUMMARY_PREFIX,
+} from "@/lib/revision-coalescing";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -123,7 +128,7 @@ export async function createWikiPage(data: {
       title: data.title,
       content: data.content,
       editedBy: user.id,
-      editSummary: "创建页面",
+      editSummary: CREATE_REVISION_SUMMARY,
     });
 
     await syncWikiLinks(tx, p.id, data.content);
@@ -175,13 +180,40 @@ async function writeWikiPage(
 
     if (updated.length === 0) throw new Error("EDIT_CONFLICT");
 
-    await tx.insert(wikiRevisions).values({
-      pageId,
-      title: data.title,
-      content: data.content,
-      editedBy: userId,
-      editSummary: data.editSummary ?? null,
-    });
+    const now = updated[0].updatedAt;
+    const [latestRevision] = await tx
+      .select({
+        id: wikiRevisions.id,
+        editedBy: wikiRevisions.editedBy,
+        createdAt: wikiRevisions.createdAt,
+        editSummary: wikiRevisions.editSummary,
+      })
+      .from(wikiRevisions)
+      .where(eq(wikiRevisions.pageId, pageId))
+      .orderBy(desc(wikiRevisions.createdAt))
+      .limit(1);
+
+    if (shouldCoalesceRevision(latestRevision, { userId, at: now })) {
+      // Fold this write into the ongoing sitting: update the latest revision in
+      // place and slide its window anchor (createdAt) forward. See ADR 0009.
+      await tx
+        .update(wikiRevisions)
+        .set({
+          title: data.title,
+          content: data.content,
+          editSummary: data.editSummary ?? null,
+          createdAt: now,
+        })
+        .where(eq(wikiRevisions.id, latestRevision.id));
+    } else {
+      await tx.insert(wikiRevisions).values({
+        pageId,
+        title: data.title,
+        content: data.content,
+        editedBy: userId,
+        editSummary: data.editSummary ?? null,
+      });
+    }
 
     await syncWikiLinks(tx, pageId, data.content);
     return updated[0];
@@ -355,7 +387,7 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
       title: revision.title,
       content: revision.content,
       editedBy: user.id,
-      editSummary: `回滚至版本 ${revisionId}`,
+      editSummary: `${ROLLBACK_REVISION_SUMMARY_PREFIX}${revisionId}`,
     });
   });
 

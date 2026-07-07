@@ -214,6 +214,46 @@ describe("cache invalidation — revalidateTag called", () => {
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 
+  // Build a transaction mock for writeWikiPage. `latestRevision` is what the
+  // "most recent revision" select returns; the update/insert spies let a test
+  // assert whether the write coalesced (updates the revision) or inserted a new
+  // one. See ADR 0009.
+  function makeWriteTx(latestRevision: unknown) {
+    const update = vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi
+            .fn()
+            .mockResolvedValue([
+              { id: "1", updatedAt: new Date("2024-01-02") },
+            ]),
+        }),
+      }),
+    });
+    const insert = vi.fn().mockReturnValue({
+      values: vi.fn().mockResolvedValue(undefined),
+    });
+    const tx = {
+      update,
+      insert,
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue(undefined),
+      }),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            orderBy: vi.fn().mockReturnValue({
+              limit: vi
+                .fn()
+                .mockResolvedValue(latestRevision ? [latestRevision] : []),
+            }),
+          }),
+        }),
+      }),
+    };
+    return { tx, update, insert };
+  }
+
   it("updateWikiPage calls revalidateTag", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
@@ -221,24 +261,7 @@ describe("cache invalidation — revalidateTag called", () => {
       updatedAt: new Date("2024-01-01"),
     });
     mockDbTransaction.mockImplementation(
-      async (fn: (...a: unknown[]) => unknown) => {
-        const tx = {
-          update: vi.fn().mockReturnValue({
-            set: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                returning: vi.fn().mockResolvedValue([{ id: "1" }]),
-              }),
-            }),
-          }),
-          insert: vi.fn().mockReturnValue({
-            values: vi.fn().mockResolvedValue(undefined),
-          }),
-          delete: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue(undefined),
-          }),
-        };
-        return fn(tx);
-      },
+      async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx(null).tx),
     );
 
     await updateWikiPage({
@@ -248,6 +271,68 @@ describe("cache invalidation — revalidateTag called", () => {
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
+  });
+
+  it("updateWikiPage coalesces a same-author edit within the window (updates the latest revision, no insert)", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValue({
+      id: "1",
+      slug: "test",
+      updatedAt: new Date("2024-01-01"),
+    });
+    let spies!: ReturnType<typeof makeWriteTx>;
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => {
+        spies = makeWriteTx({
+          id: "rev-1",
+          editedBy: "user-1", // same as requireEditor's mocked user
+          createdAt: new Date("2024-01-02"), // same instant as the write → in-window
+          editSummary: null,
+        });
+        return fn(spies.tx);
+      },
+    );
+
+    await updateWikiPage({
+      slug: "test",
+      title: "Updated",
+      content: "new",
+      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    // page update + in-place revision update = 2 updates; no revision insert.
+    expect(spies.update).toHaveBeenCalledTimes(2);
+    expect(spies.insert).not.toHaveBeenCalled();
+  });
+
+  it("updateWikiPage opens a new revision for a different author (inserts, does not coalesce)", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValue({
+      id: "1",
+      slug: "test",
+      updatedAt: new Date("2024-01-01"),
+    });
+    let spies!: ReturnType<typeof makeWriteTx>;
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => {
+        spies = makeWriteTx({
+          id: "rev-1",
+          editedBy: "someone-else",
+          createdAt: new Date("2024-01-02"),
+          editSummary: null,
+        });
+        return fn(spies.tx);
+      },
+    );
+
+    await updateWikiPage({
+      slug: "test",
+      title: "Updated",
+      content: "new",
+      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    // only the page row is updated; the revision is inserted fresh.
+    expect(spies.update).toHaveBeenCalledTimes(1);
+    expect(spies.insert).toHaveBeenCalledTimes(1);
   });
 
   it("deleteWikiPage calls revalidateTag", async () => {
