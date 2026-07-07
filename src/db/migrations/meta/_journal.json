@@ -57,6 +57,13 @@
       "when": 1780302237156,
       "tag": "0007_repair_auth_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783441783559,
+      "tag": "0008_drop_dead_trgm_indexes",
+      "breakpoints": true
     }
   ]
 }

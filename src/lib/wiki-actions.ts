@@ -18,6 +18,19 @@ import {
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
+// The search corpus is its own cache bucket (ADR 0011). It is NOT tagged
+// `wiki-pages`, so a content-only edit no longer rebuilds the whole corpus on
+// every autosave tick; low-value freshness (a body typo in a search excerpt)
+// rides this time-based refresh instead. Structural change — a page
+// appearing/disappearing or its title (search weight 2) changing — calls
+// `revalidateSearchCorpus()` for immediate, high-value freshness.
+const SEARCH_CORPUS_TAG = "wiki-search-corpus";
+const SEARCH_CORPUS_REVALIDATE_SECONDS = 5 * 60;
+
+function revalidateSearchCorpus() {
+  revalidateTag(SEARCH_CORPUS_TAG, "max");
+}
+
 /** Rewrite the outgoing wiki-link rows for a source page from its content. */
 async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
   await tx.delete(wikiLinks).where(eq(wikiLinks.sourceId, sourceId));
@@ -136,6 +149,7 @@ export async function createWikiPage(data: {
   });
 
   revalidateTag("wiki-pages", "max");
+  revalidateSearchCorpus();
   return page;
 }
 
@@ -236,9 +250,14 @@ export async function updateWikiPage(data: {
   });
   if (!existing) throw new Error("Page not found");
 
+  // A title change is structural (title carries search weight 2); a body-only
+  // edit is not, so it rides the corpus's time-based refresh. See ADR 0011.
+  const titleChanged = data.title !== existing.title;
+
   try {
     const result = await writeWikiPage(data, user.id, existing.id);
     revalidateTag("wiki-pages", "max");
+    if (titleChanged) revalidateSearchCorpus();
     return result;
   } catch (e) {
     if (!(e instanceof Error && e.message === "EDIT_CONFLICT")) throw e;
@@ -263,6 +282,11 @@ export async function updateWikiPage(data: {
         existing.id,
       );
       revalidateTag("wiki-pages", "max");
+      // Gate on `latest.title` (the post-conflict state this write overwrites),
+      // not `existing.title` (the stale pre-conflict baseline): a concurrent
+      // rename may have already moved the title, so `data.title` could revert
+      // it — still a structural change the corpus must reflect. See ADR 0011.
+      if (data.title !== latest.title) revalidateSearchCorpus();
       return result;
     }
   }
@@ -299,6 +323,7 @@ export async function deleteWikiPage(pageId: string) {
     .where(inArray(wikiPages.id, ids));
 
   revalidateTag("wiki-pages", "max");
+  revalidateSearchCorpus();
 }
 
 export async function restoreWikiPage(pageId: string) {
@@ -331,6 +356,7 @@ export async function restoreWikiPage(pageId: string) {
     .where(inArray(wikiPages.id, ids));
 
   revalidateTag("wiki-pages", "max");
+  revalidateSearchCorpus();
 }
 
 export async function getRevisions(pageId: string) {
@@ -392,6 +418,7 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
   });
 
   revalidateTag("wiki-pages", "max");
+  if (revision.title !== existing.title) revalidateSearchCorpus();
 }
 
 const getCachedSearchablePages = unstable_cache(
@@ -408,7 +435,7 @@ const getCachedSearchablePages = unstable_cache(
     return pages.map((p) => ({ ...p, content: extractText(p.content) }));
   },
   ["wiki-pages-search"],
-  { tags: ["wiki-pages"] },
+  { tags: [SEARCH_CORPUS_TAG], revalidate: SEARCH_CORPUS_REVALIDATE_SECONDS },
 );
 
 export async function searchWikiPages(query: string) {
