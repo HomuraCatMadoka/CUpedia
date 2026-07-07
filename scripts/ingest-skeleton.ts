@@ -11,7 +11,7 @@ dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import {
   majors,
   majorCategories,
@@ -20,6 +20,7 @@ import {
   courses,
 } from "../src/db/schema";
 import { parseHandbookLeaf } from "../src/lib/parseHandbookLeaf";
+import { COURSE_ALIASES } from "./course-aliases-seed";
 
 function handbookYear(html: string): string {
   const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
@@ -40,6 +41,16 @@ async function main() {
   const pool = new Pool({ connectionString: url });
   const db = drizzle(pool);
   try {
+    // 幂等灌入版本对齐别名种子（scripts/course-aliases-seed.ts），再读回作重映射
+    if (COURSE_ALIASES.length) {
+      await db
+        .insert(courseAliases)
+        .values(COURSE_ALIASES)
+        .onConflictDoUpdate({
+          target: courseAliases.oldCode,
+          set: { newCode: sql`excluded.new_code` },
+        });
+    }
     const aliasRows = await db.select().from(courseAliases);
     const alias = new Map(aliasRows.map((a) => [a.oldCode, a.newCode]));
     const known = new Set(

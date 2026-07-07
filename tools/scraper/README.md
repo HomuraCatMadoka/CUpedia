@@ -22,29 +22,35 @@ pip install -e .                      # requests + beautifulsoup4 + ddddocr
 
 ```bash
 # Course catalog (captcha-gated; start tiny to validate the captcha loop)
-python scrape_courses.py --limit-subjects 2
-python scrape_courses.py                       # all ~259 subjects (~1h)
+python scrape_courses.py --subjects ACCT,CSCI    # a couple of subjects
+python scrape_courses.py                         # all ~259 subjects (~2–3h)
+python scrape_courses.py --fresh                 # ignore prior output, start over
 
 # Handbook study schemes (no captcha; sparse ids, mostly ~1500–1960)
 python scrape_handbook.py --start 1500 --end 1960
 ```
 
+`courses.json` is rewritten after **every** subject and the run **resumes** by
+skipping subjects already present — a crash mid-harvest loses at most one
+subject, and re-running continues where it stopped (`--fresh` to ignore it).
+
 ## Notes & caveats
 
-- **Captcha** — the AQS catalog subject listing is gated by a 4-character
-  captcha solved with `ddddocr`. Misreads are expected; re-run failed subjects.
-- **Form fields are discovered, not hardcoded** — the catalog is ASP.NET and
-  echoes `__VIEWSTATE`/`__EVENTVALIDATION`. The scraper reparses the form on each
-  request and forwards every hidden input. The subject `<select>`, captcha field
-  and submit button are located heuristically.
-- **`scrape_handbook.py` is verified** against the live two-step render
-  (`document.aspx` → `view_document.aspx?...&seq=1`); leaf parsing is done in TS
-  by `src/lib/parseHandbookLeaf.ts` (real-fixture-tested).
-- **`scrape_courses.py` end-to-end is not offline-verifiable** (captcha + live
-  DOM). The result/detail selectors are best-effort and should be confirmed on
-  the first live run; `parse_detail` maps labels generically so it adapts to the
-  real field names.
-- **Be polite**: the source is a live government site. Keep the built-in delay,
-  don't parallelize aggressively, run off-peak.
-- **Licensing**: third-party datasets (e.g. EagleZhen) are AGPL — used only as a
+- **Captcha** — the catalog subject search needs a 4-char captcha (`imgCaptcha`,
+  field `txt_captcha`). `ddddocr` reads it; misreads are expected, so
+  `reach_listing` retries up to 8× until the grid appears (the site echoes
+  "Invalid Verification Code" on a miss). **One captcha unlocks the whole
+  subject** — every course detail under it is then reached captcha-free by
+  replaying the listing's `__VIEWSTATE` with the row's `__doPostBack` target.
+- **Detail fields by stable control id** — `parse_detail` reads the verified
+  ASP.NET ids (`uc_course_lbl_course` / `_units` / `_acad_career` /
+  `_crse_descrlong`, `uc_course_tc_enrl_requirement`, `uc_course_ddl_class_term`)
+  rather than fragile table positions. `career` drives the UG filter downstream
+  in `normalizeCourse`.
+- **Verified end-to-end** against the live site (ACCT/CSCI/MATH → 301 raw rows →
+  172 UG after `normalizeCourse`, 0 malformed). `scrape_handbook.py` is likewise
+  verified against the two-step render (`document.aspx` → `view_document.aspx`).
+- **Be polite**: the source is a live government site. Keep the built-in delays,
+  don't parallelize, run off-peak.
+- **Licensing**: third-party datasets are AGPL — used only as a
   local validation oracle (`scripts/oracle-check.ts`), never copied or shipped.

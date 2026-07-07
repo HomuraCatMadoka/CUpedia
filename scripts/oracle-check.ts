@@ -1,8 +1,8 @@
-// Dev-only oracle 校验：把自爬 courses.json 与第三方数据（EagleZhen/data，AGPL）对照。
+// Dev-only oracle 校验：把自爬 courses.json 与第三方数据（AGPL 课程数据集）对照。
 // 第三方数据只在本地当校验参照，绝不入库/提交（见 docs/adr/0005）。
 //
 // 提供 oracle 来源二选一（缺省则打印用法后退出）：
-//   ORACLE_DIR=/path/to/EagleZhen/data        本地克隆目录，读 <SUBJECT>.json
+//   ORACLE_DIR=/path/to/dataset             本地克隆目录，读 <SUBJECT>.json
 //   ORACLE_BASE_URL=https://raw.githubusercontent.com/.../data   按 subject 拉取
 //
 // 报告：每个 subject 的课号集合差异（自爬独有 / oracle 独有）+ 自爬侧关键字段缺失计数。
@@ -54,7 +54,7 @@ function bySubject(courses: RawCourse[]): Map<string, Set<string>> {
 async function main() {
   if (!process.env.ORACLE_DIR && !process.env.ORACLE_BASE_URL) {
     console.log(
-      "Set ORACLE_DIR (local EagleZhen/data clone) or ORACLE_BASE_URL. Skipping.",
+      "Set ORACLE_DIR (local dataset clone) or ORACLE_BASE_URL. Skipping.",
     );
     return;
   }
