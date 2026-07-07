@@ -44,3 +44,22 @@
 | 问题 | 建议 |
 |------|------|
 | `isBannedSessionUser` + `getVoteEligibleUser` 各查一遍 session/DB | 合并为 `getSessionVoterUser()` 一次 fetch |
+
+## #189 / PR #213 评审（2026-07）
+
+| 错误 | 为什么没发现 | 正确做法 |
+|------|--------------|----------|
+| `useState(() => typeof window !== "undefined" ? f(now) : fallback)` 在 `"use client"` 组件仍 SSR，首帧 server/client 分叉 → hydration mismatch | 只在浏览器手测且恰在午餐时段；单元测试 mock 了 `canteen-meal-period` 或依赖真实时钟午餐段，未做 SSR markup 对比 | **客户端时钟两阶段**：首帧固定 `"lunch"` / `false`，`useEffect` 再按 HKT 更新；见 #204/#211 |
+| 组件测试硬断言「默认午餐 tab」但未 `vi.setSystemTime` | 开发/CI 跑测时 HKT 落在 11:30–17:29，测试「碰巧全绿」；后来用 module mock 掩盖而非修根因 | 凡依赖 `new Date()` 的断言必须 **fake timers + 固定 HKT**；早/午/晚各补一条初始 tab 用例 |
+| 「NULL 不计入排行」验收未闭环：`missing counts` ≠ `vote IS NULL`（取消票） | rankings 纯函数只吃已聚合 counts，与 SQL `isNotNull(vote)` 脱节；drizzle-mock 聚合用例未断言 `where` | 在 **vote 聚合 SQL 层**断言 `isNotNull(vote)`；rankings 层测排序，不测 NULL 过滤 |
+| 切 Tab 后点赞状态消失（用户手测发现，非 PR 213 原评） | 投票状态只在行内 `useState`，Tab 切换卸载重挂载；无「切视图再回来」组件测试 | 投票 UI 状态提升到 `CanteenMenuView`；补「切 Tab 后仍保留」测试 |
+| `hktDate` 导出在生产模块 | 图省事把测试 helper 和实现放同文件 | 测试专用时间构造放 `tests/helpers/` |
+| 餐段 Tab 硬编码 `["breakfast","lunch","dinner"]` | 新文件未对照现有 `MEAL_PERIODS` 用法 | 枚举/tab 列表复用 `MEAL_PERIODS` |
+
+### 自检清单（#189 起追加）
+
+- [ ] 客户端 HKT 默认：**SSR 与 hydration 首帧 HTML 一致**（两阶段 `useEffect`）
+- [ ] 含时钟的测试：**非午餐时段**也跑一遍（如 HKT 18:00）
+- [ ] 验收语「NULL 不计入」：断言落在 **SQL 聚合**而非 rankings 缺 key
+- [ ] 乐观 UI：**父级 state** + 切 Tab/视图 remount 场景
+- [ ] 午后提示：组件层 `role="status"` + 14:30–17:29 组合测

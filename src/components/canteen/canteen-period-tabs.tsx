@@ -1,6 +1,7 @@
 "use client";
 
 import type { MealPeriod } from "@/lib/canteen-types";
+import { MEAL_PERIODS } from "@/lib/canteen-types";
 import { mealPeriodLabel } from "@/components/canteen/meal-period-badge";
 import { cn } from "@/lib/utils";
 
@@ -22,7 +23,7 @@ export function CanteenPeriodTabs({
   onChange: (period: MealPeriod) => void;
   className?: string;
 }) {
-  const periods: MealPeriod[] = ["breakfast", "lunch", "dinner"];
+  const periods: MealPeriod[] = [...MEAL_PERIODS];
   return (
     <div
       role="tablist"

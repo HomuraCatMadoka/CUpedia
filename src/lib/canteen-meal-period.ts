@@ -6,15 +6,6 @@ const BREAKFAST_END = 11 * 60 + 30; // 11:30
 const AFTERNOON_HINT_START = 14 * 60 + 30; // 14:30
 const DINNER_START = 17 * 60 + 30; // 17:30
 
-/** Build a Date whose HKT wall-clock is hour:minute on a fixed UTC day (for tests). */
-export function hktDate(hour: number, minute: number): Date {
-  const y = 2026;
-  const m = 6;
-  const d = 15;
-  const utcMs = Date.UTC(y, m - 1, d, hour - 8, minute, 0);
-  return new Date(utcMs);
-}
-
 function minutesSinceMidnightHkt(date: Date): number {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: HKT,

@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   defaultMealPeriodForHkt,
   shouldShowAfternoonHint,
-  hktDate,
 } from "@/lib/canteen-meal-period";
+import { hktDate } from "../helpers/hkt-date";
 
 describe("defaultMealPeriodForHkt", () => {
   it("selects breakfast before 11:30 HKT (10:00 mock)", () => {

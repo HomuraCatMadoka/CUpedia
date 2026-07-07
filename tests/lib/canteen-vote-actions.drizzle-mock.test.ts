@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { isNotNull } from "drizzle-orm";
+import { isNotNull, and, eq } from "drizzle-orm";
 import { encodeAnonSessionCookie } from "@/lib/canteen-anon-session";
-import { canteenDishVotes } from "@/db/schema";
+import { canteenDishVotes, canteenMenuItems } from "@/db/schema";
 import { resetVoteRateLimitForTests } from "@/lib/canteen-vote-rate-limit";
 
 const {
@@ -299,5 +299,32 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
 
     expect(mockDbSelect).toHaveBeenCalled();
     expect(counts[ITEM_ID]).toEqual({ likes: 2, dislikes: 1 });
+  });
+
+  it("excludes cancelled votes (vote IS NULL) from aggregated counts", async () => {
+    let whereArg: unknown;
+    const rows = [{ menuItemId: ITEM_ID, likes: 1, dislikes: 0 }];
+    const promise = Promise.resolve(rows);
+    mockDbSelect.mockImplementation(() => {
+      const chain: Record<string, unknown> = {};
+      chain.from = vi.fn().mockReturnValue(chain);
+      chain.innerJoin = vi.fn().mockReturnValue(chain);
+      chain.where = vi.fn((arg: unknown) => {
+        whereArg = arg;
+        return chain;
+      });
+      chain.groupBy = vi.fn().mockReturnValue(chain);
+      chain.then = promise.then.bind(promise);
+      return chain;
+    });
+
+    await getMenuItemVoteCounts(CANTEEN_ID);
+
+    expect(whereArg).toEqual(
+      and(
+        eq(canteenMenuItems.canteenId, CANTEEN_ID),
+        isNotNull(canteenDishVotes.vote),
+      ),
+    );
   });
 });

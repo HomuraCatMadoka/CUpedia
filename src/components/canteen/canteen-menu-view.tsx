@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   CanteenMenuItem,
   MealPeriod,
@@ -37,17 +37,15 @@ export function CanteenMenuView({
   voteCounts,
   myVotes,
 }: CanteenMenuViewProps) {
-  const [period, setPeriod] = useState<MealPeriod>(() =>
-    typeof window !== "undefined"
-      ? defaultMealPeriodForHkt(new Date())
-      : "lunch",
-  );
-  const [showAfternoonHint] = useState(() =>
-    typeof window !== "undefined"
-      ? shouldShowAfternoonHint(new Date())
-      : false,
-  );
+  const [period, setPeriod] = useState<MealPeriod>("lunch");
+  const [showAfternoonHint, setShowAfternoonHint] = useState(false);
   const [view, setView] = useState<CanteenViewMode>("menu");
+
+  useEffect(() => {
+    const now = new Date();
+    setPeriod(defaultMealPeriodForHkt(now));
+    setShowAfternoonHint(shouldShowAfternoonHint(now));
+  }, []);
   const [liveVoteCounts, setLiveVoteCounts] =
     useState<Record<string, MenuItemVoteCounts>>(voteCounts);
   const [liveMyVotes, setLiveMyVotes] =
