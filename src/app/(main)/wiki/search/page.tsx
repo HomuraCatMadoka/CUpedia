@@ -4,8 +4,7 @@ import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { getOptionalUser } from "@/lib/auth-guard";
-import { getWikiEditRole } from "@/lib/site-settings";
+import { getViewerEditContext } from "@/lib/auth-guard";
 
 export default async function SearchPage({
   searchParams,
@@ -13,14 +12,11 @@ export default async function SearchPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const [results, pages, user, editRole] = await Promise.all([
+  const [results, pages, { canEdit }] = await Promise.all([
     q ? searchWikiPages(q) : [],
     getWikiTree(),
-    getOptionalUser(),
-    getWikiEditRole(),
+    getViewerEditContext(),
   ]);
-
-  const canEdit = !!user && (editRole === "user" || user?.role === "admin");
 
   return (
     <>

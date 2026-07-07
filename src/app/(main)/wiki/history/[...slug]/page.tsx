@@ -14,8 +14,7 @@ import { RevisionDiff } from "@/components/wiki/revision-diff";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
 import { Button } from "@/components/ui/button";
-import { getOptionalUser } from "@/lib/auth-guard";
-import { getWikiEditRole } from "@/lib/site-settings";
+import { getViewerEditContext } from "@/lib/auth-guard";
 import { redirect } from "next/navigation";
 import { parseContent, toMarkdown } from "@/lib/plate-utils";
 
@@ -54,12 +53,7 @@ export default async function HistoryPage({
   const [page, pages] = await Promise.all([getWikiPage(slug), getWikiTree()]);
   if (!page) notFound();
 
-  const [user, editRole] = await Promise.all([
-    getOptionalUser(),
-    getWikiEditRole(),
-  ]);
-
-  const canEdit = !!user && (editRole === "user" || user.role === "admin");
+  const { canEdit } = await getViewerEditContext();
 
   if (sp.view) {
     const rev = await getRevision(page.id, sp.view);

@@ -7,19 +7,15 @@ import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { Card, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { getOptionalUser } from "@/lib/auth-guard";
-import { getWikiEditRole } from "@/lib/site-settings";
+import { getViewerEditContext } from "@/lib/auth-guard";
 
 export default async function WikiIndexPage() {
-  const [pages, categories, recentPages, user, editRole] = await Promise.all([
+  const [pages, categories, recentPages, { canEdit }] = await Promise.all([
     getWikiTree(),
     getCategoryCards(),
     getRecentPages(),
-    getOptionalUser(),
-    getWikiEditRole(),
+    getViewerEditContext(),
   ]);
-
-  const canEdit = !!user && (editRole === "user" || user?.role === "admin");
 
   return (
     <>

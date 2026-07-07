@@ -3,7 +3,12 @@ import { db } from "@/db";
 import { users, accounts } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { getWikiEditRoleFresh, getOwnerUserId } from "@/lib/site-settings";
+import {
+  getWikiEditRole,
+  getWikiEditRoleFresh,
+  getOwnerUserId,
+} from "@/lib/site-settings";
+import { canViewerEdit } from "@/lib/edit-permission";
 import { normalizeEmail } from "@/lib/email";
 import { headers } from "next/headers";
 
@@ -74,7 +79,7 @@ export async function requireOwner() {
 export async function requireEditor() {
   const user = await requireAuth();
   const editRole = await getWikiEditRoleFresh();
-  if (editRole === "admin" && user.role !== "admin") {
+  if (!canViewerEdit(user, editRole)) {
     throw new Error("EDIT_PERMISSION_DENIED");
   }
   return user;
@@ -83,7 +88,7 @@ export async function requireEditor() {
 export async function requireEditorOrRedirect() {
   const user = await requireAuth();
   const editRole = await getWikiEditRoleFresh();
-  if (editRole === "admin" && user.role !== "admin") {
+  if (!canViewerEdit(user, editRole)) {
     redirect("/wiki");
   }
   return user;
@@ -94,4 +99,16 @@ export async function getOptionalUser() {
     headers: await headers(),
   });
   return session?.user ?? null;
+}
+
+/** Display-side edit context: whether to show edit affordances, computed from
+ * cheap/cached inputs (session role+banned, module-cached editRole). Shares the
+ * `canViewerEdit` predicate with the enforce side (requireEditor) so the rule
+ * can't drift; only the freshness of the inputs differs — see ADR 0012. */
+export async function getViewerEditContext() {
+  const [user, editRole] = await Promise.all([
+    getOptionalUser(),
+    getWikiEditRole(),
+  ]);
+  return { user, canEdit: canViewerEdit(user, editRole) };
 }
