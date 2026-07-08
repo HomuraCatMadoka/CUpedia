@@ -90,9 +90,9 @@ vi.mock("@/db", () => ({
       courseReviews: mockDbQueryCourseReviews,
       courseReviewVotes: mockDbQueryCourseReviewVotes,
     },
-    select: (arg?: unknown) => mockDbSelect(arg),
-    insert: (arg?: unknown) => mockDbInsert(arg),
-    update: (arg?: unknown) => mockDbUpdate(arg),
+    select: () => mockDbSelect(),
+    insert: () => mockDbInsert(),
+    update: () => mockDbUpdate(),
     transaction: (callback: (database: unknown) => unknown) =>
       mockDbTransaction(callback),
   },
@@ -131,9 +131,9 @@ beforeEach(() => {
           courseReviews: mockDbQueryCourseReviews,
           courseReviewVotes: mockDbQueryCourseReviewVotes,
         },
-        select: (arg?: unknown) => mockDbSelect(arg),
-        insert: (arg?: unknown) => mockDbInsert(arg),
-        update: (arg?: unknown) => mockDbUpdate(arg),
+        select: () => mockDbSelect(),
+        insert: () => mockDbInsert(),
+        update: () => mockDbUpdate(),
       }),
   );
 });
