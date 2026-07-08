@@ -41,11 +41,20 @@ export function CanteenMenuView({
   const [showAfternoonHint, setShowAfternoonHint] = useState(false);
   const [view, setView] = useState<CanteenViewMode>("menu");
 
+  // Client-only meal-period init. defaultMealPeriodForHkt / shouldShowAfternoonHint
+  // read the viewer's *current* Asia/Hong_Kong wall clock, which the server does
+  // not know at render time. Deriving these during render (e.g. a useState
+  // initializer) would make the server and client markup disagree and trigger a
+  // hydration mismatch, so we deliberately set them once on the client after
+  // mount. The empty deps array means this runs exactly once — no cascading
+  // re-render loop despite the set-state-in-effect rule.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const now = new Date();
     setPeriod(defaultMealPeriodForHkt(now));
     setShowAfternoonHint(shouldShowAfternoonHint(now));
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
   const [liveVoteCounts, setLiveVoteCounts] =
     useState<Record<string, MenuItemVoteCounts>>(voteCounts);
   const [liveMyVotes, setLiveMyVotes] =
