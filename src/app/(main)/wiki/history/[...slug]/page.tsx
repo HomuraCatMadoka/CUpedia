@@ -2,13 +2,10 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   getWikiPage,
-  getWikiTree,
   getRevisions,
   getRevision,
   rollbackToRevision,
 } from "@/lib/wiki-actions";
-import { WikiSidebar } from "@/components/layout/wiki-sidebar";
-import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { RevisionList } from "@/components/wiki/revision-list";
 import { RevisionDiff } from "@/components/wiki/revision-diff";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
@@ -18,25 +15,13 @@ import { getViewerEditContext } from "@/lib/auth-guard";
 import { redirect } from "next/navigation";
 import { parseContent, toMarkdown } from "@/lib/plate-utils";
 
-function SidebarWrapper({
-  pages,
-  canEdit = true,
-  children,
-}: {
-  pages: { id: string; slug: string; title: string; parentId: string | null }[];
-  canEdit?: boolean;
-  children: React.ReactNode;
-}) {
+function ContentShell({ children }: { children: React.ReactNode }) {
   return (
-    <>
-      <SidebarToggle canEdit={canEdit} />
-      <WikiSidebar pages={pages} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[var(--content-max-width)] space-y-4 px-6 py-6">
-          {children}
-        </div>
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-[var(--content-max-width)] space-y-4 px-6 py-6">
+        {children}
       </div>
-    </>
+    </div>
   );
 }
 
@@ -50,7 +35,7 @@ export default async function HistoryPage({
   const { slug: slugParts } = await params;
   const slug = slugParts.map(decodeURIComponent).join("/");
   const sp = await searchParams;
-  const [page, pages] = await Promise.all([getWikiPage(slug), getWikiTree()]);
+  const page = await getWikiPage(slug);
   if (!page) notFound();
 
   const { canEdit } = await getViewerEditContext();
@@ -70,7 +55,7 @@ export default async function HistoryPage({
     }
 
     return (
-      <SidebarWrapper pages={pages} canEdit={canEdit}>
+      <ContentShell>
         <Link
           href={`/wiki/history/${slug}`}
           className="text-sm text-blue-600 hover:underline"
@@ -91,7 +76,7 @@ export default async function HistoryPage({
         <WikiRenderer>
           <WikiStaticContent value={parseContent(rev.content)} />
         </WikiRenderer>
-      </SidebarWrapper>
+      </ContentShell>
     );
   }
 
@@ -108,7 +93,7 @@ export default async function HistoryPage({
     ]);
 
     return (
-      <SidebarWrapper pages={pages} canEdit={canEdit}>
+      <ContentShell>
         <Link
           href={`/wiki/history/${slug}`}
           className="text-sm text-blue-600 hover:underline"
@@ -122,14 +107,14 @@ export default async function HistoryPage({
           oldLabel={new Date(older.createdAt).toLocaleString("zh-CN")}
           newLabel={new Date(newer.createdAt).toLocaleString("zh-CN")}
         />
-      </SidebarWrapper>
+      </ContentShell>
     );
   }
 
   const revisions = await getRevisions(page.id);
 
   return (
-    <SidebarWrapper pages={pages} canEdit={canEdit}>
+    <ContentShell>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">编辑历史：{page.title}</h1>
         <Link href={`/wiki/${slug}`}>
@@ -139,6 +124,6 @@ export default async function HistoryPage({
         </Link>
       </div>
       <RevisionList revisions={revisions} slug={slug} />
-    </SidebarWrapper>
+    </ContentShell>
   );
 }

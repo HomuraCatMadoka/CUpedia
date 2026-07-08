@@ -5,8 +5,6 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { PrefetchLink } from "@/components/layout/prefetch-link";
-import { PageToc } from "@/components/layout/page-toc";
-import type { Heading } from "@/lib/headings";
 
 type TreeNode = {
   id: string;
@@ -170,26 +168,16 @@ function SectionGroup({
 
 export function WikiSidebar({
   pages,
-  currentPage,
-  headings,
 }: {
-  /** Omit when the TOC branch renders — keeps the full tree out of the RSC payload (#136). */
-  pages?: {
+  pages: {
     id: string;
     slug: string;
     title: string;
     parentId: string | null;
   }[];
-  currentPage?: {
-    title: string;
-    slug: string;
-    parentTitle?: string;
-    parentSlug?: string;
-  };
-  headings?: Heading[];
 }) {
   const { state, collapse, closeMobile } = useSidebar();
-  const tree = buildTree(pages ?? []);
+  const tree = buildTree(pages);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsed);
 
@@ -239,25 +227,16 @@ export function WikiSidebar({
             ✕
           </button>
         </div>
-        {currentPage && headings && headings.length > 0 ? (
-          <PageToc
-            headings={headings}
-            pageTitle={currentPage.title}
-            parentTitle={currentPage.parentTitle}
-            parentSlug={currentPage.parentSlug}
-          />
-        ) : (
-          <ul className="flex-1 p-2">
-            {tree.map((node) => (
-              <SectionGroup
-                key={node.id}
-                node={node}
-                collapsedIds={collapsedIds}
-                onToggle={onToggle}
-              />
-            ))}
-          </ul>
-        )}
+        <ul className="flex-1 p-2">
+          {tree.map((node) => (
+            <SectionGroup
+              key={node.id}
+              node={node}
+              collapsedIds={collapsedIds}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
       </nav>
     </>
   );

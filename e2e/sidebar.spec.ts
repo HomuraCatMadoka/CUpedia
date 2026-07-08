@@ -215,3 +215,30 @@ test.describe("#98 desktop collapsed rail is unchanged", () => {
     await expect(newPage).toBeVisible();
   });
 });
+
+// ADR 0010 — the page tree and the on-this-page TOC now coexist as separate
+// columns. Previously a read page with headings swapped the tree out for the
+// TOC; the tree (hoisted into wiki/layout.tsx) must now stay put beside it.
+test.describe("ADR 0010 coexist nav shell (desktop)", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("a read page with headings shows the page tree AND the TOC at once", async ({
+    page,
+  }) => {
+    // `getting-started` seeds a `## Registration` heading, so the TOC renders.
+    const response = await page.goto("/wiki/getting-started", {
+      waitUntil: "networkidle",
+    });
+    expect(response?.status()).toBe(200);
+
+    // Left column: the persistent page tree (was hidden by the old swap here).
+    await expect(
+      page.locator("nav").filter({ hasText: "Pages" }),
+    ).toBeVisible();
+
+    // Right column: the per-page table of contents, coexisting with the tree.
+    const toc = page.locator("nav").filter({ hasText: "On this page" });
+    await expect(toc).toBeVisible();
+    await expect(toc.getByRole("link", { name: "Registration" })).toBeVisible();
+  });
+});

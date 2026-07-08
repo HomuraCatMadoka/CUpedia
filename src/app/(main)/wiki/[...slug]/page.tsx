@@ -6,8 +6,7 @@ import {
   deleteWikiPage,
   getBacklinks,
 } from "@/lib/wiki-actions";
-import { WikiSidebar } from "@/components/layout/wiki-sidebar";
-import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { PageToc } from "@/components/layout/page-toc";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
@@ -45,20 +44,6 @@ export default async function WikiReadPage({
 
   return (
     <>
-      <SidebarToggle canEdit={canEdit} />
-      {/* The sidebar shows the TOC here, not the tree — only ship the tree
-          for the no-headings fallback. WikiSidebar is a client component, so
-          its props land in every navigation's RSC payload (#136). */}
-      <WikiSidebar
-        pages={headings.length > 0 ? undefined : pages}
-        currentPage={{
-          title: page.title,
-          slug: slug,
-          parentTitle: parentPage?.title,
-          parentSlug: parentPage?.slug,
-        }}
-        headings={headings}
-      />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-6">
           <Breadcrumb pages={pages} currentSlug={slug} />
@@ -113,6 +98,22 @@ export default async function WikiReadPage({
           </div>
         </div>
       </div>
+      {/* Per-page TOC as its own right column, coexisting with the layout's
+          tree. Hidden below lg — three columns don't fit narrow screens, so the
+          TOC (a wide-screen reading aid) drops out there. See ADR 0010. */}
+      {headings.length > 0 && (
+        <nav
+          className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-[var(--toc-width)] shrink-0 overflow-y-auto border-l bg-[var(--sidebar-bg)] lg:block"
+          style={{ borderColor: "var(--sidebar-border-color)" }}
+        >
+          <PageToc
+            headings={headings}
+            pageTitle={page.title}
+            parentTitle={parentPage?.title}
+            parentSlug={parentPage?.slug}
+          />
+        </nav>
+      )}
     </>
   );
 }
