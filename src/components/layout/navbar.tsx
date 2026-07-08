@@ -72,6 +72,12 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             <Link href="/wiki" className="text-lg font-bold">
               CUpedia
             </Link>
+            <Link
+              href="/college-picker"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              分院帽
+            </Link>
           </div>
           <nav className="flex items-center gap-4">
             <CommandSearch />

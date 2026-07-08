@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 
 const modules = [
   { title: "SG Wiki", href: "/wiki", description: "Survival Guides 百科" },
+  { title: "分院帽", href: "/college-picker", description: "书院志愿推荐" },
   { title: "课程", href: "/courses", description: "课程测评", disabled: true },
   { title: "食堂", href: "/canteen", description: "食堂测评", disabled: true },
   { title: "生活", href: "/life", description: "生活指南", disabled: true },
