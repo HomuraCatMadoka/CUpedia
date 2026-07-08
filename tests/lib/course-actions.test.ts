@@ -150,10 +150,10 @@ describe("getCourseSummaries", () => {
         credits: 3,
         description: "Core data structures",
         reviewCount: 2,
-        ratingSum: 9,
-        difficultySum: 7,
-        workloadSum: 8,
-        gradingSum: 6,
+        ratingSum: 18,
+        difficultySum: 14,
+        workloadSum: 16,
+        gradingSum: 12,
       },
       {
         id: "course-2",
@@ -216,7 +216,20 @@ describe("createCourseReview", () => {
         grading: 3,
         content: "good",
       }),
-    ).rejects.toThrow("rating must be an integer between 1 and 5");
+    ).rejects.toThrow("rating must be between 0.5 and 5");
+  });
+
+  it("rejects ratings that are not half-star increments", async () => {
+    mockAuthSession();
+    await expect(
+      createCourseReview("CSCI2100", {
+        rating: 4.25,
+        difficulty: 3,
+        workload: 3,
+        grading: 3,
+        content: "good",
+      }),
+    ).rejects.toThrow("rating must use 0.5 increments");
   });
 
   it("creates a review and refreshes course aggregates in one transaction", async () => {
@@ -231,10 +244,10 @@ describe("createCourseReview", () => {
     aggregateSelect.where.mockResolvedValue([
       {
         reviewCount: 1,
-        ratingSum: 5,
-        difficultySum: 2,
-        workloadSum: 4,
-        gradingSum: 5,
+        ratingSum: 9,
+        difficultySum: 5,
+        workloadSum: 8,
+        gradingSum: 10,
       },
     ]);
     mockDbInsert
@@ -243,8 +256,8 @@ describe("createCourseReview", () => {
     mockDbSelect.mockReturnValueOnce(aggregateSelect);
 
     const result = await createCourseReview("csci 2100", {
-      rating: 5,
-      difficulty: 2,
+      rating: 4.5,
+      difficulty: 2.5,
       workload: 4,
       grading: 5,
       content: " excellent ",
@@ -271,20 +284,20 @@ describe("getCourseDetail", () => {
     });
     mockDbQueryCourseAggregates.findFirst.mockResolvedValue({
       reviewCount: 2,
-      ratingSum: 9,
-      difficultySum: 5,
-      workloadSum: 7,
-      gradingSum: 8,
+      ratingSum: 18,
+      difficultySum: 10,
+      workloadSum: 14,
+      gradingSum: 16,
     });
 
     const reviewSelect = mockMakeChain();
     reviewSelect.limit.mockResolvedValue([
       {
         id: "review-1",
-        rating: 5,
-        difficulty: 3,
-        workload: 4,
-        grading: 4,
+        rating: 10,
+        difficulty: 6,
+        workload: 8,
+        grading: 8,
         content: "solid",
         term: null,
         instructor: null,
@@ -302,6 +315,8 @@ describe("getCourseDetail", () => {
 
     expect(detail.aggregate.averageRating).toBe(4.5);
     expect(detail.aggregate.averageDifficulty).toBe(2.5);
+    expect(detail.reviews[0].rating).toBe(5);
+    expect(detail.reviews[0].difficulty).toBe(3);
     expect(detail.reviews[0].user).toEqual({ id: "user-1", nickname: "Alice" });
   });
 
@@ -320,10 +335,10 @@ describe("getCourseDetail", () => {
     reviewSelect.limit.mockResolvedValue([
       {
         id: "review-1",
-        rating: 5,
-        difficulty: 3,
-        workload: 4,
-        grading: 4,
+        rating: 10,
+        difficulty: 6,
+        workload: 8,
+        grading: 8,
         content: "solid",
         term: null,
         instructor: null,

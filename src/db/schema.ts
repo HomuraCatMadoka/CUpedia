@@ -165,16 +165,16 @@ export const courseReviews = pgTable(
       table.courseId,
       table.userId,
     ),
-    check("course_reviews_rating_range", sql`${table.rating} between 1 and 5`),
+    check("course_reviews_rating_range", sql`${table.rating} between 1 and 10`),
     check(
       "course_reviews_difficulty_range",
-      sql`${table.difficulty} between 1 and 5`,
+      sql`${table.difficulty} between 1 and 10`,
     ),
     check(
       "course_reviews_workload_range",
-      sql`${table.workload} between 1 and 5`,
+      sql`${table.workload} between 1 and 10`,
     ),
-    check("course_reviews_grading_range", sql`${table.grading} between 1 and 5`),
+    check("course_reviews_grading_range", sql`${table.grading} between 1 and 10`),
   ],
 );
 

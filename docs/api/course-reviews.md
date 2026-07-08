@@ -20,16 +20,16 @@ Response `200`:
   },
   "aggregate": {
     "reviewCount": 1,
-    "averageRating": 4,
-    "averageDifficulty": 3,
+    "averageRating": 4.5,
+    "averageDifficulty": 3.5,
     "averageWorkload": 4,
     "averageGrading": 3
   },
   "reviews": [
     {
       "id": "uuid",
-      "rating": 4,
-      "difficulty": 3,
+      "rating": 4.5,
+      "difficulty": 3.5,
       "workload": 4,
       "grading": 3,
       "content": "Useful but busy.",
@@ -54,8 +54,8 @@ Request:
 
 ```json
 {
-  "rating": 4,
-  "difficulty": 3,
+  "rating": 4.5,
+  "difficulty": 3.5,
   "workload": 4,
   "grading": 3,
   "content": "Useful but busy.",
@@ -67,7 +67,7 @@ Request:
 
 Rules:
 
-- `rating`, `difficulty`, `workload`, and `grading` must be integers from 1 to 5.
+- `rating`, `difficulty`, `workload`, and `grading` must be from 0.5 to 5 in 0.5 increments.
 - `content` must be non-empty after trimming.
 - A user may have one review per course.
 

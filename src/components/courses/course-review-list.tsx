@@ -34,7 +34,7 @@ function Metric({ label, value }: { label: string; value: number }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-lg bg-muted px-2 py-1 text-xs">
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium">{value}/5</span>
+      <span className="font-medium">{value.toFixed(1)}/5</span>
     </span>
   );
 }
@@ -111,7 +111,7 @@ export function CourseReviewList({
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-semibold tabular-nums">
-                    {review.rating}
+                    {review.rating.toFixed(1)}
                     <span className="text-xs font-normal text-muted-foreground">
                       /5
                     </span>

@@ -44,7 +44,8 @@ export async function POST(
       );
     }
     if (
-      error.message.includes("must be an integer") ||
+      error.message.includes("must be between") ||
+      error.message.includes("must use 0.5 increments") ||
       error.message === "content cannot be empty"
     ) {
       return NextResponse.json({ error: error.message }, { status: 400 });

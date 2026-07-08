@@ -94,8 +94,11 @@ function courseWhere(value: string): SQL {
 }
 
 function assertRating(name: string, value: number) {
-  if (!Number.isInteger(value) || value < 1 || value > 5) {
-    throw new Error(`${name} must be an integer between 1 and 5`);
+  if (!Number.isFinite(value) || value < 0.5 || value > 5) {
+    throw new Error(`${name} must be between 0.5 and 5`);
+  }
+  if (!Number.isInteger(value * 2)) {
+    throw new Error(`${name} must use 0.5 increments`);
   }
 }
 
@@ -108,6 +111,14 @@ function average(sum: number, count: number) {
   return count > 0 ? Number((sum / count).toFixed(2)) : null;
 }
 
+function displayRatingFromHalfSteps(value: number) {
+  return value / 2;
+}
+
+function halfStepsFromDisplayRating(value: number) {
+  return Math.round(value * 2);
+}
+
 function aggregateFromSums(row: {
   reviewCount: number | null;
   ratingSum: number | null;
@@ -118,10 +129,10 @@ function aggregateFromSums(row: {
   const reviewCount = row.reviewCount ?? 0;
   return {
     reviewCount,
-    averageRating: average(row.ratingSum ?? 0, reviewCount),
-    averageDifficulty: average(row.difficultySum ?? 0, reviewCount),
-    averageWorkload: average(row.workloadSum ?? 0, reviewCount),
-    averageGrading: average(row.gradingSum ?? 0, reviewCount),
+    averageRating: average(row.ratingSum ?? 0, reviewCount * 2),
+    averageDifficulty: average(row.difficultySum ?? 0, reviewCount * 2),
+    averageWorkload: average(row.workloadSum ?? 0, reviewCount * 2),
+    averageGrading: average(row.gradingSum ?? 0, reviewCount * 2),
   };
 }
 
@@ -150,10 +161,10 @@ function validateReviewInput(input: CourseReviewInput) {
   if (!content) throw new Error("content cannot be empty");
 
   return {
-    rating: input.rating,
-    difficulty: input.difficulty,
-    workload: input.workload,
-    grading: input.grading,
+    rating: halfStepsFromDisplayRating(input.rating),
+    difficulty: halfStepsFromDisplayRating(input.difficulty),
+    workload: halfStepsFromDisplayRating(input.workload),
+    grading: halfStepsFromDisplayRating(input.grading),
     content,
     term: cleanOptionalText(input.term),
     instructor: cleanOptionalText(input.instructor),
@@ -331,10 +342,10 @@ export async function getCourseDetail(
     }),
     reviews: reviews.map((review) => ({
       id: review.id,
-      rating: review.rating,
-      difficulty: review.difficulty,
-      workload: review.workload,
-      grading: review.grading,
+      rating: displayRatingFromHalfSteps(review.rating),
+      difficulty: displayRatingFromHalfSteps(review.difficulty),
+      workload: displayRatingFromHalfSteps(review.workload),
+      grading: displayRatingFromHalfSteps(review.grading),
       content: review.content,
       term: review.term,
       instructor: review.instructor,

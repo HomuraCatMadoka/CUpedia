@@ -27,6 +27,20 @@ const INITIAL_SCORES: Scores = {
   grading: 4,
 };
 
+function formatScore(value: number) {
+  return value.toFixed(1);
+}
+
+function scoreButtonClass(value: number, score: number) {
+  if (value >= score) {
+    return "border-foreground bg-foreground text-background";
+  }
+  if (value >= score - 0.5) {
+    return "border-foreground bg-muted text-foreground";
+  }
+  return "border-border text-muted-foreground hover:bg-muted";
+}
+
 function ScorePicker({
   label,
   value,
@@ -40,7 +54,9 @@ function ScorePicker({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium">{label}</span>
-        <span className="text-xs text-muted-foreground">{value}/5</span>
+        <span className="text-xs text-muted-foreground">
+          {formatScore(value)}/5
+        </span>
       </div>
       <div className="grid grid-cols-5 gap-1">
         {[1, 2, 3, 4, 5].map((score) => (
@@ -48,16 +64,22 @@ function ScorePicker({
             key={score}
             type="button"
             onClick={() => onChange(score)}
+            onDoubleClick={() => onChange(score - 0.5)}
             className={cn(
               "flex h-8 items-center justify-center rounded-lg border text-xs transition-colors",
-              value >= score
-                ? "border-foreground bg-foreground text-background"
-                : "border-border text-muted-foreground hover:bg-muted",
+              scoreButtonClass(value, score),
             )}
-            aria-label={`${label} ${score}`}
+            aria-label={`${label} ${score}. Double click for ${score - 0.5}`}
+            title="Click for a full star, double click for a half star"
           >
             <StarIcon
-              className={cn("size-3.5", value >= score && "fill-current")}
+              className={cn(
+                "size-3.5",
+                value >= score && "fill-current",
+                value >= score - 0.5 &&
+                  value < score &&
+                  "fill-current opacity-50",
+              )}
             />
           </button>
         ))}
