@@ -30,12 +30,16 @@ type CanteenMenuViewProps = {
   items: CanteenMenuItem[];
   voteCounts: Record<string, MenuItemVoteCounts>;
   myVotes: Record<string, VoteChoice>;
+  currentUserId?: string | null;
+  commentBlocked?: "banned" | null;
 };
 
 export function CanteenMenuView({
   items,
   voteCounts,
   myVotes,
+  currentUserId = null,
+  commentBlocked = null,
 }: CanteenMenuViewProps) {
   const [period, setPeriod] = useState<MealPeriod>("lunch");
   const [showAfternoonHint, setShowAfternoonHint] = useState(false);
@@ -130,6 +134,8 @@ export function CanteenMenuView({
               counts={periodCounts[item.id]}
               myVote={liveMyVotes[item.id] ?? null}
               onVoteChange={handleVoteChange}
+              currentUserId={currentUserId}
+              commentBlocked={commentBlocked}
             />
           ))}
         </ul>

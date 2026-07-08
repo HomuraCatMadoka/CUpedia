@@ -17,7 +17,9 @@ _Avoid_: 按字母序排列（会得到早→晚→午）。
 
 **大众推荐 / 大众避雷**: 按当前餐段过滤菜品后排序；推荐榜 likes↓、同分 like−dislike↓；避雷榜 dislikes↓、同分 dislike−like↓。仅统计非 NULL 票。
 
-**硬删除（Hard delete）**: 食堂与菜品无 `deletedAt`；删除行时 DB `ON DELETE CASCADE` 清理关联（votes/comments 表接入后同样适用）。
+**菜品评论**: 仅登录用户可发/改/删自己的短评（纯文本，≤500 字，拒绝 HTML）；匿名不可发。发即展示，无审核队列。评论不影响赞踩排行。Admin 可删任意评论。
+
+**硬删除（Hard delete）**: 食堂与菜品无 `deletedAt`；删除行时 DB `ON DELETE CASCADE` 清理关联 votes 与 comments。
 _Avoid_: 沿用 wiki 的软删除模式。
 
 **Mock 模式（`CANTEEN_MOCK_DATA=true`）**: 仅开发用内存数据；种子只允许极简演示（如「演示食堂 / 演示菜品」），禁止写死真实食堂菜名。

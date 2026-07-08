@@ -1,4 +1,10 @@
-import type { Canteen, CanteenMenuItem, MenuItemVoteCounts, VoteChoice } from "@/lib/canteen-types";
+import type {
+  Canteen,
+  CanteenDishComment,
+  CanteenMenuItem,
+  MenuItemVoteCounts,
+  VoteChoice,
+} from "@/lib/canteen-types";
 import { parseMealPeriod, validateCanteenName, validateLocation, validateMenuItemName, validatePrice, validateSortOrder, validateSvgKey, compareMealPeriods } from "@/lib/canteen-types";
 
 /** Dev/demo mode: in-memory canteen data, no PostgreSQL required. */
@@ -14,10 +20,21 @@ type MockVote = {
   vote: VoteChoice;
 };
 
+type MockComment = {
+  id: string;
+  menuItemId: string;
+  userId: string;
+  content: string;
+  authorNickname: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type MockState = {
   canteens: Canteen[];
   items: CanteenMenuItem[];
   votes: MockVote[];
+  comments: MockComment[];
   anonSessionId: string | null;
   mockUserId: string | null;
 };
@@ -70,7 +87,14 @@ function seedState(): MockState {
       updatedAt: t,
     },
   ];
-  return { canteens: [demo], items, votes: [], anonSessionId: null, mockUserId: null };
+  return {
+    canteens: [demo],
+    items,
+    votes: [],
+    comments: [],
+    anonSessionId: null,
+    mockUserId: null,
+  };
 }
 
 let state: MockState | null = null;
@@ -139,6 +163,7 @@ export function mockDeleteCanteen(id: string): void {
   s.canteens.splice(idx, 1);
   s.items = s.items.filter((i) => i.canteenId !== id);
   s.votes = s.votes.filter((v) => !removedItemIds.has(v.menuItemId));
+  s.comments = s.comments.filter((c) => !removedItemIds.has(c.menuItemId));
 }
 
 export function mockCreateMenuItem(
@@ -204,6 +229,80 @@ export function mockDeleteMenuItem(canteenId: string, itemId: string): void {
   if (idx < 0) throw new Error("MENU_ITEM_NOT_FOUND");
   s.items.splice(idx, 1);
   s.votes = s.votes.filter((v) => v.menuItemId !== itemId);
+  s.comments = s.comments.filter((c) => c.menuItemId !== itemId);
+}
+
+function mockCountCommentsForCanteen(canteenId: string): number {
+  const itemIds = new Set(
+    getState().items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+  );
+  return getState().comments.filter((c) => itemIds.has(c.menuItemId)).length;
+}
+
+function mockCountCommentsForMenuItem(menuItemId: string): number {
+  return getState().comments.filter((c) => c.menuItemId === menuItemId).length;
+}
+
+export function mockGetCommentsForMenuItem(
+  menuItemId: string,
+): CanteenDishComment[] {
+  return getState()
+    .comments.filter((c) => c.menuItemId === menuItemId)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    .map((c) => ({ ...c }));
+}
+
+export function mockCreateDishComment(
+  menuItemId: string,
+  userId: string,
+  authorNickname: string,
+  content: string,
+): CanteenDishComment {
+  if (!mockMenuItemExists(menuItemId)) throw new Error("MENU_ITEM_NOT_FOUND");
+  const t = now();
+  const row: MockComment = {
+    id: crypto.randomUUID(),
+    menuItemId,
+    userId,
+    content,
+    authorNickname,
+    createdAt: t,
+    updatedAt: t,
+  };
+  getState().comments.push(row);
+  return { ...row };
+}
+
+export function mockUpdateDishComment(
+  commentId: string,
+  userId: string,
+  content: string,
+): CanteenDishComment {
+  const s = getState();
+  const idx = s.comments.findIndex(
+    (c) => c.id === commentId && c.userId === userId,
+  );
+  if (idx < 0) throw new Error("COMMENT_NOT_FOUND");
+  const row = s.comments[idx];
+  row.content = content;
+  row.updatedAt = now();
+  return { ...row };
+}
+
+export function mockDeleteDishComment(commentId: string, userId: string): void {
+  const s = getState();
+  const idx = s.comments.findIndex(
+    (c) => c.id === commentId && c.userId === userId,
+  );
+  if (idx < 0) throw new Error("COMMENT_NOT_FOUND");
+  s.comments.splice(idx, 1);
+}
+
+export function mockAdminDeleteDishComment(commentId: string): void {
+  const s = getState();
+  const idx = s.comments.findIndex((c) => c.id === commentId);
+  if (idx < 0) throw new Error("COMMENT_NOT_FOUND");
+  s.comments.splice(idx, 1);
 }
 
 function mockCountVotesForCanteen(canteenId: string): number {
@@ -342,7 +441,7 @@ export function mockDeleteImpactForCanteen(canteenId: string) {
   return {
     menuItemCount: items.length,
     voteCount: mockCountVotesForCanteen(canteenId),
-    commentCount: 0,
+    commentCount: mockCountCommentsForCanteen(canteenId),
   };
 }
 
@@ -350,7 +449,7 @@ export function mockDeleteImpactForMenuItem(itemId: string) {
   return {
     menuItemCount: 1,
     voteCount: mockCountVotesForMenuItem(itemId),
-    commentCount: 0,
+    commentCount: mockCountCommentsForMenuItem(itemId),
   };
 }
 

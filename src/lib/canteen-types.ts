@@ -59,6 +59,24 @@ export function applyVoteCountDelta(
   return out;
 }
 
+export type CanteenDishComment = {
+  id: string;
+  menuItemId: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  authorNickname: string;
+};
+
+export function validateCommentContent(input: unknown): string {
+  if (typeof input !== "string") throw new Error("INVALID_COMMENT");
+  const trimmed = input.trim();
+  if (!trimmed || trimmed.length > 500) throw new Error("INVALID_COMMENT");
+  if (/<[^>]+>/.test(trimmed)) throw new Error("INVALID_COMMENT");
+  return trimmed;
+}
+
 export function parseVote(input: unknown): VoteChoice {
   if (input === null || input === undefined || input === "") return null;
   if (input === "like" || input === "dislike") return input;
