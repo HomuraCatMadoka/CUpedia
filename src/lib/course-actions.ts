@@ -9,7 +9,8 @@ import {
   users,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth-guard";
-import { and, desc, eq, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, or, sql, type SQL } from "drizzle-orm";
+import { escapeLikePattern } from "@/lib/utils";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -57,6 +58,26 @@ export type CourseDetail = {
   }>;
 };
 
+export type CourseSummary = {
+  id: string;
+  code: string;
+  title: string;
+  department: string | null;
+  credits: number | null;
+  description: string;
+  reviewCount: number;
+  averageRating: number | null;
+  averageDifficulty: number | null;
+  averageWorkload: number | null;
+  averageGrading: number | null;
+};
+
+export type CourseListFilters = {
+  query?: string;
+  department?: string;
+  credits?: string;
+};
+
 function normalizeCourseCode(value: string) {
   return value.trim().toUpperCase().replace(/\s+/g, "");
 }
@@ -87,6 +108,38 @@ function average(sum: number, count: number) {
   return count > 0 ? Number((sum / count).toFixed(2)) : null;
 }
 
+function aggregateFromSums(row: {
+  reviewCount: number | null;
+  ratingSum: number | null;
+  difficultySum: number | null;
+  workloadSum: number | null;
+  gradingSum: number | null;
+}) {
+  const reviewCount = row.reviewCount ?? 0;
+  return {
+    reviewCount,
+    averageRating: average(row.ratingSum ?? 0, reviewCount),
+    averageDifficulty: average(row.difficultySum ?? 0, reviewCount),
+    averageWorkload: average(row.workloadSum ?? 0, reviewCount),
+    averageGrading: average(row.gradingSum ?? 0, reviewCount),
+  };
+}
+
+function courseSearchWhere(query: string): SQL {
+  const pattern = `%${escapeLikePattern(query.trim().toUpperCase())}%`;
+  return or(
+    sql`upper(${courses.code}) like ${pattern} escape '\'`,
+    sql`upper(${courses.title}) like ${pattern} escape '\'`,
+    sql`upper(coalesce(${courses.department}, '')) like ${pattern} escape '\'`,
+  )!;
+}
+
+function courseCreditWhere(value: string): SQL | undefined {
+  if (value === "other") return gte(courses.credits, 4);
+  const credits = Number(value);
+  return Number.isInteger(credits) ? eq(courses.credits, credits) : undefined;
+}
+
 function validateReviewInput(input: CourseReviewInput) {
   assertRating("rating", input.rating);
   assertRating("difficulty", input.difficulty);
@@ -106,6 +159,54 @@ function validateReviewInput(input: CourseReviewInput) {
     instructor: cleanOptionalText(input.instructor),
     anonymous: input.anonymous ?? false,
   };
+}
+
+export async function getCourseSummaries({
+  query,
+  department,
+  credits,
+}: CourseListFilters = {}): Promise<CourseSummary[]> {
+  const conditions: SQL[] = [];
+  const trimmedQuery = query?.trim();
+
+  if (trimmedQuery) conditions.push(courseSearchWhere(trimmedQuery));
+  if (department?.trim()) {
+    conditions.push(eq(courses.department, department.trim().toUpperCase()));
+  }
+  if (credits) {
+    const creditWhere = courseCreditWhere(credits);
+    if (creditWhere) conditions.push(creditWhere);
+  }
+
+  const rows = await db
+    .select({
+      id: courses.id,
+      code: courses.code,
+      title: courses.title,
+      department: courses.department,
+      credits: courses.credits,
+      description: courses.description,
+      reviewCount: courseAggregates.reviewCount,
+      ratingSum: courseAggregates.ratingSum,
+      difficultySum: courseAggregates.difficultySum,
+      workloadSum: courseAggregates.workloadSum,
+      gradingSum: courseAggregates.gradingSum,
+    })
+    .from(courses)
+    .leftJoin(courseAggregates, eq(courseAggregates.courseId, courses.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(asc(courses.code))
+    .limit(80);
+
+  return rows.map((row) => ({
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    department: row.department,
+    credits: row.credits,
+    description: row.description,
+    ...aggregateFromSums(row),
+  }));
 }
 
 type AggregateWriter = Pick<typeof db, "insert" | "select" | "update">;
@@ -221,13 +322,13 @@ export async function getCourseDetail(
 
   return {
     course,
-    aggregate: {
+    aggregate: aggregateFromSums({
       reviewCount,
-      averageRating: average(aggregate?.ratingSum ?? 0, reviewCount),
-      averageDifficulty: average(aggregate?.difficultySum ?? 0, reviewCount),
-      averageWorkload: average(aggregate?.workloadSum ?? 0, reviewCount),
-      averageGrading: average(aggregate?.gradingSum ?? 0, reviewCount),
-    },
+      ratingSum: aggregate?.ratingSum ?? 0,
+      difficultySum: aggregate?.difficultySum ?? 0,
+      workloadSum: aggregate?.workloadSum ?? 0,
+      gradingSum: aggregate?.gradingSum ?? 0,
+    }),
     reviews: reviews.map((review) => ({
       id: review.id,
       rating: review.rating,

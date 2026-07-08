@@ -40,6 +40,19 @@ export const REVISION_IDS = {
   deleted: "00000000-0000-4000-d000-00000000000a",
 } as const;
 
+export const COURSE_IDS = {
+  csci2100: "00000000-0000-4000-e000-000000000001",
+  csci3150: "00000000-0000-4000-e000-000000000002",
+  math1010: "00000000-0000-4000-e000-000000000003",
+  stat1011: "00000000-0000-4000-e000-000000000004",
+  ugeb2202: "00000000-0000-4000-e000-000000000005",
+} as const;
+
+export const COURSE_REVIEW_IDS = {
+  csci2100Contributor: "00000000-0000-4000-f000-000000000001",
+  math1010Admin: "00000000-0000-4000-f000-000000000002",
+} as const;
+
 export const PASSWORD = "password123";
 
 // Mirrors the setting keys in src/lib/site-settings.ts. Hardcoded here to keep
@@ -98,6 +111,106 @@ export const SEED_USERS: SeedUser[] = [
     role: "user",
     banned: false,
     image: "https://i.pravatar.cc/150?u=contributor",
+  },
+];
+
+export type SeedCourse = {
+  id: string;
+  code: string;
+  title: string;
+  department: string;
+  credits: number;
+  description: string;
+};
+
+export const SEED_COURSES: SeedCourse[] = [
+  {
+    id: COURSE_IDS.csci2100,
+    code: "CSCI2100",
+    title: "Data Structures",
+    department: "CSCI",
+    credits: 3,
+    description: "Arrays, lists, trees, graphs, hashing, and algorithmic analysis.",
+  },
+  {
+    id: COURSE_IDS.csci3150,
+    code: "CSCI3150",
+    title: "Introduction to Operating Systems",
+    department: "CSCI",
+    credits: 3,
+    description: "Processes, threads, synchronization, memory, and file systems.",
+  },
+  {
+    id: COURSE_IDS.math1010,
+    code: "MATH1010",
+    title: "University Mathematics",
+    department: "MATH",
+    credits: 3,
+    description: "A calculus foundation for limits, derivatives, integrals, and applications.",
+  },
+  {
+    id: COURSE_IDS.stat1011,
+    code: "STAT1011",
+    title: "Introduction to Statistics",
+    department: "STAT",
+    credits: 3,
+    description: "Descriptive statistics, probability, inference, and regression basics.",
+  },
+  {
+    id: COURSE_IDS.ugeb2202,
+    code: "UGEB2202",
+    title: "The World of Probability and Statistics",
+    department: "UGEB",
+    credits: 2,
+    description: "A general education course about statistical thinking in daily life.",
+  },
+];
+
+export type SeedCourseReview = {
+  id: string;
+  courseId: string;
+  userId: string;
+  term: string;
+  instructor: string;
+  rating: number;
+  difficulty: number;
+  workload: number;
+  grading: number;
+  content: string;
+  anonymous: boolean;
+  helpfulScore: number;
+};
+
+export const SEED_COURSE_REVIEWS: SeedCourseReview[] = [
+  {
+    id: COURSE_REVIEW_IDS.csci2100Contributor,
+    courseId: COURSE_IDS.csci2100,
+    userId: USER_IDS.contributor,
+    term: "2025 Fall",
+    instructor: "Demo Instructor",
+    rating: 5,
+    difficulty: 4,
+    workload: 4,
+    grading: 3,
+    content:
+      "Very useful core course. Start assignments early and keep your own notes for tree and graph topics.",
+    anonymous: false,
+    helpfulScore: 3,
+  },
+  {
+    id: COURSE_REVIEW_IDS.math1010Admin,
+    courseId: COURSE_IDS.math1010,
+    userId: USER_IDS.admin,
+    term: "2025 Spring",
+    instructor: "Demo Instructor",
+    rating: 4,
+    difficulty: 3,
+    workload: 3,
+    grading: 4,
+    content:
+      "Good refresher for calculus. The pace is manageable if you keep up with weekly exercises.",
+    anonymous: true,
+    helpfulScore: 1,
   },
 ];
 

@@ -18,6 +18,7 @@ const {
   const chain = () => {
     const obj: Record<string, ReturnType<typeof vi.fn>> = {};
     obj.from = vi.fn().mockReturnValue(obj);
+    obj.leftJoin = vi.fn().mockReturnValue(obj);
     obj.innerJoin = vi.fn().mockReturnValue(obj);
     obj.where = vi.fn().mockReturnValue(obj);
     obj.orderBy = vi.fn().mockReturnValue(obj);
@@ -100,6 +101,7 @@ vi.mock("@/db", () => ({
 import {
   createCourseReview,
   getCourseDetail,
+  getCourseSummaries,
   voteCourseReview,
 } from "@/lib/course-actions";
 
@@ -134,6 +136,73 @@ beforeEach(() => {
         update: (...args: unknown[]) => mockDbUpdate(...args),
       }),
   );
+});
+
+describe("getCourseSummaries", () => {
+  it("returns courses with aggregate averages", async () => {
+    const courseSelect = mockMakeChain();
+    courseSelect.limit.mockResolvedValue([
+      {
+        id: "course-1",
+        code: "CSCI2100",
+        title: "Data Structures",
+        department: "CSCI",
+        credits: 3,
+        description: "Core data structures",
+        reviewCount: 2,
+        ratingSum: 9,
+        difficultySum: 7,
+        workloadSum: 8,
+        gradingSum: 6,
+      },
+      {
+        id: "course-2",
+        code: "MATH1010",
+        title: "University Mathematics",
+        department: "MATH",
+        credits: 3,
+        description: "",
+        reviewCount: null,
+        ratingSum: null,
+        difficultySum: null,
+        workloadSum: null,
+        gradingSum: null,
+      },
+    ]);
+    mockDbSelect.mockReturnValueOnce(courseSelect);
+
+    const summaries = await getCourseSummaries({ query: "csci" });
+
+    expect(summaries).toEqual([
+      {
+        id: "course-1",
+        code: "CSCI2100",
+        title: "Data Structures",
+        department: "CSCI",
+        credits: 3,
+        description: "Core data structures",
+        reviewCount: 2,
+        averageRating: 4.5,
+        averageDifficulty: 3.5,
+        averageWorkload: 4,
+        averageGrading: 3,
+      },
+      {
+        id: "course-2",
+        code: "MATH1010",
+        title: "University Mathematics",
+        department: "MATH",
+        credits: 3,
+        description: "",
+        reviewCount: 0,
+        averageRating: null,
+        averageDifficulty: null,
+        averageWorkload: null,
+        averageGrading: null,
+      },
+    ]);
+    expect(courseSelect.leftJoin).toHaveBeenCalled();
+  });
 });
 
 describe("createCourseReview", () => {
