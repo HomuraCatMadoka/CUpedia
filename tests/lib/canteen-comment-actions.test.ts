@@ -42,13 +42,13 @@ import {
   getCommentsForMenuItem,
   updateDishComment,
 } from "@/lib/canteen-comment-actions";
-import { getMenuItemDeleteImpact } from "@/lib/canteen-admin-actions";
+import { getCanteenDeleteImpact, getMenuItemDeleteImpact } from "@/lib/canteen-admin-actions";
 import { resetCanteenMockState } from "@/lib/canteen-mock";
 
 const ITEM_ID = "mock-item-demo";
 
 function mockLoggedInUser(id = "user-1", nickname = "测试用户") {
-  mockGetSession.mockResolvedValue({ user: { id } });
+  mockGetSession.mockResolvedValue({ user: { id, name: nickname } });
   mockDbQueryUsers.findFirst.mockResolvedValue({
     id,
     email: "user@test.com",
@@ -107,6 +107,32 @@ describe("canteen-comment-actions (mock mode)", () => {
     expect(mockGetSession).not.toHaveBeenCalled();
   });
 
+  it("does not query DB users when creating in mock mode", async () => {
+    mockLoggedInUser();
+    await createDishComment(ITEM_ID, "纯内存");
+    expect(mockDbQueryUsers.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects banned user comment creation", async () => {
+    const prevMock = process.env.CANTEEN_MOCK_DATA;
+    process.env.CANTEEN_MOCK_DATA = "false";
+    try {
+      mockGetSession.mockResolvedValue({ user: { id: "user-1" } });
+      mockDbQueryUsers.findFirst.mockResolvedValue({
+        id: "user-1",
+        email: "b@t.com",
+        nickname: "B",
+        role: "user",
+        banned: true,
+      });
+      await expect(createDishComment(ITEM_ID, "被封禁")).rejects.toThrow(
+        "NEXT_REDIRECT",
+      );
+    } finally {
+      process.env.CANTEEN_MOCK_DATA = prevMock;
+    }
+  });
+
   it("lets authors update their own comments", async () => {
     mockLoggedInUser();
     const created = await createDishComment(ITEM_ID, "初稿");
@@ -116,12 +142,32 @@ describe("canteen-comment-actions (mock mode)", () => {
     expect(comments[0].content).toBe("改好了");
   });
 
+  it("rejects non-author update", async () => {
+    mockLoggedInUser("user-a", "作者A");
+    const created = await createDishComment(ITEM_ID, "A的内容");
+    mockLoggedInUser("user-b", "作者B");
+    await expect(updateDishComment(created.id, "篡改")).rejects.toThrow(
+      "COMMENT_NOT_FOUND",
+    );
+  });
+
   it("lets authors delete their own comments", async () => {
     mockLoggedInUser();
     const created = await createDishComment(ITEM_ID, "待删除");
     await deleteDishComment(created.id);
     const comments = await getCommentsForMenuItem(ITEM_ID);
     expect(comments).toHaveLength(0);
+  });
+
+  it("rejects non-author delete", async () => {
+    mockLoggedInUser("user-a", "作者A");
+    const created = await createDishComment(ITEM_ID, "A的内容");
+    mockLoggedInUser("user-b", "作者B");
+    await expect(deleteDishComment(created.id)).rejects.toThrow(
+      "COMMENT_NOT_FOUND",
+    );
+    const comments = await getCommentsForMenuItem(ITEM_ID);
+    expect(comments).toHaveLength(1);
   });
 
   it("lets admin delete any comment", async () => {
@@ -138,6 +184,14 @@ describe("canteen-comment-actions (mock mode)", () => {
     await createDishComment(ITEM_ID, "一条评论");
     mockAdminUser();
     const impact = await getMenuItemDeleteImpact(ITEM_ID);
+    expect(impact.commentCount).toBe(1);
+  });
+
+  it("includes comment count in canteen delete impact", async () => {
+    mockLoggedInUser();
+    await createDishComment(ITEM_ID, "一条评论");
+    mockAdminUser();
+    const impact = await getCanteenDeleteImpact("mock-canteen-demo");
     expect(impact.commentCount).toBe(1);
   });
 });

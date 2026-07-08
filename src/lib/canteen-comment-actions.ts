@@ -3,7 +3,7 @@
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishComments, canteenMenuItems, users } from "@/db/schema";
-import { requireAdmin, requireAuth } from "@/lib/auth-guard";
+import { requireAdmin, requireCommentAuth } from "@/lib/auth-guard";
 import {
   isCanteenMockMode,
   mockAdminDeleteDishComment,
@@ -67,14 +67,13 @@ export async function createDishComment(
   contentInput: unknown,
 ): Promise<CanteenDishComment> {
   const content = validateCommentContent(contentInput);
+  const user = await requireCommentAuth();
   await assertMenuItemExists(menuItemId);
 
   if (isCanteenMockMode()) {
-    const user = await requireAuth();
     return mockCreateDishComment(menuItemId, user.id, user.nickname, content);
   }
 
-  const user = await requireAuth();
   const [row] = await db
     .insert(canteenDishComments)
     .values({
@@ -102,7 +101,7 @@ export async function updateDishComment(
   contentInput: unknown,
 ): Promise<CanteenDishComment> {
   const content = validateCommentContent(contentInput);
-  const user = await requireAuth();
+  const user = await requireCommentAuth();
 
   if (isCanteenMockMode()) {
     return mockUpdateDishComment(commentId, user.id, content);
@@ -135,7 +134,7 @@ export async function updateDishComment(
 }
 
 export async function deleteDishComment(commentId: string): Promise<void> {
-  const user = await requireAuth();
+  const user = await requireCommentAuth();
 
   if (isCanteenMockMode()) {
     mockDeleteDishComment(commentId, user.id);

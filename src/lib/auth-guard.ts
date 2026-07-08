@@ -118,6 +118,42 @@ export async function getSessionVoterUser(): Promise<{
   return { id: dbUser.id, banned: dbUser.banned };
 }
 
+/** Logged-in user eligible to write dish comments (not banned). */
+export async function requireCommentAuth(): Promise<{
+  id: string;
+  nickname: string;
+}> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user?.id) redirect("/login");
+
+  // Mock demo: session-only auth + nickname from session fields (no DB users
+  // lookup), aligned with getSessionVoterUser mock behaviour.
+  if (process.env.CANTEEN_MOCK_DATA === "true") {
+    const nickname =
+      session.user.name?.trim() ||
+      session.user.email?.split("@")[0] ||
+      "用户";
+    return { id: session.user.id, nickname };
+  }
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+    columns: {
+      id: true,
+      email: true,
+      nickname: true,
+      role: true,
+      banned: true,
+    },
+  });
+
+  if (!dbUser || dbUser.banned) redirect("/login?error=banned");
+
+  return { id: dbUser.id, nickname: dbUser.nickname };
+}
+
 /** Logged-in voter eligible to write (not banned). Anonymous callers get null. */
 export async function getVoteEligibleUser(): Promise<{ id: string } | null> {
   const user = await getSessionVoterUser();
