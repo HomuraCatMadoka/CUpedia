@@ -3,12 +3,32 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 const modules = [
-  { title: "SG Wiki", href: "/wiki", description: "Survival Guides 百科" },
-  { title: "课程", href: "/courses", description: "课程测评", disabled: true },
-  { title: "食堂", href: "/canteen", description: "食堂测评", disabled: true },
-  { title: "生活", href: "/life", description: "生活指南", disabled: true },
-  { title: "交换", href: "/exchange", description: "交换经验", disabled: true },
-  { title: "求职", href: "/career", description: "求职资源", disabled: true },
+  { title: "SG Wiki", href: "/wiki", description: "Survival Guides wiki" },
+  { title: "Courses", href: "/courses", description: "Course reviews" },
+  {
+    title: "Canteen",
+    href: "/canteen",
+    description: "Canteen reviews",
+    disabled: true,
+  },
+  {
+    title: "Life",
+    href: "/life",
+    description: "Campus life guide",
+    disabled: true,
+  },
+  {
+    title: "Exchange",
+    href: "/exchange",
+    description: "Exchange experiences",
+    disabled: true,
+  },
+  {
+    title: "Career",
+    href: "/career",
+    description: "Career resources",
+    disabled: true,
+  },
 ];
 
 export default function HomePage() {
@@ -16,29 +36,33 @@ export default function HomePage() {
     <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold">CUpedia</h1>
-        <p className="mt-2 text-muted-foreground">你的中大百科全书</p>
+        <p className="mt-2 text-muted-foreground">
+          Your CUHK student knowledge base
+        </p>
       </div>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-        {modules.map((m) =>
-          m.disabled ? (
-            <Card key={m.href} className="cursor-not-allowed opacity-60">
+        {modules.map((module) =>
+          module.disabled ? (
+            <Card key={module.href} className="cursor-not-allowed opacity-60">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{m.title}</CardTitle>
+                  <CardTitle className="text-lg">{module.title}</CardTitle>
                   <Badge variant="secondary" className="text-xs">
-                    即将上线
+                    Soon
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">{m.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {module.description}
+                </p>
               </CardHeader>
             </Card>
           ) : (
-            <Link key={m.href} href={m.href}>
+            <Link key={module.href} href={module.href}>
               <Card className="transition-shadow hover:shadow-md">
                 <CardHeader>
-                  <CardTitle className="text-lg">{m.title}</CardTitle>
+                  <CardTitle className="text-lg">{module.title}</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {m.description}
+                    {module.description}
                   </p>
                 </CardHeader>
               </Card>

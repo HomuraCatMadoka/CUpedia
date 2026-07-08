@@ -12,6 +12,9 @@ import { hashPassword } from "better-auth/crypto";
 import {
   users,
   accounts,
+  courseAggregates,
+  courseReviews,
+  courses,
   wikiPages,
   wikiRevisions,
   siteSettings,
@@ -19,9 +22,12 @@ import {
 import {
   USER_IDS,
   ACCOUNT_IDS,
+  COURSE_IDS,
   PAGE_IDS,
   REVISION_IDS,
   PASSWORD,
+  SEED_COURSES,
+  SEED_COURSE_REVIEWS,
   SEED_USERS,
   buildSeedData,
 } from "./seed-data";
@@ -51,6 +57,9 @@ async function main() {
 
   await db.transaction(async (tx) => {
     // Clear existing seed rows (reverse FK order) so the script is idempotent.
+    await tx
+      .delete(courses)
+      .where(sql`${courses.id} IN (${uuidIn(Object.values(COURSE_IDS))})`);
     await tx
       .delete(wikiRevisions)
       .where(
@@ -92,6 +101,53 @@ async function main() {
     }
 
     console.log(`  Created ${SEED_USERS.length} users`);
+
+    for (const course of SEED_COURSES) {
+      await tx.insert(courses).values({
+        ...course,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    console.log(`  Created ${SEED_COURSES.length} courses`);
+
+    for (const review of SEED_COURSE_REVIEWS) {
+      await tx.insert(courseReviews).values({
+        ...review,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    for (const course of SEED_COURSES) {
+      const reviewsForCourse = SEED_COURSE_REVIEWS.filter(
+        (review) => review.courseId === course.id,
+      );
+      await tx.insert(courseAggregates).values({
+        courseId: course.id,
+        reviewCount: reviewsForCourse.length,
+        ratingSum: reviewsForCourse.reduce(
+          (sum, review) => sum + review.rating,
+          0,
+        ),
+        difficultySum: reviewsForCourse.reduce(
+          (sum, review) => sum + review.difficulty,
+          0,
+        ),
+        workloadSum: reviewsForCourse.reduce(
+          (sum, review) => sum + review.workload,
+          0,
+        ),
+        gradingSum: reviewsForCourse.reduce(
+          (sum, review) => sum + review.grading,
+          0,
+        ),
+        updatedAt: now,
+      });
+    }
+
+    console.log(`  Created ${SEED_COURSE_REVIEWS.length} course reviews`);
 
     for (const p of pages) {
       await tx.insert(wikiPages).values({

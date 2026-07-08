@@ -64,6 +64,20 @@
       "when": 1783441783559,
       "tag": "0008_drop_dead_trgm_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781113200000,
+      "tag": "0009_add_course_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783520000000,
+      "tag": "0010_course_review_half_stars",
+      "breakpoints": true
     }
   ]
 }
