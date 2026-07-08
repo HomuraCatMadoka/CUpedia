@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,12 +18,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useSidebar } from "@/components/layout/sidebar-provider";
 import { CommandSearch } from "@/components/layout/command-search";
 
-export function Navbar() {
+export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const { data: session } = authClient.useSession();
-  const { isMobile, openMobile } = useSidebar();
+  // `useSession` reads a cookie-backed session snapshot synchronously on the
+  // client, so the first client render can already know the user while the
+  // server rendered the logged-out state — a hydration mismatch (React #418)
+  // that regenerates the whole layout on hydrate. Gate the auth-dependent
+  // branch on mount so the server output and the first client render agree on
+  // the logged-out markup; the real session UI swaps in right after mount.
+  const mounted = useMounted();
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
   const [nicknameError, setNicknameError] = useState("");
@@ -62,22 +68,14 @@ export function Navbar() {
       <header className="sticky top-0 z-30 border-b bg-white">
         <div className="flex h-14 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            {isMobile && (
-              <button
-                onClick={openMobile}
-                className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
-                aria-label="打开导航"
-              >
-                ☰
-              </button>
-            )}
+            {leading}
             <Link href="/wiki" className="text-lg font-bold">
               CUpedia
             </Link>
           </div>
           <nav className="flex items-center gap-4">
             <CommandSearch />
-            {session?.user ? (
+            {mounted && session?.user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger className="rounded-md px-3 py-1.5 text-sm hover:bg-accent">
                   {((session.user as Record<string, unknown>)

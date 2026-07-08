@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then drizzle-kit migrate; fi && next build",
+    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ] || [ \"$VERCEL_ENV\" = \"preview\" ]; then drizzle-kit migrate; fi && next build",
     "start": "next start",
     "bootstrap": "tsx scripts/setup.ts",
     "lint": "eslint",

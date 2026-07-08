@@ -1,6 +1,25 @@
-import type { Value } from "platejs";
+import { normalizeStaticValue, type Value } from "platejs";
 
 export type PlateValue = Value;
+
+/**
+ * Assign deterministic `static-NNNN` ids (and a fixed metadata timestamp) to a
+ * value before it is handed to `usePlateEditor`. The edit page renders the
+ * `"use client"` editor during SSR *and* re-creates it on hydration; without
+ * this both passes backfill their own random nanoid node ids, so React reports
+ * a hydration mismatch (e.g. `data-table-cell-id`) and the editor can crash
+ * into the error boundary (#204). Running the same source value through this
+ * deterministic normalization on both sides yields identical ids. The read
+ * path solved the same class of bug differently (server-only `createSlateEditor`
+ * + `EditorStatic`, #147); the edit path is interactive so it keeps the client
+ * editor and stabilizes the value instead.
+ */
+export function normalizeInitialValue(
+  value: PlateValue | undefined,
+): PlateValue | undefined {
+  if (value === undefined) return value;
+  return normalizeStaticValue(value) as PlateValue;
+}
 
 const EMPTY_VALUE: PlateValue = [
   { type: "p", children: [{ text: "" }] },

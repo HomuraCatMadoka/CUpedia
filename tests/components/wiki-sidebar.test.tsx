@@ -24,30 +24,23 @@ function ssr(props: Parameters<typeof WikiSidebar>[0]) {
   );
 }
 
-describe("WikiSidebar tree/TOC branches (#136)", () => {
-  it("renders the TOC without a pages prop — read pages omit the tree from the payload", () => {
-    const html = ssr({
-      currentPage: { title: "食堂攻略", slug: "guide/canteen" },
-      headings: [{ id: "h1", text: "营业时间", level: 2 }],
-    });
-    expect(html).toContain("On this page");
-    expect(html).toContain("营业时间");
-    expect(html).not.toContain("校园指南");
-  });
-
-  it("renders the tree when pages are provided and there are no headings", () => {
-    const html = ssr({
-      pages: PAGES,
-      currentPage: { title: "食堂攻略", slug: "guide/canteen" },
-      headings: [],
-    });
+describe("WikiSidebar is tree-only (ADR 0010)", () => {
+  it("renders the full page hierarchy from the pages prop", () => {
+    const html = ssr({ pages: PAGES });
     expect(html).toContain("校园指南");
     expect(html).toContain("食堂攻略");
+  });
+
+  it("labels the navigation column and never renders TOC chrome", () => {
+    // The per-page table of contents now lives in its own column on the read
+    // page — the tree/TOC swap is gone, so the sidebar carries no "On this page".
+    const html = ssr({ pages: PAGES });
+    expect(html).toContain("Pages");
     expect(html).not.toContain("On this page");
   });
 
-  it("renders the plain tree for index-style pages (no currentPage)", () => {
-    const html = ssr({ pages: PAGES });
-    expect(html).toContain("校园指南");
+  it("renders an empty tree without crashing", () => {
+    const html = ssr({ pages: [] });
+    expect(html).toContain("Pages");
   });
 });

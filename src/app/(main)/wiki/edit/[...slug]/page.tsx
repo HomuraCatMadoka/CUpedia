@@ -3,8 +3,6 @@ import { requireEditorOrRedirect } from "@/lib/auth-guard";
 import { getWikiPage, getWikiTree, updateWikiPage } from "@/lib/wiki-actions";
 import { getDiscussions } from "@/lib/discussion-actions";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
-import { WikiSidebar } from "@/components/layout/wiki-sidebar";
-import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 import { parseContent } from "@/lib/plate-utils";
 
 export default async function EditWikiPage({
@@ -55,27 +53,23 @@ export default async function EditWikiPage({
   }
 
   return (
-    <>
-      <SidebarToggle />
-      <WikiSidebar pages={pages} />
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-4xl px-6 py-6">
-          <h1 className="mb-6 text-2xl font-bold">编辑：{page.title}</h1>
-          <WikiEditor
-            mode="edit"
-            pageId={page.id}
-            initialTitle={page.title}
-            initialValue={parseContent(page.content)}
-            initialSlug={page.slug}
-            expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
-            linkablePages={pages
-              .filter((p) => p.id !== page.id)
-              .map((p) => ({ id: p.id, slug: p.slug, title: p.title }))}
-            initialDiscussions={discussions}
-            onSubmit={handleUpdate}
-          />
-        </div>
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-4xl px-6 py-6">
+        <h1 className="mb-6 text-2xl font-bold">编辑：{page.title}</h1>
+        <WikiEditor
+          mode="edit"
+          pageId={page.id}
+          initialTitle={page.title}
+          initialValue={parseContent(page.content)}
+          initialSlug={page.slug}
+          expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
+          linkablePages={pages
+            .filter((p) => p.id !== page.id)
+            .map((p) => ({ id: p.id, slug: p.slug, title: p.title }))}
+          initialDiscussions={discussions}
+          onSubmit={handleUpdate}
+        />
       </div>
-    </>
+    </div>
   );
 }
