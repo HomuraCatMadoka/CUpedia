@@ -208,6 +208,22 @@ describe("recommend — 避雷命中只后移不删除", () => {
     expect(cc.avoidHits).toContain("College_FYP");
     expect(cc.reasons.some((r) => r.includes("命中"))).toBe(true);
   });
+
+  it("避雷原因文案按规范序输出，不随用户勾选顺序（忠实原实现）", () => {
+    // cc 同时命中 FYP + 宗教；即便用非规范序勾选，原因仍应是 [FYP, 宗教]。
+    const result = recommend({
+      majorGroup: "science",
+      priorities: [
+        "Commute_Time",
+        "Accommodation_Environment",
+        "Exchange_Opportunity",
+      ],
+      avoids: ["Religious_Element", "College_FYP"],
+    });
+    const cc = result.find((c) => c.id === "cc")!;
+    const hitReasons = cc.reasons.filter((r) => r.startsWith("命中"));
+    expect(hitReasons).toEqual(["命中：不要书院 FYP", "命中：不要宗教元素"]);
+  });
 });
 
 describe("recommend — 小书院志愿特规", () => {

@@ -2,6 +2,7 @@
 // 行为一比一保留（含既定「怪规则」，见 recommend() 内注释与单测）。
 
 import {
+  AVOID_FACTORS,
   AVOID_REASON_LABEL,
   COLLEGES,
   FLAGS,
@@ -79,7 +80,11 @@ function scoreCollege(
   const avoidHits = getAvoidHits(college.id, avoids);
   if (avoidHits.length) score += WEIGHTS.hardFilterPenalty * avoidHits.length;
 
-  const reasons = avoidHits.map((a) => AVOID_REASON_LABEL[a]);
+  // 原因文案按 AVOID_FACTORS 的规范序输出（忠实原实现的四条定序 if），
+  // 不跟随用户勾选顺序——勿改回 avoidHits.map。
+  const reasons = AVOID_FACTORS.filter((f) => avoidHits.includes(f.id)).map(
+    (f) => AVOID_REASON_LABEL[f.id],
+  );
 
   return { ...college, score, ranks, reasons, avoidHits };
 }
