@@ -28,7 +28,7 @@ export function createFailingOcrProvider(error: string): OcrProvider {
   };
 }
 
-async function recognizeWithGoogleVision(
+export async function recognizeWithGoogleVision(
   buffer: Buffer,
   _mimeType: string,
 ): Promise<OcrRecognizeResult> {

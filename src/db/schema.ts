@@ -347,9 +347,6 @@ export const canteenDishCommentsRelations = relations(
   }),
 );
 
-export const MENU_IMPORT_DRAFT_STATUSES = ["ready", "failed", "published"] as const;
-export type MenuImportDraftStatus = (typeof MENU_IMPORT_DRAFT_STATUSES)[number];
-
 export const menuImportDrafts = pgTable(
   "menu_import_drafts",
   {

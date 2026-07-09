@@ -31,6 +31,19 @@ function ocrErrorMessage(code: string | null | undefined): string {
   return "识别失败，请改用手工录入。";
 }
 
+function importDraftErrorMessage(code: string): string {
+  if (code === "INVALID_DRAFT_ITEMS") return "草稿数据格式无效。";
+  if (code === "INVALID_NAME") return "菜品名称无效。";
+  if (code === "INVALID_PRICE") return "价格须为 0–9999 的整数。";
+  if (code === "INVALID_MEAL_PERIOD") return "餐段须为 breakfast / lunch / dinner。";
+  if (code === "INVALID_SORT_ORDER") return "排序值无效。";
+  if (code === "IMPORT_DRAFT_NOT_FOUND") return "导入草稿不存在或已删除。";
+  if (code === "IMPORT_DRAFT_ALREADY_PUBLISHED") return "该草稿已发布，请重新上传。";
+  if (code === "IMPORT_DRAFT_EMPTY") return "草稿中没有菜品，请添加后再发布。";
+  if (code === "CANTEEN_NOT_FOUND") return "食堂不存在。";
+  return "操作失败，请重试。";
+}
+
 export function CanteenMenuImportPanel({
   canteenId,
   previewMode = false,
@@ -87,7 +100,17 @@ export function CanteenMenuImportPanel({
             setError("图片超过 5MB 上限。");
             return;
           }
-          setError(data.error ?? "上传失败");
+          if (data.error === "INVALID_IMAGE_TYPE") {
+            setError("仅支持 JPEG、PNG、WebP 图片。");
+            return;
+          }
+          if (data.error === "CANTEEN_NOT_FOUND") {
+            setError("食堂不存在。");
+            return;
+          }
+          setError(
+            data.error ? importDraftErrorMessage(data.error) : "上传失败",
+          );
           return;
         }
         const next = data.draft!;
@@ -138,7 +161,7 @@ export function CanteenMenuImportPanel({
         setError(null);
       } catch (err) {
         const code = err instanceof Error ? err.message : "SAVE_FAILED";
-        setError(code);
+        setError(importDraftErrorMessage(code));
       }
     });
   }
@@ -153,7 +176,7 @@ export function CanteenMenuImportPanel({
         window.location.reload();
       } catch (err) {
         const code = err instanceof Error ? err.message : "PUBLISH_FAILED";
-        setError(code);
+        setError(importDraftErrorMessage(code));
       }
     });
   }

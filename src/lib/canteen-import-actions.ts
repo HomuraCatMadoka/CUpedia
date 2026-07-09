@@ -92,7 +92,9 @@ export async function startMenuImportFromImage(
     throw new Error("OCR_RATE_LIMIT_EXCEEDED");
   }
 
-  const sourceImageUrl = isCanteenMockMode()
+  const skipObjectStorage =
+    isCanteenMockMode() || process.env.E2E_TEST === "1";
+  const sourceImageUrl = skipObjectStorage
     ? `mock://menu-import/${filename}`
     : await uploadFile(buffer, filename, mimeType);
 

@@ -5,6 +5,7 @@ const {
   mockGetSession,
   mockDbQueryUsers,
   mockDbQueryCanteens,
+  mockDbQueryMenuImportDrafts,
   mockDbInsert,
   mockDbUpdate,
   mockDbDelete,
@@ -16,6 +17,7 @@ const {
   mockGetSession: vi.fn(),
   mockDbQueryUsers: { findFirst: vi.fn() },
   mockDbQueryCanteens: { findFirst: vi.fn() },
+  mockDbQueryMenuImportDrafts: { findFirst: vi.fn() },
   mockDbInsert: vi.fn(),
   mockDbUpdate: vi.fn(),
   mockDbDelete: vi.fn(),
@@ -52,7 +54,7 @@ vi.mock("@/db", () => ({
     query: {
       users: mockDbQueryUsers,
       canteens: mockDbQueryCanteens,
-      menuImportDrafts: { findFirst: vi.fn() },
+      menuImportDrafts: mockDbQueryMenuImportDrafts,
     },
     insert: (...args: unknown[]) => mockDbInsert(...args),
     update: (...args: unknown[]) => mockDbUpdate(...args),
@@ -269,5 +271,100 @@ describe("canteen-import-actions (mock mode)", () => {
     await expect(
       updateMenuImportDraft(CANTEEN_ID, draft.id, draft.items),
     ).rejects.toThrow("IMPORT_DRAFT_NOT_FOUND");
+  });
+});
+
+describe("canteen-import-actions (database mode)", () => {
+  const prevMock = process.env.CANTEEN_MOCK_DATA;
+  const prevE2e = process.env.E2E_TEST;
+
+  beforeEach(() => {
+    process.env.CANTEEN_MOCK_DATA = "false";
+    process.env.E2E_TEST = "1";
+    resetOcrRateLimitForTests();
+    setOcrProviderForTests(
+      createStaticOcrProvider("导入菜品甲 15元\n导入菜品乙 20"),
+    );
+    mockGetSession.mockResolvedValue(null);
+    mockDbQueryUsers.findFirst.mockResolvedValue(undefined);
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    process.env.CANTEEN_MOCK_DATA = prevMock;
+    process.env.E2E_TEST = prevE2e;
+    resetOcrRateLimitForTests();
+    setOcrProviderForTests(null);
+  });
+
+  it("inserts ready draft through db without object storage upload", async () => {
+    mockAdminSession();
+    mockDbQueryCanteens.findFirst.mockResolvedValue({ id: "canteen-db-1" });
+    const now = new Date();
+    const returning = vi.fn().mockResolvedValue([
+      {
+        id: "draft-db-1",
+        canteenId: "canteen-db-1",
+        sourceImageUrl: "mock://menu-import/menu.jpg",
+        ocrRawText: "导入菜品甲 15元\n导入菜品乙 20",
+        items: [
+          {
+            tempId: "row-0",
+            name: "导入菜品甲",
+            price: 15,
+            mealPeriod: "lunch",
+            sortOrder: 0,
+          },
+        ],
+        status: "ready",
+        errorMessage: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning }) });
+
+    const draft = await startMenuImportFromImage(
+      "canteen-db-1",
+      Buffer.from("x"),
+      "menu.jpg",
+      "image/jpeg",
+    );
+
+    expect(draft.id).toBe("draft-db-1");
+    expect(draft.status).toBe("ready");
+    expect(mockDbInsert).toHaveBeenCalled();
+    expect(mockUploadFile).not.toHaveBeenCalled();
+  });
+
+  it("inserts failed draft when OCR fails", async () => {
+    mockAdminSession();
+    mockDbQueryCanteens.findFirst.mockResolvedValue({ id: "canteen-db-1" });
+    setOcrProviderForTests(createFailingOcrProvider("OCR_EMPTY_RESULT"));
+    const now = new Date();
+    const returning = vi.fn().mockResolvedValue([
+      {
+        id: "draft-db-fail",
+        canteenId: "canteen-db-1",
+        sourceImageUrl: "mock://menu-import/menu.jpg",
+        ocrRawText: null,
+        items: [],
+        status: "failed",
+        errorMessage: "OCR_EMPTY_RESULT",
+        createdAt: now,
+        updatedAt: now,
+      },
+    ]);
+    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning }) });
+
+    const draft = await startMenuImportFromImage(
+      "canteen-db-1",
+      Buffer.from("x"),
+      "menu.jpg",
+      "image/jpeg",
+    );
+
+    expect(draft.status).toBe("failed");
+    expect(draft.errorMessage).toBe("OCR_EMPTY_RESULT");
   });
 });

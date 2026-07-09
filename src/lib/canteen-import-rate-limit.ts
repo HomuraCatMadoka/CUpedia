@@ -1,3 +1,11 @@
+/**
+ * Per-admin OCR rate limit (sliding 1-hour window).
+ *
+ * This map lives in process memory, so on Vercel serverless it only throttles
+ * within a warm instance — not globally across all lambdas. Treat it as
+ * best-effort abuse protection until we persist counters in Redis / Vercel KV
+ * (keyed by admin user id).
+ */
 const ocrTimestamps = new Map<string, number[]>();
 
 export function getOcrRateLimitPerHour(): number {
