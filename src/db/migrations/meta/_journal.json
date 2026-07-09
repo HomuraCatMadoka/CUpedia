@@ -64,6 +64,13 @@
       "when": 1783441783559,
       "tag": "0008_drop_dead_trgm_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783441800000,
+      "tag": "0009_living_katie_power",
+      "breakpoints": true
     }
   ]
 }
