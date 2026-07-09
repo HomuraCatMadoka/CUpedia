@@ -10,6 +10,7 @@ import type {
 import { upsertDishVote } from "@/lib/canteen-vote-actions";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MealPeriodBadge } from "@/components/canteen/meal-period-badge";
+import { MenuItemCommentPanel } from "@/components/canteen/menu-item-comment-panel";
 import { cn } from "@/lib/utils";
 
 const PERIOD_ACCENT: Record<MealPeriod, string> = {
@@ -34,6 +35,8 @@ type MenuItemVoteRowProps = {
     prevVote: VoteChoice,
     nextVote: VoteChoice,
   ) => void;
+  currentUserId?: string | null;
+  commentBlocked?: "banned" | null;
 };
 
 export function MenuItemVoteRow({
@@ -41,6 +44,8 @@ export function MenuItemVoteRow({
   counts,
   myVote,
   onVoteChange,
+  currentUserId = null,
+  commentBlocked = null,
 }: MenuItemVoteRowProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -86,6 +91,11 @@ export function MenuItemVoteRow({
             {error}
           </p>
         ) : null}
+        <MenuItemCommentPanel
+          menuItemId={item.id}
+          currentUserId={currentUserId}
+          commentBlocked={commentBlocked}
+        />
       </div>
       <p className="shrink-0 font-mono text-sm font-medium tabular-nums text-[var(--canteen-purple)]">
         {item.price != null ? `$${item.price}` : "—"}

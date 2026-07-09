@@ -6,6 +6,10 @@ import { count, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-guard";
 import {
+  countCommentsForCanteen,
+  countCommentsForMenuItem,
+} from "@/lib/canteen-comment-queries";
+import {
   countVotesForCanteen,
   countVotesForMenuItem,
 } from "@/lib/canteen-vote-queries";
@@ -44,14 +48,6 @@ async function countMenuItems(canteenId: string): Promise<number> {
   return result[0]?.value ?? 0;
 }
 
-
-async function countCommentsForCanteen(_canteenId: string): Promise<number> {
-  return 0;
-}
-
-async function countCommentsForMenuItem(_menuItemId: string): Promise<number> {
-  return 0;
-}
 
 export async function getCanteenDeleteImpact(
   canteenId: string,

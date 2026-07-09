@@ -255,6 +255,7 @@ export const canteenMenuItemsRelations = relations(
       references: [canteens.id],
     }),
     votes: many(canteenDishVotes),
+    comments: many(canteenDishComments),
   }),
 );
 
@@ -305,6 +306,40 @@ export const canteenDishVotesRelations = relations(
     }),
     user: one(users, {
       fields: [canteenDishVotes.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+export const canteenDishComments = pgTable(
+  "canteen_dish_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    menuItemId: uuid("menu_item_id")
+      .notNull()
+      .references(() => canteenMenuItems.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_dish_comments_menu_item_id_idx").on(table.menuItemId),
+    index("canteen_dish_comments_user_id_idx").on(table.userId),
+  ],
+);
+
+export const canteenDishCommentsRelations = relations(
+  canteenDishComments,
+  ({ one }) => ({
+    menuItem: one(canteenMenuItems, {
+      fields: [canteenDishComments.menuItemId],
+      references: [canteenMenuItems.id],
+    }),
+    user: one(users, {
+      fields: [canteenDishComments.userId],
       references: [users.id],
     }),
   }),

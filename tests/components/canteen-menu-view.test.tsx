@@ -16,6 +16,10 @@ vi.mock("@/lib/canteen-vote-actions", () => ({
   upsertDishVote: (...args: unknown[]) => mockUpsertDishVote(...args),
 }));
 
+vi.mock("@/components/canteen/menu-item-comment-panel", () => ({
+  MenuItemCommentPanel: () => null,
+}));
+
 function item(
   id: string,
   mealPeriod: CanteenMenuItem["mealPeriod"],

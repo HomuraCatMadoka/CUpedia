@@ -9,6 +9,7 @@ import {
   canteens,
   canteenMenuItems,
   canteenDishVotes,
+  canteenDishComments,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -77,5 +78,13 @@ describe("schema", () => {
     expect(cols.userId).toBeDefined();
     expect(cols.anonymousSessionId).toBeDefined();
     expect(cols.vote).toBeDefined();
+  });
+
+  it("canteenDishComments table has required fields", () => {
+    const cols = getTableColumns(canteenDishComments);
+    expect(cols.menuItemId).toBeDefined();
+    expect(cols.userId).toBeDefined();
+    expect(cols.content).toBeDefined();
+    expect("moderationStatus" in cols).toBe(false);
   });
 });
