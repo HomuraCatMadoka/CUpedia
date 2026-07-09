@@ -5,6 +5,7 @@ import {
   uuid,
   boolean,
   integer,
+  jsonb,
   index,
   uniqueIndex,
   check,
@@ -245,6 +246,7 @@ export const canteenMenuItems = pgTable(
 
 export const canteensRelations = relations(canteens, ({ many }) => ({
   menuItems: many(canteenMenuItems),
+  importDrafts: many(menuImportDrafts),
 }));
 
 export const canteenMenuItemsRelations = relations(
@@ -344,3 +346,33 @@ export const canteenDishCommentsRelations = relations(
     }),
   }),
 );
+
+export const MENU_IMPORT_DRAFT_STATUSES = ["ready", "failed", "published"] as const;
+export type MenuImportDraftStatus = (typeof MENU_IMPORT_DRAFT_STATUSES)[number];
+
+export const menuImportDrafts = pgTable(
+  "menu_import_drafts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    sourceImageUrl: text("source_image_url").notNull(),
+    ocrRawText: text("ocr_raw_text"),
+    items: jsonb("items").notNull().$type<import("@/lib/canteen-types").MenuImportDraftItem[]>(),
+    status: text("status").notNull().default("ready"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("menu_import_drafts_canteen_id_idx").on(table.canteenId),
+  ],
+);
+
+export const menuImportDraftsRelations = relations(menuImportDrafts, ({ one }) => ({
+  canteen: one(canteens, {
+    fields: [menuImportDrafts.canteenId],
+    references: [canteens.id],
+  }),
+}));

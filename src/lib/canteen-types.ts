@@ -69,6 +69,49 @@ export type CanteenDishComment = {
   authorNickname: string;
 };
 
+export const MENU_IMPORT_DRAFT_STATUSES = ["ready", "failed", "published"] as const;
+export type MenuImportDraftStatus = (typeof MENU_IMPORT_DRAFT_STATUSES)[number];
+
+export type MenuImportDraftItem = {
+  tempId: string;
+  name: string;
+  price: number | null;
+  mealPeriod: MealPeriod;
+  sortOrder: number;
+};
+
+export type MenuImportDraft = {
+  id: string;
+  canteenId: string;
+  sourceImageUrl: string;
+  ocrRawText: string | null;
+  items: MenuImportDraftItem[];
+  status: MenuImportDraftStatus;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export function validateMenuImportDraftItems(
+  input: unknown,
+): MenuImportDraftItem[] {
+  if (!Array.isArray(input)) throw new Error("INVALID_DRAFT_ITEMS");
+  return input.map((row, index) => {
+    if (!row || typeof row !== "object") throw new Error("INVALID_DRAFT_ITEMS");
+    const r = row as Record<string, unknown>;
+    const tempId =
+      typeof r.tempId === "string" && r.tempId.trim()
+        ? r.tempId.trim()
+        : `draft-${index}`;
+    const name = validateMenuItemName(r.name);
+    const price = validatePrice(r.price);
+    const mealPeriod = parseMealPeriod(String(r.mealPeriod ?? "lunch"));
+    if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+    const sortOrder = validateSortOrder(r.sortOrder ?? index);
+    return { tempId, name, price, mealPeriod, sortOrder };
+  });
+}
+
 export function validateCommentContent(input: unknown): string {
   if (typeof input !== "string") throw new Error("INVALID_COMMENT");
   const trimmed = input.trim();
