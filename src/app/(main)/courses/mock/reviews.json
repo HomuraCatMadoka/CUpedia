@@ -1,4 +1,21 @@
 {
-  "reviews": [],
-  "ratings": []
+  "reviews": [
+    {
+      "id": "dda27731-2e39-4220-af33-a3f1875f0f24",
+      "courseCode": "CSCI2100",
+      "userId": "00000000-0000-4000-a000-000000000002",
+      "content": "HAHA",
+      "createdAt": "2026-06-10T12:45:24.195Z",
+      "likedBy": []
+    }
+  ],
+  "ratings": [
+    {
+      "id": "43958313-9457-4385-972e-5cfd1cec4972",
+      "courseCode": "CSCI2100",
+      "userId": "00000000-0000-4000-a000-000000000002",
+      "score": 6.4,
+      "createdAt": "2026-06-10T12:45:14.983Z"
+    }
+  ]
 }

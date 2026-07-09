@@ -298,6 +298,20 @@ still map to issues; only the spec _filename_ is feature-based. Unit tests in
 - **Component questions**: grep for the component name, read the import chain
 - **Test output**: Capture once to file, analyze without re-running
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `HomuraCatMadoka/CUpedia` (via `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles with default label names (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout: root `CONTEXT.md` + `docs/adr/`, with `docs/course-tree/CONTEXT.md` for the course-tree feature. See `docs/agents/domain.md`.
+
 ## Specialized Skills
 
 Use skills for deep-dive workflows. Keep baseline rules in this file.

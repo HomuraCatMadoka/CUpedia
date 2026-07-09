@@ -103,7 +103,6 @@ CUHK 学生在选课前几乎只能依赖零散的口耳相传或第三方课程
 
 ## Further Notes
 
-* **与 #156 的关系**：#156 解决「逛课、排路线」；本 PRD 解决「看评价、留评价」。二者通过**课号**将来可互链（#156 维护者 story 33）。
 * **设计参考**：`refer_html/1(1).html`（列表卡片）、虎扑式大字推荐指数（详情页）。
 * **本地验证**：`pnpm dev` → `/courses`；seed 账号密码 `password123`（登录表单有 CUHK 邮箱客户端校验，E2E/控制台 API 登录可绕过，见 `e2e/issue-89.spec.ts`）。
 * **实现总结**：`src/app/(main)/courses/course_function_summary.md`。

@@ -133,7 +133,55 @@ pnpm dev                        # 访问 http://localhost:3000/courses
 
 已通过：`pnpm tsc --noEmit`、`pnpm eslint`（课程相关文件，无错误）。
 
-## 9. 已知限制 / 后续可接入真实后端
+## 9. Teaching Staff 数据库（§3.5）
+
+授课教师数据从 [another-cuhk-course-planner](https://another-cuhk-course-planner.com/) 的公开 JSON 导出聚合，存于 `mock/teaching-staff.json`。
+
+### 数据格式
+
+```json
+{
+  "metadata": {
+    "scraped_at": "…",
+    "source": "github:EagleZhen/another-cuhk-course-planner",
+    "terms": ["2025-26 Term 1", "2025-26 Term 2", "2025-26 Summer Session"],
+    "subject_count": 259,
+    "staff_count": 1234
+  },
+  "staff": [
+    {
+      "Teaching Staff": "Dr. LAW Yat Chiu",
+      "Teaching Courses": ["CSCI1130", "CSCI2100"]
+    }
+  ]
+}
+```
+
+### 爬取逻辑（对应 Course_Prompt.md §3.5）
+
+- 遍历三个学期：`2025-26 Term 1` / `Term 2` / `Summer Session`
+- 遍历所有 subject（如 CSCI、MATH），拉取 `/data/{SUBJECT}.json`
+- 跳过研究生课（`course_code >= 5000`）
+- 从课表 `schedule[].meetings[].instructor` 提取教师，按姓名合并其授课列表
+
+### 运行爬虫
+
+```bash
+# 全量（约 259 个 subject，需联网）
+node --import tsx scripts/crawl-teaching-staff.ts --use-github
+
+# 仅调试部分 subject
+node --import tsx scripts/crawl-teaching-staff.ts --subjects CSCI,MATH --use-github
+
+# 只看统计不写文件
+node --import tsx scripts/crawl-teaching-staff.ts --subjects CSCI --dry-run
+```
+
+> 注意：通过 `pnpm crawl:teaching-staff -- --subjects CSCI,MATH` 传参时，PowerShell 可能把逗号拆成空格，建议直接用 `node --import tsx` 命令。
+
+核心逻辑在 `scripts/crawl-teaching-staff-lib.ts`，CLI 在 `scripts/crawl-teaching-staff.ts`。
+
+## 10. 已知限制 / 后续可接入真实后端
 
 - 评论数据存于本地 JSON 文件，采用读-改-写、无并发锁，适合本地/演示；高并发或生产应换为数据库表（如 `course_reviews` / `course_comment_likes`）或真实 API——只需替换 `course-actions.ts` 的实现。
 - 课程数据为 mock，将来可改为爬虫/教务 API；`Course` 类型即对接契约。

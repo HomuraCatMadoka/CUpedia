@@ -43,6 +43,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Cursor (local agent skills / config)
+.cursor/
+
 # Claude Code
 .claude/settings.local.json
 .claude/plans/

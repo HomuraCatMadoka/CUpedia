@@ -14,7 +14,8 @@
     "test:e2e": "playwright test",
     "seed": "node --import tsx --import ./scripts/css-stub.mjs scripts/seed.ts",
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
-    "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run"
+    "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run",
+    "crawl:teaching-staff": "node --import tsx scripts/crawl-teaching-staff.ts"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",
