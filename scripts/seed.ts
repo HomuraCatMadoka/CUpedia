@@ -15,6 +15,10 @@ import {
   wikiPages,
   wikiRevisions,
   siteSettings,
+  courses,
+  majors,
+  majorCategories,
+  categoryCourses,
 } from "../src/db/schema";
 import {
   USER_IDS,
@@ -25,6 +29,11 @@ import {
   SEED_USERS,
   buildSeedData,
 } from "./seed-data";
+import {
+  COURSE_SEED_MAJOR_IDS,
+  SEED_COURSES,
+  SEED_MAJORS,
+} from "./course-tree-seed";
 
 function uuidIn(ids: readonly string[]) {
   return sql.join(
@@ -136,6 +145,75 @@ async function main() {
     }
 
     console.log(`  Seeded ${settings.length} site settings`);
+
+    // ── 课程技能树种子(#163)──
+    // 先删两个种子主修(cascade 清 categories + categoryCourses),课程 upsert;
+    // 全量 4828 门只在 prod,本地/CI 只需这份最小确定性数据。
+    await tx
+      .delete(majors)
+      .where(
+        sql`${majors.id} IN (${uuidIn(Object.values(COURSE_SEED_MAJOR_IDS))})`,
+      );
+
+    for (const c of SEED_COURSES) {
+      await tx
+        .insert(courses)
+        .values({
+          code: c.code,
+          subject: c.subject,
+          title: c.title,
+          units: c.units,
+          terms: c.terms,
+          description: c.description,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: courses.code,
+          set: {
+            subject: c.subject,
+            title: c.title,
+            units: c.units,
+            terms: c.terms,
+            description: c.description,
+            updatedAt: now,
+          },
+        });
+    }
+
+    for (const m of SEED_MAJORS) {
+      await tx.insert(majors).values({
+        id: m.id,
+        name: m.name,
+        faculty: m.faculty,
+        totalUnits: m.totalUnits,
+        normativeYears: m.normativeYears,
+        handbookYear: m.handbookYear,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      for (const cat of m.categories) {
+        await tx.insert(majorCategories).values({
+          id: cat.id,
+          majorId: m.id,
+          name: cat.name,
+          kind: cat.kind,
+          unitsRequired: cat.unitsRequired,
+          pickN: cat.pickN,
+        });
+        await tx.insert(categoryCourses).values(
+          cat.members.map((mem) => ({
+            categoryId: cat.id,
+            courseCode: mem.code,
+            missing: mem.missing ?? false,
+          })),
+        );
+      }
+    }
+
+    console.log(
+      `  Seeded ${SEED_COURSES.length} courses, ${SEED_MAJORS.length} major skeletons`,
+    );
   });
 
   await pool.end();

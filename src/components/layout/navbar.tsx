@@ -78,6 +78,12 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             >
               分院帽
             </Link>
+            <Link
+              href="/course-tree"
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              选课技能树
+            </Link>
           </div>
           <nav className="flex items-center gap-4">
             <CommandSearch />
