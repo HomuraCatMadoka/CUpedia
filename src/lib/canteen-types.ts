@@ -112,6 +112,53 @@ export function validateMenuImportDraftItems(
   });
 }
 
+export const MENU_JSON_MAX_ROWS = 200;
+
+export type MenuItemJsonImportRow = {
+  name: string;
+  price: number | null;
+  mealPeriod: MealPeriod;
+  sortOrder: number;
+  svgKey: string;
+};
+
+/** Parse admin JSON bulk import: array or `{ items: [...] }`. */
+export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
+  let parsed: unknown = input;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) throw new Error("EMPTY_MENU_JSON");
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error("INVALID_JSON");
+    }
+  }
+
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const obj = parsed as Record<string, unknown>;
+    if (Array.isArray(obj.items)) parsed = obj.items;
+  }
+
+  if (!Array.isArray(parsed)) throw new Error("INVALID_MENU_JSON");
+  if (parsed.length === 0) throw new Error("EMPTY_MENU_JSON");
+  if (parsed.length > MENU_JSON_MAX_ROWS) throw new Error("MENU_JSON_TOO_LARGE");
+
+  return parsed.map((row, index) => {
+    if (!row || typeof row !== "object") throw new Error("INVALID_MENU_JSON");
+    const r = row as Record<string, unknown>;
+    const mealPeriod = parseMealPeriod(String(r.mealPeriod ?? "lunch"));
+    if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+    return {
+      name: validateMenuItemName(r.name),
+      price: validatePrice(r.price),
+      mealPeriod,
+      sortOrder: validateSortOrder(r.sortOrder ?? index),
+      svgKey: validateSvgKey(r.svgKey),
+    };
+  });
+}
+
 export function validateCommentContent(input: unknown): string {
   if (typeof input !== "string") throw new Error("INVALID_COMMENT");
   const trimmed = input.trim();

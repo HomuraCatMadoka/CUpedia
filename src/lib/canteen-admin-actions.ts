@@ -32,6 +32,7 @@ import type {
 } from "@/lib/canteen-types";
 import {
   parseMealPeriod,
+  parseMenuItemsJson,
   validateCanteenName,
   validateLocation,
   validateMenuItemName,
@@ -218,6 +219,50 @@ export async function createMenuItem(
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);
   return row as CanteenMenuItem;
+}
+
+export async function bulkImportMenuItemsFromJson(
+  canteenId: string,
+  jsonInput: unknown,
+): Promise<CanteenMenuItem[]> {
+  await requireAdmin();
+  const rows = parseMenuItemsJson(jsonInput);
+
+  if (isCanteenMockMode()) {
+    const created = rows.map((row) => mockCreateMenuItem(canteenId, row));
+    revalidatePath(`/admin/canteens/${canteenId}`);
+    revalidatePath(`/api/canteens/${canteenId}/menu`);
+    revalidatePath(`/canteen/${canteenId}`);
+    return created;
+  }
+
+  const canteen = await db.query.canteens.findFirst({
+    where: eq(canteens.id, canteenId),
+    columns: { id: true },
+  });
+  if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
+
+  const now = new Date();
+  const created = await db
+    .insert(canteenMenuItems)
+    .values(
+      rows.map((row) => ({
+        canteenId,
+        name: row.name,
+        price: row.price,
+        mealPeriod: row.mealPeriod,
+        sortOrder: row.sortOrder,
+        svgKey: row.svgKey,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .returning();
+
+  revalidatePath(`/admin/canteens/${canteenId}`);
+  revalidatePath(`/api/canteens/${canteenId}/menu`);
+  revalidatePath(`/canteen/${canteenId}`);
+  return created as CanteenMenuItem[];
 }
 
 export async function updateMenuItem(
