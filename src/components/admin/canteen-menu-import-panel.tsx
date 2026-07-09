@@ -230,11 +230,17 @@ export function CanteenMenuImportPanel({
                     value={row.price ?? ""}
                     placeholder="价格"
                     inputMode="numeric"
-                    onChange={(e) =>
-                      updateItem(row.tempId, {
-                        price: e.target.value === "" ? null : Number(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      if (raw === "") {
+                        updateItem(row.tempId, { price: null });
+                        return;
+                      }
+                      const n = Number(raw);
+                      if (!Number.isNaN(n)) {
+                        updateItem(row.tempId, { price: n });
+                      }
+                    }}
                   />
                   <select
                     value={row.mealPeriod}

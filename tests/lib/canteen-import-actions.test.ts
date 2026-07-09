@@ -77,7 +77,7 @@ import {
   startMenuImportFromImage,
   updateMenuImportDraft,
 } from "@/lib/canteen-import-actions";
-import { resetCanteenMockState } from "@/lib/canteen-mock";
+import { resetCanteenMockState, mockListMenuItems } from "@/lib/canteen-mock";
 
 const CANTEEN_ID = "mock-canteen-demo";
 
@@ -146,6 +146,42 @@ describe("canteen-import-actions (mock mode)", () => {
     ).rejects.toThrow("IMAGE_TOO_LARGE");
   });
 
+  it("rejects unsupported image types before OCR", async () => {
+    mockAdminSession();
+    await expect(
+      startMenuImportFromImage(
+        CANTEEN_ID,
+        Buffer.from("x"),
+        "menu.gif",
+        "image/gif",
+      ),
+    ).rejects.toThrow("INVALID_IMAGE_TYPE");
+  });
+
+  it("rejects when hourly OCR rate limit is exceeded", async () => {
+    const prevLimit = process.env.CANTEEN_OCR_RATE_LIMIT_PER_HOUR;
+    process.env.CANTEEN_OCR_RATE_LIMIT_PER_HOUR = "1";
+    try {
+      mockAdminSession();
+      await startMenuImportFromImage(
+        CANTEEN_ID,
+        Buffer.from("x"),
+        "menu.jpg",
+        "image/jpeg",
+      );
+      await expect(
+        startMenuImportFromImage(
+          CANTEEN_ID,
+          Buffer.from("x"),
+          "menu2.jpg",
+          "image/jpeg",
+        ),
+      ).rejects.toThrow("OCR_RATE_LIMIT_EXCEEDED");
+    } finally {
+      process.env.CANTEEN_OCR_RATE_LIMIT_PER_HOUR = prevLimit;
+    }
+  });
+
   it("creates failed draft when OCR fails", async () => {
     mockAdminSession();
     setOcrProviderForTests(createFailingOcrProvider("OCR_QUOTA_EXCEEDED"));
@@ -158,6 +194,35 @@ describe("canteen-import-actions (mock mode)", () => {
     expect(draft.status).toBe("failed");
     expect(draft.errorMessage).toBe("OCR_QUOTA_EXCEEDED");
     expect(draft.items).toHaveLength(0);
+  });
+
+  it("lets admin add rows after OCR failure and publish to menu", async () => {
+    mockAdminSession();
+    setOcrProviderForTests(createFailingOcrProvider("OCR_EMPTY_RESULT"));
+    const draft = await startMenuImportFromImage(
+      CANTEEN_ID,
+      Buffer.from("x"),
+      "menu.jpg",
+      "image/jpeg",
+    );
+    expect(draft.status).toBe("failed");
+
+    await updateMenuImportDraft(CANTEEN_ID, draft.id, [
+      {
+        tempId: "manual-1",
+        name: "手工补录菜品",
+        price: 16,
+        mealPeriod: "breakfast",
+        sortOrder: 0,
+      },
+    ]);
+    await publishMenuImportDraft(CANTEEN_ID, draft.id);
+
+    const menu = mockListMenuItems(CANTEEN_ID);
+    expect(menu.some((item) => item.name === "手工补录菜品")).toBe(true);
+    expect(
+      menu.find((item) => item.name === "手工补录菜品")?.mealPeriod,
+    ).toBe("breakfast");
   });
 
   it("updates draft items and publishes to menu", async () => {
@@ -183,6 +248,9 @@ describe("canteen-import-actions (mock mode)", () => {
     expect(created).toHaveLength(1);
     expect(created[0].name).toBe("校对后菜品");
     expect(created[0].mealPeriod).toBe("dinner");
+
+    const menu = mockListMenuItems(CANTEEN_ID);
+    expect(menu.some((item) => item.id === created[0].id)).toBe(true);
 
     await expect(
       publishMenuImportDraft(CANTEEN_ID, draft.id),
