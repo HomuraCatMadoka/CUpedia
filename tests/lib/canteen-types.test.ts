@@ -9,6 +9,7 @@ import {
   validatePrice,
   validateSortOrder,
   parseVote,
+  validateMenuImportDraftItems,
 } from "@/lib/canteen-types";
 
 describe("canteen-types", () => {
@@ -61,5 +62,37 @@ describe("canteen-types", () => {
     expect(parseVote(null)).toBeNull();
     expect(parseVote("")).toBeNull();
     expect(() => parseVote("maybe")).toThrow("INVALID_VOTE");
+  });
+
+  it("validateMenuImportDraftItems rejects invalid shapes", () => {
+    expect(() => validateMenuImportDraftItems(null)).toThrow("INVALID_DRAFT_ITEMS");
+    expect(() => validateMenuImportDraftItems([{ name: "" }])).toThrow(
+      "INVALID_NAME",
+    );
+    expect(() =>
+      validateMenuImportDraftItems([
+        { tempId: "a", name: "饭", price: -1, mealPeriod: "lunch", sortOrder: 0 },
+      ]),
+    ).toThrow("INVALID_PRICE");
+    expect(() =>
+      validateMenuImportDraftItems([
+        { tempId: "a", name: "饭", price: 10, mealPeriod: "snack", sortOrder: 0 },
+      ]),
+    ).toThrow("INVALID_MEAL_PERIOD");
+    expect(() =>
+      validateMenuImportDraftItems([
+        { tempId: "a", name: "饭", price: 10, mealPeriod: "lunch", sortOrder: -1 },
+      ]),
+    ).toThrow("INVALID_SORT_ORDER");
+  });
+
+  it("validateMenuImportDraftItems normalizes rows", () => {
+    const items = validateMenuImportDraftItems([
+      { name: "  叉烧饭  ", price: 18, mealPeriod: "dinner" },
+    ]);
+    expect(items).toHaveLength(1);
+    expect(items[0].name).toBe("叉烧饭");
+    expect(items[0].mealPeriod).toBe("dinner");
+    expect(items[0].tempId).toBe("draft-0");
   });
 });

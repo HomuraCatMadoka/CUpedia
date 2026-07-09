@@ -10,6 +10,7 @@ import {
   canteenMenuItems,
   canteenDishVotes,
   canteenDishComments,
+  menuImportDrafts,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -86,5 +87,13 @@ describe("schema", () => {
     expect(cols.userId).toBeDefined();
     expect(cols.content).toBeDefined();
     expect("moderationStatus" in cols).toBe(false);
+  });
+
+  it("menuImportDrafts table has required fields", () => {
+    const cols = getTableColumns(menuImportDrafts);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.sourceImageUrl).toBeDefined();
+    expect(cols.items).toBeDefined();
+    expect(cols.status).toBeDefined();
   });
 });

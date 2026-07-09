@@ -19,6 +19,10 @@ _Avoid_: 按字母序排列（会得到早→晚→午）。
 
 **菜品评论**: 仅登录用户可发/改/删自己的短评（纯文本，≤500 字，拒绝 HTML）；匿名不可发。发即展示，无审核队列。评论不影响赞踩排行。Admin 可删任意评论（本切片仅 server action，管理端 UI 留后续）。
 
+**OCR 菜单导入**: Admin 上传菜单图片 → 单一云 OCR 调用点（Google Vision，可 mock）→ 尽力解析为草稿 → 校对（含餐段/价格）→ 批量发布到 `canteen_menu_items`。走专用 Admin import API（非 `/api/upload`），内部复用 MinIO `uploadFile`。OCR 失败不阻断，可降级手工录入。图片上限 5MB。
+
+**JSON 菜单导入**: Admin 在菜单管理页粘贴 JSON 数组（或 `{ "items": [...] }`）一键批量写入 `canteen_menu_items`；字段含 name、price、mealPeriod、sortOrder、svgKey。
+
 **硬删除（Hard delete）**: 食堂与菜品无 `deletedAt`；删除行时 DB `ON DELETE CASCADE` 清理关联 votes 与 comments。
 _Avoid_: 沿用 wiki 的软删除模式。
 

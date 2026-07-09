@@ -15,6 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CanteenMenuImportPanel } from "@/components/admin/canteen-menu-import-panel";
+import { CanteenMenuJsonImportPanel } from "@/components/admin/canteen-menu-json-import-panel";
 import { CanteenShell, PreviewBanner } from "@/components/canteen/canteen-shell";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MealPeriodBadge } from "@/components/canteen/meal-period-badge";
@@ -160,6 +162,17 @@ export function CanteenMenuAdmin({
       subtitle={canteen.location ?? undefined}
     >
       {previewMode ? <PreviewBanner /> : null}
+
+      <div className="mb-8 grid gap-6 lg:grid-cols-2">
+        <CanteenMenuImportPanel
+          canteenId={canteen.id}
+          previewMode={previewMode}
+        />
+        <CanteenMenuJsonImportPanel
+          canteenId={canteen.id}
+          previewMode={previewMode}
+        />
+      </div>
 
       <form
         onSubmit={handleCreate}

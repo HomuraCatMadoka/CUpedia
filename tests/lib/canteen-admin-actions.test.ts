@@ -64,6 +64,7 @@ vi.mock("@/db", () => ({
 import {
   createCanteen,
   createMenuItem,
+  bulkImportMenuItemsFromJson,
   deleteCanteen,
   deleteMenuItem,
   updateCanteen,
@@ -250,6 +251,33 @@ describe("canteen-admin-actions", () => {
     await expect(deleteMenuItem("c1", "i-other")).rejects.toThrow(
       "MENU_ITEM_NOT_FOUND",
     );
+  });
+
+  it("bulkImportMenuItemsFromJson imports rows in mock mode", async () => {
+    const prev = process.env.CANTEEN_MOCK_DATA;
+    process.env.CANTEEN_MOCK_DATA = "true";
+    try {
+      const { resetCanteenMockState, mockListMenuItems } = await import(
+        "@/lib/canteen-mock"
+      );
+      resetCanteenMockState();
+      mockAdminSession();
+
+      const created = await bulkImportMenuItemsFromJson("mock-canteen-demo", [
+        { name: "JSON导入A", price: 15, mealPeriod: "lunch" },
+        { name: "JSON导入B", price: 20, mealPeriod: "dinner", sortOrder: 2 },
+      ]);
+      expect(created).toHaveLength(2);
+
+      const menu = mockListMenuItems("mock-canteen-demo");
+      expect(menu.some((item) => item.name === "JSON导入A")).toBe(true);
+      expect(menu.some((item) => item.name === "JSON导入B")).toBe(true);
+      expect(mockDbInsert).not.toHaveBeenCalled();
+    } finally {
+      process.env.CANTEEN_MOCK_DATA = prev;
+      const { resetCanteenMockState } = await import("@/lib/canteen-mock");
+      resetCanteenMockState();
+    }
   });
 });
 

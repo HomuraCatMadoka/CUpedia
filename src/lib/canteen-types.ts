@@ -69,6 +69,96 @@ export type CanteenDishComment = {
   authorNickname: string;
 };
 
+export const MENU_IMPORT_DRAFT_STATUSES = ["ready", "failed", "published"] as const;
+export type MenuImportDraftStatus = (typeof MENU_IMPORT_DRAFT_STATUSES)[number];
+
+export type MenuImportDraftItem = {
+  tempId: string;
+  name: string;
+  price: number | null;
+  mealPeriod: MealPeriod;
+  sortOrder: number;
+};
+
+export type MenuImportDraft = {
+  id: string;
+  canteenId: string;
+  sourceImageUrl: string;
+  ocrRawText: string | null;
+  items: MenuImportDraftItem[];
+  status: MenuImportDraftStatus;
+  errorMessage: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export function validateMenuImportDraftItems(
+  input: unknown,
+): MenuImportDraftItem[] {
+  if (!Array.isArray(input)) throw new Error("INVALID_DRAFT_ITEMS");
+  return input.map((row, index) => {
+    if (!row || typeof row !== "object") throw new Error("INVALID_DRAFT_ITEMS");
+    const r = row as Record<string, unknown>;
+    const tempId =
+      typeof r.tempId === "string" && r.tempId.trim()
+        ? r.tempId.trim()
+        : `draft-${index}`;
+    const name = validateMenuItemName(r.name);
+    const price = validatePrice(r.price);
+    const mealPeriod = parseMealPeriod(String(r.mealPeriod ?? "lunch"));
+    if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+    const sortOrder = validateSortOrder(r.sortOrder ?? index);
+    return { tempId, name, price, mealPeriod, sortOrder };
+  });
+}
+
+export const MENU_JSON_MAX_ROWS = 200;
+
+export type MenuItemJsonImportRow = {
+  name: string;
+  price: number | null;
+  mealPeriod: MealPeriod;
+  sortOrder: number;
+  svgKey: string;
+};
+
+/** Parse admin JSON bulk import: array or `{ items: [...] }`. */
+export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
+  let parsed: unknown = input;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) throw new Error("EMPTY_MENU_JSON");
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error("INVALID_JSON");
+    }
+  }
+
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const obj = parsed as Record<string, unknown>;
+    if (Array.isArray(obj.items)) parsed = obj.items;
+  }
+
+  if (!Array.isArray(parsed)) throw new Error("INVALID_MENU_JSON");
+  if (parsed.length === 0) throw new Error("EMPTY_MENU_JSON");
+  if (parsed.length > MENU_JSON_MAX_ROWS) throw new Error("MENU_JSON_TOO_LARGE");
+
+  return parsed.map((row, index) => {
+    if (!row || typeof row !== "object") throw new Error("INVALID_MENU_JSON");
+    const r = row as Record<string, unknown>;
+    const mealPeriod = parseMealPeriod(String(r.mealPeriod ?? "lunch"));
+    if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+    return {
+      name: validateMenuItemName(r.name),
+      price: validatePrice(r.price),
+      mealPeriod,
+      sortOrder: validateSortOrder(r.sortOrder ?? index),
+      svgKey: validateSvgKey(r.svgKey),
+    };
+  });
+}
+
 export function validateCommentContent(input: unknown): string {
   if (typeof input !== "string") throw new Error("INVALID_COMMENT");
   const trimmed = input.trim();
