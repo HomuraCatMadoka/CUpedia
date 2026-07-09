@@ -196,6 +196,38 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
                         <span className="line-clamp-2 text-sm">
                           {node.missing ? "(暂无课程详情)" : node.title}
                         </span>
+                        {node.prereqCodes.length > 0 && (
+                          <span
+                            className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground"
+                            data-testid="course-prereq"
+                          >
+                            <span>先修 ⇠</span>
+                            {node.prereqCodes.map((pc) => (
+                              // 只连不拦:先修已点亮则高亮为「已满足」,未点亮也不阻止本课点亮
+                              <span
+                                key={pc}
+                                data-prereq={pc}
+                                data-satisfied={lit.has(pc)}
+                                className={cn(
+                                  "rounded px-1 font-mono",
+                                  lit.has(pc)
+                                    ? "bg-primary/15 text-primary"
+                                    : "bg-muted",
+                                )}
+                              >
+                                {pc}
+                              </span>
+                            ))}
+                          </span>
+                        )}
+                        {node.prereqNote && (
+                          <span
+                            className="text-[11px] text-muted-foreground/80"
+                            data-testid="course-prereq-note"
+                          >
+                            {node.prereqNote}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

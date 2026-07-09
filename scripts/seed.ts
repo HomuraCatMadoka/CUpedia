@@ -165,6 +165,7 @@ async function main() {
           units: c.units,
           terms: c.terms,
           description: c.description,
+          requirementsRaw: c.requirementsRaw ?? "",
           updatedAt: now,
         })
         .onConflictDoUpdate({
@@ -175,6 +176,7 @@ async function main() {
             units: c.units,
             terms: c.terms,
             description: c.description,
+            requirementsRaw: c.requirementsRaw ?? "",
             updatedAt: now,
           },
         });

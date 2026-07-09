@@ -92,6 +92,54 @@ describe("getMajorTree", () => {
     expect(mockCoursesFindMany).toHaveBeenCalledTimes(1);
   });
 
+  it("解析 requirements_raw 派生先修边(#164):本树内先修落 prereqCodes 并拓扑分层", async () => {
+    mockMajorsFindFirst.mockResolvedValue({
+      id: "m1",
+      name: "CS",
+      handbookYear: "2023-24",
+      totalUnits: null,
+      categories: [
+        {
+          id: "c1",
+          name: "Required",
+          kind: "required",
+          unitsRequired: "6",
+          pickN: null,
+          courses: [
+            { courseCode: "CSCI1130", missing: false },
+            { courseCode: "CSCI2100", missing: false },
+          ],
+        },
+      ],
+    });
+    mockCoursesFindMany.mockResolvedValue([
+      {
+        code: "CSCI1130",
+        title: "Intro",
+        units: "3",
+        description: "d",
+        terms: ["T1"],
+        requirementsRaw: null,
+      },
+      {
+        code: "CSCI2100",
+        title: "Data Structures",
+        units: "3",
+        description: "d",
+        terms: ["T1"],
+        // 真实简写:'1130' 继承 CSCI 前缀 → 本树内先修 CSCI1130
+        requirementsRaw: "Prerequisite: CSCI1120 or 1130.",
+      },
+    ]);
+
+    const tree = await getMajorTree("m1");
+    const nodes = tree!.groups[0].nodes;
+    const a = nodes.find((n) => n.code === "CSCI1130")!;
+    const b = nodes.find((n) => n.code === "CSCI2100")!;
+    expect(b.prereqCodes).toEqual(["CSCI1130"]);
+    expect(b.level).toBe(a.level + 1);
+  });
+
   it("主修不存在返回 null,且不查 courses", async () => {
     mockMajorsFindFirst.mockResolvedValue(undefined);
     expect(await getMajorTree("nope")).toBeNull();

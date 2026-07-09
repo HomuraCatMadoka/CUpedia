@@ -9,6 +9,7 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { courses, majors } from "@/db/schema";
 import { computeTree } from "@/lib/course-tree/compute-tree";
+import { parseRequirements } from "@/lib/course-tree/parse-requirements";
 import type {
   CategoryInput,
   CategoryKind,
@@ -72,17 +73,29 @@ export async function getMajorTree(majorId: string): Promise<MajorTree | null> {
             units: true,
             description: true,
             terms: true,
+            requirementsRaw: true,
           },
         })
       : [];
 
-    const courseInfos: CourseInfo[] = courseRows.map((c) => ({
-      code: c.code,
-      title: c.title,
-      units: Number(c.units),
-      description: c.description,
-      terms: c.terms ?? [],
-    }));
+    const courseInfos: CourseInfo[] = courseRows.map((c) => {
+      // subjectHint = 课号前四位学科码,供裸数字简写补全(CSCI2100 or 1130 → CSCI1130)。
+      const parsed = parseRequirements(
+        c.requirementsRaw ?? "",
+        c.code.slice(0, 4),
+      );
+      return {
+        code: c.code,
+        title: c.title,
+        units: Number(c.units),
+        description: c.description,
+        terms: c.terms ?? [],
+        prerequisites: parsed.prerequisites,
+        corequisites: parsed.corequisites,
+        // 豁免 / 旁路 warning / 非课号限制等合并为一串备注,供 computeTree 汇入提示。
+        requirementNotes: [...parsed.notes, ...parsed.warnings],
+      };
+    });
 
     return computeTree(
       {
