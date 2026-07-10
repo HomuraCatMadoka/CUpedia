@@ -28,10 +28,14 @@ export type ParsedRequirements = {
 };
 
 /**
- * 从一段文字里按出现顺序抽课号,裸数字继承「最近出现的 subject」(初始默认 subjectHint):
- * "CSCI2100 or 2520 or ESTR2102" → CSCI2100 / CSCI2520 / ESTR2102。
+ * 从一段文字里按出现顺序抽课号,裸数字继承「最近出现的 subject」(初始默认 subjectHint),
+ * 并回传扫描结束时的 subject,供 AND 分段间接力(避免 'and' 分段把继承重置回 hint)。
+ * 紧跟连字符的 4 位裸数字是年份区间 / 等级(「2008-09」「1000- or 2000-level」),不当课号。
  */
-function resolveCodes(segment: string, subjectHint: string): string[] {
+function resolveCodesTracked(
+  segment: string,
+  subjectHint: string,
+): { codes: string[]; endSubject: string } {
   const out: string[] = [];
   let lastSubject = subjectHint;
   const token = /([A-Z]{4})\s?(\d{4})|(\d{4})/g;
@@ -41,10 +45,33 @@ function resolveCodes(segment: string, subjectHint: string): string[] {
       lastSubject = m[1];
       out.push(m[1] + m[2]);
     } else if (m[3]) {
+      // 裸数字后紧跟 '-' → 年份区间 / 等级词,不是课号(2008-09、2000-level)。
+      if (/^\s*-/.test(segment.slice(token.lastIndex))) continue;
       out.push(lastSubject + m[3]);
     }
   }
-  return out;
+  return { codes: out, endSubject: lastSubject };
+}
+
+/** 单段抽课号(exclusion 用,不需要 subject 接力)。 */
+function resolveCodes(segment: string, subjectHint: string): string[] {
+  return resolveCodesTracked(segment, subjectHint).codes;
+}
+
+/**
+ * 一个先修/同修从句 → AND-of-OR 组:按 'and' 拆成多个 OR 组,组间的 subject 继承
+ * 顺着接力(前一段末尾的 subject 作为后一段起点),这样「LEDC2520 and 3520」里的
+ * 3520 继承 LEDC 而非重置回 hint。
+ */
+function resolveGroups(clause: string, subjectHint: string): PrereqGroup[] {
+  const groups: PrereqGroup[] = [];
+  let lastSubject = subjectHint;
+  for (const part of clause.split(/\band\b/i)) {
+    const { codes, endSubject } = resolveCodesTracked(part, lastSubject);
+    lastSubject = endSubject;
+    if (codes.length) groups.push({ codes });
+  }
+  return groups;
 }
 
 // 旁路条款:含 equivalent / permission / consent 等无法建模成课号的从句。
@@ -92,11 +119,9 @@ export function parseRequirements(
     if (BYPASS.test(clause)) {
       result.warnings.push(`先修含旁路条款(未建模):${clause.trim()}`);
     }
-    // 组间 AND:每个 AND 段 = 一个 OR 组(括号对 resolveCodes 只是噪音)。
-    for (const part of clause.split(/\band\b/i)) {
-      const codes = resolveCodes(part, subjectHint);
-      if (codes.length) result.prerequisites.push({ codes });
-    }
+    // 组间 AND:每个 AND 段 = 一个 OR 组(括号对 resolveCodes 只是噪音);
+    // subject 继承顺着 AND 段接力,避免 'and' 把裸数字继承重置回 hint。
+    result.prerequisites.push(...resolveGroups(clause, subjectHint));
   }
 
   // 同修段:Co-requisite(s): / Corequisite: 引导(有无连字符都收)。S4 单独归类,
@@ -108,10 +133,7 @@ export function parseRequirements(
     if (BYPASS.test(clause)) {
       result.warnings.push(`同修含旁路条款(未建模):${clause.trim()}`);
     }
-    for (const part of clause.split(/\band\b/i)) {
-      const codes = resolveCodes(part, subjectHint);
-      if (codes.length) result.corequisites.push({ codes });
-    }
+    result.corequisites.push(...resolveGroups(clause, subjectHint));
   }
 
   // 非课号限制备注:「Not for students of Faculty …」/「… majoring in …」这类身份/院系

@@ -146,6 +146,46 @@ describe("parseRequirements (#164)", () => {
     expect(r.corequisites).toEqual([{ codes: ["CSCI3160", "ESTR3104"] }]);
   });
 
+  it("年份区间不当课号:排斥句里的 '2008-09' 不产出 CENG2008", () => {
+    // CENG4480 原文:排斥句含年份区间「in 2008-09 and before」,'2008' 紧跟 '-',是年份非课号。
+    const r = parseRequirements(
+      "Not for students who have taken CENG3480 in 2008-09 and before;" +
+        "Prerequisite: CENG2400 or ESTR2100.\n" +
+        "For 2nd-year entrants, the prerequisite will be waived.",
+      "CENG",
+    );
+    expect(r.exclusions).toEqual(["CENG3480"]); // 不含 CENG2008
+    expect(r.prerequisites).toEqual([{ codes: ["CENG2400", "ESTR2100"] }]);
+  });
+
+  it("等级词不当课号:'1000- or 2000-level' 不产出 EPIN1000/2000", () => {
+    // EPIN4010 原文:'1000-'/'2000-level' 是课程等级,紧跟 '-',非课号;整句仅 permission 旁路。
+    const r = parseRequirements(
+      "Prerequisite: Any one of the 1000- or 2000-level of EPIN-coded course, " +
+        "or with special permission granted by the instructor",
+      "EPIN",
+    );
+    const codes = r.prerequisites.flatMap((g) => g.codes);
+    expect(codes).not.toContain("EPIN1000");
+    expect(codes).not.toContain("EPIN2000");
+    expect(r.warnings.some((w) => /permission/i.test(w))).toBe(true);
+  });
+
+  it("跨 AND 段:裸数字继承的 subject 不被 'and' 重置", () => {
+    // CLED4610 原文:'3520' 紧跟 LEDC2520,应继承 LEDC(→LEDC3520),
+    // 不能被 'and' 分段重置回 subjectHint(CLED),否则造出查无此课的 CLED3520。
+    const r = parseRequirements(
+      "Prerequisites:LEDC2520 and 3520 or CLED2530 and 3530",
+      "CLED",
+    );
+    const codes = r.prerequisites.flatMap((g) => g.codes);
+    expect(codes).toContain("LEDC2520");
+    expect(codes).toContain("LEDC3520"); // 3520 继承最近的 LEDC
+    expect(codes).toContain("CLED2530");
+    expect(codes).toContain("CLED3530"); // 3530 继承最近的 CLED
+    expect(codes).not.toContain("CLED3520"); // 不得造出伪造码
+  });
+
   it("多行先修:关键词后紧跟换行,内容在下一行仍捕获为边", () => {
     // ESTR3516 原文(简化):Pre-requisites: 后紧跟换行,课号在 (a) 行
     const r = parseRequirements(
