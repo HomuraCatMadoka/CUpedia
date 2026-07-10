@@ -373,3 +373,29 @@ export const menuImportDraftsRelations = relations(menuImportDrafts, ({ one }) =
     references: [canteens.id],
   }),
 }));
+
+// ── Homepage monthly danmaku (#192) ──
+
+export const danmakuMessages = pgTable(
+  "danmaku_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    month: text("month").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("danmaku_messages_month_idx").on(table.month),
+    index("danmaku_messages_user_id_idx").on(table.userId),
+  ],
+);
+
+export const danmakuMessagesRelations = relations(danmakuMessages, ({ one }) => ({
+  user: one(users, {
+    fields: [danmakuMessages.userId],
+    references: [users.id],
+  }),
+}));
