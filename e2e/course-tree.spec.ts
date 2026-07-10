@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * 选课技能树画布 e2e — ref #163 / #164 / #235 / #156
+ * 选课技能树画布 e2e — ref #163 / #164 / #235 / #165 / #156
  *
  * 匿名可访问的「课程加点模拟器」画布竖切:选一个主修 → 课程按**拓扑层分列** →
  * SVG 贝塞尔先修连线 → 自由点亮/取消 → 实时总学分与每类软进度摘要。钉住端到端行为:
@@ -74,8 +74,9 @@ test.describe("#163 选课技能树", () => {
     await expect(total).toHaveText("3 / 99");
     await expect(coreProgress).toHaveText("还差 9 学分");
 
-    // 再点亮 CSCI1120(3 学分)→ 累加。
-    await page.locator('[data-code="CSCI1120"]').click();
+    // 再点亮 ENGG2020(3 学分)→ 累加。
+    // (不用 CSCI1120:它与 CSCI1130 双向互斥,已并成多选一组,点 1130 后即被硬锁——见 #165 用例。)
+    await page.locator('[data-code="ENGG2020"]').click();
     await expect(total).toHaveText("6 / 99");
     await expect(coreProgress).toHaveText("还差 6 学分");
 
@@ -208,5 +209,60 @@ test.describe("#164/#235 先修边与拓扑分列(画布)", () => {
     expect(l2100).toBeGreaterThan(l1120);
     expect(l2100).toBeGreaterThan(l1130);
     expect(l3230).toBeGreaterThan(l2100);
+  });
+});
+
+test.describe("#165 等价组多选一", () => {
+  test("双向互斥课并成多选一组:点亮一门其余置灰,取消后恢复", async ({
+    page,
+  }) => {
+    await page.goto("/course-tree");
+
+    // Required Core 里 CSCI1120↔CSCI1130 双向互斥(C++ vs Java 入门)→ 并成唯一一个多选一组。
+    const group = page.getByTestId("equiv-group");
+    await expect(group).toHaveCount(1);
+    await expect(group).toHaveAttribute("data-codes", "CSCI1120,CSCI1130");
+
+    const java = page.locator('[data-code="CSCI1130"]');
+    const cpp = page.locator('[data-code="CSCI1120"]');
+
+    // 初始两门都可选。
+    await expect(java).toBeEnabled();
+    await expect(cpp).toBeEnabled();
+
+    // 点亮 CSCI1130 → 同组的 CSCI1120 置灰不可选(硬锁)。
+    await java.click();
+    await expect(java).toHaveAttribute("data-lit", "true");
+    await expect(cpp).toBeDisabled();
+    await expect(cpp).toHaveAttribute("data-blocked", "true");
+
+    // 取消 CSCI1130 → CSCI1120 恢复可选。
+    await java.click();
+    await expect(java).toHaveAttribute("data-lit", "false");
+    await expect(cpp).toBeEnabled();
+    await expect(cpp).toHaveAttribute("data-blocked", "false");
+  });
+
+  test("下游先修指向等价组:点亮组内任一即让先修满足(边高亮)", async ({
+    page,
+  }) => {
+    await page.goto("/course-tree");
+
+    // CSCI2100 先修「CSCI1120 或 CSCI1130」——两者是同一等价组,点亮任一即满足。
+    const edgeFrom1120 = page.locator(
+      '[data-testid="prereq-edge"][data-from="CSCI1120"][data-to="CSCI2100"]',
+    );
+    const edgeFrom1130 = page.locator(
+      '[data-testid="prereq-edge"][data-from="CSCI1130"][data-to="CSCI2100"]',
+    );
+    await expect(edgeFrom1120).toBeAttached();
+    await expect(edgeFrom1130).toBeAttached();
+
+    // 只点亮组内的 CSCI1130。
+    await page.locator('[data-code="CSCI1130"]').click();
+
+    // 指向 CSCI2100 的两条先修边都翻高亮:点组内任一即满足(#165)。
+    await expect(edgeFrom1130).toHaveAttribute("data-hot", "true");
+    await expect(edgeFrom1120).toHaveAttribute("data-hot", "true");
   });
 });

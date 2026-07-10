@@ -38,6 +38,7 @@ function tree(groups: { id: string; nodes: CourseNode[] }[]): MajorTree {
       pickN: null,
       nodes: g.nodes,
     })),
+    equivalenceGroups: [],
   };
 }
 

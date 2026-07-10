@@ -92,6 +92,7 @@ export async function getMajorTree(majorId: string): Promise<MajorTree | null> {
         terms: c.terms ?? [],
         prerequisites: parsed.prerequisites,
         corequisites: parsed.corequisites,
+        exclusions: parsed.exclusions,
         // 豁免 / 旁路 warning / 非课号限制等合并为一串备注,供 computeTree 汇入提示。
         requirementNotes: [...parsed.notes, ...parsed.warnings],
       };

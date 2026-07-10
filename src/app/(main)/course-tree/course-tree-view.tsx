@@ -18,6 +18,7 @@ import { layoutCanvas } from "@/lib/course-tree/layout-canvas";
 import type {
   CategoryProgress,
   CourseNode,
+  EquivalenceGroup,
   MajorListItem,
   MajorTree,
 } from "@/lib/course-tree/types";
@@ -96,6 +97,14 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
     const m = new Map<string, string>();
     for (const g of tree?.groups ?? []) {
       for (const n of g.nodes) if (!m.has(n.code)) m.set(n.code, g.name);
+    }
+    return m;
+  }, [tree]);
+  // 课号 → 所属等价组(#165:多选一互斥簇);一门课至多归一组。
+  const codeToGroup = useMemo(() => {
+    const m = new Map<string, EquivalenceGroup>();
+    for (const g of tree?.equivalenceGroups ?? []) {
+      for (const c of g.codes) if (!m.has(c)) m.set(c, g);
     }
     return m;
   }, [tree]);
@@ -191,6 +200,7 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
             layout={layout}
             lit={lit}
             codeToCat={codeToCat}
+            codeToGroup={codeToGroup}
             onToggle={toggle}
           />
         </>
@@ -205,15 +215,44 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
   );
 }
 
+/** 一列里的一格:单节点,或一整个等价组「多选一」簇(同列成员聚在一起)。 */
+type CanvasCell = { group: EquivalenceGroup | null; nodes: CourseNode[] };
+
+/** 把一列节点摊成格子:等价组同列成员并进一格,其余各自成格(保持首次出现顺序)。 */
+function columnCells(
+  nodes: CourseNode[],
+  codeToGroup: Map<string, EquivalenceGroup>,
+): CanvasCell[] {
+  const cells: CanvasCell[] = [];
+  const groupCell = new Map<string, number>();
+  for (const node of nodes) {
+    const g = codeToGroup.get(node.code);
+    if (g) {
+      const key = g.categoryId + ":" + g.codes.join(",");
+      const at = groupCell.get(key);
+      if (at != null) cells[at].nodes.push(node);
+      else {
+        groupCell.set(key, cells.length);
+        cells.push({ group: g, nodes: [node] });
+      }
+    } else {
+      cells.push({ group: null, nodes: [node] });
+    }
+  }
+  return cells;
+}
+
 function CourseCanvas({
   layout,
   lit,
   codeToCat,
+  codeToGroup,
   onToggle,
 }: {
   layout: ReturnType<typeof layoutCanvas>;
   lit: Set<string>;
   codeToCat: Map<string, string>;
+  codeToGroup: Map<string, EquivalenceGroup>;
   onToggle: (code: string) => void;
 }) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -276,6 +315,80 @@ function CourseCanvas({
     });
   }
 
+  function renderNode(node: CourseNode) {
+    const isLit = lit.has(node.code);
+    const group = codeToGroup.get(node.code);
+    // 多选一硬锁:同组已有别的成员点亮 → 本节点置灰不可选(取消那门才恢复)。
+    const blocked =
+      !isLit &&
+      !!group &&
+      group.codes.some((c) => c !== node.code && lit.has(c));
+    const disabled = node.missing || blocked;
+    return (
+      <button
+        key={node.code}
+        ref={(el) => bindNode(node.code, el)}
+        type="button"
+        data-testid="course-node"
+        data-code={node.code}
+        data-lit={isLit}
+        data-blocked={blocked}
+        aria-pressed={isLit}
+        disabled={disabled}
+        title={
+          node.missing
+            ? "课程详情缺失(骨架占位)"
+            : blocked
+              ? "与同组已选课程互斥(多选一);取消那门后可选"
+              : node.description || `${node.title} · ${node.units} 学分`
+        }
+        onClick={() => onToggle(node.code)}
+        onMouseEnter={(e) => !node.missing && openTip(node, e.currentTarget)}
+        onMouseLeave={() => setHover(null)}
+        onFocus={(e) => !node.missing && openTip(node, e.currentTarget)}
+        onBlur={() => setHover(null)}
+        className={cn(
+          "flex w-52 flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors",
+          isLit
+            ? "border-primary bg-primary/10"
+            : "bg-card hover:border-foreground/40",
+          node.missing && "cursor-not-allowed border-dashed opacity-50",
+          blocked && "cursor-not-allowed opacity-40",
+        )}
+      >
+        <span className="flex items-center justify-between gap-2">
+          <span className="font-mono text-xs text-muted-foreground">
+            {node.code}
+          </span>
+          <span className="flex items-center gap-1">
+            <Badge variant="secondary" className="tabular-nums">
+              {node.units}
+            </Badge>
+            {/* 常驻勾:仅透明度切换,不改布局(免边重测)。 */}
+            <svg
+              viewBox="0 0 24 24"
+              className={cn(
+                "size-3.5 text-primary transition-opacity",
+                isLit ? "opacity-100" : "opacity-0",
+              )}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
+        </span>
+        <span className="line-clamp-2 text-sm">
+          {node.missing ? "(暂无课程详情)" : node.title}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="relative overflow-x-auto rounded-lg border bg-muted/20 p-1">
       <div
@@ -290,7 +403,9 @@ function CourseCanvas({
           aria-hidden="true"
         >
           {paths.map((p) => {
-            const hot = lit.has(p.from);
+            // 先修满足:源课点亮,或其等价组内任一成员点亮(#165「点组内任一即满足」)。
+            const g = codeToGroup.get(p.from);
+            const hot = g ? g.codes.some((c) => lit.has(c)) : lit.has(p.from);
             return (
               <g key={`${p.from}->${p.to}`}>
                 <path
@@ -327,73 +442,25 @@ function CourseCanvas({
             <div className="text-xs font-medium text-muted-foreground">
               {levelLabel(col.level)}
             </div>
-            {col.nodes.map((node) => {
-              const isLit = lit.has(node.code);
-              return (
-                <button
-                  key={node.code}
-                  ref={(el) => bindNode(node.code, el)}
-                  type="button"
-                  data-testid="course-node"
-                  data-code={node.code}
-                  data-lit={isLit}
-                  aria-pressed={isLit}
-                  disabled={node.missing}
-                  title={
-                    node.missing
-                      ? "课程详情缺失(骨架占位)"
-                      : node.description || `${node.title} · ${node.units} 学分`
-                  }
-                  onClick={() => onToggle(node.code)}
-                  onMouseEnter={(e) =>
-                    !node.missing && openTip(node, e.currentTarget)
-                  }
-                  onMouseLeave={() => setHover(null)}
-                  onFocus={(e) =>
-                    !node.missing && openTip(node, e.currentTarget)
-                  }
-                  onBlur={() => setHover(null)}
-                  className={cn(
-                    "flex w-52 flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors",
-                    isLit
-                      ? "border-primary bg-primary/10"
-                      : "bg-card hover:border-foreground/40",
-                    node.missing &&
-                      "cursor-not-allowed border-dashed opacity-50",
-                  )}
+            {columnCells(col.nodes, codeToGroup).map((cell, i) =>
+              cell.group ? (
+                <div
+                  key={`g:${cell.group.categoryId}:${cell.group.codes.join(",")}:${i}`}
+                  data-testid="equiv-group"
+                  data-codes={cell.group.codes.join(",")}
+                  data-oversized={cell.group.oversized}
+                  className="flex flex-col gap-2 rounded-lg border border-dashed border-amber-400/60 bg-amber-50/40 p-2 dark:border-amber-500/40 dark:bg-amber-950/20"
                 >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {node.code}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Badge variant="secondary" className="tabular-nums">
-                        {node.units}
-                      </Badge>
-                      {/* 常驻勾:仅透明度切换,不改布局(免边重测)。 */}
-                      <svg
-                        viewBox="0 0 24 24"
-                        className={cn(
-                          "size-3.5 text-primary transition-opacity",
-                          isLit ? "opacity-100" : "opacity-0",
-                        )}
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
-                      >
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                    </span>
+                  <span className="text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    多选一 · {cell.group.codes.length} 选 1
+                    {cell.group.oversized && " · 待复核"}
                   </span>
-                  <span className="line-clamp-2 text-sm">
-                    {node.missing ? "(暂无课程详情)" : node.title}
-                  </span>
-                </button>
-              );
-            })}
+                  {cell.nodes.map(renderNode)}
+                </div>
+              ) : (
+                renderNode(cell.nodes[0])
+              ),
+            )}
           </div>
         ))}
       </div>
