@@ -2,9 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   recommend,
   validatePriorities,
+  computeWeights,
   type RecommendInput,
 } from "@/lib/college-picker/recommend";
-import { COLLEGES, SMALL_COLLEGE_IDS } from "@/lib/college-picker/data";
+import {
+  COLLEGES,
+  SMALL_COLLEGE_IDS,
+  type ScoredFactor,
+  type AvoidFactor,
+} from "@/lib/college-picker/data";
 
 // 「分院帽」评分与志愿排序：忠实移植自 lorasbb/College-Hat，
 // 黄金输出经 scratchpad/harness.js 验证。术语见 docs/college-picker/CONTEXT.md。
@@ -48,7 +54,9 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       priorities: ["Hostel_Guarantee", "Commute_Time", "Exchange_Opportunity"],
       avoids: ["Admission_Interview", "Admission_Written_Test"],
     },
-    expected: ["cc", "uc", "sc", "shho", "mc", "na", "wys", "lws", "cwc"],
+    // 新规则：已删除「避雷面试/笔试→降级小书院」旧规则（改由 A/B/C 题控制），
+    // 第一志愿回到「最高分小书院」= 善衡 shho；敬文 cwc 命中两项避雷，扣到 0 垫底。
+    expected: ["shho", "cc", "uc", "mc", "sc", "na", "wys", "lws", "cwc"],
   },
   {
     label: "理科 · 通勤/住宿/交换 · 避雷[FYP]",
@@ -61,7 +69,8 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       ],
       avoids: ["College_FYP"],
     },
-    expected: ["mc", "na", "lws", "shho", "sc", "cc", "uc", "wys", "cwc"],
+    // 伍宜孙 wys / 敬文 cwc 命中 FYP 后推荐指数均扣到 0，同分按 id 稳定排序：cwc 先于 wys。
+    expected: ["mc", "na", "lws", "shho", "sc", "cc", "uc", "cwc", "wys"],
   },
   {
     label: "社科 · 住宿/保宿/交换 · 避雷[FYP,宗教,面试,笔试]",
@@ -79,7 +88,8 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
         "Admission_Written_Test",
       ],
     },
-    expected: ["lws", "na", "sc", "mc", "shho", "uc", "wys", "cc", "cwc"],
+    // 多所命中避雷扣到 0，末段按 id 稳定排序：cc, cwc, uc, wys。
+    expected: ["mc", "lws", "na", "shho", "sc", "cc", "cwc", "uc", "wys"],
   },
   {
     label: "工科 · 交换/住宿/保宿 · 无避雷",
@@ -96,11 +106,11 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
   },
 ];
 
-describe("recommend — 评分公式 (rank1×5 + rank2×3 + rank3×2)", () => {
-  it("按加权名次给书院打分", () => {
+describe("recommend — 推荐指数公式 ((10-rank1)×5 + (10-rank2)×3 + (10-rank3)×2 - 避雷×50)", () => {
+  it("按加权名次给书院打推荐指数（越高越好）", () => {
     // 工科 · 通勤/住宿/保宿 · 无避雷
     // 晨兴 mc：通勤::engineering=2、住宿::ALL=1、保宿::ALL=2
-    // score = 2×5 + 1×3 + 2×2 = 17
+    // score = (10-2)×5 + (10-1)×3 + (10-2)×2 = 40 + 27 + 16 = 83
     const result = recommend({
       majorGroup: "engineering",
       priorities: [
@@ -111,13 +121,13 @@ describe("recommend — 评分公式 (rank1×5 + rank2×3 + rank3×2)", () => {
       avoids: [],
     });
     const mc = result.find((c) => c.id === "mc");
-    expect(mc?.score).toBe(17);
+    expect(mc?.score).toBe(83);
   });
 
-  it("避雷命中会叠加惩罚分 (每命中一项 +50)", () => {
+  it("避雷命中会扣分 (每命中一项 -50)", () => {
     // 理科 · 通勤/住宿/交换 · 避雷[FYP]；崇基 cc 命中 FYP
-    // 基础分：通勤::science=3、住宿::ALL=7、交换::ALL=1 → 3×5+7×3+1×2 = 38
-    // 命中一项避雷 → +50 = 88
+    // 基础推荐指数：(10-3)×5 + (10-7)×3 + (10-1)×2 = 35 + 9 + 18 = 62
+    // 命中一项避雷 → -50 = 12
     const withAvoid = recommend({
       majorGroup: "science",
       priorities: [
@@ -127,11 +137,33 @@ describe("recommend — 评分公式 (rank1×5 + rank2×3 + rank3×2)", () => {
       ],
       avoids: ["College_FYP"],
     });
-    expect(withAvoid.find((c) => c.id === "cc")?.score).toBe(88);
+    expect(withAvoid.find((c) => c.id === "cc")?.score).toBe(12);
+  });
+
+  it("推荐指数扣到 <=0 时归零", () => {
+    // 社科 · 住宿/保宿/交换 · 避雷全部四项；崇基 cc 命中 FYP+宗教 两项
+    // 基础：(10-4)×5+(10-6)×3+(10-1)×2 = 30+12+18 = 60；命中两项 -100 → -40 → 归零
+    const result = recommend({
+      majorGroup: "social_science",
+      priorities: [
+        "Accommodation_Environment",
+        "Hostel_Guarantee",
+        "Exchange_Opportunity",
+      ],
+      avoids: [
+        "College_FYP",
+        "Religious_Element",
+        "Admission_Interview",
+        "Admission_Written_Test",
+      ],
+    });
+    const cc = result.find((c) => c.id === "cc")!;
+    expect(cc.avoidHits).toHaveLength(2);
+    expect(cc.score).toBe(0);
   });
 });
 
-describe("validatePriorities — 三个看重因素必须选满且互不相同", () => {
+describe("validatePriorities — 第一必填；非空不重复；不跳位", () => {
   it("三个不同因素：通过", () => {
     expect(
       validatePriorities([
@@ -152,10 +184,40 @@ describe("validatePriorities — 三个看重因素必须选满且互不相同",
     if (!r.ok) expect(r.message).toBeTruthy();
   });
 
-  it("未选满（有空位）：不通过并给出提示", () => {
+  it("第一看重点留空：不通过", () => {
+    const r = validatePriorities(["", "Accommodation_Environment", ""]);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.message).toContain("第一");
+  });
+
+  it("第二留空、第三也留空：通过（允许只填一个）", () => {
+    expect(
+      validatePriorities(["Commute_Time", "", ""]),
+    ).toEqual({ ok: true });
+  });
+
+  it("第二留空但第三填写（跳位）：不通过", () => {
     const r = validatePriorities(["Commute_Time", "", "Hostel_Guarantee"]);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.message).toBeTruthy();
+  });
+});
+
+describe("computeWeights — 非空权重等比放大到合计 10", () => {
+  it("三项填满：5 / 3 / 2", () => {
+    expect(computeWeights(["Commute_Time", "Accommodation_Environment", "Hostel_Guarantee"])).toEqual([
+      5, 3, 2,
+    ]);
+  });
+
+  it("仅填前两项：6.25 / 3.75 / 0", () => {
+    expect(computeWeights(["Commute_Time", "Accommodation_Environment", ""])).toEqual([
+      6.25, 3.75, 0,
+    ]);
+  });
+
+  it("仅填第一项：10 / 0 / 0", () => {
+    expect(computeWeights(["Commute_Time", "", ""])).toEqual([10, 0, 0]);
   });
 });
 
@@ -231,6 +293,59 @@ describe("recommend — 小书院志愿特规", () => {
     const top3 = order(input).slice(0, 3);
     const smallCount = top3.filter((id) => SMALL.has(id)).length;
     expect(smallCount).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("recommend — 小书院意愿题 (A/B/C)", () => {
+  const baseInput = {
+    majorGroup: "engineering" as const,
+    priorities: [
+      "Commute_Time",
+      "Accommodation_Environment",
+      "Hostel_Guarantee",
+    ] as [ScoredFactor, ScoredFactor, ScoredFactor],
+    avoids: [] as AvoidFactor[],
+  };
+
+  it("A · 冲小书院：第一志愿强制为小书院", () => {
+    const result = recommend({ ...baseInput, smallCollegePreference: "aim" });
+    expect(SMALL.has(result[0].id)).toBe(true);
+    expect(result[0].reasons.some((r) => r.includes("冲小书院"))).toBe(true);
+  });
+
+  it("B · 不想去小书院：三所小书院整体排到第 7–9，且按推荐指数降序", () => {
+    const result = recommend({
+      ...baseInput,
+      smallCollegePreference: "avoid",
+    });
+    const last3 = result.slice(6, 9).map((c) => c.id);
+    expect(new Set(last3)).toEqual(new Set(["mc", "shho", "cwc"]));
+    // 1–6 全是非小书院
+    const top6 = result.slice(0, 6).map((c) => c.id);
+    expect(top6.every((id) => !SMALL.has(id))).toBe(true);
+    // 7–9 按推荐指数降序
+    const scores = result.slice(6, 9).map((c) => c.score);
+    expect(scores[0]).toBeGreaterThanOrEqual(scores[1]);
+    expect(scores[1]).toBeGreaterThanOrEqual(scores[2]);
+  });
+
+  it("C · 无所谓：沿用既有机制（第一志愿为小书院）", () => {
+    const result = recommend({
+      ...baseInput,
+      smallCollegePreference: "indifferent",
+    });
+    // 既有黄金输出第一志愿是晨兴 mc
+    expect(result[0].id).toBe("mc");
+  });
+
+  it("B 仍不重不漏：九所书院各一次", () => {
+    const result = recommend({
+      ...baseInput,
+      smallCollegePreference: "avoid",
+    });
+    const ids = result.map((c) => c.id);
+    expect(ids).toHaveLength(9);
+    expect(new Set(ids)).toEqual(new Set(ALL_IDS));
   });
 });
 

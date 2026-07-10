@@ -26,7 +26,8 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await expect(items).toHaveCount(9);
     // 工科 · 通勤/住宿/保宿 · 无避雷 的黄金第一志愿是晨兴书院。
     await expect(items.first()).toContainText("晨兴书院");
-    await expect(items.first()).toContainText("评分 17");
+    // 推荐指数：(10-2)×5 + (10-1)×3 + (10-2)×2 = 83.0
+    await expect(items.first()).toContainText("推荐指数 83.0");
   });
 
   test("勾选避雷：命中书院被压到末尾并标注，而非消失", async ({ page }) => {
