@@ -59,7 +59,9 @@ export default defineConfig({
       ? `node --import tsx e2e/provision.ts && pnpm start --port ${PORT}`
       : `node --import tsx e2e/provision.ts && pnpm build && pnpm start --port ${PORT}`,
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    // Never reuse an unknown process on :3100: it may point at the dev database
+    // or lack E2E_TEST, while specs write fixtures to the isolated e2e database.
+    reuseExistingServer: false,
     timeout: 180_000,
     // `pnpm start` runs in production mode, where instrumentation hard-fails if
     // SKIP_EMAIL_WHITELIST is on. Neutralize it here so a dev's .env.local

@@ -68,6 +68,16 @@ export async function getWikiPage(slug: string) {
   return getCachedWikiPage(slug);
 }
 
+// Editing needs an authoritative optimistic-lock baseline. A stale cached
+// updatedAt turns the next legitimate save into a false EDIT_CONFLICT.
+export async function getWikiPageForEdit(slug: string) {
+  return (
+    (await db.query.wikiPages.findFirst({
+      where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
+    })) ?? null
+  );
+}
+
 const getCachedBacklinks = unstable_cache(
   async (pageId: string) => {
     return db

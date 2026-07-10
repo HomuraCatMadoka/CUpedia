@@ -61,11 +61,19 @@ test.describe("#94 editor reliability", () => {
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
+    const marker = "autosave-" + Date.now();
     await editor.click();
-    await page.keyboard.type(" autosave-" + Date.now());
+    await page.keyboard.type(" " + marker);
 
     // Debounce is 1.5s; allow generous slack for the round-trip save.
     await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+
+    // Reloading the edit route must read the authoritative post-save baseline,
+    // not stale-while-revalidate content with an obsolete updatedAt.
+    await page.reload();
+    await expect(page.locator('[role="textbox"]').first()).toContainText(
+      marker,
+    );
   });
 
   test("in-app navigation is guarded while dirty", async ({ page }) => {
@@ -98,14 +106,20 @@ test.describe("#94 editor reliability", () => {
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
+    const marker = "cmd-s-" + Date.now();
     await editor.click();
-    await page.keyboard.type(" cmd-s-" + Date.now());
+    await page.keyboard.type(" " + marker);
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
     const mod = process.platform === "darwin" ? "Meta" : "Control";
     await page.keyboard.press(`${mod}+s`);
 
     await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+
+    await page.reload();
+    await expect(page.locator('[role="textbox"]').first()).toContainText(
+      marker,
+    );
   });
 
   test("unsaved changes arm the beforeunload guard", async ({ page }) => {
