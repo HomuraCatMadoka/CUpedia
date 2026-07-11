@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const {
   mockRevalidateTag,
+  mockRevalidatePath,
+  mockUpdateTag,
   mockUnstableCache,
   unstableCacheCalls,
   cacheStore,
@@ -17,6 +19,11 @@ const {
   return {
     mockRevalidateTag: vi.fn((...args: unknown[]) => {
       void args; // signature must accept the tag args; body only resets the store
+      cacheStore.clear();
+    }),
+    mockRevalidatePath: vi.fn(),
+    mockUpdateTag: vi.fn((...args: unknown[]) => {
+      void args;
       cacheStore.clear();
     }),
     mockUnstableCache: vi.fn((...args: unknown[]) => {
@@ -86,6 +93,8 @@ vi.mock("drizzle-orm", () => ({
 vi.mock("next/cache", () => ({
   unstable_cache: (...args: unknown[]) => mockUnstableCache(...args),
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
+  revalidatePath: (...args: unknown[]) => mockRevalidatePath(...args),
+  updateTag: (...args: unknown[]) => mockUpdateTag(...args),
 }));
 
 vi.mock("@/lib/auth-guard", () => ({
@@ -344,7 +353,7 @@ describe("cache invalidation — revalidateTag called", () => {
     expect(spies.insert).toHaveBeenCalledTimes(1);
   });
 
-  it("deleteWikiPage calls revalidateTag", async () => {
+  it("deleteWikiPage expires page data and route caches", async () => {
     mockDbExecute.mockResolvedValue({ rows: [{ id: "1" }] });
     mockDbUpdate.mockReturnValue({
       set: vi.fn().mockReturnValue({
@@ -353,10 +362,12 @@ describe("cache invalidation — revalidateTag called", () => {
     });
 
     await deleteWikiPage("1");
-    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
+    expect(mockUpdateTag).toHaveBeenCalledWith("wiki-pages");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/wiki", "layout");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/admin/deleted");
   });
 
-  it("restoreWikiPage calls revalidateTag", async () => {
+  it("restoreWikiPage expires page data and route caches", async () => {
     mockDbExecute.mockResolvedValue({ rows: [{ id: "1" }] });
     mockDbUpdate.mockReturnValue({
       set: vi.fn().mockReturnValue({
@@ -365,7 +376,9 @@ describe("cache invalidation — revalidateTag called", () => {
     });
 
     await restoreWikiPage("1");
-    expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
+    expect(mockUpdateTag).toHaveBeenCalledWith("wiki-pages");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/wiki", "layout");
+    expect(mockRevalidatePath).toHaveBeenCalledWith("/admin/deleted");
   });
 
   it("rollbackToRevision calls revalidateTag", async () => {

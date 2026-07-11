@@ -3,7 +3,12 @@
 import { db } from "@/db";
 import { wikiPages, wikiRevisions, wikiLinks } from "@/db/schema";
 import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
-import { unstable_cache, revalidateTag } from "next/cache";
+import {
+  revalidatePath,
+  unstable_cache,
+  revalidateTag,
+  updateTag,
+} from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
@@ -134,6 +139,7 @@ export async function createWikiPage(data: {
   if (!validateSlug(data.slug)) throw new Error("Invalid slug");
 
   const page = await db.transaction(async (tx) => {
+    const now = new Date();
     const [p] = await tx
       .insert(wikiPages)
       .values({
@@ -143,6 +149,8 @@ export async function createWikiPage(data: {
         parentId: data.parentId ?? null,
         createdBy: user.id,
         updatedBy: user.id,
+        createdAt: now,
+        updatedAt: now,
       })
       .returning();
 
@@ -332,7 +340,9 @@ export async function deleteWikiPage(pageId: string) {
     .set({ deletedAt: now })
     .where(inArray(wikiPages.id, ids));
 
-  revalidateTag("wiki-pages", "max");
+  updateTag("wiki-pages");
+  revalidatePath("/wiki", "layout");
+  revalidatePath("/admin/deleted");
   revalidateSearchCorpus();
 }
 
@@ -365,7 +375,9 @@ export async function restoreWikiPage(pageId: string) {
     .set({ deletedAt: null })
     .where(inArray(wikiPages.id, ids));
 
-  revalidateTag("wiki-pages", "max");
+  updateTag("wiki-pages");
+  revalidatePath("/wiki", "layout");
+  revalidatePath("/admin/deleted");
   revalidateSearchCorpus();
 }
 
