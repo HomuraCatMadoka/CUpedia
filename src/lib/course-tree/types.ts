@@ -38,6 +38,8 @@ export type CourseInfo = {
   prerequisites?: PrereqGroup[];
   /** 同修组(#164 只作提示,不建先修边)。 */
   corequisites?: PrereqGroup[];
+  /** 排斥课号(#165:双向互斥 + 同类目 → 等价组「多选一」)。 */
+  exclusions?: string[];
   /** 备注 + 旁路 warning 合并的自由文本(#164 供 UI 原样展示)。 */
   requirementNotes?: string[];
 };
@@ -74,6 +76,21 @@ export type CategoryGroup = {
   nodes: CourseNode[];
 };
 
+/**
+ * 等价组(#165):同一类目内、成员两两**双向互斥**(反先修)推出的「多选一」互斥课集。
+ * 由 buildEquivalenceGroups 从 exclusions 求类目内连通分量得到;点亮一门则组内其余置灰,
+ * 下游先修指向组内任一即视为满足。
+ */
+export type EquivalenceGroup = {
+  categoryId: string;
+  categoryName: string;
+  kind: CategoryKind;
+  /** 组内课号(升序,长度 ≥ 2)。 */
+  codes: string[];
+  /** 组过大(疑似排斥关系脏数据),标记待人工复核,不静默并成一坨。 */
+  oversized: boolean;
+};
+
 /** 一个主修的完整技能树。 */
 export type MajorTree = {
   majorId: string;
@@ -81,6 +98,8 @@ export type MajorTree = {
   handbookYear: string;
   totalUnits: number | null;
   groups: CategoryGroup[];
+  /** 类目内的「多选一」等价组(#165);无则空数组。 */
+  equivalenceGroups: EquivalenceGroup[];
 };
 
 // ── evaluateBuild 输出(自由模式软进度)──

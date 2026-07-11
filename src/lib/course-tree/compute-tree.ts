@@ -2,6 +2,7 @@
 // 「按类目分组的扁平节点」。S3 只做扁平分组 + 按课号首位分层,无先修边(#164 才有)、
 // 不落库。纯模块,无 IO。
 
+import { buildEquivalenceGroups } from "./equivalence-groups";
 import type {
   CategoryGroup,
   CategoryInput,
@@ -146,5 +147,6 @@ export function computeTree(
     handbookYear: major.handbookYear,
     totalUnits: major.totalUnits,
     groups,
+    equivalenceGroups: buildEquivalenceGroups(courses, categories),
   };
 }
