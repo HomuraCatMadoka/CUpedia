@@ -1,9 +1,15 @@
 import { requireEditor } from "@/lib/auth-guard";
-import { uploadFile } from "@/lib/minio";
+import { uploadAsset } from "@/lib/minio";
+import { fileTypeFromBuffer } from "file-type";
 import { NextResponse } from "next/server";
 
 const MAX_SIZE = 5 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+const ALLOWED_TYPES = new Map([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/gif", "gif"],
+  ["image/webp", "webp"],
+]);
 
 export async function POST(req: Request) {
   try {
@@ -16,9 +22,6 @@ export async function POST(req: Request) {
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
 
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: "不支持的文件类型" }, { status: 400 });
-  }
   if (file.size > MAX_SIZE) {
     return NextResponse.json(
       { error: "文件大小不能超过 5MB" },
@@ -27,7 +30,16 @@ export async function POST(req: Request) {
   }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const url = await uploadFile(buffer, file.name, file.type);
+  const detected = await fileTypeFromBuffer(buffer);
+  const extension = detected && ALLOWED_TYPES.get(detected.mime);
+  if (!detected || !extension) {
+    return NextResponse.json({ error: "不支持的文件类型" }, { status: 400 });
+  }
+  const { url } = await uploadAsset(
+    buffer,
+    `upload.${extension}`,
+    detected.mime,
+  );
 
   return NextResponse.json({ url });
 }

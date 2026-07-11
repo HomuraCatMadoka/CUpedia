@@ -22,26 +22,6 @@ const s3 = new S3Client({
 
 const bucket = process.env.MINIO_BUCKET!;
 
-export async function uploadFile(
-  file: Buffer,
-  filename: string,
-  contentType: string,
-) {
-  const ext = filename.split(".").pop();
-  const key = `${randomUUID()}.${ext}`;
-
-  await s3.send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      Body: file,
-      ContentType: contentType,
-    }),
-  );
-
-  return `${process.env.MINIO_PUBLIC_URL}/${key}`;
-}
-
 export async function uploadAsset(
   file: Buffer,
   filename: string,
