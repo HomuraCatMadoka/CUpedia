@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { randomInt } from "node:crypto";
 import { Client } from "pg";
 
 /**
@@ -8,7 +9,7 @@ import { Client } from "pg";
  * login always 401) and discarded signInEmailOTP's Set-Cookie (no auto-login).
  */
 
-const EMAIL = "1155990001@link.cuhk.edu.hk";
+const EMAIL = `1155${randomInt(1_000_000).toString().padStart(6, "0")}@link.cuhk.edu.hk`;
 const OTP = "424242";
 const PASSWORD = "register-flow-pw";
 

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { randomInt } from "node:crypto";
 import { Client } from "pg";
 
 /**
@@ -7,7 +8,7 @@ import { Client } from "pg";
  * resets via a forget-password OTP, the new password works, the old one fails.
  */
 
-const EMAIL = "1155990002@link.cuhk.edu.hk";
+const EMAIL = `1155${randomInt(1_000_000).toString().padStart(6, "0")}@link.cuhk.edu.hk`;
 const REGISTER_OTP = "111111";
 const RESET_OTP = "222222";
 const OLD_PASSWORD = "old-password-1";
