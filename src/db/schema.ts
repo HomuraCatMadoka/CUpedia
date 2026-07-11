@@ -363,7 +363,7 @@ export const courseRatings = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     /** 0–10, one decimal. */
     score: real("score").notNull(),
-    /** Last time this user rated this course (upserted); drives the cooldown. */
+    /** Last time this user rated this course (refreshed on each upsert). */
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   // One rating row per (course, user): a re-rate updates it in place (upsert),

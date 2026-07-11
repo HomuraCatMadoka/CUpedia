@@ -5,9 +5,9 @@ import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 // The catalog reads hit the real `courses` table and the rating/review/like
 // tables; here we stub `@/db` with a thenable chain whose terminal `await`
 // pulls the next queued result, and `@/lib/auth-guard` for the viewer. Tests
-// assert the *external behavior* PRD #177 pins down — auth gating, the 5-min
-// cooldown, author/admin withdraw rights, like de-dup, input validation, and
-// the aggregate null-vs-average — not the SQL shape.
+// assert the *external behavior* PRD #177 pins down — auth gating, one vote
+// per user (upsert), author/admin withdraw rights, like de-dup, input
+// validation, and the aggregate null-vs-average — not the SQL shape.
 
 const {
   mockRequireAuth,
@@ -105,14 +105,8 @@ describe("submitCourseRating", () => {
     expect(dbSelect).not.toHaveBeenCalled();
   });
 
-  it("冷却期内拒绝再次打分", async () => {
-    queueRows([COURSE], [{ createdAt: new Date() }]); // findCourse, last rating (recent)
-    await expect(submitCourseRating("CSCI3150", 8)).rejects.toThrow(/打分/);
-    expect(dbInsert).not.toHaveBeenCalled();
-  });
-
-  it("冷却已过则写入四舍五入后的分数", async () => {
-    queueRows([COURSE], []); // findCourse, no prior rating
+  it("写入四舍五入后的分数", async () => {
+    queueRows([COURSE]); // findCourse
     await expect(submitCourseRating("CSCI3150", 8.47)).resolves.toBeUndefined();
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(values()).toHaveBeenCalledWith(
@@ -125,7 +119,7 @@ describe("submitCourseRating", () => {
   });
 
   it("同一用户重复打分是更新而非新增（upsert，一人一票）", async () => {
-    queueRows([COURSE], []); // findCourse, no rating within cooldown
+    queueRows([COURSE]); // findCourse
     await submitCourseRating("CSCI3150", 7);
     const onConflict = dbChain.onConflictDoUpdate as Mock;
     expect(onConflict).toHaveBeenCalledOnce();
@@ -245,30 +239,27 @@ describe("toggleLike", () => {
 });
 
 describe("getCourseRatingState", () => {
-  it("无人评分且未登录：aggregate 为 null、不可打分", async () => {
+  it("无人评分且未登录：aggregate 为 null", async () => {
     queueRows([COURSE], [{ avg: null, cnt: 0 }]); // findCourse, ratingAgg
     const state = await getCourseRatingState("CSCI3150");
     expect(state).toMatchObject({
       aggregateRating: null,
       ratingCount: 0,
-      canRate: false,
-      cooldownSeconds: 0,
+      lastScore: null,
       myRatingCount: 0,
     });
   });
 
-  it("已评分且在冷却期：给出均值与剩余秒数", async () => {
+  it("已评分：给出均值与我的评分", async () => {
     mockGetOptionalUser.mockResolvedValue({ id: "u1", role: "user" });
     queueRows(
       [COURSE], // findCourse
       [{ avg: "8", cnt: 2 }], // ratingAgg
-      [{ score: 8, createdAt: new Date() }], // my ratings (recent)
+      [{ score: 8 }], // my rating
     );
     const state = await getCourseRatingState("CSCI3150");
     expect(state?.aggregateRating).toBe(8);
     expect(state?.ratingCount).toBe(2);
-    expect(state?.canRate).toBe(false);
-    expect(state?.cooldownSeconds).toBeGreaterThan(0);
     expect(state?.lastScore).toBe(8);
     expect(state?.myRatingCount).toBe(1);
   });

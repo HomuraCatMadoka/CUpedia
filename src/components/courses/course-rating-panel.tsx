@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { StarIcon } from "lucide-react";
@@ -12,18 +12,6 @@ import {
 } from "@/lib/course-review-actions";
 
 const QUICK_SCORES = [6, 7, 8, 9, 10] as const;
-
-function formatCooldown(totalSeconds: number): string {
-  const min = Math.floor(totalSeconds / 60);
-  const sec = totalSeconds % 60;
-  if (min > 0) return `${min} 分 ${sec} 秒`;
-  return `${sec} 秒`;
-}
-
-function remainingSeconds(until: number | null): number {
-  if (!until) return 0;
-  return Math.max(0, Math.ceil((until - Date.now()) / 1000));
-}
 
 export function CourseRatingPanel({
   code,
@@ -38,29 +26,14 @@ export function CourseRatingPanel({
   const [score, setScore] = useState(state.lastScore ?? 8);
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
-  const [cooldownUntil, setCooldownUntil] = useState<number | null>(() =>
-    state.cooldownSeconds > 0
-      ? Date.now() + state.cooldownSeconds * 1000
-      : null,
-  );
-  const [, tick] = useState(0);
 
-  useEffect(() => {
-    if (!cooldownUntil || remainingSeconds(cooldownUntil) <= 0) return;
-    const timer = setInterval(() => tick((t) => t + 1), 1000);
-    return () => clearInterval(timer);
-  }, [cooldownUntil]);
-
-  const cooldown = remainingSeconds(cooldownUntil);
-
-  const canSubmit = isAuthenticated && cooldown <= 0 && !pending;
+  const canSubmit = isAuthenticated && !pending;
 
   function handleSubmit() {
     setError("");
     startTransition(async () => {
       try {
         await submitCourseRating(code, score);
-        setCooldownUntil(Date.now() + 5 * 60 * 1000);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "提交失败");
@@ -165,26 +138,16 @@ export function CourseRatingPanel({
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 
-          {cooldown > 0 ? (
-            <div className="rounded-xl border border-dashed bg-secondary/30 px-4 py-3 text-sm text-muted-foreground">
-              同一门课需间隔 5 分钟才能再次打分。还需等待{" "}
-              <span className="font-medium text-foreground tabular-nums">
-                {formatCooldown(cooldown)}
-              </span>
-            </div>
-          ) : (
-            <Button
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-              className="w-full sm:w-auto"
-            >
-              {pending ? "提交中…" : "提交评分"}
-            </Button>
-          )}
+          <Button
+            onClick={handleSubmit}
+            disabled={!canSubmit}
+            className="w-full sm:w-auto"
+          >
+            {pending ? "提交中…" : "提交评分"}
+          </Button>
 
           <p className="text-xs text-muted-foreground">
-            可多次更新评分，每次提交间隔至少 5
-            分钟；综合推荐指数由所有用户评分的平均值计算。
+            每人一票，可随时更新；综合推荐指数由所有用户评分的平均值计算。
           </p>
         </div>
       )}

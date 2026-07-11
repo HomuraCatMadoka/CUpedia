@@ -23,8 +23,6 @@ import type { Course } from "@/app/(main)/courses/course-types";
 // depend on.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Minimum interval between two ratings from the same user on the same course. */
-const RATING_COOLDOWN_MS = 5 * 60 * 1000;
 /** Max courses returned per list query — the catalog is too large to dump. */
 const PAGE_SIZE = 48;
 
@@ -52,10 +50,6 @@ export type CourseRatingState = {
   /** User-average rating, or null when nobody has rated yet. */
   aggregateRating: number | null;
   ratingCount: number;
-  /** Whether the current user may submit another rating right now. */
-  canRate: boolean;
-  /** Seconds remaining until the user can rate again (0 when canRate). */
-  cooldownSeconds: number;
   /** The user's most recent score on this course, if any. */
   lastScore: number | null;
   /** How many times the current user has rated this course. */
@@ -273,7 +267,7 @@ export async function getCourse(code: string): Promise<CourseView | null> {
   return view ?? null;
 }
 
-/** Rating UI state for the detail page: aggregate score + per-user cooldown. */
+/** Rating UI state for the detail page: aggregate score + this user's vote. */
 export async function getCourseRatingState(
   code: string,
 ): Promise<CourseRatingState | null> {
@@ -288,46 +282,23 @@ export async function getCourseRatingState(
   const ratingCount = agg.cnt;
 
   if (!user) {
-    return {
-      aggregateRating,
-      ratingCount,
-      canRate: false,
-      cooldownSeconds: 0,
-      lastScore: null,
-      myRatingCount: 0,
-    };
+    return { aggregateRating, ratingCount, lastScore: null, myRatingCount: 0 };
   }
 
   const myRatings = await db
-    .select({ score: courseRatings.score, createdAt: courseRatings.createdAt })
+    .select({ score: courseRatings.score })
     .from(courseRatings)
     .where(
       and(
         eq(courseRatings.courseCode, course.code),
         eq(courseRatings.userId, user.id),
       ),
-    )
-    .orderBy(desc(courseRatings.createdAt));
-
-  const lastRating = myRatings[0];
-  let canRate = true;
-  let cooldownSeconds = 0;
-
-  if (lastRating) {
-    const remaining =
-      RATING_COOLDOWN_MS - (Date.now() - lastRating.createdAt.getTime());
-    if (remaining > 0) {
-      canRate = false;
-      cooldownSeconds = Math.ceil(remaining / 1000);
-    }
-  }
+    );
 
   return {
     aggregateRating,
     ratingCount,
-    canRate,
-    cooldownSeconds,
-    lastScore: lastRating?.score ?? null,
+    lastScore: myRatings[0]?.score ?? null,
     myRatingCount: myRatings.length,
   };
 }
@@ -400,34 +371,8 @@ export async function submitCourseRating(
   const course = await findCourse(code);
   if (!course) throw new Error("课程不存在");
 
-  const [last] = await db
-    .select({ createdAt: courseRatings.createdAt })
-    .from(courseRatings)
-    .where(
-      and(
-        eq(courseRatings.courseCode, course.code),
-        eq(courseRatings.userId, user.id),
-      ),
-    )
-    .orderBy(desc(courseRatings.createdAt))
-    .limit(1);
-
-  if (last) {
-    const elapsed = Date.now() - last.createdAt.getTime();
-    if (elapsed < RATING_COOLDOWN_MS) {
-      const waitSec = Math.ceil((RATING_COOLDOWN_MS - elapsed) / 1000);
-      const waitMin = Math.floor(waitSec / 60);
-      const waitRem = waitSec % 60;
-      throw new Error(
-        waitMin > 0
-          ? `请 ${waitMin} 分 ${waitRem} 秒后再为这门课打分`
-          : `请 ${waitSec} 秒后再为这门课打分`,
-      );
-    }
-  }
-
-  // One vote per user: a re-rate updates the existing row (and refreshes the
-  // cooldown clock) instead of appending, so the average isn't self-skewed.
+  // One vote per user: a re-rate updates the existing row instead of appending,
+  // so the average isn't self-skewed.
   await db
     .insert(courseRatings)
     .values({
