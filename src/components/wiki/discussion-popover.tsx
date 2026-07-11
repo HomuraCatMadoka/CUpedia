@@ -105,16 +105,18 @@ export function DiscussionThread({
               <SendIcon className="h-3.5 w-3.5" />
             </Button>
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={handleResolve}
-            disabled={pending}
-            className="self-start text-xs"
-          >
-            <CheckIcon className="mr-1 h-3 w-3" />
-            标记为已解决
-          </Button>
+          {discussion.canResolve && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={handleResolve}
+              disabled={pending}
+              className="self-start text-xs"
+            >
+              <CheckIcon className="mr-1 h-3 w-3" />
+              标记为已解决
+            </Button>
+          )}
         </>
       )}
     </div>
