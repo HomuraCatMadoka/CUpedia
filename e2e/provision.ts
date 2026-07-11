@@ -2,6 +2,7 @@ import { execSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Client } from "pg";
+import { assertDatabaseReady, assertSafeE2eDatabase } from "./runtime";
 
 /**
  * Provision the ISOLATED e2e database, run from the Playwright webServer command
@@ -19,6 +20,8 @@ async function main() {
   const root = path.resolve(__dirname, "..");
   const url = requireEnv("DATABASE_URL");
 
+  assertSafeE2eDatabase(url);
+  await assertDatabaseReady(withDatabase(url, "postgres"));
   await ensureDatabase(url, root);
   execSync("pnpm drizzle-kit migrate", { cwd: root, stdio: "inherit" });
   await resetData(url);

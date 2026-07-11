@@ -1,27 +1,35 @@
 import path from "node:path";
+import { execFileSync } from "node:child_process";
 import { defineConfig, devices } from "@playwright/test";
 import dotenv from "dotenv";
+import { deriveE2eRuntime } from "./e2e/runtime";
 
-dotenv.config({ path: path.resolve(__dirname, ".env.local") });
+const commonRoot = path.dirname(
+  execFileSync(
+    "git",
+    ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+    { cwd: __dirname, encoding: "utf8" },
+  ).trim(),
+);
+dotenv.config({
+  path: [
+    path.resolve(__dirname, ".env.local"),
+    path.resolve(commonRoot, ".env.local"),
+    path.resolve(__dirname, ".env.example"),
+  ],
+});
 
-const PORT = 3100;
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error("DATABASE_URL is required for e2e");
+const runtime = deriveE2eRuntime({
+  projectRoot: __dirname,
+  databaseUrl,
+  e2eDatabaseUrl: process.env.E2E_DATABASE_URL,
+  port: process.env.E2E_PORT ? Number(process.env.E2E_PORT) : undefined,
+});
+const PORT = runtime.port;
 const baseURL = `http://localhost:${PORT}`;
-
-// The webServer must read the SAME isolated db that global-setup migrates/seeds
-// and the specs write fixtures to. Playwright snapshots the webServer env at
-// config load (before global-setup runs), so mutating process.env there can't
-// reach it — derive the e2e url here and pass it explicitly.
-function e2eDatabaseUrl(): string | undefined {
-  if (process.env.E2E_DATABASE_URL) return process.env.E2E_DATABASE_URL;
-  const base = process.env.DATABASE_URL;
-  if (!base) return undefined;
-  const u = new URL(base);
-  if (u.pathname.endsWith("_e2e")) return base; // already isolated (idempotent)
-  u.pathname = u.pathname.replace(/\/?$/, "") + "_e2e";
-  return u.toString();
-}
-
-const E2E_DATABASE_URL = e2eDatabaseUrl();
+const E2E_DATABASE_URL = runtime.databaseUrl;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with
@@ -51,18 +59,14 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // Provision the isolated db FIRST (the production server migrates on
-    // startup, so the db must already exist — global-setup runs too late). CI
-    // builds in a dedicated step so the cold build never races the 180s
-    // server-start window; locally we build+start in one shot and reuse.
+    // Provision the isolated db before the server. CI builds in its own step;
+    // local cold builds get a budget that reflects the real editor bundle.
     command: process.env.CI
       ? `node --import tsx e2e/provision.ts && pnpm start --port ${PORT}`
       : `node --import tsx e2e/provision.ts && pnpm build && pnpm start --port ${PORT}`,
     url: baseURL,
-    // Never reuse an unknown process on :3100: it may point at the dev database
-    // or lack E2E_TEST, while specs write fixtures to the isolated e2e database.
     reuseExistingServer: false,
-    timeout: 180_000,
+    timeout: 10 * 60_000,
     // `pnpm start` runs in production mode, where instrumentation hard-fails if
     // SKIP_EMAIL_WHITELIST is on. Neutralize it here so a dev's .env.local
     // (which usually enables it) can't crash the e2e server — seed accounts

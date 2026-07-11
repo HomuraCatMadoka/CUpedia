@@ -114,8 +114,7 @@ function scoreCollege(
   const r3 = p3 !== "" ? getRank(p3, g3, college.id) : 0;
   const ranks = { p1: r1, p2: r2, p3: r3 };
 
-  let score =
-    (10 - r1) * w1 + (10 - r2) * w2 + (10 - r3) * w3;
+  let score = (10 - r1) * w1 + (10 - r2) * w2 + (10 - r3) * w3;
 
   const avoidHits = getAvoidHits(college.id, avoids);
   if (avoidHits.length) score -= WEIGHTS.hardFilterPenalty * avoidHits.length;
@@ -201,9 +200,7 @@ function pickTopSmall(scored: ScoredCollege[]): ScoredCollege | null {
 }
 
 /** 决定第一志愿（indifferent 路径）：第一志愿只保留得分最高的小书院。 */
-function pickFirstChoice(
-  remaining: ScoredCollege[],
-): ScoredCollege | null {
+function pickFirstChoice(remaining: ScoredCollege[]): ScoredCollege | null {
   const topSmall = pickTopSmall(remaining);
   if (topSmall) {
     const picked = takeById(remaining, topSmall.id)!;

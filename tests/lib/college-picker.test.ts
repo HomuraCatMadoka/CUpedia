@@ -191,9 +191,7 @@ describe("validatePriorities — 第一必填；非空不重复；不跳位", ()
   });
 
   it("第二留空、第三也留空：通过（允许只填一个）", () => {
-    expect(
-      validatePriorities(["Commute_Time", "", ""]),
-    ).toEqual({ ok: true });
+    expect(validatePriorities(["Commute_Time", "", ""])).toEqual({ ok: true });
   });
 
   it("第二留空但第三填写（跳位）：不通过", () => {
@@ -205,15 +203,19 @@ describe("validatePriorities — 第一必填；非空不重复；不跳位", ()
 
 describe("computeWeights — 非空权重等比放大到合计 10", () => {
   it("三项填满：5 / 3 / 2", () => {
-    expect(computeWeights(["Commute_Time", "Accommodation_Environment", "Hostel_Guarantee"])).toEqual([
-      5, 3, 2,
-    ]);
+    expect(
+      computeWeights([
+        "Commute_Time",
+        "Accommodation_Environment",
+        "Hostel_Guarantee",
+      ]),
+    ).toEqual([5, 3, 2]);
   });
 
   it("仅填前两项：6.25 / 3.75 / 0", () => {
-    expect(computeWeights(["Commute_Time", "Accommodation_Environment", ""])).toEqual([
-      6.25, 3.75, 0,
-    ]);
+    expect(
+      computeWeights(["Commute_Time", "Accommodation_Environment", ""]),
+    ).toEqual([6.25, 3.75, 0]);
   });
 
   it("仅填第一项：10 / 0 / 0", () => {
