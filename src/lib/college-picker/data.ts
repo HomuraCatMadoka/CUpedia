@@ -44,7 +44,6 @@ export interface College {
   nameZh: string;
   nameEn: string;
   shortCode: string;
-  crestPath: `/college-crests/${CollegeId}.svg`;
 }
 
 export const COLLEGES: readonly College[] = [
@@ -53,63 +52,54 @@ export const COLLEGES: readonly College[] = [
     nameZh: "崇基学院",
     nameEn: "Chung Chi College",
     shortCode: "CC",
-    crestPath: "/college-crests/cc.svg",
   },
   {
     id: "na",
     nameZh: "新亚书院",
     nameEn: "New Asia College",
     shortCode: "NA",
-    crestPath: "/college-crests/na.svg",
   },
   {
     id: "uc",
     nameZh: "联合书院",
     nameEn: "United College",
     shortCode: "UC",
-    crestPath: "/college-crests/uc.svg",
   },
   {
     id: "sc",
     nameZh: "逸夫书院",
     nameEn: "Shaw College",
     shortCode: "SC",
-    crestPath: "/college-crests/sc.svg",
   },
   {
     id: "mc",
     nameZh: "晨兴书院",
     nameEn: "Morningside College",
     shortCode: "MC",
-    crestPath: "/college-crests/mc.svg",
   },
   {
     id: "shho",
     nameZh: "善衡书院",
     nameEn: "S. H. Ho College",
     shortCode: "SHHO",
-    crestPath: "/college-crests/shho.svg",
   },
   {
     id: "cwc",
     nameZh: "敬文书院",
     nameEn: "C. W. Chu College",
     shortCode: "CWC",
-    crestPath: "/college-crests/cwc.svg",
   },
   {
     id: "wys",
     nameZh: "伍宜孙书院",
     nameEn: "Wu Yee Sun College",
     shortCode: "WYS",
-    crestPath: "/college-crests/wys.svg",
   },
   {
     id: "lws",
     nameZh: "和声书院",
     nameEn: "Lee Woo Sing College",
     shortCode: "LWS",
-    crestPath: "/college-crests/lws.svg",
   },
 ];
 

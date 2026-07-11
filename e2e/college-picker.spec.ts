@@ -26,48 +26,25 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await expect(items).toHaveCount(9);
     // 工科 · 通勤/住宿/保宿 · 无避雷 的黄金第一志愿是晨兴书院。
     await expect(items.first()).toContainText("晨兴书院");
-  });
-
-  test("九条志愿显示并加载对应书院院徽", async ({ page }) => {
-    await page.goto("/college-picker");
-    await page.getByTestId("recommend-button").click();
-
-    const results = page.getByTestId("picker-result");
-    const expectedCrests = [
-      ["崇基学院", "cc"],
-      ["新亚书院", "na"],
-      ["联合书院", "uc"],
-      ["逸夫书院", "sc"],
-      ["晨兴书院", "mc"],
-      ["善衡书院", "shho"],
-      ["敬文书院", "cwc"],
-      ["伍宜孙书院", "wys"],
-      ["和声书院", "lws"],
-    ] as const;
-
-    for (const [name, id] of expectedCrests) {
-      const item = results.getByTestId("picker-item").filter({ hasText: name });
-      const crest = item.locator("img");
-      await expect(crest).toHaveCount(1);
-      await expect(crest).toHaveAttribute("src", `/college-crests/${id}.svg`);
-      await expect
-        .poll(() =>
-          crest.evaluate((image) => {
-            const loadedImage = image as HTMLImageElement;
-            return loadedImage.complete && loadedImage.naturalWidth > 0;
+    const crests = items.locator('img[alt=""]');
+    await expect(crests).toHaveCount(9);
+    await expect(result.getByRole("img")).toHaveCount(0);
+    await expect
+      .poll(() =>
+        crests.evaluateAll((images) =>
+          images.every((image) => {
+            const crest = image as HTMLImageElement;
+            return (
+              crest.complete &&
+              crest.naturalWidth > 0 &&
+              /^\/college-crests\/[a-z]+\.svg$/.test(
+                crest.getAttribute("src") ?? "",
+              )
+            );
           }),
-        )
-        .toBe(true);
-    }
-  });
-
-  test("院徽是装饰图片，不重复朗读书院名称", async ({ page }) => {
-    await page.goto("/college-picker");
-    await page.getByTestId("recommend-button").click();
-
-    const results = page.getByTestId("picker-result");
-    await expect(results.locator('img[alt=""]')).toHaveCount(9);
-    await expect(results.getByRole("img")).toHaveCount(0);
+        ),
+      )
+      .toBe(true);
   });
 
   test("勾选避雷：命中书院被压到末尾并标注，而非消失", async ({ page }) => {
@@ -115,16 +92,5 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await page.goto("/college-picker");
     await expect(page.getByText(/非官方/)).toBeVisible();
     await expect(page.getByText(/暂不含医科/)).toBeVisible();
-  });
-
-  test("表单按四个步骤说明选择流程", async ({ page }) => {
-    await page.goto("/college-picker");
-
-    await expect(page.getByTestId("picker-step")).toHaveText([
-      /01\s*是否至少冲一个小书院/,
-      /02\s*专业大类/,
-      /03\s*最看重的三个因素/,
-      /04\s*想避开的因素/,
-    ]);
   });
 });

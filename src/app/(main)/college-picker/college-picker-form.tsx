@@ -65,6 +65,17 @@ function toSelectValue(v: ScoredFactor | ""): string {
   return v === "" ? EMPTY_VALUE : v;
 }
 
+function StepHeading({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-baseline gap-2 text-sm font-medium">
+      <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
+        {number}
+      </span>
+      <span>{title}</span>
+    </div>
+  );
+}
+
 export function CollegePickerForm() {
   const [majorGroup, setMajorGroup] = useState<MajorGroup>(MAJOR_GROUPS[0].id);
   const [priorities, setPriorities] =
@@ -147,15 +158,7 @@ export function CollegePickerForm() {
         </CardHeader>
         <CardContent className="space-y-0">
           <div className="space-y-3 border-b pb-6">
-            <div
-              className="flex items-baseline gap-2 text-sm font-medium"
-              data-testid="picker-step"
-            >
-              <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
-                01
-              </span>
-              <span>是否至少冲一个小书院</span>
-            </div>
+            <StepHeading number="01" title="是否至少冲一个小书院" />
             <p className="text-xs text-muted-foreground">
               善衡、敬文、晨兴三所小书院的志愿偏好。
             </p>
@@ -187,15 +190,7 @@ export function CollegePickerForm() {
           </div>
 
           <div className="space-y-3 border-b py-6">
-            <div
-              className="flex items-baseline gap-2 text-sm font-medium"
-              data-testid="picker-step"
-            >
-              <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
-                02
-              </span>
-              <Label htmlFor="major-group">专业大类</Label>
-            </div>
+            <StepHeading number="02" title="专业大类" />
             <Select
               items={MAJOR_ITEMS}
               value={majorGroup}
@@ -206,6 +201,7 @@ export function CollegePickerForm() {
             >
               <SelectTrigger
                 id="major-group"
+                aria-label="专业大类"
                 className="w-full sm:w-64"
                 data-testid="major-select"
               >
@@ -222,15 +218,7 @@ export function CollegePickerForm() {
           </div>
 
           <div className="space-y-3 border-b py-6">
-            <div
-              className="flex items-baseline gap-2 text-sm font-medium"
-              data-testid="picker-step"
-            >
-              <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
-                03
-              </span>
-              <span>最看重的三个因素</span>
-            </div>
+            <StepHeading number="03" title="最看重的三个因素" />
             <p className="text-xs text-muted-foreground">
               权重按填写情况等比放大至合计 10，三个选项不可重复。
             </p>
@@ -270,15 +258,7 @@ export function CollegePickerForm() {
           </div>
 
           <div className="space-y-3 border-b py-6">
-            <div
-              className="flex items-baseline gap-2 text-sm font-medium"
-              data-testid="picker-step"
-            >
-              <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
-                04
-              </span>
-              <span>想避开的因素</span>
-            </div>
+            <StepHeading number="04" title="想避开的因素" />
             <p className="text-xs text-muted-foreground">
               可选，命中的书院仍会显示，但会被压到志愿末尾。
             </p>
@@ -356,7 +336,7 @@ export function CollegePickerForm() {
                         第 {index + 1} 志愿
                       </Badge>
                       <Image
-                        src={college.crestPath}
+                        src={`/college-crests/${college.id}.svg`}
                         alt=""
                         width={32}
                         height={32}
