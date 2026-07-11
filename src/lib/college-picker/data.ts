@@ -39,6 +39,9 @@ export type AvoidFactor =
   | "Admission_Interview"
   | "Admission_Written_Test";
 
+/** 其他看重因素（选填，勾选后给推荐指数加固定分，不参与名次加权）。 */
+export type BonusFactor = "MTR_Distance" | "Par_Room";
+
 export interface College {
   id: CollegeId;
   nameZh: string;
@@ -127,7 +130,6 @@ export const SCORED_FACTORS: readonly FactorOption<ScoredFactor>[] = [
   { id: "Commute_Time", nameZh: "上课通勤" },
   { id: "Accommodation_Environment", nameZh: "住宿环境" },
   { id: "Hostel_Guarantee", nameZh: "保宿机会" },
-  { id: "Exchange_Opportunity", nameZh: "交换机会" },
 ];
 
 /** 可勾选的避雷因素。 */
@@ -137,6 +139,44 @@ export const AVOID_FACTORS: readonly FactorOption<AvoidFactor>[] = [
   { id: "Admission_Interview", nameZh: "入学面试" },
   { id: "Admission_Written_Test", nameZh: "入学笔试" },
 ];
+
+/** 可勾选的其他看重因素（选填，给推荐指数加固定分）。 */
+export const BONUS_FACTORS: readonly FactorOption<BonusFactor>[] = [
+  { id: "MTR_Distance", nameZh: "离港铁距离" },
+  { id: "Par_Room", nameZh: "大一能选舍友 par 房" },
+];
+
+/**
+ * 勾选某其他因素时，给各书院推荐指数加的固定分。
+ * prompt 里写作 ws / shaw，对应实际 id lws / sc。
+ */
+export const BONUS_VALUES: Record<
+  BonusFactor,
+  Partial<Record<CollegeId, number>>
+> = {
+  MTR_Distance: {
+    cc: 5,
+    shho: 4,
+    mc: 4,
+    uc: 3,
+    na: 3,
+    cwc: 2.5,
+    lws: 2,
+    wys: 2,
+    sc: 1,
+  },
+  Par_Room: {
+    cc: 5,
+    shho: 5,
+    mc: 5,
+    uc: 0,
+    na: 0,
+    cwc: 0,
+    lws: 0,
+    wys: 5,
+    sc: 0,
+  },
+};
 
 /**
  * 名次表：key 为 `${因素}::${major_group | ALL}`，值把书院映射到 1–9 名次
@@ -262,14 +302,14 @@ export const FLAGS: Record<CollegeId, Record<AvoidFactor, "Y" | "N">> = {
   mc: {
     College_FYP: "N",
     Religious_Element: "N",
-    Admission_Interview: "N",
-    Admission_Written_Test: "N",
+    Admission_Interview: "Y",
+    Admission_Written_Test: "Y",
   },
   shho: {
     College_FYP: "N",
     Religious_Element: "N",
-    Admission_Interview: "N",
-    Admission_Written_Test: "N",
+    Admission_Interview: "Y",
+    Admission_Written_Test: "Y",
   },
   cwc: {
     College_FYP: "Y",
@@ -280,14 +320,14 @@ export const FLAGS: Record<CollegeId, Record<AvoidFactor, "Y" | "N">> = {
   wys: {
     College_FYP: "Y",
     Religious_Element: "N",
-    Admission_Interview: "N",
+    Admission_Interview: "Y",
     Admission_Written_Test: "N",
   },
   lws: {
     College_FYP: "N",
     Religious_Element: "N",
     Admission_Interview: "N",
-    Admission_Written_Test: "N",
+    Admission_Written_Test: "Y",
   },
 };
 

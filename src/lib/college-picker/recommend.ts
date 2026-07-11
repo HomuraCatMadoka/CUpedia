@@ -8,6 +8,7 @@
 import {
   AVOID_FACTORS,
   AVOID_REASON_LABEL,
+  BONUS_VALUES,
   COLLEGES,
   FLAGS,
   LARGE_COLLEGE_IDS,
@@ -17,6 +18,7 @@ import {
   SMALL_COLLEGE_IDS,
   WEIGHTS,
   type AvoidFactor,
+  type BonusFactor,
   type CollegeId,
   type College,
   type MajorGroup,
@@ -37,6 +39,19 @@ const RAW_WEIGHTS = [
 /** 是否「冲小书院 / 不想去 / 无所谓」。 */
 export type SmallCollegePreference = "aim" | "avoid" | "indifferent";
 
+/** 06 小书院精选四题的答案。 */
+export type SCQ1Answer = "A" | "B";
+export type SCQ2Answer = "A" | "B" | "C" | "D" | "E";
+export type SCQ3Answer = "A" | "B" | "C" | "D";
+export type SCQ4Answer = "A" | "B" | "C";
+
+export interface SmallCollegeAnswers {
+  q1: SCQ1Answer;
+  q2: SCQ2Answer;
+  q3: SCQ3Answer;
+  q4: SCQ4Answer;
+}
+
 export interface RecommendInput {
   majorGroup: MajorGroup;
   /**
@@ -45,8 +60,12 @@ export interface RecommendInput {
    */
   priorities: [ScoredFactor, ScoredFactor | "", ScoredFactor | ""];
   avoids: AvoidFactor[];
-  /** 小书院意愿题。默认 indifferent = 沿用既有志愿分配机制。 */
+  /** 小书院意愿题。默认 indifferent = 按默认机制运行（视最高分书院是否为小书院分流）。 */
   smallCollegePreference?: SmallCollegePreference;
+  /** 其他看重因素（选填，勾选后给推荐指数加固定分）。 */
+  bonusFactors?: BonusFactor[];
+  /** 06 小书院精选答案（仅 aim 路径使用）。 */
+  smallCollegeAnswers?: SmallCollegeAnswers;
 }
 
 export interface ScoredCollege extends College {
@@ -102,6 +121,7 @@ function scoreCollege(
   group: MajorGroup,
   priorities: [ScoredFactor, ScoredFactor | "", ScoredFactor | ""],
   avoids: AvoidFactor[],
+  bonusFactors: BonusFactor[],
 ): ScoredCollege {
   const [p1, p2, p3] = priorities;
   const g1 = p1 === "Commute_Time" ? group : "ALL";
@@ -115,6 +135,13 @@ function scoreCollege(
   const ranks = { p1: r1, p2: r2, p3: r3 };
 
   let score = (10 - r1) * w1 + (10 - r2) * w2 + (10 - r3) * w3;
+
+  // 其他看重因素：勾选后给推荐指数加固定分。
+  let bonus = 0;
+  for (const bf of bonusFactors) {
+    bonus += BONUS_VALUES[bf]?.[college.id] ?? 0;
+  }
+  if (bonus) score += bonus;
 
   const avoidHits = getAvoidHits(college.id, avoids);
   if (avoidHits.length) score -= WEIGHTS.hardFilterPenalty * avoidHits.length;
@@ -190,55 +217,16 @@ function takeById(
   return list.splice(index, 1)[0];
 }
 
-/** 推荐指数最高（最好）的未被避雷的小书院。 */
-function pickTopSmall(scored: ScoredCollege[]): ScoredCollege | null {
-  return (
-    scored
-      .filter((x) => SMALL_SET.has(x.id) && !isBlockedByAvoids(x))
-      .sort(baseComparator)[0] || null
-  );
-}
-
-/** 决定第一志愿（indifferent 路径）：第一志愿只保留得分最高的小书院。 */
-function pickFirstChoice(remaining: ScoredCollege[]): ScoredCollege | null {
-  const topSmall = pickTopSmall(remaining);
-  if (topSmall) {
-    const picked = takeById(remaining, topSmall.id)!;
-    picked.reasons = picked.reasons.concat("第一志愿只保留得分最高的小书院");
-    return picked;
-  }
-
-  if (remaining.length) return remaining.shift()!;
-  return null;
-}
-
 /**
- * 决定第一志愿（aim 路径）：强制为小书院。优先取推荐指数最高且未命中避雷的
- * 小书院；若三所小书院全部命中避雷，则退取推荐指数最高的小书院（即使命中）。
+ * 把小书院排成「干净在前、避雷命中在后」的块，各自内部按推荐指数降序。
+ * 对应裁决：A/B/C 分区优先，避雷只在分区内排末尾。
  */
-function pickFirstChoiceAim(
-  remaining: ScoredCollege[],
-  blocked: ScoredCollege[],
-): ScoredCollege | null {
-  const cleanSmall = remaining
-    .filter((x) => SMALL_SET.has(x.id))
+function orderSmallBlock(small: ScoredCollege[]): ScoredCollege[] {
+  const clean = small
+    .filter((x) => !isBlockedByAvoids(x))
     .sort(baseComparator);
-  let picked = cleanSmall[0] || null;
-  if (!picked) {
-    // 极端兜底：三所小书院全部命中避雷时，从 blocked 里取最好的小书院。
-    const blockedSmall = blocked
-      .filter((x) => SMALL_SET.has(x.id))
-      .sort(baseComparator);
-    picked = blockedSmall[0] || null;
-    if (picked) takeById(blocked, picked.id);
-  }
-  if (picked) {
-    takeById(remaining, picked.id);
-    picked.reasons = picked.reasons.concat(
-      "已选「冲小书院」，第一志愿强制为小书院",
-    );
-  }
-  return picked;
+  const blocked = small.filter(isBlockedByAvoids).sort(baseComparator);
+  return [...clean, ...blocked];
 }
 
 /** 决定第二、三志愿（恒从中/大书院里选，返回 0–2 所）。不改动传入数组。 */
@@ -281,13 +269,13 @@ function pickSecondThird(nonSmallSorted: ScoredCollege[]): ScoredCollege[] {
     const middlePick = takeById(pool, bestMiddle.id);
     if (middlePick) {
       middlePick.reasons =
-        middlePick.reasons.concat("第二志愿分差接近时先放中书院");
+        middlePick.reasons.concat("中/大书院分差接近时先放中书院");
       chosen.push(middlePick);
     }
     const largePick = takeById(pool, bestLarge.id);
     if (largePick) {
       largePick.reasons =
-        largePick.reasons.concat("第三志愿分差接近时再放大书院");
+        largePick.reasons.concat("中/大书院分差接近时再放大书院");
       chosen.push(largePick);
     }
     if (chosen.length === 2) return chosen;
@@ -296,39 +284,18 @@ function pickSecondThird(nonSmallSorted: ScoredCollege[]): ScoredCollege[] {
   const second = pool.shift();
   const third = pool.shift();
   if (second)
-    second.reasons = second.reasons.concat("第二志愿按中/大书院得分排序");
+    second.reasons = second.reasons.concat("按中/大书院得分排序");
   if (third)
-    third.reasons = third.reasons.concat("第三志愿按中/大书院得分排序");
+    third.reasons = third.reasons.concat("按中/大书院得分排序");
   return [second, third].filter(Boolean) as ScoredCollege[];
 }
 
 /**
- * 把打好分的书院排成 1–9 完整志愿：
- * - aim：第一志愿强制小书院（优先未避雷）。
- * - avoid：三所小书院整体压到第 7–9（按推荐指数降序），1–6 在非小书院里套用既有特规。
- * - indifferent：沿用既有志愿分配机制（第一志愿只保留一所小书院）。
- * - 避雷命中的书院整体压到末尾（不删除）。
- * - 逸夫（Shaw）尽量不排最后：仅当与倒数第二名同分才换位，否则垫底。
+ * 既有志愿分配机制（中/大书院特规 + 逸夫规则 + 避雷分区末尾）。
+ * 用于把非小书院子集排成内部顺序。前两位由 pickSecondThird 选取（套用中/大
+ * 书院差 1/≤2 分特规），其余按推荐指数降序，避雷命中的排到末尾。
  */
-function applyVolunteerOrdering(
-  scored: ScoredCollege[],
-  avoids: AvoidFactor[],
-  pref: SmallCollegePreference,
-): ScoredCollege[] {
-  // B：小书院压到 7–9；1–6 在非小书院上递归套用 indifferent 流程。
-  if (pref === "avoid") {
-    const small = scored
-      .filter((x) => SMALL_SET.has(x.id))
-      .sort(baseComparator);
-    const nonSmall = scored.filter((x) => !SMALL_SET.has(x.id));
-    const ordered = applyVolunteerOrdering(nonSmall, avoids, "indifferent");
-    small.forEach((x) =>
-      x.reasons.push("已选「不想去小书院」，小书院排到第 7–9 志愿"),
-    );
-    ordered.push(...small);
-    return ordered;
-  }
-
+function orderWithExistingRules(scored: ScoredCollege[]): ScoredCollege[] {
   const blocked = scored
     .filter((x) => isBlockedByAvoids(x))
     .sort(baseComparator);
@@ -337,12 +304,7 @@ function applyVolunteerOrdering(
     .sort(baseComparator);
   const ordered: ScoredCollege[] = [];
 
-  const firstChoice =
-    pref === "aim"
-      ? pickFirstChoiceAim(remaining, blocked)
-      : pickFirstChoice(remaining);
-  if (firstChoice) ordered.push(firstChoice);
-
+  // 前两位由 pickSecondThird 选取（套用中/大书院特规）。
   const nonSmallPool = remaining
     .filter((x) => !SMALL_SET.has(x.id))
     .sort(compareTopThreeCandidates);
@@ -378,6 +340,134 @@ function applyVolunteerOrdering(
 }
 
 /**
+ * 06 小书院精选：按四题答案给三所小书院算「专属评分」。
+ * 若敬文 cwc 专属评分 > 50，封顶为 50。
+ */
+export function computeSmallCollegeSpecialization(
+  answers: SmallCollegeAnswers,
+): Record<"mc" | "shho" | "cwc", number> {
+  let mc = 0;
+  let shho = 0;
+  let cwc = 0;
+
+  // (1) 录取态度
+  if (answers.q1 === "A") {
+    cwc += 50;
+    shho += 10;
+  } else {
+    mc += 20;
+    shho += 20;
+    cwc += 20;
+  }
+
+  // (2) 录取形式倾向
+  switch (answers.q2) {
+    case "A": shho += 10; break;
+    case "B": mc += 10; break;
+    case "C": cwc += 10; break;
+    case "D": mc += 3; shho += 3; cwc += 3; break;
+    case "E": mc += 7; shho += 7; cwc += 7; break;
+  }
+
+  // (3) 社群社交倾向
+  switch (answers.q3) {
+    case "A": mc += 10; break;
+    case "B": cwc += 10; break;
+    case "C": shho += 10; break;
+    case "D": mc += 7; shho += 7; cwc += 7; break;
+  }
+  if (answers.q3 !== "A") mc -= 5;
+
+  // (4) 日常生活期望
+  switch (answers.q4) {
+    case "A": cwc += 10; break;
+    case "B": shho += 10; mc += 5; break;
+    case "C": mc += 8; shho += 8; cwc += 8; break;
+  }
+
+  // 敬文专属评分封顶 50
+  if (cwc > 50) cwc = 50;
+
+  return { mc, shho, cwc };
+}
+
+/**
+ * 把打好分的书院排成 1–9 完整志愿。小书院位置由 A/B/C 决定：
+ * - aim (A)：第一志愿 = 推荐指数最高的小书院（即使命中避雷也放第一）；
+ *   剩余两所小书院排到第 8–9 志愿。
+ * - avoid (B)：三所小书院排到第 7–9 志愿。
+ * - indifferent (C)：若推荐指数最高的书院为小书院，走 A 式（第一志愿=该小书院，
+ *   其余两所→8–9）；否则走 B 式（三所小书院→7–9）。
+ * 非小书院填充剩余位置，仍套用既有中/大书院特规与逸夫规则。
+ * 各分区内避雷命中的书院排到该分区末尾。
+ */
+function applyVolunteerOrdering(
+  scored: ScoredCollege[],
+  pref: SmallCollegePreference,
+  smallCollegeAnswers?: SmallCollegeAnswers,
+): ScoredCollege[] {
+  // 决定小书院区域模式：first = 占第 1 + 8/9；tail = 占第 7/8/9。
+  let mode: "first" | "tail";
+  if (pref === "aim") {
+    mode = "first";
+  } else if (pref === "avoid") {
+    mode = "tail";
+  } else {
+    const topOverall = scored.slice().sort(baseComparator)[0];
+    mode =
+      topOverall && SMALL_SET.has(topOverall.id) ? "first" : "tail";
+  }
+
+  const small = scored.filter((x) => SMALL_SET.has(x.id));
+  const nonSmall = scored.filter((x) => !SMALL_SET.has(x.id));
+  const nonSmallOrdered = orderWithExistingRules(nonSmall);
+
+  if (mode === "first") {
+    // 若有 06 小书院精选答案，用「最终推荐指数 = 原始×0.6 + 专属×1」排序小书院。
+    const useSpecialization = pref === "aim" && smallCollegeAnswers;
+    let smallForRanking = small.slice();
+    if (useSpecialization) {
+      const spec = computeSmallCollegeSpecialization(smallCollegeAnswers!);
+      smallForRanking = small.map((c) => {
+        const s = spec[c.id as "mc" | "shho" | "cwc"] ?? 0;
+        const combined = c.score * 0.6 + s * 1;
+        return { ...c, score: combined };
+      });
+    }
+    // slot1：推荐指数最高的小书院（不区分是否避雷，裁决 top_any）。
+    const smallByScore = smallForRanking.slice().sort(baseComparator);
+    const slot1 = smallByScore[0];
+    const restSmall = smallByScore.slice(1);
+    const tailSmall = orderSmallBlock(restSmall);
+    if (slot1) {
+      slot1.reasons = slot1.reasons.concat(
+        pref === "aim"
+          ? useSpecialization
+            ? "已选「冲小书院」+ 小书院精选，第一志愿为综合推荐指数最高的小书院"
+            : "已选「冲小书院」，第一志愿强制为推荐指数最高的小书院"
+          : "推荐指数最高的书院为小书院，作为第一志愿",
+      );
+      tailSmall.forEach((x) =>
+        x.reasons.push("剩余小书院排到第 8–9 志愿"),
+      );
+    }
+    return [slot1, ...nonSmallOrdered, ...tailSmall].filter(
+      Boolean,
+    ) as ScoredCollege[];
+  }
+
+  const tailSmall = orderSmallBlock(small);
+  tailSmall.forEach((x) =>
+    x.reasons.push(
+      pref === "avoid"
+        ? "已选「不想去小书院」，小书院排到第 7–9 志愿"
+        : "推荐指数最高的书院不是小书院，三所小书院排到第 7–9 志愿",
+    ),
+  );
+  return [...nonSmallOrdered, ...tailSmall];
+}
+
+/**
  * 校验三个看重因素：第 1 个必填；非空项互不重复；不允许跳位（第 2 为空则第 3 必为空）。
  */
 export function validatePriorities(
@@ -406,8 +496,9 @@ export function validatePriorities(
 export function recommend(input: RecommendInput): ScoredCollege[] {
   const { majorGroup, priorities, avoids } = input;
   const pref = input.smallCollegePreference ?? "indifferent";
+  const bonusFactors = input.bonusFactors ?? [];
   const scored = COLLEGES.map((c) =>
-    scoreCollege(c, majorGroup, priorities, avoids),
+    scoreCollege(c, majorGroup, priorities, avoids, bonusFactors),
   );
-  return applyVolunteerOrdering(scored, avoids, pref);
+  return applyVolunteerOrdering(scored, pref, input.smallCollegeAnswers);
 }

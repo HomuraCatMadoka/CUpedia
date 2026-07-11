@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/select";
 import {
   AVOID_FACTORS,
+  BONUS_FACTORS,
   MAJOR_GROUPS,
   SCORED_FACTORS,
   type AvoidFactor,
+  type BonusFactor,
   type MajorGroup,
   type ScoredFactor,
 } from "@/lib/college-picker/data";
@@ -28,6 +30,7 @@ import {
   recommend,
   validatePriorities,
   type ScoredCollege,
+  type SmallCollegeAnswers,
   type SmallCollegePreference,
 } from "@/lib/college-picker/recommend";
 
@@ -48,9 +51,87 @@ const PREFERENCE_OPTIONS: {
   label: string;
   desc: string;
 }[] = [
-  { id: "aim", label: "A. 冲！", desc: "第一志愿强制为小书院" },
+  {
+    id: "aim",
+    label: "A. 冲！",
+    desc: "第一志愿为小书院，其余两所排到 8–9 志愿",
+  },
   { id: "avoid", label: "B. 完全不想去", desc: "三所小书院排到第 7–9 志愿" },
   { id: "indifferent", label: "C. 无所谓", desc: "按默认机制运行分院帽" },
+];
+
+/** 06 小书院精选：四题的题干与选项。 */
+const SC_QUESTIONS: {
+  id: keyof SmallCollegeAnswers;
+  prompt: string;
+  subText?: string;
+  options: { id: string; label: string }[];
+}[] = [
+  {
+    id: "q1",
+    prompt: "小书院保证四年宿舍，因而录取过程竞争较大。你对此更倾向于：",
+    options: [
+      { id: "A", label: "录取优先：录取机会大于一切" },
+      { id: "B", label: "静观沉浮：有机会录取小书院更好，但也没那么在意" },
+    ],
+  },
+  {
+    id: "q2",
+    prompt: "小书院除了都需要填表格之外，录取的主要机制如下：",
+    subText:
+      "善衡：拍视频介绍自己\n晨兴：网上面试/线下面试，更加重视英语能力\n敬文：英语面试，部分普通话交流，casual talk",
+    options: [
+      {
+        id: "A",
+        label:
+          "对于可以设计并且剪辑的视频，我更有掌控感，同时很乐意大方地展示自己的优点。",
+      },
+      {
+        id: "B",
+        label:
+          "我有很好的表达能力和临场应变能力，面试时，英语口语的流畅和准确会是我的加分项。",
+      },
+      {
+        id: "C",
+        label:
+          "我更喜欢在面试的问答中展示自己，我可能不是能力最出众者，但我有诚恳的态度。",
+      },
+      {
+        id: "D",
+        label:
+          "我可以接受每一种形式，但是我不太希望投入过多精力在申请小书院上。",
+      },
+      {
+        id: "E",
+        label: "无论哪种形式，我都会提前做足准备，哪怕我知道这些准备可能多余。",
+      },
+    ],
+  },
+  {
+    id: "q3",
+    prompt: "小书院的社群关系更加紧密，关于社交，下列选项你更倾向于？",
+    options: [
+      {
+        id: "A",
+        label: "更加国际化的环境，以英语和粤语主导的交流环境可以帮助我提升。",
+      },
+      { id: "B", label: "我希望内地生更多，能够找到同乡和归属感" },
+      {
+        id: "C",
+        label: "Local 较多的社群，我会说粤语或我有积极学习粤语的意愿",
+      },
+      { id: "D", label: "没有特别倾向" },
+    ],
+  },
+  {
+    id: "q4",
+    prompt: "关于日常生活，哪一项更符合你的期望？",
+    options: [
+      { id: "A", label: "设施很新，住宿环境安静，位置偏僻一点可以接受" },
+      { id: "B", label: "主要期望上课通勤更方便" },
+      { id: "C", label: "都无所谓，只要能够保宿四年就行" },
+    ],
+  },
 ];
 
 // 沿用原版默认预选：专业默认第一个、三个因素预选 通勤 / 住宿 / 保宿。
@@ -83,8 +164,15 @@ export function CollegePickerForm() {
       DEFAULT_PRIORITIES,
     );
   const [avoids, setAvoids] = useState<AvoidFactor[]>([]);
+  const [bonusFactors, setBonusFactors] = useState<BonusFactor[]>([]);
   const [preference, setPreference] =
     useState<SmallCollegePreference>("indifferent");
+  const [scAnswers, setScAnswers] = useState<SmallCollegeAnswers>({
+    q1: "A",
+    q2: "A",
+    q3: "A",
+    q4: "A",
+  });
   const [result, setResult] = useState<ScoredCollege[] | null>(null);
   const [error, setError] = useState<string>("");
   const resultRef = useRef<HTMLDivElement>(null);
@@ -132,6 +220,13 @@ export function CollegePickerForm() {
     reset();
   }
 
+  function toggleBonus(factor: BonusFactor, checked: boolean) {
+    setBonusFactors((prev) =>
+      checked ? [...prev, factor] : prev.filter((b) => b !== factor),
+    );
+    reset();
+  }
+
   function handleRecommend() {
     const check = validatePriorities(priorities);
     if (!check.ok) {
@@ -146,6 +241,8 @@ export function CollegePickerForm() {
         priorities,
         avoids,
         smallCollegePreference: preference,
+        bonusFactors,
+        smallCollegeAnswers: preference === "aim" ? scAnswers : undefined,
       }),
     );
   }
@@ -255,12 +352,67 @@ export function CollegePickerForm() {
                 </div>
               ))}
             </div>
+            <dl className="space-y-1 pt-2 text-xs text-muted-foreground">
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">
+                  通勤时间：
+                </dt>
+                <dd>距离对应专业大部分教学楼位置</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">
+                  保宿机会：
+                </dt>
+                <dd>能加宿分的活动多不多、容不容易做、整体保宿难度</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">
+                  住宿环境：
+                </dt>
+                <dd>海景、设施新旧、有没有小冰箱或可调温空调等</dd>
+              </div>
+            </dl>
           </div>
 
           <div className="space-y-3 border-b py-6">
-            <StepHeading number="04" title="想避开的因素" />
+            <StepHeading number="04" title="你看重的其他因素" />
             <p className="text-xs text-muted-foreground">
-              可选，命中的书院仍会显示，但会被压到志愿末尾。
+              可选，勾选后给推荐指数加固定分。
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {BONUS_FACTORS.map((f) => {
+                const on = bonusFactors.includes(f.id);
+                return (
+                  <Label
+                    key={f.id}
+                    className={`flex min-h-10 cursor-pointer items-center gap-3 rounded-md border px-3 py-2 font-normal transition-colors ${
+                      on
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "border-transparent text-foreground hover:bg-muted/60"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={on}
+                      onCheckedChange={(checked) =>
+                        toggleBonus(f.id, checked === true)
+                      }
+                      data-testid={`bonus-${f.id}`}
+                    />
+                    {f.nameZh}
+                  </Label>
+                );
+              })}
+            </div>
+            <p className="pt-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">par 房：</span>
+              双方同意的情况下选定对方为舍友
+            </p>
+          </div>
+
+          <div className="space-y-3 border-b py-6">
+            <StepHeading number="05" title="想避开的因素" />
+            <p className="text-xs text-muted-foreground">
+              可选，命中的书院仍会显示，但会被排到对应志愿分区末尾。
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {AVOID_FACTORS.map((f) => {
@@ -286,7 +438,96 @@ export function CollegePickerForm() {
                 );
               })}
             </div>
+            <dl className="space-y-1 pt-2 text-xs text-muted-foreground">
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">fyp：</dt>
+                <dd>Final year project（一门三分课）</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">
+                  宗教因素：
+                </dt>
+                <dd>周会有祈祷</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">
+                  入学面试：
+                </dt>
+                <dd>网上面试/线下面试/拍视频介绍自己（善衡）</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">
+                  入学笔试：
+                </dt>
+                <dd>填表格、写作文介绍自己，阐述选择动机。不是考试！！！</dd>
+              </div>
+            </dl>
           </div>
+
+          {preference === "aim" && (
+            <div className="space-y-3 border-b py-6">
+              <StepHeading number="06" title="小书院精选" />
+              <p className="text-xs text-muted-foreground">
+                其余 6
+                所书院评分固定，下列问题将评估「小书院专属推荐指数」，综合决定第一志愿。
+              </p>
+              <div className="space-y-4">
+                {SC_QUESTIONS.map((q, qi) => (
+                  <div
+                    key={q.id}
+                    className="space-y-2"
+                    data-testid={`sc-q-${qi}`}
+                  >
+                    <p className="text-sm font-medium">
+                      ({qi + 1}) {q.prompt}
+                    </p>
+                    {q.subText && (
+                      <pre className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                        {q.subText}
+                      </pre>
+                    )}
+                    <div className="grid gap-2">
+                      {q.options.map((opt) => {
+                        const checked = scAnswers[q.id] === opt.id;
+                        return (
+                          <Label
+                            key={opt.id}
+                            className={`flex cursor-pointer items-start gap-2 rounded-md border px-3 py-2 text-sm font-normal transition-colors ${
+                              checked
+                                ? "border-foreground bg-muted/50"
+                                : "border-transparent hover:bg-muted/40"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`sc-${q.id}`}
+                              value={opt.id}
+                              checked={checked}
+                              onChange={() => {
+                                setScAnswers(
+                                  (prev) =>
+                                    ({
+                                      ...prev,
+                                      [q.id]: opt.id,
+                                    }) as SmallCollegeAnswers,
+                                );
+                                reset();
+                              }}
+                              className="mt-0.5 size-4 shrink-0 accent-primary"
+                            />
+                            <span>
+                              <span className="font-medium">{opt.id}.</span>{" "}
+                              {opt.label}
+                            </span>
+                          </Label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col items-stretch justify-between gap-3 pt-6 sm:flex-row sm:items-center">
             <p className="text-xs text-muted-foreground">
@@ -366,6 +607,12 @@ export function CollegePickerForm() {
                         已避雷
                       </Badge>
                     )}
+                    <span
+                      className="shrink-0 self-start text-sm font-medium tabular-nums text-muted-foreground"
+                      data-testid="picker-score"
+                    >
+                      推荐指数 {college.score.toFixed(1)}
+                    </span>
                   </CardContent>
                 </Card>
               </li>
