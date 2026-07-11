@@ -31,6 +31,7 @@ const {
     "leftJoin",
     "set",
     "returning",
+    "onConflictDoUpdate",
   ];
   for (const m of methods) chain[m] = vi.fn(() => chain);
   // Terminal await: shift the next queued rows (default: empty result set).
@@ -120,6 +121,16 @@ describe("submitCourseRating", () => {
         userId: "u1",
         score: 8.5,
       }),
+    );
+  });
+
+  it("同一用户重复打分是更新而非新增（upsert，一人一票）", async () => {
+    queueRows([COURSE], []); // findCourse, no rating within cooldown
+    await submitCourseRating("CSCI3150", 7);
+    const onConflict = dbChain.onConflictDoUpdate as Mock;
+    expect(onConflict).toHaveBeenCalledOnce();
+    expect(onConflict).toHaveBeenCalledWith(
+      expect.objectContaining({ set: expect.objectContaining({ score: 7 }) }),
     );
   });
 

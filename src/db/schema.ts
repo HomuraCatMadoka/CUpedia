@@ -9,6 +9,7 @@ import {
   real,
   jsonb,
   index,
+  uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -362,9 +363,18 @@ export const courseRatings = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     /** 0–10, one decimal. */
     score: real("score").notNull(),
+    /** Last time this user rated this course (upserted); drives the cooldown. */
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("course_ratings_course_code_idx").on(table.courseCode)],
+  // One rating row per (course, user): a re-rate updates it in place (upsert),
+  // so the aggregate is one-vote-per-user. Leading course_code also serves the
+  // by-course aggregate lookups, so no separate single-column index is needed.
+  (table) => [
+    uniqueIndex("course_ratings_course_user_uq").on(
+      table.courseCode,
+      table.userId,
+    ),
+  ],
 );
 
 export const courseReviews = pgTable(

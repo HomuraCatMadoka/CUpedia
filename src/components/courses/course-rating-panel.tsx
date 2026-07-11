@@ -78,11 +78,9 @@ export function CourseRatingPanel({
               ? `已有 ${state.ratingCount} 次评分，综合 ${state.aggregateRating?.toFixed(1) ?? "—"} 分`
               : "暂无用户评分，提交后将更新综合推荐指数"}
           </p>
-          {state.myRatingCount > 0 && (
+          {state.lastScore != null && (
             <p className="mt-1 text-xs text-muted-foreground">
-              你已评分 {state.myRatingCount} 次
-              {state.lastScore != null &&
-                `，上次 ${state.lastScore.toFixed(1)} 分`}
+              你的评分：{state.lastScore.toFixed(1)} 分（可更新）
             </p>
           )}
         </div>

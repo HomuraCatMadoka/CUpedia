@@ -426,11 +426,19 @@ export async function submitCourseRating(
     }
   }
 
-  await db.insert(courseRatings).values({
-    courseCode: course.code,
-    userId: user.id,
-    score: normalizedScore,
-  });
+  // One vote per user: a re-rate updates the existing row (and refreshes the
+  // cooldown clock) instead of appending, so the average isn't self-skewed.
+  await db
+    .insert(courseRatings)
+    .values({
+      courseCode: course.code,
+      userId: user.id,
+      score: normalizedScore,
+    })
+    .onConflictDoUpdate({
+      target: [courseRatings.courseCode, courseRatings.userId],
+      set: { score: normalizedScore, createdAt: sql`now()` },
+    });
 
   revalidatePath(`/courses/${course.code}`);
   revalidatePath("/courses");
