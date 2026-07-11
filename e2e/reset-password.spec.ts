@@ -1,78 +1,123 @@
-import { test, expect } from "@playwright/test";
 import { randomInt } from "node:crypto";
-import { Client } from "pg";
+import {
+  request as apiRequest,
+  test,
+  expect,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
+import { expireLatestOtp, readLatestOtp } from "./helpers/otp";
 
-/**
- * Password reset is a SEPARATE entry point from registration (better-auth's
- * native email-otp reset). This verifies the round trip: a registered user
- * resets via a forget-password OTP, the new password works, the old one fails.
- */
-
-const EMAIL = `1155${randomInt(1_000_000).toString().padStart(6, "0")}@link.cuhk.edu.hk`;
-const REGISTER_OTP = "111111";
-const RESET_OTP = "222222";
 const OLD_PASSWORD = "old-password-1";
 const NEW_PASSWORD = "new-password-2";
 
-/** OTP plugin stores codes plain; sign-in uses "sign-in-otp-<email>",
- * password reset uses "forget-password-otp-<email>". */
-async function seedOtp(identifier: string, otp: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `insert into verifications (identifier, value, expires_at)
-       values ($1, $2, now() + interval '5 minutes')`,
-      [identifier, otp],
-    );
-  } finally {
-    await client.end();
-  }
+function freshEmail() {
+  return `1155${randomInt(1_000_000).toString().padStart(6, "0")}@link.cuhk.edu.hk`;
 }
 
-test("reset password: new password works, old one is rejected", async ({
-  page,
-  request,
-}) => {
-  // Arrange: register the account (sign-in OTP path). Use page.request so the
-  // session cookie register sets lands in a DIFFERENT jar than the `request`
-  // fixture below — a cookie-bearing sign-in trips better-auth's origin check.
-  await seedOtp(`sign-in-otp-${EMAIL}`, REGISTER_OTP);
-  const reg = await page.request.post("/api/auth/register", {
+async function createUser(request: APIRequestContext, email: string) {
+  const otpRequest = await request.post(
+    "/api/auth/email-otp/send-verification-otp",
+    { data: { email, type: "sign-in" } },
+  );
+  expect(otpRequest.ok()).toBe(true);
+  const registration = await request.post("/api/auth/register", {
     data: {
-      email: EMAIL,
-      otp: REGISTER_OTP,
+      email,
+      otp: await readLatestOtp(email, "sign-in"),
       password: OLD_PASSWORD,
       nickname: "重置测试",
     },
   });
-  expect(reg.status()).toBe(200);
+  expect(registration.ok()).toBe(true);
+}
 
-  // Act: reset via a forget-password OTP.
-  await seedOtp(`forget-password-otp-${EMAIL}`, RESET_OTP);
-  const reset = await request.post("/api/auth/email-otp/reset-password", {
-    data: { email: EMAIL, otp: RESET_OTP, password: NEW_PASSWORD },
-  });
-  expect(reset.status()).toBe(200);
+async function requestReset(page: Page, email: string) {
+  await page.goto("/reset-password");
+  await page.getByLabel("CUHK 邮箱").fill(email);
+  await page.getByRole("button", { name: "发送验证码" }).click();
+  await expect(page.getByText(`验证码已发送至 ${email}`)).toBeVisible();
+}
 
-  // Assert: the new password signs in, the old one no longer does.
-  const oldLogin = await request.post("/api/auth/sign-in/email", {
-    data: { email: EMAIL, password: OLD_PASSWORD },
-  });
-  expect(oldLogin.status()).toBe(401);
+async function submitReset(page: Page, otp: string) {
+  await page.getByLabel("验证码").fill(otp);
+  await page.getByLabel("新密码", { exact: true }).fill(NEW_PASSWORD);
+  await page.getByLabel("确认新密码").fill(NEW_PASSWORD);
+  await page.getByRole("button", { name: "重置密码" }).click();
+}
 
-  const newLogin = await request.post("/api/auth/sign-in/email", {
-    data: { email: EMAIL, password: NEW_PASSWORD },
-  });
-  expect(newLogin.status()).toBe(200);
+async function passwordWorks(baseURL: string, email: string, password: string) {
+  const context = await apiRequest.newContext({ baseURL });
+  try {
+    const response = await context.post("/api/auth/sign-in/email", {
+      data: { email, password },
+    });
+    return response.ok();
+  } finally {
+    await context.dispose();
+  }
+}
+
+test("reset form rejects a non-CUHK email", async ({ page }) => {
+  await page.goto("/reset-password");
+  await page.getByLabel("CUHK 邮箱").fill("student@gmail.com");
+  await page.getByRole("button", { name: "发送验证码" }).click();
+  await expect(page.getByText("仅支持 CUHK 邮箱")).toBeVisible();
+  await expect(page.getByLabel("验证码")).toHaveCount(0);
 });
 
-test("reset-password endpoint rejects a non-CUHK email", async ({
+test("wrong OTP does not change the password", async ({
+  page,
   request,
+  baseURL,
 }) => {
-  const res = await request.post("/api/auth/email-otp/request-password-reset", {
-    data: { email: "attacker@gmail.com" },
-  });
-  expect(res.status()).toBe(400);
-  expect(await res.text()).toContain("CUHK");
+  const email = freshEmail();
+  await createUser(request, email);
+  await requestReset(page, email);
+  const actualOtp = await readLatestOtp(email, "forget-password");
+  const wrongOtp = actualOtp === "000000" ? "999999" : "000000";
+
+  await submitReset(page, wrongOtp);
+
+  await expect(page.getByText(/验证码.*(?:无效|过期)/)).toBeVisible();
+  expect(await passwordWorks(baseURL!, email, OLD_PASSWORD)).toBe(true);
+  expect(await passwordWorks(baseURL!, email, NEW_PASSWORD)).toBe(false);
+});
+
+test("expired OTP does not change the password", async ({
+  page,
+  request,
+  baseURL,
+}) => {
+  const email = freshEmail();
+  await createUser(request, email);
+  await requestReset(page, email);
+  const otp = await readLatestOtp(email, "forget-password");
+  await expireLatestOtp(email, "forget-password");
+
+  await submitReset(page, otp);
+
+  await expect(page.getByText(/验证码.*(?:无效|过期)/)).toBeVisible();
+  expect(await passwordWorks(baseURL!, email, OLD_PASSWORD)).toBe(true);
+  expect(await passwordWorks(baseURL!, email, NEW_PASSWORD)).toBe(false);
+});
+
+test("user resets through the page and signs in with the new password", async ({
+  page,
+  request,
+  baseURL,
+}) => {
+  const email = freshEmail();
+  await createUser(request, email);
+  await requestReset(page, email);
+  await submitReset(page, await readLatestOtp(email, "forget-password"));
+
+  await expect(page.getByText("密码已重置，请使用新密码登录。")).toBeVisible();
+  expect(await passwordWorks(baseURL!, email, OLD_PASSWORD)).toBe(false);
+
+  await page.getByRole("button", { name: "前往登录" }).click();
+  await page.getByLabel("邮箱").fill(email);
+  await page.getByLabel("密码").fill(NEW_PASSWORD);
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page).toHaveURL(/\/wiki$/);
 });
