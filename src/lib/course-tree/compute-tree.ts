@@ -37,6 +37,8 @@ function toNode(
     level,
     missing,
     prereqCodes,
+    prereqGroups: info?.prerequisites ?? [],
+    prerequisiteWarning: info?.prerequisiteWarning ?? null,
     prereqNote,
   };
 }
@@ -119,6 +121,7 @@ export function computeTree(
     for (const n of info?.requirementNotes ?? []) {
       if (n.trim()) parts.push(n.trim());
     }
+    if (info?.prerequisiteWarning) parts.push(info.prerequisiteWarning);
 
     return parts.length ? parts.join(";") : null;
   };
@@ -146,6 +149,7 @@ export function computeTree(
     name: major.name,
     handbookYear: major.handbookYear,
     totalUnits: major.totalUnits,
+    normativeYears: major.normativeYears ?? 4,
     groups,
     equivalenceGroups: buildEquivalenceGroups(courses, categories),
   };

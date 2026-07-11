@@ -15,6 +15,7 @@ export type MajorMeta = {
   name: string;
   handbookYear: string;
   totalUnits: number | null;
+  normativeYears?: number;
 };
 
 /** 一个类目(来自 majorCategories)+ 它的成员课号(来自 categoryCourses)。 */
@@ -42,6 +43,8 @@ export type CourseInfo = {
   exclusions?: string[];
   /** 备注 + 旁路 warning 合并的自由文本(#164 供 UI 原样展示)。 */
   requirementNotes?: string[];
+  /** 无法硬校验的 equivalent / permission 等先修旁路。 */
+  prerequisiteWarning?: string | null;
 };
 
 // ── computeTree 输出 ──
@@ -62,6 +65,9 @@ export type CourseNode = {
   missing: boolean;
   /** 本树内的先修课号(去重、驱动先修边与拓扑分层);出树/无先修则为空。 */
   prereqCodes: string[];
+  /** 严格模式校验用的 AND-of-OR 先修结构；组间 AND、组内 OR。 */
+  prereqGroups?: PrereqGroup[];
+  prerequisiteWarning?: string | null;
   /** 出树先修 / 同修 / 旁路等无法连边的信息,汇成一行文字提示;无则 null。 */
   prereqNote: string | null;
 };
@@ -97,6 +103,7 @@ export type MajorTree = {
   name: string;
   handbookYear: string;
   totalUnits: number | null;
+  normativeYears?: number;
   groups: CategoryGroup[];
   /** 类目内的「多选一」等价组(#165);无则空数组。 */
   equivalenceGroups: EquivalenceGroup[];
@@ -128,6 +135,29 @@ export type BuildProgress = {
   /** 主修要求总学分。 */
   totalUnits: number | null;
   categories: CategoryProgress[];
+};
+
+export type BuildItem = { code: string; term: number };
+
+export type BuildViolation =
+  | { type: "season"; code: string; term: number }
+  | { type: "term-cap"; term: number; units: number; cap: number }
+  | {
+      type: "prerequisite";
+      code: string;
+      term: number;
+      required: string[];
+    }
+  | { type: "equivalence"; codes: string[] };
+
+export type BuildEvaluation = BuildProgress & {
+  complete: boolean;
+  violations: BuildViolation[];
+  warnings: {
+    type: "prerequisite-bypass";
+    code: string;
+    message: string;
+  }[];
 };
 
 // ── server action 返回类型 ──

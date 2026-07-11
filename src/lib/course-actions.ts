@@ -94,7 +94,8 @@ export async function getMajorTree(majorId: string): Promise<MajorTree | null> {
         corequisites: parsed.corequisites,
         exclusions: parsed.exclusions,
         // 豁免 / 旁路 warning / 非课号限制等合并为一串备注,供 computeTree 汇入提示。
-        requirementNotes: [...parsed.notes, ...parsed.warnings],
+        requirementNotes: parsed.notes,
+        prerequisiteWarning: parsed.warnings.join(";") || null,
       };
     });
 
@@ -104,6 +105,7 @@ export async function getMajorTree(majorId: string): Promise<MajorTree | null> {
         name: major.name,
         handbookYear: major.handbookYear,
         totalUnits: toNum(major.totalUnits),
+        normativeYears: major.normativeYears,
       },
       categories,
       courseInfos,

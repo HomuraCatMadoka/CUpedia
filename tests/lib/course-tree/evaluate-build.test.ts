@@ -16,10 +16,37 @@ const major: MajorMeta = {
 };
 
 const courses: CourseInfo[] = [
-  { code: "CSCI1130", title: "A", units: 3, description: "", terms: [] },
-  { code: "CSCI3130", title: "B", units: 3, description: "", terms: [] },
-  { code: "MATH1010", title: "C", units: 3, description: "", terms: [] },
-  { code: "MATH1510", title: "D", units: 3, description: "", terms: [] },
+  {
+    code: "CSCI1130",
+    title: "A",
+    units: 3,
+    description: "",
+    terms: ["T1"],
+  },
+  {
+    code: "CSCI3130",
+    title: "B",
+    units: 3,
+    description: "",
+    terms: [],
+    prerequisites: [{ codes: ["CSCI1130"] }],
+  },
+  {
+    code: "MATH1010",
+    title: "C",
+    units: 3,
+    description: "",
+    terms: [],
+    exclusions: ["MATH1510"],
+  },
+  {
+    code: "MATH1510",
+    title: "D",
+    units: 3,
+    description: "",
+    terms: [],
+    exclusions: ["MATH1010"],
+  },
   { code: "STAT2001", title: "E", units: 3, description: "", terms: [] },
 ];
 
@@ -59,6 +86,120 @@ const categories: CategoryInput[] = [
 const tree = computeTree(major, categories, courses);
 
 describe("evaluateBuild", () => {
+  it("严格模式报告开课季节不匹配", () => {
+    const result = evaluateBuild(
+      tree,
+      [{ code: "CSCI1130", term: 2 }],
+      "strict",
+    );
+
+    expect(result.violations).toContainEqual({
+      type: "season",
+      code: "CSCI1130",
+      term: 2,
+    });
+  });
+
+  it("严格模式报告每学期学分超限", () => {
+    const result = evaluateBuild(
+      tree,
+      [
+        { code: "CSCI1130", term: 1 },
+        { code: "CSCI3130", term: 1 },
+        { code: "MATH1010", term: 1 },
+        { code: "STAT2001", term: 1 },
+      ],
+      "strict",
+      { termUnitCap: 9 },
+    );
+
+    expect(result.violations).toContainEqual({
+      type: "term-cap",
+      term: 1,
+      units: 12,
+      cap: 9,
+    });
+  });
+
+  it("严格模式报告排在先修之前的课程", () => {
+    const result = evaluateBuild(
+      tree,
+      [
+        { code: "CSCI3130", term: 1 },
+        { code: "CSCI1130", term: 2 },
+      ],
+      "strict",
+    );
+
+    expect(result.violations).toContainEqual({
+      type: "prerequisite",
+      code: "CSCI3130",
+      term: 1,
+      required: ["CSCI1130"],
+    });
+  });
+
+  it("严格模式报告同一等价组被选中多门", () => {
+    const result = evaluateBuild(
+      tree,
+      [
+        { code: "MATH1010", term: 1 },
+        { code: "MATH1510", term: 2 },
+      ],
+      "strict",
+    );
+
+    expect(result.violations).toContainEqual({
+      type: "equivalence",
+      codes: ["MATH1010", "MATH1510"],
+    });
+  });
+
+  it("含旁路条款的先修只警告而不硬拦", () => {
+    const bypassTree = computeTree(major, categories, [
+      ...courses.filter((course) => course.code !== "CSCI3130"),
+      {
+        ...courses.find((course) => course.code === "CSCI3130")!,
+        prerequisiteWarning: "or equivalent / by permission",
+      },
+    ]);
+    const result = evaluateBuild(
+      bypassTree,
+      [{ code: "CSCI3130", term: 1 }],
+      "strict",
+    );
+
+    expect(result.violations).toEqual([]);
+    expect(result.warnings).toContainEqual({
+      type: "prerequisite-bypass",
+      code: "CSCI3130",
+      message: "or equivalent / by permission",
+    });
+  });
+
+  it("严格构筑满足全部软要求且无违规时整树点亮", () => {
+    const completableTree = computeTree(
+      major,
+      categories.map((category) =>
+        category.id === "c3" ? { ...category, unitsRequired: 3 } : category,
+      ),
+      courses,
+    );
+    const result = evaluateBuild(
+      completableTree,
+      [
+        { code: "CSCI1130", term: 1 },
+        { code: "CSCI3130", term: 2 },
+        { code: "MATH1010", term: 1 },
+        { code: "STAT2001", term: 1 },
+      ],
+      "strict",
+      { termUnitCap: 18 },
+    );
+
+    expect(result.complete).toBe(true);
+  });
+
   it("空点亮集:总学分 0,每类 litCount 0、未满足", () => {
     const p = evaluateBuild(tree, new Set());
     expect(p.totalLitUnits).toBe(0);

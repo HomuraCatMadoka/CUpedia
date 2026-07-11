@@ -266,3 +266,44 @@ test.describe("#165 等价组多选一", () => {
     await expect(edgeFrom1120).toHaveAttribute("data-hot", "true");
   });
 });
+
+test.describe("#166 严格模式逐学期点亮", () => {
+  test("按八学期分配课程，季节不符被拦，旁路只警告", async ({ page }) => {
+    await page.goto("/course-tree");
+    await page.getByRole("button", { name: "严格模式" }).click();
+
+    const term = page.getByTestId("active-term");
+    await expect(term.locator("option")).toHaveCount(8);
+    await term.selectOption("2");
+
+    const java = page.locator('[data-code="CSCI1130"]');
+    await java.click();
+    await expect(java).toHaveAttribute("data-lit", "false");
+    await expect(page.getByTestId("strict-feedback")).toContainText(
+      "不在当前季节开课",
+    );
+
+    const ai = page.locator('[data-code="CSCI3230"]');
+    await ai.click();
+    await expect(ai).toHaveAttribute("data-lit", "true");
+    await expect(ai).toHaveAttribute("data-term", "2");
+    await expect(page.getByTestId("strict-feedback")).toContainText("旁路条款");
+  });
+
+  test("可调学分上限即时阻止超载", async ({ page }) => {
+    await page.goto("/course-tree");
+    await page.getByRole("button", { name: "严格模式" }).click();
+    await page.getByTestId("term-cap").fill("3");
+
+    const calculus = page.locator('[data-code="MATH1510"]');
+    const statistics = page.locator('[data-code="STAT2001"]');
+    await calculus.click();
+    await expect(calculus).toHaveAttribute("data-term", "1");
+
+    await statistics.click();
+    await expect(statistics).toHaveAttribute("data-lit", "false");
+    await expect(page.getByTestId("strict-feedback")).toContainText(
+      "超过上限 3",
+    );
+  });
+});
