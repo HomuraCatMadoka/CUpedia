@@ -25,6 +25,7 @@ import type { Course } from "@/app/(main)/courses/course-types";
 
 /** Max courses returned per list query — the catalog is too large to dump. */
 const PAGE_SIZE = 48;
+const RATING_COOLDOWN_MS = 5 * 60 * 1000;
 
 /** A review as presented to the client. Author identity is never exposed —
  * comments are anonymous — but ownership/like state for the *current* viewer
@@ -352,7 +353,7 @@ export async function getCourseReviews(
     createdAt: r.createdAt.toISOString(),
     likeCount: likeCount.get(r.id) ?? 0,
     likedByMe: mine.has(r.id),
-    isOwn: viewerId ? r.userId === viewerId : false,
+    isOwn: viewerId ? r.userId === viewerId || user?.role === "admin" : false,
   }));
 }
 
@@ -370,6 +371,23 @@ export async function submitCourseRating(
 
   const course = await findCourse(code);
   if (!course) throw new Error("课程不存在");
+
+  const [previous] = await db
+    .select({ createdAt: courseRatings.createdAt })
+    .from(courseRatings)
+    .where(
+      and(
+        eq(courseRatings.courseCode, course.code),
+        eq(courseRatings.userId, user.id),
+      ),
+    )
+    .limit(1);
+  if (
+    previous &&
+    Date.now() - previous.createdAt.getTime() < RATING_COOLDOWN_MS
+  ) {
+    throw new Error("每 5 分钟只能更新一次评分，请稍后再试");
+  }
 
   // One vote per user: a re-rate updates the existing row instead of appending,
   // so the average isn't self-skewed.
