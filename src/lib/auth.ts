@@ -5,6 +5,7 @@ import { createAuthMiddleware, APIError } from "better-auth/api";
 import { db } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
 import { shouldRejectOtpRequest } from "@/lib/email";
+import { sendOtpEmail } from "@/lib/otp-email";
 
 export const auth = betterAuth({
   secret: process.env.AUTH_SECRET,
@@ -41,41 +42,7 @@ export const auth = betterAuth({
   },
   plugins: [
     emailOTP({
-      async sendVerificationOTP({ email, otp, type }) {
-        const apiKey = process.env.BREVO_API_KEY;
-        if (!apiKey) throw new Error("BREVO_API_KEY is not configured");
-
-        let subject: string;
-        let text: string;
-        if (type === "sign-in") {
-          subject = "CUpedia 登录验证码";
-          text = `你的登录验证码是：${otp}，5 分钟内有效。`;
-        } else if (type === "email-verification") {
-          subject = "CUpedia 邮箱验证码";
-          text = `你的验证码是：${otp}，5 分钟内有效。`;
-        } else {
-          subject = "CUpedia 密码重置验证码";
-          text = `你的密码重置验证码是：${otp}，5 分钟内有效。`;
-        }
-
-        const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: {
-            "api-key": apiKey,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            sender: { email: process.env.EMAIL_FROM, name: "CUpedia" },
-            to: [{ email }],
-            subject,
-            textContent: text,
-          }),
-        });
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(`Brevo API error ${res.status}: ${body}`);
-        }
-      },
+      sendVerificationOTP: sendOtpEmail,
       otpLength: 6,
       expiresIn: 300,
     }),

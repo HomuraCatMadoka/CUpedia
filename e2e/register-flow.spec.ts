@@ -1,78 +1,111 @@
-import { test, expect } from "@playwright/test";
 import { randomInt } from "node:crypto";
-import { Client } from "pg";
+import { test, expect } from "@playwright/test";
+import { expireLatestOtp, readLatestOtp, userExists } from "./helpers/otp";
 
-/**
- * Registration must (a) actually set the password and (b) log the user in.
- * Regression: the route called setPassword with the cookie-less browser
- * headers (UNAUTHORIZED, silently swallowed → no credential account → password
- * login always 401) and discarded signInEmailOTP's Set-Cookie (no auto-login).
- */
-
-const EMAIL = `1155${randomInt(1_000_000).toString().padStart(6, "0")}@link.cuhk.edu.hk`;
-const OTP = "424242";
-const PASSWORD = "register-flow-pw";
-
-/** The OTP plugin stores codes plain under "sign-in-otp-<email>". */
-async function seedOtp() {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    await client.query(
-      `insert into verifications (identifier, value, expires_at)
-       values ($1, $2, now() + interval '5 minutes')`,
-      [`sign-in-otp-${EMAIL}`, OTP],
-    );
-  } finally {
-    await client.end();
-  }
+function freshEmail() {
+  return `1155${randomInt(1_000_000).toString().padStart(6, "0")}@link.cuhk.edu.hk`;
 }
 
-test("register sets the password and logs the user in", async ({
+async function requestOtp(
+  page: import("@playwright/test").Page,
+  email: string,
+) {
+  await page.goto("/register");
+  await page.getByLabel("CUHK 邮箱").fill(email);
+  await page.getByRole("button", { name: "发送验证码" }).click();
+  await expect(page.getByText(`验证码已发送至 ${email}`)).toBeVisible();
+}
+
+async function submitProfile(
+  page: import("@playwright/test").Page,
+  otp: string,
+  password = "register-flow-pw",
+) {
+  await page.getByLabel("验证码").fill(otp);
+  await page.getByRole("button", { name: "下一步" }).click();
+  await page.getByLabel("昵称").fill("注册测试");
+  await page.getByLabel("密码", { exact: true }).fill(password);
+  await page.getByLabel("确认密码").fill(password);
+  await page.getByRole("button", { name: "注册", exact: true }).click();
+}
+
+test("registration form rejects a non-CUHK email", async ({ page }) => {
+  await page.goto("/register");
+  await page.getByLabel("CUHK 邮箱").fill("student@gmail.com");
+  await page.getByRole("button", { name: "发送验证码" }).click();
+  await expect(page.getByText("仅支持 CUHK 邮箱注册")).toBeVisible();
+  await expect(page.getByLabel("验证码")).toHaveCount(0);
+});
+
+test("wrong OTP is understandable and does not create a user", async ({
   page,
+}) => {
+  const email = freshEmail();
+  await requestOtp(page, email);
+  const actualOtp = await readLatestOtp(email, "sign-in");
+  const wrongOtp = actualOtp === "000000" ? "999999" : "000000";
+
+  await submitProfile(page, wrongOtp);
+
+  await expect(page.getByText("验证码无效或已过期")).toBeVisible();
+  expect(await userExists(email)).toBe(false);
+});
+
+test("expired OTP is understandable and does not create a user", async ({
+  page,
+}) => {
+  const email = freshEmail();
+  await requestOtp(page, email);
+  const otp = await readLatestOtp(email, "sign-in");
+  await expireLatestOtp(email, "sign-in");
+
+  await submitProfile(page, otp);
+
+  await expect(page.getByText("验证码无效或已过期")).toBeVisible();
+  expect(await userExists(email)).toBe(false);
+});
+
+test("new CUHK user completes registration and can sign in independently", async ({
+  page,
+  browser,
   request,
 }) => {
-  await seedOtp();
+  const email = freshEmail();
+  const password = "register-flow-pw";
+  await requestOtp(page, email);
+  await submitProfile(page, await readLatestOtp(email, "sign-in"), password);
 
-  const res = await page.request.post("/api/auth/register", {
-    data: { email: EMAIL, otp: OTP, password: PASSWORD, nickname: "回归测试" },
-  });
-  expect(res.status()).toBe(200);
-
-  // Auto-login: the register response must carry the session cookie.
-  const cookies = await page.context().cookies();
-  expect(cookies.some((c) => c.name.includes("session_token"))).toBe(true);
-
-  // The session is live and serves the fresh nickname, not a stale cache.
+  await expect(page).toHaveURL(/\/wiki$/);
+  await expect(
+    page.getByRole("heading", { name: "你的中大百科全书", level: 1 }),
+  ).toBeVisible();
   const session = await page.request.get("/api/auth/get-session");
-  const body = await session.json();
-  expect(body?.user?.email).toBe(EMAIL);
-  expect(body?.user?.nickname).toBe("回归测试");
-
-  // Password actually set: email+password sign-in succeeds from a fresh,
-  // cookie-less client (a cookie-bearing one trips better-auth's CSRF origin
-  // check here, since AUTH_URL points at the dev port, not the e2e one).
-  const login = await request.post("/api/auth/sign-in/email", {
-    data: { email: EMAIL, password: PASSWORD },
+  expect((await session.json()).user).toMatchObject({
+    email,
+    nickname: "注册测试",
   });
-  expect(login.status()).toBe(200);
 
-  // check-email reflects the now-registered state.
-  const check = await request.post("/api/auth/check-email", {
-    data: { email: EMAIL },
-  });
-  expect((await check.json()).registered).toBe(true);
+  const context = await browser.newContext();
+  const loginPage = await context.newPage();
+  await loginPage.goto("/login");
+  await loginPage.getByLabel("邮箱").fill(email);
+  await loginPage.getByLabel("密码").fill(password);
+  await loginPage.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(loginPage).toHaveURL(/\/wiki$/);
+  await context.close();
 
-  // A registered email cannot re-register — blocked before OTP validation
-  // (so the bogus OTP never matters), preventing silent password/nickname
-  // clobber. 409, not 200.
-  const dup = await request.post("/api/auth/register", {
+  const duplicate = await request.post("/api/auth/register", {
     data: {
-      email: EMAIL,
+      email,
       otp: "000000",
-      password: "another-pw-1",
-      nickname: "重复",
+      password: "replacement-password",
+      nickname: "覆盖账户",
     },
   });
-  expect(dup.status()).toBe(409);
+  expect(duplicate.status()).toBe(409);
+
+  const login = await request.post("/api/auth/sign-in/email", {
+    data: { email, password },
+  });
+  expect(login.status()).toBe(200);
 });
