@@ -34,12 +34,13 @@ import {
 const MAJOR_ITEMS: Record<string, string> = Object.fromEntries(
   MAJOR_GROUPS.map((m) => [m.id, m.nameZh]),
 );
-const FACTOR_ITEMS: Record<string, string> = Object.fromEntries(
-  SCORED_FACTORS.map((f) => [f.id, f.nameZh]),
-);
 // 留空选项：「-」代表不填。
 const EMPTY_VALUE = "__none__";
 const EMPTY_LABEL = "—（不填）";
+const FACTOR_ITEMS: Record<string, string> = Object.fromEntries([
+  [EMPTY_VALUE, EMPTY_LABEL],
+  ...SCORED_FACTORS.map((f) => [f.id, f.nameZh]),
+]);
 
 const PREFERENCE_OPTIONS: {
   id: SmallCollegePreference;
@@ -70,9 +71,8 @@ export function CollegePickerForm() {
       DEFAULT_PRIORITIES,
     );
   const [avoids, setAvoids] = useState<AvoidFactor[]>([]);
-  const [preference, setPreference] = useState<SmallCollegePreference>(
-    "indifferent",
-  );
+  const [preference, setPreference] =
+    useState<SmallCollegePreference>("indifferent");
   const [result, setResult] = useState<ScoredCollege[] | null>(null);
   const [error, setError] = useState<string>("");
 
@@ -91,7 +91,11 @@ export function CollegePickerForm() {
 
   function setPriority(index: number, value: ScoredFactor | "") {
     setPriorities((prev) => {
-      const next = [...prev] as [ScoredFactor, ScoredFactor | "", ScoredFactor | ""];
+      const next = [...prev] as [
+        ScoredFactor,
+        ScoredFactor | "",
+        ScoredFactor | "",
+      ];
       next[index] = value;
       // 选空时维持「不跳位」不变量：第 2 留空则强制第 3 也留空。
       if (index === 1 && value === "") next[2] = "";
@@ -116,7 +120,12 @@ export function CollegePickerForm() {
     }
     setError("");
     setResult(
-      recommend({ majorGroup, priorities, avoids, smallCollegePreference: preference }),
+      recommend({
+        majorGroup,
+        priorities,
+        avoids,
+        smallCollegePreference: preference,
+      }),
     );
   }
 
@@ -205,7 +214,9 @@ export function CollegePickerForm() {
                     <SelectContent>
                       {/* 第 1 看重点必填，不放留空选项 */}
                       {index > 0 && (
-                        <SelectItem value={EMPTY_VALUE}>{EMPTY_LABEL}</SelectItem>
+                        <SelectItem value={EMPTY_VALUE}>
+                          {EMPTY_LABEL}
+                        </SelectItem>
                       )}
                       {SCORED_FACTORS.map((f) => (
                         <SelectItem key={f.id} value={f.id}>

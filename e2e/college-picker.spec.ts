@@ -61,6 +61,16 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await expect(page.getByTestId("picker-result")).toHaveCount(0);
   });
 
+  test("看重点留空时显示用户文案，不暴露内部值", async ({ page }) => {
+    await page.goto("/college-picker");
+
+    await page.getByTestId("priority-1").click();
+    await page.getByRole("option", { name: "—（不填）" }).click();
+
+    await expect(page.getByTestId("priority-1")).toContainText("—（不填）");
+    await expect(page.getByTestId("priority-2")).toContainText("—（不填）");
+  });
+
   test("页面标注非官方免责", async ({ page }) => {
     await page.goto("/college-picker");
     await expect(page.getByText(/非官方/)).toBeVisible();
