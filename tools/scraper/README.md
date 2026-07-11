@@ -7,7 +7,7 @@ Output lands in `scripts/data/` for the TS ingest scripts to consume.
 
 ```
 tools/scraper/scrape_courses.py   →  scripts/data/courses.json      → pnpm ingest:courses
-tools/scraper/scrape_handbook.py  →  scripts/data/handbook/*.html   → pnpm ingest:skeleton
+tools/scraper/scrape_handbook.py  →  scripts/data/handbook/*.{html,json} → pnpm ingest:skeleton
 ```
 
 ## Setup
@@ -26,8 +26,9 @@ python scrape_courses.py --subjects ACCT,CSCI    # a couple of subjects
 python scrape_courses.py                         # all ~259 subjects (~2–3h)
 python scrape_courses.py --fresh                 # ignore prior output, start over
 
-# Handbook study schemes (no captcha; sparse ids, mostly ~1500–1960)
-python scrape_handbook.py --start 1500 --end 1960
+# Current Handbook Major Programme schemes (latest four admission years)
+python scrape_handbook.py
+# Resume is automatic; use --fresh only to discard the existing manifest.
 ```
 
 `courses.json` is rewritten after **every** subject and the run **resumes** by
@@ -36,7 +37,7 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
 
 ## Notes & caveats
 
-- **Captcha** — the catalog subject search needs a 4-char captcha (`imgCaptcha`,
+- **Captcha** — the catalog and Browse Program Information searches need a 4-char captcha (`imgCaptcha`,
   field `txt_captcha`). `ddddocr` reads it; misreads are expected, so
   `reach_listing` retries up to 8× until the grid appears (the site echoes
   "Invalid Verification Code" on a miss). **One captcha unlocks the whole
@@ -48,8 +49,10 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   rather than fragile table positions. `career` drives the UG filter downstream
   in `normalizeCourse`.
 - **Verified end-to-end** against the live site (ACCT/CSCI/MATH → 301 raw rows →
-  172 UG after `normalizeCourse`, 0 malformed). `scrape_handbook.py` is likewise
-  verified against the two-step render (`document.aspx` → `view_document.aspx`).
+  172 UG after `normalizeCourse`, 0 malformed). The Handbook now redirects Major
+  requirements to Browse Program Information; `scrape_handbook.py` queries its
+  current academic year and three preceding years, keeps only Major schemes, and
+  writes a traceable manifest. Long ASP.NET sessions are renewed automatically.
 - **Be polite**: the source is a live government site. Keep the built-in delays,
   don't parallelize, run off-peak.
 - **Licensing**: third-party datasets are AGPL — used only as a

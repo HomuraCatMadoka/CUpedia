@@ -15,6 +15,9 @@
     "seed": "node --import tsx --import ./scripts/css-stub.mjs scripts/seed.ts",
     "ingest:courses": "node --import tsx scripts/ingest-courses.ts",
     "ingest:skeleton": "node --import tsx scripts/ingest-skeleton.ts",
+    "audit:handbook": "node --import tsx scripts/audit-handbook.ts",
+    "audit:handbook:spark": "node --import tsx scripts/handbook-reference.ts",
+    "generate:handbook:spark": "node --import tsx scripts/generate-handbook-reference.ts",
     "oracle:check": "node --import tsx scripts/oracle-check.ts",
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
     "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run"
@@ -66,6 +69,7 @@
     "next-themes": "^0.4.6",
     "node-diff3": "^3.2.0",
     "nodemailer": "^7.0.13",
+    "parse5": "8.0.1",
     "pg": "^8.21.0",
     "pinyin-pro": "^3.28.1",
     "platejs": "^53.0.5",

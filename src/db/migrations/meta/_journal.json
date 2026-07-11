@@ -78,6 +78,13 @@
       "when": 1783759631797,
       "tag": "0010_stiff_millenium_guard",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1783762405464,
+      "tag": "0011_regular_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

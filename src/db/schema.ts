@@ -6,6 +6,7 @@ import {
   boolean,
   integer,
   numeric,
+  real,
   jsonb,
   index,
   primaryKey,
@@ -346,3 +347,51 @@ export const buildItemsRelations = relations(buildItems, ({ one }) => ({
     references: [builds.id],
   }),
 }));
+
+// ── 课程测评：评分 / 评论 / 点赞 ──
+// 以课号（text）锚定，不设到 courses 的 FK：courses 由 scraper 重建，硬绑会
+// 妨碍导入；课号是稳定锚点（ADR 0005），与 buildItems.courseCode 同策略。
+
+export const courseRatings = pgTable(
+  "course_ratings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseCode: text("course_code").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 0–10, one decimal. */
+    score: real("score").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("course_ratings_course_code_idx").on(table.courseCode)],
+);
+
+export const courseReviews = pgTable(
+  "course_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseCode: text("course_code").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("course_reviews_course_code_idx").on(table.courseCode)],
+);
+
+// One row per (review, user) like. Composite PK makes a double-like a no-op at
+// the DB level — no read-modify-write, so concurrent toggles can't lose data.
+export const courseReviewLikes = pgTable(
+  "course_review_likes",
+  {
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => courseReviews.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.reviewId, table.userId] })],
+);

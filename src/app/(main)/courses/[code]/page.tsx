@@ -1,0 +1,109 @@
+export const dynamic = "force-dynamic";
+
+import { notFound } from "next/navigation";
+import Link from "next/link";
+import { ChevronLeftIcon } from "lucide-react";
+import {
+  getCourse,
+  getCourseReviews,
+  getCourseRatingState,
+} from "@/lib/course-review-actions";
+import { formatCourseCode } from "@/app/(main)/courses/course-types";
+import { getOptionalUser } from "@/lib/auth-guard";
+import { Badge } from "@/components/ui/badge";
+import { CourseReviewSection } from "@/components/courses/course-review-section";
+import { CourseRatingPanel } from "@/components/courses/course-rating-panel";
+
+export default async function CourseDetailPage({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const { code } = await params;
+  const course = await getCourse(code);
+  if (!course) notFound();
+
+  const [reviews, ratingState, user] = await Promise.all([
+    getCourseReviews(course.code),
+    getCourseRatingState(course.code),
+    getOptionalUser(),
+  ]);
+
+  return (
+    <div className="flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-3xl px-6 py-8">
+        <Link
+          href="/courses"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+          返回课程列表
+        </Link>
+
+        <div className="mt-4 rounded-2xl border p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {course.subject}
+              </span>
+              <h1 className="mt-1 text-2xl font-bold">
+                {formatCourseCode(course.code)}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {course.title}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Badge variant="secondary">{course.units} 学分</Badge>
+                {course.terms.map((t) => (
+                  <Badge key={t} variant="secondary">
+                    {t}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-xl bg-secondary/60 px-6 py-4 text-center">
+              <p className="text-xs tracking-wider text-muted-foreground uppercase">
+                综合推荐指数
+              </p>
+              <p className="mt-1 text-4xl font-light tracking-tighter">
+                {course.rating !== null ? course.rating.toFixed(1) : "—"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {course.ratingCount > 0
+                  ? `${course.ratingCount} 次评分`
+                  : "暂无用户评分"}
+                {" · "}
+                {course.reviewCount} 条评论
+              </p>
+            </div>
+          </div>
+
+          {course.description && (
+            <p className="mt-5 border-t pt-5 text-sm leading-relaxed text-muted-foreground">
+              {course.description}
+            </p>
+          )}
+        </div>
+
+        {ratingState && (
+          <div className="mt-6">
+            <CourseRatingPanel
+              key={`${course.code}-${ratingState.ratingCount}-${ratingState.myRatingCount}`}
+              code={course.code}
+              state={ratingState}
+              isAuthenticated={!!user}
+            />
+          </div>
+        )}
+
+        <div className="mt-8">
+          <CourseReviewSection
+            code={course.code}
+            reviews={reviews}
+            isAuthenticated={!!user}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
