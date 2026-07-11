@@ -62,6 +62,15 @@ describe("validateHandbookSnapshot", () => {
     );
   });
 
+  it("uses navigation metadata instead of a duplicated Word heading", () => {
+    const gerontology = entry(
+      "Community Health Practice Gerontology",
+      "2025-26",
+    );
+    gerontology.meta.programme = "B.Sc. in Gerontology";
+    expect(snapshotMajorName(gerontology, [gerontology])).toBe("Gerontology");
+  });
+
   it("rejects duplicate, Minor, empty, and partial snapshots before writes", () => {
     const duplicate = entry("Computer Science", "2025-26");
     const minor = entry("Entrepreneurship", "2025-26", {

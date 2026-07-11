@@ -39,10 +39,15 @@ export function snapshotMajorName(
   entry: HandbookSnapshotEntry,
   entries: HandbookSnapshotEntry[],
 ) {
-  const sameTitle = entries.filter(
-    ({ meta, leaf }) =>
+  const displayName = (programme: string) =>
+    programme.match(
+      /^B\.(?:A|B\.A|Ed|Eng|Sc|S\.Sc)\.?(?:\s+Programme)?\s+in\s+(.+)$/i,
+    )?.[1] ?? programme;
+  const name = displayName(entry.meta.programme);
+  const sameName = entries.filter(
+    ({ meta }) =>
       meta.handbookYear === entry.meta.handbookYear &&
-      leaf.title === entry.leaf.title,
+      displayName(meta.programme) === name,
   );
-  return sameTitle.length > 1 ? entry.meta.programme : entry.leaf.title;
+  return sameName.length > 1 ? entry.meta.programme : name;
 }
