@@ -302,14 +302,14 @@ export const FLAGS: Record<CollegeId, Record<AvoidFactor, "Y" | "N">> = {
   mc: {
     College_FYP: "N",
     Religious_Element: "N",
-    Admission_Interview: "N",
-    Admission_Written_Test: "N",
+    Admission_Interview: "Y",
+    Admission_Written_Test: "Y",
   },
   shho: {
     College_FYP: "N",
     Religious_Element: "N",
-    Admission_Interview: "N",
-    Admission_Written_Test: "N",
+    Admission_Interview: "Y",
+    Admission_Written_Test: "Y",
   },
   cwc: {
     College_FYP: "Y",
@@ -320,14 +320,14 @@ export const FLAGS: Record<CollegeId, Record<AvoidFactor, "Y" | "N">> = {
   wys: {
     College_FYP: "Y",
     Religious_Element: "N",
-    Admission_Interview: "N",
+    Admission_Interview: "Y",
     Admission_Written_Test: "N",
   },
   lws: {
     College_FYP: "N",
     Religious_Element: "N",
     Admission_Interview: "N",
-    Admission_Written_Test: "N",
+    Admission_Written_Test: "Y",
   },
 };
 

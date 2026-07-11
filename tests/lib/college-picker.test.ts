@@ -3,6 +3,7 @@ import {
   recommend,
   validatePriorities,
   computeWeights,
+  computeSmallCollegeSpecialization,
   type RecommendInput,
 } from "@/lib/college-picker/recommend";
 import {
@@ -56,8 +57,10 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       priorities: ["Hostel_Guarantee", "Commute_Time", "Exchange_Opportunity"],
       avoids: ["Admission_Interview", "Admission_Written_Test"],
     },
-    // C-i：shho(小书院)最高分→第一志愿；cwc 命中两项避雷扣到 0，在小书院块内排末尾(9)。
-    expected: ["shho", "cc", "uc", "sc", "na", "wys", "lws", "mc", "cwc"],
+    // 面试命中 mc/shho/cwc/wys，笔试命中 lws/shho/cwc/mc。
+    // mc/shho/cwc 各中两项(-100)，lws/wys 各中一项(-50)→均归零。
+    // 最高分 cc(65,非小)→C-ii：小书院→7-9；非小块内避雷排末尾。
+    expected: ["cc", "uc", "sc", "na", "lws", "wys", "cwc", "mc", "shho"],
   },
   {
     label: "理科 · 通勤/住宿/交换 · 避雷[FYP]",
@@ -90,9 +93,10 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
         "Admission_Written_Test",
       ],
     },
-    // C-i：mc→第一志愿；非小书院块内避雷命中的 cc/uc/wys 排到该块末尾(5-7)；
-    // 小书院块 8-9：shho(干净) → cwc(避雷)。
-    expected: ["mc", "lws", "na", "sc", "cc", "uc", "wys", "shho", "cwc"],
+    // 全部四项避雷：cc(FYP+宗教,-100), uc(FYP,-50), cwc(FYP+面试+笔试,-150),
+    // wys(FYP+面试,-100), mc(面试+笔试,-100), shho(面试+笔试,-100), lws(笔试,-50)。
+    // 仅 na/sc 干净(均35)。na(id<sc)居首→C-ii：小书院→7-9。
+    expected: ["na", "sc", "cc", "lws", "uc", "wys", "cwc", "mc", "shho"],
   },
   {
     label: "工科 · 交换/住宿/保宿 · 无避雷",
@@ -442,7 +446,9 @@ describe("recommend — 逸夫 (Shaw) 尽量不排最后：仅同分才换位（
       priorities: ["Hostel_Guarantee", "Commute_Time", "Exchange_Opportunity"],
       avoids: ["Admission_Interview", "Admission_Written_Test"],
     });
-    expect(result[result.length - 1].id).toBe("cwc");
+    // 新命中名单下小书院块 7-9 全部避雷(0 分)，按 id 排：cwc, mc, shho。
+    expect(result[result.length - 1].id).toBe("shho");
+    expect(result[result.length - 1].avoidHits.length).toBeGreaterThan(0);
   });
 });
 
@@ -517,5 +523,119 @@ describe("recommend — 其他看重因素（加固定分）", () => {
     expect(SMALL.has(result[0].id)).toBe(true);
     const smalls = result.filter((c) => SMALL.has(c.id));
     expect(result[0].score).toBe(Math.max(...smalls.map((c) => c.score)));
+  });
+});
+
+describe("recommend — 06 小书院精选专属评分", () => {
+  const baseInput = {
+    majorGroup: "engineering" as const,
+    priorities: [
+      "Commute_Time",
+      "Accommodation_Environment",
+      "Hostel_Guarantee",
+    ] as [ScoredFactor, ScoredFactor, ScoredFactor],
+    avoids: [] as AvoidFactor[],
+  };
+
+  it("computeSmallCollegeSpecialization：全选 A/A/A/A → cwc 封顶 50", () => {
+    const spec = computeSmallCollegeSpecialization({
+      q1: "A",
+      q2: "A",
+      q3: "A",
+      q4: "A",
+    });
+    // q1A: cwc+50, shho+10; q2A: shho+10; q3A: mc+10; q4A: cwc+10
+    // cwc = 50+10 = 60 → 封顶 50; shho = 10+10 = 20; mc = 10
+    expect(spec.cwc).toBe(50);
+    expect(spec.shho).toBe(20);
+    expect(spec.mc).toBe(10);
+  });
+
+  it("computeSmallCollegeSpecialization：全选 B/E/D/C → 均衡加分", () => {
+    const spec = computeSmallCollegeSpecialization({
+      q1: "B",
+      q2: "E",
+      q3: "D",
+      q4: "C",
+    });
+    // q1B: all+20; q2E: all+7; q3D: all+7, mc-5; q4C: all+8
+    // mc = 20+7+7-5+8 = 37; shho/cwc = 20+7+7+8 = 42
+    expect(spec.mc).toBe(37);
+    expect(spec.shho).toBe(42);
+    expect(spec.cwc).toBe(42);
+  });
+
+  it("computeSmallCollegeSpecialization：(3) 不选 A 时 mc 专属评分 -5", () => {
+    const withA = computeSmallCollegeSpecialization({
+      q1: "B",
+      q2: "D",
+      q3: "A",
+      q4: "C",
+    });
+    const withD = computeSmallCollegeSpecialization({
+      q1: "B",
+      q2: "D",
+      q3: "D",
+      q4: "C",
+    });
+    // q3A: mc+10 vs q3D: mc+7 再 -5 → 净差 8
+    expect(withA.mc - withD.mc).toBe(8);
+  });
+
+  it("A + 06 答案：小书院最终推荐指数 = 原始×0.6 + 专属×1", () => {
+    const result = recommend({
+      ...baseInput,
+      smallCollegePreference: "aim",
+      smallCollegeAnswers: { q1: "A", q2: "A", q3: "A", q4: "A" },
+    });
+    // 原始分：mc=83, shho=81, cwc=43
+    // 专属：cwc=50(cap), shho=20, mc=10
+    // 最终：mc=83×0.6+10×1=49.8+10=59.8; shho=81×0.6+20×1=48.6+20=68.6; cwc=43×0.6+50×1=25.8+50=75.8
+    // 最高 = cwc(75.8) → 第一志愿
+    expect(result[0].id).toBe("cwc");
+    expect(result[0].score).toBeCloseTo(75.8, 1);
+    // 第 8-9 志愿为另外两所小书院
+    const last2 = result.slice(7, 9).map((c) => c.id);
+    expect(SMALL.has(last2[0])).toBe(true);
+    expect(SMALL.has(last2[1])).toBe(true);
+  });
+
+  it("A + 06 答案：非小书院评分不变", () => {
+    const withoutAns = recommend({
+      ...baseInput,
+      smallCollegePreference: "aim",
+    });
+    const withAns = recommend({
+      ...baseInput,
+      smallCollegePreference: "aim",
+      smallCollegeAnswers: { q1: "B", q2: "B", q3: "A", q4: "A" },
+    });
+    // 非小书院的 score 应一致
+    for (const c of withAns) {
+      if (!SMALL.has(c.id)) {
+        const match = withoutAns.find((x) => x.id === c.id)!;
+        expect(c.score).toBe(match.score);
+      }
+    }
+  });
+
+  it("A 无 06 答案：退化为原始推荐指数排序小书院", () => {
+    const result = recommend({
+      ...baseInput,
+      smallCollegePreference: "aim",
+    });
+    expect(result[0].id).toBe("mc");
+    expect(result[0].score).toBe(83);
+  });
+
+  it("非 A 路径不使用 06 答案", () => {
+    const resultC = recommend({
+      ...baseInput,
+      smallCollegePreference: "indifferent",
+      smallCollegeAnswers: { q1: "A", q2: "A", q3: "A", q4: "A" },
+    });
+    // C 路径忽略 smallCollegeAnswers，mc 仍为 83（原始分）
+    const mc = resultC.find((c) => c.id === "mc")!;
+    expect(mc.score).toBe(83);
   });
 });

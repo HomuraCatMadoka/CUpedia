@@ -107,6 +107,35 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await expect(page.getByTestId("priority-2")).toContainText("—（不填）");
   });
 
+  test("选择 A 后展开 06 小书院精选，选择 B/C 不显示", async ({ page }) => {
+    await page.goto("/college-picker");
+
+    // 默认 C，不显示 06
+    await expect(page.getByText("小书院精选")).toHaveCount(0);
+
+    // 选择 A
+    await page.getByTestId("preference-aim").click();
+    await expect(page.getByText("小书院精选")).toBeVisible();
+
+    // 切回 B，06 消失
+    await page.getByTestId("preference-avoid").click();
+    await expect(page.getByText("小书院精选")).toHaveCount(0);
+  });
+
+  test("选择 A + 06 答案后推荐志愿显示推荐指数", async ({ page }) => {
+    await page.goto("/college-picker");
+
+    await page.getByTestId("preference-aim").click();
+    await page.getByTestId("recommend-button").click();
+
+    const result = page.getByTestId("picker-result");
+    await expect(result).toBeVisible();
+    // 结果卡片应显示推荐指数
+    await expect(result.getByTestId("picker-score").first()).toContainText(
+      "推荐指数",
+    );
+  });
+
   test("页面标注非官方免责", async ({ page }) => {
     await page.goto("/college-picker");
     await expect(page.getByText(/非官方/)).toBeVisible();
