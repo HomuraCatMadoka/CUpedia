@@ -51,7 +51,11 @@ const PREFERENCE_OPTIONS: {
   label: string;
   desc: string;
 }[] = [
-  { id: "aim", label: "A. 冲！", desc: "第一志愿为小书院，其余两所排到 8–9 志愿" },
+  {
+    id: "aim",
+    label: "A. 冲！",
+    desc: "第一志愿为小书院，其余两所排到 8–9 志愿",
+  },
   { id: "avoid", label: "B. 完全不想去", desc: "三所小书院排到第 7–9 志愿" },
   { id: "indifferent", label: "C. 无所谓", desc: "按默认机制运行分院帽" },
 ];
@@ -65,8 +69,7 @@ const SC_QUESTIONS: {
 }[] = [
   {
     id: "q1",
-    prompt:
-      "小书院保证四年宿舍，因而录取过程竞争较大。你对此更倾向于：",
+    prompt: "小书院保证四年宿舍，因而录取过程竞争较大。你对此更倾向于：",
     options: [
       { id: "A", label: "录取优先：录取机会大于一切" },
       { id: "B", label: "静观沉浮：有机会录取小书院更好，但也没那么在意" },
@@ -78,20 +81,45 @@ const SC_QUESTIONS: {
     subText:
       "善衡：拍视频介绍自己\n晨兴：网上面试/线下面试，更加重视英语能力\n敬文：英语面试，部分普通话交流，casual talk",
     options: [
-      { id: "A", label: "对于可以设计并且剪辑的视频，我更有掌控感，同时很乐意大方地展示自己的优点。" },
-      { id: "B", label: "我有很好的表达能力和临场应变能力，面试时，英语口语的流畅和准确会是我的加分项。" },
-      { id: "C", label: "我更喜欢在面试的问答中展示自己，我可能不是能力最出众者，但我有诚恳的态度。" },
-      { id: "D", label: "我可以接受每一种形式，但是我不太希望投入过多精力在申请小书院上。" },
-      { id: "E", label: "无论哪种形式，我都会提前做足准备，哪怕我知道这些准备可能多余。" },
+      {
+        id: "A",
+        label:
+          "对于可以设计并且剪辑的视频，我更有掌控感，同时很乐意大方地展示自己的优点。",
+      },
+      {
+        id: "B",
+        label:
+          "我有很好的表达能力和临场应变能力，面试时，英语口语的流畅和准确会是我的加分项。",
+      },
+      {
+        id: "C",
+        label:
+          "我更喜欢在面试的问答中展示自己，我可能不是能力最出众者，但我有诚恳的态度。",
+      },
+      {
+        id: "D",
+        label:
+          "我可以接受每一种形式，但是我不太希望投入过多精力在申请小书院上。",
+      },
+      {
+        id: "E",
+        label: "无论哪种形式，我都会提前做足准备，哪怕我知道这些准备可能多余。",
+      },
     ],
   },
   {
     id: "q3",
     prompt: "小书院的社群关系更加紧密，关于社交，下列选项你更倾向于？",
     options: [
-      { id: "A", label: "更加国际化的环境，以英语和粤语主导的交流环境可以帮助我提升。" },
+      {
+        id: "A",
+        label: "更加国际化的环境，以英语和粤语主导的交流环境可以帮助我提升。",
+      },
       { id: "B", label: "我希望内地生更多，能够找到同乡和归属感" },
-      { id: "C", label: "Local 较多的社群，我会说粤语或我有积极学习粤语的意愿" },
+      {
+        id: "C",
+        label: "Local 较多的社群，我会说粤语或我有积极学习粤语的意愿",
+      },
       { id: "D", label: "没有特别倾向" },
     ],
   },
@@ -214,8 +242,7 @@ export function CollegePickerForm() {
         avoids,
         smallCollegePreference: preference,
         bonusFactors,
-        smallCollegeAnswers:
-          preference === "aim" ? scAnswers : undefined,
+        smallCollegeAnswers: preference === "aim" ? scAnswers : undefined,
       }),
     );
   }
@@ -327,15 +354,21 @@ export function CollegePickerForm() {
             </div>
             <dl className="space-y-1 pt-2 text-xs text-muted-foreground">
               <div className="flex gap-1.5">
-                <dt className="shrink-0 font-medium text-foreground">通勤时间：</dt>
+                <dt className="shrink-0 font-medium text-foreground">
+                  通勤时间：
+                </dt>
                 <dd>距离对应专业大部分教学楼位置</dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="shrink-0 font-medium text-foreground">保宿机会：</dt>
+                <dt className="shrink-0 font-medium text-foreground">
+                  保宿机会：
+                </dt>
                 <dd>能加宿分的活动多不多、容不容易做、整体保宿难度</dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="shrink-0 font-medium text-foreground">住宿环境：</dt>
+                <dt className="shrink-0 font-medium text-foreground">
+                  住宿环境：
+                </dt>
                 <dd>海景、设施新旧、有没有小冰箱或可调温空调等</dd>
               </div>
             </dl>
@@ -379,7 +412,7 @@ export function CollegePickerForm() {
           <div className="space-y-3 border-b py-6">
             <StepHeading number="05" title="想避开的因素" />
             <p className="text-xs text-muted-foreground">
-              可选，命中的书院仍会显示，但会被压到志愿末尾。
+              可选，命中的书院仍会显示，但会被排到对应志愿分区末尾。
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {AVOID_FACTORS.map((f) => {
@@ -411,15 +444,21 @@ export function CollegePickerForm() {
                 <dd>Final year project（一门三分课）</dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="shrink-0 font-medium text-foreground">宗教因素：</dt>
+                <dt className="shrink-0 font-medium text-foreground">
+                  宗教因素：
+                </dt>
                 <dd>周会有祈祷</dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="shrink-0 font-medium text-foreground">入学面试：</dt>
+                <dt className="shrink-0 font-medium text-foreground">
+                  入学面试：
+                </dt>
                 <dd>网上面试/线下面试/拍视频介绍自己（善衡）</dd>
               </div>
               <div className="flex gap-1.5">
-                <dt className="shrink-0 font-medium text-foreground">入学笔试：</dt>
+                <dt className="shrink-0 font-medium text-foreground">
+                  入学笔试：
+                </dt>
                 <dd>填表格、写作文介绍自己，阐述选择动机。不是考试！！！</dd>
               </div>
             </dl>
@@ -429,17 +468,22 @@ export function CollegePickerForm() {
             <div className="space-y-3 border-b py-6">
               <StepHeading number="06" title="小书院精选" />
               <p className="text-xs text-muted-foreground">
-                其余 6 所书院评分固定，下列问题将评估「小书院专属推荐指数」，综合决定第一志愿。
+                其余 6
+                所书院评分固定，下列问题将评估「小书院专属推荐指数」，综合决定第一志愿。
               </p>
               <div className="space-y-4">
                 {SC_QUESTIONS.map((q, qi) => (
-                  <div key={q.id} className="space-y-2" data-testid={`sc-q-${qi}`}>
+                  <div
+                    key={q.id}
+                    className="space-y-2"
+                    data-testid={`sc-q-${qi}`}
+                  >
                     <p className="text-sm font-medium">
                       ({qi + 1}) {q.prompt}
                     </p>
                     {q.subText && (
                       <pre className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-{q.subText}
+                        {q.subText}
                       </pre>
                     )}
                     <div className="grid gap-2">
@@ -460,10 +504,13 @@ export function CollegePickerForm() {
                               value={opt.id}
                               checked={checked}
                               onChange={() => {
-                                setScAnswers((prev) => ({
-                                  ...prev,
-                                  [q.id]: opt.id,
-                                }) as SmallCollegeAnswers);
+                                setScAnswers(
+                                  (prev) =>
+                                    ({
+                                      ...prev,
+                                      [q.id]: opt.id,
+                                    }) as SmallCollegeAnswers,
+                                );
                                 reset();
                               }}
                               className="mt-0.5 size-4 shrink-0 accent-primary"

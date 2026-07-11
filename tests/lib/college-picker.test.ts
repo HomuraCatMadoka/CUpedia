@@ -343,25 +343,17 @@ describe("recommend — 小书院意愿题 (A/B/C)", () => {
     expect(mid6.every((id) => !SMALL.has(id))).toBe(true);
   });
 
-  it("A · 即使推荐指数最高的小书院命中避雷，仍强制为第一志愿（裁决 top_any）", () => {
-    // 敬文 cwc 命中 FYP（推荐指数扣 -50）；本场景 mc 仍是最优小书院，故取 mc。
-    // 改造一个让命中避雷的小书院仍居小书院最高分的场景：只看交换机会，
-    // 并让 cwc 命中的避雷不抵消其高分优势不现实；转而直接断言 A 选取的小书院
-    // 为「推荐指数最高的小书院」(含避雷) —— 用 FYP 命中 mc 不成立(mc 无 FYP)，
-    // 因此用 cwc 命中 FYP 后仍可能高于其他小书院的场景验证兜底：
-    // 单因素交换 + 避雷 FYP：cwc 交换第 7 → (10-7)*10=30，-50 → 0；仍非最高。
-    // 这里改为验证：A 的第一志愿取所有小书院中分数最高者，无论是否避雷。
+  it("A · 最高分小书院命中避雷时，仍作为第一志愿（top_any）", () => {
     const result = recommend({
       majorGroup: "engineering",
-      priorities: ["Exchange_Opportunity", "", ""],
-      avoids: [],
+      priorities: ["Commute_Time", "", ""],
+      avoids: ["Admission_Interview"],
       smallCollegePreference: "aim",
     });
-    const smalls = result.filter((c) => SMALL.has(c.id));
-    const maxScore = Math.max(...smalls.map((c) => c.score));
-    expect(result[0].id).toBe(
-      smalls.find((c) => c.score === maxScore)!.id,
-    );
+
+    expect(result[0].id).toBe("shho");
+    expect(result[0].score).toBe(40);
+    expect(result[0].avoidHits).toContain("Admission_Interview");
   });
 
   it("B · 不想去小书院：三所小书院整体排到第 7–9，且按推荐指数降序", () => {
@@ -476,7 +468,20 @@ describe("recommend — 其他看重因素（加固定分）", () => {
     const noMap = new Map(noBonus.map((c) => [c.id, c.score]));
     for (const c of withMtr) {
       // cc 通勤::engineering=3，base 52；+5 → 57
-      expect(c.score).toBe(noMap.get(c.id)! + ({ cc: 5, shho: 4, mc: 4, uc: 3, na: 3, cwc: 2.5, lws: 2, wys: 2, sc: 1 }[c.id] ?? 0));
+      expect(c.score).toBe(
+        noMap.get(c.id)! +
+          ({
+            cc: 5,
+            shho: 4,
+            mc: 4,
+            uc: 3,
+            na: 3,
+            cwc: 2.5,
+            lws: 2,
+            wys: 2,
+            sc: 1,
+          }[c.id] ?? 0),
+      );
     }
   });
 
