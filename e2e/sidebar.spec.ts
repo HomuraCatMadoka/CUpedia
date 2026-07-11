@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { loginAsAdmin } from "./helpers/auth";
 
 /**
  * Sidebar behaviour across viewports.
@@ -13,9 +14,6 @@ import { test, expect, type Page } from "@playwright/test";
  *   since the navbar hamburger + drawer already carry that entry. Desktop
  *   collapsed behaviour is unchanged (both controls visible).
  */
-
-const ADMIN_EMAIL = "admin@test.com";
-const ADMIN_PASSWORD = "password123";
 
 const EXPAND = { name: "展开导航" } as const;
 const NEW_PAGE = { name: "新建页面" } as const;
@@ -32,25 +30,6 @@ function collectConsoleErrors(page: Page): string[] {
   return errors;
 }
 
-// Sign in via better-auth's REST endpoint; the login form applies a CUHK-domain
-// client check that the seed account (@test.com) would fail. The session cookie
-// lands in the context jar and is reused by subsequent navigations. better-auth
-// rate-limits /sign-in/email per path, so a shared window can return 429 when
-// several specs log in — retry with backoff so a transient throttle self-heals.
-async function login(page: Page) {
-  let last = "";
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (res.ok()) return;
-    last = `${res.status()} ${await res.text()}`;
-    if (res.status() !== 429) break;
-    await page.waitForTimeout(2000);
-  }
-  expect(false, `login failed: ${last}`).toBe(true);
-}
-
 test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
   // Mobile viewport (no full device descriptor — `defaultBrowserType` cannot
   // live in a describe-level `use`).
@@ -65,7 +44,7 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
   }) => {
     const errors = collectConsoleErrors(page);
 
-    const response = await page.goto("/wiki", { waitUntil: "networkidle" });
+    const response = await page.goto("/wiki");
     expect(response?.status()).toBe(200);
 
     // Page rendered.
@@ -106,7 +85,9 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
       .catch(() => false);
     expect(wideNavVisibleEarly).toBe(false);
 
-    await page.waitForLoadState("networkidle");
+    await expect(
+      page.getByRole("heading", { name: "你的中大百科全书", level: 1 }),
+    ).toBeVisible();
 
     const wideNavVisibleLate = await page
       .locator("nav")
@@ -120,10 +101,11 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
     page,
   }) => {
     const errors = collectConsoleErrors(page);
-    const response = await page.goto("/wiki/welcome", {
-      waitUntil: "networkidle",
-    });
+    const response = await page.goto("/wiki/welcome");
     expect(response?.status()).toBe(200);
+    await expect(
+      page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
+    ).toBeVisible();
 
     const hydrationErrors = errors.filter((e) => HYDRATION_RE.test(e));
     expect(hydrationErrors).toHaveLength(0);
@@ -145,7 +127,7 @@ test.describe("#89 desktop respects collapse cookie on first paint", () => {
     ]);
 
     const errors = collectConsoleErrors(page);
-    await page.goto("/wiki", { waitUntil: "networkidle" });
+    await page.goto("/wiki");
 
     // Desktop + collapsed cookie => expanded nav must not render at all.
     await expect(page.locator("nav").filter({ hasText: "Pages" })).toHaveCount(
@@ -171,9 +153,9 @@ test.describe("#98 mobile collapsed rail is trimmed", () => {
   test("expand toggle stays; redundant new-page button is in DOM but hidden", async ({
     page,
   }) => {
-    await login(page);
+    await loginAsAdmin(page);
 
-    const response = await page.goto("/wiki", { waitUntil: "networkidle" });
+    const response = await page.goto("/wiki");
     expect(response?.status()).toBe(200);
 
     // The single rail affordance remains visible.
@@ -198,12 +180,12 @@ test.describe("#98 desktop collapsed rail is unchanged", () => {
     context,
     baseURL,
   }) => {
-    await login(page);
+    await loginAsAdmin(page);
     await context.addCookies([
       { name: "wiki-sidebar-collapsed", value: "collapsed", url: baseURL! },
     ]);
 
-    await page.goto("/wiki", { waitUntil: "networkidle" });
+    await page.goto("/wiki");
 
     // Desktop collapsed behaviour is preserved: the rail's expand toggle shows.
     await expect(page.getByRole("button", EXPAND)).toBeVisible();
@@ -226,9 +208,7 @@ test.describe("ADR 0010 coexist nav shell (desktop)", () => {
     page,
   }) => {
     // `getting-started` seeds a `## Registration` heading, so the TOC renders.
-    const response = await page.goto("/wiki/getting-started", {
-      waitUntil: "networkidle",
-    });
+    const response = await page.goto("/wiki/getting-started");
     expect(response?.status()).toBe(200);
 
     // Left column: the persistent page tree (was hidden by the old swap here).

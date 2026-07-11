@@ -14,7 +14,7 @@ import { test, expect } from "@playwright/test";
 
 test.describe("#90 homepage filters empty categories", () => {
   test("no '0 篇' category card is rendered", async ({ page }) => {
-    const response = await page.goto("/wiki", { waitUntil: "networkidle" });
+    const response = await page.goto("/wiki");
     expect(response?.status()).toBe(200);
 
     await expect(

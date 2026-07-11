@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { loginAsAdmin } from "./helpers/auth";
 
 /**
  * Edit-page persistent formatting toolbar.
@@ -31,8 +32,6 @@ import { test, expect, type Page } from "@playwright/test";
  * render agree and the mismatch cannot occur.
  */
 
-const ADMIN_EMAIL = "admin@test.com";
-const ADMIN_PASSWORD = "password123";
 const RICH_SLUG = "rich-content-demo";
 
 // e2e runs a production build, where a React hydration failure surfaces as a
@@ -51,23 +50,9 @@ function collectConsoleErrors(page: Page): string[] {
   return errors;
 }
 
-async function login(page: Page) {
-  let last = "";
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (res.ok()) return;
-    last = `${res.status()} ${await res.text()}`;
-    if (res.status() !== 429) break;
-    await page.waitForTimeout(2000);
-  }
-  expect(false, `login failed: ${last}`).toBe(true);
-}
-
 test.describe("#203 edit-page fixed toolbar", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
   });
 
   test("a persistent format toolbar is visible on load, before any selection", async ({
@@ -135,9 +120,6 @@ test.describe("#203 edit-page fixed toolbar", () => {
     await page.goto("/wiki/new");
     await expect(page.locator('[role="textbox"]').first()).toBeVisible();
     await expect(page.getByTestId("fixed-toolbar-buttons")).toBeVisible();
-    // Let hydration settle; #418 surfaces as a page error right after mount.
-    await page.waitForTimeout(1500);
-
     const hydrationErrors = consoleErrors.filter((e) => HYDRATION_RE.test(e));
     expect(
       hydrationErrors,

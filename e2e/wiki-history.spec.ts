@@ -7,9 +7,7 @@ test.describe("#142 history list renders revision metadata", () => {
   test("lists every revision with author, summary and view/diff links", async ({
     page,
   }) => {
-    const res = await page.goto("/wiki/history/history-demo", {
-      waitUntil: "networkidle",
-    });
+    const res = await page.goto("/wiki/history/history-demo");
     expect(res?.status()).toBe(200);
 
     for (const summary of [
@@ -30,7 +28,7 @@ test.describe("#142 history list renders revision metadata", () => {
   });
 
   test("a view link renders that revision's body", async ({ page }) => {
-    await page.goto("/wiki/history/history-demo", { waitUntil: "networkidle" });
+    await page.goto("/wiki/history/history-demo");
 
     // Target a specific row so the assertion is order-independent.
     const row = page

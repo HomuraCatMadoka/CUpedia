@@ -1,10 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Client } from "pg";
-import { test, expect, type Page } from "@playwright/test";
-
-const ADMIN_EMAIL = "admin@test.com";
-const ADMIN_PASSWORD = "password123";
+import { test, expect } from "@playwright/test";
+import { loginAsAdmin } from "./helpers/auth";
 
 function databaseUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
@@ -27,20 +25,6 @@ async function dropPageBySlug(slug: string) {
   }
 }
 
-async function login(page: Page) {
-  let last = "";
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (res.ok()) return;
-    last = `${res.status()} ${await res.text()}`;
-    if (res.status() !== 429) break;
-    await page.waitForTimeout(2000);
-  }
-  expect(false, `login failed: ${last}`).toBe(true);
-}
-
 // ── #95: wiki interlinks ([[) autocomplete + backlinks ──────────────────────
 //
 // Self-contained: a fresh page is created (create mode has no autosave /
@@ -55,7 +39,7 @@ test.describe.configure({ mode: "serial" });
 
 test.describe("#95 wiki links", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
   });
 
   test.afterAll(async () => {
@@ -103,7 +87,7 @@ test.describe("#95 wiki links", () => {
     // The backlink is derived from a tag-revalidated cache; allow a couple of
     // reloads for invalidation from the create above to propagate.
     await expect(async () => {
-      await page.goto("/wiki/getting-started", { waitUntil: "networkidle" });
+      await page.goto("/wiki/getting-started");
       await expect(backlink).toBeVisible({ timeout: 3_000 });
     }).toPass({ timeout: 20_000 });
   });

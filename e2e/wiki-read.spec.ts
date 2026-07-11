@@ -1,7 +1,8 @@
 import { resolve } from "node:path";
-import { test, expect, type Page, type Response } from "@playwright/test";
+import { test, expect, type Response } from "@playwright/test";
 import dotenv from "dotenv";
 import { Pool } from "pg";
+import { loginAsAdmin } from "./helpers/auth";
 
 /**
  * Issue #88 — read-only wiki pages render via Plate *static* (no editable
@@ -16,8 +17,6 @@ import { Pool } from "pg";
 
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
-const SEED_EMAIL = "admin@test.com";
-const SEED_PASSWORD = "password123";
 const ADMIN_ID = "00000000-0000-4000-a000-000000000001";
 // Fixture ids live in a high range the seed never touches (seed pages use
 // ...c000-0001‥0008). Reusing a seed id would make the `on conflict (id)`
@@ -65,13 +64,6 @@ async function ensureFixture() {
   }
 }
 
-async function signIn(page: Page, baseURL: string) {
-  const res = await page.request.post(`${baseURL}/api/auth/sign-in/email`, {
-    data: { email: SEED_EMAIL, password: SEED_PASSWORD },
-  });
-  return res.ok();
-}
-
 test.beforeEach(async () => {
   await ensureFixture();
 });
@@ -81,10 +73,9 @@ test.describe("#88 read path: static render + clickable annotations", () => {
     page,
     baseURL,
   }) => {
-    const ok = await signIn(page, baseURL!);
-    test.skip(!ok, "could not sign in with seed account");
+    await loginAsAdmin(page, baseURL!);
 
-    await page.goto("/wiki/annotated", { waitUntil: "networkidle" });
+    await page.goto("/wiki/annotated");
 
     // Body rendered via static Plate.
     await expect(page.getByText("annotated phrase")).toBeVisible();
@@ -104,10 +95,9 @@ test.describe("#88 read path: static render + clickable annotations", () => {
     page,
     baseURL,
   }) => {
-    const ok = await signIn(page, baseURL!);
-    test.skip(!ok, "could not sign in with seed account");
+    await loginAsAdmin(page, baseURL!);
 
-    await page.goto("/wiki/annotated", { waitUntil: "networkidle" });
+    await page.goto("/wiki/annotated");
     await expect(page.getByText("annotated phrase")).toBeVisible();
 
     // Static render emits no contenteditable editing surface.
@@ -124,14 +114,19 @@ test.describe("#88 read path: static render + clickable annotations", () => {
     const measureJs = async (path: string) => {
       const context = await browser.newContext();
       const page = await context.newPage();
-      const signedIn = await signIn(page, baseURL!);
+      await loginAsAdmin(page, baseURL!);
       const jsResponses: Response[] = [];
       page.on("response", (res) => {
         if ((res.headers()["content-type"] ?? "").includes("javascript")) {
           jsResponses.push(res);
         }
       });
-      await page.goto(path, { waitUntil: "networkidle" });
+      await page.goto(path);
+      await expect(
+        path.includes("/edit/")
+          ? page.locator('[role="textbox"]').first()
+          : page.getByText("annotated phrase"),
+      ).toBeVisible();
       let bytes = 0;
       for (const res of jsResponses) {
         try {
@@ -141,16 +136,12 @@ test.describe("#88 read path: static render + clickable annotations", () => {
         }
       }
       await context.close();
-      return { bytes, signedIn };
+      return bytes;
     };
 
     const read = await measureJs("/wiki/annotated");
     const edit = await measureJs("/wiki/edit/annotated");
-    test.skip(
-      !read.signedIn || !edit.signedIn,
-      "could not sign in with seed account",
-    );
 
-    expect(read.bytes).toBeLessThan(edit.bytes);
+    expect(read).toBeLessThan(edit);
   });
 });

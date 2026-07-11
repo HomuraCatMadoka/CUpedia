@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { loginAsAdmin } from "./helpers/auth";
 
 /**
  * Wiki editor reliability and conflict handling.
@@ -17,30 +18,7 @@ import { test, expect, type Page } from "@playwright/test";
  *      calls `preventDefault()` while dirty, so a tab close / reload prompts.
  */
 
-const ADMIN_EMAIL = "admin@test.com";
-const ADMIN_PASSWORD = "password123";
 const CONFLICT_SLUG = "campus-life";
-
-/**
- * Sign in via better-auth's REST endpoint so we bypass the client-side CUHK
- * email whitelist (seed accounts use @test.com). The session cookie lands in
- * the browser context's jar and is shared with subsequent page navigations.
- * better-auth rate-limits /sign-in/email per path, so a shared window can
- * return 429 — retry with backoff so a transient throttle self-heals.
- */
-async function login(page: Page) {
-  let last = "";
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (res.ok()) return;
-    last = `${res.status()} ${await res.text()}`;
-    if (res.status() !== 429) break;
-    await page.waitForTimeout(2000);
-  }
-  expect(false, `login failed: ${last}`).toBe(true);
-}
 
 /** Focus the editor and type a marker into the first block, then confirm dirty. */
 async function typeMarker(page: Page, marker: string) {
@@ -53,7 +31,7 @@ async function typeMarker(page: Page, marker: string) {
 
 test.describe("#94 editor reliability", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
   });
 
   test("autosave shows 已保存 after debounce", async ({ page }) => {
@@ -86,17 +64,16 @@ test.describe("#94 editor reliability", () => {
     // Immediately dirty; the guard fires on in-app <a> clicks via confirm().
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
-    let dialogShown = false;
-    page.once("dialog", (dialog) => {
-      dialogShown = true;
-      expect(dialog.message()).toContain("未保存");
-      dialog.dismiss();
-    });
-
     // Click the in-app "CUpedia" home link in the navbar.
-    await page.getByRole("link", { name: "CUpedia" }).first().click();
-    await page.waitForTimeout(500);
-    expect(dialogShown).toBe(true);
+    const dialogPromise = page.waitForEvent("dialog");
+    const clickPromise = page
+      .getByRole("link", { name: "CUpedia" })
+      .first()
+      .click();
+    const dialog = await dialogPromise;
+    expect(dialog.message()).toContain("未保存");
+    await dialog.dismiss();
+    await clickPromise;
     // Dismissed => still on the edit page.
     await expect(page).toHaveURL(/\/wiki\/edit\//);
   });
@@ -151,13 +128,13 @@ test.describe("#96 edit conflict merge flow", () => {
     // Both sessions open the editor on the SAME baseline revision.
     const ctxA = await browser.newContext();
     const pageA = await ctxA.newPage();
-    await login(pageA);
+    await loginAsAdmin(pageA);
     await pageA.goto(`/wiki/edit/${CONFLICT_SLUG}`);
     await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
 
     const ctxB = await browser.newContext();
     const pageB = await ctxB.newPage();
-    await login(pageB);
+    await loginAsAdmin(pageB);
     await pageB.goto(`/wiki/edit/${CONFLICT_SLUG}`);
 
     // Session B commits an overlapping change, advancing the server copy past

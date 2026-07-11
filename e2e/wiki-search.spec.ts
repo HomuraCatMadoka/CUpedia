@@ -9,9 +9,7 @@ import { test, expect } from "@playwright/test";
  */
 test.describe("#92 wiki search returns correct results", () => {
   test("title query finds the matching page", async ({ page }) => {
-    const response = await page.goto("/wiki/search?q=Dining", {
-      waitUntil: "networkidle",
-    });
+    const response = await page.goto("/wiki/search?q=Dining");
     expect(response?.status()).toBe(200);
 
     const results = page.locator("a.rounded-lg.border");
@@ -23,7 +21,7 @@ test.describe("#92 wiki search returns correct results", () => {
   test("content query finds the page with a highlighted snippet", async ({
     page,
   }) => {
-    await page.goto("/wiki/search?q=canteens", { waitUntil: "networkidle" });
+    await page.goto("/wiki/search?q=canteens");
 
     const results = page.locator("a.rounded-lg.border");
     const result = results.filter({ hasText: "Dining on Campus" });
@@ -32,9 +30,7 @@ test.describe("#92 wiki search returns correct results", () => {
   });
 
   test("non-matching query yields zero results", async ({ page }) => {
-    await page.goto("/wiki/search?q=zzzznomatchzzzz", {
-      waitUntil: "networkidle",
-    });
+    await page.goto("/wiki/search?q=zzzznomatchzzzz");
     await expect(page.getByText("找到 0 个结果")).toBeVisible();
   });
 });

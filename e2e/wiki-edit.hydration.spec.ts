@@ -1,4 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
+import { loginAsAdmin } from "./helpers/auth";
 
 /**
  * Edit-page SSR/CSR hydration stability.
@@ -16,27 +17,11 @@ import { test, expect, type Page } from "@playwright/test";
  * the editor mounts without the error boundary.
  */
 
-const ADMIN_EMAIL = "admin@test.com";
-const ADMIN_PASSWORD = "password123";
 const RICH_SLUG = "rich-content-demo";
-
-async function login(page: Page) {
-  let last = "";
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (res.ok()) return;
-    last = `${res.status()} ${await res.text()}`;
-    if (res.status() !== 429) break;
-    await page.waitForTimeout(2000);
-  }
-  expect(false, `login failed: ${last}`).toBe(true);
-}
 
 test.describe("#204 edit-page hydration", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
   });
 
   test("table cells render with deterministic static ids, editor does not crash", async ({
