@@ -31,6 +31,9 @@ test.describe("#163 选课技能树", () => {
     await expect(
       page.getByRole("heading", { name: "选课技能树", level: 1 }),
     ).toBeVisible();
+    await expect(page.getByTestId("handbook-year-select")).toHaveValue(
+      "2023-24",
+    );
 
     // 默认选中按 name 升序第一的主修 = Computer Science (Seed)。
     const nodes = page.getByTestId("course-node");

@@ -26,7 +26,7 @@ export async function listMajors(): Promise<MajorListItem[]> {
   const rows = await db.query.majors
     .findMany({
       columns: { id: true, name: true, handbookYear: true, totalUnits: true },
-      orderBy: (m, { asc }) => [asc(m.name)],
+      orderBy: (m, { asc, desc }) => [desc(m.handbookYear), asc(m.name)],
     })
     .catch((error: unknown) => {
       console.error("listMajors: query failed", error);

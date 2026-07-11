@@ -36,6 +36,9 @@ describe("listMajors", () => {
       { id: "m1", name: "CS", handbookYear: "2023-24", totalUnits: 99 },
       { id: "m2", name: "Math", handbookYear: "2023-24", totalUnits: null },
     ]);
+    expect(mockMajorsFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: expect.any(Function) }),
+    );
   });
 
   it("查询失败降级为空列表", async () => {

@@ -1,13 +1,14 @@
-// 摄取主修骨架：scripts/data/handbook/*.html → parseHandbookLeaf → majors/categories/courses 三表。
-// HTML 由 tools/scraper/scrape_handbook.py 产出。成员课号先过 courseAliases 重映射；
-// 在 courses 表缺失者按 ADR 0005 决议标 missing=true（占位 + 告警，不静默隐藏）。幂等。
+// Preview/apply a complete, validated Handbook Major Programme snapshot.
+// Default is read-only. Use --apply to write; add --replace only for a full
+// refresh after reviewing the preview and taking a database backup.
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import dotenv from "dotenv";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, "../.env.local") });
+dotenv.config({ path: resolve(__dirname, "../.env.local"), quiet: true });
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
@@ -18,109 +19,218 @@ import {
   categoryCourses,
   courseAliases,
   courses,
+  builds,
 } from "../src/db/schema";
 import { parseHandbookLeaf } from "../src/lib/parseHandbookLeaf";
+import {
+  snapshotMajorName,
+  validateHandbookSnapshot,
+} from "../src/lib/handbook-snapshot";
 import { COURSE_ALIASES } from "./course-aliases-seed";
 
-function handbookYear(html: string): string {
-  const text = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-  const m = text.match(/admitted in\s*(20\s*\d\s*\d\s*-?\s*\d\s*\d)/i);
-  return m ? m[1].replace(/\s+/g, "") : "unknown";
+type ManifestEntry = {
+  file: string;
+  programme: string;
+  programmeKind: "major";
+  handbookYear: string;
+  faculty: string;
+  sourceUrl: string;
+  sourceId: string;
+};
+
+const apply = process.argv.includes("--apply");
+const replace = process.argv.includes("--replace");
+const emitSql = process.argv.includes("--emit-sql");
+const dir = resolve(__dirname, "data/handbook");
+const manifest = JSON.parse(
+  readFileSync(resolve(dir, "manifest.json"), "utf8"),
+) as ManifestEntry[];
+
+const parsed = manifest.map((meta) => ({
+  meta,
+  leaf: parseHandbookLeaf(readFileSync(resolve(dir, meta.file), "utf8")),
+}));
+
+const { errors, years } = validateHandbookSnapshot(
+  parsed,
+  process.argv.includes("--allow-partial"),
+);
+if (errors.length)
+  throw new Error(`Handbook snapshot rejected:\n${errors.join("\n")}`);
+
+const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+
+function snapshotSql() {
+  if (!replace) throw new Error("--emit-sql requires --replace");
+  const aliases = new Map(
+    COURSE_ALIASES.map((row) => [row.oldCode, row.newCode]),
+  );
+  const statements = [
+    "BEGIN;",
+    "DO $$ BEGIN IF EXISTS (SELECT 1 FROM builds) THEN RAISE EXCEPTION 'refusing to replace majors while saved builds exist'; END IF; END $$;",
+    "DELETE FROM majors;",
+  ];
+  for (const entry of parsed) {
+    const { meta, leaf } = entry;
+    const majorId = randomUUID();
+    statements.push(
+      `INSERT INTO majors (id,name,faculty,total_units,normative_years,handbook_year) VALUES (${quote(majorId)},${quote(snapshotMajorName(entry, parsed))},${quote(meta.faculty)},${leaf.totalUnits ?? "NULL"},4,${quote(meta.handbookYear)});`,
+    );
+    for (const category of leaf.categories) {
+      const categoryId = randomUUID();
+      statements.push(
+        `INSERT INTO major_categories (id,major_id,name,kind,units_required,pick_n) VALUES (${quote(categoryId)},${quote(majorId)},${quote(category.name)},${quote(category.kind)},${category.unitsRequired ?? "NULL"},${category.pickN ?? "NULL"});`,
+      );
+      if (category.members.length) {
+        const values = category.members.map((code) => {
+          const mapped = aliases.get(code) ?? code;
+          return `(${quote(categoryId)},${quote(mapped)},NOT EXISTS (SELECT 1 FROM courses WHERE code=${quote(mapped)}))`;
+        });
+        statements.push(
+          `INSERT INTO category_courses (category_id,course_code,missing) VALUES ${values.join(",")};`,
+        );
+      }
+    }
+  }
+  statements.push("COMMIT;");
+  return statements.join("\n");
+}
+
+if (emitSql) {
+  process.stdout.write(snapshotSql());
+  process.exit(0);
 }
 
 async function main() {
   const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error("DATABASE_URL is not set. Check .env.local");
-    process.exit(1);
-  }
-  const dir = resolve(__dirname, "data/handbook");
-  const files = readdirSync(dir).filter((f) => f.endsWith(".html"));
-  console.log(`Ingesting ${files.length} handbook leaves...`);
-
+  if (!url) throw new Error("DATABASE_URL is not set");
   const pool = new Pool({ connectionString: url });
   const db = drizzle(pool);
   try {
-    // 幂等灌入版本对齐别名种子（scripts/course-aliases-seed.ts），再读回作重映射
-    if (COURSE_ALIASES.length) {
-      await db
-        .insert(courseAliases)
-        .values(COURSE_ALIASES)
-        .onConflictDoUpdate({
-          target: courseAliases.oldCode,
-          set: { newCode: sql`excluded.new_code` },
-        });
-    }
-    const aliasRows = await db.select().from(courseAliases);
-    const alias = new Map(aliasRows.map((a) => [a.oldCode, a.newCode]));
-    const known = new Set(
-      (await db.select({ code: courses.code }).from(courses)).map(
-        (c) => c.code,
+    const existing = await db
+      .select({ id: majors.id, name: majors.name, year: majors.handbookYear })
+      .from(majors);
+    const [savedBuild] = replace
+      ? await db.select({ id: builds.id }).from(builds).limit(1)
+      : [];
+    const incoming = new Set(
+      parsed.map(
+        (entry) =>
+          `${snapshotMajorName(entry, parsed)}\0${entry.meta.handbookYear}`,
       ),
     );
+    const deletes = replace
+      ? existing.filter((row) => !incoming.has(`${row.name}\0${row.year}`))
+      : [];
+    console.log(
+      JSON.stringify(
+        {
+          mode: apply ? "apply" : "preview",
+          years,
+          incomingMajors: parsed.length,
+          existingMajors: existing.length,
+          deleteMajors: deletes.map(({ name, year }) => ({ name, year })),
+          replaceBlockedBySavedBuilds: !!savedBuild,
+        },
+        null,
+        2,
+      ),
+    );
+    if (!apply) return;
+    if (savedBuild)
+      throw new Error("refusing to replace majors while saved builds exist");
 
-    let missingCount = 0;
-    for (const file of files) {
-      const html = readFileSync(resolve(dir, file), "utf8");
-      const leaf = parseHandbookLeaf(html);
-      const year = handbookYear(html);
-
-      await db.transaction(async (tx) => {
+    const known = new Set(
+      (await db.select({ code: courses.code }).from(courses)).map(
+        ({ code }) => code,
+      ),
+    );
+    await db.transaction(async (tx) => {
+      if (COURSE_ALIASES.length) {
+        await tx
+          .insert(courseAliases)
+          .values(COURSE_ALIASES)
+          .onConflictDoUpdate({
+            target: courseAliases.oldCode,
+            set: { newCode: sql`excluded.new_code` },
+          });
+      }
+      const aliases = new Map(
+        (await tx.select().from(courseAliases)).map((row) => [
+          row.oldCode,
+          row.newCode,
+        ]),
+      );
+      if (replace && deletes.length) {
+        for (const row of deletes)
+          await tx.delete(majors).where(eq(majors.id, row.id));
+      }
+      let missing = 0;
+      let members = 0;
+      for (const entry of parsed) {
+        const { meta, leaf } = entry;
+        const name = snapshotMajorName(entry, parsed);
         await tx
           .delete(majors)
           .where(
-            and(eq(majors.name, leaf.title), eq(majors.handbookYear, year)),
+            and(
+              eq(majors.name, name),
+              eq(majors.handbookYear, meta.handbookYear),
+            ),
           );
         const [major] = await tx
           .insert(majors)
           .values({
-            name: leaf.title,
+            name,
+            faculty: meta.faculty,
             totalUnits:
-              leaf.totalUnits != null ? String(leaf.totalUnits) : null,
-            handbookYear: year,
+              leaf.totalUnits == null ? null : String(leaf.totalUnits),
+            handbookYear: meta.handbookYear,
           })
           .returning({ id: majors.id });
-
-        for (const cat of leaf.categories) {
+        for (const category of leaf.categories) {
           const [row] = await tx
             .insert(majorCategories)
             .values({
               majorId: major.id,
-              name: cat.name,
-              kind: cat.kind,
+              name: category.name,
+              kind: category.kind,
               unitsRequired:
-                cat.unitsRequired != null ? String(cat.unitsRequired) : null,
-              pickN: cat.pickN,
+                category.unitsRequired == null
+                  ? null
+                  : String(category.unitsRequired),
+              pickN: category.pickN,
             })
             .returning({ id: majorCategories.id });
-
-          const members = cat.members.map((code) => {
-            const mapped = alias.get(code) ?? code;
-            const missing = !known.has(mapped);
-            if (missing) {
-              missingCount++;
-              console.warn(
-                `  ⚠ ${leaf.title} / ${cat.name}: ${mapped} not in courses (placeholder)`,
-              );
-            }
-            return { categoryId: row.id, courseCode: mapped, missing };
+          const values = category.members.map((courseCode) => {
+            const mapped = aliases.get(courseCode) ?? courseCode;
+            const isMissing = !known.has(mapped);
+            members++;
+            if (isMissing) missing++;
+            return {
+              categoryId: row.id,
+              courseCode: mapped,
+              missing: isMissing,
+            };
           });
-          if (members.length) await tx.insert(categoryCourses).values(members);
+          if (values.length) await tx.insert(categoryCourses).values(values);
         }
-      });
+      }
+      const ratio = members ? missing / members : 0;
+      if (ratio > 0.25)
+        throw new Error(
+          `missing-course ratio ${(ratio * 100).toFixed(1)}% exceeds 25%`,
+        );
       console.log(
-        `  ${file}: "${leaf.title}" (${year}) — ${leaf.categories.length} categories`,
+        JSON.stringify({ members, missing, missingRatio: ratio }, null, 2),
       );
-    }
-    console.log(
-      `done: ${files.length} leaves, ${missingCount} placeholder members`,
-    );
+    });
   } finally {
     await pool.end();
   }
 }
 
-main().catch((e) => {
-  console.error(e);
+main().catch((error) => {
+  console.error(error);
   process.exit(1);
 });

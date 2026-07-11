@@ -110,7 +110,19 @@ export function CourseTreeView({
   majors: MajorListItem[];
   isAuthenticated: boolean;
 }) {
-  const [majorId, setMajorId] = useState<string>(majors[0]?.id ?? "");
+  const years = useMemo(
+    () =>
+      [...new Set(majors.map((major) => major.handbookYear))].sort().reverse(),
+    [majors],
+  );
+  const [selectedYear, setSelectedYear] = useState(years[0] ?? "");
+  const visibleMajors = useMemo(
+    () => majors.filter((major) => major.handbookYear === selectedYear),
+    [majors, selectedYear],
+  );
+  const [majorId, setMajorId] = useState<string>(
+    majors.find((major) => major.handbookYear === years[0])?.id ?? "",
+  );
   // 最近一次已解析的拉取结果(连同其对应的 majorId);tree=null 表示该主修加载失败。
   const [result, setResult] = useState<{
     id: string;
@@ -260,6 +272,8 @@ export function CourseTreeView({
     if (build.majorId === majorId) applySavedBuild(build);
     else {
       pendingBuild.current = build;
+      const target = majors.find((major) => major.id === build.majorId);
+      if (target) setSelectedYear(target.handbookYear);
       setMajorId(build.majorId);
     }
     setSaveStatus("已载入");
@@ -280,24 +294,51 @@ export function CourseTreeView({
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        <Label>主修</Label>
-        <Select
-          items={majorItems}
-          value={majorId}
-          onValueChange={(v) => v && setMajorId(v)}
-        >
-          <SelectTrigger className="w-full sm:w-80" data-testid="major-select">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {majors.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
-                {m.handbookYear ? ` · ${m.handbookYear}` : ""}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap gap-3">
+          <div className="space-y-2">
+            <Label>入学年份</Label>
+            <select
+              data-testid="handbook-year-select"
+              value={selectedYear}
+              onChange={(event) => {
+                const year = event.target.value;
+                setSelectedYear(year);
+                setMajorId(
+                  majors.find((major) => major.handbookYear === year)?.id ?? "",
+                );
+              }}
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+            >
+              {years.map((year) => (
+                <option key={year} value={year}>
+                  {year}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label>主修</Label>
+            <Select
+              items={majorItems}
+              value={majorId}
+              onValueChange={(v) => v && setMajorId(v)}
+            >
+              <SelectTrigger
+                className="w-full sm:w-80"
+                data-testid="major-select"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {visibleMajors.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
