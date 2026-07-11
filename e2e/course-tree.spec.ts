@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { loginWithPassword } from "./helpers/auth";
+
 /**
  * 选课技能树画布 e2e — ref #163 / #164 / #235 / #165 / #156
  *
@@ -304,6 +306,43 @@ test.describe("#166 严格模式逐学期点亮", () => {
     await expect(statistics).toHaveAttribute("data-lit", "false");
     await expect(page.getByTestId("strict-feedback")).toContainText(
       "超过上限 3",
+    );
+  });
+});
+
+test.describe("#167 构筑持久化", () => {
+  test("匿名用户保存时被引导登录", async ({ page }) => {
+    await page.goto("/course-tree");
+    await page.getByTestId("login-to-save").click();
+    await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test("登录用户保存多个构筑并恢复严格模式学期", async ({ page }) => {
+    await loginWithPassword(page, "user@test.com", "password123");
+    await page.goto("/course-tree");
+
+    await page.getByRole("button", { name: "严格模式" }).click();
+    await page.locator('[data-code="MATH1510"]').click();
+    await page.getByTestId("build-name").fill("严格数学路线");
+    await page.getByTestId("save-build").click();
+    await expect(page.getByRole("status")).toHaveText("已保存");
+
+    await page.locator('[data-code="MATH1510"]').click();
+    await page.getByRole("button", { name: "自由模式" }).click();
+    await page.getByTestId("build-name").fill("自由探索路线");
+    await page.getByTestId("save-build").click();
+    await expect(page.getByRole("status")).toHaveText("已保存");
+
+    const builds = page.getByTestId("saved-builds");
+    await expect(builds.locator("option")).toHaveCount(3);
+    await builds.selectOption({ label: "严格数学路线" });
+    await expect(page.getByRole("status")).toHaveText("已载入");
+    await expect(
+      page.getByRole("button", { name: "严格模式" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator('[data-code="MATH1510"]')).toHaveAttribute(
+      "data-term",
+      "1",
     );
   });
 });

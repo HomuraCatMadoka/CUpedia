@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +20,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getMajorTree } from "@/lib/course-actions";
+import {
+  listMyBuilds,
+  loadBuild,
+  saveBuild,
+  type BuildSummary,
+  type SavedBuild,
+} from "@/lib/build-actions";
 import { evaluateBuild } from "@/lib/course-tree/evaluate-build";
 import { layoutCanvas } from "@/lib/course-tree/layout-canvas";
 import type {
@@ -89,7 +103,13 @@ type Hover = {
   top: number;
 };
 
-export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
+export function CourseTreeView({
+  majors,
+  isAuthenticated,
+}: {
+  majors: MajorListItem[];
+  isAuthenticated: boolean;
+}) {
   const [majorId, setMajorId] = useState<string>(majors[0]?.id ?? "");
   // 最近一次已解析的拉取结果(连同其对应的 majorId);tree=null 表示该主修加载失败。
   const [result, setResult] = useState<{
@@ -103,6 +123,30 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
   const [termUnitCap, setTermUnitCap] = useState(18);
   const [strictItems, setStrictItems] = useState<BuildItem[]>([]);
   const [feedback, setFeedback] = useState("");
+  const [buildName, setBuildName] = useState("我的构筑");
+  const [savedBuilds, setSavedBuilds] = useState<BuildSummary[]>([]);
+  const [saveStatus, setSaveStatus] = useState("");
+  const pendingBuild = useRef<SavedBuild | null>(null);
+
+  const applySavedBuild = useCallback((build: SavedBuild) => {
+    setMode(build.mode);
+    setBuildName(build.name);
+    setLit(new Set(build.items.map((item) => item.code)));
+    setStrictItems(
+      build.mode === "strict"
+        ? build.items.map((item) => ({
+            code: item.code,
+            term: item.term!,
+          }))
+        : [],
+    );
+    setFeedback("");
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    listMyBuilds().then(setSavedBuilds);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!majorId) return;
@@ -110,14 +154,20 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
     getMajorTree(majorId).then((t) => {
       if (!active) return;
       setResult({ id: majorId, tree: t });
-      setLit(new Set());
-      setStrictItems([]);
-      setFeedback("");
+      const pending = pendingBuild.current;
+      if (pending?.majorId === majorId) {
+        applySavedBuild(pending);
+        pendingBuild.current = null;
+      } else {
+        setLit(new Set());
+        setStrictItems([]);
+        setFeedback("");
+      }
     });
     return () => {
       active = false;
     };
-  }, [majorId]);
+  }, [applySavedBuild, majorId]);
 
   const loading = result?.id !== majorId;
   const tree = loading ? null : result!.tree;
@@ -178,6 +228,41 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
       else next.add(code);
       return next;
     });
+  }
+
+  async function handleSave() {
+    if (!tree) return;
+    setSaveStatus("保存中…");
+    try {
+      await saveBuild({
+        majorId: tree.majorId,
+        name: buildName,
+        mode,
+        items:
+          mode === "strict"
+            ? strictItems
+            : [...lit].map((code) => ({ code, term: null })),
+      });
+      setSavedBuilds(await listMyBuilds());
+      setSaveStatus("已保存");
+    } catch {
+      setSaveStatus("保存失败，请稍后再试");
+    }
+  }
+
+  async function handleLoad(id: string) {
+    if (!id) return;
+    const build = await loadBuild(id);
+    if (!build) {
+      setSaveStatus("无法加载该构筑");
+      return;
+    }
+    if (build.majorId === majorId) applySavedBuild(build);
+    else {
+      pendingBuild.current = build;
+      setMajorId(build.majorId);
+    }
+    setSaveStatus("已载入");
   }
 
   const majorItems: Record<string, string> = Object.fromEntries(
@@ -288,6 +373,66 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
           {feedback}
         </p>
       )}
+
+      <div className="flex flex-wrap items-end gap-3 rounded-md border p-3">
+        {isAuthenticated ? (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="build-name">构筑名称</Label>
+              <input
+                id="build-name"
+                data-testid="build-name"
+                value={buildName}
+                maxLength={80}
+                onChange={(event) => setBuildName(event.target.value)}
+                className="h-9 w-56 rounded-md border bg-background px-3 text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              data-testid="save-build"
+              onClick={handleSave}
+              className="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground"
+            >
+              保存构筑
+            </button>
+            {savedBuilds.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="saved-builds">我的构筑</Label>
+                <select
+                  id="saved-builds"
+                  data-testid="saved-builds"
+                  defaultValue=""
+                  onChange={(event) => handleLoad(event.target.value)}
+                  className="h-9 w-56 rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="" disabled>
+                    选择要载入的构筑
+                  </option>
+                  {savedBuilds.map((build) => (
+                    <option key={build.id} value={build.id}>
+                      {build.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </>
+        ) : (
+          <a
+            href="/login"
+            data-testid="login-to-save"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            登录后保存构筑
+          </a>
+        )}
+        {saveStatus && (
+          <span className="text-sm text-muted-foreground" role="status">
+            {saveStatus}
+          </span>
+        )}
+      </div>
 
       {loading && (
         <p className="text-muted-foreground" data-testid="course-tree-loading">

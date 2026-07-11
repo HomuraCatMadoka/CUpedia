@@ -71,6 +71,13 @@
       "when": 1783441800000,
       "tag": "0009_living_katie_power",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783759631797,
+      "tag": "0010_stiff_millenium_guard",
+      "breakpoints": true
     }
   ]
 }
