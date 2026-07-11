@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,17 @@ function toSelectValue(v: ScoredFactor | ""): string {
   return v === "" ? EMPTY_VALUE : v;
 }
 
+function StepHeading({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-baseline gap-2 text-sm font-medium">
+      <span className="font-mono text-[10px] tracking-wider text-muted-foreground">
+        {number}
+      </span>
+      <span>{title}</span>
+    </div>
+  );
+}
+
 export function CollegePickerForm() {
   const [majorGroup, setMajorGroup] = useState<MajorGroup>(MAJOR_GROUPS[0].id);
   const [priorities, setPriorities] =
@@ -75,6 +87,15 @@ export function CollegePickerForm() {
     useState<SmallCollegePreference>("indifferent");
   const [result, setResult] = useState<ScoredCollege[] | null>(null);
   const [error, setError] = useState<string>("");
+  const resultRef = useRef<HTMLDivElement>(null);
+
+  // 出结果后跳到结果区并聚焦：长表单下结果在折叠线以下，焦点跟随也让屏幕阅读器读到。
+  useEffect(() => {
+    if (!result) return;
+    const el = resultRef.current;
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+    el?.focus({ preventScroll: true });
+  }, [result]);
 
   // 当前填写的权重（等比放大到合计 10），供 UI 提示。
   const weights = computeWeights(priorities);
@@ -135,30 +156,31 @@ export function CollegePickerForm() {
         <CardHeader>
           <CardTitle>选择你的情况</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label>是否至少冲一个小书院（善衡 / 敬文 / 晨兴）？</Label>
+        <CardContent className="space-y-0">
+          <div className="space-y-3 border-b pb-6">
+            <StepHeading number="01" title="是否至少冲一个小书院" />
+            <p className="text-xs text-muted-foreground">
+              善衡、敬文、晨兴三所小书院的志愿偏好。
+            </p>
             <div className="grid gap-3 sm:grid-cols-3">
               {PREFERENCE_OPTIONS.map((opt) => (
                 <Label
                   key={opt.id}
-                  className="flex cursor-pointer flex-col gap-1 rounded-md border p-3 font-normal text-foreground has-[:checked]:border-primary has-[:checked]:bg-primary/5"
+                  className="flex cursor-pointer flex-col items-start gap-1 rounded-md border p-3 font-normal text-foreground has-[:checked]:border-foreground has-[:checked]:bg-muted/50"
                   data-testid={`preference-${opt.id}`}
                 >
-                  <span className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="small-college-preference"
-                      value={opt.id}
-                      checked={preference === opt.id}
-                      onChange={() => {
-                        setPreference(opt.id);
-                        reset();
-                      }}
-                      className="size-4 accent-primary"
-                    />
-                    <span className="font-medium">{opt.label}</span>
-                  </span>
+                  <input
+                    type="radio"
+                    name="small-college-preference"
+                    value={opt.id}
+                    checked={preference === opt.id}
+                    onChange={() => {
+                      setPreference(opt.id);
+                      reset();
+                    }}
+                    className="sr-only"
+                  />
+                  <span className="font-medium">{opt.label}</span>
                   <span className="text-xs text-muted-foreground">
                     {opt.desc}
                   </span>
@@ -167,8 +189,8 @@ export function CollegePickerForm() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>专业大类</Label>
+          <div className="space-y-3 border-b py-6">
+            <StepHeading number="02" title="专业大类" />
             <Select
               items={MAJOR_ITEMS}
               value={majorGroup}
@@ -178,6 +200,8 @@ export function CollegePickerForm() {
               }}
             >
               <SelectTrigger
+                id="major-group"
+                aria-label="专业大类"
                 className="w-full sm:w-64"
                 data-testid="major-select"
               >
@@ -193,8 +217,11 @@ export function CollegePickerForm() {
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label>最看重的因素（权重按填写情况等比放大至合计 10）</Label>
+          <div className="space-y-3 border-b py-6">
+            <StepHeading number="03" title="最看重的三个因素" />
+            <p className="text-xs text-muted-foreground">
+              权重按填写情况等比放大至合计 10，三个选项不可重复。
+            </p>
             <div className="grid gap-3 sm:grid-cols-3">
               {priorities.map((factor, index) => (
                 <div key={index} className="space-y-1.5">
@@ -230,28 +257,41 @@ export function CollegePickerForm() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>想避开的因素（可选，命中的书院会被压到志愿末尾）</Label>
+          <div className="space-y-3 border-b py-6">
+            <StepHeading number="04" title="想避开的因素" />
+            <p className="text-xs text-muted-foreground">
+              可选，命中的书院仍会显示，但会被压到志愿末尾。
+            </p>
             <div className="grid gap-3 sm:grid-cols-2">
-              {AVOID_FACTORS.map((f) => (
-                <Label
-                  key={f.id}
-                  className="flex items-center gap-2 font-normal text-foreground"
-                >
-                  <Checkbox
-                    checked={avoids.includes(f.id)}
-                    onCheckedChange={(checked) =>
-                      toggleAvoid(f.id, checked === true)
-                    }
-                    data-testid={`avoid-${f.id}`}
-                  />
-                  {f.nameZh}
-                </Label>
-              ))}
+              {AVOID_FACTORS.map((f) => {
+                const hit = avoids.includes(f.id);
+                return (
+                  <Label
+                    key={f.id}
+                    className={`flex min-h-10 cursor-pointer items-center gap-3 rounded-md border px-3 py-2 font-normal transition-colors ${
+                      hit
+                        ? "border-destructive/30 bg-destructive/10 text-destructive"
+                        : "border-transparent text-foreground hover:bg-muted/60"
+                    }`}
+                  >
+                    <Checkbox
+                      checked={hit}
+                      onCheckedChange={(checked) =>
+                        toggleAvoid(f.id, checked === true)
+                      }
+                      data-testid={`avoid-${f.id}`}
+                    />
+                    {f.nameZh}
+                  </Label>
+                );
+              })}
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-col items-stretch justify-between gap-3 pt-6 sm:flex-row sm:items-center">
+            <p className="text-xs text-muted-foreground">
+              结果由学生整理的相对经验数据驱动
+            </p>
             <Button onClick={handleRecommend} data-testid="recommend-button">
               推荐志愿
             </Button>
@@ -268,29 +308,46 @@ export function CollegePickerForm() {
       </Card>
 
       {result && (
-        <div className="space-y-3" data-testid="picker-result">
-          <h2 className="text-lg font-semibold">推荐志愿排序</h2>
+        <div
+          ref={resultRef}
+          tabIndex={-1}
+          aria-live="polite"
+          className="space-y-3 outline-none"
+          data-testid="picker-result"
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="text-lg font-semibold">推荐志愿排序</h2>
+            <p className="text-xs text-muted-foreground">前三项建议优先了解</p>
+          </div>
           <ol className="space-y-3">
             {result.map((college, index) => (
               <li key={college.id} data-testid="picker-item">
-                <Card className="gap-0 py-4">
+                <Card
+                  className={`gap-0 py-4 ${
+                    index === 0 ? "border-foreground/20 bg-muted/40" : ""
+                  }`}
+                >
                   <CardContent className="flex flex-col gap-2 px-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex items-start gap-3">
                       <Badge
-                        variant="secondary"
+                        variant={index === 0 ? "default" : "secondary"}
                         className="mt-0.5 shrink-0 tabular-nums"
                       >
                         第 {index + 1} 志愿
                       </Badge>
+                      <Image
+                        src={`/college-crests/${college.id}.svg`}
+                        alt=""
+                        width={32}
+                        height={32}
+                        className="size-8 shrink-0 object-contain"
+                      />
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium">{college.nameZh}</span>
                           <span className="text-xs text-muted-foreground">
                             {college.shortCode} · {college.nameEn}
                           </span>
-                          {college.avoidHits.length > 0 && (
-                            <Badge variant="destructive">已避雷</Badge>
-                          )}
                         </div>
                         {college.reasons.length > 0 && (
                           <ul className="space-y-0.5 text-xs text-muted-foreground">
@@ -301,12 +358,14 @@ export function CollegePickerForm() {
                         )}
                       </div>
                     </div>
-                    <span
-                      className="shrink-0 text-sm text-muted-foreground tabular-nums"
-                      data-testid="picker-score"
-                    >
-                      推荐指数 {college.score.toFixed(1)}
-                    </span>
+                    {college.avoidHits.length > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="mt-0.5 shrink-0 self-start"
+                      >
+                        已避雷
+                      </Badge>
+                    )}
                   </CardContent>
                 </Card>
               </li>

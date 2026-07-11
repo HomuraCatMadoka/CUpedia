@@ -53,9 +53,24 @@ export const COLLEGES: readonly College[] = [
     nameEn: "Chung Chi College",
     shortCode: "CC",
   },
-  { id: "na", nameZh: "新亚书院", nameEn: "New Asia College", shortCode: "NA" },
-  { id: "uc", nameZh: "联合书院", nameEn: "United College", shortCode: "UC" },
-  { id: "sc", nameZh: "逸夫书院", nameEn: "Shaw College", shortCode: "SC" },
+  {
+    id: "na",
+    nameZh: "新亚书院",
+    nameEn: "New Asia College",
+    shortCode: "NA",
+  },
+  {
+    id: "uc",
+    nameZh: "联合书院",
+    nameEn: "United College",
+    shortCode: "UC",
+  },
+  {
+    id: "sc",
+    nameZh: "逸夫书院",
+    nameEn: "Shaw College",
+    shortCode: "SC",
+  },
   {
     id: "mc",
     nameZh: "晨兴书院",
