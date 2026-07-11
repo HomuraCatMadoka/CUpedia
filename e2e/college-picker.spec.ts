@@ -43,9 +43,28 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await expect(items).toHaveCount(9);
     // 四所 FYP=Y 的书院（崇基/联合/敬文/伍宜孙）被标「已避雷」。
     await expect(result.getByText("已避雷")).toHaveCount(4);
-    // 且被压到末尾：第 6–9 志愿才是命中的。
-    await expect(items.nth(5)).toContainText("已避雷");
-    await expect(items.nth(4)).not.toContainText("已避雷");
+    // 裁决：A/B/C 分区优先，避雷只在各分区内排末尾。本场景 mc(小书院)最高分
+    // → C-i：非小书院块(槽 2-7)内避雷命中的 cc/uc/wys 排到该块末尾(5-7)，
+    // 小书院块(槽 8-9)内 cwc(避雷)排到 9。故第 1 志愿干净、末位避雷。
+    await expect(items.first()).not.toContainText("已避雷");
+    await expect(items.last()).toContainText("已避雷");
+  });
+
+  test("勾选其他看重因素「离港铁距离」：推荐指数加分生效", async ({ page }) => {
+    await page.goto("/college-picker");
+
+    await page.getByTestId("bonus-MTR_Distance").click();
+    await page.getByTestId("recommend-button").click();
+
+    const result = page.getByTestId("picker-result");
+    await expect(result).toBeVisible();
+    // 工科·通勤/住宿/保宿 默认第一志愿是晨兴 mc，base 83 + MTR 4 = 87.0
+    await expect(result.getByTestId("picker-item").first()).toContainText(
+      "晨兴书院",
+    );
+    await expect(result.getByTestId("picker-score").first()).toContainText(
+      "推荐指数 87.0",
+    );
   });
 
   test("三个看重因素重复：给提示、不出结果", async ({ page }) => {

@@ -16,9 +16,11 @@ import {
 } from "@/components/ui/select";
 import {
   AVOID_FACTORS,
+  BONUS_FACTORS,
   MAJOR_GROUPS,
   SCORED_FACTORS,
   type AvoidFactor,
+  type BonusFactor,
   type MajorGroup,
   type ScoredFactor,
 } from "@/lib/college-picker/data";
@@ -47,7 +49,7 @@ const PREFERENCE_OPTIONS: {
   label: string;
   desc: string;
 }[] = [
-  { id: "aim", label: "A. 冲！", desc: "第一志愿强制为小书院" },
+  { id: "aim", label: "A. 冲！", desc: "第一志愿为小书院，其余两所排到 8–9 志愿" },
   { id: "avoid", label: "B. 完全不想去", desc: "三所小书院排到第 7–9 志愿" },
   { id: "indifferent", label: "C. 无所谓", desc: "按默认机制运行分院帽" },
 ];
@@ -71,6 +73,7 @@ export function CollegePickerForm() {
       DEFAULT_PRIORITIES,
     );
   const [avoids, setAvoids] = useState<AvoidFactor[]>([]);
+  const [bonusFactors, setBonusFactors] = useState<BonusFactor[]>([]);
   const [preference, setPreference] =
     useState<SmallCollegePreference>("indifferent");
   const [result, setResult] = useState<ScoredCollege[] | null>(null);
@@ -111,6 +114,13 @@ export function CollegePickerForm() {
     reset();
   }
 
+  function toggleBonus(factor: BonusFactor, checked: boolean) {
+    setBonusFactors((prev) =>
+      checked ? [...prev, factor] : prev.filter((b) => b !== factor),
+    );
+    reset();
+  }
+
   function handleRecommend() {
     const check = validatePriorities(priorities);
     if (!check.ok) {
@@ -125,6 +135,7 @@ export function CollegePickerForm() {
         priorities,
         avoids,
         smallCollegePreference: preference,
+        bonusFactors,
       }),
     );
   }
@@ -226,6 +237,27 @@ export function CollegePickerForm() {
                     </SelectContent>
                   </Select>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>你看重的其他因素（可选，勾选后给推荐指数加分）</Label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {BONUS_FACTORS.map((f) => (
+                <Label
+                  key={f.id}
+                  className="flex items-center gap-2 font-normal text-foreground"
+                >
+                  <Checkbox
+                    checked={bonusFactors.includes(f.id)}
+                    onCheckedChange={(checked) =>
+                      toggleBonus(f.id, checked === true)
+                    }
+                    data-testid={`bonus-${f.id}`}
+                  />
+                  {f.nameZh}
+                </Label>
               ))}
             </div>
           </div>

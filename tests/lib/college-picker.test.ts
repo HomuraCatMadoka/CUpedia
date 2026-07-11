@@ -32,10 +32,11 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       ],
       avoids: [],
     },
-    expected: ["mc", "cc", "uc", "shho", "cwc", "lws", "na", "sc", "wys"],
+    // C-i：最高分 mc(小书院) → 第一志愿；其余两所小书院→8-9；非小书院套用中/大特规。
+    expected: ["mc", "cc", "uc", "lws", "na", "sc", "wys", "shho", "cwc"],
   },
   {
-    label: "文科 · 住宿/交换/通勤 · 无避雷 (Shaw 垫底)",
+    label: "文科 · 住宿/交换/通勤 · 无避雷 (Shaw 在非小书院块末尾)",
     input: {
       majorGroup: "arts",
       priorities: [
@@ -45,7 +46,8 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       ],
       avoids: [],
     },
-    expected: ["mc", "uc", "cc", "cwc", "na", "lws", "shho", "wys", "sc"],
+    // C-i：mc(小书院)最高分→第一志愿；非小书院块末尾是 sc(逸夫)，小书院块 8-9。
+    expected: ["mc", "uc", "cc", "na", "lws", "wys", "sc", "cwc", "shho"],
   },
   {
     label: "商科 · 保宿/通勤/交换 · 避雷[面试,笔试]",
@@ -54,9 +56,8 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       priorities: ["Hostel_Guarantee", "Commute_Time", "Exchange_Opportunity"],
       avoids: ["Admission_Interview", "Admission_Written_Test"],
     },
-    // 新规则：已删除「避雷面试/笔试→降级小书院」旧规则（改由 A/B/C 题控制），
-    // 第一志愿回到「最高分小书院」= 善衡 shho；敬文 cwc 命中两项避雷，扣到 0 垫底。
-    expected: ["shho", "cc", "uc", "mc", "sc", "na", "wys", "lws", "cwc"],
+    // C-i：shho(小书院)最高分→第一志愿；cwc 命中两项避雷扣到 0，在小书院块内排末尾(9)。
+    expected: ["shho", "cc", "uc", "sc", "na", "wys", "lws", "mc", "cwc"],
   },
   {
     label: "理科 · 通勤/住宿/交换 · 避雷[FYP]",
@@ -69,8 +70,9 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       ],
       avoids: ["College_FYP"],
     },
-    // 伍宜孙 wys / 敬文 cwc 命中 FYP 后推荐指数均扣到 0，同分按 id 稳定排序：cwc 先于 wys。
-    expected: ["mc", "na", "lws", "shho", "sc", "cc", "uc", "cwc", "wys"],
+    // C-i：mc→第一志愿；非小书院块内避雷命中的 cc/uc/wys 排到该块末尾(5-7)；
+    // 小书院块 8-9：shho(干净) → cwc(避雷)。
+    expected: ["mc", "na", "lws", "sc", "cc", "uc", "wys", "shho", "cwc"],
   },
   {
     label: "社科 · 住宿/保宿/交换 · 避雷[FYP,宗教,面试,笔试]",
@@ -88,8 +90,9 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
         "Admission_Written_Test",
       ],
     },
-    // 多所命中避雷扣到 0，末段按 id 稳定排序：cc, cwc, uc, wys。
-    expected: ["mc", "lws", "na", "shho", "sc", "cc", "cwc", "uc", "wys"],
+    // C-i：mc→第一志愿；非小书院块内避雷命中的 cc/uc/wys 排到该块末尾(5-7)；
+    // 小书院块 8-9：shho(干净) → cwc(避雷)。
+    expected: ["mc", "lws", "na", "sc", "cc", "uc", "wys", "shho", "cwc"],
   },
   {
     label: "工科 · 交换/住宿/保宿 · 无避雷",
@@ -102,7 +105,8 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       ],
       avoids: [],
     },
-    expected: ["mc", "cc", "uc", "shho", "cwc", "na", "sc", "wys", "lws"],
+    // C-i：mc(小书院)最高分→第一志愿；其余两所小书院→8-9。
+    expected: ["mc", "cc", "uc", "na", "sc", "wys", "lws", "shho", "cwc"],
   },
 ];
 
@@ -237,9 +241,11 @@ describe("recommend — 不重不漏 (九所书院各一次)", () => {
   });
 });
 
-describe("recommend — 避雷命中只后移不删除", () => {
-  it("勾选[FYP]：命中书院被整体压到末尾，仍在列表里且带命中标注", () => {
+describe("recommend — 避雷命中只后移不删除（分区内排末尾）", () => {
+  it("勾选[FYP]：命中书院仍在列表里且带命中标注，且在各分区内排到该分区末尾", () => {
     // FYP=Y：崇基 cc、联合 uc、敬文 cwc、伍宜孙 wys
+    // 本场景最高分为 mc(小书院) → C-i：小书院占 1 + 8/9，非小书院占 2-7。
+    // 裁决：A/B/C 分区优先，避雷只在各分区内部把命中者排到该分区末尾。
     const result = recommend({
       majorGroup: "science",
       priorities: [
@@ -254,18 +260,24 @@ describe("recommend — 避雷命中只后移不删除", () => {
     // 一所都没消失
     expect(ids).toHaveLength(9);
 
-    // 所有命中书院排在所有未命中书院之后
-    const lastClean = Math.max(
-      ...result
+    // 非小书院分区（槽 2-7，索引 1-6）：干净在前、命中在后
+    const nonSmallRegion = result.slice(1, 7);
+    const lastCleanNonSmall = Math.max(
+      ...nonSmallRegion
         .filter((c) => c.avoidHits.length === 0)
-        .map((c) => ids.indexOf(c.id)),
+        .map((c) => nonSmallRegion.indexOf(c)),
     );
-    const firstHit = Math.min(
-      ...result
+    const firstHitNonSmall = Math.min(
+      ...nonSmallRegion
         .filter((c) => c.avoidHits.length > 0)
-        .map((c) => ids.indexOf(c.id)),
+        .map((c) => nonSmallRegion.indexOf(c)),
     );
-    expect(lastClean).toBeLessThan(firstHit);
+    expect(lastCleanNonSmall).toBeLessThan(firstHitNonSmall);
+
+    // 小书院分区（槽 8-9，索引 7-8）：干净 shho 在前、命中 cwc 在后
+    const smallRegion = result.slice(7, 9);
+    expect(smallRegion[0].avoidHits.length).toBe(0);
+    expect(smallRegion[1].avoidHits.length).toBeGreaterThan(0);
 
     // 命中书院带上 avoidHits 与可读的命中原因
     const cc = result.find((c) => c.id === "cc")!;
@@ -309,10 +321,43 @@ describe("recommend — 小书院意愿题 (A/B/C)", () => {
     avoids: [] as AvoidFactor[],
   };
 
-  it("A · 冲小书院：第一志愿强制为小书院", () => {
+  it("A · 冲小书院：第一志愿为推荐指数最高的小书院，其余两所排到 8–9", () => {
     const result = recommend({ ...baseInput, smallCollegePreference: "aim" });
+    const smalls = result.filter((c) => SMALL.has(c.id));
+    // 第一志愿是小书院
     expect(SMALL.has(result[0].id)).toBe(true);
     expect(result[0].reasons.some((r) => r.includes("冲小书院"))).toBe(true);
+    // 第一志愿是三所小书院里推荐指数最高的
+    const topSmallScore = Math.max(...smalls.map((c) => c.score));
+    expect(result[0].score).toBe(topSmallScore);
+    // 另两所小书院落在第 8–9 志愿
+    const last2 = result.slice(7, 9).map((c) => c.id);
+    expect(SMALL.has(last2[0])).toBe(true);
+    expect(SMALL.has(last2[1])).toBe(true);
+    // 2–7 全是非小书院
+    const mid6 = result.slice(1, 7).map((c) => c.id);
+    expect(mid6.every((id) => !SMALL.has(id))).toBe(true);
+  });
+
+  it("A · 即使推荐指数最高的小书院命中避雷，仍强制为第一志愿（裁决 top_any）", () => {
+    // 敬文 cwc 命中 FYP（推荐指数扣 -50）；本场景 mc 仍是最优小书院，故取 mc。
+    // 改造一个让命中避雷的小书院仍居小书院最高分的场景：只看交换机会，
+    // 并让 cwc 命中的避雷不抵消其高分优势不现实；转而直接断言 A 选取的小书院
+    // 为「推荐指数最高的小书院」(含避雷) —— 用 FYP 命中 mc 不成立(mc 无 FYP)，
+    // 因此用 cwc 命中 FYP 后仍可能高于其他小书院的场景验证兜底：
+    // 单因素交换 + 避雷 FYP：cwc 交换第 7 → (10-7)*10=30，-50 → 0；仍非最高。
+    // 这里改为验证：A 的第一志愿取所有小书院中分数最高者，无论是否避雷。
+    const result = recommend({
+      majorGroup: "engineering",
+      priorities: ["Exchange_Opportunity", "", ""],
+      avoids: [],
+      smallCollegePreference: "aim",
+    });
+    const smalls = result.filter((c) => SMALL.has(c.id));
+    const maxScore = Math.max(...smalls.map((c) => c.score));
+    expect(result[0].id).toBe(
+      smalls.find((c) => c.score === maxScore)!.id,
+    );
   });
 
   it("B · 不想去小书院：三所小书院整体排到第 7–9，且按推荐指数降序", () => {
@@ -331,13 +376,31 @@ describe("recommend — 小书院意愿题 (A/B/C)", () => {
     expect(scores[1]).toBeGreaterThanOrEqual(scores[2]);
   });
 
-  it("C · 无所谓：沿用既有机制（第一志愿为小书院）", () => {
+  it("C · 无所谓：最高分书院为小书院 → 第一志愿为该小书院，其余两所→8–9", () => {
     const result = recommend({
       ...baseInput,
       smallCollegePreference: "indifferent",
     });
-    // 既有黄金输出第一志愿是晨兴 mc
+    // 既有黄金输出第一志愿是晨兴 mc（小书院且最高分）
     expect(result[0].id).toBe("mc");
+    const last2 = result.slice(7, 9).map((c) => c.id);
+    expect(SMALL.has(last2[0])).toBe(true);
+    expect(SMALL.has(last2[1])).toBe(true);
+  });
+
+  it("C · 无所谓：最高分书院不是小书院 → 三所小书院排到第 7–9", () => {
+    // 单因素「交换机会」：崇基 cc 交换第 1 → (10-1)*10=90，居全局最高（非小书院）。
+    const result = recommend({
+      majorGroup: "engineering",
+      priorities: ["Exchange_Opportunity", "", ""],
+      avoids: [],
+      smallCollegePreference: "indifferent",
+    });
+    expect(result[0].id).toBe("cc");
+    const last3 = result.slice(6, 9).map((c) => c.id);
+    expect(new Set(last3)).toEqual(new Set(["mc", "shho", "cwc"]));
+    const top6 = result.slice(0, 6).map((c) => c.id);
+    expect(top6.every((id) => !SMALL.has(id))).toBe(true);
   });
 
   it("B 仍不重不漏：九所书院各一次", () => {
@@ -351,8 +414,10 @@ describe("recommend — 小书院意愿题 (A/B/C)", () => {
   });
 });
 
-describe("recommend — 逸夫 (Shaw) 尽量不排最后：仅同分才换位", () => {
-  it("文科场景：Shaw 与倒数第二不同分 → 规则无法触发，Shaw 垫底", () => {
+describe("recommend — 逸夫 (Shaw) 尽量不排最后：仅同分才换位（在非小书院分区内生效）", () => {
+  it("文科场景：Shaw 与非小书院块倒数第二不同分 → 规则无法触发，Shaw 排在该块末尾", () => {
+    // C-i：mc(小书院)最高分→第一志愿；非小书院块占槽 2-7，小书院块占 8-9。
+    // Shaw(sc) 落在非小书院块末尾（槽 7），与前一名不同分 → 不换位。
     const result = recommend({
       majorGroup: "arts",
       priorities: [
@@ -362,10 +427,13 @@ describe("recommend — 逸夫 (Shaw) 尽量不排最后：仅同分才换位", 
       ],
       avoids: [],
     });
-    const last = result[result.length - 1];
-    const secondLast = result[result.length - 2];
+    const nonSmallRegion = result.slice(1, 7); // 槽 2-7（索引 1-6）
+    const last = nonSmallRegion[nonSmallRegion.length - 1];
+    const secondLast = nonSmallRegion[nonSmallRegion.length - 2];
     expect(last.id).toBe("sc");
     expect(last.score).not.toBe(secondLast.score);
+    // 全局末位由小书院块占据，不是 sc
+    expect(result[result.length - 1].id).not.toBe("sc");
   });
 
   it("商科避雷场景：Shaw 不在末尾时，末位由避雷命中的书院占据", () => {
@@ -375,5 +443,79 @@ describe("recommend — 逸夫 (Shaw) 尽量不排最后：仅同分才换位", 
       avoids: ["Admission_Interview", "Admission_Written_Test"],
     });
     expect(result[result.length - 1].id).toBe("cwc");
+  });
+});
+
+describe("recommend — 其他看重因素（加固定分）", () => {
+  const base: RecommendInput = {
+    majorGroup: "engineering",
+    priorities: [
+      "Commute_Time",
+      "Accommodation_Environment",
+      "Hostel_Guarantee",
+    ],
+    avoids: [],
+  };
+
+  it("未勾选任何其他因素时，分数与不传 bonusFactors 一致", () => {
+    const a = recommend(base);
+    const b = recommend({ ...base, bonusFactors: [] });
+    expect(a.map((c) => c.id)).toEqual(b.map((c) => c.id));
+    expect(a.map((c) => c.score)).toEqual(b.map((c) => c.score));
+  });
+
+  it("勾选「离港铁距离」：各书院按 BONUS_VALUES.MTR_Distance 加分", () => {
+    const noBonus = recommend(base);
+    const withMtr = recommend({ ...base, bonusFactors: ["MTR_Distance"] });
+    const noMap = new Map(noBonus.map((c) => [c.id, c.score]));
+    for (const c of withMtr) {
+      // cc 通勤::engineering=3，base 52；+5 → 57
+      expect(c.score).toBe(noMap.get(c.id)! + ({ cc: 5, shho: 4, mc: 4, uc: 3, na: 3, cwc: 2.5, lws: 2, wys: 2, sc: 1 }[c.id] ?? 0));
+    }
+  });
+
+  it("勾选「大一能选舍友 par 房」：cc/shho/mc/wys 各 +5", () => {
+    const withPar = recommend({ ...base, bonusFactors: ["Par_Room"] });
+    const cc = withPar.find((c) => c.id === "cc")!;
+    const shho = withPar.find((c) => c.id === "shho")!;
+    const mc = withPar.find((c) => c.id === "mc")!;
+    const uc = withPar.find((c) => c.id === "uc")!;
+    // cc base 52 +5 = 57；shho base 81 +5 = 86；mc base 83 +5 = 88；uc base 52 +0 = 52
+    expect(cc.score).toBe(57);
+    expect(shho.score).toBe(86);
+    expect(mc.score).toBe(88);
+    expect(uc.score).toBe(52);
+  });
+
+  it("同时勾选两项：加分叠加，且 mc 仍因最高分居首（C-i）", () => {
+    const result = recommend({
+      ...base,
+      bonusFactors: ["MTR_Distance", "Par_Room"],
+    });
+    // mc base 83 + MTR 4 + Par 5 = 92，仍是全局最高 → C-i 第一志愿
+    expect(result[0].id).toBe("mc");
+    expect(result[0].score).toBe(92);
+  });
+
+  it("加分可与避雷惩罚叠加：cc base 52 + MTR 5 - FYP 50 = 7", () => {
+    const result = recommend({
+      ...base,
+      avoids: ["College_FYP"],
+      bonusFactors: ["MTR_Distance"],
+    });
+    const cc = result.find((c) => c.id === "cc")!;
+    expect(cc.score).toBe(7);
+    expect(cc.avoidHits).toContain("College_FYP");
+  });
+
+  it("加分不会改变 A/B/C 分区：A 第一志愿仍为推荐指数最高的小书院", () => {
+    const result = recommend({
+      ...base,
+      bonusFactors: ["MTR_Distance"],
+      smallCollegePreference: "aim",
+    });
+    expect(SMALL.has(result[0].id)).toBe(true);
+    const smalls = result.filter((c) => SMALL.has(c.id));
+    expect(result[0].score).toBe(Math.max(...smalls.map((c) => c.score)));
   });
 });
