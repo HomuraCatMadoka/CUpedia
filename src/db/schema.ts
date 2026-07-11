@@ -8,6 +8,7 @@ import {
   numeric,
   jsonb,
   index,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
@@ -299,3 +300,49 @@ export const categoryCoursesRelations = relations(
     }),
   }),
 );
+
+// ── 课程技能树：用户构筑（#167）──
+
+export const builds = pgTable(
+  "builds",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    majorId: uuid("major_id")
+      .notNull()
+      .references(() => majors.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    mode: text("mode").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("builds_user_id_idx").on(table.userId),
+    index("builds_major_id_idx").on(table.majorId),
+  ],
+);
+
+export const buildItems = pgTable(
+  "build_items",
+  {
+    buildId: uuid("build_id")
+      .notNull()
+      .references(() => builds.id, { onDelete: "cascade" }),
+    courseCode: text("course_code").notNull(),
+    term: integer("term"),
+  },
+  (table) => [primaryKey({ columns: [table.buildId, table.courseCode] })],
+);
+
+export const buildsRelations = relations(builds, ({ many }) => ({
+  items: many(buildItems),
+}));
+
+export const buildItemsRelations = relations(buildItems, ({ one }) => ({
+  build: one(builds, {
+    fields: [buildItems.buildId],
+    references: [builds.id],
+  }),
+}));

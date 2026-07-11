@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { listMajors } from "@/lib/course-actions";
+import { getOptionalUser } from "@/lib/auth-guard";
 
 import { CourseTreeView } from "./course-tree-view";
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CourseTreePage() {
-  const majors = await listMajors();
+  const [majors, user] = await Promise.all([listMajors(), getOptionalUser()]);
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6">
@@ -23,7 +24,7 @@ export default async function CourseTreePage() {
         </p>
       </header>
 
-      <CourseTreeView majors={majors} />
+      <CourseTreeView majors={majors} isAuthenticated={!!user} />
 
       <footer className="border-t pt-4 text-xs text-muted-foreground">
         非官方 ·

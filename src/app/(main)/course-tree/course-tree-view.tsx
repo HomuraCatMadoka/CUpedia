@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,9 +20,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getMajorTree } from "@/lib/course-actions";
+import {
+  listMyBuilds,
+  loadBuild,
+  saveBuild,
+  type BuildSummary,
+  type SavedBuild,
+} from "@/lib/build-actions";
 import { evaluateBuild } from "@/lib/course-tree/evaluate-build";
 import { layoutCanvas } from "@/lib/course-tree/layout-canvas";
 import type {
+  BuildEvaluation,
+  BuildItem,
   CategoryProgress,
   CourseNode,
   EquivalenceGroup,
@@ -50,6 +66,32 @@ function termsText(terms: string[]): string {
   return zh.length ? zh.join(" / ") : "—";
 }
 
+function violationText(violation: BuildEvaluation["violations"][number]) {
+  if (violation.type === "season") return "该课程不在当前季节开课";
+  if (violation.type === "term-cap")
+    return `本学期将达到 ${violation.units} 学分，超过上限 ${violation.cap}`;
+  if (violation.type === "prerequisite")
+    return `请先在更早学期修读 ${violation.required.join(" 或 ")}`;
+  return `等价课程只能选择一门：${violation.codes.join(" / ")}`;
+}
+
+const TERM_COLORS = [
+  "border-blue-500 bg-blue-100 dark:bg-blue-950/40",
+  "border-emerald-500 bg-emerald-100 dark:bg-emerald-950/40",
+  "border-violet-500 bg-violet-100 dark:bg-violet-950/40",
+  "border-orange-500 bg-orange-100 dark:bg-orange-950/40",
+  "border-cyan-500 bg-cyan-100 dark:bg-cyan-950/40",
+  "border-rose-500 bg-rose-100 dark:bg-rose-950/40",
+  "border-lime-500 bg-lime-100 dark:bg-lime-950/40",
+  "border-fuchsia-500 bg-fuchsia-100 dark:bg-fuchsia-950/40",
+];
+
+function termColor(term?: number) {
+  return term
+    ? TERM_COLORS[(term - 1) % TERM_COLORS.length]
+    : "border-primary bg-primary/10";
+}
+
 /** 一条已测量的先修边:几何(d/终点)与端点课号;hot 由渲染时的 lit 派生,不入测量。 */
 type EdgePath = { from: string; to: string; d: string; x2: number; y2: number };
 
@@ -61,7 +103,13 @@ type Hover = {
   top: number;
 };
 
-export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
+export function CourseTreeView({
+  majors,
+  isAuthenticated,
+}: {
+  majors: MajorListItem[];
+  isAuthenticated: boolean;
+}) {
   const [majorId, setMajorId] = useState<string>(majors[0]?.id ?? "");
   // 最近一次已解析的拉取结果(连同其对应的 majorId);tree=null 表示该主修加载失败。
   const [result, setResult] = useState<{
@@ -70,6 +118,35 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
   } | null>(null);
   // 已点亮的课号(自由模式本地状态,不落库;切换主修即清空)。
   const [lit, setLit] = useState<Set<string>>(new Set());
+  const [mode, setMode] = useState<"free" | "strict">("free");
+  const [activeTerm, setActiveTerm] = useState(1);
+  const [termUnitCap, setTermUnitCap] = useState(18);
+  const [strictItems, setStrictItems] = useState<BuildItem[]>([]);
+  const [feedback, setFeedback] = useState("");
+  const [buildName, setBuildName] = useState("我的构筑");
+  const [savedBuilds, setSavedBuilds] = useState<BuildSummary[]>([]);
+  const [saveStatus, setSaveStatus] = useState("");
+  const pendingBuild = useRef<SavedBuild | null>(null);
+
+  const applySavedBuild = useCallback((build: SavedBuild) => {
+    setMode(build.mode);
+    setBuildName(build.name);
+    setLit(new Set(build.items.map((item) => item.code)));
+    setStrictItems(
+      build.mode === "strict"
+        ? build.items.map((item) => ({
+            code: item.code,
+            term: item.term!,
+          }))
+        : [],
+    );
+    setFeedback("");
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    listMyBuilds().then(setSavedBuilds);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!majorId) return;
@@ -77,19 +154,37 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
     getMajorTree(majorId).then((t) => {
       if (!active) return;
       setResult({ id: majorId, tree: t });
-      setLit(new Set());
+      const pending = pendingBuild.current;
+      if (pending?.majorId === majorId) {
+        applySavedBuild(pending);
+        pendingBuild.current = null;
+      } else {
+        setLit(new Set());
+        setStrictItems([]);
+        setFeedback("");
+      }
     });
     return () => {
       active = false;
     };
-  }, [majorId]);
+  }, [applySavedBuild, majorId]);
 
   const loading = result?.id !== majorId;
   const tree = loading ? null : result!.tree;
 
   const progress = useMemo(
-    () => (tree ? evaluateBuild(tree, lit) : null),
-    [tree, lit],
+    () =>
+      tree
+        ? evaluateBuild(tree, mode === "strict" ? strictItems : lit, mode, {
+            termUnitCap,
+          })
+        : null,
+    [tree, lit, mode, strictItems, termUnitCap],
+  );
+  const currentLit = useMemo(
+    () =>
+      mode === "strict" ? new Set(strictItems.map((item) => item.code)) : lit,
+    [lit, mode, strictItems],
   );
   const layout = useMemo(() => (tree ? layoutCanvas(tree) : null), [tree]);
   // 课号 → 所属类目名(画布分列不按类目,详情面板补回类目上下文)。
@@ -110,12 +205,64 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
   }, [tree]);
 
   function toggle(code: string) {
+    if (mode === "strict" && tree) {
+      const exists = strictItems.some((item) => item.code === code);
+      if (exists) {
+        setStrictItems((items) => items.filter((item) => item.code !== code));
+        setFeedback("");
+        return;
+      }
+      const candidate = [...strictItems, { code, term: activeTerm }];
+      const checked = evaluateBuild(tree, candidate, "strict", { termUnitCap });
+      if (checked.violations.length) {
+        setFeedback(violationText(checked.violations[0]));
+        return;
+      }
+      setStrictItems(candidate);
+      setFeedback(checked.warnings[0]?.message ?? "");
+      return;
+    }
     setLit((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
       else next.add(code);
       return next;
     });
+  }
+
+  async function handleSave() {
+    if (!tree) return;
+    setSaveStatus("保存中…");
+    try {
+      await saveBuild({
+        majorId: tree.majorId,
+        name: buildName,
+        mode,
+        items:
+          mode === "strict"
+            ? strictItems
+            : [...lit].map((code) => ({ code, term: null })),
+      });
+      setSavedBuilds(await listMyBuilds());
+      setSaveStatus("已保存");
+    } catch {
+      setSaveStatus("保存失败，请稍后再试");
+    }
+  }
+
+  async function handleLoad(id: string) {
+    if (!id) return;
+    const build = await loadBuild(id);
+    if (!build) {
+      setSaveStatus("无法加载该构筑");
+      return;
+    }
+    if (build.majorId === majorId) applySavedBuild(build);
+    else {
+      pendingBuild.current = build;
+      setMajorId(build.majorId);
+    }
+    setSaveStatus("已载入");
   }
 
   const majorItems: Record<string, string> = Object.fromEntries(
@@ -153,6 +300,140 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
         </Select>
       </div>
 
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="space-y-2">
+          <Label>模式</Label>
+          <div className="flex rounded-md border p-1" data-testid="mode-switch">
+            {(["free", "strict"] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={mode === value}
+                onClick={() => {
+                  setMode(value);
+                  setFeedback("");
+                }}
+                className={cn(
+                  "rounded px-3 py-1.5 text-sm",
+                  mode === value && "bg-primary text-primary-foreground",
+                )}
+              >
+                {value === "free" ? "自由模式" : "严格模式"}
+              </button>
+            ))}
+          </div>
+        </div>
+        {mode === "strict" && tree && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="active-term">当前学期</Label>
+              <select
+                id="active-term"
+                data-testid="active-term"
+                value={activeTerm}
+                onChange={(event) => setActiveTerm(Number(event.target.value))}
+                className="h-9 rounded-md border bg-background px-3 text-sm"
+              >
+                {Array.from(
+                  { length: (tree.normativeYears ?? 4) * 2 },
+                  (_, index) => {
+                    const term = index + 1;
+                    return (
+                      <option key={term} value={term}>
+                        大{Math.ceil(term / 2)}
+                        {term % 2 ? "上" : "下"}
+                      </option>
+                    );
+                  },
+                )}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="term-cap">每学期学分上限</Label>
+              <input
+                id="term-cap"
+                data-testid="term-cap"
+                type="number"
+                min={1}
+                value={termUnitCap}
+                onChange={(event) => setTermUnitCap(Number(event.target.value))}
+                className="h-9 w-24 rounded-md border bg-background px-3 text-sm"
+              />
+            </div>
+          </>
+        )}
+      </div>
+
+      {feedback && (
+        <p
+          className="text-sm text-amber-700"
+          role="alert"
+          data-testid="strict-feedback"
+        >
+          {feedback}
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-end gap-3 rounded-md border p-3">
+        {isAuthenticated ? (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="build-name">构筑名称</Label>
+              <input
+                id="build-name"
+                data-testid="build-name"
+                value={buildName}
+                maxLength={80}
+                onChange={(event) => setBuildName(event.target.value)}
+                className="h-9 w-56 rounded-md border bg-background px-3 text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              data-testid="save-build"
+              onClick={handleSave}
+              className="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground"
+            >
+              保存构筑
+            </button>
+            {savedBuilds.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="saved-builds">我的构筑</Label>
+                <select
+                  id="saved-builds"
+                  data-testid="saved-builds"
+                  defaultValue=""
+                  onChange={(event) => handleLoad(event.target.value)}
+                  className="h-9 w-56 rounded-md border bg-background px-3 text-sm"
+                >
+                  <option value="" disabled>
+                    选择要载入的构筑
+                  </option>
+                  {savedBuilds.map((build) => (
+                    <option key={build.id} value={build.id}>
+                      {build.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </>
+        ) : (
+          <a
+            href="/login"
+            data-testid="login-to-save"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            登录后保存构筑
+          </a>
+        )}
+        {saveStatus && (
+          <span className="text-sm text-muted-foreground" role="status">
+            {saveStatus}
+          </span>
+        )}
+      </div>
+
       {loading && (
         <p className="text-muted-foreground" data-testid="course-tree-loading">
           加载中…
@@ -171,6 +452,9 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
                 {progress.totalLitUnits}
                 {progress.totalUnits != null ? ` / ${progress.totalUnits}` : ""}
               </span>
+              {progress.complete && (
+                <Badge data-testid="tree-complete">整棵树已点亮 ✓</Badge>
+              )}
             </CardContent>
           </Card>
 
@@ -198,7 +482,10 @@ export function CourseTreeView({ majors }: { majors: MajorListItem[] }) {
 
           <CourseCanvas
             layout={layout}
-            lit={lit}
+            lit={currentLit}
+            termByCode={
+              new Map(strictItems.map((item) => [item.code, item.term]))
+            }
             codeToCat={codeToCat}
             codeToGroup={codeToGroup}
             onToggle={toggle}
@@ -245,12 +532,14 @@ function columnCells(
 function CourseCanvas({
   layout,
   lit,
+  termByCode,
   codeToCat,
   codeToGroup,
   onToggle,
 }: {
   layout: ReturnType<typeof layoutCanvas>;
   lit: Set<string>;
+  termByCode: Map<string, number>;
   codeToCat: Map<string, string>;
   codeToGroup: Map<string, EquivalenceGroup>;
   onToggle: (code: string) => void;
@@ -324,6 +613,7 @@ function CourseCanvas({
       !!group &&
       group.codes.some((c) => c !== node.code && lit.has(c));
     const disabled = node.missing || blocked;
+    const term = termByCode.get(node.code);
     return (
       <button
         key={node.code}
@@ -333,6 +623,7 @@ function CourseCanvas({
         data-code={node.code}
         data-lit={isLit}
         data-blocked={blocked}
+        data-term={term}
         aria-pressed={isLit}
         disabled={disabled}
         title={
@@ -349,9 +640,7 @@ function CourseCanvas({
         onBlur={() => setHover(null)}
         className={cn(
           "flex w-52 flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors",
-          isLit
-            ? "border-primary bg-primary/10"
-            : "bg-card hover:border-foreground/40",
+          isLit ? termColor(term) : "bg-card hover:border-foreground/40",
           node.missing && "cursor-not-allowed border-dashed opacity-50",
           blocked && "cursor-not-allowed opacity-40",
         )}
