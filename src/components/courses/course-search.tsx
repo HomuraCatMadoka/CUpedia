@@ -21,7 +21,7 @@ export function CourseSearch({ initialQuery = "" }: { initialQuery?: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="relative max-w-lg">
+    <form onSubmit={submit} className="relative w-full">
       <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-muted-foreground">
         <SearchIcon className="h-5 w-5" />
       </span>

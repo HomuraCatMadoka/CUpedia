@@ -67,6 +67,7 @@ import {
   deleteReview,
   toggleLike,
   getCourseRatingState,
+  getCourses,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 
@@ -106,7 +107,7 @@ describe("submitCourseRating", () => {
   });
 
   it("写入四舍五入后的分数", async () => {
-    queueRows([COURSE]); // findCourse
+    queueRows([COURSE], []); // findCourse, no previous rating
     await expect(submitCourseRating("CSCI3150", 8.47)).resolves.toBeUndefined();
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(values()).toHaveBeenCalledWith(
@@ -119,13 +120,19 @@ describe("submitCourseRating", () => {
   });
 
   it("同一用户重复打分是更新而非新增（upsert，一人一票）", async () => {
-    queueRows([COURSE]); // findCourse
+    queueRows([COURSE], []); // findCourse, no previous rating
     await submitCourseRating("CSCI3150", 7);
     const onConflict = dbChain.onConflictDoUpdate as Mock;
     expect(onConflict).toHaveBeenCalledOnce();
     expect(onConflict).toHaveBeenCalledWith(
       expect.objectContaining({ set: expect.objectContaining({ score: 7 }) }),
     );
+  });
+
+  it("五分钟内拒绝更新评分", async () => {
+    queueRows([COURSE], [{ createdAt: new Date() }]);
+    await expect(submitCourseRating("CSCI3150", 7)).rejects.toThrow(/5 分钟/);
+    expect(dbInsert).not.toHaveBeenCalled();
   });
 
   it("课程不存在时报错", async () => {
@@ -267,6 +274,32 @@ describe("getCourseRatingState", () => {
   it("未知课程返回 null", async () => {
     queueRows([]); // findCourse → none
     await expect(getCourseRatingState("NOPE0000")).resolves.toBeNull();
+  });
+});
+
+describe("getCourses（学科筛选 #267）", () => {
+  const limit = () => dbChain.limit as Mock;
+
+  it("选定 subject 时返回该学科全部课程，不设 48 上限", async () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      code: `CSCI${1000 + i}`,
+      subject: "CSCI",
+      title: `Course ${i}`,
+      units: "3",
+      description: "",
+      terms: [],
+    }));
+    queueRows(many, [], []); // 课程行, buildViews 的 ratingAgg, reviewAgg
+    const result = await getCourses({ subject: "CSCI" });
+    expect(result).toHaveLength(60);
+    expect(result.every((c) => c.subject === "CSCI")).toBe(true);
+    expect(limit()).not.toHaveBeenCalled(); // 无分页截断
+  });
+
+  it("未选 subject（默认落地页）仍套用 48 上限", async () => {
+    queueRows([], [], [{ ...COURSE }], [], []); // ratingAgg, reviewAgg, 目录头, buildViews×2
+    await getCourses({});
+    expect(limit()).toHaveBeenCalledWith(48);
   });
 });
 

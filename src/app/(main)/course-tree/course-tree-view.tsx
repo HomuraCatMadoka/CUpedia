@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { CheckIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,7 +49,7 @@ const KIND_LABEL: Record<string, string> = {
 
 // 一句话进度短语,供类目进度摘要复用。
 function progressText(p: CategoryProgress): string {
-  if (p.satisfied) return "已满 ✓";
+  if (p.satisfied) return "已满";
   if (p.remainingKind === "courses") return `还差 ${p.remaining} 门`;
   if (p.remainingKind === "units") return `还差 ${p.remaining} 学分`;
   return `已选 ${p.litCount} 门`;
@@ -494,7 +495,10 @@ export function CourseTreeView({
                 {progress.totalUnits != null ? ` / ${progress.totalUnits}` : ""}
               </span>
               {progress.complete && (
-                <Badge data-testid="tree-complete">整棵树已点亮 ✓</Badge>
+                <Badge data-testid="tree-complete">
+                  <CheckIcon aria-hidden="true" className="size-3" />
+                  整棵树已点亮
+                </Badge>
               )}
             </CardContent>
           </Card>
@@ -515,6 +519,9 @@ export function CourseTreeView({
                   variant={gp.satisfied ? "default" : "outline"}
                   data-testid="category-progress"
                 >
+                  {gp.satisfied && (
+                    <CheckIcon aria-hidden="true" className="size-3" />
+                  )}
                   {progressText(gp)}
                 </Badge>
               </div>
