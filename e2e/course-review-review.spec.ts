@@ -36,11 +36,42 @@ test("#266 anonymous review, like toggle, author and admin withdrawal", async ({
   await page.getByRole("button", { name: "发表评论" }).click();
   const ownReview = page.getByRole("listitem").filter({ hasText: own });
   await expect(ownReview.getByText("匿名用户")).toBeVisible();
-  const like = ownReview.getByTitle("点赞");
+
+  const publicContext = await browser.newContext();
+  const publicPage = await publicContext.newPage();
+  await publicPage.goto("/courses/CSCI1130");
+  const publicReview = publicPage
+    .getByRole("listitem")
+    .filter({ hasText: own });
+  await expect(publicReview).toBeVisible();
+  await expect(publicReview.getByTitle("登录后可点赞")).toBeDisabled();
+  await expect(
+    publicPage.getByPlaceholder("匿名分享你对这门课的看法…"),
+  ).toHaveCount(0);
+  const reviewSection = publicPage
+    .locator("section")
+    .filter({ hasText: "课程评论" });
+  await expect(reviewSection.getByRole("link", { name: "登录" })).toBeVisible();
+  await publicContext.close();
+
+  const contributorContext = await browser.newContext();
+  const contributor = await contributorContext.newPage();
+  await loginWithPassword(contributor, "contributor@test.com", "password123");
+  await contributor.goto("/courses/CSCI1130");
+  const contributedReview = contributor
+    .getByRole("listitem")
+    .filter({ hasText: own });
+  await expect(contributedReview.getByTitle("撤回我的评论")).toHaveCount(0);
+  const like = contributedReview.getByTitle("点赞");
   await like.click();
   await expect(like).toContainText("1");
-  await like.click();
-  await expect(like).toContainText("0");
+  await contributor.reload();
+  const persisted = contributor.getByRole("listitem").filter({ hasText: own });
+  await expect(persisted.getByTitle("点赞")).toContainText("1");
+  await persisted.getByTitle("点赞").click();
+  await expect(persisted.getByTitle("点赞")).toContainText("0");
+  await contributorContext.close();
+
   await ownReview.getByTitle("撤回我的评论").click();
   await expect(page.getByText(own)).toHaveCount(0);
 
