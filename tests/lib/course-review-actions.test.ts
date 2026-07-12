@@ -67,6 +67,7 @@ import {
   deleteReview,
   toggleLike,
   getCourseRatingState,
+  getCourses,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 
@@ -267,6 +268,32 @@ describe("getCourseRatingState", () => {
   it("未知课程返回 null", async () => {
     queueRows([]); // findCourse → none
     await expect(getCourseRatingState("NOPE0000")).resolves.toBeNull();
+  });
+});
+
+describe("getCourses（学科筛选 #267）", () => {
+  const limit = () => dbChain.limit as Mock;
+
+  it("选定 subject 时返回该学科全部课程，不设 48 上限", async () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      code: `CSCI${1000 + i}`,
+      subject: "CSCI",
+      title: `Course ${i}`,
+      units: "3",
+      description: "",
+      terms: [],
+    }));
+    queueRows(many, [], []); // 课程行, buildViews 的 ratingAgg, reviewAgg
+    const result = await getCourses({ subject: "CSCI" });
+    expect(result).toHaveLength(60);
+    expect(result.every((c) => c.subject === "CSCI")).toBe(true);
+    expect(limit()).not.toHaveBeenCalled(); // 无分页截断
+  });
+
+  it("未选 subject（默认落地页）仍套用 48 上限", async () => {
+    queueRows([], [], [{ ...COURSE }], [], []); // ratingAgg, reviewAgg, 目录头, buildViews×2
+    await getCourses({});
+    expect(limit()).toHaveBeenCalledWith(48);
   });
 });
 

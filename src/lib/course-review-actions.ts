@@ -57,10 +57,14 @@ export type CourseRatingState = {
 };
 
 export type CourseFilter = {
-  /** "1" | "2" | "3" | "other" (4+ credits). */
+  /** "0" | "1" | "2" | "3" (the 98% of courses); "other" (4+) still honored. */
   credits?: string;
   /** Free-text query against course code or title. */
   query?: string;
+  /** Real `subject` code (e.g. "CSCI"). When set, browse the whole subject. */
+  subject?: string;
+  /** Course level by leading digit: "1000".."4000", or "5000" for 5000+ (postgrad). */
+  level?: string;
 };
 
 // ── Course row projection ──
@@ -128,6 +132,18 @@ function creditsCondition(credits?: string) {
   return Number.isFinite(n) ? sql`${courses.units} = ${n}` : undefined;
 }
 
+/** level bucket → SQL predicate on the code's leading digit. Course codes are
+ * subject letters + a 4-digit number (CSCI1130 → level 1); "5000" means 5000+
+ * (postgraduate), i.e. leading digit ≥ 5. */
+function levelCondition(level?: string) {
+  const digit = Math.floor(Number(level) / 1000);
+  if (!Number.isFinite(digit) || digit < 1) return undefined;
+  const firstDigit = sql`substring(${courses.code} from '[0-9]')`;
+  return digit >= 5
+    ? sql`${firstDigit} >= '5'`
+    : sql`${firstDigit} = ${String(digit)}`;
+}
+
 async function ratingAggFor(
   courseCode: string,
 ): Promise<{ avg: number; cnt: number }> {
@@ -191,6 +207,33 @@ export async function getCourses(
 ): Promise<CourseView[]> {
   const q = filter.query?.trim() ?? "";
   const creditsCond = creditsCondition(filter.credits);
+  const levelCond = levelCondition(filter.level);
+  const subject = filter.subject?.trim().toUpperCase();
+
+  // Subject browse (#267): the whole subject, alphabetical, no page cap — a
+  // subject is naturally bounded to a few dozen ~ a couple hundred courses, so
+  // pagination is unnecessary. An optional query narrows *within* the subject.
+  if (subject) {
+    const like = `%${q.toLowerCase()}%`;
+    const rows = await db
+      .select(courseCols)
+      .from(courses)
+      .where(
+        and(
+          eq(courses.subject, subject),
+          creditsCond,
+          levelCond,
+          q
+            ? or(
+                sql`lower(${courses.code}) like ${like}`,
+                sql`lower(${courses.title}) like ${like}`,
+              )
+            : undefined,
+        ),
+      )
+      .orderBy(courses.code);
+    return buildViews(rows);
+  }
 
   let rows: CourseRow[];
   if (q) {
@@ -207,6 +250,7 @@ export async function getCourses(
             sql`lower(${courses.title}) like ${like}`,
           ),
           creditsCond,
+          levelCond,
         ),
       )
       .orderBy(
@@ -239,7 +283,7 @@ export async function getCourses(
       rows = await db
         .select(courseCols)
         .from(courses)
-        .where(and(inArray(courses.code, activeCodes), creditsCond));
+        .where(and(inArray(courses.code, activeCodes), creditsCond, levelCond));
       rows.sort(
         (a, b) => (activity.get(b.code) ?? 0) - (activity.get(a.code) ?? 0),
       );
@@ -247,13 +291,27 @@ export async function getCourses(
       rows = await db
         .select(courseCols)
         .from(courses)
-        .where(creditsCond)
+        .where(and(creditsCond, levelCond))
         .orderBy(courses.code)
         .limit(PAGE_SIZE);
     }
   }
 
   return buildViews(rows);
+}
+
+/** Subject codes with their course counts, alphabetical — powers the subject
+ * filter combobox (the count is the only descriptor the catalog carries; there
+ * is no subject-name/faculty column). */
+export async function getSubjects(): Promise<
+  { subject: string; count: number }[]
+> {
+  const rows = await db
+    .select({ subject: courses.subject, count: count() })
+    .from(courses)
+    .groupBy(courses.subject)
+    .orderBy(courses.subject);
+  return rows.map((r) => ({ subject: r.subject, count: Number(r.count) }));
 }
 
 /** Fetch a single course by code (space-insensitive), or null if unknown. */
