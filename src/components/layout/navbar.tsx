@@ -5,6 +5,7 @@ import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -80,15 +81,21 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             </Link>
             <Link
               href="/course-tree"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               选课技能树
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                开发中
+              </Badge>
             </Link>
             <Link
               href="/courses"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               课程测评
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                开发中
+              </Badge>
             </Link>
           </div>
           <nav className="flex items-center gap-4">

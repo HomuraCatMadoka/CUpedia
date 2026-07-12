@@ -1,5 +1,7 @@
 "use client";
 
+import { MenuIcon } from "lucide-react";
+
 import { useSidebar } from "@/components/layout/sidebar-provider";
 
 // The mobile ☰ that opens the wiki sidebar drawer. It lives apart from the
@@ -15,7 +17,7 @@ export function SidebarMobileToggle() {
       className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
       aria-label="打开导航"
     >
-      ☰
+      <MenuIcon aria-hidden="true" className="size-4" />
     </button>
   );
 }
