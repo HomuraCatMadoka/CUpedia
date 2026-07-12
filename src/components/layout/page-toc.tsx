@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowLeftIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useScrollSpy } from "@/hooks/use-scroll-spy";
 import type { Heading } from "@/lib/headings";
@@ -28,7 +29,7 @@ export function PageToc({
         href={backHref}
         className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
-        <span>←</span>
+        <ArrowLeftIcon aria-hidden="true" className="size-3" />
         <span className="truncate">{backLabel}</span>
       </Link>
 

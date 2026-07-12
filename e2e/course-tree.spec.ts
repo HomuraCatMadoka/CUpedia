@@ -103,7 +103,7 @@ test.describe("#163 选课技能树", () => {
     await expect(mathProgress).toHaveText("还差 1 门");
 
     await page.locator('[data-code="MATH1510"]').click();
-    await expect(mathProgress).toHaveText("已满 ✓");
+    await expect(mathProgress).toHaveText("已满");
   });
 
   test("切换主修换一棵树并清空点亮(不落库)", async ({ page }) => {
