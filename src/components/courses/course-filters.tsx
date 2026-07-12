@@ -17,7 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { subjectName } from "@/app/(main)/courses/subject-names";
+import { SUBJECT_NAMES } from "@/app/(main)/courses/subject-names";
 
 export type SubjectOption = { subject: string; count: number };
 
@@ -106,7 +106,7 @@ export function CourseFilters({
           {subject && (
             <Chip onClear={() => setParam("subject", "")}>
               {subject}
-              {subjectName(subject) ? ` ${subjectName(subject)}` : ""}
+              {SUBJECT_NAMES[subject] ? ` ${SUBJECT_NAMES[subject]}` : ""}
             </Chip>
           )}
           {credits && (
@@ -190,8 +190,8 @@ function SubjectCombobox({
       <PopoverTrigger className="inline-flex h-9 min-w-36 max-w-56 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-sm transition-colors hover:border-foreground/40">
         <span className={cn("truncate", !subject && "text-muted-foreground")}>
           {subject
-            ? subjectName(subject)
-              ? `${subject} ${subjectName(subject)}`
+            ? SUBJECT_NAMES[subject]
+              ? `${subject} ${SUBJECT_NAMES[subject]}`
               : subject
             : "全部学科"}
         </span>
@@ -213,7 +213,7 @@ function SubjectCombobox({
                 全部学科
               </CommandItem>
               {subjects.map((s) => {
-                const name = subjectName(s.subject);
+                const name = SUBJECT_NAMES[s.subject];
                 return (
                   <CommandItem
                     key={s.subject}

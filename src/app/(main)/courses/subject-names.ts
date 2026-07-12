@@ -76,8 +76,3 @@ export const SUBJECT_NAMES: Record<string, string> = {
   UGFN: "与自然对话",
   URSP: "城市研究",
 };
-
-/** Chinese name for a subject code, or undefined when not curated. */
-export function subjectName(code: string): string | undefined {
-  return SUBJECT_NAMES[code];
-}

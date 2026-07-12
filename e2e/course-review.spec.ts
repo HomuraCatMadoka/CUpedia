@@ -12,14 +12,11 @@ import { loginWithPassword } from "./helpers/auth";
 const CODE = "CSCI1130";
 const review = `great-course-${randomUUID().slice(0, 8)}`;
 
-async function query<T extends Record<string, unknown>>(
-  text: string,
-  values: unknown[] = [],
-) {
+async function query<T extends Record<string, unknown>>(text: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    return await client.query<T>(text, values);
+    return await client.query<T>(text);
   } finally {
     await client.end();
   }
