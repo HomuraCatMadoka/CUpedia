@@ -11,6 +11,8 @@ export const SUBJECT_NAMES: Record<string, string> = {
   ANTH: "人类学",
   ARAB: "阿拉伯文",
   ARCH: "建筑学",
+  ARTS: "文学院",
+  ASEI: "航天科学与地球信息学",
   BCHE: "生物化学",
   BIOL: "生物学",
   BMED: "生物医学",
