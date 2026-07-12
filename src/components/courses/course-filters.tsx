@@ -221,6 +221,7 @@ function SubjectCombobox({
                     // Chinese matches too.
                     value={`${s.subject} ${name ?? ""}`}
                     onSelect={() => pick(s.subject)}
+                    className="grid grid-cols-[1rem_4.5rem_minmax(0,1fr)_auto] [&>svg:last-child]:hidden"
                   >
                     <CheckIcon
                       className={cn(
@@ -234,7 +235,8 @@ function SubjectCombobox({
                         {name}
                       </span>
                     )}
-                    <span className="ml-auto pl-2 text-xs text-muted-foreground">
+                    {!name && <span />}
+                    <span className="pl-2 text-right text-xs text-muted-foreground">
                       {s.count}
                     </span>
                   </CommandItem>

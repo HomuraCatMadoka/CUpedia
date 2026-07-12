@@ -67,12 +67,14 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   return (
     <>
       <header className="sticky top-0 z-30 border-b bg-white">
-        <div className="flex h-14 items-center justify-between px-4">
+        <div className="grid h-24 grid-cols-[1fr_auto] grid-rows-[3.5rem_2.5rem] px-4 md:flex md:h-14 md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             {leading}
             <Link href="/wiki" className="text-lg font-bold">
               CUpedia
             </Link>
+          </div>
+          <div className="col-span-2 row-start-2 flex items-center justify-center gap-4 md:order-none md:col-span-1 md:justify-start md:gap-3">
             <Link
               href="/college-picker"
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
@@ -98,7 +100,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               </Badge>
             </Link>
           </div>
-          <nav className="flex items-center gap-4">
+          <nav className="col-start-2 row-start-1 flex items-center gap-4 md:order-none">
             <CommandSearch />
             {mounted && session?.user ? (
               <DropdownMenu>
