@@ -542,18 +542,18 @@ describe("recommend — 06 小书院精选专属评分", () => {
     avoids: [] as AvoidFactor[],
   };
 
-  it("computeSmallCollegeSpecialization：全选 A/A/A/A → cwc 封顶 50", () => {
+  it("computeSmallCollegeSpecialization：全选 A/A/A/A → 三院得分", () => {
     const spec = computeSmallCollegeSpecialization({
       q1: "A",
       q2: "A",
       q3: "A",
       q4: "A",
     });
-    // q1A: cwc+50, shho+10; q2A: shho+10; q3A: mc+10; q4A: cwc+10
-    // cwc = 50+10 = 60 → 封顶 50; shho = 10+10 = 20; mc = 10
-    expect(spec.cwc).toBe(50);
+    // q1A: cwc+25, shho+10, mc+10; q2A: shho+10; q3A: mc+10; q4A: cwc+10
+    // cwc = 25+10 = 35; shho = 10+10 = 20; mc = 10+10 = 20
+    expect(spec.cwc).toBe(35);
     expect(spec.shho).toBe(20);
-    expect(spec.mc).toBe(10);
+    expect(spec.mc).toBe(20);
   });
 
   it("computeSmallCollegeSpecialization：全选 B/E/D/C → 均衡加分", () => {
@@ -563,14 +563,14 @@ describe("recommend — 06 小书院精选专属评分", () => {
       q3: "D",
       q4: "C",
     });
-    // q1B: all+20; q2E: all+7; q3D: all+7, mc-5; q4C: all+8
-    // mc = 20+7+7-5+8 = 37; shho/cwc = 20+7+7+8 = 42
-    expect(spec.mc).toBe(37);
-    expect(spec.shho).toBe(42);
-    expect(spec.cwc).toBe(42);
+    // q1B: all+20; q2E: all+7; q3D: all+7; q4C: mc+5, shho+5, cwc+7
+    // mc = 20+7+7+5 = 39; shho = 20+7+7+5 = 39; cwc = 20+7+7+7 = 41
+    expect(spec.mc).toBe(39);
+    expect(spec.shho).toBe(39);
+    expect(spec.cwc).toBe(41);
   });
 
-  it("computeSmallCollegeSpecialization：(3) 不选 A 时 mc 专属评分 -5", () => {
+  it("computeSmallCollegeSpecialization：(3) Q3A 与 Q3D 对 mc 的差异（已移除 −5 惩罚）", () => {
     const withA = computeSmallCollegeSpecialization({
       q1: "B",
       q2: "D",
@@ -583,8 +583,8 @@ describe("recommend — 06 小书院精选专属评分", () => {
       q3: "D",
       q4: "C",
     });
-    // q3A: mc+10 vs q3D: mc+7 再 -5 → 净差 8
-    expect(withA.mc - withD.mc).toBe(8);
+    // q3A: mc+10 vs q3D: mc+7 → 净差 3
+    expect(withA.mc - withD.mc).toBe(3);
   });
 
   it("A + 06 答案：小书院最终推荐指数 = 原始×0.6 + 专属×1", () => {
@@ -594,11 +594,11 @@ describe("recommend — 06 小书院精选专属评分", () => {
       smallCollegeAnswers: { q1: "A", q2: "A", q3: "A", q4: "A" },
     });
     // 原始分：mc=83, shho=81, cwc=43
-    // 专属：cwc=50(cap), shho=20, mc=10
-    // 最终：mc=83×0.6+10×1=49.8+10=59.8; shho=81×0.6+20×1=48.6+20=68.6; cwc=43×0.6+50×1=25.8+50=75.8
-    // 最高 = cwc(75.8) → 第一志愿
-    expect(result[0].id).toBe("cwc");
-    expect(result[0].score).toBeCloseTo(75.8, 1);
+    // 专属：cwc=35, shho=20, mc=20
+    // 最终：mc=83×0.6+20×1=69.8; shho=81×0.6+20×1=68.6; cwc=43×0.6+35×1=60.8
+    // 最高 = mc(69.8) → 第一志愿
+    expect(result[0].id).toBe("mc");
+    expect(result[0].score).toBeCloseTo(69.8, 1);
     // 第 8-9 志愿为另外两所小书院
     const last2 = result.slice(7, 9).map((c) => c.id);
     expect(SMALL.has(last2[0])).toBe(true);

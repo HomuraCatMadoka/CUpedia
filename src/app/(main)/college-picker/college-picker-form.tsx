@@ -363,7 +363,7 @@ export function CollegePickerForm() {
                 <dt className="shrink-0 font-medium text-foreground">
                   保宿机会：
                 </dt>
-                <dd>能加宿分的活动多不多、容不容易做、整体保宿难度</dd>
+                <dd>小书院全员四年保宿，其他书院竞争保宿名额的难度不同</dd>
               </div>
               <div className="flex gap-1.5">
                 <dt className="shrink-0 font-medium text-foreground">

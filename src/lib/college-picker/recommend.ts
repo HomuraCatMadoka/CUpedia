@@ -352,8 +352,9 @@ export function computeSmallCollegeSpecialization(
 
   // (1) 录取态度
   if (answers.q1 === "A") {
-    cwc += 50;
+    cwc += 25;
     shho += 10;
+    mc += 10;
   } else {
     mc += 20;
     shho += 20;
@@ -365,7 +366,7 @@ export function computeSmallCollegeSpecialization(
     case "A": shho += 10; break;
     case "B": mc += 10; break;
     case "C": cwc += 10; break;
-    case "D": mc += 3; shho += 3; cwc += 3; break;
+    case "D": mc += 3; shho += 3; cwc += 5; break;
     case "E": mc += 7; shho += 7; cwc += 7; break;
   }
 
@@ -376,13 +377,11 @@ export function computeSmallCollegeSpecialization(
     case "C": shho += 10; break;
     case "D": mc += 7; shho += 7; cwc += 7; break;
   }
-  if (answers.q3 !== "A") mc -= 5;
-
   // (4) 日常生活期望
   switch (answers.q4) {
     case "A": cwc += 10; break;
-    case "B": shho += 10; mc += 5; break;
-    case "C": mc += 8; shho += 8; cwc += 8; break;
+    case "B": shho += 10; mc += 8; break;
+    case "C": mc += 5; shho += 5; cwc += 7; break;
   }
 
   // 敬文专属评分封顶 50
