@@ -106,7 +106,7 @@ describe("submitCourseRating", () => {
   });
 
   it("写入四舍五入后的分数", async () => {
-    queueRows([COURSE]); // findCourse
+    queueRows([COURSE], []); // findCourse, no previous rating
     await expect(submitCourseRating("CSCI3150", 8.47)).resolves.toBeUndefined();
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(values()).toHaveBeenCalledWith(
@@ -119,13 +119,19 @@ describe("submitCourseRating", () => {
   });
 
   it("同一用户重复打分是更新而非新增（upsert，一人一票）", async () => {
-    queueRows([COURSE]); // findCourse
+    queueRows([COURSE], []); // findCourse, no previous rating
     await submitCourseRating("CSCI3150", 7);
     const onConflict = dbChain.onConflictDoUpdate as Mock;
     expect(onConflict).toHaveBeenCalledOnce();
     expect(onConflict).toHaveBeenCalledWith(
       expect.objectContaining({ set: expect.objectContaining({ score: 7 }) }),
     );
+  });
+
+  it("五分钟内拒绝更新评分", async () => {
+    queueRows([COURSE], [{ createdAt: new Date() }]);
+    await expect(submitCourseRating("CSCI3150", 7)).rejects.toThrow(/5 分钟/);
+    expect(dbInsert).not.toHaveBeenCalled();
   });
 
   it("课程不存在时报错", async () => {
