@@ -1,14 +1,17 @@
 "use server";
 
-import { and, count, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import {
   courseRatings,
+  courseEnrollments,
   courseReviewLikes,
   courseReviews,
   courses,
+  professorCourses,
+  professors,
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
 import type { Course } from "@/app/(main)/courses/course-types";
@@ -37,6 +40,18 @@ export type CourseReviewView = {
   likeCount: number;
   likedByMe: boolean;
   isOwn: boolean;
+  professorName: string | null;
+};
+
+export type ProfessorOption = { id: string; name: string };
+
+export type CourseEnrollmentView = {
+  academicYear: string;
+  term: string;
+  section: string | null;
+  enrolled: number;
+  quota: number;
+  instructors: string[];
 };
 
 /** A course plus aggregated user stats for list/detail rendering. */
@@ -371,8 +386,15 @@ export async function getCourseReviews(
 
   const [rows, user] = await Promise.all([
     db
-      .select()
+      .select({
+        id: courseReviews.id,
+        content: courseReviews.content,
+        createdAt: courseReviews.createdAt,
+        userId: courseReviews.userId,
+        professorName: professors.name,
+      })
       .from(courseReviews)
+      .leftJoin(professors, eq(courseReviews.professorId, professors.id))
       .where(eq(courseReviews.courseCode, course.code))
       .orderBy(desc(courseReviews.createdAt)),
     getOptionalUser(),
@@ -412,7 +434,79 @@ export async function getCourseReviews(
     likeCount: likeCount.get(r.id) ?? 0,
     likedByMe: mine.has(r.id),
     isOwn: viewerId ? r.userId === viewerId || user?.role === "admin" : false,
+    professorName: r.professorName,
   }));
+}
+
+export async function searchProfessors(
+  code: string,
+  query: string,
+): Promise<ProfessorOption[]> {
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  if (!normalizedQuery) return [];
+  return db
+    .select({
+      id: professors.id,
+      name: professors.name,
+    })
+    .from(professors)
+    .innerJoin(
+      professorCourses,
+      eq(professors.id, professorCourses.professorId),
+    )
+    .where(
+      and(
+        eq(professorCourses.courseCode, normalizeCode(code)),
+        ilike(professors.searchText, `%${normalizedQuery}%`),
+      ),
+    )
+    .orderBy(professors.name)
+    .limit(10)
+    .then((rows) =>
+      rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+      })),
+    );
+}
+
+export async function getCourseEnrollmentHistory(
+  code: string,
+): Promise<CourseEnrollmentView[]> {
+  const courseCode = normalizeCode(code);
+  const rows = await db
+    .select()
+    .from(courseEnrollments)
+    .where(eq(courseEnrollments.courseCode, courseCode))
+    .orderBy(
+      courseEnrollments.academicYear,
+      courseEnrollments.term,
+      courseEnrollments.classCode,
+    );
+  const classes = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const key = `${row.academicYear}\0${row.term}\0${row.classCode}`;
+    classes.set(key, [...(classes.get(key) ?? []), row]);
+  }
+  return [...classes.entries()].map(([key, components]) => {
+    const main =
+      components.find((row) => row.component === "LEC") ??
+      components.reduce((best, row) =>
+        row.quota - row.vacancy > best.quota - best.vacancy ? row : best,
+      );
+    const [academicYear, term, classCode] = key.split("\0");
+    const section = classCode!.startsWith(courseCode)
+      ? classCode!.slice(courseCode.length).replace(/^-/, "") || null
+      : classCode!;
+    return {
+      academicYear: academicYear!,
+      term: term!,
+      section,
+      enrolled: Math.max(0, main.quota - main.vacancy),
+      quota: main.quota,
+      instructors: main.instructors,
+    };
+  });
 }
 
 // ── Mutations (require auth) ──
@@ -466,7 +560,11 @@ export async function submitCourseRating(
 }
 
 /** Post an anonymous review on a course. Requires login. */
-export async function addReview(code: string, content: string): Promise<void> {
+export async function addReview(
+  code: string,
+  content: string,
+  professorId: string,
+): Promise<void> {
   const user = await requireAuth();
   const trimmed = content.trim();
   if (!trimmed) throw new Error("评论内容不能为空");
@@ -475,10 +573,27 @@ export async function addReview(code: string, content: string): Promise<void> {
   const course = await findCourse(code);
   if (!course) throw new Error("课程不存在");
 
+  const [professor] = await db
+    .select({ id: professors.id })
+    .from(professors)
+    .innerJoin(
+      professorCourses,
+      eq(professors.id, professorCourses.professorId),
+    )
+    .where(
+      and(
+        eq(professors.id, professorId),
+        eq(professorCourses.courseCode, course.code),
+      ),
+    )
+    .limit(1);
+  if (!professor) throw new Error("请选择教授目录中的任课教授");
+
   await db.insert(courseReviews).values({
     courseCode: course.code,
     userId: user.id,
     content: trimmed,
+    professorId: professor.id,
   });
 
   revalidatePath(`/courses/${course.code}`);

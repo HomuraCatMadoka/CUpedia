@@ -1,0 +1,1 @@
+ALTER TABLE "course_enrollments" ADD COLUMN "instructors" text[] NOT NULL;

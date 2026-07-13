@@ -377,6 +377,57 @@ export const courseRatings = pgTable(
   ],
 );
 
+export const professors = pgTable(
+  "professors",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    searchText: text("search_text").notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [index("professors_search_text_idx").on(table.searchText)],
+);
+
+export const professorCourses = pgTable(
+  "professor_courses",
+  {
+    professorId: text("professor_id")
+      .notNull()
+      .references(() => professors.id, { onDelete: "cascade" }),
+    courseCode: text("course_code").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.professorId, table.courseCode] })],
+);
+
+export const courseEnrollments = pgTable(
+  "course_enrollments",
+  {
+    academicYear: text("academic_year").notNull(),
+    term: text("term").notNull(),
+    courseCode: text("course_code").notNull(),
+    classCode: text("class_code").notNull(),
+    classNbr: text("class_nbr").notNull(),
+    component: text("component").notNull(),
+    section: text("section").notNull(),
+    quota: integer("quota").notNull(),
+    vacancy: integer("vacancy").notNull(),
+    instructors: text("instructors").array().notNull(),
+    capturedAt: timestamp("captured_at").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.academicYear,
+        table.term,
+        table.classCode,
+        table.component,
+        table.section,
+      ],
+    }),
+    index("course_enrollments_course_code_idx").on(table.courseCode),
+  ],
+);
+
 export const courseReviews = pgTable(
   "course_reviews",
   {
@@ -386,6 +437,7 @@ export const courseReviews = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
+    professorId: text("professor_id").references(() => professors.id),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [index("course_reviews_course_code_idx").on(table.courseCode)],

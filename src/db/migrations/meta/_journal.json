@@ -92,6 +92,20 @@
       "when": 1783786746015,
       "tag": "0012_huge_george_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783912285648,
+      "tag": "0013_huge_shatterstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783941477193,
+      "tag": "0014_bitter_franklin_richards",
+      "breakpoints": true
     }
   ]
 }

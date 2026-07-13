@@ -68,6 +68,8 @@ import {
   toggleLike,
   getCourseRatingState,
   getCourses,
+  searchProfessors,
+  getCourseEnrollmentHistory,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 
@@ -146,33 +148,121 @@ describe("submitCourseRating", () => {
 describe("addReview", () => {
   it("拒绝未登录用户", async () => {
     mockRequireAuth.mockRejectedValue(new Error("未登录"));
-    await expect(addReview("CSCI3150", "好课")).rejects.toThrow();
+    await expect(addReview("CSCI3150", "好课", "p1")).rejects.toThrow();
     expect(dbSelect).not.toHaveBeenCalled();
   });
 
   it("拒绝空内容（不触库）", async () => {
-    await expect(addReview("CSCI3150", "   ")).rejects.toThrow(/不能为空/);
+    await expect(addReview("CSCI3150", "   ", "p1")).rejects.toThrow(
+      /不能为空/,
+    );
     expect(dbSelect).not.toHaveBeenCalled();
   });
 
   it("拒绝超长内容（不触库）", async () => {
-    await expect(addReview("CSCI3150", "a".repeat(2001))).rejects.toThrow(
+    await expect(addReview("CSCI3150", "a".repeat(2001), "p1")).rejects.toThrow(
       /过长/,
     );
     expect(dbSelect).not.toHaveBeenCalled();
   });
 
   it("正常发表：trim 后写入", async () => {
-    queueRows([COURSE]); // findCourse
-    await expect(addReview("CSCI3150", "  很清楚  ")).resolves.toBeUndefined();
+    queueRows([COURSE], [{ id: "p1" }]); // findCourse, professor assignment
+    await expect(
+      addReview("CSCI3150", "  很清楚  ", "p1"),
+    ).resolves.toBeUndefined();
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
         courseCode: "CSCI3150",
         userId: "u1",
         content: "很清楚",
+        professorId: "p1",
       }),
     );
+  });
+
+  it("拒绝目录外或未任教该课程的教授", async () => {
+    queueRows([COURSE], []);
+    await expect(addReview("CSCI3150", "好课", "fake")).rejects.toThrow(
+      /教授目录/,
+    );
+    expect(dbInsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("searchProfessors", () => {
+  it("返回目录中的规范姓名", async () => {
+    queueRows([{ id: "p1", name: "Professor CHAN" }]);
+    await expect(searchProfessors("csci 3150", "chan")).resolves.toEqual([
+      { id: "p1", name: "Professor CHAN" },
+    ]);
+  });
+});
+
+describe("getCourseEnrollmentHistory", () => {
+  it("按班别分别返回主组件人数，避免重复计算导修课", async () => {
+    const capturedAt = new Date("2026-07-13T00:00:00Z");
+    queueRows([
+      {
+        academicYear: "2025-26",
+        term: "Term 2",
+        classCode: "CSCI2100A",
+        component: "LEC",
+        quota: 150,
+        vacancy: 76,
+        instructors: ["Professor LEUNG"],
+        capturedAt,
+      },
+      {
+        academicYear: "2025-26",
+        term: "Term 2",
+        classCode: "CSCI2100A",
+        component: "TUT",
+        quota: 80,
+        vacancy: 30,
+        instructors: ["Tutor A"],
+        capturedAt,
+      },
+      {
+        academicYear: "2025-26",
+        term: "Term 2",
+        classCode: "CSCI2100A",
+        component: "TUT",
+        quota: 80,
+        vacancy: 56,
+        instructors: ["Tutor B"],
+        capturedAt,
+      },
+      {
+        academicYear: "2025-26",
+        term: "Term 2",
+        classCode: "CSCI2100B",
+        component: "LEC",
+        quota: 150,
+        vacancy: 4,
+        instructors: ["Professor WANG"],
+        capturedAt,
+      },
+    ]);
+    await expect(getCourseEnrollmentHistory("csci 2100")).resolves.toEqual([
+      {
+        academicYear: "2025-26",
+        term: "Term 2",
+        section: "A",
+        enrolled: 74,
+        quota: 150,
+        instructors: ["Professor LEUNG"],
+      },
+      {
+        academicYear: "2025-26",
+        term: "Term 2",
+        section: "B",
+        enrolled: 146,
+        quota: 150,
+        instructors: ["Professor WANG"],
+      },
+    ]);
   });
 });
 

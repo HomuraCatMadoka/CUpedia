@@ -8,6 +8,7 @@ Output lands in `scripts/data/` for the TS ingest scripts to consume.
 ```
 tools/scraper/scrape_courses.py   →  scripts/data/courses.json      → pnpm ingest:courses
 tools/scraper/scrape_handbook.py  →  scripts/data/handbook/*.{html,json} → pnpm ingest:skeleton
+tools/scraper/scrape_timetable.py →  scripts/data/professors.json → pnpm ingest:professors
 ```
 
 ## Setup
@@ -28,6 +29,10 @@ python scrape_courses.py --fresh                 # ignore prior output, start ov
 
 # Current Handbook Major Programme schemes (latest four admission years)
 python scrape_handbook.py
+
+# Official teaching timetable instructors
+python scrape_timetable.py --subjects ACCT,CSCI --year 2025-26
+pnpm ingest:professors
 # Resume is automatic; use --fresh only to discard the existing manifest.
 ```
 

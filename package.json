@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "seed": "node --import tsx --import ./scripts/css-stub.mjs scripts/seed.ts",
     "ingest:courses": "node --import tsx scripts/ingest-courses.ts",
+    "ingest:professors": "node --import tsx scripts/ingest-professors.ts",
     "ingest:skeleton": "node --import tsx scripts/ingest-skeleton.ts",
     "audit:handbook": "node --import tsx scripts/audit-handbook.ts",
     "audit:handbook:spark": "node --import tsx scripts/handbook-reference.ts",
