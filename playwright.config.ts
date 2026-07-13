@@ -57,7 +57,7 @@ export default defineConfig({
     // server-start window; locally we build+start in one shot and reuse.
     command: process.env.CI
       ? `node --import tsx e2e/provision.ts && pnpm start --port ${PORT}`
-      : `node --import tsx e2e/provision.ts && npm run build && npm run start -- --port ${PORT}`,
+      : `node --import tsx e2e/provision.ts && pnpm build && pnpm start --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,

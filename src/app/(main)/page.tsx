@@ -8,8 +8,6 @@ import { users } from "@/db/schema";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { listCurrentMonthDanmaku } from "@/lib/danmaku-actions";
 
-export const dynamic = "force-dynamic";
-
 async function getDanmakuViewer() {
   const sessionUser = await getOptionalUser();
   if (!sessionUser?.id) return { kind: "guest" as const };
@@ -35,7 +33,12 @@ export default async function HomePage() {
 
   const modules = [
     { title: "SG Wiki", href: "/wiki", description: "Survival Guides 百科" },
-    { title: "课程", href: "/courses", description: "课程测评", disabled: true },
+    {
+      title: "课程",
+      href: "/courses",
+      description: "课程测评",
+      disabled: true,
+    },
     {
       title: "食堂",
       href: "/canteen",
@@ -43,7 +46,12 @@ export default async function HomePage() {
       disabled: false,
     },
     { title: "生活", href: "/life", description: "生活指南", disabled: true },
-    { title: "交换", href: "/exchange", description: "交换经验", disabled: true },
+    {
+      title: "交换",
+      href: "/exchange",
+      description: "交换经验",
+      disabled: true,
+    },
     { title: "求职", href: "/career", description: "求职资源", disabled: true },
   ];
 

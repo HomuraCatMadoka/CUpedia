@@ -21,12 +21,7 @@ export function parseEmail(
 }
 
 export function isAllowedEmail(email: string): boolean {
-  if (
-    process.env.SKIP_EMAIL_WHITELIST === "true" ||
-    process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST === "true"
-  ) {
-    return true;
-  }
+  if (process.env.SKIP_EMAIL_WHITELIST === "true") return true;
 
   const parsed = parseEmail(email);
   if (!parsed.ok) return false;

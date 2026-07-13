@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import {
   normalizeEmail,
   parseEmail,
@@ -108,44 +108,29 @@ describe("isAllowedEmail", () => {
   });
 
   describe("SKIP_EMAIL_WHITELIST bypass", () => {
-    const originalSkip = process.env.SKIP_EMAIL_WHITELIST;
-    const originalPublicSkip = process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
+    const originalEnv = process.env.SKIP_EMAIL_WHITELIST;
 
     afterEach(() => {
-      if (originalSkip === undefined) {
+      if (originalEnv === undefined) {
         delete process.env.SKIP_EMAIL_WHITELIST;
       } else {
-        process.env.SKIP_EMAIL_WHITELIST = originalSkip;
-      }
-      if (originalPublicSkip === undefined) {
-        delete process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
-      } else {
-        process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST = originalPublicSkip;
+        process.env.SKIP_EMAIL_WHITELIST = originalEnv;
       }
     });
 
     it("bypasses all checks when SKIP_EMAIL_WHITELIST=true", () => {
       process.env.SKIP_EMAIL_WHITELIST = "true";
-      delete process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
       expect(isAllowedEmail("anyone@gmail.com")).toBe(true);
       expect(isAllowedEmail("test@test.com")).toBe(true);
     });
 
-    it("bypasses all checks when NEXT_PUBLIC_SKIP_EMAIL_WHITELIST=true", () => {
+    it("does not bypass when SKIP_EMAIL_WHITELIST is unset", () => {
       delete process.env.SKIP_EMAIL_WHITELIST;
-      process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST = "true";
-      expect(isAllowedEmail("user@test.com")).toBe(true);
-    });
-
-    it("does not bypass when both whitelist skips are unset", () => {
-      delete process.env.SKIP_EMAIL_WHITELIST;
-      delete process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
       expect(isAllowedEmail("anyone@gmail.com")).toBe(false);
     });
 
     it("does not bypass when SKIP_EMAIL_WHITELIST=false", () => {
       process.env.SKIP_EMAIL_WHITELIST = "false";
-      delete process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
       expect(isAllowedEmail("anyone@gmail.com")).toBe(false);
     });
   });
@@ -154,26 +139,6 @@ describe("isAllowedEmail", () => {
 describe("shouldRejectOtpRequest", () => {
   const SEND = "/email-otp/send-verification-otp";
   const VERIFY = "/sign-in/email-otp";
-  const originalSkip = process.env.SKIP_EMAIL_WHITELIST;
-  const originalPublicSkip = process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
-
-  beforeEach(() => {
-    delete process.env.SKIP_EMAIL_WHITELIST;
-    delete process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
-  });
-
-  afterEach(() => {
-    if (originalSkip === undefined) {
-      delete process.env.SKIP_EMAIL_WHITELIST;
-    } else {
-      process.env.SKIP_EMAIL_WHITELIST = originalSkip;
-    }
-    if (originalPublicSkip === undefined) {
-      delete process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST;
-    } else {
-      process.env.NEXT_PUBLIC_SKIP_EMAIL_WHITELIST = originalPublicSkip;
-    }
-  });
 
   it("rejects ineligible email on the send path", () => {
     expect(shouldRejectOtpRequest(SEND, "attacker@gmail.com")).toBe(true);

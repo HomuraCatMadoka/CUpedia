@@ -75,15 +75,17 @@ test.describe("canteen menu votes", () => {
     await expect(likeBtn).toHaveAttribute("aria-pressed", "false");
   });
 
-  test.use({ viewport: { width: 375, height: 800 } });
+  test.describe("mobile", () => {
+    test.use({ viewport: { width: 375, height: 800 } });
 
-  test("mobile: lunch menu vote controls are tappable", async ({ page }) => {
-    await page.goto(DEMO_CANTEEN_URL, { waitUntil: "networkidle" });
+    test("lunch menu vote controls are tappable", async ({ page }) => {
+      await page.goto(DEMO_CANTEEN_URL, { waitUntil: "networkidle" });
 
-    const row = page.getByRole("listitem").filter({ hasText: "演示米饭" });
-    const likeBtn = row.getByRole("button", { name: "点赞" });
-    await expect(likeBtn).toBeVisible();
-    await likeBtn.click();
-    await expect(likeBtn).toHaveAttribute("aria-pressed", "true");
+      const row = page.getByRole("listitem").filter({ hasText: "演示米饭" });
+      const likeBtn = row.getByRole("button", { name: "点赞" });
+      await expect(likeBtn).toBeVisible();
+      await likeBtn.click();
+      await expect(likeBtn).toHaveAttribute("aria-pressed", "true");
+    });
   });
 });

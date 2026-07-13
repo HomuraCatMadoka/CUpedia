@@ -138,7 +138,7 @@ export default function RegisterPage() {
         }
         return;
       }
-      router.push("/");
+      router.push("/wiki");
       router.refresh();
     } catch {
       setError("注册失败，请稍后重试");
