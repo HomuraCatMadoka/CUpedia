@@ -57,7 +57,7 @@ export default defineConfig({
     // server-start window; locally we build+start in one shot and reuse.
     command: process.env.CI
       ? `node --import tsx e2e/provision.ts && pnpm start --port ${PORT}`
-      : `node --import tsx e2e/provision.ts && pnpm build && pnpm start --port ${PORT}`,
+      : `node --import tsx e2e/provision.ts && npm run build && npm run start -- --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
@@ -68,6 +68,8 @@ export default defineConfig({
     env: {
       E2E_TEST: "1",
       SKIP_EMAIL_WHITELIST: "false",
+      CANTEEN_MOCK_DATA: "false",
+      AUTH_URL: baseURL,
       ...(E2E_DATABASE_URL ? { DATABASE_URL: E2E_DATABASE_URL } : {}),
     },
   },

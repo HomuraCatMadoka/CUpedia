@@ -50,7 +50,7 @@ describe.skipIf(!hasDb)("canteen menu item hard delete cascade", () => {
     await db.insert(canteenDishVotes).values({
       menuItemId,
       userId: null,
-      anonymousSessionId: "e2e-cascade-anon-session",
+      anonymousSessionId: "00000000-0000-4000-f000-000000000001",
       vote: "like",
     });
   });

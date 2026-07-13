@@ -11,6 +11,7 @@ async function login(page: Page, email: string, password: string) {
   for (let attempt = 0; attempt < 6; attempt++) {
     const res = await page.request.post("/api/auth/sign-in/email", {
       data: { email, password },
+      headers: { Origin: "http://localhost:3100" },
     });
     if (res.ok()) return;
     last = `${res.status()} ${await res.text()}`;
@@ -83,10 +84,17 @@ test.describe("homepage danmaku", () => {
   test("admin can delete danmaku from admin panel", async ({ page }) => {
     await login(page, USER_EMAIL, USER_PASSWORD);
     const text = `E2E删除-${Date.now()}`;
-    const post = await page.request.post("/api/danmaku", {
-      data: { content: text },
-    });
-    expect(post.status()).toBe(201);
+    let postStatus = 0;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const post = await page.request.post("/api/danmaku", {
+        data: { content: text },
+      });
+      postStatus = post.status();
+      if (postStatus === 201) break;
+      if (postStatus !== 429) break;
+      await page.waitForTimeout(2000);
+    }
+    expect(postStatus).toBe(201);
 
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/admin/danmaku", { waitUntil: "networkidle" });

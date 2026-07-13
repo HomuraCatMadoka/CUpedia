@@ -15,15 +15,35 @@ import { Client } from "pg";
  * prior run — sessions, spec fixtures — can't break the idempotent seed or skew
  * assertions), drop Next's data cache, then seed.
  */
+/** True when the database already has application tables (e.g. cloned from template). */
+async function schemaReady(connectionUrl: string): Promise<boolean> {
+  const client = new Client({ connectionString: connectionUrl });
+  await client.connect();
+  try {
+    const { rows } = await client.query<{ exists: string | null }>(
+      "select to_regclass('public.users') as exists",
+    );
+    return rows[0]?.exists != null;
+  } finally {
+    await client.end();
+  }
+}
+
 async function main() {
   const root = path.resolve(__dirname, "..");
   const url = requireEnv("DATABASE_URL");
 
   await ensureDatabase(url, root);
-  execSync("pnpm drizzle-kit migrate", { cwd: root, stdio: "inherit" });
+  if (!(await schemaReady(url))) {
+    execSync("npx drizzle-kit migrate", {
+      cwd: root,
+      stdio: "inherit",
+      env: process.env,
+    });
+  }
   await resetData(url);
   rmSync(path.join(root, ".next", "cache"), { recursive: true, force: true });
-  execSync("pnpm seed", { cwd: root, stdio: "inherit" });
+  execSync("npm run seed", { cwd: root, stdio: "inherit", env: process.env });
 }
 
 function requireEnv(key: string): string {
