@@ -23,6 +23,11 @@ async function query<T extends Record<string, unknown>>(text: string) {
   }
 }
 
+test.afterEach(async () => {
+  await query(`delete from course_reviews where course_code = '${CODE}'`);
+  await query(`delete from course_ratings where course_code = '${CODE}'`);
+});
+
 test("#267 subject filter shows the whole subject, uncapped", async ({
   page,
 }) => {
@@ -82,8 +87,13 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await page.getByRole("radio", { name: "4.5 星" }).click();
   await page.getByPlaceholder(/分享课程内容/).fill(review);
   await page.getByRole("button", { name: "提交测评" }).click();
-  await expect(page.getByText(review, { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /撤回/ })).toBeVisible();
+  await expect(
+    page.getByRole("listitem").filter({ hasText: review }),
+  ).toBeVisible();
+  await expect(page.getByText("课程测评已发布")).toBeVisible();
+  await expect(page.getByRole("button", { name: "编辑" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "删除" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /撤回/ })).toHaveCount(0);
   await expect(page.getByText("4.5", { exact: true }).first()).toBeVisible();
 
   // Like: toggle the like on the just-posted review, count 0 → 1.
@@ -95,7 +105,9 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   // Persists across a reload.
   await page.reload();
   await expect(page.getByText("4.5", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(review, { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("listitem").filter({ hasText: review }),
+  ).toBeVisible();
   await expect(page.locator('button[title="点赞"]')).toContainText("1");
 
   // The redesigned list card reflects the new rating.
