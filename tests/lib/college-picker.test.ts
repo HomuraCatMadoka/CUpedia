@@ -8,6 +8,7 @@ import {
 } from "@/lib/college-picker/recommend";
 import {
   COLLEGES,
+  COLLEGE_CAPTURE,
   SMALL_COLLEGE_IDS,
   type ScoredFactor,
   type AvoidFactor,
@@ -642,5 +643,21 @@ describe("recommend — 06 小书院精选专属评分", () => {
     // C 路径忽略 smallCollegeAnswers，mc 仍为 83（原始分）
     const mc = resultC.find((c) => c.id === "mc")!;
     expect(mc.score).toBe(83);
+  });
+});
+
+describe("COLLEGE_CAPTURE", () => {
+  it("九所书院均有 2–4 条优缺点", () => {
+    for (const college of COLLEGES) {
+      const capture = COLLEGE_CAPTURE[college.id];
+      expect(capture.pros.length).toBeGreaterThanOrEqual(2);
+      expect(capture.pros.length).toBeLessThanOrEqual(4);
+      expect(capture.cons.length).toBeGreaterThanOrEqual(2);
+      expect(capture.cons.length).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("和声书院有灰色备注", () => {
+    expect(COLLEGE_CAPTURE.lws.remark).toMatch(/入学面试/);
   });
 });

@@ -19,10 +19,12 @@ import {
 import {
   AVOID_FACTORS,
   BONUS_FACTORS,
+  COLLEGE_CAPTURE,
   MAJOR_GROUPS,
   SCORED_FACTORS,
   type AvoidFactor,
   type BonusFactor,
+  type CollegeId,
   type MajorGroup,
   type ScoredFactor,
 } from "@/lib/college-picker/data";
@@ -165,6 +167,33 @@ function StepHeading({ number, title }: { number: string; title: string }) {
         {number}
       </span>
       <span>{title}</span>
+    </div>
+  );
+}
+
+function CollegeCaptureSummary({ collegeId }: { collegeId: CollegeId }) {
+  const capture = COLLEGE_CAPTURE[collegeId];
+  if (!capture) return null;
+
+  return (
+    <div className="space-y-1 pt-1 text-xs">
+      <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {capture.pros.map((item) => (
+          <li key={item} className="text-green-600">
+            {item}
+          </li>
+        ))}
+      </ul>
+      <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+        {capture.cons.map((item) => (
+          <li key={item} className="text-red-600">
+            {item}
+          </li>
+        ))}
+      </ul>
+      {capture.remark && (
+        <p className="text-muted-foreground">{capture.remark}</p>
+      )}
     </div>
   );
 }
@@ -658,6 +687,7 @@ export function CollegePickerForm() {
                             ))}
                           </ul>
                         )}
+                        <CollegeCaptureSummary collegeId={college.id} />
                       </div>
                     </div>
                     {college.avoidHits.length > 0 && (

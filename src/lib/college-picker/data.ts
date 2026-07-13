@@ -347,6 +347,77 @@ export const LARGE_COLLEGE_IDS: readonly CollegeId[] = ["cc", "na", "uc", "sc"];
 /** 逸夫书院（Shaw）——「尽量不排最后」弱规则的特例主体。 */
 export const SHAW_ID: CollegeId = "sc";
 
+/** 各书院 Capture：第一行优点、第二行缺点；结果页展示 2–4 条。 */
+export interface CollegeCapture {
+  pros: readonly string[];
+  cons: readonly string[];
+  /** 灰色备注（如和声书院入学面试说明）。 */
+  remark?: string;
+}
+
+export const COLLEGE_CAPTURE: Record<CollegeId, CollegeCapture> = {
+  cc: {
+    pros: ["通勤方便", "宿位多", "自然环境优美"],
+    cons: [
+      "有fyp",
+      "宿舍设施旧",
+      "有保宿期间被分到ihouse的可能（丧失通勤优势）",
+    ],
+  },
+  uc: {
+    pros: ["书通水", "奖学金多", "短期交换项目很香"],
+    cons: ["有fyp", "保宿卷", "有概率被分到恒生楼（交通不便）"],
+  },
+  na: {
+    pros: ["图书馆", "通勤路线多", "文科资源多"],
+    cons: ["宿舍条件两极分化严重", "饭堂不够好吃", "下山只能坐车比较远"],
+  },
+  sc: {
+    pros: ["没有fyp", "保宿简单", "氛围chill"],
+    cons: ["低层宿舍会多虫", "有的宿舍窗帘不能完全遮光", "宿舍设施旧"],
+  },
+  wys: {
+    pros: [
+      "健身房设施齐全",
+      "饭堂适合内地生口味",
+      "入学选wys为第一志愿可获得2w奖学金（25年入学信息）",
+      "宿舍都是海景房",
+    ],
+    cons: ["交通不便（走一个小斜坡）", "能加宿分的活动少"],
+  },
+  lws: {
+    pros: ["有小冰箱", "有海景", "著名甜品店", "娱乐设施丰富"],
+    cons: ["书通workload大", "能加宿分的活动少", "下山较远"],
+    remark:
+      "（备注）入学面试：可能会有一个走流程的面试（不怎么筛选人版本）",
+  },
+  shho: {
+    pros: ["书通p/f", "书院活动很多", "地理位置优越"],
+    cons: [
+      "共膳/高桌难吃",
+      "宿舍设施陈旧（但健身房很新）",
+      "等电梯时间长",
+    ],
+  },
+  mc: {
+    pros: ["有四年保宿", "地理位置优越", "独一无二的国际化环境"],
+    cons: [
+      "书院通识极其拉低gpa",
+      "供膳难吃且强制缴费",
+      "书院自有交换机会普遍很差",
+    ],
+  },
+  cwc: {
+    pros: ["设施新、配套全", "空调有较多免费额度", "生活幸福感高、集体氛围浓厚"],
+    cons: [
+      "书通和fyp的workload都很大",
+      "通勤时间长",
+      "校内存在感低",
+      "共膳水平不稳定",
+    ],
+  },
+};
+
 /** 避雷命中时给用户看的原因文案（顺序固定，忠实原实现）。 */
 export const AVOID_REASON_LABEL: Record<AvoidFactor, string> = {
   College_FYP: "命中：不要书院 FYP",

@@ -26,6 +26,8 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await expect(items).toHaveCount(9);
     // 工科 · 仅填通勤 · 无避雷，通勤排名最高的善衡书院为第一志愿。
     await expect(items.first()).toContainText("善衡书院");
+    await expect(items.first()).toContainText("地理位置优越");
+    await expect(items.first()).toContainText("共膳/高桌难吃");
     const crests = items.locator('img[alt=""]');
     await expect(crests).toHaveCount(9);
     await expect(result.getByRole("img")).toHaveCount(0);
