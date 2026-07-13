@@ -176,7 +176,7 @@ export function CourseReviewSection({
     });
   }
 
-  function handleDelete(reviewId?: string) {
+  function handleDelete(target?: { id: string; type: "review" | "rating" }) {
     if (
       !window.confirm(
         "确定删除整条课程测评吗？评分、评论和收到的点赞都会一并删除。",
@@ -184,11 +184,11 @@ export function CourseReviewSection({
     ) {
       return;
     }
-    setBusyId(reviewId ?? "own-submission");
+    setBusyId(target?.id ?? "own-submission");
     startSubmit(async () => {
       try {
-        await deleteCourseReviewSubmission(code, reviewId);
-        if (!reviewId) setEditing(true);
+        await deleteCourseReviewSubmission(code, target);
+        if (!target) setEditing(true);
         router.refresh();
       } finally {
         setBusyId(null);
@@ -422,7 +422,7 @@ export function CourseReviewSection({
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold">同学测评</h2>
         <span className="text-sm text-muted-foreground">
-          {reviews.length} 条评论
+          {reviews.filter((review) => !review.isRatingOnly).length} 条评论
         </span>
       </div>
 
@@ -435,7 +435,9 @@ export function CourseReviewSection({
         {reviews.map((review) => (
           <li key={review.id} className="rounded-xl border p-5">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-sm font-medium">匿名用户</span>
+              <span className="text-sm font-medium">
+                {review.isRatingOnly ? "仅评分投稿" : "匿名用户"}
+              </span>
               <span
                 className="text-xs text-muted-foreground"
                 suppressHydrationWarning
@@ -466,34 +468,46 @@ export function CourseReviewSection({
                 </span>
               )}
             </div>
-            <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
-              {review.content}
-            </p>
+            {!review.isRatingOnly && (
+              <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+                {review.content}
+              </p>
+            )}
             <div className="mt-4 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => isAuthenticated && handleLike(review.id)}
-                disabled={
-                  !isAuthenticated || (submitting && busyId === review.id)
-                }
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors",
-                  review.likedByMe
-                    ? "bg-primary/10 text-primary"
-                    : "bg-secondary text-muted-foreground hover:bg-accent",
-                  !isAuthenticated && "cursor-not-allowed opacity-60",
-                )}
-                title={isAuthenticated ? "点赞" : "登录后可点赞"}
-              >
-                <ThumbsUpIcon
-                  className={cn("size-3.5", review.likedByMe && "fill-current")}
-                />
-                {review.likeCount}
-              </button>
+              {!review.isRatingOnly && (
+                <button
+                  type="button"
+                  onClick={() => isAuthenticated && handleLike(review.id)}
+                  disabled={
+                    !isAuthenticated || (submitting && busyId === review.id)
+                  }
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors",
+                    review.likedByMe
+                      ? "bg-primary/10 text-primary"
+                      : "bg-secondary text-muted-foreground hover:bg-accent",
+                    !isAuthenticated && "cursor-not-allowed opacity-60",
+                  )}
+                  title={isAuthenticated ? "点赞" : "登录后可点赞"}
+                >
+                  <ThumbsUpIcon
+                    className={cn(
+                      "size-3.5",
+                      review.likedByMe && "fill-current",
+                    )}
+                  />
+                  {review.likeCount}
+                </button>
+              )}
               {review.canAdminDelete && (
                 <button
                   type="button"
-                  onClick={() => handleDelete(review.id)}
+                  onClick={() =>
+                    handleDelete({
+                      id: review.id,
+                      type: review.isRatingOnly ? "rating" : "review",
+                    })
+                  }
                   disabled={submitting && busyId === review.id}
                   className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
                   title="删除整条投稿"

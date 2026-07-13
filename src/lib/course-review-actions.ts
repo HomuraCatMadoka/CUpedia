@@ -35,6 +35,7 @@ const PAGE_SIZE = 48;
  * is resolved server-side so the UI can show withdraw/like-toggle affordances. */
 export type CourseReviewView = {
   id: string;
+  isRatingOnly: boolean;
   content: string;
   createdAt: string;
   likeCount: number;
@@ -472,36 +473,38 @@ export async function getCourseReviews(
       .orderBy(desc(courseReviews.createdAt)),
     getOptionalUser(),
   ]);
-  if (rows.length === 0) return [];
-
   const viewerId = user?.id ?? null;
   const ids = rows.map((r) => r.id);
 
-  const likeRows = await db
-    .select({ reviewId: courseReviewLikes.reviewId, cnt: count() })
-    .from(courseReviewLikes)
-    .where(inArray(courseReviewLikes.reviewId, ids))
-    .groupBy(courseReviewLikes.reviewId);
+  const likeRows = ids.length
+    ? await db
+        .select({ reviewId: courseReviewLikes.reviewId, cnt: count() })
+        .from(courseReviewLikes)
+        .where(inArray(courseReviewLikes.reviewId, ids))
+        .groupBy(courseReviewLikes.reviewId)
+    : [];
   const likeCount = new Map(likeRows.map((r) => [r.reviewId, Number(r.cnt)]));
 
-  const mine = viewerId
-    ? new Set(
-        (
-          await db
-            .select({ reviewId: courseReviewLikes.reviewId })
-            .from(courseReviewLikes)
-            .where(
-              and(
-                inArray(courseReviewLikes.reviewId, ids),
-                eq(courseReviewLikes.userId, viewerId),
-              ),
-            )
-        ).map((r) => r.reviewId),
-      )
-    : new Set<string>();
+  const mine =
+    viewerId && ids.length
+      ? new Set(
+          (
+            await db
+              .select({ reviewId: courseReviewLikes.reviewId })
+              .from(courseReviewLikes)
+              .where(
+                and(
+                  inArray(courseReviewLikes.reviewId, ids),
+                  eq(courseReviewLikes.userId, viewerId),
+                ),
+              )
+          ).map((r) => r.reviewId),
+        )
+      : new Set<string>();
 
-  return rows.map((r) => ({
+  const reviewViews: CourseReviewView[] = rows.map((r) => ({
     id: r.id,
+    isRatingOnly: false,
     content: r.content,
     createdAt: r.createdAt.toISOString(),
     likeCount: likeCount.get(r.id) ?? 0,
@@ -514,6 +517,47 @@ export async function getCourseReviews(
       : null,
     score: r.score,
   }));
+
+  if (user?.role !== "admin") return reviewViews;
+
+  const reviewedUserIds = new Set(rows.map((row) => row.userId));
+  const ratingRows = await db
+    .select({
+      id: courseRatings.id,
+      userId: courseRatings.userId,
+      createdAt: courseRatings.createdAt,
+      professorName: courseRatings.professorNameSnapshot,
+      academicYear: courseRatings.academicYear,
+      term: courseRatings.term,
+      score: courseRatings.score,
+    })
+    .from(courseRatings)
+    .where(eq(courseRatings.courseCode, course.code));
+
+  const ratingOnlyViews: CourseReviewView[] = ratingRows
+    .filter(
+      (rating) =>
+        rating.userId !== viewerId && !reviewedUserIds.has(rating.userId),
+    )
+    .map((rating) => ({
+      id: rating.id,
+      isRatingOnly: true,
+      content: "",
+      createdAt: rating.createdAt.toISOString(),
+      likeCount: 0,
+      likedByMe: false,
+      canAdminDelete: true,
+      professorName: rating.professorName,
+      academicYear: rating.academicYear,
+      term: COURSE_TERMS.includes(rating.term as CourseTerm)
+        ? (rating.term as CourseTerm)
+        : null,
+      score: rating.score,
+    }));
+
+  return [...reviewViews, ...ratingOnlyViews].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
 }
 
 export async function searchProfessors(
@@ -702,30 +746,32 @@ export async function submitCourseReview(
 }
 
 /** Delete a whole submission (rating plus any comments). Authors delete their
- * own posting; admins may identify another user's posting via a review id. */
+ * own posting; admins may identify another user's posting via its review or
+ * rating id. */
 export async function deleteCourseReviewSubmission(
   code: string,
-  reviewId?: string,
+  target?: { id: string; type: "review" | "rating" },
 ): Promise<void> {
   const user = await requireAuth();
   const courseCode = normalizeCode(code);
   let ownerId = user.id;
 
-  if (reviewId) {
-    const [review] = await db
+  if (target) {
+    const source = target.type === "review" ? courseReviews : courseRatings;
+    const [submission] = await db
       .select({
-        userId: courseReviews.userId,
-        courseCode: courseReviews.courseCode,
+        userId: source.userId,
+        courseCode: source.courseCode,
       })
-      .from(courseReviews)
-      .where(eq(courseReviews.id, reviewId))
+      .from(source)
+      .where(eq(source.id, target.id))
       .limit(1);
-    if (!review) throw new Error("投稿不存在");
-    if (review.courseCode !== courseCode) throw new Error("投稿与课程不符");
-    if (review.userId !== user.id && user.role !== "admin") {
+    if (!submission) throw new Error("投稿不存在");
+    if (submission.courseCode !== courseCode) throw new Error("投稿与课程不符");
+    if (submission.userId !== user.id && user.role !== "admin") {
       throw new Error("无权删除该投稿");
     }
-    ownerId = review.userId;
+    ownerId = submission.userId;
   }
 
   await db.transaction(async (tx) => {

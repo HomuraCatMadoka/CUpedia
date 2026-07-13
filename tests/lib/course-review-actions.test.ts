@@ -73,6 +73,7 @@ import {
   deleteCourseReviewSubmission,
   toggleLike,
   getCourseRatingState,
+  getCourseReviews,
   getCourses,
   searchProfessors,
   getCourseEnrollmentHistory,
@@ -332,17 +333,17 @@ describe("deleteCourseReviewSubmission", () => {
     expect(dbDelete).not.toHaveBeenCalled();
   });
 
-  it("评论不存在时报错", async () => {
+  it("投稿不存在时报错", async () => {
     queueRows([]); // review lookup → none
     await expect(
-      deleteCourseReviewSubmission("CSCI3150", "r1"),
+      deleteCourseReviewSubmission("CSCI3150", { id: "r1", type: "review" }),
     ).rejects.toThrow(/投稿不存在/);
   });
 
   it("非本人非管理员无权撤回", async () => {
     queueRows([{ userId: "other", courseCode: "CSCI3150" }]);
     await expect(
-      deleteCourseReviewSubmission("CSCI3150", "r1"),
+      deleteCourseReviewSubmission("CSCI3150", { id: "r1", type: "review" }),
     ).rejects.toThrow(/无权/);
     expect(dbDelete).not.toHaveBeenCalled();
   });
@@ -359,7 +360,19 @@ describe("deleteCourseReviewSubmission", () => {
     mockRequireAuth.mockResolvedValue({ id: "admin", role: "admin" });
     queueRows([{ userId: "other", courseCode: "CSCI3150" }], [], []);
     await expect(
-      deleteCourseReviewSubmission("CSCI3150", "r1"),
+      deleteCourseReviewSubmission("CSCI3150", { id: "r1", type: "review" }),
+    ).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledTimes(2);
+  });
+
+  it("管理员可删除他人的仅评分投稿", async () => {
+    mockRequireAuth.mockResolvedValue({ id: "admin", role: "admin" });
+    queueRows([{ userId: "other", courseCode: "CSCI3150" }], [], []);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", {
+        id: "rating1",
+        type: "rating",
+      }),
     ).resolves.toBeUndefined();
     expect(dbDelete).toHaveBeenCalledTimes(2);
   });
@@ -451,6 +464,35 @@ describe("getCourseRatingState", () => {
   it("未知课程返回 null", async () => {
     queueRows([]); // findCourse → none
     await expect(getCourseRatingState("NOPE0000")).resolves.toBeNull();
+  });
+});
+
+describe("getCourseReviews", () => {
+  it("管理员可看到没有评论的评分投稿管理卡片", async () => {
+    mockGetOptionalUser.mockResolvedValue({ id: "admin", role: "admin" });
+    queueRows(
+      [COURSE],
+      [],
+      [
+        {
+          id: "rating1",
+          userId: "other",
+          createdAt: new Date("2026-07-13T00:00:00Z"),
+          professorName: "Professor CHAN",
+          academicYear: "2025-26",
+          term: "Term 2",
+          score: 4.5,
+        },
+      ],
+    );
+    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
+      expect.objectContaining({
+        id: "rating1",
+        isRatingOnly: true,
+        canAdminDelete: true,
+        score: 4.5,
+      }),
+    ]);
   });
 });
 

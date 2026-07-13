@@ -50,6 +50,30 @@ async function countRows(
   }
 }
 
+async function createRatingOnly(email: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `insert into course_ratings
+         (course_code, user_id, score, academic_year, term, professor_id, professor_name_snapshot)
+       select 'CSCI1130', u.id, 4, '2025-26', 'Term 2', p.id, p.name
+       from users u
+       cross join lateral (
+         select professors.id, professors.name
+         from professors
+         join professor_courses pc on pc.professor_id = professors.id
+         where pc.course_code = 'CSCI1130'
+         limit 1
+       ) p
+       where u.email = $1`,
+      [email],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 test.afterEach(cleanup);
 
 test("#294 published submission can be edited, cleared, deleted, and moderated", async ({
@@ -148,5 +172,16 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
   await expect.poll(() => countRows("course_reviews")).toBe(0);
   await expect.poll(() => countRows("course_ratings")).toBe(0);
   await expect.poll(() => countRows("course_review_likes")).toBe(0);
+
+  await createRatingOnly("contributor@test.com");
+  await admin.reload();
+  const ratingOnly = admin
+    .getByRole("listitem")
+    .filter({ hasText: "仅评分投稿" });
+  await expect(ratingOnly).toContainText("4.0");
+  admin.once("dialog", (dialog) => dialog.accept());
+  await ratingOnly.getByTitle("删除整条投稿").click();
+  await expect(ratingOnly).toHaveCount(0);
+  await expect.poll(() => countRows("course_ratings")).toBe(0);
   await adminContext.close();
 });
