@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { CANTEEN_IDS } from "../scripts/seed-data";
 import { loginWithPassword } from "./helpers/auth";
 
 const USER_EMAIL = "user@test.com";
@@ -7,9 +8,9 @@ const ADMIN_EMAIL = "admin@test.com";
 const ADMIN_PASSWORD = "password123";
 const BANNED_EMAIL = "banned@test.com";
 
-test.describe("homepage danmaku", () => {
+test.describe("canteen danmaku", () => {
   test("visitor sees danmaku section and cannot post", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/canteen");
     await expect(page.getByRole("region", { name: "本月弹幕" })).toBeVisible();
     await expect(page.getByText("登录后即可发送弹幕")).toBeVisible();
 
@@ -23,7 +24,7 @@ test.describe("homepage danmaku", () => {
     page,
   }) => {
     await loginWithPassword(page, USER_EMAIL, USER_PASSWORD);
-    await page.goto("/");
+    await page.goto("/canteen");
 
     const text = `E2E弹幕-${Date.now()}`;
     await page.getByLabel("弹幕内容").fill(text);
@@ -40,7 +41,7 @@ test.describe("homepage danmaku", () => {
   }) => {
     await loginWithPassword(page, USER_EMAIL, USER_PASSWORD);
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto("/");
+    await page.goto("/canteen");
 
     const text = `E2E静态-${Date.now()}`;
     await page.getByLabel("弹幕内容").fill(text);
@@ -56,7 +57,7 @@ test.describe("homepage danmaku", () => {
 
   test("banned user cannot post danmaku", async ({ page }) => {
     await loginWithPassword(page, BANNED_EMAIL, USER_PASSWORD);
-    await page.goto("/");
+    await page.goto("/canteen");
     await expect(page.getByText("账号已封禁，无法发送弹幕")).toBeVisible();
 
     const res = await page.request.post("/api/danmaku", {
@@ -89,11 +90,13 @@ test.describe("homepage danmaku", () => {
 
   test.use({ viewport: { width: 375, height: 800 } });
 
-  test("mobile flyover does not block module card clicks", async ({ page }) => {
-    await page.goto("/");
-    const wikiCard = page.getByRole("link", { name: /SG Wiki/i });
-    await expect(wikiCard).toBeVisible();
-    await wikiCard.click();
-    await expect(page).toHaveURL(/\/wiki/);
+  test("mobile flyover does not block canteen card clicks", async ({
+    page,
+  }) => {
+    await page.goto("/canteen");
+    const canteenCard = page.getByRole("link", { name: /演示食堂/ });
+    await expect(canteenCard).toBeVisible();
+    await canteenCard.click();
+    await expect(page).toHaveURL(new RegExp(`/canteen/${CANTEEN_IDS.demo}`));
   });
 });

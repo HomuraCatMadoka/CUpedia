@@ -77,15 +77,9 @@ export function DanmakuBanner({
   }
 
   return (
-    <section
-      className="relative space-y-4"
-      aria-label="本月弹幕"
-    >
+    <section className="relative space-y-4" aria-label="本月弹幕">
       <div className="text-center">
         <h2 className="text-lg font-semibold">本月弹幕</h2>
-        <p className="text-sm text-muted-foreground">
-          登录即可发送，发即上屏
-        </p>
       </div>
 
       <div className="danmaku-track-layer relative h-24 overflow-hidden rounded-xl border bg-muted/30 md:h-28">
