@@ -81,6 +81,7 @@ export default defineConfig({
       E2E_TEST: "1",
       BREVO_API_KEY: "",
       SKIP_EMAIL_WHITELIST: "false",
+      CANTEEN_MOCK_DATA: "false",
       AUTH_URL: baseURL,
       ...(E2E_DATABASE_URL ? { DATABASE_URL: E2E_DATABASE_URL } : {}),
     },

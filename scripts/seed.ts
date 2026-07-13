@@ -15,6 +15,8 @@ import {
   wikiPages,
   wikiRevisions,
   siteSettings,
+  canteens,
+  canteenMenuItems,
   courses,
   majors,
   majorCategories,
@@ -25,6 +27,8 @@ import {
   ACCOUNT_IDS,
   PAGE_IDS,
   REVISION_IDS,
+  CANTEEN_IDS,
+  MENU_ITEM_IDS,
   PASSWORD,
   SEED_USERS,
   buildSeedData,
@@ -54,7 +58,13 @@ async function main() {
 
   console.log("Seeding database...");
 
-  const { pages, revisions, siteSettings: settings } = await buildSeedData();
+  const {
+    pages,
+    revisions,
+    siteSettings: settings,
+    canteens: seedCanteens,
+    menuItems,
+  } = await buildSeedData();
   const hashedPassword = await hashPassword(PASSWORD);
   const now = new Date();
 
@@ -65,6 +75,14 @@ async function main() {
       .where(
         sql`${wikiRevisions.id} IN (${uuidIn(Object.values(REVISION_IDS))})`,
       );
+    await tx
+      .delete(canteenMenuItems)
+      .where(
+        sql`${canteenMenuItems.id} IN (${uuidIn(Object.values(MENU_ITEM_IDS))})`,
+      );
+    await tx
+      .delete(canteens)
+      .where(sql`${canteens.id} IN (${uuidIn(Object.values(CANTEEN_IDS))})`);
     await tx
       .delete(wikiPages)
       .where(sql`${wikiPages.id} IN (${uuidIn(Object.values(PAGE_IDS))})`);
@@ -145,6 +163,32 @@ async function main() {
     }
 
     console.log(`  Seeded ${settings.length} site settings`);
+
+    for (const c of seedCanteens) {
+      await tx.insert(canteens).values({
+        id: c.id,
+        name: c.name,
+        location: c.location,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    console.log(`  Created ${seedCanteens.length} canteens`);
+
+    for (const item of menuItems) {
+      await tx.insert(canteenMenuItems).values({
+        id: item.id,
+        canteenId: item.canteenId,
+        name: item.name,
+        price: item.price,
+        mealPeriod: item.mealPeriod,
+        sortOrder: item.sortOrder,
+        svgKey: item.svgKey,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    console.log(`  Created ${menuItems.length} menu items`);
 
     // ── 课程技能树种子(#163)──
     // 先删两个种子主修(cascade 清 categories + categoryCourses),课程 upsert;

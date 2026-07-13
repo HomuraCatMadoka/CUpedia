@@ -96,6 +96,17 @@ describe("thickened seed fixtures", () => {
     expect(siteSettings.some((s) => s.key === "wiki_edit_role")).toBe(true);
   });
 
+  it("includes canteen fixtures for e2e menu voting", async () => {
+    const { canteens, menuItems } = await buildSeedData();
+    expect(canteens.some((c) => c.name === "演示食堂")).toBe(true);
+    const demoItems = menuItems.filter(
+      (i) => i.canteenId === canteens.find((c) => c.name === "演示食堂")!.id,
+    );
+    expect(demoItems.length).toBeGreaterThanOrEqual(2);
+    expect(demoItems.some((i) => i.svgKey === "rice")).toBe(true);
+    expect(demoItems.some((i) => i.svgKey === "spicy")).toBe(true);
+  });
+
   it("builds a hierarchy at least 3 levels deep", async () => {
     const { pages } = await buildSeedData();
     const byId = new Map(pages.map((p) => [p.id, p]));

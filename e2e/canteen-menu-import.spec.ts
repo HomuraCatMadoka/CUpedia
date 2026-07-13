@@ -23,8 +23,8 @@ test.describe("canteen menu OCR import", () => {
     await expect(page.getByText(canteenName)).toBeVisible();
 
     await page
-      .locator("div")
-      .filter({ hasText: canteenName })
+      .getByRole("heading", { name: canteenName, exact: true })
+      .locator('xpath=ancestor::div[contains(@class, "canteen-fade-in")][1]')
       .getByRole("link", { name: "管理菜单" })
       .click();
     await expect(
