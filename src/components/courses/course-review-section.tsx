@@ -11,6 +11,8 @@ import {
   addReview,
   deleteReview,
   toggleLike,
+  searchProfessors,
+  type ProfessorOption,
   type CourseReviewView,
 } from "@/lib/course-review-actions";
 
@@ -40,6 +42,19 @@ export function CourseReviewSection({
   const [error, setError] = useState("");
   const [pending, startTransition] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [professorQuery, setProfessorQuery] = useState("");
+  const [professorOptions, setProfessorOptions] = useState<ProfessorOption[]>(
+    [],
+  );
+  const [professor, setProfessor] = useState<ProfessorOption | null>(null);
+
+  function handleProfessorQuery(value: string) {
+    setProfessorQuery(value);
+    setProfessor(null);
+    startTransition(async () =>
+      setProfessorOptions(await searchProfessors(code, value)),
+    );
+  }
 
   function handleSubmit() {
     const trimmed = content.trim();
@@ -47,8 +62,11 @@ export function CourseReviewSection({
     setError("");
     startTransition(async () => {
       try {
-        await addReview(code, trimmed);
+        if (!professor) throw new Error("请选择任课教授");
+        await addReview(code, trimmed, professor.id);
         setContent("");
+        setProfessorQuery("");
+        setProfessor(null);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "发表失败");
@@ -91,6 +109,33 @@ export function CourseReviewSection({
 
       {isAuthenticated ? (
         <div className="space-y-2 rounded-xl border p-4">
+          <div className="relative">
+            <input
+              value={professorQuery}
+              onChange={(event) => handleProfessorQuery(event.target.value)}
+              placeholder="搜索任课教授姓名"
+              className="h-9 w-full rounded-md border bg-transparent px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+            {!professor && professorQuery && professorOptions.length > 0 && (
+              <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                {professorOptions.map((option) => (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfessor(option);
+                        setProfessorQuery(option.name);
+                        setProfessorOptions([]);
+                      }}
+                      className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
+                    >
+                      {option.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
@@ -107,7 +152,7 @@ export function CourseReviewSection({
             <Button
               size="sm"
               onClick={handleSubmit}
-              disabled={pending || !content.trim()}
+              disabled={pending || !content.trim() || !professor}
             >
               {pending ? "发表中…" : "发表评论"}
             </Button>
@@ -138,6 +183,11 @@ export function CourseReviewSection({
               </span>
             </div>
             <p className="mt-2 text-sm whitespace-pre-wrap">{r.content}</p>
+            {r.professorName && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                任课教授：{r.professorName}
+              </p>
+            )}
             <div className="mt-3 flex items-center gap-3">
               <button
                 type="button"

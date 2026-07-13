@@ -10,4 +10,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-py-modules = ["common", "scrape_courses", "scrape_handbook"]
+py-modules = ["common", "scrape_courses", "scrape_handbook", "scrape_timetable"]

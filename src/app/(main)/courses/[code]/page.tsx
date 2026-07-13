@@ -7,6 +7,7 @@ import {
   getCourse,
   getCourseReviews,
   getCourseRatingState,
+  getCourseEnrollmentHistory,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { getOptionalUser } from "@/lib/auth-guard";
@@ -23,9 +24,10 @@ export default async function CourseDetailPage({
   const course = await getCourse(code);
   if (!course) notFound();
 
-  const [reviews, ratingState, user] = await Promise.all([
+  const [reviews, ratingState, enrollmentHistory, user] = await Promise.all([
     getCourseReviews(course.code),
     getCourseRatingState(course.code),
+    getCourseEnrollmentHistory(course.code),
     getOptionalUser(),
   ]);
 
@@ -84,6 +86,66 @@ export default async function CourseDetailPage({
             </p>
           )}
         </div>
+
+        {enrollmentHistory.length > 0 && (
+          <section className="mt-6 rounded-2xl border p-6">
+            <h2 className="text-lg font-semibold">选课人数参考</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              根据 CUHK Teaching Timetable 的名额减剩余名额推算
+            </p>
+            {[...new Set(enrollmentHistory.map((row) => row.academicYear))].map(
+              (academicYear) => (
+                <div key={academicYear} className="mt-5 space-y-5">
+                  <h3 className="text-sm font-semibold">{academicYear}</h3>
+                  {[
+                    ...new Set(
+                      enrollmentHistory
+                        .filter((row) => row.academicYear === academicYear)
+                        .map((row) => row.term),
+                    ),
+                  ].map((term) => (
+                    <div key={term}>
+                      <h4 className="border-b pb-2 text-sm font-medium">
+                        {term}
+                      </h4>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        {enrollmentHistory
+                          .filter(
+                            (row) =>
+                              row.academicYear === academicYear &&
+                              row.term === term,
+                          )
+                          .map((row) => (
+                            <div
+                              key={row.section ?? "all"}
+                              className="rounded-xl bg-secondary/50 p-4"
+                            >
+                              {row.section && (
+                                <p className="text-sm font-medium">
+                                  Section {row.section}
+                                </p>
+                              )}
+                              <p className="mt-1 text-2xl font-semibold">
+                                {row.enrolled} 人
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                总名额 {row.quota}
+                              </p>
+                              {row.instructors.length > 0 && (
+                                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                                  {row.instructors.join(" · ")}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ),
+            )}
+          </section>
+        )}
 
         {ratingState && (
           <div className="mt-6">

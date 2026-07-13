@@ -1,6 +1,6 @@
 {
-  "id": "edc3cada-9b59-4aca-a695-789cf9f0722a",
-  "prevId": "1a6c3352-07b2-4e8b-ba91-76b7070796e2",
+  "id": "c2cf5ba4-9c50-44a6-86ff-5fc80e8592af",
+  "prevId": "edc3cada-9b59-4aca-a695-789cf9f0722a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -400,6 +400,12 @@
         "vacancy": {
           "name": "vacancy",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "instructors": {
+          "name": "instructors",
+          "type": "text[]",
           "primaryKey": false,
           "notNull": true
         },
