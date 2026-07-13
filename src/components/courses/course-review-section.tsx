@@ -3,13 +3,19 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { StarIcon, ThumbsUpIcon, Trash2Icon } from "lucide-react";
+import {
+  CheckCircle2Icon,
+  PencilIcon,
+  StarIcon,
+  ThumbsUpIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { COURSE_TERMS, type CourseTerm } from "@/lib/course-review-constants";
 import {
-  deleteReview,
+  deleteCourseReviewSubmission,
   searchProfessors,
   submitCourseReview,
   toggleLike,
@@ -105,7 +111,9 @@ export function CourseReviewSection({
   isAuthenticated: boolean;
 }) {
   const router = useRouter();
-  const [content, setContent] = useState("");
+  const isPublished = ratingState.lastScore !== null;
+  const [editing, setEditing] = useState(!isPublished);
+  const [content, setContent] = useState(ratingState.lastContent);
   const [academicYear, setAcademicYear] = useState(
     ratingState.lastAcademicYear ?? "",
   );
@@ -148,7 +156,7 @@ export function CourseReviewSection({
           score,
           content,
         });
-        setContent("");
+        setEditing(false);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "提交失败");
@@ -168,11 +176,19 @@ export function CourseReviewSection({
     });
   }
 
-  function handleDelete(id: string) {
-    setBusyId(id);
+  function handleDelete(reviewId?: string) {
+    if (
+      !window.confirm(
+        "确定删除整条课程测评吗？评分、评论和收到的点赞都会一并删除。",
+      )
+    ) {
+      return;
+    }
+    setBusyId(reviewId ?? "own-submission");
     startSubmit(async () => {
       try {
-        await deleteReview(id);
+        await deleteCourseReviewSubmission(code, reviewId);
+        if (!reviewId) setEditing(true);
         router.refresh();
       } finally {
         setBusyId(null);
@@ -181,7 +197,16 @@ export function CourseReviewSection({
   }
 
   const ready = !!academicYear && !!term && !!professor && score !== null;
-  const isUpdating = ratingState.lastScore !== null;
+
+  function resetForm() {
+    setAcademicYear(ratingState.lastAcademicYear ?? "");
+    setTerm(ratingState.lastTerm ?? "");
+    setScore(ratingState.lastScore);
+    setProfessor(ratingState.lastProfessor);
+    setProfessorQuery(ratingState.lastProfessor?.name ?? "");
+    setContent(ratingState.lastContent);
+    setError("");
+  }
 
   return (
     <section className="space-y-8">
@@ -189,11 +214,11 @@ export function CourseReviewSection({
         <div className="border-b bg-secondary/25 px-6 py-5">
           <div>
             <h2 className="text-lg font-semibold">
-              {isUpdating ? "更新课程测评" : "提交课程测评"}
+              {isPublished ? "我的课程测评" : "提交课程测评"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {isUpdating
-                ? "已载入你上次的开课信息；修改后会更新评分，填写评论则新增一条匿名评论。"
+              {isPublished
+                ? "你可以随时修改或删除这条匿名投稿。"
                 : "记录你实际修读的学期；评论选填，投稿始终匿名。"}
             </p>
           </div>
@@ -209,6 +234,53 @@ export function CourseReviewSection({
               登录
             </Link>{" "}
             后提交测评或点赞。
+          </div>
+        ) : isPublished && !editing ? (
+          <div className="space-y-5 p-6">
+            <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2Icon className="size-4" />
+              课程测评已发布
+            </div>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                <StarIcon className="size-3.5 fill-current" />
+                {ratingState.lastScore?.toFixed(1)}
+              </span>
+              <span className="rounded-full bg-secondary px-3 py-1.5">
+                {ratingState.lastAcademicYear}
+              </span>
+              <span className="rounded-full bg-secondary px-3 py-1.5">
+                {ratingState.lastTerm}
+              </span>
+              <span className="rounded-full bg-secondary px-3 py-1.5">
+                {ratingState.lastProfessor?.name}
+              </span>
+            </div>
+            <div className="rounded-xl border bg-secondary/20 p-4">
+              <p className="text-xs font-medium text-muted-foreground">
+                {ratingState.lastContent ? "已附匿名评论" : "未填写匿名评论"}
+              </p>
+              {ratingState.lastContent && (
+                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
+                  {ratingState.lastContent}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t pt-5">
+              <Button variant="outline" onClick={() => setEditing(true)}>
+                <PencilIcon className="size-4" />
+                编辑
+              </Button>
+              <Button
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                onClick={() => handleDelete()}
+                disabled={submitting && busyId === "own-submission"}
+              >
+                <Trash2Icon className="size-4" />
+                删除
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-6 p-6">
@@ -292,7 +364,7 @@ export function CourseReviewSection({
                 onChange={setScore}
                 disabled={submitting}
               />
-              {isUpdating && (
+              {isPublished && (
                 <p className="text-xs text-muted-foreground">
                   已保留你上次的选择，可直接修改后更新。
                 </p>
@@ -321,9 +393,27 @@ export function CourseReviewSection({
               <p className="text-xs text-muted-foreground">
                 每人每门课一票；再次投稿会更新你的评分。
               </p>
-              <Button onClick={handleSubmit} disabled={submitting || !ready}>
-                {submitting ? "提交中…" : isUpdating ? "更新测评" : "提交测评"}
-              </Button>
+              <div className="flex gap-2">
+                {isPublished && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      resetForm();
+                      setEditing(false);
+                    }}
+                    disabled={submitting}
+                  >
+                    取消
+                  </Button>
+                )}
+                <Button onClick={handleSubmit} disabled={submitting || !ready}>
+                  {submitting
+                    ? "保存中…"
+                    : isPublished
+                      ? "保存修改"
+                      : "提交测评"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -400,16 +490,16 @@ export function CourseReviewSection({
                 />
                 {review.likeCount}
               </button>
-              {review.isOwn && (
+              {review.canAdminDelete && (
                 <button
                   type="button"
                   onClick={() => handleDelete(review.id)}
                   disabled={submitting && busyId === review.id}
                   className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
-                  title="撤回我的评论"
+                  title="删除整条投稿"
                 >
                   <Trash2Icon className="size-3.5" />
-                  撤回
+                  删除投稿
                 </button>
               )}
             </div>

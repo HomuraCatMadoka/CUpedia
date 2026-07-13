@@ -15,6 +15,7 @@ const {
   dbQueue,
   dbSelect,
   dbInsert,
+  dbUpdate,
   dbDelete,
   dbTransaction,
   dbChain,
@@ -44,6 +45,7 @@ const {
     dbQueue: queue,
     dbSelect: vi.fn(() => chain),
     dbInsert: vi.fn(() => chain),
+    dbUpdate: vi.fn(() => chain),
     dbDelete: vi.fn(() => chain),
     dbTransaction: vi.fn(),
     dbChain: chain,
@@ -59,6 +61,7 @@ vi.mock("@/db", () => ({
   db: {
     select: () => dbSelect(),
     insert: () => dbInsert(),
+    update: () => dbUpdate(),
     delete: () => dbDelete(),
     transaction: (callback: (tx: unknown) => unknown) =>
       dbTransaction(callback),
@@ -67,7 +70,7 @@ vi.mock("@/db", () => ({
 
 import {
   submitCourseReview,
-  deleteReview,
+  deleteCourseReviewSubmission,
   toggleLike,
   getCourseRatingState,
   getCourses,
@@ -98,8 +101,18 @@ beforeEach(() => {
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
   mockGetOptionalUser.mockResolvedValue(null);
   dbTransaction.mockImplementation(
-    async (callback: (tx: { insert: () => typeof dbChain }) => unknown) =>
-      callback({ insert: () => dbInsert() }),
+    async (
+      callback: (tx: {
+        insert: () => typeof dbChain;
+        update: () => typeof dbChain;
+        delete: () => typeof dbChain;
+      }) => unknown,
+    ) =>
+      callback({
+        insert: () => dbInsert(),
+        update: () => dbUpdate(),
+        delete: () => dbDelete(),
+      }),
   );
 });
 
@@ -189,16 +202,36 @@ describe("submitCourseReview", () => {
     );
   });
 
-  it("五分钟内拒绝更新评分", async () => {
+  it("编辑已有投稿时原位更新评论", async () => {
     queueRows(
       [COURSE],
       [{ id: "p1", name: "Professor CHAN" }],
-      [{ createdAt: new Date() }],
+      [{ id: "r1" }],
+      [],
+      [],
     );
-    await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
-      /5 分钟/,
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      content: "更新后的内容",
+    });
+    expect(dbUpdate).toHaveBeenCalledOnce();
+    expect(dbInsert).toHaveBeenCalledOnce();
+    expect(dbChain.set).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "更新后的内容", score: 4.5 }),
     );
-    expect(dbInsert).not.toHaveBeenCalled();
+  });
+
+  it("清空评论时保留评分并删除评论", async () => {
+    queueRows(
+      [COURSE],
+      [{ id: "p1", name: "Professor CHAN" }],
+      [{ id: "r1" }],
+      [],
+      [],
+    );
+    await submitCourseReview("CSCI3150", { ...SUBMISSION, content: "   " });
+    expect(dbInsert).toHaveBeenCalledOnce();
+    expect(dbDelete).toHaveBeenCalledOnce();
   });
 
   it("拒绝目录外或未任教该课程的教授", async () => {
@@ -292,35 +325,43 @@ describe("getCourseEnrollmentHistory", () => {
   });
 });
 
-describe("deleteReview", () => {
+describe("deleteCourseReviewSubmission", () => {
   it("拒绝未登录用户", async () => {
     mockRequireAuth.mockRejectedValue(new Error("未登录"));
-    await expect(deleteReview("r1")).rejects.toThrow();
+    await expect(deleteCourseReviewSubmission("CSCI3150")).rejects.toThrow();
     expect(dbDelete).not.toHaveBeenCalled();
   });
 
   it("评论不存在时报错", async () => {
     queueRows([]); // review lookup → none
-    await expect(deleteReview("r1")).rejects.toThrow(/评论不存在/);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", "r1"),
+    ).rejects.toThrow(/投稿不存在/);
   });
 
   it("非本人非管理员无权撤回", async () => {
     queueRows([{ userId: "other", courseCode: "CSCI3150" }]);
-    await expect(deleteReview("r1")).rejects.toThrow(/无权/);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", "r1"),
+    ).rejects.toThrow(/无权/);
     expect(dbDelete).not.toHaveBeenCalled();
   });
 
-  it("本人可撤回", async () => {
-    queueRows([{ userId: "u1", courseCode: "CSCI3150" }], []);
-    await expect(deleteReview("r1")).resolves.toBeUndefined();
-    expect(dbDelete).toHaveBeenCalledOnce();
+  it("本人可删除整条投稿", async () => {
+    queueRows([], []);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150"),
+    ).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledTimes(2);
   });
 
-  it("管理员可撤回他人评论", async () => {
+  it("管理员可通过评论删除他人的整条投稿", async () => {
     mockRequireAuth.mockResolvedValue({ id: "admin", role: "admin" });
-    queueRows([{ userId: "other", courseCode: "CSCI3150" }], []);
-    await expect(deleteReview("r1")).resolves.toBeUndefined();
-    expect(dbDelete).toHaveBeenCalledOnce();
+    queueRows([{ userId: "other", courseCode: "CSCI3150" }], [], []);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", "r1"),
+    ).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -372,6 +413,7 @@ describe("getCourseRatingState", () => {
       lastAcademicYear: null,
       lastTerm: null,
       lastProfessor: null,
+      lastContent: "",
       myRatingCount: 0,
     });
   });
@@ -390,6 +432,7 @@ describe("getCourseRatingState", () => {
           professorName: "Professor CHAN",
         },
       ], // my rating
+      [{ content: "很清楚" }], // latest own review
     );
     const state = await getCourseRatingState("CSCI3150");
     expect(state?.aggregateRating).toBe(4.3);
@@ -401,6 +444,7 @@ describe("getCourseRatingState", () => {
       id: "p1",
       name: "Professor CHAN",
     });
+    expect(state?.lastContent).toBe("很清楚");
     expect(state?.myRatingCount).toBe(1);
   });
 

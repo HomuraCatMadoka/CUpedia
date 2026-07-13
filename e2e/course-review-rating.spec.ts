@@ -63,9 +63,8 @@ test("#293 unified submission validates required experience and supports half-st
   );
   expect(reviews.rows[0].count).toBe(0);
 
-  await expect(
-    page.getByRole("heading", { name: "更新课程测评" }),
-  ).toBeVisible();
+  await expect(page.getByText("课程测评已发布")).toBeVisible();
+  await page.getByRole("button", { name: "编辑" }).click();
   await expect(page.getByLabel("学年")).toHaveValue("2025-26");
   await expect(page.getByLabel("学期")).toHaveValue("Term 2");
   await expect(page.getByPlaceholder("搜索任课教授姓名")).toHaveValue(
@@ -73,13 +72,8 @@ test("#293 unified submission validates required experience and supports half-st
   );
   await expect(page.getByRole("radio", { name: "0.5 星" })).toBeChecked();
 
-  await query(
-    `update course_ratings set created_at = now() - interval '6 minutes'
-     where course_code = 'CSCI1130'`,
-  );
-  await page.reload();
   await page.getByRole("radio", { name: "5 星", exact: true }).click();
-  await page.getByRole("button", { name: "更新测评" }).click();
+  await page.getByRole("button", { name: "保存修改" }).click();
   await expect
     .poll(async () => {
       rating = await query(

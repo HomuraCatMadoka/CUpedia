@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
@@ -29,7 +29,6 @@ import type { Course } from "@/app/(main)/courses/course-types";
 
 /** Max courses returned per list query — the catalog is too large to dump. */
 const PAGE_SIZE = 48;
-const RATING_COOLDOWN_MS = 5 * 60 * 1000;
 
 /** A review as presented to the client. Author identity is never exposed —
  * comments are anonymous — but ownership/like state for the *current* viewer
@@ -40,7 +39,7 @@ export type CourseReviewView = {
   createdAt: string;
   likeCount: number;
   likedByMe: boolean;
-  isOwn: boolean;
+  canAdminDelete: boolean;
   professorName: string | null;
   academicYear: string | null;
   term: CourseTerm | null;
@@ -83,6 +82,7 @@ export type CourseRatingState = {
   lastAcademicYear: string | null;
   lastTerm: CourseTerm | null;
   lastProfessor: ProfessorOption | null;
+  lastContent: string;
   /** How many times the current user has rated this course. */
   myRatingCount: number;
 };
@@ -395,6 +395,7 @@ export async function getCourseRatingState(
       lastAcademicYear: null,
       lastTerm: null,
       lastProfessor: null,
+      lastContent: "",
       myRatingCount: 0,
     };
   }
@@ -416,6 +417,17 @@ export async function getCourseRatingState(
     );
 
   const mine = myRatings[0];
+  const [myReview] = await db
+    .select({ content: courseReviews.content })
+    .from(courseReviews)
+    .where(
+      and(
+        eq(courseReviews.courseCode, course.code),
+        eq(courseReviews.userId, user.id),
+      ),
+    )
+    .orderBy(desc(courseReviews.createdAt))
+    .limit(1);
   return {
     aggregateRating,
     ratingCount,
@@ -428,6 +440,7 @@ export async function getCourseRatingState(
       mine?.professorId && mine.professorName
         ? { id: mine.professorId, name: mine.professorName }
         : null,
+    lastContent: myReview?.content ?? "",
     myRatingCount: myRatings.length,
   };
 }
@@ -493,7 +506,7 @@ export async function getCourseReviews(
     createdAt: r.createdAt.toISOString(),
     likeCount: likeCount.get(r.id) ?? 0,
     likedByMe: mine.has(r.id),
-    isOwn: viewerId ? r.userId === viewerId || user?.role === "admin" : false,
+    canAdminDelete: user?.role === "admin" && r.userId !== viewerId,
     professorName: r.professorName,
     academicYear: r.academicYear,
     term: COURSE_TERMS.includes(r.term as CourseTerm)
@@ -576,8 +589,8 @@ export async function getCourseEnrollmentHistory(
 
 // ── Mutations (require auth) ──
 
-/** Submit one concrete course experience. The rating is always recorded;
- * a comment row is created only when optional content is present. */
+/** Create or update one concrete course experience. The optional comment is
+ * updated in place so the rating and comment remain one manageable posting. */
 export async function submitCourseReview(
   code: string,
   submission: CourseReviewSubmission,
@@ -608,22 +621,17 @@ export async function submitCourseReview(
     .limit(1);
   if (!professor) throw new Error("请选择教授目录中的任课教授");
 
-  const [previous] = await db
-    .select({ createdAt: courseRatings.createdAt })
-    .from(courseRatings)
+  const existingReviews = await db
+    .select({ id: courseReviews.id })
+    .from(courseReviews)
     .where(
       and(
-        eq(courseRatings.courseCode, course.code),
-        eq(courseRatings.userId, user.id),
+        eq(courseReviews.courseCode, course.code),
+        eq(courseReviews.userId, user.id),
       ),
     )
-    .limit(1);
-  if (
-    previous &&
-    Date.now() - previous.createdAt.getTime() < RATING_COOLDOWN_MS
-  ) {
-    throw new Error("每 5 分钟只能更新一次评分，请稍后再试");
-  }
+    .orderBy(desc(courseReviews.createdAt));
+  const existingReview = existingReviews[0];
 
   await db.transaction(async (tx) => {
     await tx
@@ -649,17 +657,43 @@ export async function submitCourseReview(
         },
       });
 
-    if (content) {
+    const reviewValues = {
+      content,
+      professorId: professor.id,
+      professorNameSnapshot: professor.name,
+      academicYear: submission.academicYear,
+      term: submission.term,
+      score: submission.score,
+    };
+    if (content && existingReview) {
+      await tx
+        .update(courseReviews)
+        .set(reviewValues)
+        .where(eq(courseReviews.id, existingReview.id));
+      await tx
+        .delete(courseReviews)
+        .where(
+          and(
+            eq(courseReviews.courseCode, course.code),
+            eq(courseReviews.userId, user.id),
+            ne(courseReviews.id, existingReview.id),
+          ),
+        );
+    } else if (content) {
       await tx.insert(courseReviews).values({
         courseCode: course.code,
         userId: user.id,
-        content,
-        professorId: professor.id,
-        professorNameSnapshot: professor.name,
-        academicYear: submission.academicYear,
-        term: submission.term,
-        score: submission.score,
+        ...reviewValues,
       });
+    } else if (existingReview) {
+      await tx
+        .delete(courseReviews)
+        .where(
+          and(
+            eq(courseReviews.courseCode, course.code),
+            eq(courseReviews.userId, user.id),
+          ),
+        );
     }
   });
 
@@ -667,25 +701,53 @@ export async function submitCourseReview(
   revalidatePath("/courses");
 }
 
-/** Withdraw a review. Only the original author (or an admin) may do so. */
-export async function deleteReview(reviewId: string): Promise<void> {
+/** Delete a whole submission (rating plus any comments). Authors delete their
+ * own posting; admins may identify another user's posting via a review id. */
+export async function deleteCourseReviewSubmission(
+  code: string,
+  reviewId?: string,
+): Promise<void> {
   const user = await requireAuth();
-  const [review] = await db
-    .select({
-      userId: courseReviews.userId,
-      courseCode: courseReviews.courseCode,
-    })
-    .from(courseReviews)
-    .where(eq(courseReviews.id, reviewId))
-    .limit(1);
-  if (!review) throw new Error("评论不存在");
-  if (review.userId !== user.id && user.role !== "admin") {
-    throw new Error("无权撤回该评论");
+  const courseCode = normalizeCode(code);
+  let ownerId = user.id;
+
+  if (reviewId) {
+    const [review] = await db
+      .select({
+        userId: courseReviews.userId,
+        courseCode: courseReviews.courseCode,
+      })
+      .from(courseReviews)
+      .where(eq(courseReviews.id, reviewId))
+      .limit(1);
+    if (!review) throw new Error("投稿不存在");
+    if (review.courseCode !== courseCode) throw new Error("投稿与课程不符");
+    if (review.userId !== user.id && user.role !== "admin") {
+      throw new Error("无权删除该投稿");
+    }
+    ownerId = review.userId;
   }
 
-  await db.delete(courseReviews).where(eq(courseReviews.id, reviewId));
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(courseReviews)
+      .where(
+        and(
+          eq(courseReviews.courseCode, courseCode),
+          eq(courseReviews.userId, ownerId),
+        ),
+      );
+    await tx
+      .delete(courseRatings)
+      .where(
+        and(
+          eq(courseRatings.courseCode, courseCode),
+          eq(courseRatings.userId, ownerId),
+        ),
+      );
+  });
 
-  revalidatePath(`/courses/${review.courseCode}`);
+  revalidatePath(`/courses/${courseCode}`);
   revalidatePath("/courses");
 }
 

@@ -30,13 +30,21 @@ async function fillSubmission(page: Page, content: string) {
   await page.getByPlaceholder("分享课程内容、功课量或考试体验…").fill(content);
 }
 
-async function ageRating() {
+async function countRows(
+  table: "course_ratings" | "course_reviews" | "course_review_likes",
+) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await client.query(
-      "update course_ratings set created_at = now() - interval '6 minutes' where course_code = 'CSCI1130'",
-    );
+    const query =
+      table === "course_review_likes"
+        ? `select count(*)::int as count from course_review_likes l
+           join course_reviews r on r.id = l.review_id
+           where r.course_code = 'CSCI1130'`
+        : `select count(*)::int as count from ${table}
+           where course_code = 'CSCI1130'`;
+    const result = await client.query<{ count: number }>(query);
+    return result.rows[0].count;
   } finally {
     await client.end();
   }
@@ -44,7 +52,7 @@ async function ageRating() {
 
 test.afterEach(cleanup);
 
-test("#266 anonymous review, like toggle, author and admin withdrawal", async ({
+test("#294 published submission can be edited, cleared, deleted, and moderated", async ({
   page,
   browser,
 }) => {
@@ -57,19 +65,53 @@ test("#266 anonymous review, like toggle, author and admin withdrawal", async ({
 
   await fillSubmission(page, own);
   await page.getByRole("button", { name: "提交测评" }).click();
+  await expect(page.getByText("课程测评已发布")).toBeVisible();
+  const summary = page.locator("section").filter({ hasText: "我的课程测评" });
+  await expect(summary).toContainText("4.5");
+  await expect(summary).toContainText("2025-26");
+  await expect(summary).toContainText("Term 2");
+  await expect(summary).toContainText("测试教授 Chan");
+  await expect(summary).toContainText("已附匿名评论");
+  await expect(summary).toContainText(own);
+
+  await summary.getByRole("button", { name: "编辑" }).click();
+  await expect(page.getByLabel("学年")).toHaveValue("2025-26");
+  await expect(page.getByLabel("学期")).toHaveValue("Term 2");
+  await expect(page.getByPlaceholder("搜索任课教授姓名")).toHaveValue(
+    "测试教授 Chan",
+  );
+  await expect(page.getByRole("radio", { name: "4.5 星" })).toBeChecked();
+  await expect(
+    page.getByPlaceholder("分享课程内容、功课量或考试体验…"),
+  ).toHaveValue(own);
+
+  await page.getByPlaceholder("分享课程内容、功课量或考试体验…").fill("");
+  await page.getByRole("button", { name: "保存修改" }).click();
+  await expect(page.getByText("未填写匿名评论")).toBeVisible();
+  await expect(page.getByText(own)).toHaveCount(0);
+  await expect.poll(() => countRows("course_reviews")).toBe(0);
+  await expect.poll(() => countRows("course_ratings")).toBe(1);
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await summary.getByRole("button", { name: "删除" }).click();
+  await expect(page.getByRole("button", { name: "提交测评" })).toBeVisible();
+  await expect.poll(() => countRows("course_ratings")).toBe(0);
+
+  await fillSubmission(page, moderated);
+  await page.getByRole("button", { name: "提交测评" }).click();
   const ownReview = page.getByRole("listitem").filter({ hasText: own });
-  await expect(ownReview.getByText("匿名用户")).toBeVisible();
-  await expect(ownReview).toContainText("4.5");
-  await expect(ownReview).toContainText("2025-26");
-  await expect(ownReview).toContainText("Term 2");
-  await expect(ownReview).toContainText("测试教授 Chan");
+  await expect(ownReview).toHaveCount(0);
+  const moderatedReview = page
+    .getByRole("listitem")
+    .filter({ hasText: moderated });
+  await expect(moderatedReview.getByText("匿名用户")).toBeVisible();
 
   const publicContext = await browser.newContext();
   const publicPage = await publicContext.newPage();
   await publicPage.goto("/courses/CSCI1130");
   const publicReview = publicPage
     .getByRole("listitem")
-    .filter({ hasText: own });
+    .filter({ hasText: moderated });
   await expect(publicReview).toBeVisible();
   await expect(publicReview.getByTitle("登录后可点赞")).toBeDisabled();
   await expect(
@@ -87,33 +129,24 @@ test("#266 anonymous review, like toggle, author and admin withdrawal", async ({
   await contributor.goto("/courses/CSCI1130");
   const contributedReview = contributor
     .getByRole("listitem")
-    .filter({ hasText: own });
-  await expect(contributedReview.getByTitle("撤回我的评论")).toHaveCount(0);
+    .filter({ hasText: moderated });
+  await expect(contributedReview.getByTitle("删除整条投稿")).toHaveCount(0);
   const like = contributedReview.getByTitle("点赞");
   await like.click();
   await expect(like).toContainText("1");
-  await contributor.reload();
-  const persisted = contributor.getByRole("listitem").filter({ hasText: own });
-  await expect(persisted.getByTitle("点赞")).toContainText("1");
-  await persisted.getByTitle("点赞").click();
-  await expect(persisted.getByTitle("点赞")).toContainText("0");
   await contributorContext.close();
-
-  await ownReview.getByTitle("撤回我的评论").click();
-  await expect(page.getByText(own)).toHaveCount(0);
-
-  await ageRating();
-  await page.reload();
-  await fillSubmission(page, moderated);
-  await page.getByRole("button", { name: "更新测评" }).click();
-  await expect(page.getByText(moderated)).toBeVisible();
+  await expect.poll(() => countRows("course_review_likes")).toBe(1);
 
   const adminContext = await browser.newContext();
   const admin = await adminContext.newPage();
   await loginAsAdmin(admin);
   await admin.goto("/courses/CSCI1130");
   const target = admin.getByRole("listitem").filter({ hasText: moderated });
-  await target.getByTitle("撤回我的评论").click();
+  admin.once("dialog", (dialog) => dialog.accept());
+  await target.getByTitle("删除整条投稿").click();
   await expect(admin.getByText(moderated)).toHaveCount(0);
+  await expect.poll(() => countRows("course_reviews")).toBe(0);
+  await expect.poll(() => countRows("course_ratings")).toBe(0);
+  await expect.poll(() => countRows("course_review_likes")).toBe(0);
   await adminContext.close();
 });
