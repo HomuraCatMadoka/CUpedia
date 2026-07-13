@@ -11,6 +11,7 @@ import {
   canteenDishVotes,
   canteenDishComments,
   menuImportDrafts,
+  danmakuMessages,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -95,5 +96,14 @@ describe("schema", () => {
     expect(cols.sourceImageUrl).toBeDefined();
     expect(cols.items).toBeDefined();
     expect(cols.status).toBeDefined();
+  });
+
+  it("danmakuMessages table has required fields without moderation", () => {
+    const cols = getTableColumns(danmakuMessages);
+    expect(cols.userId).toBeDefined();
+    expect(cols.content).toBeDefined();
+    expect(cols.month).toBeDefined();
+    expect(cols.createdAt).toBeDefined();
+    expect("moderationStatus" in cols).toBe(false);
   });
 });

@@ -194,3 +194,31 @@ export async function getAdminUserForApi() {
     role: dbUser.role,
   };
 }
+
+/** For API routes: logged-in, non-banned author, or null when anonymous. */
+export async function getDanmakuAuthorForApi(): Promise<{
+  id: string;
+  nickname: string;
+  banned: boolean;
+} | null> {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session?.user?.id) return null;
+
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, session.user.id),
+    columns: {
+      id: true,
+      nickname: true,
+      banned: true,
+    },
+  });
+
+  if (!dbUser) return null;
+  return {
+    id: dbUser.id,
+    nickname: dbUser.nickname,
+    banned: dbUser.banned,
+  };
+}

@@ -1,0 +1,41 @@
+.danmaku-track-layer {
+  pointer-events: none;
+}
+
+.danmaku-item {
+  display: inline-block;
+  white-space: nowrap;
+  padding: 0.2rem 0.75rem;
+  border-radius: 9999px;
+  background: rgb(0 0 0 / 0.06);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  animation: danmaku-fly linear infinite;
+}
+
+@keyframes danmaku-fly {
+  from {
+    transform: translateX(100vw);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.danmaku-static-list {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .danmaku-track-layer {
+    display: none;
+  }
+
+  .danmaku-item {
+    animation: none;
+  }
+
+  .danmaku-static-list {
+    display: block;
+  }
+}
