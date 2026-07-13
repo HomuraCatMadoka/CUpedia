@@ -50,7 +50,7 @@ export default function LoginPage() {
       if (authError) {
         setError(authError.message ?? "登录失败，请检查邮箱和密码");
       } else {
-        router.push("/wiki");
+        router.push("/");
         router.refresh();
       }
     } catch {
@@ -109,7 +109,7 @@ export default function LoginPage() {
       if (authError) {
         setError(authError.message ?? "验证码无效或已过期");
       } else {
-        router.push("/wiki");
+        router.push("/");
         router.refresh();
       }
     } catch {

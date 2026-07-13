@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { authClient } from "@/lib/auth-client";
 import {
   distributeDanmakuToTracks,
   messagesForFlyover,
@@ -26,6 +27,23 @@ type ViewerState =
   | { kind: "banned" }
   | { kind: "member"; userId: string; nickname: string };
 
+function resolveViewer(
+  serverViewer: ViewerState,
+  session: ReturnType<typeof authClient.useSession>["data"],
+): ViewerState {
+  if (serverViewer.kind !== "guest") return serverViewer;
+  if (!session?.user?.id) return serverViewer;
+  const nickname =
+    ((session.user as Record<string, unknown>).nickname as string | undefined) ||
+    session.user.email ||
+    "用户";
+  return {
+    kind: "member",
+    userId: session.user.id,
+    nickname,
+  };
+}
+
 export function DanmakuBanner({
   initialMessages,
   viewer,
@@ -33,6 +51,11 @@ export function DanmakuBanner({
   initialMessages: DanmakuMessage[];
   viewer: ViewerState;
 }) {
+  const { data: session } = authClient.useSession();
+  const effectiveViewer = useMemo(
+    () => resolveViewer(viewer, session),
+    [viewer, session],
+  );
   const [messages, setMessages] = useState(initialMessages);
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -132,14 +155,14 @@ export function DanmakuBanner({
       </ul>
 
       <div className="relative z-10 mx-auto max-w-md">
-        {viewer.kind === "guest" ? (
+        {effectiveViewer.kind === "guest" ? (
           <p className="text-center text-sm text-muted-foreground">
             <Link href="/login" className="underline underline-offset-2">
               登录
             </Link>
             后即可发送弹幕
           </p>
-        ) : viewer.kind === "banned" ? (
+        ) : effectiveViewer.kind === "banned" ? (
           <p className="text-center text-sm text-destructive" role="alert">
             账号已封禁，无法发送弹幕
           </p>

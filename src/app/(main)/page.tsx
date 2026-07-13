@@ -8,6 +8,8 @@ import { users } from "@/db/schema";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { listCurrentMonthDanmaku } from "@/lib/danmaku-actions";
 
+export const dynamic = "force-dynamic";
+
 async function getDanmakuViewer() {
   const sessionUser = await getOptionalUser();
   if (!sessionUser?.id) return { kind: "guest" as const };
