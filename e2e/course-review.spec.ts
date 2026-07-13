@@ -75,18 +75,16 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto(`/courses/${CODE}`);
 
-  // Rate: pick 9.0 (default is 8) and submit.
-  await page.getByRole("button", { name: /9\.0/ }).click();
-  await page.getByRole("button", { name: "提交评分" }).click();
-  await expect(page.getByText(/你的评分：9\.0/)).toBeVisible();
-  await expect(page.getByText(/综合 9\.0 分/)).toBeVisible();
-
-  // Review: post an anonymous comment; the author sees a 撤回 affordance.
+  // One submission records the concrete offering, rating and optional comment.
+  await page.getByLabel("学年").selectOption("2025-26");
+  await page.getByLabel("学期").selectOption("Term 2");
   await selectSeedProfessor(page);
-  await page.getByPlaceholder(/匿名分享/).fill(review);
-  await page.getByRole("button", { name: "发表评论" }).click();
+  await page.getByRole("radio", { name: "4.5 星" }).click();
+  await page.getByPlaceholder(/分享课程内容/).fill(review);
+  await page.getByRole("button", { name: "提交测评" }).click();
   await expect(page.getByText(review, { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /撤回/ })).toBeVisible();
+  await expect(page.getByText("4.5", { exact: true }).first()).toBeVisible();
 
   // Like: toggle the like on the just-posted review, count 0 → 1.
   const likeBtn = page.locator('button[title="点赞"]');
@@ -96,11 +94,11 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
 
   // Persists across a reload.
   await page.reload();
-  await expect(page.getByText(/综合 9\.0 分/)).toBeVisible();
+  await expect(page.getByText("4.5", { exact: true }).first()).toBeVisible();
   await expect(page.getByText(review, { exact: true })).toBeVisible();
   await expect(page.locator('button[title="点赞"]')).toContainText("1");
 
   // The redesigned list card reflects the new rating.
   await page.goto("/courses?subject=CSCI");
-  await expect(page.locator(`a[href="/courses/${CODE}"]`)).toContainText("9.0");
+  await expect(page.locator(`a[href="/courses/${CODE}"]`)).toContainText("4.5");
 });

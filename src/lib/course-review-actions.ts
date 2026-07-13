@@ -14,6 +14,7 @@ import {
   professors,
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
+import { COURSE_TERMS, type CourseTerm } from "@/lib/course-review-constants";
 import type { Course } from "@/app/(main)/courses/course-types";
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -41,9 +42,20 @@ export type CourseReviewView = {
   likedByMe: boolean;
   isOwn: boolean;
   professorName: string | null;
+  academicYear: string | null;
+  term: CourseTerm | null;
+  score: number | null;
 };
 
 export type ProfessorOption = { id: string; name: string };
+
+export type CourseReviewSubmission = {
+  academicYear: string;
+  term: CourseTerm;
+  professorId: string;
+  score: number;
+  content?: string;
+};
 
 export type CourseEnrollmentView = {
   academicYear: string;
@@ -134,9 +146,26 @@ function roundScore(score: number): number {
 }
 
 function validateScore(score: number): void {
-  const rounded = roundScore(score);
-  if (rounded < 0 || rounded > 10) {
-    throw new Error("评分须在 0 到 10 之间");
+  if (
+    !Number.isFinite(score) ||
+    score < 0.5 ||
+    score > 5 ||
+    !Number.isInteger(score * 2)
+  ) {
+    throw new Error("评分须为 0.5 到 5 星，并以半星递增");
+  }
+}
+
+function validateAcademicYear(value: string): void {
+  const match = /^(\d{4})-(\d{2})$/.exec(value);
+  if (!match || (Number(match[1]) + 1) % 100 !== Number(match[2])) {
+    throw new Error("请选择明确学年");
+  }
+}
+
+function validateTerm(value: string): asserts value is CourseTerm {
+  if (!(COURSE_TERMS as readonly string[]).includes(value)) {
+    throw new Error("请选择有效学期");
   }
 }
 
@@ -391,7 +420,12 @@ export async function getCourseReviews(
         content: courseReviews.content,
         createdAt: courseReviews.createdAt,
         userId: courseReviews.userId,
-        professorName: professors.name,
+        professorName: sql<
+          string | null
+        >`coalesce(${courseReviews.professorNameSnapshot}, ${professors.name})`,
+        academicYear: courseReviews.academicYear,
+        term: courseReviews.term,
+        score: courseReviews.score,
       })
       .from(courseReviews)
       .leftJoin(professors, eq(courseReviews.professorId, professors.id))
@@ -435,6 +469,11 @@ export async function getCourseReviews(
     likedByMe: mine.has(r.id),
     isOwn: viewerId ? r.userId === viewerId || user?.role === "admin" : false,
     professorName: r.professorName,
+    academicYear: r.academicYear,
+    term: COURSE_TERMS.includes(r.term as CourseTerm)
+      ? (r.term as CourseTerm)
+      : null,
+    score: r.score,
   }));
 }
 
@@ -511,18 +550,37 @@ export async function getCourseEnrollmentHistory(
 
 // ── Mutations (require auth) ──
 
-/** Submit a score for a course. Same user may rate multiple times, but not
- * within RATING_COOLDOWN_MS of their previous rating on this course. */
-export async function submitCourseRating(
+/** Submit one concrete course experience. The rating is always recorded;
+ * a comment row is created only when optional content is present. */
+export async function submitCourseReview(
   code: string,
-  score: number,
+  submission: CourseReviewSubmission,
 ): Promise<void> {
   const user = await requireAuth();
-  validateScore(score);
-  const normalizedScore = roundScore(score);
+  validateScore(submission.score);
+  validateAcademicYear(submission.academicYear);
+  validateTerm(submission.term);
+  const content = submission.content?.trim() ?? "";
+  if (content.length > 2000) throw new Error("评论内容过长");
 
   const course = await findCourse(code);
   if (!course) throw new Error("课程不存在");
+
+  const [professor] = await db
+    .select({ id: professors.id, name: professors.name })
+    .from(professors)
+    .innerJoin(
+      professorCourses,
+      eq(professors.id, professorCourses.professorId),
+    )
+    .where(
+      and(
+        eq(professors.id, submission.professorId),
+        eq(professorCourses.courseCode, course.code),
+      ),
+    )
+    .limit(1);
+  if (!professor) throw new Error("请选择教授目录中的任课教授");
 
   const [previous] = await db
     .select({ createdAt: courseRatings.createdAt })
@@ -541,59 +599,42 @@ export async function submitCourseRating(
     throw new Error("每 5 分钟只能更新一次评分，请稍后再试");
   }
 
-  // One vote per user: a re-rate updates the existing row instead of appending,
-  // so the average isn't self-skewed.
-  await db
-    .insert(courseRatings)
-    .values({
-      courseCode: course.code,
-      userId: user.id,
-      score: normalizedScore,
-    })
-    .onConflictDoUpdate({
-      target: [courseRatings.courseCode, courseRatings.userId],
-      set: { score: normalizedScore, createdAt: sql`now()` },
-    });
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(courseRatings)
+      .values({
+        courseCode: course.code,
+        userId: user.id,
+        score: submission.score,
+        academicYear: submission.academicYear,
+        term: submission.term,
+        professorId: professor.id,
+        professorNameSnapshot: professor.name,
+      })
+      .onConflictDoUpdate({
+        target: [courseRatings.courseCode, courseRatings.userId],
+        set: {
+          score: submission.score,
+          academicYear: submission.academicYear,
+          term: submission.term,
+          professorId: professor.id,
+          professorNameSnapshot: professor.name,
+          createdAt: sql`now()`,
+        },
+      });
 
-  revalidatePath(`/courses/${course.code}`);
-  revalidatePath("/courses");
-}
-
-/** Post an anonymous review on a course. Requires login. */
-export async function addReview(
-  code: string,
-  content: string,
-  professorId: string,
-): Promise<void> {
-  const user = await requireAuth();
-  const trimmed = content.trim();
-  if (!trimmed) throw new Error("评论内容不能为空");
-  if (trimmed.length > 2000) throw new Error("评论内容过长");
-
-  const course = await findCourse(code);
-  if (!course) throw new Error("课程不存在");
-
-  const [professor] = await db
-    .select({ id: professors.id })
-    .from(professors)
-    .innerJoin(
-      professorCourses,
-      eq(professors.id, professorCourses.professorId),
-    )
-    .where(
-      and(
-        eq(professors.id, professorId),
-        eq(professorCourses.courseCode, course.code),
-      ),
-    )
-    .limit(1);
-  if (!professor) throw new Error("请选择教授目录中的任课教授");
-
-  await db.insert(courseReviews).values({
-    courseCode: course.code,
-    userId: user.id,
-    content: trimmed,
-    professorId: professor.id,
+    if (content) {
+      await tx.insert(courseReviews).values({
+        courseCode: course.code,
+        userId: user.id,
+        content,
+        professorId: professor.id,
+        professorNameSnapshot: professor.name,
+        academicYear: submission.academicYear,
+        term: submission.term,
+        score: submission.score,
+      });
+    }
   });
 
   revalidatePath(`/courses/${course.code}`);

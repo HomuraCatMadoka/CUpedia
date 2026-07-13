@@ -362,8 +362,13 @@ export const courseRatings = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    /** 0–10, one decimal. */
+    /** 0.5–5 in half-star steps for new submissions; legacy values are scaled. */
     score: real("score").notNull(),
+    /** Offering metadata is nullable only for ratings created before #293. */
+    academicYear: text("academic_year"),
+    term: text("term"),
+    professorId: text("professor_id").references(() => professors.id),
+    professorNameSnapshot: text("professor_name_snapshot"),
     /** Last time this user rated this course (refreshed on each upsert). */
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -374,6 +379,10 @@ export const courseRatings = pgTable(
     uniqueIndex("course_ratings_course_user_uq").on(
       table.courseCode,
       table.userId,
+    ),
+    check(
+      "course_ratings_term_check",
+      sql`${table.term} is null or ${table.term} in ('Term 1', 'Term 2', 'Summer')`,
     ),
   ],
 );
@@ -439,9 +448,20 @@ export const courseReviews = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
     professorId: text("professor_id").references(() => professors.id),
+    /** Immutable submission snapshot; nullable for legacy comments. */
+    professorNameSnapshot: text("professor_name_snapshot"),
+    academicYear: text("academic_year"),
+    term: text("term"),
+    score: real("score"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [index("course_reviews_course_code_idx").on(table.courseCode)],
+  (table) => [
+    index("course_reviews_course_code_idx").on(table.courseCode),
+    check(
+      "course_reviews_term_check",
+      sql`${table.term} is null or ${table.term} in ('Term 1', 'Term 2', 'Summer')`,
+    ),
+  ],
 );
 
 // One row per (review, user) like. Composite PK makes a double-like a no-op at
