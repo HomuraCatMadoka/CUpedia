@@ -19,6 +19,8 @@ import {
   majors,
   majorCategories,
   categoryCourses,
+  professors,
+  professorCourses,
 } from "../src/db/schema";
 import {
   USER_IDS,
@@ -27,6 +29,7 @@ import {
   REVISION_IDS,
   PASSWORD,
   SEED_USERS,
+  SEED_PROFESSOR,
   buildSeedData,
 } from "./seed-data";
 import {
@@ -181,6 +184,32 @@ async function main() {
           },
         });
     }
+
+    await tx
+      .insert(professors)
+      .values({
+        id: SEED_PROFESSOR.id,
+        name: SEED_PROFESSOR.name,
+        searchText: SEED_PROFESSOR.searchText,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: professors.id,
+        set: {
+          name: SEED_PROFESSOR.name,
+          searchText: SEED_PROFESSOR.searchText,
+          updatedAt: now,
+        },
+      });
+    await tx
+      .insert(professorCourses)
+      .values(
+        SEED_PROFESSOR.courseCodes.map((courseCode) => ({
+          professorId: SEED_PROFESSOR.id,
+          courseCode,
+        })),
+      )
+      .onConflictDoNothing();
 
     for (const m of SEED_MAJORS) {
       await tx.insert(majors).values({

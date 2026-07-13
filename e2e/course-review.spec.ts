@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { test, expect } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
+import { selectSeedProfessor } from "./helpers/course-review";
 
 // Course-review feature: subject filter (#267) + the logged-in rate/review/like
 // lifecycle (#178). Runs against the isolated e2e db, which provision.ts wipes
@@ -81,6 +82,7 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await expect(page.getByText(/综合 9\.0 分/)).toBeVisible();
 
   // Review: post an anonymous comment; the author sees a 撤回 affordance.
+  await selectSeedProfessor(page);
   await page.getByPlaceholder(/匿名分享/).fill(review);
   await page.getByRole("button", { name: "发表评论" }).click();
   await expect(page.getByText(review, { exact: true })).toBeVisible();

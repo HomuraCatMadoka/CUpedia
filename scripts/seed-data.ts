@@ -42,6 +42,13 @@ export const REVISION_IDS = {
 
 export const PASSWORD = "password123";
 
+export const SEED_PROFESSOR = {
+  id: "seed-professor-chan",
+  name: "测试教授 Chan",
+  searchText: "测试教授 chan",
+  courseCodes: ["CSCI1130"],
+} as const;
+
 // Mirrors the setting keys in src/lib/site-settings.ts. Hardcoded here to keep
 // seed data free of server-only DB imports. owner_user_id designates the site
 // Owner (站长); in dev it is the seed admin. Production sets it once in the DB

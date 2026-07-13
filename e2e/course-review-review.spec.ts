@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
+import { selectSeedProfessor } from "./helpers/course-review";
 
 const contents: string[] = [];
 
@@ -32,6 +33,7 @@ test("#266 anonymous review, like toggle, author and admin withdrawal", async ({
   await page.goto("/courses/CSCI1130");
   const textarea = page.getByPlaceholder("匿名分享你对这门课的看法…");
 
+  await selectSeedProfessor(page);
   await textarea.fill(own);
   await page.getByRole("button", { name: "发表评论" }).click();
   const ownReview = page.getByRole("listitem").filter({ hasText: own });
@@ -75,6 +77,7 @@ test("#266 anonymous review, like toggle, author and admin withdrawal", async ({
   await ownReview.getByTitle("撤回我的评论").click();
   await expect(page.getByText(own)).toHaveCount(0);
 
+  await selectSeedProfessor(page);
   await textarea.fill(moderated);
   await page.getByRole("button", { name: "发表评论" }).click();
   await expect(page.getByText(moderated)).toBeVisible();
