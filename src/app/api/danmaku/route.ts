@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getDanmakuAuthorForApi } from "@/lib/auth-guard";
-import {
-  createDanmakuAsUser,
-  listCurrentMonthDanmaku,
-} from "@/lib/danmaku-actions";
+import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
+import { listCurrentMonthDanmaku } from "@/lib/danmaku-queries";
 
 function mapDanmakuError(message: string): number {
   switch (message) {
@@ -43,10 +42,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const message = await createDanmakuAsUser(
+    const message = await insertDanmakuForUser(
       { id: author.id, nickname: author.nickname },
       body.content,
     );
+    revalidatePath("/");
     return NextResponse.json(
       {
         message: {

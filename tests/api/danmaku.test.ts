@@ -1,19 +1,27 @@
 import { NextRequest } from "next/server";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockGetDanmakuAuthorForApi, mockCreateDanmakuAsUser, mockList } =
+const { mockGetDanmakuAuthorForApi, mockInsert, mockList, mockRevalidate } =
   vi.hoisted(() => ({
     mockGetDanmakuAuthorForApi: vi.fn(),
-    mockCreateDanmakuAsUser: vi.fn(),
+    mockInsert: vi.fn(),
     mockList: vi.fn(),
+    mockRevalidate: vi.fn(),
   }));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: (...args: unknown[]) => mockRevalidate(...args),
+}));
 
 vi.mock("@/lib/auth-guard", () => ({
   getDanmakuAuthorForApi: () => mockGetDanmakuAuthorForApi(),
 }));
 
-vi.mock("@/lib/danmaku-actions", () => ({
-  createDanmakuAsUser: (...args: unknown[]) => mockCreateDanmakuAsUser(...args),
+vi.mock("@/lib/danmaku-mutations", () => ({
+  insertDanmakuForUser: (...args: unknown[]) => mockInsert(...args),
+}));
+
+vi.mock("@/lib/danmaku-queries", () => ({
   listCurrentMonthDanmaku: () => mockList(),
 }));
 
@@ -75,7 +83,7 @@ describe("/api/danmaku", () => {
       nickname: "Alice",
       banned: false,
     });
-    mockCreateDanmakuAsUser.mockResolvedValue({
+    mockInsert.mockResolvedValue({
       id: "d1",
       userId: "u1",
       content: "加油",
@@ -89,7 +97,7 @@ describe("/api/danmaku", () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(201);
-    expect(mockCreateDanmakuAsUser).toHaveBeenCalledWith(
+    expect(mockInsert).toHaveBeenCalledWith(
       { id: "u1", nickname: "Alice" },
       "加油",
     );

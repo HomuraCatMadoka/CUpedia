@@ -1,32 +1,44 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+const { mockDbSelect } = vi.hoisted(() => ({
+  mockDbSelect: vi.fn(),
+}));
+
+vi.mock("@/db", () => ({
+  db: {
+    select: (...args: unknown[]) => mockDbSelect(...args),
+  },
+}));
+
 import {
-  checkDanmakuRateLimit,
+  assertDanmakuRateLimit,
   getDanmakuRateLimitPerHour,
-  resetDanmakuRateLimitForTests,
 } from "@/lib/danmaku-rate-limit";
 
 describe("danmaku rate limit", () => {
-  const prev = process.env.DANMAKU_RATE_LIMIT_PER_HOUR;
-
   beforeEach(() => {
+    vi.clearAllMocks();
     process.env.DANMAKU_RATE_LIMIT_PER_HOUR = "2";
-    resetDanmakuRateLimitForTests();
   });
 
-  afterEach(() => {
-    process.env.DANMAKU_RATE_LIMIT_PER_HOUR = prev;
-    resetDanmakuRateLimitForTests();
+  it("allows when recent count is below limit", async () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ value: 1 }]),
+      }),
+    });
+    await expect(assertDanmakuRateLimit("user-a")).resolves.toBeUndefined();
   });
 
-  it("allows posts until hourly ceiling per user", () => {
-    expect(checkDanmakuRateLimit("user-a")).toBe(true);
-    expect(checkDanmakuRateLimit("user-a")).toBe(true);
-    expect(checkDanmakuRateLimit("user-a")).toBe(false);
-  });
-
-  it("tracks users independently", () => {
-    expect(checkDanmakuRateLimit("user-a")).toBe(true);
-    expect(checkDanmakuRateLimit("user-b")).toBe(true);
+  it("throws when recent count reaches limit", async () => {
+    mockDbSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([{ value: 2 }]),
+      }),
+    });
+    await expect(assertDanmakuRateLimit("user-a")).rejects.toThrow(
+      "DANMAKU_RATE_LIMIT_EXCEEDED",
+    );
   });
 
   it("defaults to 5 per hour when env unset", () => {

@@ -1,7 +1,7 @@
 import { DanmakuAdminPanel } from "@/components/admin/danmaku-admin-panel";
-import { adminListCurrentMonthDanmaku } from "@/lib/danmaku-actions";
+import { adminListDanmaku } from "@/lib/danmaku-actions";
 
 export default async function AdminDanmakuPage() {
-  const messages = await adminListCurrentMonthDanmaku();
+  const messages = await adminListDanmaku();
   return <DanmakuAdminPanel messages={messages} />;
 }

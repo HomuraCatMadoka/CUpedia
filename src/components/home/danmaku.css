@@ -22,6 +22,10 @@
   }
 }
 
+.danmaku-static-list {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .danmaku-track-layer {
     display: none;
@@ -34,8 +38,4 @@
   .danmaku-static-list {
     display: block;
   }
-}
-
-.danmaku-static-list {
-  display: none;
 }

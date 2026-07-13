@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   distributeDanmakuToTracks,
+  messagesForFlyover,
   type DanmakuMessage,
 } from "@/lib/danmaku-types";
 import "./danmaku.css";
@@ -38,7 +39,7 @@ export function DanmakuBanner({
   const [pending, startTransition] = useTransition();
 
   const tracks = useMemo(
-    () => distributeDanmakuToTracks(messages, 3),
+    () => distributeDanmakuToTracks(messagesForFlyover(messages), 3),
     [messages],
   );
 

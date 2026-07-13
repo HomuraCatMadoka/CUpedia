@@ -1,20 +1,18 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const {
   mockRedirect,
   mockGetSession,
   mockDbQueryUsers,
-  mockDbInsert,
   mockDbDelete,
-  mockDbSelect,
+  mockInsert,
   mockRevalidatePath,
 } = vi.hoisted(() => ({
   mockRedirect: vi.fn(),
   mockGetSession: vi.fn(),
   mockDbQueryUsers: { findFirst: vi.fn() },
-  mockDbInsert: vi.fn(),
   mockDbDelete: vi.fn(),
-  mockDbSelect: vi.fn(),
+  mockInsert: vi.fn(),
   mockRevalidatePath: vi.fn(),
 }));
 
@@ -44,17 +42,15 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/db", () => ({
   db: {
     query: { users: mockDbQueryUsers },
-    insert: (...args: unknown[]) => mockDbInsert(...args),
     delete: (...args: unknown[]) => mockDbDelete(...args),
-    select: (...args: unknown[]) => mockDbSelect(...args),
   },
 }));
 
-import { resetDanmakuRateLimitForTests } from "@/lib/danmaku-rate-limit";
-import {
-  adminDeleteDanmaku,
-  createDanmakuAsUser,
-} from "@/lib/danmaku-actions";
+vi.mock("@/lib/danmaku-mutations", () => ({
+  insertDanmakuForUser: (...args: unknown[]) => mockInsert(...args),
+}));
+
+import { adminDeleteDanmaku, createDanmaku } from "@/lib/danmaku-actions";
 
 function mockAuthUser() {
   mockGetSession.mockResolvedValue({
@@ -71,58 +67,31 @@ function mockAuthUser() {
 
 describe("danmaku-actions", () => {
   beforeEach(() => {
-    resetDanmakuRateLimitForTests();
     vi.clearAllMocks();
-    process.env.DANMAKU_RATE_LIMIT_PER_HOUR = "10";
   });
 
-  afterEach(() => {
-    resetDanmakuRateLimitForTests();
-  });
-
-  it("createDanmakuAsUser inserts row for current month", async () => {
-    const now = new Date();
-    const returning = vi.fn().mockResolvedValue([
-      {
-        id: "dm-1",
-        userId: "user-1",
-        content: "期末加油",
-        month: "2026-07",
-        createdAt: now,
-      },
-    ]);
-    mockDbInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({ returning }),
+  it("createDanmaku requires auth and delegates to insert helper", async () => {
+    mockAuthUser();
+    mockInsert.mockResolvedValue({
+      id: "dm-1",
+      userId: "user-1",
+      content: "加油",
+      month: "2026-07",
+      authorNickname: "Tester",
+      createdAt: new Date(),
     });
 
-    const row = await createDanmakuAsUser(
+    const row = await createDanmaku("加油");
+    expect(row.content).toBe("加油");
+    expect(mockInsert).toHaveBeenCalledWith(
       { id: "user-1", nickname: "Tester" },
-      "期末加油",
+      "加油",
     );
-    expect(row.content).toBe("期末加油");
-    expect(row.authorNickname).toBe("Tester");
-    expect(mockDbInsert).toHaveBeenCalled();
   });
 
-  it("rejects when rate limit exceeded", async () => {
-    process.env.DANMAKU_RATE_LIMIT_PER_HOUR = "1";
-    const returning = vi.fn().mockResolvedValue([
-      {
-        id: "dm-1",
-        userId: "user-1",
-        content: "a",
-        month: "2026-07",
-        createdAt: new Date(),
-      },
-    ]);
-    mockDbInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({ returning }),
-    });
-
-    await createDanmakuAsUser({ id: "user-1", nickname: "T" }, "a");
-    await expect(
-      createDanmakuAsUser({ id: "user-1", nickname: "T" }, "b"),
-    ).rejects.toThrow("DANMAKU_RATE_LIMIT_EXCEEDED");
+  it("createDanmaku redirects anonymous callers", async () => {
+    mockGetSession.mockResolvedValue(null);
+    await expect(createDanmaku("x")).rejects.toThrow("NEXT_REDIRECT");
   });
 
   it("adminDeleteDanmaku hard-deletes row", async () => {

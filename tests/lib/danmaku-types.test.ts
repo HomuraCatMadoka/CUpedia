@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  DANMAKU_FLY_MAX,
   DANMAKU_MAX_LENGTH,
   distributeDanmakuToTracks,
+  messagesForFlyover,
   validateDanmakuContent,
 } from "@/lib/danmaku-types";
 
@@ -25,5 +27,13 @@ describe("danmaku-types", () => {
     expect(tracks[1]).toHaveLength(167);
     expect(tracks[2]).toHaveLength(166);
     expect(tracks.flat()).toHaveLength(500);
+  });
+
+  it("messagesForFlyover caps flyover DOM to latest N", () => {
+    const items = Array.from({ length: DANMAKU_FLY_MAX + 10 }, (_, i) => i);
+    const capped = messagesForFlyover(items);
+    expect(capped).toHaveLength(DANMAKU_FLY_MAX);
+    expect(capped[0]).toBe(10);
+    expect(capped.at(-1)).toBe(DANMAKU_FLY_MAX + 9);
   });
 });
