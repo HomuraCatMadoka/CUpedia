@@ -36,11 +36,9 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    if (!isAllowedEmail(email)) {
-      setError("仅支持 CUHK 邮箱");
-      return;
-    }
-
+    // No domain gate on password sign-in: the account must already exist, so
+    // there is nothing to abuse. The whitelist guards account creation
+    // (register/OTP), enforced server-side in auth.ts.
     setLoading(true);
     try {
       const { error: authError } = await authClient.signIn.email({
