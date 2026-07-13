@@ -3,7 +3,7 @@
 import { db } from "@/db";
 import { discussions, users } from "@/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
-import { requireAuth } from "@/lib/auth-guard";
+import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
 
 export type Discussion = {
   id: string;
@@ -14,29 +14,33 @@ export type Discussion = {
   createdAt: Date;
   user: { id: string; nickname: string };
   replies: Discussion[];
+  canResolve: boolean;
 };
 
 export async function getDiscussions(pageId: string): Promise<Discussion[]> {
-  const rows = await db
-    .select({
-      id: discussions.id,
-      commentMarkId: discussions.commentMarkId,
-      content: discussions.content,
-      resolved: discussions.resolved,
-      parentId: discussions.parentId,
-      createdAt: discussions.createdAt,
-      userId: discussions.userId,
-      nickname: users.nickname,
-    })
-    .from(discussions)
-    .innerJoin(users, eq(discussions.userId, users.id))
-    .where(eq(discussions.pageId, pageId))
-    .orderBy(asc(discussions.createdAt))
-    // Auxiliary read path — degrade to empty rather than failing the page.
-    .catch((error: unknown) => {
-      console.error("getDiscussions: query failed", error);
-      return [];
-    });
+  const [viewer, rows] = await Promise.all([
+    getOptionalUser(),
+    db
+      .select({
+        id: discussions.id,
+        commentMarkId: discussions.commentMarkId,
+        content: discussions.content,
+        resolved: discussions.resolved,
+        parentId: discussions.parentId,
+        createdAt: discussions.createdAt,
+        userId: discussions.userId,
+        nickname: users.nickname,
+      })
+      .from(discussions)
+      .innerJoin(users, eq(discussions.userId, users.id))
+      .where(eq(discussions.pageId, pageId))
+      .orderBy(asc(discussions.createdAt))
+      // Auxiliary read path — degrade to empty rather than failing the page.
+      .catch((error: unknown) => {
+        console.error("getDiscussions: query failed", error);
+        return [];
+      }),
+  ]);
 
   const map = new Map<string, Discussion>();
   const roots: Discussion[] = [];
@@ -51,6 +55,8 @@ export async function getDiscussions(pageId: string): Promise<Discussion[]> {
       createdAt: row.createdAt,
       user: { id: row.userId, nickname: row.nickname },
       replies: [],
+      canResolve:
+        !!viewer && (viewer.id === row.userId || viewer.role === "admin"),
     };
     map.set(d.id, d);
     if (!d.parentId) {

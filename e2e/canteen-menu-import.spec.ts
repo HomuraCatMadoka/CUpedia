@@ -1,7 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
-
-const ADMIN_EMAIL = "admin@test.com";
-const ADMIN_PASSWORD = "password123";
+import { test, expect } from "@playwright/test";
+import { loginAsAdmin } from "./helpers/auth";
 
 /** Minimal valid 1×1 PNG */
 const TINY_PNG = Buffer.from(
@@ -9,23 +7,9 @@ const TINY_PNG = Buffer.from(
   "base64",
 );
 
-async function login(page: Page) {
-  let last = "";
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD },
-    });
-    if (res.ok()) return;
-    last = `${res.status()} ${await res.text()}`;
-    if (res.status() !== 429) break;
-    await page.waitForTimeout(2000);
-  }
-  expect(false, `login failed: ${last}`).toBe(true);
-}
-
 test.describe("canteen menu OCR import", () => {
   test.beforeEach(async ({ page }) => {
-    await login(page);
+    await loginAsAdmin(page);
   });
 
   test("admin uploads menu image, proofreads, and publishes dishes", async ({
@@ -33,17 +17,19 @@ test.describe("canteen menu OCR import", () => {
   }) => {
     const canteenName = `E2E导入食堂-${Date.now()}`;
 
-    await page.goto("/admin/canteens", { waitUntil: "networkidle" });
+    await page.goto("/admin/canteens");
     await page.getByLabel("食堂名称").fill(canteenName);
     await page.getByRole("button", { name: "添加食堂" }).click();
     await expect(page.getByText(canteenName)).toBeVisible();
 
     await page
-      .locator("div")
-      .filter({ hasText: canteenName })
+      .getByRole("heading", { name: canteenName, exact: true })
+      .locator('xpath=ancestor::div[contains(@class, "canteen-fade-in")][1]')
       .getByRole("link", { name: "管理菜单" })
       .click();
-    await expect(page.getByRole("heading", { name: /菜单/ })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: /菜单/ }),
+    ).toBeVisible();
 
     const ocrSection = page.getByRole("region", { name: "OCR 菜单导入" });
     await ocrSection.locator('input[type="file"]').setInputFiles({
@@ -62,7 +48,8 @@ test.describe("canteen menu OCR import", () => {
 
     const menuUrl = page.url();
     const canteenId = menuUrl.split("/").pop()!;
-    await page.goto(`/canteen/${canteenId}`, { waitUntil: "networkidle" });
+    await page.goto(`/canteen/${canteenId}`);
+    await page.getByRole("tab", { name: "午餐" }).click();
     await expect(page.getByText("演示菜品A")).toBeVisible();
   });
 });

@@ -3,15 +3,38 @@
 import { db } from "@/db";
 import { wikiPages, wikiRevisions, wikiLinks } from "@/db/schema";
 import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
-import { unstable_cache, revalidateTag } from "next/cache";
+import {
+  revalidatePath,
+  unstable_cache,
+  revalidateTag,
+  updateTag,
+} from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
 import { extractWikiLinkTargets } from "@/lib/wiki-links";
 import { threeWayMergeContent } from "@/lib/merge-content";
+import {
+  shouldCoalesceRevision,
+  CREATE_REVISION_SUMMARY,
+  ROLLBACK_REVISION_SUMMARY_PREFIX,
+} from "@/lib/revision-coalescing";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+// The search corpus is its own cache bucket (ADR 0011). It is NOT tagged
+// `wiki-pages`, so a content-only edit no longer rebuilds the whole corpus on
+// every autosave tick; low-value freshness (a body typo in a search excerpt)
+// rides this time-based refresh instead. Structural change — a page
+// appearing/disappearing or its title (search weight 2) changing — calls
+// `revalidateSearchCorpus()` for immediate, high-value freshness.
+const SEARCH_CORPUS_TAG = "wiki-search-corpus";
+const SEARCH_CORPUS_REVALIDATE_SECONDS = 5 * 60;
+
+function revalidateSearchCorpus() {
+  revalidateTag(SEARCH_CORPUS_TAG, "max");
+}
 
 /** Rewrite the outgoing wiki-link rows for a source page from its content. */
 async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
@@ -48,6 +71,16 @@ const getCachedWikiPage = unstable_cache(
 
 export async function getWikiPage(slug: string) {
   return getCachedWikiPage(slug);
+}
+
+// Editing needs an authoritative optimistic-lock baseline. A stale cached
+// updatedAt turns the next legitimate save into a false EDIT_CONFLICT.
+export async function getWikiPageForEdit(slug: string) {
+  return (
+    (await db.query.wikiPages.findFirst({
+      where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
+    })) ?? null
+  );
 }
 
 const getCachedBacklinks = unstable_cache(
@@ -106,6 +139,7 @@ export async function createWikiPage(data: {
   if (!validateSlug(data.slug)) throw new Error("Invalid slug");
 
   const page = await db.transaction(async (tx) => {
+    const now = new Date();
     const [p] = await tx
       .insert(wikiPages)
       .values({
@@ -115,6 +149,8 @@ export async function createWikiPage(data: {
         parentId: data.parentId ?? null,
         createdBy: user.id,
         updatedBy: user.id,
+        createdAt: now,
+        updatedAt: now,
       })
       .returning();
 
@@ -123,7 +159,7 @@ export async function createWikiPage(data: {
       title: data.title,
       content: data.content,
       editedBy: user.id,
-      editSummary: "创建页面",
+      editSummary: CREATE_REVISION_SUMMARY,
     });
 
     await syncWikiLinks(tx, p.id, data.content);
@@ -131,6 +167,7 @@ export async function createWikiPage(data: {
   });
 
   revalidateTag("wiki-pages", "max");
+  revalidateSearchCorpus();
   return page;
 }
 
@@ -175,13 +212,40 @@ async function writeWikiPage(
 
     if (updated.length === 0) throw new Error("EDIT_CONFLICT");
 
-    await tx.insert(wikiRevisions).values({
-      pageId,
-      title: data.title,
-      content: data.content,
-      editedBy: userId,
-      editSummary: data.editSummary ?? null,
-    });
+    const now = updated[0].updatedAt;
+    const [latestRevision] = await tx
+      .select({
+        id: wikiRevisions.id,
+        editedBy: wikiRevisions.editedBy,
+        createdAt: wikiRevisions.createdAt,
+        editSummary: wikiRevisions.editSummary,
+      })
+      .from(wikiRevisions)
+      .where(eq(wikiRevisions.pageId, pageId))
+      .orderBy(desc(wikiRevisions.createdAt))
+      .limit(1);
+
+    if (shouldCoalesceRevision(latestRevision, { userId, at: now })) {
+      // Fold this write into the ongoing sitting: update the latest revision in
+      // place and slide its window anchor (createdAt) forward. See ADR 0009.
+      await tx
+        .update(wikiRevisions)
+        .set({
+          title: data.title,
+          content: data.content,
+          editSummary: data.editSummary ?? null,
+          createdAt: now,
+        })
+        .where(eq(wikiRevisions.id, latestRevision.id));
+    } else {
+      await tx.insert(wikiRevisions).values({
+        pageId,
+        title: data.title,
+        content: data.content,
+        editedBy: userId,
+        editSummary: data.editSummary ?? null,
+      });
+    }
 
     await syncWikiLinks(tx, pageId, data.content);
     return updated[0];
@@ -204,9 +268,14 @@ export async function updateWikiPage(data: {
   });
   if (!existing) throw new Error("Page not found");
 
+  // A title change is structural (title carries search weight 2); a body-only
+  // edit is not, so it rides the corpus's time-based refresh. See ADR 0011.
+  const titleChanged = data.title !== existing.title;
+
   try {
     const result = await writeWikiPage(data, user.id, existing.id);
     revalidateTag("wiki-pages", "max");
+    if (titleChanged) revalidateSearchCorpus();
     return result;
   } catch (e) {
     if (!(e instanceof Error && e.message === "EDIT_CONFLICT")) throw e;
@@ -231,6 +300,11 @@ export async function updateWikiPage(data: {
         existing.id,
       );
       revalidateTag("wiki-pages", "max");
+      // Gate on `latest.title` (the post-conflict state this write overwrites),
+      // not `existing.title` (the stale pre-conflict baseline): a concurrent
+      // rename may have already moved the title, so `data.title` could revert
+      // it — still a structural change the corpus must reflect. See ADR 0011.
+      if (data.title !== latest.title) revalidateSearchCorpus();
       return result;
     }
   }
@@ -266,7 +340,10 @@ export async function deleteWikiPage(pageId: string) {
     .set({ deletedAt: now })
     .where(inArray(wikiPages.id, ids));
 
-  revalidateTag("wiki-pages", "max");
+  updateTag("wiki-pages");
+  revalidatePath("/wiki", "layout");
+  revalidatePath("/admin/deleted");
+  revalidateSearchCorpus();
 }
 
 export async function restoreWikiPage(pageId: string) {
@@ -298,7 +375,10 @@ export async function restoreWikiPage(pageId: string) {
     .set({ deletedAt: null })
     .where(inArray(wikiPages.id, ids));
 
-  revalidateTag("wiki-pages", "max");
+  updateTag("wiki-pages");
+  revalidatePath("/wiki", "layout");
+  revalidatePath("/admin/deleted");
+  revalidateSearchCorpus();
 }
 
 export async function getRevisions(pageId: string) {
@@ -355,11 +435,12 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
       title: revision.title,
       content: revision.content,
       editedBy: user.id,
-      editSummary: `回滚至版本 ${revisionId}`,
+      editSummary: `${ROLLBACK_REVISION_SUMMARY_PREFIX}${revisionId}`,
     });
   });
 
   revalidateTag("wiki-pages", "max");
+  if (revision.title !== existing.title) revalidateSearchCorpus();
 }
 
 const getCachedSearchablePages = unstable_cache(
@@ -376,7 +457,7 @@ const getCachedSearchablePages = unstable_cache(
     return pages.map((p) => ({ ...p, content: extractText(p.content) }));
   },
   ["wiki-pages-search"],
-  { tags: ["wiki-pages"] },
+  { tags: [SEARCH_CORPUS_TAG], revalidate: SEARCH_CORPUS_REVALIDATE_SECONDS },
 );
 
 export async function searchWikiPages(query: string) {

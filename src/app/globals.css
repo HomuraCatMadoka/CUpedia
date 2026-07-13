@@ -126,6 +126,7 @@
 @layer base {
   :root {
     --sidebar-width: 240px;
+    --toc-width: 220px;
     --sidebar-collapsed-width: 44px;
     --sidebar-bg: #f7f7f5;
     --sidebar-border-color: #e8e5e0;

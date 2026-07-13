@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { ChevronDownIcon, ChevronRightIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { PrefetchLink } from "@/components/layout/prefetch-link";
-import { PageToc } from "@/components/layout/page-toc";
-import type { Heading } from "@/lib/headings";
 
 type TreeNode = {
   id: string;
@@ -79,7 +78,11 @@ function ChildItem({
             className="flex h-5 w-5 shrink-0 items-center justify-center text-xs text-muted-foreground"
             aria-label={collapsed ? "展开" : "折叠"}
           >
-            {collapsed ? "▶" : "▼"}
+            {collapsed ? (
+              <ChevronRightIcon aria-hidden="true" className="size-3" />
+            ) : (
+              <ChevronDownIcon aria-hidden="true" className="size-3" />
+            )}
           </button>
         ) : (
           <span className="w-5 shrink-0" />
@@ -137,7 +140,11 @@ function SectionGroup({
           className="flex h-4 w-4 shrink-0 items-center justify-center text-[10px] text-muted-foreground"
           aria-label={collapsed ? "展开" : "折叠"}
         >
-          {collapsed ? "▶" : "▼"}
+          {collapsed ? (
+            <ChevronRightIcon aria-hidden="true" className="size-3" />
+          ) : (
+            <ChevronDownIcon aria-hidden="true" className="size-3" />
+          )}
         </button>
         <PrefetchLink
           href={href}
@@ -170,26 +177,16 @@ function SectionGroup({
 
 export function WikiSidebar({
   pages,
-  currentPage,
-  headings,
 }: {
-  /** Omit when the TOC branch renders — keeps the full tree out of the RSC payload (#136). */
-  pages?: {
+  pages: {
     id: string;
     slug: string;
     title: string;
     parentId: string | null;
   }[];
-  currentPage?: {
-    title: string;
-    slug: string;
-    parentTitle?: string;
-    parentSlug?: string;
-  };
-  headings?: Heading[];
 }) {
   const { state, collapse, closeMobile } = useSidebar();
-  const tree = buildTree(pages ?? []);
+  const tree = buildTree(pages);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsed);
 
@@ -236,28 +233,19 @@ export function WikiSidebar({
             className="text-xs text-muted-foreground hover:text-foreground"
             aria-label="收起导航"
           >
-            ✕
+            <XIcon aria-hidden="true" className="size-4" />
           </button>
         </div>
-        {currentPage && headings && headings.length > 0 ? (
-          <PageToc
-            headings={headings}
-            pageTitle={currentPage.title}
-            parentTitle={currentPage.parentTitle}
-            parentSlug={currentPage.parentSlug}
-          />
-        ) : (
-          <ul className="flex-1 p-2">
-            {tree.map((node) => (
-              <SectionGroup
-                key={node.id}
-                node={node}
-                collapsedIds={collapsedIds}
-                onToggle={onToggle}
-              />
-            ))}
-          </ul>
-        )}
+        <ul className="flex-1 p-2">
+          {tree.map((node) => (
+            <SectionGroup
+              key={node.id}
+              node={node}
+              collapsedIds={collapsedIds}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
       </nav>
     </>
   );

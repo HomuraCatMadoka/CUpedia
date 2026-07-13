@@ -65,6 +65,9 @@ wt/
 # local debug artifacts
 edit-snapshot.txt
 
+# scraped course/handbook harvest (regenerable via tools/scraper; never committed)
+scripts/data/
+
 # assets
 design.png
 supabase/

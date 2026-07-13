@@ -146,6 +146,9 @@ importers:
       nodemailer:
         specifier: ^7.0.13
         version: 7.0.13
+      parse5:
+        specifier: 8.0.1
+        version: 8.0.1
       pg:
         specifier: ^8.21.0
         version: 8.21.0

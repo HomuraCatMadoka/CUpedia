@@ -1,26 +1,12 @@
 import { test, expect, type Page } from "@playwright/test";
 import { CANTEEN_IDS } from "../scripts/seed-data";
+import { loginWithPassword } from "./helpers/auth";
 
 /** ref #193 — canteen menu voting core path (ADR 0007 feature naming) */
 
 const USER_EMAIL = "user@test.com";
 const USER_PASSWORD = "password123";
 const DEMO_CANTEEN_URL = `/canteen/${CANTEEN_IDS.demo}`;
-
-async function login(page: Page, email: string, password: string) {
-  let last = "";
-  for (let attempt = 0; attempt < 6; attempt++) {
-    const res = await page.request.post("/api/auth/sign-in/email", {
-      data: { email, password },
-      headers: { Origin: "http://localhost:3100" },
-    });
-    if (res.ok()) return;
-    last = `${res.status()} ${await res.text()}`;
-    if (res.status() !== 429) break;
-    await page.waitForTimeout(2000);
-  }
-  expect(false, `login failed: ${last}`).toBe(true);
-}
 
 async function selectLunch(page: Page) {
   const lunchTab = page.getByRole("tab", { name: "午餐" });
@@ -30,7 +16,7 @@ async function selectLunch(page: Page) {
 
 test.describe("canteen menu votes", () => {
   test("homepage canteen card navigates to browse page", async ({ page }) => {
-    await page.goto("/", { waitUntil: "networkidle" });
+    await page.goto("/");
     await page.getByRole("link", { name: /食堂/ }).click();
     await expect(page).toHaveURL(/\/canteen$/);
     await expect(page.getByText("演示食堂")).toBeVisible();
@@ -40,8 +26,8 @@ test.describe("canteen menu votes", () => {
     page,
   }) => {
     // Layout issues anon session cookie; warm it before voting.
-    await page.goto("/canteen", { waitUntil: "networkidle" });
-    await page.goto(DEMO_CANTEEN_URL, { waitUntil: "networkidle" });
+    await page.goto("/canteen");
+    await page.goto(DEMO_CANTEEN_URL);
     await selectLunch(page);
 
     const row = page.getByRole("listitem").filter({ hasText: "演示米饭" });
@@ -50,8 +36,7 @@ test.describe("canteen menu votes", () => {
     await expect(likeBtn).toHaveAttribute("aria-pressed", "true");
     await expect(likeBtn.getByText("1", { exact: true })).toBeVisible();
 
-    await page.waitForTimeout(1500);
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload();
     await selectLunch(page);
     const likeAfterReload = page
       .getByRole("listitem")
@@ -61,7 +46,7 @@ test.describe("canteen menu votes", () => {
   });
 
   test("menu list renders category svg icons", async ({ page }) => {
-    await page.goto(DEMO_CANTEEN_URL, { waitUntil: "networkidle" });
+    await page.goto(DEMO_CANTEEN_URL);
     await selectLunch(page);
     await expect(page.locator('[data-svg-key="rice"]').first()).toBeVisible();
     await expect(page.locator('[data-svg-key="spicy"]').first()).toBeVisible();
@@ -70,8 +55,8 @@ test.describe("canteen menu votes", () => {
   test("logged-in diner can change vote from like to dislike", async ({
     page,
   }) => {
-    await login(page, USER_EMAIL, USER_PASSWORD);
-    await page.goto(DEMO_CANTEEN_URL, { waitUntil: "networkidle" });
+    await loginWithPassword(page, USER_EMAIL, USER_PASSWORD);
+    await page.goto(DEMO_CANTEEN_URL);
     await selectLunch(page);
 
     const row = page.getByRole("listitem").filter({ hasText: "演示辣味" });
@@ -89,7 +74,7 @@ test.describe("canteen menu votes", () => {
     test.use({ viewport: { width: 375, height: 800 } });
 
     test("lunch menu vote controls are tappable", async ({ page }) => {
-      await page.goto(DEMO_CANTEEN_URL, { waitUntil: "networkidle" });
+      await page.goto(DEMO_CANTEEN_URL);
       await selectLunch(page);
 
       const row = page.getByRole("listitem").filter({ hasText: "演示米饭" });

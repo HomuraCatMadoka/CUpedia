@@ -1,6 +1,6 @@
 {
-  "id": "cedbfa1b-1f35-4508-a84d-91226e9ba650",
-  "prevId": "cca6da2e-5252-4443-8395-3b2bcf7def8e",
+  "id": "1a6c3352-07b2-4e8b-ba91-76b7070796e2",
+  "prevId": "badc354a-2af6-498a-b03e-9c114d242278",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -96,12 +96,8 @@
           "name": "accounts_user_id_users_id_fk",
           "tableFrom": "accounts",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -112,118 +108,54 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.canteen_dish_comments": {
-      "name": "canteen_dish_comments",
+    "public.build_items": {
+      "name": "build_items",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "menu_item_id": {
-          "name": "menu_item_id",
+        "build_id": {
+          "name": "build_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "content": {
-          "name": "content",
+        "course_code": {
+          "name": "course_code",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
+        "term": {
+          "name": "term",
+          "type": "integer",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
-      "indexes": {
-        "canteen_dish_comments_menu_item_id_idx": {
-          "name": "canteen_dish_comments_menu_item_id_idx",
-          "columns": [
-            {
-              "expression": "menu_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_dish_comments_user_id_idx": {
-          "name": "canteen_dish_comments_user_id_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "canteen_dish_comments_menu_item_id_canteen_menu_items_id_fk": {
-          "name": "canteen_dish_comments_menu_item_id_canteen_menu_items_id_fk",
-          "tableFrom": "canteen_dish_comments",
-          "tableTo": "canteen_menu_items",
-          "columnsFrom": [
-            "menu_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "canteen_dish_comments_user_id_users_id_fk": {
-          "name": "canteen_dish_comments_user_id_users_id_fk",
-          "tableFrom": "canteen_dish_comments",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+        "build_items_build_id_builds_id_fk": {
+          "name": "build_items_build_id_builds_id_fk",
+          "tableFrom": "build_items",
+          "tableTo": "builds",
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
+      "compositePrimaryKeys": {
+        "build_items_build_id_course_code_pk": {
+          "name": "build_items_build_id_course_code_pk",
+          "columns": ["build_id", "course_code"]
+        }
+      },
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.canteen_dish_votes": {
-      "name": "canteen_dish_votes",
+    "public.builds": {
+      "name": "builds",
       "schema": "",
       "columns": {
         "id": {
@@ -232,189 +164,15 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
-        },
-        "menu_item_id": {
-          "name": "menu_item_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
         },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
-        "anonymous_session_id": {
-          "name": "anonymous_session_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "vote": {
-          "name": "vote",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "canteen_dish_votes_menu_item_id_idx": {
-          "name": "canteen_dish_votes_menu_item_id_idx",
-          "columns": [
-            {
-              "expression": "menu_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_dish_votes_user_id_idx": {
-          "name": "canteen_dish_votes_user_id_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_dish_votes_anon_session_id_idx": {
-          "name": "canteen_dish_votes_anon_session_id_idx",
-          "columns": [
-            {
-              "expression": "anonymous_session_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_dish_votes_user_menu_item_uidx": {
-          "name": "canteen_dish_votes_user_menu_item_uidx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "menu_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"canteen_dish_votes\".\"user_id\" IS NOT NULL",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_dish_votes_anon_menu_item_uidx": {
-          "name": "canteen_dish_votes_anon_menu_item_uidx",
-          "columns": [
-            {
-              "expression": "anonymous_session_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "menu_item_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"canteen_dish_votes\".\"anonymous_session_id\" IS NOT NULL",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "canteen_dish_votes_menu_item_id_canteen_menu_items_id_fk": {
-          "name": "canteen_dish_votes_menu_item_id_canteen_menu_items_id_fk",
-          "tableFrom": "canteen_dish_votes",
-          "tableTo": "canteen_menu_items",
-          "columnsFrom": [
-            "menu_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "canteen_dish_votes_user_id_users_id_fk": {
-          "name": "canteen_dish_votes_user_id_users_id_fk",
-          "tableFrom": "canteen_dish_votes",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "canteen_dish_votes_identity_chk": {
-          "name": "canteen_dish_votes_identity_chk",
-          "value": "(\n        (\"canteen_dish_votes\".\"user_id\" IS NOT NULL AND \"canteen_dish_votes\".\"anonymous_session_id\" IS NULL) OR\n        (\"canteen_dish_votes\".\"user_id\" IS NULL AND \"canteen_dish_votes\".\"anonymous_session_id\" IS NOT NULL)\n      )"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.canteen_menu_items": {
-      "name": "canteen_menu_items",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "canteen_id": {
-          "name": "canteen_id",
+        "major_id": {
+          "name": "major_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -425,32 +183,11 @@
           "primaryKey": false,
           "notNull": true
         },
-        "price": {
-          "name": "price",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "meal_period": {
-          "name": "meal_period",
+        "mode": {
+          "name": "mode",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'lunch'"
-        },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "svg_key": {
-          "name": "svg_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'default'"
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -468,11 +205,11 @@
         }
       },
       "indexes": {
-        "canteen_menu_items_canteen_id_idx": {
-          "name": "canteen_menu_items_canteen_id_idx",
+        "builds_user_id_idx": {
+          "name": "builds_user_id_idx",
           "columns": [
             {
-              "expression": "canteen_id",
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -483,17 +220,11 @@
           "method": "btree",
           "with": {}
         },
-        "canteen_menu_items_canteen_meal_idx": {
-          "name": "canteen_menu_items_canteen_meal_idx",
+        "builds_major_id_idx": {
+          "name": "builds_major_id_idx",
           "columns": [
             {
-              "expression": "canteen_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "meal_period",
+              "expression": "major_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -506,16 +237,21 @@
         }
       },
       "foreignKeys": {
-        "canteen_menu_items_canteen_id_canteens_id_fk": {
-          "name": "canteen_menu_items_canteen_id_canteens_id_fk",
-          "tableFrom": "canteen_menu_items",
-          "tableTo": "canteens",
-          "columnsFrom": [
-            "canteen_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+        "builds_user_id_users_id_fk": {
+          "name": "builds_user_id_users_id_fk",
+          "tableFrom": "builds",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "builds_major_id_majors_id_fk": {
+          "name": "builds_major_id_majors_id_fk",
+          "tableFrom": "builds",
+          "tableTo": "majors",
+          "columnsFrom": ["major_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -526,42 +262,79 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.canteens": {
-      "name": "canteens",
+    "public.category_courses": {
+      "name": "category_courses",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
+        "category_id": {
+          "name": "category_id",
           "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "primaryKey": false,
+          "notNull": true
         },
-        "name": {
-          "name": "name",
+        "course_code": {
+          "name": "course_code",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "location": {
-          "name": "location",
+        "missing": {
+          "name": "missing",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        }
+      },
+      "indexes": {
+        "category_courses_category_id_idx": {
+          "name": "category_courses_category_id_idx",
+          "columns": [
+            {
+              "expression": "category_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "category_courses_category_id_major_categories_id_fk": {
+          "name": "category_courses_category_id_major_categories_id_fk",
+          "tableFrom": "category_courses",
+          "tableTo": "major_categories",
+          "columnsFrom": ["category_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.course_aliases": {
+      "name": "course_aliases",
+      "schema": "",
+      "columns": {
+        "old_code": {
+          "name": "old_code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "new_code": {
+          "name": "new_code",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": true
         }
       },
       "indexes": {},
@@ -572,8 +345,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.danmaku_messages": {
-      "name": "danmaku_messages",
+    "public.course_ratings": {
+      "name": "course_ratings",
       "schema": "",
       "columns": {
         "id": {
@@ -582,6 +355,138 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
+        },
+        "course_code": {
+          "name": "course_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "score": {
+          "name": "score",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "course_ratings_course_user_uq": {
+          "name": "course_ratings_course_user_uq",
+          "columns": [
+            {
+              "expression": "course_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "course_ratings_user_id_users_id_fk": {
+          "name": "course_ratings_user_id_users_id_fk",
+          "tableFrom": "course_ratings",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.course_review_likes": {
+      "name": "course_review_likes",
+      "schema": "",
+      "columns": {
+        "review_id": {
+          "name": "review_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "course_review_likes_review_id_course_reviews_id_fk": {
+          "name": "course_review_likes_review_id_course_reviews_id_fk",
+          "tableFrom": "course_review_likes",
+          "tableTo": "course_reviews",
+          "columnsFrom": ["review_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "course_review_likes_user_id_users_id_fk": {
+          "name": "course_review_likes_user_id_users_id_fk",
+          "tableFrom": "course_review_likes",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "course_review_likes_review_id_user_id_pk": {
+          "name": "course_review_likes_review_id_user_id_pk",
+          "columns": ["review_id", "user_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.course_reviews": {
+      "name": "course_reviews",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "course_code": {
+          "name": "course_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
         },
         "user_id": {
           "name": "user_id",
@@ -595,12 +500,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "month": {
-          "name": "month",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -610,26 +509,11 @@
         }
       },
       "indexes": {
-        "danmaku_messages_month_idx": {
-          "name": "danmaku_messages_month_idx",
+        "course_reviews_course_code_idx": {
+          "name": "course_reviews_course_code_idx",
           "columns": [
             {
-              "expression": "month",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "danmaku_messages_user_id_idx": {
-          "name": "danmaku_messages_user_id_idx",
-          "columns": [
-            {
-              "expression": "user_id",
+              "expression": "course_code",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -642,20 +526,116 @@
         }
       },
       "foreignKeys": {
-        "danmaku_messages_user_id_users_id_fk": {
-          "name": "danmaku_messages_user_id_users_id_fk",
-          "tableFrom": "danmaku_messages",
+        "course_reviews_user_id_users_id_fk": {
+          "name": "course_reviews_user_id_users_id_fk",
+          "tableFrom": "course_reviews",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.courses": {
+      "name": "courses",
+      "schema": "",
+      "columns": {
+        "code": {
+          "name": "code",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "units": {
+          "name": "units",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "terms": {
+          "name": "terms",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "requirements_raw": {
+          "name": "requirements_raw",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "prerequisite": {
+          "name": "prerequisite",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "exclusions": {
+          "name": "exclusions",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "courses_subject_idx": {
+          "name": "courses_subject_idx",
+          "columns": [
+            {
+              "expression": "subject",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -762,12 +742,8 @@
           "name": "discussions_page_id_wiki_pages_id_fk",
           "tableFrom": "discussions",
           "tableTo": "wiki_pages",
-          "columnsFrom": [
-            "page_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["page_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -775,12 +751,8 @@
           "name": "discussions_user_id_users_id_fk",
           "tableFrom": "discussions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -788,12 +760,8 @@
           "name": "discussions_parent_id_discussions_id_fk",
           "tableFrom": "discussions",
           "tableTo": "discussions",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -804,8 +772,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.menu_import_drafts": {
-      "name": "menu_import_drafts",
+    "public.major_categories": {
+      "name": "major_categories",
       "schema": "",
       "columns": {
         "id": {
@@ -815,42 +783,112 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "canteen_id": {
-          "name": "canteen_id",
+        "major_id": {
+          "name": "major_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "source_image_url": {
-          "name": "source_image_url",
+        "name": {
+          "name": "name",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "ocr_raw_text": {
-          "name": "ocr_raw_text",
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "units_required": {
+          "name": "units_required",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pick_n": {
+          "name": "pick_n",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "major_categories_major_id_idx": {
+          "name": "major_categories_major_id_idx",
+          "columns": [
+            {
+              "expression": "major_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "major_categories_major_id_majors_id_fk": {
+          "name": "major_categories_major_id_majors_id_fk",
+          "tableFrom": "major_categories",
+          "tableTo": "majors",
+          "columnsFrom": ["major_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.majors": {
+      "name": "majors",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "faculty": {
+          "name": "faculty",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "items": {
-          "name": "items",
-          "type": "jsonb",
+        "total_units": {
+          "name": "total_units",
+          "type": "numeric",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
-        "status": {
-          "name": "status",
-          "type": "text",
+        "normative_years": {
+          "name": "normative_years",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "default": "'ready'"
+          "default": 4
         },
-        "error_message": {
-          "name": "error_message",
+        "handbook_year": {
+          "name": "handbook_year",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -867,38 +905,8 @@
           "default": "now()"
         }
       },
-      "indexes": {
-        "menu_import_drafts_canteen_id_idx": {
-          "name": "menu_import_drafts_canteen_id_idx",
-          "columns": [
-            {
-              "expression": "canteen_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "menu_import_drafts_canteen_id_canteens_id_fk": {
-          "name": "menu_import_drafts_canteen_id_canteens_id_fk",
-          "tableFrom": "menu_import_drafts",
-          "tableTo": "canteens",
-          "columnsFrom": [
-            "canteen_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -967,12 +975,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -982,9 +986,7 @@
         "sessions_token_unique": {
           "name": "sessions_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -1095,9 +1097,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -1210,12 +1210,8 @@
           "name": "wiki_links_source_id_wiki_pages_id_fk",
           "tableFrom": "wiki_links",
           "tableTo": "wiki_pages",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1223,12 +1219,8 @@
           "name": "wiki_links_target_id_wiki_pages_id_fk",
           "tableFrom": "wiki_links",
           "tableTo": "wiki_pages",
-          "columnsFrom": [
-            "target_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["target_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1352,12 +1344,8 @@
           "name": "wiki_pages_parent_id_wiki_pages_id_fk",
           "tableFrom": "wiki_pages",
           "tableTo": "wiki_pages",
-          "columnsFrom": [
-            "parent_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1365,12 +1353,8 @@
           "name": "wiki_pages_created_by_users_id_fk",
           "tableFrom": "wiki_pages",
           "tableTo": "users",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1378,12 +1362,8 @@
           "name": "wiki_pages_updated_by_users_id_fk",
           "tableFrom": "wiki_pages",
           "tableTo": "users",
-          "columnsFrom": [
-            "updated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1393,9 +1373,7 @@
         "wiki_pages_slug_unique": {
           "name": "wiki_pages_slug_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "policies": {},
@@ -1473,12 +1451,8 @@
           "name": "wiki_revisions_page_id_wiki_pages_id_fk",
           "tableFrom": "wiki_revisions",
           "tableTo": "wiki_pages",
-          "columnsFrom": [
-            "page_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["page_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1486,12 +1460,8 @@
           "name": "wiki_revisions_edited_by_users_id_fk",
           "tableFrom": "wiki_revisions",
           "tableTo": "users",
-          "columnsFrom": [
-            "edited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["edited_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

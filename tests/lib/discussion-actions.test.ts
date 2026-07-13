@@ -77,7 +77,7 @@ import {
 
 function mockAuthSession(id = "user-1", role = "user") {
   mockGetSession.mockResolvedValue({
-    user: { id, email: "user@cuhk.edu.hk", name: null, image: null },
+    user: { id, email: "user@cuhk.edu.hk", name: null, image: null, role },
   });
   mockDbQueryUsers.findFirst.mockResolvedValue({
     id,
@@ -129,6 +129,31 @@ describe("getDiscussions", () => {
     expect(result[0].id).toBe("d1");
     expect(result[0].replies).toHaveLength(1);
     expect(result[0].replies[0].id).toBe("d2");
+    expect(result[0].canResolve).toBe(false);
+  });
+
+  it("only marks the owner or an admin as able to resolve", async () => {
+    const chain = mockDbSelect();
+    chain.orderBy.mockResolvedValue([
+      {
+        id: "d1",
+        commentMarkId: "abc",
+        content: "root",
+        resolved: false,
+        parentId: null,
+        createdAt: new Date(),
+        userId: "owner",
+        nickname: "Owner",
+      },
+    ]);
+    mockAuthSession("other", "user");
+    expect((await getDiscussions("page-1"))[0].canResolve).toBe(false);
+
+    mockAuthSession("owner", "user");
+    expect((await getDiscussions("page-1"))[0].canResolve).toBe(true);
+
+    mockAuthSession("admin", "admin");
+    expect((await getDiscussions("page-1"))[0].canResolve).toBe(true);
   });
 
   it("degrades to empty list when the query fails", async () => {

@@ -39,7 +39,11 @@ export default async function HomePage() {
       title: "课程",
       href: "/courses",
       description: "课程测评",
-      disabled: true,
+    },
+    {
+      title: "分院帽",
+      href: "/college-picker",
+      description: "书院志愿推荐",
     },
     {
       title: "食堂",
