@@ -1,38 +1,8 @@
 import Link from "next/link";
-import { eq } from "drizzle-orm";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DanmakuBanner } from "@/components/home/danmaku-banner";
-import { db } from "@/db";
-import { users } from "@/db/schema";
-import { getOptionalUser } from "@/lib/auth-guard";
-import { listCurrentMonthDanmaku } from "@/lib/danmaku-actions";
 
-export const dynamic = "force-dynamic";
-
-async function getDanmakuViewer() {
-  const sessionUser = await getOptionalUser();
-  if (!sessionUser?.id) return { kind: "guest" as const };
-
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.id, sessionUser.id),
-    columns: { id: true, nickname: true, banned: true },
-  });
-  if (!dbUser) return { kind: "guest" as const };
-  if (dbUser.banned) return { kind: "banned" as const };
-  return {
-    kind: "member" as const,
-    userId: dbUser.id,
-    nickname: dbUser.nickname,
-  };
-}
-
-export default async function HomePage() {
-  const [messages, viewer] = await Promise.all([
-    listCurrentMonthDanmaku(),
-    getDanmakuViewer(),
-  ]);
-
+export default function HomePage() {
   const modules = [
     { title: "SG Wiki", href: "/wiki", description: "Survival Guides 百科" },
     {
@@ -67,8 +37,6 @@ export default async function HomePage() {
         <h1 className="text-3xl font-bold">CUpedia</h1>
         <p className="mt-2 text-muted-foreground">你的中大百科全书</p>
       </div>
-
-      <DanmakuBanner initialMessages={messages} viewer={viewer} />
 
       <div className="relative z-10 grid grid-cols-2 gap-4 md:grid-cols-3">
         {modules.map((m) =>
