@@ -169,6 +169,9 @@ export default async function CourseDetailPage({
               academicYears={[
                 ...new Set([
                   ...enrollmentHistory.map((row) => row.academicYear),
+                  ...(ratingState.lastAcademicYear
+                    ? [ratingState.lastAcademicYear]
+                    : []),
                   ...recentAcademicYears(),
                 ]),
               ]

@@ -80,6 +80,9 @@ export type CourseRatingState = {
   ratingCount: number;
   /** The user's most recent score on this course, if any. */
   lastScore: number | null;
+  lastAcademicYear: string | null;
+  lastTerm: CourseTerm | null;
+  lastProfessor: ProfessorOption | null;
   /** How many times the current user has rated this course. */
   myRatingCount: number;
 };
@@ -385,11 +388,25 @@ export async function getCourseRatingState(
   const ratingCount = agg.cnt;
 
   if (!user) {
-    return { aggregateRating, ratingCount, lastScore: null, myRatingCount: 0 };
+    return {
+      aggregateRating,
+      ratingCount,
+      lastScore: null,
+      lastAcademicYear: null,
+      lastTerm: null,
+      lastProfessor: null,
+      myRatingCount: 0,
+    };
   }
 
   const myRatings = await db
-    .select({ score: courseRatings.score })
+    .select({
+      score: courseRatings.score,
+      academicYear: courseRatings.academicYear,
+      term: courseRatings.term,
+      professorId: courseRatings.professorId,
+      professorName: courseRatings.professorNameSnapshot,
+    })
     .from(courseRatings)
     .where(
       and(
@@ -398,10 +415,19 @@ export async function getCourseRatingState(
       ),
     );
 
+  const mine = myRatings[0];
   return {
     aggregateRating,
     ratingCount,
-    lastScore: myRatings[0]?.score ?? null,
+    lastScore: mine?.score ?? null,
+    lastAcademicYear: mine?.academicYear ?? null,
+    lastTerm: COURSE_TERMS.includes(mine?.term as CourseTerm)
+      ? (mine?.term as CourseTerm)
+      : null,
+    lastProfessor:
+      mine?.professorId && mine.professorName
+        ? { id: mine.professorId, name: mine.professorName }
+        : null,
     myRatingCount: myRatings.length,
   };
 }

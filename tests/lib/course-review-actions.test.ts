@@ -369,6 +369,9 @@ describe("getCourseRatingState", () => {
       aggregateRating: null,
       ratingCount: 0,
       lastScore: null,
+      lastAcademicYear: null,
+      lastTerm: null,
+      lastProfessor: null,
       myRatingCount: 0,
     });
   });
@@ -377,13 +380,27 @@ describe("getCourseRatingState", () => {
     mockGetOptionalUser.mockResolvedValue({ id: "u1", role: "user" });
     queueRows(
       [COURSE], // findCourse
-      [{ avg: "8", cnt: 2 }], // ratingAgg
-      [{ score: 8 }], // my rating
+      [{ avg: "4.25", cnt: 2 }], // ratingAgg
+      [
+        {
+          score: 4.5,
+          academicYear: "2025-26",
+          term: "Term 2",
+          professorId: "p1",
+          professorName: "Professor CHAN",
+        },
+      ], // my rating
     );
     const state = await getCourseRatingState("CSCI3150");
-    expect(state?.aggregateRating).toBe(8);
+    expect(state?.aggregateRating).toBe(4.3);
     expect(state?.ratingCount).toBe(2);
-    expect(state?.lastScore).toBe(8);
+    expect(state?.lastScore).toBe(4.5);
+    expect(state?.lastAcademicYear).toBe("2025-26");
+    expect(state?.lastTerm).toBe("Term 2");
+    expect(state?.lastProfessor).toEqual({
+      id: "p1",
+      name: "Professor CHAN",
+    });
     expect(state?.myRatingCount).toBe(1);
   });
 

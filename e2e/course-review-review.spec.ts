@@ -105,7 +105,7 @@ test("#266 anonymous review, like toggle, author and admin withdrawal", async ({
   await ageRating();
   await page.reload();
   await fillSubmission(page, moderated);
-  await page.getByRole("button", { name: "提交测评" }).click();
+  await page.getByRole("button", { name: "更新测评" }).click();
   await expect(page.getByText(moderated)).toBeVisible();
 
   const adminContext = await browser.newContext();

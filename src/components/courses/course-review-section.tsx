@@ -106,18 +106,24 @@ export function CourseReviewSection({
 }) {
   const router = useRouter();
   const [content, setContent] = useState("");
-  const [academicYear, setAcademicYear] = useState("");
-  const [term, setTerm] = useState<CourseTerm | "">("");
-  const [score, setScore] = useState<number | null>(null);
+  const [academicYear, setAcademicYear] = useState(
+    ratingState.lastAcademicYear ?? "",
+  );
+  const [term, setTerm] = useState<CourseTerm | "">(ratingState.lastTerm ?? "");
+  const [score, setScore] = useState<number | null>(ratingState.lastScore);
   const [error, setError] = useState("");
   const [submitting, startSubmit] = useTransition();
   const [, startSearch] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [professorQuery, setProfessorQuery] = useState("");
+  const [professorQuery, setProfessorQuery] = useState(
+    ratingState.lastProfessor?.name ?? "",
+  );
   const [professorOptions, setProfessorOptions] = useState<ProfessorOption[]>(
     [],
   );
-  const [professor, setProfessor] = useState<ProfessorOption | null>(null);
+  const [professor, setProfessor] = useState<ProfessorOption | null>(
+    ratingState.lastProfessor,
+  );
 
   function handleProfessorQuery(value: string) {
     setProfessorQuery(value);
@@ -142,12 +148,6 @@ export function CourseReviewSection({
           score,
           content,
         });
-        setAcademicYear("");
-        setTerm("");
-        setProfessor(null);
-        setProfessorQuery("");
-        setProfessorOptions([]);
-        setScore(null);
         setContent("");
         router.refresh();
       } catch (e) {
@@ -181,24 +181,20 @@ export function CourseReviewSection({
   }
 
   const ready = !!academicYear && !!term && !!professor && score !== null;
+  const isUpdating = ratingState.lastScore !== null;
 
   return (
     <section className="space-y-8">
       <div className="overflow-hidden rounded-2xl border bg-card">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b bg-secondary/25 px-6 py-5">
+        <div className="border-b bg-secondary/25 px-6 py-5">
           <div>
-            <h2 className="text-lg font-semibold">提交课程测评</h2>
+            <h2 className="text-lg font-semibold">
+              {isUpdating ? "更新课程测评" : "提交课程测评"}
+            </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              记录你实际修读的学期；评论选填，投稿始终匿名。
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">综合推荐指数</p>
-            <p className="text-xl font-semibold tabular-nums">
-              {ratingState.aggregateRating?.toFixed(1) ?? "—"}
-              <span className="ml-1 text-xs font-normal text-muted-foreground">
-                / 5
-              </span>
+              {isUpdating
+                ? "已载入你上次的开课信息；修改后会更新评分，填写评论则新增一条匿名评论。"
+                : "记录你实际修读的学期；评论选填，投稿始终匿名。"}
             </p>
           </div>
         </div>
@@ -296,10 +292,9 @@ export function CourseReviewSection({
                 onChange={setScore}
                 disabled={submitting}
               />
-              {ratingState.lastScore !== null && (
+              {isUpdating && (
                 <p className="text-xs text-muted-foreground">
-                  你上次给了 {ratingState.lastScore.toFixed(1)}{" "}
-                  星；本次须重新选择。
+                  已保留你上次的选择，可直接修改后更新。
                 </p>
               )}
             </fieldset>
@@ -327,7 +322,7 @@ export function CourseReviewSection({
                 每人每门课一票；再次投稿会更新你的评分。
               </p>
               <Button onClick={handleSubmit} disabled={submitting || !ready}>
-                {submitting ? "提交中…" : "提交测评"}
+                {submitting ? "提交中…" : isUpdating ? "更新测评" : "提交测评"}
               </Button>
             </div>
           </div>

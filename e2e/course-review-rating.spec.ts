@@ -63,20 +63,31 @@ test("#293 unified submission validates required experience and supports half-st
   );
   expect(reviews.rows[0].count).toBe(0);
 
+  await expect(
+    page.getByRole("heading", { name: "更新课程测评" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("学年")).toHaveValue("2025-26");
+  await expect(page.getByLabel("学期")).toHaveValue("Term 2");
+  await expect(page.getByPlaceholder("搜索任课教授姓名")).toHaveValue(
+    "测试教授 Chan",
+  );
+  await expect(page.getByRole("radio", { name: "0.5 星" })).toBeChecked();
+
   await query(
     `update course_ratings set created_at = now() - interval '6 minutes'
      where course_code = 'CSCI1130'`,
   );
   await page.reload();
-  await fillExperience(page);
   await page.getByRole("radio", { name: "5 星", exact: true }).click();
-  await page.getByRole("button", { name: "提交测评" }).click();
-  rating = await query(
-    `select score, academic_year, term from course_ratings r
-     join users u on u.id = r.user_id
-     where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
-  );
-  expect(rating.rows).toEqual([
-    { score: 5, academic_year: "2025-26", term: "Term 2" },
-  ]);
+  await page.getByRole("button", { name: "更新测评" }).click();
+  await expect
+    .poll(async () => {
+      rating = await query(
+        `select score, academic_year, term from course_ratings r
+         join users u on u.id = r.user_id
+         where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
+      );
+      return rating.rows;
+    })
+    .toEqual([{ score: 5, academic_year: "2025-26", term: "Term 2" }]);
 });
