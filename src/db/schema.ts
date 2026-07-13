@@ -5,9 +5,12 @@ import {
   uuid,
   boolean,
   integer,
+  numeric,
+  real,
   jsonb,
   index,
   uniqueIndex,
+  primaryKey,
   check,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
@@ -207,6 +210,203 @@ export const wikiRevisionsRelations = relations(wikiRevisions, ({ one }) => ({
   }),
 }));
 
+// ── 课程技能树：课程数据 + 主修骨架（#157 / #161 / #162）──
+// 数据来源裁定见 ADR 0005「决议（#157）」。课号为稳定锚点。
+
+export const courses = pgTable(
+  "courses",
+  {
+    code: text("code").primaryKey(),
+    subject: text("subject").notNull(),
+    title: text("title").notNull(),
+    units: numeric("units").notNull(),
+    description: text("description").notNull().default(""),
+    // 开课季节（如 ["T1","T2"]），严格模式按此匹配学期
+    terms: jsonb("terms").$type<string[]>().notNull().default([]),
+    requirementsRaw: text("requirements_raw").notNull().default(""),
+    // 解析占位列：先修布尔逻辑与排斥课号，由 #164 parseRequirements 填充
+    prerequisite: jsonb("prerequisite"),
+    exclusions: jsonb("exclusions").$type<string[]>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [index("courses_subject_idx").on(table.subject)],
+);
+
+export const majors = pgTable("majors", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  faculty: text("faculty"),
+  totalUnits: numeric("total_units"),
+  normativeYears: integer("normative_years").notNull().default(4),
+  handbookYear: text("handbook_year").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const majorCategories = pgTable(
+  "major_categories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    majorId: uuid("major_id")
+      .notNull()
+      .references(() => majors.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(), // required | one-of | basket
+    unitsRequired: numeric("units_required"),
+    pickN: integer("pick_n"),
+  },
+  (table) => [index("major_categories_major_id_idx").on(table.majorId)],
+);
+
+export const categoryCourses = pgTable(
+  "category_courses",
+  {
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => majorCategories.id, { onDelete: "cascade" }),
+    // 成员课号；可指向主修树外的课，故不设 FK 到 courses
+    courseCode: text("course_code").notNull(),
+    // 别名映射未命中、课号在 courses 缺失/改名时为 true（占位 + 黄色告警，不静默隐藏）
+    missing: boolean("missing").notNull().default(false),
+  },
+  (table) => [index("category_courses_category_id_idx").on(table.categoryId)],
+);
+
+// 版本对齐：旧课号 → 新课号别名映射（含 DSME→DOTE），摄取/解析前先重映射
+export const courseAliases = pgTable("course_aliases", {
+  oldCode: text("old_code").primaryKey(),
+  newCode: text("new_code").notNull(),
+});
+
+export const majorsRelations = relations(majors, ({ many }) => ({
+  categories: many(majorCategories),
+}));
+
+export const majorCategoriesRelations = relations(
+  majorCategories,
+  ({ one, many }) => ({
+    major: one(majors, {
+      fields: [majorCategories.majorId],
+      references: [majors.id],
+    }),
+    courses: many(categoryCourses),
+  }),
+);
+
+export const categoryCoursesRelations = relations(
+  categoryCourses,
+  ({ one }) => ({
+    category: one(majorCategories, {
+      fields: [categoryCourses.categoryId],
+      references: [majorCategories.id],
+    }),
+  }),
+);
+
+// ── 课程技能树：用户构筑（#167）──
+
+export const builds = pgTable(
+  "builds",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    majorId: uuid("major_id")
+      .notNull()
+      .references(() => majors.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    mode: text("mode").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("builds_user_id_idx").on(table.userId),
+    index("builds_major_id_idx").on(table.majorId),
+  ],
+);
+
+export const buildItems = pgTable(
+  "build_items",
+  {
+    buildId: uuid("build_id")
+      .notNull()
+      .references(() => builds.id, { onDelete: "cascade" }),
+    courseCode: text("course_code").notNull(),
+    term: integer("term"),
+  },
+  (table) => [primaryKey({ columns: [table.buildId, table.courseCode] })],
+);
+
+export const buildsRelations = relations(builds, ({ many }) => ({
+  items: many(buildItems),
+}));
+
+export const buildItemsRelations = relations(buildItems, ({ one }) => ({
+  build: one(builds, {
+    fields: [buildItems.buildId],
+    references: [builds.id],
+  }),
+}));
+
+// ── 课程测评：评分 / 评论 / 点赞 ──
+// 以课号（text）锚定，不设到 courses 的 FK：courses 由 scraper 重建，硬绑会
+// 妨碍导入；课号是稳定锚点（ADR 0005），与 buildItems.courseCode 同策略。
+
+export const courseRatings = pgTable(
+  "course_ratings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseCode: text("course_code").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    /** 0–10, one decimal. */
+    score: real("score").notNull(),
+    /** Last time this user rated this course (refreshed on each upsert). */
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  // One rating row per (course, user): a re-rate updates it in place (upsert),
+  // so the aggregate is one-vote-per-user. Leading course_code also serves the
+  // by-course aggregate lookups, so no separate single-column index is needed.
+  (table) => [
+    uniqueIndex("course_ratings_course_user_uq").on(
+      table.courseCode,
+      table.userId,
+    ),
+  ],
+);
+
+export const courseReviews = pgTable(
+  "course_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    courseCode: text("course_code").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("course_reviews_course_code_idx").on(table.courseCode)],
+);
+
+// One row per (review, user) like. Composite PK makes a double-like a no-op at
+// the DB level — no read-modify-write, so concurrent toggles can't lose data.
+export const courseReviewLikes = pgTable(
+  "course_review_likes",
+  {
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => courseReviews.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.reviewId, table.userId] })],
+);
+
 // ── Canteen subsystem (hard delete; no deletedAt — unlike wiki soft delete) ──
 
 export const MEAL_PERIODS = ["breakfast", "lunch", "dinner"] as const;
@@ -356,23 +556,26 @@ export const menuImportDrafts = pgTable(
       .references(() => canteens.id, { onDelete: "cascade" }),
     sourceImageUrl: text("source_image_url").notNull(),
     ocrRawText: text("ocr_raw_text"),
-    items: jsonb("items").notNull().$type<import("@/lib/canteen-types").MenuImportDraftItem[]>(),
+    items: jsonb("items")
+      .notNull()
+      .$type<import("@/lib/canteen-types").MenuImportDraftItem[]>(),
     status: text("status").notNull().default("ready"),
     errorMessage: text("error_message"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [
-    index("menu_import_drafts_canteen_id_idx").on(table.canteenId),
-  ],
+  (table) => [index("menu_import_drafts_canteen_id_idx").on(table.canteenId)],
 );
 
-export const menuImportDraftsRelations = relations(menuImportDrafts, ({ one }) => ({
-  canteen: one(canteens, {
-    fields: [menuImportDrafts.canteenId],
-    references: [canteens.id],
+export const menuImportDraftsRelations = relations(
+  menuImportDrafts,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [menuImportDrafts.canteenId],
+      references: [canteens.id],
+    }),
   }),
-}));
+);
 
 // ── Homepage monthly danmaku (#192) ──
 
@@ -393,9 +596,12 @@ export const danmakuMessages = pgTable(
   ],
 );
 
-export const danmakuMessagesRelations = relations(danmakuMessages, ({ one }) => ({
-  user: one(users, {
-    fields: [danmakuMessages.userId],
-    references: [users.id],
+export const danmakuMessagesRelations = relations(
+  danmakuMessages,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [danmakuMessages.userId],
+      references: [users.id],
+    }),
   }),
-}));
+);

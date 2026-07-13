@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { MenuIcon, PlusIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/layout/sidebar-provider";
@@ -28,7 +29,7 @@ export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
         className="h-7 w-7 text-muted-foreground"
         aria-label="展开导航"
       >
-        ☰
+        <MenuIcon aria-hidden="true" className="size-4" />
       </Button>
       {/* New-page entry is redundant on mobile (the drawer already exposes it),
           so it is hidden there; only the expand toggle remains as the rail. */}
@@ -39,7 +40,7 @@ export function SidebarToggle({ canEdit = false }: { canEdit?: boolean } = {}) {
           size="icon"
           className="h-7 w-7 text-muted-foreground max-md:hidden"
         >
-          +
+          <PlusIcon aria-hidden="true" className="size-4" />
         </Button>
       )}
     </div>

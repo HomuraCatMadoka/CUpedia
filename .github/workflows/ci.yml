@@ -89,8 +89,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Start Postgres (zhparser)
-        run: docker compose up -d --wait db
+      - name: Start Postgres and MinIO
+        run: docker compose up -d --wait db minio
+
+      - name: Create uploads bucket
+        run: docker compose run --rm createbuckets
 
       # global-setup provisions the isolated `cuclaw_e2e` db (create + zhparser
       # + migrate + seed), so no separate migrate step is needed here.

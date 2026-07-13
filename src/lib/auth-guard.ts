@@ -3,7 +3,12 @@ import { db } from "@/db";
 import { users, accounts } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { getWikiEditRoleFresh, getOwnerUserId } from "@/lib/site-settings";
+import {
+  getWikiEditRole,
+  getWikiEditRoleFresh,
+  getOwnerUserId,
+} from "@/lib/site-settings";
+import { canViewerEdit } from "@/lib/edit-permission";
 import { normalizeEmail } from "@/lib/email";
 import { headers } from "next/headers";
 
@@ -74,7 +79,7 @@ export async function requireOwner() {
 export async function requireEditor() {
   const user = await requireAuth();
   const editRole = await getWikiEditRoleFresh();
-  if (editRole === "admin" && user.role !== "admin") {
+  if (!canViewerEdit(user, editRole)) {
     throw new Error("EDIT_PERMISSION_DENIED");
   }
   return user;
@@ -83,7 +88,7 @@ export async function requireEditor() {
 export async function requireEditorOrRedirect() {
   const user = await requireAuth();
   const editRole = await getWikiEditRoleFresh();
-  if (editRole === "admin" && user.role !== "admin") {
+  if (!canViewerEdit(user, editRole)) {
     redirect("/wiki");
   }
   return user;
@@ -96,14 +101,24 @@ export async function getOptionalUser() {
   return session?.user ?? null;
 }
 
+/** Display-side edit context: whether to show edit affordances, computed from
+ * cheap/cached inputs (session role+banned, module-cached editRole). Shares the
+ * `canViewerEdit` predicate with the enforce side (requireEditor) so the rule
+ * can't drift; only the freshness of the inputs differs — see ADR 0012. */
+export async function getViewerEditContext() {
+  const [user, editRole] = await Promise.all([
+    getOptionalUser(),
+    getWikiEditRole(),
+  ]);
+  return { user, canEdit: canViewerEdit(user, editRole) };
+}
+
 /** One session + user fetch for canteen voting hot paths. */
 export async function getSessionVoterUser(): Promise<{
   id: string;
   banned: boolean;
 } | null> {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
   if (process.env.CANTEEN_MOCK_DATA === "true") {
@@ -114,8 +129,7 @@ export async function getSessionVoterUser(): Promise<{
     where: eq(users.id, session.user.id),
     columns: { id: true, banned: true },
   });
-  if (!dbUser) return null;
-  return { id: dbUser.id, banned: dbUser.banned };
+  return dbUser ? { id: dbUser.id, banned: dbUser.banned } : null;
 }
 
 /** Logged-in user eligible to write dish comments (not banned). */
@@ -123,42 +137,27 @@ export async function requireCommentAuth(): Promise<{
   id: string;
   nickname: string;
 }> {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) redirect("/login");
 
-  // Mock demo: session-only auth + nickname from session fields (no DB users
-  // lookup), aligned with getSessionVoterUser mock behaviour.
   if (process.env.CANTEEN_MOCK_DATA === "true") {
     const nickname =
-      session.user.name?.trim() ||
-      session.user.email?.split("@")[0] ||
-      "用户";
+      session.user.name?.trim() || session.user.email?.split("@")[0] || "用户";
     return { id: session.user.id, nickname };
   }
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
-    columns: {
-      id: true,
-      email: true,
-      nickname: true,
-      role: true,
-      banned: true,
-    },
+    columns: { id: true, nickname: true, banned: true },
   });
-
   if (!dbUser || dbUser.banned) redirect("/login?error=banned");
-
   return { id: dbUser.id, nickname: dbUser.nickname };
 }
 
 /** Logged-in voter eligible to write (not banned). Anonymous callers get null. */
 export async function getVoteEligibleUser(): Promise<{ id: string } | null> {
   const user = await getSessionVoterUser();
-  if (!user || user.banned) return null;
-  return { id: user.id };
+  return user && !user.banned ? { id: user.id } : null;
 }
 
 /** Session present but user is banned — block even anonymous fallback voting. */
@@ -169,9 +168,7 @@ export async function isBannedSessionUser(): Promise<boolean> {
 
 /** For API routes: returns null when caller is not an admin (no redirect). */
 export async function getAdminUserForApi() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
   const dbUser = await db.query.users.findFirst({
@@ -184,9 +181,7 @@ export async function getAdminUserForApi() {
       banned: true,
     },
   });
-
   if (!dbUser || dbUser.banned || dbUser.role !== "admin") return null;
-
   return {
     id: dbUser.id,
     email: dbUser.email,
@@ -201,24 +196,14 @@ export async function getDanmakuAuthorForApi(): Promise<{
   nickname: string;
   banned: boolean;
 } | null> {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
-    columns: {
-      id: true,
-      nickname: true,
-      banned: true,
-    },
+    columns: { id: true, nickname: true, banned: true },
   });
-
-  if (!dbUser) return null;
-  return {
-    id: dbUser.id,
-    nickname: dbUser.nickname,
-    banned: dbUser.banned,
-  };
+  return dbUser
+    ? { id: dbUser.id, nickname: dbUser.nickname, banned: dbUser.banned }
+    : null;
 }

@@ -15,17 +15,21 @@ export default async function AdminUsersPage({
 
   return (
     <UserTable
-      users={
+      users={(
         result.users as {
           id: string;
           email: string;
           nickname: string;
           role: string;
           banned: boolean;
-          created_at: string;
-          updated_at: string;
+          created_at: string | Date;
+          updated_at: string | Date;
         }[]
-      }
+      ).map((user) => ({
+        ...user,
+        created_at: new Date(user.created_at).toISOString(),
+        updated_at: new Date(user.updated_at).toISOString(),
+      }))}
       page={page}
       totalPages={totalPages}
       total={result.total}

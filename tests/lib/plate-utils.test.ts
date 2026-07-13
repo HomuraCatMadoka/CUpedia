@@ -4,6 +4,7 @@ import {
   extractText,
   toMarkdown,
   fromMarkdown,
+  normalizeInitialValue,
 } from "@/lib/plate-utils";
 
 describe("parseContent", () => {
@@ -117,6 +118,83 @@ describe("toMarkdown", () => {
     ]);
     const md = await toMarkdown(json);
     expect(md).toContain("Warning content here");
+  });
+});
+
+describe("normalizeInitialValue (#204 — SSR/CSR hydration id stability)", () => {
+  it("is deterministic: two independent calls on the same value produce identical node ids", () => {
+    const value = parseContent(
+      JSON.stringify([
+        { type: "h2", children: [{ text: "Title" }] },
+        { type: "p", children: [{ text: "Body" }] },
+      ]),
+    );
+    // The server render and the client hydration each normalize the same
+    // initialValue prop; the outputs must be byte-for-byte identical or React
+    // reports a hydration mismatch on the backfilled node ids.
+    const server = normalizeInitialValue(value);
+    const client = normalizeInitialValue(value);
+    expect(server).toEqual(client);
+  });
+
+  it("assigns ids to nested element nodes (table cells — the reported symptom)", () => {
+    const value = parseContent(
+      JSON.stringify([
+        {
+          type: "table",
+          children: [
+            {
+              type: "tr",
+              children: [
+                {
+                  type: "td",
+                  children: [{ type: "p", children: [{ text: "A" }] }],
+                },
+                {
+                  type: "td",
+                  children: [{ type: "p", children: [{ text: "B" }] }],
+                },
+              ],
+            },
+          ],
+        },
+      ]),
+    );
+    // Any element left without an id is backfilled with a random nanoid by the
+    // interactive NodeId plugin — independently on server and client — which is
+    // exactly the `data-table-cell-id` mismatch reported in #204. So every
+    // element node, however deep, must already carry a deterministic id.
+    const normalized = normalizeInitialValue(value)!;
+    const missing: string[] = [];
+    const walk = (node: {
+      type?: string;
+      id?: unknown;
+      children?: unknown[];
+    }) => {
+      if (node.type) {
+        if (typeof node.id !== "string" || node.id.length === 0) {
+          missing.push(node.type);
+        }
+      }
+      if (Array.isArray(node.children)) {
+        for (const child of node.children) walk(child as typeof node);
+      }
+    };
+    for (const node of normalized) walk(node as { type?: string });
+    expect(missing).toEqual([]);
+  });
+
+  it("returns undefined unchanged (create mode has no initialValue)", () => {
+    expect(normalizeInitialValue(undefined)).toBeUndefined();
+  });
+
+  it("does not mutate the input value", () => {
+    const value = parseContent(
+      JSON.stringify([{ type: "p", children: [{ text: "x" }] }]),
+    );
+    const snapshot = JSON.stringify(value);
+    normalizeInitialValue(value);
+    expect(JSON.stringify(value)).toBe(snapshot);
   });
 });
 

@@ -14,6 +14,13 @@ type Step = "email" | "reset" | "done";
 
 const OTP_EXPIRY_SECONDS = 300;
 
+function resetErrorMessage(message?: string) {
+  const normalized = message?.toLowerCase() ?? "";
+  if (normalized.includes("expired")) return "验证码已过期，请重新获取";
+  if (normalized.includes("otp")) return "验证码无效，请检查后重试";
+  return message ?? "重置失败，请检查验证码";
+}
+
 export default function ResetPasswordPage() {
   const router = useRouter();
   const [step, setStep] = useState<Step>("email");
@@ -84,7 +91,7 @@ export default function ResetPasswordPage() {
         password,
       });
       if (resetError) {
-        setError(resetError.message ?? "重置失败，请检查验证码");
+        setError(resetErrorMessage(resetError.message));
         return;
       }
       setStep("done");

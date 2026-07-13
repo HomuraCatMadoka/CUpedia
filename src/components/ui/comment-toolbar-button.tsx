@@ -13,6 +13,7 @@ export function CommentToolbarButton() {
 
   return (
     <ToolbarButton
+      aria-label="批注"
       tooltip="批注 (⌘+⇧+M)"
       onClick={() => {
         commentTf.comment.setDraft();

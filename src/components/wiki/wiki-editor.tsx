@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plate, usePlateEditor } from "platejs/react";
 
@@ -23,6 +23,7 @@ import {
   WikiLinkPagesProvider,
   type WikiLinkPage,
 } from "@/components/ui/wiki-link-node";
+import { FixedToolbarKit } from "@/components/editor/plugins/fixed-toolbar-kit";
 import { FloatingToolbarKit } from "@/components/editor/plugins/floating-toolbar-kit";
 import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
 import { EditorContainer, Editor } from "@/components/ui/editor";
@@ -37,7 +38,12 @@ import {
   type EditConflict,
 } from "@/components/wiki/edit-conflict-dialog";
 import type { Discussion } from "@/lib/discussion-actions";
-import { extractText, parseContent, type PlateValue } from "@/lib/plate-utils";
+import {
+  extractText,
+  normalizeInitialValue,
+  parseContent,
+  type PlateValue,
+} from "@/lib/plate-utils";
 
 interface WikiEditorProps {
   mode: "create" | "edit";
@@ -87,17 +93,33 @@ export function WikiEditor({
   initialDiscussions = [],
   onSubmit,
 }: WikiEditorProps) {
+  // Stabilize node ids across the SSR render and the client hydration of this
+  // `"use client"` editor: both passes normalize the same initialValue prop to
+  // identical deterministic ids, so React sees no hydration mismatch (#204).
+  // The editor value, the autosave dirty-baseline (`content`), and the
+  // three-way-merge base (`baseContentRef`) all derive from this one value so
+  // they never disagree.
+  const normalizedInitialValue = useMemo(
+    () => normalizeInitialValue(initialValue),
+    [initialValue],
+  );
+  // The serialized form of the initial document: the persisted baseline shared
+  // by the three-way merge base and the autosave dirty-baseline.
+  const initialContent = useMemo(
+    () => JSON.stringify(normalizedInitialValue),
+    [normalizedInitialValue],
+  );
+
   const [title, setTitle] = useState(initialTitle);
   const [slug, setSlug] = useState(initialSlug);
   const [editSummary, setEditSummary] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [content, setContent] = useState(() => JSON.stringify(initialValue));
   const [conflict, setConflict] = useState<EditConflict | null>(null);
   const router = useRouter();
 
   const baselineRef = useRef(expectedUpdatedAt);
-  const baseContentRef = useRef(JSON.stringify(initialValue));
+  const baseContentRef = useRef(initialContent);
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
 
   const editor = usePlateEditor({
@@ -115,10 +137,11 @@ export function WikiEditor({
       ...SlashKit,
       ...WikiLinkKit,
       ...DndKit,
+      ...FixedToolbarKit,
       ...FloatingToolbarKit,
       ...MarkdownKit,
     ],
-    value: initialValue,
+    value: normalizedInitialValue,
   });
 
   const save = useCallback(
@@ -151,11 +174,17 @@ export function WikiEditor({
     [slug, title, editSummary, parentId, onSubmit],
   );
 
+  // Serialize the document only when a save fires, never per keystroke — the
+  // editor holds the source of truth in `editor.children` and the hook pulls it
+  // lazily. This keeps typing off the React render path (#205).
   const autosave = useAutosave({
-    content,
+    getContent: () => JSON.stringify(editor.children),
     onSave: save,
+    initialContent,
     enabled: autosaveEnabled,
   });
+  // Stable across renders (memoized inside the hook); safe as an effect/callback dep.
+  const { resetBaseline: resetAutosaveBaseline } = autosave;
 
   const handleSubmit = useCallback(async () => {
     setError("");
@@ -209,9 +238,9 @@ export function WikiEditor({
     editor.tf.setValue(parseContent(conflict.theirContent));
     baselineRef.current = conflict.theirUpdatedAt;
     baseContentRef.current = conflict.theirContent;
-    setContent(conflict.theirContent);
+    resetAutosaveBaseline(conflict.theirContent);
     setConflict(null);
-  }, [conflict, editor]);
+  }, [conflict, editor, resetAutosaveBaseline]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -258,10 +287,7 @@ export function WikiEditor({
           />
         </div>
       )}
-      <Plate
-        editor={editor}
-        onValueChange={({ value }) => setContent(JSON.stringify(value))}
-      >
+      <Plate editor={editor} onValueChange={() => autosave.notifyChange()}>
         <WikiLinkPagesProvider pages={linkablePages}>
           <DiscussionProvider
             pageId={pageId ?? ""}
