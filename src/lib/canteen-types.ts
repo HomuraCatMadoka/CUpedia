@@ -1,4 +1,5 @@
 import { MEAL_PERIODS, type MealPeriod } from "@/db/schema";
+import { DISH_SVG_KEYS } from "@/lib/canteen-svg-keys";
 
 export { MEAL_PERIODS, type MealPeriod };
 
@@ -218,6 +219,6 @@ export function validateSortOrder(sortOrder: unknown): number {
 export function validateSvgKey(svgKey: unknown): string {
   if (typeof svgKey !== "string") return "default";
   const trimmed = svgKey.trim();
-  if (!trimmed || trimmed.length > 64) return "default";
+  if (!(DISH_SVG_KEYS as readonly string[]).includes(trimmed)) return "default";
   return trimmed;
 }

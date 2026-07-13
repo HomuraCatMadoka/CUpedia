@@ -40,7 +40,73 @@ export const REVISION_IDS = {
   deleted: "00000000-0000-4000-d000-00000000000a",
 } as const;
 
+export const CANTEEN_IDS = {
+  demo: "00000000-0000-4000-e000-000000000001",
+} as const;
+
+export const MENU_ITEM_IDS = {
+  demoRice: "00000000-0000-4000-e100-000000000001",
+  demoSpicy: "00000000-0000-4000-e100-000000000002",
+  demoNoodle: "00000000-0000-4000-e100-000000000003",
+} as const;
+
 export const PASSWORD = "password123";
+
+// ── Canteen fixtures (e2e + local dev; demo names only) ──
+
+export type SeedCanteen = {
+  id: string;
+  name: string;
+  location: string | null;
+};
+
+export type SeedMenuItem = {
+  id: string;
+  canteenId: string;
+  name: string;
+  price: number | null;
+  mealPeriod: "breakfast" | "lunch" | "dinner";
+  sortOrder: number;
+  svgKey: string;
+};
+
+export const SEED_CANTEENS: SeedCanteen[] = [
+  {
+    id: CANTEEN_IDS.demo,
+    name: "演示食堂",
+    location: "E2E 测试楼",
+  },
+];
+
+export const SEED_MENU_ITEMS: SeedMenuItem[] = [
+  {
+    id: MENU_ITEM_IDS.demoRice,
+    canteenId: CANTEEN_IDS.demo,
+    name: "演示米饭",
+    price: 12,
+    mealPeriod: "lunch",
+    sortOrder: 0,
+    svgKey: "rice",
+  },
+  {
+    id: MENU_ITEM_IDS.demoSpicy,
+    canteenId: CANTEEN_IDS.demo,
+    name: "演示辣味",
+    price: 18,
+    mealPeriod: "lunch",
+    sortOrder: 1,
+    svgKey: "spicy",
+  },
+  {
+    id: MENU_ITEM_IDS.demoNoodle,
+    canteenId: CANTEEN_IDS.demo,
+    name: "演示面食",
+    price: 15,
+    mealPeriod: "dinner",
+    sortOrder: 0,
+    svgKey: "noodle",
+  },
+];
 
 // Mirrors the setting keys in src/lib/site-settings.ts. Hardcoded here to keep
 // seed data free of server-only DB imports. owner_user_id designates the site
@@ -381,6 +447,8 @@ export type SeedData = {
   pages: SeedPage[];
   revisions: SeedRevision[];
   siteSettings: SeedSiteSetting[];
+  canteens: SeedCanteen[];
+  menuItems: SeedMenuItem[];
 };
 
 async function resolveContent(rev: RevisionSource): Promise<string> {
@@ -424,5 +492,5 @@ export async function buildSeedData(): Promise<SeedData> {
     });
   }
 
-  return { pages, revisions, siteSettings: SEED_SITE_SETTINGS };
+  return { pages, revisions, siteSettings: SEED_SITE_SETTINGS, canteens: SEED_CANTEENS, menuItems: SEED_MENU_ITEMS };
 }
