@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,9 +39,9 @@ import {
 const MAJOR_ITEMS: Record<string, string> = Object.fromEntries(
   MAJOR_GROUPS.map((m) => [m.id, m.nameZh]),
 );
-// 留空选项：「-」代表不填。
+// 留空选项：None 代表不填。
 const EMPTY_VALUE = "__none__";
-const EMPTY_LABEL = "—（不填）";
+const EMPTY_LABEL = "None";
 const FACTOR_ITEMS: Record<string, string> = Object.fromEntries([
   [EMPTY_VALUE, EMPTY_LABEL],
   ...SCORED_FACTORS.map((f) => [f.id, f.nameZh]),
@@ -50,11 +51,13 @@ const PREFERENCE_OPTIONS: {
   id: SmallCollegePreference;
   label: string;
   desc: string;
+  footnote?: string;
 }[] = [
   {
     id: "aim",
     label: "A. 冲！",
     desc: "第一志愿为小书院，其余两所排到 8–9 志愿",
+    footnote: "*额外做小书院专属问卷获得详细结果",
   },
   { id: "avoid", label: "B. 完全不想去", desc: "三所小书院排到第 7–9 志愿" },
   { id: "indifferent", label: "C. 无所谓", desc: "按默认机制运行分院帽" },
@@ -65,19 +68,23 @@ const SC_QUESTIONS: {
   id: keyof SmallCollegeAnswers;
   prompt: string;
   subText?: string;
-  options: { id: string; label: string }[];
+  options: { id: string; label: string; footnote?: string }[];
 }[] = [
   {
     id: "q1",
     prompt: "小书院保证四年宿舍，因而录取过程竞争较大。你对此更倾向于：",
     options: [
-      { id: "A", label: "录取优先：录取机会大于一切" },
-      { id: "B", label: "静观沉浮：有机会录取小书院更好，但也没那么在意" },
+      {
+        id: "A",
+        label: "录取优先：录取机会大于一切",
+        footnote: "*基于过往经验。过多人申请相同小书院会导致竞争加剧",
+      },
+      { id: "B", label: "静观沉浮：有机会录取小书院更好，但也没那么在意", footnote: "*进入大/中书院同样有机会争取四年保宿" },
     ],
   },
   {
     id: "q2",
-    prompt: "小书院除了都需要填表格之外，录取的主要机制如下：",
+    prompt: "小书院除了都需要填表格之外，录取的主要机制如下（描述基于2024/2025年申请方式，以书院公示为准）：",
     subText:
       "善衡：拍视频介绍自己\n晨兴：网上面试/线下面试，更加重视英语能力\n敬文：英语面试，部分普通话交流，casual talk",
     options: [
@@ -134,9 +141,9 @@ const SC_QUESTIONS: {
   },
 ];
 
-// 沿用原版默认预选：专业默认第一个、三个因素预选 通勤 / 住宿 / 保宿。
+// 沿用原版默认预选：专业默认第一个、第一看重默认通勤，其余留空。
 const DEFAULT_PRIORITIES: [ScoredFactor, ScoredFactor | "", ScoredFactor | ""] =
-  ["Commute_Time", "Accommodation_Environment", "Hostel_Guarantee"];
+  ["Commute_Time", "", ""];
 
 /** Select 内部用 EMPTY_VALUE 表示空位，外部统一转成 ""。 */
 function fromSelectValue(v: string): ScoredFactor | "" {
@@ -167,12 +174,7 @@ export function CollegePickerForm() {
   const [bonusFactors, setBonusFactors] = useState<BonusFactor[]>([]);
   const [preference, setPreference] =
     useState<SmallCollegePreference>("indifferent");
-  const [scAnswers, setScAnswers] = useState<SmallCollegeAnswers>({
-    q1: "A",
-    q2: "A",
-    q3: "A",
-    q4: "A",
-  });
+  const [scAnswers, setScAnswers] = useState<Partial<SmallCollegeAnswers>>({});
   const [result, setResult] = useState<ScoredCollege[] | null>(null);
   const [error, setError] = useState<string>("");
   const resultRef = useRef<HTMLDivElement>(null);
@@ -213,6 +215,32 @@ export function CollegePickerForm() {
     reset();
   }
 
+  function handlePriorityChange(
+    index: number,
+    raw: string,
+  ) {
+    const value = fromSelectValue(raw ?? "");
+
+    // 不允许跳位：P2 为空时 P3 只能选 None
+    if (index === 2 && priorities[1] === "" && value !== "") {
+      toast.error("第二看重因素不能为空！");
+      return;
+    }
+
+    // 不允许重复选同一因素
+    if (value !== "") {
+      const otherValues = priorities.filter(
+        (p, i) => i !== index && p !== "",
+      );
+      if (otherValues.includes(value as ScoredFactor)) {
+        toast.error("该因素已被选择！");
+        return;
+      }
+    }
+
+    setPriority(index, value);
+  }
+
   function toggleAvoid(factor: AvoidFactor, checked: boolean) {
     setAvoids((prev) =>
       checked ? [...prev, factor] : prev.filter((a) => a !== factor),
@@ -234,6 +262,15 @@ export function CollegePickerForm() {
       setError(check.message);
       return;
     }
+    // 小书院精选题校验：A 模式下四题必答
+    if (preference === "aim") {
+      const unanswered = SC_QUESTIONS.some((q) => !scAnswers[q.id]);
+      if (unanswered) {
+        setResult(null);
+        toast.error("小书院精选题未做完，做完后生成结果");
+        return;
+      }
+    }
     setError("");
     setResult(
       recommend({
@@ -242,7 +279,10 @@ export function CollegePickerForm() {
         avoids,
         smallCollegePreference: preference,
         bonusFactors,
-        smallCollegeAnswers: preference === "aim" ? scAnswers : undefined,
+        smallCollegeAnswers:
+          preference === "aim"
+            ? (scAnswers as SmallCollegeAnswers)
+            : undefined,
       }),
     );
   }
@@ -281,6 +321,11 @@ export function CollegePickerForm() {
                   <span className="text-xs text-muted-foreground">
                     {opt.desc}
                   </span>
+                  {opt.footnote && (
+                    <span className="text-xs text-muted-foreground">
+                      {opt.footnote}
+                    </span>
+                  )}
                 </Label>
               ))}
             </div>
@@ -329,7 +374,7 @@ export function CollegePickerForm() {
                     items={FACTOR_ITEMS}
                     value={toSelectValue(factor)}
                     onValueChange={(v) =>
-                      setPriority(index, fromSelectValue(v ?? ""))
+                      handlePriorityChange(index, v ?? "")
                     }
                   >
                     <SelectTrigger data-testid={`priority-${index}`}>
@@ -342,11 +387,29 @@ export function CollegePickerForm() {
                           {EMPTY_LABEL}
                         </SelectItem>
                       )}
-                      {SCORED_FACTORS.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.nameZh}
-                        </SelectItem>
-                      ))}
+                      {SCORED_FACTORS.map((f) => {
+                        const isDuplicate =
+                          priorities.some(
+                            (p, i) => i !== index && p === f.id,
+                          );
+                        const isSkipLocked =
+                          index === 2 &&
+                          priorities[1] === "";
+                        const dimmed = isDuplicate || isSkipLocked;
+                        return (
+                          <SelectItem
+                            key={f.id}
+                            value={f.id}
+                            className={
+                              dimmed
+                                ? "text-muted-foreground/40 data-highlighted:bg-transparent data-highlighted:text-muted-foreground/40"
+                                : undefined
+                            }
+                          >
+                            {f.nameZh}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -504,20 +567,24 @@ export function CollegePickerForm() {
                               value={opt.id}
                               checked={checked}
                               onChange={() => {
-                                setScAnswers(
-                                  (prev) =>
-                                    ({
-                                      ...prev,
-                                      [q.id]: opt.id,
-                                    }) as SmallCollegeAnswers,
-                                );
+                                setScAnswers((prev) => ({
+                                  ...prev,
+                                  [q.id]: opt.id,
+                                }));
                                 reset();
                               }}
                               className="mt-0.5 size-4 shrink-0 accent-primary"
                             />
-                            <span>
-                              <span className="font-medium">{opt.id}.</span>{" "}
-                              {opt.label}
+                            <span className="flex flex-col">
+                              <span>
+                                <span className="font-medium">{opt.id}.</span>{" "}
+                                {opt.label}
+                              </span>
+                              {opt.footnote && (
+                                <span className="mt-1 text-xs text-muted-foreground">
+                                  {opt.footnote}
+                                </span>
+                              )}
                             </span>
                           </Label>
                         );

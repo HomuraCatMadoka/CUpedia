@@ -24,8 +24,8 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     const items = result.getByTestId("picker-item");
     // 不重不漏：恰好九条志愿。
     await expect(items).toHaveCount(9);
-    // 工科 · 通勤/住宿/保宿 · 无避雷 的黄金第一志愿是晨兴书院。
-    await expect(items.first()).toContainText("晨兴书院");
+    // 工科 · 仅填通勤 · 无避雷，通勤排名最高的善衡书院为第一志愿。
+    await expect(items.first()).toContainText("善衡书院");
     const crests = items.locator('img[alt=""]');
     await expect(crests).toHaveCount(9);
     await expect(result.getByRole("img")).toHaveCount(0);
@@ -75,36 +75,49 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
 
     const result = page.getByTestId("picker-result");
     await expect(result).toBeVisible();
-    // 工科·通勤/住宿/保宿 默认第一志愿是晨兴 mc，base 83 + MTR 4 = 87.0
+    // 工科·仅填通勤，善衡 shho 为 base 90 + MTR 4 = 94.0。
     await expect(result.getByTestId("picker-item").first()).toContainText(
-      "晨兴书院",
+      "善衡书院",
     );
     await expect(result.getByTestId("picker-score").first()).toContainText(
-      "推荐指数 87.0",
+      "推荐指数 94.0",
     );
   });
 
-  test("三个看重因素重复：给提示、不出结果", async ({ page }) => {
+  test("重复的看重因素被拒绝并给出 toast 提示", async ({ page }) => {
     await page.goto("/college-picker");
 
     // 把第二看重改成与第一看重相同（默认第一 = 上课通勤）。
     await page.getByTestId("priority-1").click();
     await page.getByRole("option", { name: "上课通勤" }).click();
 
-    await page.getByTestId("recommend-button").click();
-
-    await expect(page.getByTestId("picker-error")).toBeVisible();
-    await expect(page.getByTestId("picker-result")).toHaveCount(0);
+    await expect(page.getByText("该因素已被选择！")).toBeVisible();
+    await expect(page.getByTestId("priority-1")).toContainText("None");
   });
 
-  test("看重点留空时显示用户文案，不暴露内部值", async ({ page }) => {
+  test("第二看重设为 None 时清空第三看重", async ({ page }) => {
     await page.goto("/college-picker");
 
     await page.getByTestId("priority-1").click();
-    await page.getByRole("option", { name: "—（不填）" }).click();
+    await page
+      .locator('[data-slot="select-content"][data-open]')
+      .getByRole("option", { name: "住宿环境" })
+      .click();
 
-    await expect(page.getByTestId("priority-1")).toContainText("—（不填）");
-    await expect(page.getByTestId("priority-2")).toContainText("—（不填）");
+    await page.getByTestId("priority-2").click();
+    await page
+      .locator('[data-slot="select-content"][data-open]')
+      .getByRole("option", { name: "保宿机会" })
+      .click();
+
+    await page.getByTestId("priority-1").click();
+    await page
+      .locator('[data-slot="select-content"][data-open]')
+      .getByRole("option", { name: "None" })
+      .click();
+
+    await expect(page.getByTestId("priority-1")).toContainText("None");
+    await expect(page.getByTestId("priority-2")).toContainText("None");
   });
 
   test("选择 A 后展开 06 小书院精选，选择 B/C 不显示", async ({ page }) => {
@@ -122,10 +135,26 @@ test.describe("#228 分院帽书院志愿推荐器", () => {
     await expect(page.getByText("小书院精选")).toHaveCount(0);
   });
 
-  test("选择 A + 06 答案后推荐志愿显示推荐指数", async ({ page }) => {
+  test("选择 A 但未答完 06 问卷时给出 toast 提示", async ({ page }) => {
     await page.goto("/college-picker");
 
     await page.getByTestId("preference-aim").click();
+    await page.getByTestId("recommend-button").click();
+
+    await expect(
+      page.getByText("小书院精选题未做完，做完后生成结果"),
+    ).toBeVisible();
+    await expect(page.getByTestId("picker-result")).toHaveCount(0);
+  });
+
+  test("选择 A + 答完 06 问卷后显示推荐结果", async ({ page }) => {
+    await page.goto("/college-picker");
+
+    await page.getByTestId("preference-aim").click();
+    await page.getByTestId("sc-q-0").locator('input[value="A"]').check();
+    await page.getByTestId("sc-q-1").locator('input[value="A"]').check();
+    await page.getByTestId("sc-q-2").locator('input[value="A"]').check();
+    await page.getByTestId("sc-q-3").locator('input[value="A"]').check();
     await page.getByTestId("recommend-button").click();
 
     const result = page.getByTestId("picker-result");
