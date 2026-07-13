@@ -46,19 +46,16 @@ test.describe("canteen menu OCR import", () => {
     await expect(page.getByRole("heading", { name: /菜单/ })).toBeVisible();
 
     const ocrSection = page.getByRole("region", { name: "OCR 菜单导入" });
-    await ocrSection
-      .locator('input[type="file"]')
-      .setInputFiles({
-        name: "menu.png",
-        mimeType: "image/png",
-        buffer: TINY_PNG,
-      });
+    await ocrSection.locator('input[type="file"]').setInputFiles({
+      name: "menu.png",
+      mimeType: "image/png",
+      buffer: TINY_PNG,
+    });
     await ocrSection.getByRole("button", { name: "上传并识别" }).click();
 
-    await expect(ocrSection.getByPlaceholder("菜名").first()).toBeVisible({
-      timeout: 20_000,
-    });
-    await expect(ocrSection.getByDisplayValue("演示菜品A")).toBeVisible();
+    const firstDishName = ocrSection.getByPlaceholder("菜名").first();
+    await expect(firstDishName).toBeVisible({ timeout: 20_000 });
+    await expect(firstDishName).toHaveValue("演示菜品A");
 
     await ocrSection.getByRole("button", { name: "发布到菜单" }).click();
     await expect(page.getByText("演示菜品A")).toBeVisible({ timeout: 15_000 });
