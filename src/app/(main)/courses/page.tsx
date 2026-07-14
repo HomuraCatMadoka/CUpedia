@@ -103,7 +103,7 @@ function CourseCard({ course: c }: { course: CourseView }) {
               <span className="text-2xl leading-none font-semibold tabular-nums">
                 {c.rating.toFixed(1)}
                 <span className="ml-0.5 text-xs font-normal text-muted-foreground">
-                  /10
+                  /5
                 </span>
               </span>
             </div>

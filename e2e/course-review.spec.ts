@@ -112,5 +112,8 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
 
   // The redesigned list card reflects the new rating.
   await page.goto("/courses?subject=CSCI");
-  await expect(page.locator(`a[href="/courses/${CODE}"]`)).toContainText("4.5");
+  const courseCard = page.locator(`a[href="/courses/${CODE}"]`);
+  await expect(courseCard).toContainText("4.5");
+  await expect(courseCard).toContainText("/5");
+  await expect(courseCard).not.toContainText("/10");
 });
