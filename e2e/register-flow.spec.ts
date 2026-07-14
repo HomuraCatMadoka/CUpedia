@@ -37,6 +37,17 @@ test("registration form rejects a non-CUHK email", async ({ page }) => {
   await expect(page.getByLabel("验证码")).toHaveCount(0);
 });
 
+test("registration OTP check rejects a non-object request body", async ({
+  request,
+}) => {
+  const response = await request.post("/api/auth/register/check-otp", {
+    headers: { "Content-Type": "application/json" },
+    data: "null",
+  });
+
+  expect(response.status()).toBe(400);
+});
+
 test("wrong OTP is understandable and does not create a user", async ({
   page,
 }) => {
@@ -45,9 +56,11 @@ test("wrong OTP is understandable and does not create a user", async ({
   const actualOtp = await readLatestOtp(email, "sign-in");
   const wrongOtp = actualOtp === "000000" ? "999999" : "000000";
 
-  await submitProfile(page, wrongOtp);
+  await page.getByLabel("验证码").fill(wrongOtp);
+  await page.getByRole("button", { name: "下一步" }).click();
 
   await expect(page.getByText("验证码无效或已过期")).toBeVisible();
+  await expect(page.getByLabel("昵称")).toHaveCount(0);
   expect(await userExists(email)).toBe(false);
 });
 
@@ -59,9 +72,35 @@ test("expired OTP is understandable and does not create a user", async ({
   const otp = await readLatestOtp(email, "sign-in");
   await expireLatestOtp(email, "sign-in");
 
-  await submitProfile(page, otp);
+  await page.getByLabel("验证码").fill(otp);
+  await page.getByRole("button", { name: "下一步" }).click();
 
   await expect(page.getByText("验证码无效或已过期")).toBeVisible();
+  await expect(page.getByLabel("昵称")).toHaveCount(0);
+  expect(await userExists(email)).toBe(false);
+});
+
+test("concurrent wrong OTP checks cannot bypass the attempt limit", async ({
+  page,
+}) => {
+  const email = freshEmail();
+  await requestOtp(page, email);
+  const actualOtp = await readLatestOtp(email, "sign-in");
+  const wrongOtp = actualOtp === "000000" ? "999999" : "000000";
+
+  await Promise.all(
+    Array.from({ length: 4 }, () =>
+      page.request.post("/api/auth/register/check-otp", {
+        data: { email, otp: wrongOtp },
+      }),
+    ),
+  );
+  const correctAttempt = await page.request.post(
+    "/api/auth/register/check-otp",
+    { data: { email, otp: actualOtp } },
+  );
+
+  expect(correctAttempt.status()).toBe(400);
   expect(await userExists(email)).toBe(false);
 });
 
