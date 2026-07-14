@@ -1,4 +1,5 @@
 import type {
+  AdminCanteenDishComment,
   Canteen,
   CanteenDishComment,
   CanteenMenuItem,
@@ -308,6 +309,30 @@ export function mockAdminDeleteDishComment(commentId: string): void {
   const idx = s.comments.findIndex((c) => c.id === commentId);
   if (idx < 0) throw new Error("COMMENT_NOT_FOUND");
   s.comments.splice(idx, 1);
+}
+
+export function mockAdminListDishComments(): AdminCanteenDishComment[] {
+  const s = getState();
+  const itemsById = new Map(s.items.map((item) => [item.id, item]));
+  const canteensById = new Map(s.canteens.map((c) => [c.id, c]));
+
+  return s.comments
+    .slice()
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .flatMap((comment) => {
+      const item = itemsById.get(comment.menuItemId);
+      if (!item) return [];
+      const canteen = canteensById.get(item.canteenId);
+      if (!canteen) return [];
+      return [
+        {
+          ...comment,
+          canteenId: canteen.id,
+          canteenName: canteen.name,
+          menuItemName: item.name,
+        },
+      ];
+    });
 }
 
 function mockCountVotesForCanteen(canteenId: string): number {

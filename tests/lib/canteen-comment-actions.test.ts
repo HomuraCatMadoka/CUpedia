@@ -13,6 +13,10 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock("next/headers", () => ({
   headers: vi.fn().mockResolvedValue(new Headers()),
 }));
@@ -37,6 +41,7 @@ vi.mock("@/db", () => ({
 
 import {
   adminDeleteDishComment,
+  adminListDishComments,
   createDishComment,
   deleteDishComment,
   getCommentsForMenuItem,
@@ -177,6 +182,25 @@ describe("canteen-comment-actions (mock mode)", () => {
     await adminDeleteDishComment(created.id);
     const comments = await getCommentsForMenuItem(ITEM_ID);
     expect(comments).toHaveLength(0);
+  });
+
+  it("lists dish comments for admin with canteen and menu item names", async () => {
+    mockLoggedInUser("user-2", "作者");
+    await createDishComment(ITEM_ID, "挺好吃");
+    mockAdminUser();
+    const listed = await adminListDishComments();
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({
+      content: "挺好吃",
+      authorNickname: "作者",
+      canteenName: "演示食堂",
+      menuItemName: "演示菜品",
+    });
+  });
+
+  it("rejects non-admin from listing dish comments", async () => {
+    mockLoggedInUser();
+    await expect(adminListDishComments()).rejects.toThrow("NEXT_REDIRECT");
   });
 
   it("includes comment count in menu item delete impact", async () => {
