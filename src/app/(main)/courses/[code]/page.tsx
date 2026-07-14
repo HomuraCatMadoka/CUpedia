@@ -13,7 +13,14 @@ import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { Badge } from "@/components/ui/badge";
 import { CourseReviewSection } from "@/components/courses/course-review-section";
-import { CourseRatingPanel } from "@/components/courses/course-rating-panel";
+
+function recentAcademicYears(now = new Date()): string[] {
+  const start = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+  return Array.from({ length: 5 }, (_, index) => {
+    const year = start - index;
+    return `${year}-${String((year + 1) % 100).padStart(2, "0")}`;
+  });
+}
 
 export default async function CourseDetailPage({
   params,
@@ -69,6 +76,11 @@ export default async function CourseDetailPage({
               </p>
               <p className="mt-1 text-4xl font-light tracking-tighter">
                 {course.rating !== null ? course.rating.toFixed(1) : "—"}
+                {course.rating !== null && (
+                  <span className="ml-1 text-sm text-muted-foreground">
+                    / 5
+                  </span>
+                )}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {course.ratingCount > 0
@@ -148,23 +160,27 @@ export default async function CourseDetailPage({
         )}
 
         {ratingState && (
-          <div className="mt-6">
-            <CourseRatingPanel
+          <div className="mt-8">
+            <CourseReviewSection
               key={`${course.code}-${ratingState.ratingCount}-${ratingState.myRatingCount}`}
               code={course.code}
-              state={ratingState}
+              reviews={reviews}
+              ratingState={ratingState}
+              academicYears={[
+                ...new Set([
+                  ...enrollmentHistory.map((row) => row.academicYear),
+                  ...(ratingState.lastAcademicYear
+                    ? [ratingState.lastAcademicYear]
+                    : []),
+                  ...recentAcademicYears(),
+                ]),
+              ]
+                .sort()
+                .reverse()}
               isAuthenticated={!!user}
             />
           </div>
         )}
-
-        <div className="mt-8">
-          <CourseReviewSection
-            code={course.code}
-            reviews={reviews}
-            isAuthenticated={!!user}
-          />
-        </div>
       </div>
     </div>
   );

@@ -15,7 +15,9 @@ const {
   dbQueue,
   dbSelect,
   dbInsert,
+  dbUpdate,
   dbDelete,
+  dbTransaction,
   dbChain,
 } = vi.hoisted(() => {
   const queue: unknown[] = [];
@@ -43,7 +45,9 @@ const {
     dbQueue: queue,
     dbSelect: vi.fn(() => chain),
     dbInsert: vi.fn(() => chain),
+    dbUpdate: vi.fn(() => chain),
     dbDelete: vi.fn(() => chain),
+    dbTransaction: vi.fn(),
     dbChain: chain,
   };
 });
@@ -57,16 +61,19 @@ vi.mock("@/db", () => ({
   db: {
     select: () => dbSelect(),
     insert: () => dbInsert(),
+    update: () => dbUpdate(),
     delete: () => dbDelete(),
+    transaction: (callback: (tx: unknown) => unknown) =>
+      dbTransaction(callback),
   },
 }));
 
 import {
-  submitCourseRating,
-  addReview,
-  deleteReview,
+  submitCourseReview,
+  deleteCourseReviewSubmission,
   toggleLike,
   getCourseRatingState,
+  getCourseReviews,
   getCourses,
   searchProfessors,
   getCourseEnrollmentHistory,
@@ -94,100 +101,153 @@ beforeEach(() => {
   dbQueue.length = 0;
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
   mockGetOptionalUser.mockResolvedValue(null);
-});
-
-describe("submitCourseRating", () => {
-  it("拒绝未登录用户", async () => {
-    mockRequireAuth.mockRejectedValue(new Error("未登录"));
-    await expect(submitCourseRating("CSCI3150", 8)).rejects.toThrow();
-    expect(dbSelect).not.toHaveBeenCalled();
-  });
-
-  it("拒绝越界分数（不触库）", async () => {
-    await expect(submitCourseRating("CSCI3150", 11)).rejects.toThrow(/0 到 10/);
-    expect(dbSelect).not.toHaveBeenCalled();
-  });
-
-  it("写入四舍五入后的分数", async () => {
-    queueRows([COURSE], []); // findCourse, no previous rating
-    await expect(submitCourseRating("CSCI3150", 8.47)).resolves.toBeUndefined();
-    expect(dbInsert).toHaveBeenCalledOnce();
-    expect(values()).toHaveBeenCalledWith(
-      expect.objectContaining({
-        courseCode: "CSCI3150",
-        userId: "u1",
-        score: 8.5,
+  dbTransaction.mockImplementation(
+    async (
+      callback: (tx: {
+        insert: () => typeof dbChain;
+        update: () => typeof dbChain;
+        delete: () => typeof dbChain;
+      }) => unknown,
+    ) =>
+      callback({
+        insert: () => dbInsert(),
+        update: () => dbUpdate(),
+        delete: () => dbDelete(),
       }),
-    );
-  });
-
-  it("同一用户重复打分是更新而非新增（upsert，一人一票）", async () => {
-    queueRows([COURSE], []); // findCourse, no previous rating
-    await submitCourseRating("CSCI3150", 7);
-    const onConflict = dbChain.onConflictDoUpdate as Mock;
-    expect(onConflict).toHaveBeenCalledOnce();
-    expect(onConflict).toHaveBeenCalledWith(
-      expect.objectContaining({ set: expect.objectContaining({ score: 7 }) }),
-    );
-  });
-
-  it("五分钟内拒绝更新评分", async () => {
-    queueRows([COURSE], [{ createdAt: new Date() }]);
-    await expect(submitCourseRating("CSCI3150", 7)).rejects.toThrow(/5 分钟/);
-    expect(dbInsert).not.toHaveBeenCalled();
-  });
-
-  it("课程不存在时报错", async () => {
-    queueRows([]); // findCourse → none
-    await expect(submitCourseRating("NOPE0000", 8)).rejects.toThrow(
-      /课程不存在/,
-    );
-  });
+  );
 });
 
-describe("addReview", () => {
+const SUBMISSION = {
+  academicYear: "2025-26",
+  term: "Term 2" as const,
+  professorId: "p1",
+  score: 4.5,
+};
+
+describe("submitCourseReview", () => {
   it("拒绝未登录用户", async () => {
     mockRequireAuth.mockRejectedValue(new Error("未登录"));
-    await expect(addReview("CSCI3150", "好课", "p1")).rejects.toThrow();
+    await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow();
     expect(dbSelect).not.toHaveBeenCalled();
   });
 
-  it("拒绝空内容（不触库）", async () => {
-    await expect(addReview("CSCI3150", "   ", "p1")).rejects.toThrow(
-      /不能为空/,
-    );
-    expect(dbSelect).not.toHaveBeenCalled();
-  });
-
-  it("拒绝超长内容（不触库）", async () => {
-    await expect(addReview("CSCI3150", "a".repeat(2001), "p1")).rejects.toThrow(
-      /过长/,
-    );
-    expect(dbSelect).not.toHaveBeenCalled();
-  });
-
-  it("正常发表：trim 后写入", async () => {
-    queueRows([COURSE], [{ id: "p1" }]); // findCourse, professor assignment
+  it.each([0, 0.6, 5.5])("拒绝无效半星分数 %s（不触库）", async (score) => {
     await expect(
-      addReview("CSCI3150", "  很清楚  ", "p1"),
+      submitCourseReview("CSCI3150", { ...SUBMISSION, score }),
+    ).rejects.toThrow(/0.5 到 5 星/);
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("拒绝模糊学年和无效学期", async () => {
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        academicYear: "去年",
+      }),
+    ).rejects.toThrow(/明确学年/);
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        term: "Term 3" as never,
+      }),
+    ).rejects.toThrow(/有效学期/);
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("仅评分时写入开课经历，不生成空评论", async () => {
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+    await expect(
+      submitCourseReview("CSCI3150", SUBMISSION),
     ).resolves.toBeUndefined();
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
         courseCode: "CSCI3150",
         userId: "u1",
-        content: "很清楚",
+        score: 4.5,
+        academicYear: "2025-26",
+        term: "Term 2",
         professorId: "p1",
+        professorNameSnapshot: "Professor CHAN",
       }),
     );
   });
 
+  it("同一用户重复投稿是更新评分（upsert，一人一票）", async () => {
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+    await submitCourseReview("CSCI3150", SUBMISSION);
+    const onConflict = dbChain.onConflictDoUpdate as Mock;
+    expect(onConflict).toHaveBeenCalledOnce();
+    expect(onConflict).toHaveBeenCalledWith(
+      expect.objectContaining({
+        set: expect.objectContaining({ score: 4.5, term: "Term 2" }),
+      }),
+    );
+  });
+
+  it("含评论时原子写入评分和匿名评论快照", async () => {
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], [], []);
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      content: "  很清楚  ",
+    });
+    expect(dbInsert).toHaveBeenCalledTimes(2);
+    expect(values()).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        content: "很清楚",
+        score: 4.5,
+        academicYear: "2025-26",
+        term: "Term 2",
+        professorNameSnapshot: "Professor CHAN",
+      }),
+    );
+  });
+
+  it("编辑已有投稿时原位更新评论", async () => {
+    queueRows(
+      [COURSE],
+      [{ id: "p1", name: "Professor CHAN" }],
+      [{ id: "r1" }],
+      [],
+      [],
+    );
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      content: "更新后的内容",
+    });
+    expect(dbUpdate).toHaveBeenCalledOnce();
+    expect(dbInsert).toHaveBeenCalledOnce();
+    expect(dbChain.set).toHaveBeenCalledWith(
+      expect.objectContaining({ content: "更新后的内容", score: 4.5 }),
+    );
+  });
+
+  it("清空评论时保留评分并删除评论", async () => {
+    queueRows(
+      [COURSE],
+      [{ id: "p1", name: "Professor CHAN" }],
+      [{ id: "r1" }],
+      [],
+      [],
+    );
+    await submitCourseReview("CSCI3150", { ...SUBMISSION, content: "   " });
+    expect(dbInsert).toHaveBeenCalledOnce();
+    expect(dbDelete).toHaveBeenCalledOnce();
+  });
+
   it("拒绝目录外或未任教该课程的教授", async () => {
     queueRows([COURSE], []);
-    await expect(addReview("CSCI3150", "好课", "fake")).rejects.toThrow(
+    await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
       /教授目录/,
     );
     expect(dbInsert).not.toHaveBeenCalled();
+  });
+
+  it("课程不存在时报错", async () => {
+    queueRows([]); // findCourse → none
+    await expect(submitCourseReview("NOPE0000", SUBMISSION)).rejects.toThrow(
+      /课程不存在/,
+    );
   });
 });
 
@@ -266,35 +326,55 @@ describe("getCourseEnrollmentHistory", () => {
   });
 });
 
-describe("deleteReview", () => {
+describe("deleteCourseReviewSubmission", () => {
   it("拒绝未登录用户", async () => {
     mockRequireAuth.mockRejectedValue(new Error("未登录"));
-    await expect(deleteReview("r1")).rejects.toThrow();
+    await expect(deleteCourseReviewSubmission("CSCI3150")).rejects.toThrow();
     expect(dbDelete).not.toHaveBeenCalled();
   });
 
-  it("评论不存在时报错", async () => {
+  it("投稿不存在时报错", async () => {
     queueRows([]); // review lookup → none
-    await expect(deleteReview("r1")).rejects.toThrow(/评论不存在/);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", { id: "r1", type: "review" }),
+    ).rejects.toThrow(/投稿不存在/);
   });
 
   it("非本人非管理员无权撤回", async () => {
     queueRows([{ userId: "other", courseCode: "CSCI3150" }]);
-    await expect(deleteReview("r1")).rejects.toThrow(/无权/);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", { id: "r1", type: "review" }),
+    ).rejects.toThrow(/无权/);
     expect(dbDelete).not.toHaveBeenCalled();
   });
 
-  it("本人可撤回", async () => {
-    queueRows([{ userId: "u1", courseCode: "CSCI3150" }], []);
-    await expect(deleteReview("r1")).resolves.toBeUndefined();
-    expect(dbDelete).toHaveBeenCalledOnce();
+  it("本人可删除整条投稿", async () => {
+    queueRows([], []);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150"),
+    ).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledTimes(2);
   });
 
-  it("管理员可撤回他人评论", async () => {
+  it("管理员可通过评论删除他人的整条投稿", async () => {
     mockRequireAuth.mockResolvedValue({ id: "admin", role: "admin" });
-    queueRows([{ userId: "other", courseCode: "CSCI3150" }], []);
-    await expect(deleteReview("r1")).resolves.toBeUndefined();
-    expect(dbDelete).toHaveBeenCalledOnce();
+    queueRows([{ userId: "other", courseCode: "CSCI3150" }], [], []);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", { id: "r1", type: "review" }),
+    ).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledTimes(2);
+  });
+
+  it("管理员可删除他人的仅评分投稿", async () => {
+    mockRequireAuth.mockResolvedValue({ id: "admin", role: "admin" });
+    queueRows([{ userId: "other", courseCode: "CSCI3150" }], [], []);
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", {
+        id: "rating1",
+        type: "rating",
+      }),
+    ).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -343,6 +423,10 @@ describe("getCourseRatingState", () => {
       aggregateRating: null,
       ratingCount: 0,
       lastScore: null,
+      lastAcademicYear: null,
+      lastTerm: null,
+      lastProfessor: null,
+      lastContent: "",
       myRatingCount: 0,
     });
   });
@@ -351,19 +435,64 @@ describe("getCourseRatingState", () => {
     mockGetOptionalUser.mockResolvedValue({ id: "u1", role: "user" });
     queueRows(
       [COURSE], // findCourse
-      [{ avg: "8", cnt: 2 }], // ratingAgg
-      [{ score: 8 }], // my rating
+      [{ avg: "4.25", cnt: 2 }], // ratingAgg
+      [
+        {
+          score: 4.5,
+          academicYear: "2025-26",
+          term: "Term 2",
+          professorId: "p1",
+          professorName: "Professor CHAN",
+        },
+      ], // my rating
+      [{ content: "很清楚" }], // latest own review
     );
     const state = await getCourseRatingState("CSCI3150");
-    expect(state?.aggregateRating).toBe(8);
+    expect(state?.aggregateRating).toBe(4.3);
     expect(state?.ratingCount).toBe(2);
-    expect(state?.lastScore).toBe(8);
+    expect(state?.lastScore).toBe(4.5);
+    expect(state?.lastAcademicYear).toBe("2025-26");
+    expect(state?.lastTerm).toBe("Term 2");
+    expect(state?.lastProfessor).toEqual({
+      id: "p1",
+      name: "Professor CHAN",
+    });
+    expect(state?.lastContent).toBe("很清楚");
     expect(state?.myRatingCount).toBe(1);
   });
 
   it("未知课程返回 null", async () => {
     queueRows([]); // findCourse → none
     await expect(getCourseRatingState("NOPE0000")).resolves.toBeNull();
+  });
+});
+
+describe("getCourseReviews", () => {
+  it("管理员可看到没有评论的评分投稿管理卡片", async () => {
+    mockGetOptionalUser.mockResolvedValue({ id: "admin", role: "admin" });
+    queueRows(
+      [COURSE],
+      [],
+      [
+        {
+          id: "rating1",
+          userId: "other",
+          createdAt: new Date("2026-07-13T00:00:00Z"),
+          professorName: "Professor CHAN",
+          academicYear: "2025-26",
+          term: "Term 2",
+          score: 4.5,
+        },
+      ],
+    );
+    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
+      expect.objectContaining({
+        id: "rating1",
+        isRatingOnly: true,
+        canAdminDelete: true,
+        score: 4.5,
+      }),
+    ]);
   });
 });
 
