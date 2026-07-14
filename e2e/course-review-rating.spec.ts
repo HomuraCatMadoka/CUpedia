@@ -1,6 +1,7 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginWithPassword } from "./helpers/auth";
+import { selectSeedProfessor } from "./helpers/course-review";
 
 async function query<T extends Record<string, unknown>>(
   text: string,
@@ -15,65 +16,72 @@ async function query<T extends Record<string, unknown>>(
   }
 }
 
+async function fillExperience(page: Page) {
+  await page.getByLabel("学年").selectOption("2025-26");
+  await page.getByLabel("学期").selectOption("Term 2");
+  await selectSeedProfessor(page);
+}
+
 test.afterEach(async () => {
+  await query("delete from course_reviews where course_code = 'CSCI1130'");
   await query("delete from course_ratings where course_code = 'CSCI1130'");
 });
 
-test("#266 public rating prompt and authenticated aggregate lifecycle", async ({
+test("#293 unified submission validates required experience and supports half-star bounds", async ({
   page,
-  browser,
 }) => {
   await page.goto("/courses/CSCI1130");
-  const ratingPanel = page
-    .locator("section")
-    .filter({ hasText: "给这门课打分" });
-  await expect(ratingPanel.getByRole("link", { name: "登录" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "提交评分" })).toHaveCount(0);
+  const form = page.locator("section").filter({ hasText: "提交课程测评" });
+  await expect(form.getByRole("link", { name: "登录" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "提交测评" })).toHaveCount(0);
 
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto("/courses/CSCI1130");
+  const submit = page.getByRole("button", { name: "提交测评" });
+  await expect(submit).toBeDisabled();
 
-  await page.getByRole("button", { name: "9.0" }).click();
-  await page.getByRole("button", { name: "提交评分" }).click();
-  await expect(page.getByText("你的评分：9.0 分（可更新）")).toBeVisible();
-  await expect(page.getByText("已有 1 次评分，综合 9.0 分")).toBeVisible();
+  await fillExperience(page);
+  await expect(submit).toBeDisabled();
+  await page.getByRole("radio", { name: "0.5 星" }).click();
+  await expect(submit).toBeEnabled();
+  await submit.click();
 
-  await page.getByRole("button", { name: "8.0" }).click();
-  await page.getByRole("button", { name: "提交评分" }).click();
-  await expect(page.getByText(/An error occurred/)).toBeVisible();
-  await expect(page.getByText("你的评分：9.0 分（可更新）")).toBeVisible();
-
-  let result = await query<{ score: number }>(
-    `select score from course_ratings r
+  let rating = await query<{
+    score: number;
+    academic_year: string;
+    term: string;
+  }>(
+    `select score, academic_year, term from course_ratings r
      join users u on u.id = r.user_id
      where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
   );
-  expect(result.rows).toEqual([{ score: 9 }]);
-
-  const contributorContext = await browser.newContext();
-  const contributor = await contributorContext.newPage();
-  await loginWithPassword(contributor, "contributor@test.com", "password123");
-  await contributor.goto("/courses/CSCI1130");
-  await contributor.getByRole("button", { name: "7.0" }).click();
-  await contributor.getByRole("button", { name: "提交评分" }).click();
-  await expect(
-    contributor.getByText("已有 2 次评分，综合 8.0 分"),
-  ).toBeVisible();
-  await contributorContext.close();
-
-  await query(
-    `update course_ratings set created_at = now() - interval '6 minutes'
-     where course_code = 'CSCI1130' and user_id =
-       (select id from users where email = 'user@test.com')`,
+  expect(rating.rows).toEqual([
+    { score: 0.5, academic_year: "2025-26", term: "Term 2" },
+  ]);
+  const reviews = await query<{ count: number }>(
+    "select count(*)::int as count from course_reviews where course_code = 'CSCI1130'",
   );
-  await page.reload();
-  await page.getByRole("button", { name: "8.0" }).click();
-  await page.getByRole("button", { name: "提交评分" }).click();
-  await expect(page.getByText("已有 2 次评分，综合 7.5 分")).toBeVisible();
-  await expect(page.getByText("你的评分：8.0 分（可更新）")).toBeVisible();
+  expect(reviews.rows[0].count).toBe(0);
 
-  result = await query<{ score: number }>(
-    "select score from course_ratings where course_code = 'CSCI1130' order by score",
+  await expect(page.getByText("课程测评已发布")).toBeVisible();
+  await page.getByRole("button", { name: "编辑" }).click();
+  await expect(page.getByLabel("学年")).toHaveValue("2025-26");
+  await expect(page.getByLabel("学期")).toHaveValue("Term 2");
+  await expect(page.getByPlaceholder("搜索任课教授姓名")).toHaveValue(
+    "测试教授 Chan",
   );
-  expect(result.rows).toEqual([{ score: 7 }, { score: 8 }]);
+  await expect(page.getByRole("radio", { name: "0.5 星" })).toBeChecked();
+
+  await page.getByRole("radio", { name: "5 星", exact: true }).click();
+  await page.getByRole("button", { name: "保存修改" }).click();
+  await expect
+    .poll(async () => {
+      rating = await query(
+        `select score, academic_year, term from course_ratings r
+         join users u on u.id = r.user_id
+         where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
+      );
+      return rating.rows;
+    })
+    .toEqual([{ score: 5, academic_year: "2025-26", term: "Term 2" }]);
 });

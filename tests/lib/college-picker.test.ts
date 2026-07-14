@@ -8,6 +8,7 @@ import {
 } from "@/lib/college-picker/recommend";
 import {
   COLLEGES,
+  COLLEGE_CAPTURE,
   SMALL_COLLEGE_IDS,
   type ScoredFactor,
   type AvoidFactor,
@@ -57,10 +58,10 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       priorities: ["Hostel_Guarantee", "Commute_Time", "Exchange_Opportunity"],
       avoids: ["Admission_Interview", "Admission_Written_Test"],
     },
-    // 面试命中 mc/shho/cwc/wys，笔试命中 lws/shho/cwc/mc。
-    // mc/shho/cwc 各中两项(-100)，lws/wys 各中一项(-50)→均归零。
-    // 最高分 cc(65,非小)→C-ii：小书院→7-9；非小块内避雷排末尾。
-    expected: ["cc", "uc", "sc", "na", "lws", "wys", "cwc", "mc", "shho"],
+    // 面试命中 mc/cwc/lws，笔试命中 mc/shho/cwc/lws。
+    // mc/cwc/lws 各中两项(-100)，shho 仅中笔试(-50)→27分。
+    // 最高分 cc(65,非小)→C-ii：小书院→7-9；非小块 wys 现为干净书院不再归零。
+    expected: ["cc", "uc", "sc", "na", "wys", "lws", "shho", "cwc", "mc"],
   },
   {
     label: "理科 · 通勤/住宿/交换 · 避雷[FYP]",
@@ -94,9 +95,9 @@ const GOLDEN: { label: string; input: RecommendInput; expected: string[] }[] = [
       ],
     },
     // 全部四项避雷：cc(FYP+宗教,-100), uc(FYP,-50), cwc(FYP+面试+笔试,-150),
-    // wys(FYP+面试,-100), mc(面试+笔试,-100), shho(面试+笔试,-100), lws(笔试,-50)。
-    // 仅 na/sc 干净(均35)。na(id<sc)居首→C-ii：小书院→7-9。
-    expected: ["na", "sc", "cc", "lws", "uc", "wys", "cwc", "mc", "shho"],
+    // wys(FYP,-50), mc(面试+笔试,-100), shho(笔试,-50), lws(面试+笔试,-100)。
+    // 仅 na/sc 干净(均35)。na(id<sc)居首→C-ii：小书院→7-9；shho 现仅中一项(-50)→15分。
+    expected: ["na", "sc", "cc", "lws", "uc", "wys", "shho", "cwc", "mc"],
   },
   {
     label: "工科 · 交换/住宿/保宿 · 无避雷",
@@ -347,13 +348,13 @@ describe("recommend — 小书院意愿题 (A/B/C)", () => {
     const result = recommend({
       majorGroup: "engineering",
       priorities: ["Commute_Time", "", ""],
-      avoids: ["Admission_Interview"],
+      avoids: ["Admission_Written_Test"],
       smallCollegePreference: "aim",
     });
 
     expect(result[0].id).toBe("shho");
     expect(result[0].score).toBe(40);
-    expect(result[0].avoidHits).toContain("Admission_Interview");
+    expect(result[0].avoidHits).toContain("Admission_Written_Test");
   });
 
   it("B · 不想去小书院：三所小书院整体排到第 7–9，且按推荐指数降序", () => {
@@ -438,8 +439,8 @@ describe("recommend — 逸夫 (Shaw) 尽量不排最后：仅同分才换位（
       priorities: ["Hostel_Guarantee", "Commute_Time", "Exchange_Opportunity"],
       avoids: ["Admission_Interview", "Admission_Written_Test"],
     });
-    // 新命中名单下小书院块 7-9 全部避雷(0 分)，按 id 排：cwc, mc, shho。
-    expect(result[result.length - 1].id).toBe("shho");
+    // 新命中名单下小书院块：shho 仅中笔试(-50→27)排小书院块首位，mc/cwc 各中两项(0 分)排末尾。
+    expect(result[result.length - 1].id).toBe("mc");
     expect(result[result.length - 1].avoidHits.length).toBeGreaterThan(0);
   });
 });
@@ -549,10 +550,10 @@ describe("recommend — 06 小书院精选专属评分", () => {
       q3: "A",
       q4: "A",
     });
-    // q1A: cwc+25, shho+10, mc+10; q2A: shho+10; q3A: mc+10; q4A: cwc+10
-    // cwc = 25+10 = 35; shho = 10+10 = 20; mc = 10+10 = 20
+    // q1A: cwc+25, shho+20, mc+10; q2A: shho+10; q3A: mc+10; q4A: cwc+10
+    // cwc = 25+10 = 35; shho = 20+10 = 30; mc = 10+10 = 20
     expect(spec.cwc).toBe(35);
-    expect(spec.shho).toBe(20);
+    expect(spec.shho).toBe(30);
     expect(spec.mc).toBe(20);
   });
 
@@ -594,11 +595,11 @@ describe("recommend — 06 小书院精选专属评分", () => {
       smallCollegeAnswers: { q1: "A", q2: "A", q3: "A", q4: "A" },
     });
     // 原始分：mc=83, shho=81, cwc=43
-    // 专属：cwc=35, shho=20, mc=20
-    // 最终：mc=83×0.6+20×1=69.8; shho=81×0.6+20×1=68.6; cwc=43×0.6+35×1=60.8
-    // 最高 = mc(69.8) → 第一志愿
-    expect(result[0].id).toBe("mc");
-    expect(result[0].score).toBeCloseTo(69.8, 1);
+    // 专属：cwc=35, shho=30, mc=20
+    // 最终：shho=81×0.6+30×1=78.6; mc=83×0.6+20×1=69.8; cwc=43×0.6+35×1=60.8
+    // 最高 = shho(78.6) → 第一志愿
+    expect(result[0].id).toBe("shho");
+    expect(result[0].score).toBeCloseTo(78.6, 1);
     // 第 8-9 志愿为另外两所小书院
     const last2 = result.slice(7, 9).map((c) => c.id);
     expect(SMALL.has(last2[0])).toBe(true);
@@ -642,5 +643,21 @@ describe("recommend — 06 小书院精选专属评分", () => {
     // C 路径忽略 smallCollegeAnswers，mc 仍为 83（原始分）
     const mc = resultC.find((c) => c.id === "mc")!;
     expect(mc.score).toBe(83);
+  });
+});
+
+describe("COLLEGE_CAPTURE", () => {
+  it("九所书院均有 2–4 条优缺点", () => {
+    for (const college of COLLEGES) {
+      const capture = COLLEGE_CAPTURE[college.id];
+      expect(capture.pros.length).toBeGreaterThanOrEqual(2);
+      expect(capture.pros.length).toBeLessThanOrEqual(4);
+      expect(capture.cons.length).toBeGreaterThanOrEqual(2);
+      expect(capture.cons.length).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("和声书院有灰色备注", () => {
+    expect(COLLEGE_CAPTURE.lws.remark).toMatch(/入学面试/);
   });
 });

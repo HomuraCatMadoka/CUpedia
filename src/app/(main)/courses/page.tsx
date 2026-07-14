@@ -103,14 +103,14 @@ function CourseCard({ course: c }: { course: CourseView }) {
               <span className="text-2xl leading-none font-semibold tabular-nums">
                 {c.rating.toFixed(1)}
                 <span className="ml-0.5 text-xs font-normal text-muted-foreground">
-                  /10
+                  /5
                 </span>
               </span>
             </div>
             <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full bg-foreground"
-                style={{ width: `${c.rating * 10}%` }}
+                style={{ width: `${c.rating * 20}%` }}
               />
             </div>
           </>
