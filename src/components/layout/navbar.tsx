@@ -4,7 +4,7 @@ import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
 import { useMounted } from "@/hooks/use-mounted";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -108,14 +108,15 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button
-                render={<Link href="/login" />}
-                nativeButton={false}
-                size="sm"
-                className="h-11 touch-manipulation px-3 md:h-7"
+              <Link
+                href="/login"
+                className={buttonVariants({
+                  size: "sm",
+                  className: "h-11 touch-manipulation px-3 md:h-7",
+                })}
               >
                 登录
-              </Button>
+              </Link>
             )}
           </nav>
         </div>

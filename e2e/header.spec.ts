@@ -44,7 +44,7 @@ test.describe("#315 global Header navigation ownership", () => {
     const targets = [
       page.getByRole("button", { name: "打开导航" }),
       page.getByRole("button", { name: "搜索 (⌘K)" }),
-      page.getByRole("button", { name: "登录" }),
+      page.getByRole("link", { name: "登录" }),
       page.getByRole("link", { name: "分院帽" }),
       page.getByRole("link", { name: "课程测评（测试中）" }),
     ];
