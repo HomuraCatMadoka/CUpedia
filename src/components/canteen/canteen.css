@@ -1,52 +1,195 @@
 .canteen-zone {
-  --canteen-rice: #f8f4ed;
-  --canteen-tray: #ebe3d6;
-  --canteen-bamboo: #b8956a;
-  --canteen-purple: #5c2d6e;
-  --canteen-morning: #d4922a;
-  --canteen-noon: #2f6b52;
+  /* Cold ledger palette — cool paper / steel / single teal accent */
+  --canteen-rice: #e6ecf2;
+  --canteen-cream: #e6ecf2;
+  --canteen-tray: #d0d8e2;
+  --canteen-bamboo: #8494a6;
+  --canteen-purple: #2a6b78;
+  --canteen-morning: #5b7c99;
+  --canteen-noon: #2f6f7e;
   --canteen-evening: #3d4f6b;
-  --canteen-ink: #2a2420;
-  --canteen-muted: #6b635a;
+  --canteen-ink: #1a2332;
+  --canteen-muted: #5c6b7a;
+  --canteen-surface: rgba(245, 248, 251, 0.92);
+  --canteen-line: rgba(26, 35, 50, 0.12);
 
   font-family: var(--font-canteen-body), system-ui, sans-serif;
   color: var(--canteen-ink);
   background:
-    radial-gradient(ellipse 120% 80% at 50% -20%, rgba(184, 149, 106, 0.18), transparent 55%),
-    linear-gradient(180deg, var(--canteen-rice) 0%, #f0e8dc 100%);
+    radial-gradient(
+      ellipse 90% 55% at 0% 0%,
+      rgba(42, 107, 120, 0.1),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 70% 45% at 100% 10%,
+      rgba(61, 79, 107, 0.08),
+      transparent 50%
+    ),
+    linear-gradient(180deg, var(--canteen-rice) 0%, #dce4ec 100%);
 }
 
 .canteen-zone h1,
 .canteen-zone h2,
 .canteen-zone .canteen-display {
-  font-family: var(--font-canteen-display), serif;
+  font-family: var(--font-canteen-display), var(--font-canteen-body), system-ui,
+    sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.canteen-zone .canteen-brand {
+  font-family: var(--font-canteen-display), var(--font-canteen-body), system-ui,
+    sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.canteen-zone .canteen-ledger {
+  border-top: 1px solid var(--canteen-line);
+}
+
+.canteen-zone .canteen-ledger-row {
+  border-bottom: 1px solid var(--canteen-line);
+  background: transparent;
+  transition: background-color 160ms ease;
+}
+
+.canteen-zone .canteen-ledger-row:hover {
+  background: rgba(255, 255, 255, 0.45);
+}
+
+/* Vote chips: bordered controls so “赞 / 踩” read as tappable, not plain text */
+.canteen-zone .canteen-vote-btn {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 4.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border: 1px solid var(--canteen-line);
+  background: var(--canteen-surface);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--canteen-ink);
+  box-shadow: 0 1px 0 rgba(26, 35, 50, 0.06);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+  cursor: pointer;
+}
+
+.canteen-zone .canteen-vote-btn:hover:not(:disabled) {
+  border-color: rgba(42, 107, 120, 0.45);
+  background: #fff;
+  box-shadow: 0 2px 0 rgba(26, 35, 50, 0.08);
+}
+
+.canteen-zone .canteen-vote-btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.canteen-zone .canteen-vote-btn:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
+}
+
+.canteen-zone .canteen-vote-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.canteen-zone .canteen-vote-btn-like-on {
+  border-color: var(--canteen-noon);
+  background: var(--canteen-noon);
+  color: #fff;
+  box-shadow: none;
+}
+
+.canteen-zone .canteen-vote-btn-like-on:hover:not(:disabled) {
+  border-color: var(--canteen-noon);
+  background: #255a66;
+  color: #fff;
+}
+
+.canteen-zone .canteen-vote-btn-dislike-on {
+  border-color: var(--canteen-evening);
+  background: var(--canteen-evening);
+  color: #fff;
+  box-shadow: none;
+}
+
+.canteen-zone .canteen-vote-btn-dislike-on:hover:not(:disabled) {
+  border-color: var(--canteen-evening);
+  background: #324257;
+  color: #fff;
+}
+
+.canteen-zone .canteen-back-link {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid var(--canteen-line);
+  background: var(--canteen-surface);
+  padding: 0.35rem 0.85rem 0.35rem 0.65rem;
+  color: var(--canteen-ink);
+  font-size: 0.875rem;
+  font-weight: 500;
+  box-shadow: 0 1px 0 rgba(26, 35, 50, 0.06);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 120ms ease;
+}
+
+.canteen-zone .canteen-back-link:hover {
+  border-color: rgba(42, 107, 120, 0.45);
+  background: #fff;
+  color: var(--canteen-purple);
+}
+
+.canteen-zone .canteen-back-link:active {
+  transform: translateY(1px);
+}
+
+.canteen-zone .canteen-back-link:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
 }
 
 .canteen-steam {
-  background-image: radial-gradient(
-    circle at 30% 20%,
-    rgba(255, 255, 255, 0.55) 0%,
-    transparent 50%
+  background-image: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.35) 0%,
+    transparent 42%
   );
 }
 
 @media (prefers-reduced-motion: no-preference) {
   .canteen-fade-in {
-    animation: canteen-fade-in 0.5s ease-out both;
+    animation: canteen-fade-in 0.45s ease-out both;
   }
 
   .canteen-fade-in-delay-1 {
-    animation-delay: 0.08s;
+    animation-delay: 0.06s;
   }
 
   .canteen-fade-in-delay-2 {
-    animation-delay: 0.16s;
+    animation-delay: 0.12s;
   }
 
   @keyframes canteen-fade-in {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;

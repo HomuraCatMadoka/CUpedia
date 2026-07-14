@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCanteenById, getCanteenMenuItems } from "@/lib/canteen-actions";
 import {
@@ -30,11 +29,8 @@ export default async function CanteenMenuPage({
 
   return (
     <CanteenShell
-      eyebrow={
-        <Link href="/canteen" className="hover:text-[var(--canteen-purple)]">
-          ← 全部食堂
-        </Link>
-      }
+      backHref="/canteen"
+      backLabel="全部食堂"
       title={canteen.name}
       subtitle={canteen.location ?? undefined}
     >

@@ -5,15 +5,6 @@ import { MEAL_PERIODS } from "@/lib/canteen-types";
 import { mealPeriodLabel } from "@/components/canteen/meal-period-badge";
 import { cn } from "@/lib/utils";
 
-const PERIOD_TAB_STYLE: Record<MealPeriod, string> = {
-  breakfast:
-    "data-[active=true]:border-[var(--canteen-morning)] data-[active=true]:text-[var(--canteen-morning)]",
-  lunch:
-    "data-[active=true]:border-[var(--canteen-noon)] data-[active=true]:text-[var(--canteen-noon)]",
-  dinner:
-    "data-[active=true]:border-[var(--canteen-evening)] data-[active=true]:text-[var(--canteen-evening)]",
-};
-
 export function CanteenPeriodTabs({
   value,
   onChange,
@@ -28,7 +19,10 @@ export function CanteenPeriodTabs({
     <div
       role="tablist"
       aria-label="餐段"
-      className={cn("flex gap-1 rounded-full bg-white/70 p-1 shadow-sm", className)}
+      className={cn(
+        "flex gap-0 border-b border-[var(--canteen-line)]",
+        className,
+      )}
     >
       {periods.map((period) => (
         <button
@@ -39,8 +33,10 @@ export function CanteenPeriodTabs({
           data-active={value === period}
           onClick={() => onChange(period)}
           className={cn(
-            "min-h-11 flex-1 rounded-full border border-transparent px-4 text-sm font-medium text-[var(--canteen-muted)] transition-colors",
-            PERIOD_TAB_STYLE[period],
+            "min-h-11 flex-1 border-b-2 px-3 text-sm font-medium transition-colors sm:px-4",
+            value === period
+              ? "border-[var(--canteen-purple)] text-[var(--canteen-ink)]"
+              : "border-transparent text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]",
           )}
         >
           {mealPeriodLabel[period]}
@@ -67,11 +63,7 @@ export function CanteenViewTabs({
 }) {
   const modes: CanteenViewMode[] = ["menu", "recommend", "avoid"];
   return (
-    <div
-      role="tablist"
-      aria-label="视图"
-      className="flex flex-wrap gap-2"
-    >
+    <div role="tablist" aria-label="视图" className="flex flex-wrap gap-x-4 gap-y-2">
       {modes.map((mode) => (
         <button
           key={mode}
@@ -80,10 +72,10 @@ export function CanteenViewTabs({
           aria-selected={value === mode}
           onClick={() => onChange(mode)}
           className={cn(
-            "min-h-11 rounded-full border px-4 text-sm font-medium transition-colors",
+            "min-h-11 text-sm font-medium underline-offset-4 transition-colors",
             value === mode
-              ? "border-[var(--canteen-purple)] bg-[var(--canteen-purple)]/10 text-[var(--canteen-purple)]"
-              : "border-[var(--canteen-bamboo)]/30 bg-white/80 text-[var(--canteen-muted)] hover:border-[var(--canteen-purple)]/30",
+              ? "text-[var(--canteen-purple)] underline"
+              : "text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]",
           )}
         >
           {VIEW_LABELS[mode]}

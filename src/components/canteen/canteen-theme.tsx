@@ -1,22 +1,23 @@
-import { Noto_Sans_SC, Noto_Serif_SC } from "next/font/google";
+import { Noto_Sans_SC } from "next/font/google";
 import "./canteen.css";
 
-const canteenDisplay = Noto_Serif_SC({
+/** Single cold sans stack — display uses heavier weight, not warm serif. */
+const canteenSans = Noto_Sans_SC({
   subsets: ["latin"],
-  weight: ["600", "700"],
-  variable: "--font-canteen-display",
-});
-
-const canteenBody = Noto_Sans_SC({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-canteen-body",
 });
 
 export function CanteenTheme({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`canteen-zone ${canteenDisplay.variable} ${canteenBody.variable} min-h-full flex-1`}
+      className={`canteen-zone ${canteenSans.variable} min-h-full flex-1`}
+      style={
+        {
+          ["--font-canteen-display" as string]:
+            "var(--font-canteen-body), system-ui, sans-serif",
+        } as React.CSSProperties
+      }
     >
       {children}
     </div>

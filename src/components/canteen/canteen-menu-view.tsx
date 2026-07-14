@@ -109,7 +109,7 @@ export function CanteenMenuView({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[var(--canteen-bamboo)]/40 bg-white/50 px-6 py-16 text-center">
+      <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
         <p className="text-[var(--canteen-muted)]">该食堂暂无菜品</p>
       </div>
     );
@@ -117,13 +117,13 @@ export function CanteenMenuView({
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-10 -mx-4 space-y-3 border-b border-[var(--canteen-bamboo)]/15 bg-[var(--canteen-cream)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+      <div className="sticky top-0 z-10 -mx-4 space-y-3 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
         <CanteenPeriodTabs value={period} onChange={setPeriod} />
         <CanteenViewTabs value={view} onChange={setView} />
         {showAfternoonHint && period === "lunch" ? (
           <p
             role="status"
-            className="rounded-lg border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-3 py-2 text-sm text-[var(--canteen-ink)]"
+            className="border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-3 py-2 text-sm text-[var(--canteen-ink)]"
           >
             {AFTERNOON_HINT_TEXT}
           </p>
@@ -131,11 +131,11 @@ export function CanteenMenuView({
       </div>
 
       {periodItems.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--canteen-bamboo)]/40 bg-white/50 px-6 py-16 text-center">
+        <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
           <p className="text-[var(--canteen-muted)]">该餐段暂无菜品</p>
         </div>
       ) : view === "menu" ? (
-        <ul className="space-y-2">
+        <ul className="canteen-ledger">
           {periodItems.map((item) => (
             <MenuItemVoteRow
               key={item.id}
@@ -150,7 +150,7 @@ export function CanteenMenuView({
         </ul>
       ) : view === "recommend" ? (
         <section aria-label="大众推荐榜">
-          <ul className="space-y-2">
+          <ul className="canteen-ledger">
             {recommendRanked.map((entry, index) => (
               <CanteenRankingRow
                 key={entry.item.id}
@@ -163,7 +163,7 @@ export function CanteenMenuView({
         </section>
       ) : (
         <section aria-label="大众避雷榜">
-          <ul className="space-y-2">
+          <ul className="canteen-ledger">
             {avoidRanked.map((entry, index) => (
               <CanteenRankingRow
                 key={entry.item.id}

@@ -16,9 +16,9 @@ export default function HomePage() {
       description: "书院志愿推荐",
     },
     {
-      title: "食堂",
+      title: "山城食记",
       href: "/canteen",
-      description: "食堂测评",
+      description: "还有食堂能吃吗",
       disabled: false,
     },
     { title: "生活", href: "/life", description: "生活指南", disabled: true },
