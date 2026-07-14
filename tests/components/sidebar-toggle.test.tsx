@@ -14,31 +14,35 @@ function ssr(initialCollapsed: boolean, canEdit = false) {
   );
 }
 
-describe("SidebarToggle first paint (mobile flash guard)", () => {
-  it("renders the collapsed rail (md:hidden) even when expanded, so mobile shows the rail without JS", () => {
+describe("SidebarToggle desktop rail", () => {
+  it("hides the rail while the desktop page tree is expanded", () => {
     const html = ssr(false);
     expect(html).toContain("展开导航");
+    expect(html).toContain("hidden");
     expect(html).toContain("md:hidden");
   });
 
-  it("renders the rail on all breakpoints when collapsed (no md:hidden)", () => {
+  it("renders the collapsed rail at the desktop breakpoint", () => {
     const html = ssr(true);
     expect(html).toContain("展开导航");
+    expect(html).toContain("md:flex");
     expect(html).not.toContain("md:hidden");
   });
 });
 
-describe("SidebarToggle mobile redundancy (#98)", () => {
-  it("keeps the expand toggle as the no-JS affordance", () => {
-    expect(ssr(true, true)).toContain("展开导航");
+describe("SidebarToggle mobile ownership (#316)", () => {
+  it("keeps the entire rail hidden below the desktop breakpoint", () => {
+    const html = ssr(true, true);
+    const rail = html.match(/<div[^>]*>\s*<button/)?.[0] ?? "";
+    expect(rail).toContain("hidden");
+    expect(rail).toContain("md:flex");
   });
 
-  it("hides the redundant new-page button on mobile (max-md:hidden) — it duplicates the drawer entry", () => {
+  it("keeps the desktop new-page entry without adding a second mobile rail affordance", () => {
     const html = ssr(true, true);
     expect(html).toContain("新建页面");
-    // The new-page anchor's own element must carry the mobile-hidden guard.
     const anchor = html.match(/<a[^>]*aria-label="新建页面"[^>]*>/)?.[0] ?? "";
-    expect(anchor).toContain("max-md:hidden");
+    expect(anchor).not.toContain("max-md:hidden");
   });
 
   it("omits the new-page button entirely when the user cannot edit", () => {
