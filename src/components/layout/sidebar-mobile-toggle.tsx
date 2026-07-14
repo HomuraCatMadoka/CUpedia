@@ -1,6 +1,7 @@
 "use client";
 
 import { MenuIcon } from "lucide-react";
+import { usePathname } from "next/navigation";
 
 import { useSidebar } from "@/components/layout/sidebar-provider";
 
@@ -9,12 +10,15 @@ import { useSidebar } from "@/components/layout/sidebar-provider";
 // through the Navbar's `leading` slot.
 export function SidebarMobileToggle() {
   const { isMobile, openMobile } = useSidebar();
-  if (!isMobile) return null;
+  const pathname = usePathname();
+  const isWikiRoute = pathname === "/wiki" || pathname.startsWith("/wiki/");
+
+  if (!isMobile || !isWikiRoute) return null;
 
   return (
     <button
       onClick={openMobile}
-      className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
+      className="flex size-11 touch-manipulation items-center justify-center rounded-md transition-[background-color,transform] hover:bg-accent active:scale-95 active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
       aria-label="打开导航"
     >
       <MenuIcon aria-hidden="true" className="size-4" />
