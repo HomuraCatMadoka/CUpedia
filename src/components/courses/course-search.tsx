@@ -13,6 +13,7 @@ export function CourseSearch({ initialQuery = "" }: { initialQuery?: string }) {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("page");
     const trimmed = value.trim();
     if (trimmed) params.set("q", trimmed);
     else params.delete("q");

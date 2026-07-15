@@ -15,14 +15,18 @@ export default async function CoursesPage({
     q?: string;
     subject?: string;
     level?: string;
+    page?: string;
   }>;
 }) {
-  const { credits, q, subject, level } = await searchParams;
+  const { credits, q, subject, level, page: pageParam } = await searchParams;
+  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const [courses, subjects] = await Promise.all([
-    getCourses({ credits, query: q, subject, level }),
+  const [result, subjects] = await Promise.all([
+    getCourses({ credits, query: q, subject, level, page }),
     getSubjects(),
   ]);
+  const { courses, total, pageSize } = result;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const filtering = Boolean(q || subject || credits || level);
 
@@ -45,11 +49,20 @@ export default async function CoursesPage({
             subjects={subjects}
           />
 
-          <p className="text-sm text-muted-foreground">
-            {filtering
-              ? `找到 ${courses.length} 门课程`
-              : "热门课程（有评价的优先）"}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {filtering ? `找到 ${total} 门课程` : `全部 ${total} 门课程`}
+              {totalPages > 1 && ` · 第 ${page} / ${totalPages} 页`}
+            </p>
+            {totalPages > 1 && (
+              <Pagination
+                ariaLabel="课程顶部分页"
+                page={page}
+                totalPages={totalPages}
+                filters={{ credits, q, subject, level }}
+              />
+            )}
+          </div>
 
           {courses.length === 0 ? (
             <div className="rounded-2xl border border-dashed p-12 text-center text-sm text-muted-foreground">
@@ -62,9 +75,86 @@ export default async function CoursesPage({
               ))}
             </div>
           )}
+
+          {totalPages > 1 && (
+            <Pagination
+              ariaLabel="课程底部分页"
+              page={page}
+              totalPages={totalPages}
+              filters={{ credits, q, subject, level }}
+              className="justify-center pt-3"
+            />
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function Pagination({
+  ariaLabel,
+  page,
+  totalPages,
+  filters,
+  className = "",
+}: {
+  ariaLabel: string;
+  page: number;
+  totalPages: number;
+  filters: Record<string, string | undefined>;
+  className?: string;
+}) {
+  return (
+    <nav
+      aria-label={ariaLabel}
+      className={`flex items-center gap-3 ${className}`}
+    >
+      <PageLink href={pageHref(filters, page - 1)} disabled={page <= 1}>
+        上一页
+      </PageLink>
+      <span className="text-sm text-muted-foreground">
+        {page} / {totalPages}
+      </span>
+      <PageLink
+        href={pageHref(filters, page + 1)}
+        disabled={page >= totalPages}
+      >
+        下一页
+      </PageLink>
+    </nav>
+  );
+}
+
+function pageHref(filters: Record<string, string | undefined>, page: number) {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return query ? `/courses?${query}` : "/courses";
+}
+
+function PageLink({
+  href,
+  disabled,
+  children,
+}: {
+  href: string;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  return disabled ? (
+    <span className="rounded-lg border px-3 py-1.5 text-sm text-muted-foreground opacity-50">
+      {children}
+    </span>
+  ) : (
+    <Link
+      href={href}
+      className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
+    >
+      {children}
+    </Link>
   );
 }
 
