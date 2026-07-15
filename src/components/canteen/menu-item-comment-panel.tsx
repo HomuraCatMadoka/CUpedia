@@ -15,6 +15,8 @@ type MenuItemCommentPanelProps = {
   menuItemId: string;
   currentUserId: string | null;
   commentBlocked?: "banned" | null;
+  /** Server-rendered count so "评论 (N)" shows before expand/load. */
+  initialCommentCount?: number;
 };
 
 function commentErrorMessage(code: string): string {
@@ -27,6 +29,7 @@ export function MenuItemCommentPanel({
   menuItemId,
   currentUserId,
   commentBlocked = null,
+  initialCommentCount = 0,
 }: MenuItemCommentPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [comments, setComments] = useState<CanteenDishComment[] | null>(null);
@@ -111,7 +114,7 @@ export function MenuItemCommentPanel({
     });
   }
 
-  const count = comments?.length;
+  const count = comments?.length ?? initialCommentCount;
 
   return (
     <div className="w-full basis-full">
@@ -121,7 +124,7 @@ export function MenuItemCommentPanel({
         onClick={handleToggle}
         className="mt-1 text-xs font-medium text-[var(--canteen-purple)] hover:underline"
       >
-        评论{count != null ? ` (${count})` : ""}
+        评论 ({count})
       </button>
 
       {expanded ? (

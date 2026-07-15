@@ -9,10 +9,12 @@ import {
   mockAdminDeleteDishComment,
   mockCreateDishComment,
   mockDeleteDishComment,
+  mockGetCommentCountsForCanteen,
   mockGetCommentsForMenuItem,
   mockMenuItemExists,
   mockUpdateDishComment,
 } from "@/lib/canteen-mock";
+import { countCommentsByMenuItemForCanteen } from "@/lib/canteen-comment-queries";
 import type { CanteenDishComment } from "@/lib/canteen-types";
 import { validateCommentContent } from "@/lib/canteen-types";
 import { assertNoSensitiveContent } from "@/lib/sensitive-content";
@@ -30,6 +32,13 @@ async function assertMenuItemExists(menuItemId: string): Promise<void> {
     .where(eq(canteenMenuItems.id, menuItemId))
     .limit(1);
   if (!items[0]) throw new Error("MENU_ITEM_NOT_FOUND");
+}
+
+export async function getCommentCountsForCanteen(
+  canteenId: string,
+): Promise<Record<string, number>> {
+  if (isCanteenMockMode()) return mockGetCommentCountsForCanteen(canteenId);
+  return countCommentsByMenuItemForCanteen(canteenId);
 }
 
 export async function getCommentsForMenuItem(

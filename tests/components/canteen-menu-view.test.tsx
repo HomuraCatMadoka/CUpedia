@@ -17,7 +17,13 @@ vi.mock("@/lib/canteen-vote-actions", () => ({
 }));
 
 vi.mock("@/components/canteen/menu-item-comment-panel", () => ({
-  MenuItemCommentPanel: () => null,
+  MenuItemCommentPanel: ({
+    initialCommentCount = 0,
+  }: {
+    initialCommentCount?: number;
+  }) => (
+    <button type="button">{`评论 (${initialCommentCount})`}</button>
+  ),
 }));
 
 function item(
@@ -128,6 +134,27 @@ describe("CanteenMenuView", () => {
     expect(screen.queryByText("演示早餐")).toBeNull();
     expect(screen.getByText(/赞 5/)).toBeTruthy();
     expect(screen.queryByText(/赞 99/)).toBeNull();
+  });
+
+  it("shows comments on recommend and avoid rankings", async () => {
+    render(
+      <CanteenMenuView
+        items={ITEMS}
+        voteCounts={{ "ln-1": { likes: 2, dislikes: 3 } }}
+        myVotes={{}}
+        commentCounts={{ "ln-1": 4 }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("演示午餐")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
+    expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "大众避雷" }));
+    expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
   });
 
   it("shows empty state when period has no dishes", async () => {

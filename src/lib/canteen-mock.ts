@@ -248,6 +248,20 @@ function mockCountCommentsForMenuItem(menuItemId: string): number {
   return getState().comments.filter((c) => c.menuItemId === menuItemId).length;
 }
 
+export function mockGetCommentCountsForCanteen(
+  canteenId: string,
+): Record<string, number> {
+  const itemIds = new Set(
+    getState().items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+  );
+  const result: Record<string, number> = {};
+  for (const comment of getState().comments) {
+    if (!itemIds.has(comment.menuItemId)) continue;
+    result[comment.menuItemId] = (result[comment.menuItemId] ?? 0) + 1;
+  }
+  return result;
+}
+
 export function mockGetCommentsForMenuItem(
   menuItemId: string,
 ): CanteenDishComment[] {

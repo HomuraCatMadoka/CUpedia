@@ -31,6 +31,7 @@ type MenuItemVoteRowProps = {
   ) => void;
   currentUserId?: string | null;
   commentBlocked?: "banned" | null;
+  initialCommentCount?: number;
 };
 
 export function MenuItemVoteRow({
@@ -40,6 +41,7 @@ export function MenuItemVoteRow({
   onVoteChange,
   currentUserId = null,
   commentBlocked = null,
+  initialCommentCount = 0,
 }: MenuItemVoteRowProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -82,6 +84,7 @@ export function MenuItemVoteRow({
           menuItemId={item.id}
           currentUserId={currentUserId}
           commentBlocked={commentBlocked}
+          initialCommentCount={initialCommentCount}
         />
       </div>
       <p className="shrink-0 font-mono text-sm font-medium tabular-nums text-[var(--canteen-ink)]">

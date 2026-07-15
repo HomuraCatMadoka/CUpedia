@@ -1,4 +1,4 @@
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishComments, canteenMenuItems } from "@/db/schema";
 
@@ -22,4 +22,24 @@ export async function countCommentsForMenuItem(
     .from(canteenDishComments)
     .where(eq(canteenDishComments.menuItemId, menuItemId));
   return result[0]?.value ?? 0;
+}
+
+/** Per-menu-item comment totals for a canteen (menu + ranking labels). */
+export async function countCommentsByMenuItemForCanteen(
+  canteenId: string,
+): Promise<Record<string, number>> {
+  const rows = await db
+    .select({
+      menuItemId: canteenDishComments.menuItemId,
+      value: sql<number>`count(*)::int`,
+    })
+    .from(canteenDishComments)
+    .innerJoin(
+      canteenMenuItems,
+      eq(canteenDishComments.menuItemId, canteenMenuItems.id),
+    )
+    .where(eq(canteenMenuItems.canteenId, canteenId))
+    .groupBy(canteenDishComments.menuItemId);
+
+  return Object.fromEntries(rows.map((row) => [row.menuItemId, row.value]));
 }

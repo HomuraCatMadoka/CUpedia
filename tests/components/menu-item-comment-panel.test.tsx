@@ -52,6 +52,18 @@ afterEach(() => {
 });
 
 describe("MenuItemCommentPanel", () => {
+  it("always shows comment count before expanding", () => {
+    render(
+      <MenuItemCommentPanel
+        menuItemId="item-1"
+        currentUserId={null}
+        initialCommentCount={3}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "评论 (3)" })).toBeTruthy();
+    expect(mockGetCommentsForMenuItem).not.toHaveBeenCalled();
+  });
+
   it("renders comment text as plain text without executing HTML", async () => {
     mockGetCommentsForMenuItem.mockResolvedValue([
       {

@@ -39,6 +39,7 @@ import {
   adminDeleteDishComment,
   createDishComment,
   deleteDishComment,
+  getCommentCountsForCanteen,
   getCommentsForMenuItem,
   updateDishComment,
 } from "@/lib/canteen-comment-actions";
@@ -92,6 +93,14 @@ describe("canteen-comment-actions (mock mode)", () => {
     expect(comments).toHaveLength(1);
     expect(comments[0].content).toBe("很好吃");
     expect(comments[0].authorNickname).toBe("测试用户");
+  });
+
+  it("returns per-item comment counts for a canteen", async () => {
+    mockLoggedInUser();
+    await createDishComment(ITEM_ID, "很好吃");
+    await createDishComment(ITEM_ID, "味道不错");
+    const counts = await getCommentCountsForCanteen("mock-canteen-demo");
+    expect(counts[ITEM_ID]).toBe(2);
   });
 
   it("rejects anonymous comment creation", async () => {

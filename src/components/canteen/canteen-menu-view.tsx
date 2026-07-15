@@ -30,6 +30,7 @@ type CanteenMenuViewProps = {
   items: CanteenMenuItem[];
   voteCounts: Record<string, MenuItemVoteCounts>;
   myVotes: Record<string, VoteChoice>;
+  commentCounts?: Record<string, number>;
   currentUserId?: string | null;
   commentBlocked?: "banned" | null;
 };
@@ -38,6 +39,7 @@ export function CanteenMenuView({
   items,
   voteCounts,
   myVotes,
+  commentCounts = {},
   currentUserId = null,
   commentBlocked = null,
 }: CanteenMenuViewProps) {
@@ -145,6 +147,7 @@ export function CanteenMenuView({
               onVoteChange={handleVoteChange}
               currentUserId={currentUserId}
               commentBlocked={commentBlocked}
+              initialCommentCount={commentCounts[item.id] ?? 0}
             />
           ))}
         </ul>
@@ -157,6 +160,9 @@ export function CanteenMenuView({
                 rank={index + 1}
                 entry={entry}
                 emphasis="recommend"
+                currentUserId={currentUserId}
+                commentBlocked={commentBlocked}
+                initialCommentCount={commentCounts[entry.item.id] ?? 0}
               />
             ))}
           </ul>
@@ -170,6 +176,9 @@ export function CanteenMenuView({
                 rank={index + 1}
                 entry={entry}
                 emphasis="avoid"
+                currentUserId={currentUserId}
+                commentBlocked={commentBlocked}
+                initialCommentCount={commentCounts[entry.item.id] ?? 0}
               />
             ))}
           </ul>
