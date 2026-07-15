@@ -21,11 +21,13 @@ def build_professor_links(
     if not professors:
         raise ValueError("Professor snapshot cannot be empty")
 
-    candidates_by_name: dict[str, set[str]] = defaultdict(set)
+    candidates_by_name: dict[str, dict[str, list[dict]]] = defaultdict(
+        lambda: defaultdict(list)
+    )
     for alias in aliases:
         key = resolve_staff_pilot.name_key(alias["alias"])
         if key:
-            candidates_by_name[key].add(alias["person_id"])
+            candidates_by_name[key][alias["person_id"]].append(alias)
 
     people_by_id = {person["id"]: person for person in people}
     links = []
@@ -37,20 +39,34 @@ def build_professor_links(
         seen_professor_ids.add(professor_id)
 
         candidates = candidates_by_name.get(
-            resolve_staff_pilot.name_key(professor["name"]), set()
+            resolve_staff_pilot.name_key(professor["name"]), {}
         )
         if len(candidates) != 1:
             continue
-        person_id = next(iter(candidates))
+        person_id, matching_aliases = next(iter(candidates.items()))
         person = people_by_id.get(person_id)
         if not person:
             raise ValueError(f"Alias references unknown person: {person_id}")
+        reviewed_aliases = [
+            alias
+            for alias in matching_aliases
+            if alias["source"] == "reviewed_manual_override"
+        ]
+        automatic_aliases = [
+            alias
+            for alias in matching_aliases
+            if alias["source"] != "reviewed_manual_override"
+        ]
+        match_method = "automatic" if automatic_aliases else "manual_override"
+        source_url = person["profile_url"]
+        if match_method == "manual_override":
+            source_url = reviewed_aliases[0].get("evidence_url") or source_url
         links.append(
             {
                 "professor_id": professor_id,
                 "person_id": person_id,
-                "match_method": "automatic",
-                "source_url": person["profile_url"],
+                "match_method": match_method,
+                "source_url": source_url,
             }
         )
 

@@ -35,7 +35,7 @@ def load_production(
     professors = query("select id, name from professors order by id", workdir)
     aliases = query(
         """
-        select alias.person_id, alias.alias
+        select alias.person_id, alias.alias, alias.source
         from staff_aliases alias
         join staff_people person on person.id = alias.person_id
         where person.is_current
@@ -129,7 +129,13 @@ def main() -> None:
 
     result = {
         "professors": len(professors),
-        "uniqueAutomaticCandidates": len(links),
+        "uniqueIdentityCandidates": len(links),
+        "automaticCandidates": sum(
+            row["match_method"] == "automatic" for row in links
+        ),
+        "reviewedManualCandidates": sum(
+            row["match_method"] == "manual_override" for row in links
+        ),
         "ambiguousOrUnmatched": len(professors) - len(links),
         "manualOverridesPreserved": len(manual_ids),
         "predictedIdentityCount": predicted_count,

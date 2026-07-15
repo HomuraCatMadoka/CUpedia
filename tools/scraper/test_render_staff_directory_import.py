@@ -138,6 +138,29 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                 professors=[{"id": "prof-1", "name": "Dr Ada LOVELACE"}],
             )
 
+    def test_reviewed_alias_creates_manual_identity_with_evidence(self):
+        payload = subject.build_payload(
+            self.directory(),
+            reviewed_aliases=[{
+                "profileUrl": "https://example.test/ada/",
+                "alias": "Professor Augusta Ada KING",
+                "evidenceUrl": "https://example.test/course-outline",
+            }],
+            professors=[{
+                "id": "prof-1",
+                "name": "Professor Augusta Ada KING",
+            }],
+        )
+
+        self.assertEqual(
+            payload["professor_links"][0]["match_method"],
+            "manual_override",
+        )
+        self.assertEqual(
+            payload["professor_links"][0]["source_url"],
+            "https://example.test/course-outline",
+        )
+
     def test_directory_identity_sql_updates_automatic_and_preserves_manual(self):
         payload = subject.build_payload(
             self.directory(),
