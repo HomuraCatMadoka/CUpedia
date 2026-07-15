@@ -11,21 +11,30 @@ import { useRef, type ComponentProps } from "react";
 export function PrefetchLink({
   href,
   onMouseEnter,
+  onPointerDown,
   ...props
 }: ComponentProps<typeof Link>) {
   const router = useRouter();
   const prefetched = useRef(false);
+
+  const prefetchOnce = () => {
+    if (!prefetched.current && typeof href === "string") {
+      prefetched.current = true;
+      router.prefetch(href);
+    }
+  };
 
   return (
     <Link
       href={href}
       prefetch={false}
       onMouseEnter={(e) => {
-        if (!prefetched.current && typeof href === "string") {
-          prefetched.current = true;
-          router.prefetch(href);
-        }
+        prefetchOnce();
         onMouseEnter?.(e);
+      }}
+      onPointerDown={(e) => {
+        if (e.pointerType !== "mouse") prefetchOnce();
+        onPointerDown?.(e);
       }}
       {...props}
     />

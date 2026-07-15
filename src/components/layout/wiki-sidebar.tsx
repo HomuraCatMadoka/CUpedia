@@ -1,12 +1,20 @@
 "use client";
 
-import { useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type MouseEvent,
+} from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Drawer } from "@base-ui/react/drawer";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
+  LoaderCircleIcon,
   PlusIcon,
   XIcon,
 } from "lucide-react";
@@ -23,6 +31,12 @@ type TreeNode = {
 };
 
 const STORAGE_KEY = "wiki-sidebar-collapsed";
+const NAVIGATION_FEEDBACK_DELAY_MS = 180;
+
+type NavigateToPage = (
+  event: MouseEvent<HTMLAnchorElement>,
+  href: string,
+) => void;
 
 function buildTree(
   pages: { id: string; slug: string; title: string; parentId: string | null }[],
@@ -63,18 +77,25 @@ function ChildItem({
   depth,
   collapsedIds,
   onToggle,
+  onNavigate,
+  pendingHref,
+  feedbackHref,
 }: {
   node: TreeNode;
   depth: number;
   collapsedIds: Set<string>;
   onToggle: (id: string) => void;
+  onNavigate: NavigateToPage;
+  pendingHref: string | null;
+  feedbackHref: string | null;
 }) {
   const pathname = usePathname();
-  const { closeMobile, isMobile } = useSidebar();
   const href = `/wiki/${node.slug}`;
   const active = pathname === href;
   const hasChildren = node.children.length > 0;
   const collapsed = collapsedIds.has(node.id);
+  const pending = pendingHref === href;
+  const showFeedback = feedbackHref === href;
 
   return (
     <li>
@@ -96,15 +117,27 @@ function ChildItem({
         )}
         <PrefetchLink
           href={href}
-          onClick={isMobile ? closeMobile : undefined}
+          onClick={(event) => onNavigate(event, href)}
+          aria-busy={showFeedback || undefined}
+          aria-disabled={pending || undefined}
+          aria-label={showFeedback ? `${node.title}，正在打开` : undefined}
           className={cn(
             "flex min-h-11 flex-1 touch-manipulation items-center truncate rounded px-2 py-1 text-sm transition-[background-color,transform] hover:bg-[var(--sidebar-active-bg)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0",
             active &&
               "border-l-2 border-[var(--sidebar-active-border)] bg-[var(--sidebar-active-bg)] font-medium",
+            showFeedback &&
+              "bg-[var(--sidebar-active-bg)] font-medium motion-reduce:transition-none",
           )}
           style={{ paddingLeft: `${depth * 12}px` }}
         >
-          {node.title}
+          <span className="min-w-0 flex-1 truncate">{node.title}</span>
+          {showFeedback && (
+            <LoaderCircleIcon
+              data-testid="wiki-navigation-pending"
+              aria-hidden="true"
+              className="ml-2 size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+            />
+          )}
         </PrefetchLink>
       </div>
       {hasChildren && !collapsed && (
@@ -116,6 +149,9 @@ function ChildItem({
               depth={depth + 1}
               collapsedIds={collapsedIds}
               onToggle={onToggle}
+              onNavigate={onNavigate}
+              pendingHref={pendingHref}
+              feedbackHref={feedbackHref}
             />
           ))}
         </ul>
@@ -128,16 +164,23 @@ function SectionGroup({
   node,
   collapsedIds,
   onToggle,
+  onNavigate,
+  pendingHref,
+  feedbackHref,
 }: {
   node: TreeNode;
   collapsedIds: Set<string>;
   onToggle: (id: string) => void;
+  onNavigate: NavigateToPage;
+  pendingHref: string | null;
+  feedbackHref: string | null;
 }) {
   const pathname = usePathname();
-  const { closeMobile, isMobile } = useSidebar();
   const href = `/wiki/${node.slug}`;
   const active = pathname === href;
   const collapsed = collapsedIds.has(node.id);
+  const pending = pendingHref === href;
+  const showFeedback = feedbackHref === href;
 
   return (
     <li className="mt-4 first:mt-0">
@@ -155,14 +198,26 @@ function SectionGroup({
         </button>
         <PrefetchLink
           href={href}
-          onClick={isMobile ? closeMobile : undefined}
+          onClick={(event) => onNavigate(event, href)}
+          aria-busy={showFeedback || undefined}
+          aria-disabled={pending || undefined}
+          aria-label={showFeedback ? `${node.title}，正在打开` : undefined}
           className={cn(
             "flex min-h-11 flex-1 touch-manipulation items-center truncate rounded px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-[background-color,color,transform] hover:bg-[var(--sidebar-active-bg)] hover:text-foreground active:scale-[0.99] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:rounded-none md:px-0",
             active &&
               "border-l-2 border-[var(--sidebar-active-border)] pl-1 text-foreground",
+            showFeedback &&
+              "bg-[var(--sidebar-active-bg)] text-foreground motion-reduce:transition-none",
           )}
         >
-          {node.title}
+          <span className="min-w-0 flex-1 truncate">{node.title}</span>
+          {showFeedback && (
+            <LoaderCircleIcon
+              data-testid="wiki-navigation-pending"
+              aria-hidden="true"
+              className="ml-2 size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+            />
+          )}
         </PrefetchLink>
       </div>
       {!collapsed && node.children.length > 0 && (
@@ -174,6 +229,9 @@ function SectionGroup({
               depth={0}
               collapsedIds={collapsedIds}
               onToggle={onToggle}
+              onNavigate={onNavigate}
+              pendingHref={pendingHref}
+              feedbackHref={feedbackHref}
             />
           ))}
         </ul>
@@ -186,10 +244,16 @@ function PageTree({
   tree,
   collapsedIds,
   onToggle,
+  onNavigate,
+  pendingHref,
+  feedbackHref,
 }: {
   tree: TreeNode[];
   collapsedIds: Set<string>;
   onToggle: (id: string) => void;
+  onNavigate: NavigateToPage;
+  pendingHref: string | null;
+  feedbackHref: string | null;
 }) {
   return (
     <ul className="p-2">
@@ -199,6 +263,9 @@ function PageTree({
           node={node}
           collapsedIds={collapsedIds}
           onToggle={onToggle}
+          onNavigate={onNavigate}
+          pendingHref={pendingHref}
+          feedbackHref={feedbackHref}
         />
       ))}
     </ul>
@@ -217,9 +284,17 @@ export function WikiSidebar({
   }[];
   canEdit?: boolean;
 }) {
-  const { state, collapse, closeMobile, mobileTriggerRef } = useSidebar();
+  const { state, isMobile, collapse, closeMobile, mobileTriggerRef } =
+    useSidebar();
+  const pathname = usePathname();
+  const router = useRouter();
   const tree = buildTree(pages);
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const pendingHrefRef = useRef<string | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [feedbackHref, setFeedbackHref] = useState<string | null>(null);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsed);
 
@@ -232,6 +307,62 @@ export function WikiSidebar({
       return next;
     });
   };
+
+  const clearPending = useCallback(() => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = null;
+    pendingHrefRef.current = null;
+    setPendingHref(null);
+    setFeedbackHref(null);
+  }, []);
+
+  const onNavigate = useCallback<NavigateToPage>(
+    (event, href) => {
+      if (
+        !isMobile ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (pendingHrefRef.current) return;
+      if (href === pathname) {
+        closeMobile();
+        return;
+      }
+
+      pendingHrefRef.current = href;
+      setPendingHref(href);
+      feedbackTimerRef.current = setTimeout(() => {
+        setFeedbackHref(href);
+      }, NAVIGATION_FEEDBACK_DELAY_MS);
+
+      startTransition(() => router.push(href));
+    },
+    [closeMobile, isMobile, pathname, router],
+  );
+
+  useEffect(() => {
+    if (isPending || !pendingHref) return;
+    const reachedTarget = pathname === pendingHref;
+    const settle = window.setTimeout(() => {
+      clearPending();
+      if (reachedTarget) closeMobile();
+    }, 0);
+    return () => window.clearTimeout(settle);
+  }, [clearPending, closeMobile, isPending, pathname, pendingHref]);
+
+  useEffect(
+    () => () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    },
+    [],
+  );
 
   const mobileOpen = state === "mobile-open";
 
@@ -262,6 +393,9 @@ export function WikiSidebar({
             tree={tree}
             collapsedIds={collapsedIds}
             onToggle={onToggle}
+            onNavigate={onNavigate}
+            pendingHref={pendingHref}
+            feedbackHref={feedbackHref}
           />
         </nav>
       )}
@@ -287,16 +421,13 @@ export function WikiSidebar({
             >
               <Drawer.Content className="flex h-full min-h-0 flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
                 <div
-                  className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3"
+                  className="flex min-h-14 shrink-0 items-center gap-2 border-b px-3"
                   style={{ borderColor: "var(--sidebar-border-color)" }}
                 >
                   <div className="min-w-0 flex-1">
                     <Drawer.Title className="text-sm font-semibold">
                       Wiki 页面
                     </Drawer.Title>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      浏览中大百科页面树
-                    </p>
                   </div>
                   {canEdit && (
                     <Link
@@ -324,6 +455,9 @@ export function WikiSidebar({
                     tree={tree}
                     collapsedIds={collapsedIds}
                     onToggle={onToggle}
+                    onNavigate={onNavigate}
+                    pendingHref={pendingHref}
+                    feedbackHref={feedbackHref}
                   />
                 </nav>
               </Drawer.Content>

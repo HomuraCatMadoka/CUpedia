@@ -11,6 +11,8 @@ import { loginAsAdmin } from "./helpers/auth";
  * ref #316 — mobile has one Header-owned entry into an accessible page-tree
  *   Drawer. The old collapsed rail never occupies content width, while desktop
  *   collapse-cookie behaviour remains unchanged.
+ * ref #317 — touch intent prefetches once and slow navigation identifies its
+ *   pending target without closing the Drawer before the route commits.
  */
 
 const EXPAND = { name: "展开导航" } as const;
@@ -246,6 +248,90 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     await drawer.getByRole("link", { name: "Getting Started" }).click();
     await expect(page).toHaveURL(/\/wiki\/getting-started$/);
     await expect(drawer).toBeHidden();
+  });
+});
+
+test.describe("#317 mobile Wiki navigation feedback", () => {
+  test.use({
+    viewport: { width: 393, height: 851 },
+    isMobile: true,
+    hasTouch: true,
+  });
+
+  test("shows delayed target feedback, blocks repeat clicks, then closes", async ({
+    page,
+  }) => {
+    await page.goto("/wiki");
+    await page.getByRole("button", { name: "打开导航" }).click();
+
+    const targetRequests: {
+      isPrefetch: boolean;
+      segmentPrefetch?: string;
+    }[] = [];
+    await page.route("**/wiki/getting-started?*", async (route) => {
+      const headers = await route.request().allHeaders();
+      targetRequests.push({
+        isPrefetch: headers["next-router-prefetch"] === "1",
+        segmentPrefetch: headers["next-router-segment-prefetch"],
+      });
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      await route.continue();
+    });
+
+    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    const target = drawer.getByRole("link", { name: "Getting Started" });
+    await target.click({ noWaitAfter: true });
+
+    await expect(drawer).toBeVisible();
+    const pendingTarget = drawer.getByRole("link", {
+      name: "Getting Started，正在打开",
+    });
+    await expect(pendingTarget).toBeVisible();
+    await expect(pendingTarget).toHaveAttribute("aria-disabled", "true");
+    await expect(
+      pendingTarget.getByTestId("wiki-navigation-pending"),
+    ).toBeVisible();
+
+    await pendingTarget.click({ force: true, noWaitAfter: true });
+    await expect(page).toHaveURL(/\/wiki\/getting-started$/);
+    await expect(drawer).toBeHidden();
+    expect(
+      targetRequests.filter((request) => request.segmentPrefetch === "/_tree"),
+    ).toHaveLength(1);
+    expect(
+      targetRequests.filter((request) => !request.isPrefetch),
+    ).toHaveLength(1);
+  });
+
+  test("fast navigation does not flash pending feedback", async ({ page }) => {
+    await page.goto("/wiki");
+    await page.getByRole("button", { name: "打开导航" }).click();
+    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    await page.evaluate(() => {
+      const testWindow = window as typeof window & {
+        __wikiPendingSeen?: boolean;
+      };
+      testWindow.__wikiPendingSeen = false;
+      const observer = new MutationObserver(() => {
+        if (document.querySelector('[data-testid="wiki-navigation-pending"]')) {
+          testWindow.__wikiPendingSeen = true;
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+
+    await drawer
+      .getByRole("link", { name: "Getting Started" })
+      .click({ noWaitAfter: true });
+    await expect(page).toHaveURL(/\/wiki\/getting-started$/);
+    expect(
+      await page.evaluate(
+        () =>
+          (window as typeof window & { __wikiPendingSeen?: boolean })
+            .__wikiPendingSeen,
+      ),
+    ).toBe(false);
   });
 });
 
