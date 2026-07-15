@@ -1,4 +1,4 @@
-import { count, eq, sql } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishComments, canteenMenuItems } from "@/db/schema";
 
@@ -31,7 +31,7 @@ export async function countCommentsByMenuItemForCanteen(
   const rows = await db
     .select({
       menuItemId: canteenDishComments.menuItemId,
-      value: sql<number>`count(*)::int`,
+      value: count(),
     })
     .from(canteenDishComments)
     .innerJoin(
