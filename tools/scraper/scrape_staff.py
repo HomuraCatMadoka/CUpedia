@@ -23,7 +23,6 @@ import time
 import threading
 import unicodedata
 import urllib.parse
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
@@ -31,6 +30,7 @@ from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+from defusedxml import ElementTree as ET
 
 import common
 

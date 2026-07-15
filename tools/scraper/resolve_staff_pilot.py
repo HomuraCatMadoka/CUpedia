@@ -106,10 +106,12 @@ def query_production() -> list[dict]:
     sql = """
 select p.id, p.name,
        array_agg(distinct pc.course_code order by pc.course_code) as courses,
-       count(distinct cr.id)::int as review_count
+       count(distinct cr.id)::int as review_count,
+       count(distinct rating.id)::int as rating_count
 from professors p
 join professor_courses pc on pc.professor_id = p.id
 left join course_reviews cr on cr.professor_id = p.id
+left join course_ratings rating on rating.professor_id = p.id
 where substring(pc.course_code from '^[A-Z]+') in ('BMEG', 'CSCI', 'ELEG', 'IERG', 'MAEG', 'SEEM')
 group by p.id, p.name
 order by p.name, p.id
@@ -279,7 +281,10 @@ def build_report(directory: dict, production: list[dict], people: list[dict], ov
                     "keepProfessorId": preferred["id"],
                     "mergeProfessorIds": [item["id"] for item in duplicated if item["id"] != preferred["id"]],
                     "names": [item["name"] for item in duplicated],
-                    "blockedByReviews": any(item["review_count"] for item in duplicated),
+                    "blockedByReviews": any(
+                        item.get("review_count", 0) or item.get("rating_count", 0)
+                        for item in duplicated
+                    ),
                 }
             )
         all_actions.extend({"department": target, **item} for item in actions)

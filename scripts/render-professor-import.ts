@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import {
   buildProfessorCatalog,
+  normalizeProfessorName,
   type CourseInstructorOverride,
   type TeachingStaffSource,
 } from "./professor-catalog";
@@ -106,7 +107,7 @@ select x.academic_year, x.term, x.course_code, x.class_code, x.class_nbr,
        x.component, x.section, x.quota, x.vacancy,
        array(select jsonb_array_elements_text(x.instructors)), meta.captured_at
 from _professor_import,
-     lateral (select (payload->>'captured_at')::timestamp captured_at) meta,
+     lateral (select (payload->>'captured_at')::timestamptz captured_at) meta,
      jsonb_to_recordset(payload->'enrollments') as x(
        academic_year text, term text, course_code text, class_code text,
        class_nbr text, component text, section text, quota integer,
@@ -213,11 +214,11 @@ async function main() {
       section: row.section,
       quota: row.quota,
       vacancy: row.vacancy,
-      instructors: row.instructors,
+      instructors: row.instructors.map(normalizeProfessorName),
     })),
     overrides: overrides.map((override) => ({
       course_prefix: override.coursePrefix,
-      instructor_name: override.instructorName,
+      instructor_name: normalizeProfessorName(override.instructorName),
       profile_url: override.profileUrl,
       evidence_url: override.evidenceUrl,
     })),

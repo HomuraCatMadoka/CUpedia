@@ -95,6 +95,17 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
             "pure:9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2",
         )
         self.assertEqual(alias["source"], "reviewed_manual_override")
+        self.assertEqual(
+            alias["evidence_url"],
+            "https://example.test/course-outline",
+        )
+
+    def test_sql_replaces_managed_aliases_and_reapplies_manual_evidence(self):
+        sql = subject.render_sql(subject.build_payload(self.directory()))
+        self.assertIn("delete from staff_aliases", sql)
+        self.assertIn("source in ('cuhk_research_portal', 'reviewed_manual_override')", sql)
+        self.assertIn("alias.source = 'reviewed_manual_override'", sql)
+        self.assertIn("evidence_url = alias.evidence_url", sql)
 
 
 if __name__ == "__main__":

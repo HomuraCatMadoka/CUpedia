@@ -20,11 +20,14 @@ from resolve_staff_pilot import REPO_ROOT, load_cached_people, name_key
 def query_production() -> list[dict]:
     sql = """
 select p.id, p.name,
-       array_agg(distinct pc.course_code order by pc.course_code) as courses,
-       count(distinct cr.id)::int as review_count
+       coalesce(array_agg(distinct pc.course_code order by pc.course_code)
+         filter (where pc.course_code is not null), '{}') as courses,
+       count(distinct cr.id)::int as review_count,
+       count(distinct rating.id)::int as rating_count
 from professors p
-join professor_courses pc on pc.professor_id = p.id
+left join professor_courses pc on pc.professor_id = p.id
 left join course_reviews cr on cr.professor_id = p.id
+left join course_ratings rating on rating.professor_id = p.id
 group by p.id, p.name
 order by p.name, p.id
 """
@@ -147,6 +150,33 @@ def compact_portal_person(person: dict) -> dict:
     }
 
 
+def faculty_structure(directory: dict) -> list[dict]:
+    """Return the reporting hierarchy for legacy and organisation-first inputs."""
+    if directory.get("faculties"):
+        return directory["faculties"]
+    organisations = directory.get("organisations", [])
+    faculties = {
+        item["sourceUrl"]: {
+            "name": item["name"],
+            "departments": [],
+        }
+        for item in organisations
+        if item.get("organisationType") == "faculty"
+    }
+    for item in organisations:
+        faculty = faculties.get(item.get("facultyUrl"))
+        if not faculty or item.get("organisationType") == "faculty":
+            continue
+        faculty["departments"].append(
+            {
+                "name": item["name"],
+                "sourceUrl": item["sourceUrl"],
+                "staffCoverage": item.get("staffCoverage"),
+            }
+        )
+    return sorted(faculties.values(), key=lambda item: item["name"])
+
+
 def build_report(
     directory: dict,
     production: list[dict],
@@ -211,8 +241,9 @@ def build_report(
             else:
                 records.append({**row, "status": "unmatched"})
 
+    faculties = faculty_structure(directory)
     faculty_summaries = {}
-    for faculty in directory["faculties"]:
+    for faculty in faculties:
         faculty_name = faculty["name"]
         faculty_people = {
             url: person
@@ -226,7 +257,8 @@ def build_report(
                 **department["staffCoverage"],
             }
             for department in faculty["departments"]
-            if not department["staffCoverage"]["complete"]
+            if department.get("staffCoverage")
+            and not department["staffCoverage"]["complete"]
         ]
         faculty_summaries[faculty_name] = {
             "departments": len(faculty["departments"]),
@@ -246,7 +278,10 @@ def build_report(
         {
             "officialPerson": compact_person(people[url]),
             "productionRows": rows,
-            "blockedByReviews": any(row["review_count"] for row in rows),
+            "blockedByReviews": any(
+                row.get("review_count", 0) or row.get("rating_count", 0)
+                for row in rows
+            ),
         }
         for url, rows in production_by_profile.items()
         if len(rows) > 1
@@ -261,8 +296,8 @@ def build_report(
         "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "mode": "all_faculties_read_only_exact_name_validation",
         "summary": {
-            "faculties": len(directory["faculties"]),
-            "departments": sum(len(faculty["departments"]) for faculty in directory["faculties"]),
+            "faculties": len(faculties),
+            "departments": sum(len(faculty["departments"]) for faculty in faculties),
             "officialPeople": len(people),
             "productionProfessorRows": len(production),
             "matchedProductionRows": len(matched),

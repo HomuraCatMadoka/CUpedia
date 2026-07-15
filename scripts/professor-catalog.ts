@@ -34,8 +34,8 @@ export function normalizeProfessorName(value: string): string {
 
 export function professorId(name: string, identityKey?: string): string {
   const identity = [
-    normalizeProfessorName(name).toLocaleLowerCase(),
-    identityKey?.toLocaleLowerCase(),
+    normalizeProfessorName(name).toLowerCase(),
+    identityKey?.toLowerCase(),
   ]
     .filter(Boolean)
     .join("\0");

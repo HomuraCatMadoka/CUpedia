@@ -15,6 +15,7 @@ import {
 } from "../src/db/schema";
 import {
   buildProfessorCatalog,
+  normalizeProfessorName,
   type CourseInstructorOverride,
   type TeachingStaffSource,
 } from "./professor-catalog";
@@ -106,6 +107,7 @@ async function main() {
       await tx.insert(courseEnrollments).values(
         source.enrollments.slice(i, i + 500).map((row) => ({
           ...row,
+          instructors: row.instructors.map(normalizeProfessorName),
           capturedAt: new Date(source.capturedAt),
         })),
       );
@@ -162,7 +164,7 @@ async function main() {
           `Course instructor override profile is missing: ${override.profileUrl}`,
         );
       }
-      await tx
+      const updated = await tx
         .update(courseOfferingInstructors)
         .set({
           personId: person.id,
@@ -180,7 +182,15 @@ async function main() {
               `${override.coursePrefix}%`,
             ),
           ),
+        )
+        .returning({
+          instructorName: courseOfferingInstructors.instructorName,
+        });
+      if (updated.length === 0) {
+        throw new Error(
+          `Course instructor override matched no offerings: ${override.coursePrefix}/${override.instructorName}`,
         );
+      }
     }
     await tx.delete(staffTeachingAssignments);
     await tx.execute(sql`

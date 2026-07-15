@@ -107,6 +107,7 @@ def build_payload(directory: dict, reviewed_aliases: list[dict] | None = None) -
                 "alias": alias,
                 "normalized_alias": scrape_staff.normalise_name(alias),
                 "source": "reviewed_manual_override",
+                "evidence_url": override["evidenceUrl"],
             }
         )
 
@@ -186,6 +187,9 @@ on conflict (id) do update set
   is_current = true,
   missing_runs = 0;
 
+delete from staff_aliases
+where source in ('{SOURCE}', 'reviewed_manual_override');
+
 insert into staff_aliases (person_id, alias, normalized_alias, source)
 select x.person_id, x.alias, x.normalized_alias, x.source
 from _staff_directory_import,
@@ -219,6 +223,18 @@ from unique_aliases aliases
 join staff_people people on people.id = aliases.person_id
 where offering.instructor_name = aliases.alias
   and offering.match_status <> 'manual';
+
+update course_offering_instructors offering
+set person_id = alias.person_id,
+    match_status = 'manual',
+    evidence_url = alias.evidence_url
+from _staff_directory_import,
+     jsonb_to_recordset(payload->'aliases') as alias(
+       person_id text, alias text, normalized_alias text, source text,
+       evidence_url text
+     )
+where alias.source = 'reviewed_manual_override'
+  and offering.instructor_name = alias.alias;
 
 insert into staff_organisation_affiliations (
   person_id, organisation_id, source_url, first_seen_at, last_seen_at,

@@ -53,6 +53,46 @@ class CompareStaffProductionTest(unittest.TestCase):
         self.assertEqual(report["summary"]["duplicateProductionIdentities"], 1)
         self.assertTrue(report["duplicateProductionIdentities"][0]["blockedByReviews"])
 
+    def test_rating_alone_blocks_duplicate_cleanup(self):
+        production = [
+            {"id": "p1", "name": "Ada LOVELACE", "courses": [], "review_count": 0, "rating_count": 0},
+            {"id": "p2", "name": "Professor LOVELACE Ada", "courses": [], "review_count": 0, "rating_count": 1},
+        ]
+        report = subject.build_report(self.directory, production)
+        self.assertTrue(report["duplicateProductionIdentities"][0]["blockedByReviews"])
+
+    def test_organisation_first_directory_builds_faculty_summary(self):
+        directory = {
+            "organisations": [
+                {
+                    "name": "Faculty of Example",
+                    "sourceUrl": "https://example.test/faculty/",
+                    "organisationType": "faculty",
+                    "facultyUrl": "https://example.test/faculty/",
+                },
+                {
+                    "name": "Department of One",
+                    "sourceUrl": "https://example.test/one/",
+                    "organisationType": "department",
+                    "facultyUrl": "https://example.test/faculty/",
+                },
+            ],
+            "people": [{
+                "id": "ada",
+                "name": "Ada LOVELACE",
+                "email": None,
+                "profileUrl": "https://example.test/ada/",
+                "affiliations": [{
+                    "organisation": "Department of One",
+                    "organisationUrl": "https://example.test/one/",
+                }],
+            }],
+        }
+        report = subject.build_report(directory, [])
+        self.assertEqual(report["summary"]["faculties"], 1)
+        self.assertEqual(report["summary"]["departments"], 1)
+        self.assertEqual(report["faculties"]["Faculty of Example"]["officialPeople"], 1)
+
     def test_separates_other_portal_units_from_missing_profiles(self):
         production = [
             {"id": "p1", "name": "Grace HOPPER", "courses": ["TEST1000"], "review_count": 0},
