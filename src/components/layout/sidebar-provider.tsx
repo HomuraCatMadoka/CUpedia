@@ -6,6 +6,7 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
 import { serializeSidebarCookie } from "@/lib/sidebar-cookie";
 
@@ -19,6 +20,7 @@ interface SidebarContextValue {
   toggle: () => void;
   openMobile: () => void;
   closeMobile: () => void;
+  mobileTriggerRef: React.RefObject<HTMLButtonElement | null>;
 }
 
 const SidebarContext = createContext<SidebarContextValue | null>(null);
@@ -38,6 +40,7 @@ export function SidebarProvider({
   const [state, setState] = useState<SidebarState>(
     initialCollapsed ? "collapsed" : "expanded",
   );
+  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
@@ -82,6 +85,7 @@ export function SidebarProvider({
         toggle,
         openMobile,
         closeMobile,
+        mobileTriggerRef,
       }}
     >
       {children}

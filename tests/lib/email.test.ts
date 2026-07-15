@@ -139,6 +139,7 @@ describe("isAllowedEmail", () => {
 describe("shouldRejectOtpRequest", () => {
   const SEND = "/email-otp/send-verification-otp";
   const VERIFY = "/sign-in/email-otp";
+  const REGISTER_CHECK = "/register/check-otp";
 
   it("rejects ineligible email on the send path", () => {
     expect(shouldRejectOtpRequest(SEND, "attacker@gmail.com")).toBe(true);
@@ -146,6 +147,12 @@ describe("shouldRejectOtpRequest", () => {
 
   it("rejects ineligible email on the verify path", () => {
     expect(shouldRejectOtpRequest(VERIFY, "attacker@gmail.com")).toBe(true);
+  });
+
+  it("rejects ineligible email on the registration pre-check path", () => {
+    expect(shouldRejectOtpRequest(REGISTER_CHECK, "attacker@gmail.com")).toBe(
+      true,
+    );
   });
 
   it("allows eligible CUHK email on both gated paths", () => {

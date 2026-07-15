@@ -4,8 +4,7 @@ import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
 import { useMounted } from "@/hooks/use-mounted";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -66,45 +65,36 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b bg-white">
-        <div className="grid h-24 grid-cols-[1fr_auto] grid-rows-[3.5rem_2.5rem] px-4 md:flex md:h-14 md:items-center md:justify-between">
+      <header className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-white">
+        <div className="grid h-full grid-cols-[1fr_auto] grid-rows-[3.5rem_2.75rem] px-4 md:flex md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             {leading}
-            <Link href="/wiki" className="text-lg font-bold">
+            <Link
+              href="/"
+              className="-ml-2 flex min-h-11 touch-manipulation items-center rounded-md px-2 text-lg font-bold transition-[background-color,transform] active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:ml-0 md:min-h-0 md:px-0"
+            >
               CUpedia
             </Link>
           </div>
-          <div className="col-span-2 row-start-2 flex items-center justify-center gap-4 md:order-none md:col-span-1 md:justify-start md:gap-3">
+          <div className="col-span-2 row-start-2 flex items-center justify-center gap-1 md:order-none md:col-span-1 md:justify-start md:gap-3">
             <Link
               href="/college-picker"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
             >
               分院帽
             </Link>
             <Link
-              href="/course-tree"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              选课技能树
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                开发中
-              </Badge>
-            </Link>
-            <Link
               href="/courses"
-              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
             >
-              课程测评
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                开发中
-              </Badge>
+              课程测评（测试中）
             </Link>
           </div>
-          <nav className="col-start-2 row-start-1 flex items-center gap-4 md:order-none">
+          <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
             <CommandSearch />
             {mounted && session?.user ? (
               <DropdownMenu>
-                <DropdownMenuTrigger className="rounded-md px-3 py-1.5 text-sm hover:bg-accent">
+                <DropdownMenuTrigger className="min-h-11 touch-manipulation rounded-md px-3 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1.5">
                   {((session.user as Record<string, unknown>)
                     .nickname as string) || session.user.email}
                 </DropdownMenuTrigger>
@@ -118,8 +108,14 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Link href="/login">
-                <Button size="sm">登录</Button>
+              <Link
+                href="/login"
+                className={buttonVariants({
+                  size: "sm",
+                  className: "h-11 touch-manipulation px-3 md:h-7",
+                })}
+              >
+                登录
               </Link>
             )}
           </nav>

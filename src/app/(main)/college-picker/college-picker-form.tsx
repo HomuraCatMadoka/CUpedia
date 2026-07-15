@@ -22,6 +22,7 @@ import {
   COLLEGE_CAPTURE,
   MAJOR_GROUPS,
   SCORED_FACTORS,
+  SMALL_COLLEGE_IDS,
   type AvoidFactor,
   type BonusFactor,
   type CollegeId,
@@ -176,17 +177,23 @@ function CollegeCaptureSummary({ collegeId }: { collegeId: CollegeId }) {
   if (!capture) return null;
 
   return (
-    <div className="space-y-1 pt-1 text-xs">
-      <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+    <div className="space-y-1.5 pt-1 text-xs">
+      <ul className="flex flex-wrap gap-1.5">
         {capture.pros.map((item) => (
-          <li key={item} className="text-green-600">
+          <li
+            key={item}
+            className="rounded-md bg-emerald-50 px-2 py-0.5 text-neutral-800"
+          >
             {item}
           </li>
         ))}
       </ul>
-      <ul className="flex flex-wrap gap-x-3 gap-y-0.5">
+      <ul className="flex flex-wrap gap-1.5">
         {capture.cons.map((item) => (
-          <li key={item} className="text-red-600">
+          <li
+            key={item}
+            className="rounded-md bg-red-50 px-2 py-0.5 text-neutral-800"
+          >
             {item}
           </li>
         ))}
@@ -539,7 +546,13 @@ export function CollegePickerForm() {
                 <dt className="shrink-0 font-medium text-foreground">
                   入学面试：
                 </dt>
-                <dd>网上面试/线下面试/拍视频介绍自己（善衡）</dd>
+                <dd>网上面试/线下面试</dd>
+              </div>
+              <div className="flex gap-1.5">
+                <dt className="shrink-0 font-medium text-foreground">
+                  入学视频：
+                </dt>
+                <dd>上传介绍自己的视频</dd>
               </div>
               <div className="flex gap-1.5">
                 <dt className="shrink-0 font-medium text-foreground">
@@ -659,7 +672,7 @@ export function CollegePickerForm() {
                   }`}
                 >
                   <CardContent className="flex flex-col gap-2 px-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex items-start gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
                       <Badge
                         variant={index === 0 ? "default" : "secondary"}
                         className="mt-0.5 shrink-0 tabular-nums"
@@ -690,20 +703,27 @@ export function CollegePickerForm() {
                         <CollegeCaptureSummary collegeId={college.id} />
                       </div>
                     </div>
-                    {college.avoidHits.length > 0 && (
-                      <Badge
-                        variant="destructive"
-                        className="mt-0.5 shrink-0 self-start"
+                    <div className="flex flex-row flex-wrap items-start gap-2 sm:flex-col sm:items-end shrink-0 self-start">
+                      {college.avoidHits.length > 0 && (
+                        <Badge variant="destructive">
+                          已避雷
+                        </Badge>
+                      )}
+                      <span
+                        className="text-sm font-medium tabular-nums text-muted-foreground"
+                        data-testid="picker-score"
                       >
-                        已避雷
-                      </Badge>
-                    )}
-                    <span
-                      className="shrink-0 self-start text-sm font-medium tabular-nums text-muted-foreground"
-                      data-testid="picker-score"
-                    >
-                      推荐指数 {college.score.toFixed(1)}
-                    </span>
+                        推荐指数 {college.score.toFixed(1)}
+                      </span>
+                      {index === 0 &&
+                        SMALL_COLLEGE_IDS.includes(college.id) &&
+                        college.avoidHits.length > 0 && (
+                          <div className="rounded-md border px-3 py-2.5 text-sm flex flex-col items-center justify-center gap-0.5">
+                            <span>又想避雷又想冲小书院？</span>
+                            <span>孩子，你不能既要又要啊！</span>
+                          </div>
+                        )}
+                    </div>
                   </CardContent>
                 </Card>
               </li>

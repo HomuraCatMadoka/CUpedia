@@ -337,7 +337,7 @@ function orderWithExistingRules(scored: ScoredCollege[]): ScoredCollege[] {
 
 /**
  * 06 小书院精选：按四题答案给三所小书院算「专属评分」。
- * 若敬文 cwc 专属评分 > 50，封顶为 50。
+ * 每所书院封顶 50，防止极端答题组合导致单一书院评分失控。
  */
 export function computeSmallCollegeSpecialization(
   answers: SmallCollegeAnswers,
@@ -349,7 +349,7 @@ export function computeSmallCollegeSpecialization(
   // (1) 录取态度
   if (answers.q1 === "A") {
     cwc += 25;
-    shho += 10;
+    shho += 20;
     mc += 10;
   } else {
     mc += 20;
@@ -413,8 +413,10 @@ export function computeSmallCollegeSpecialization(
       break;
   }
 
-  // 敬文专属评分封顶 50
+  // 每所书院专属评分封顶 50
   if (cwc > 50) cwc = 50;
+  if (shho > 50) shho = 50;
+  if (mc > 50) mc = 50;
 
   return { mc, shho, cwc };
 }

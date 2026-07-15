@@ -21,7 +21,7 @@ export default async function WikiLayout({
   return (
     <>
       <SidebarToggle canEdit={canEdit} />
-      <WikiSidebar pages={pages} />
+      <WikiSidebar pages={pages} canEdit={canEdit} />
       {children}
     </>
   );

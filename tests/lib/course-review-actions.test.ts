@@ -28,6 +28,7 @@ const {
     "limit",
     "orderBy",
     "groupBy",
+    "offset",
     "values",
     "innerJoin",
     "leftJoin",
@@ -498,9 +499,10 @@ describe("getCourseReviews", () => {
 
 describe("getCourses（学科筛选 #267）", () => {
   const limit = () => dbChain.limit as Mock;
+  const offset = () => dbChain.offset as Mock;
 
-  it("选定 subject 时返回该学科全部课程，不设 48 上限", async () => {
-    const many = Array.from({ length: 60 }, (_, i) => ({
+  it("返回总课程数和当前页，课程目录不再被静默截断为 48 门", async () => {
+    const firstPage = Array.from({ length: 48 }, (_, i) => ({
       code: `CSCI${1000 + i}`,
       subject: "CSCI",
       title: `Course ${i}`,
@@ -508,17 +510,20 @@ describe("getCourses（学科筛选 #267）", () => {
       description: "",
       terms: [],
     }));
-    queueRows(many, [], []); // 课程行, buildViews 的 ratingAgg, reviewAgg
+    queueRows([{ total: 60 }], firstPage, [], []);
     const result = await getCourses({ subject: "CSCI" });
-    expect(result).toHaveLength(60);
-    expect(result.every((c) => c.subject === "CSCI")).toBe(true);
-    expect(limit()).not.toHaveBeenCalled(); // 无分页截断
+    expect(result.total).toBe(60);
+    expect(result.courses).toHaveLength(48);
+    expect(result.courses.every((c) => c.subject === "CSCI")).toBe(true);
+    expect(limit()).toHaveBeenCalledWith(48);
+    expect(offset()).toHaveBeenCalledWith(0);
   });
 
-  it("未选 subject（默认落地页）仍套用 48 上限", async () => {
-    queueRows([], [], [{ ...COURSE }], [], []); // ratingAgg, reviewAgg, 目录头, buildViews×2
-    await getCourses({});
-    expect(limit()).toHaveBeenCalledWith(48);
+  it("翻页时使用正确的目录偏移量", async () => {
+    queueRows([{ total: 4828 }], [{ ...COURSE }], [], []);
+    const result = await getCourses({ page: 2 });
+    expect(result.page).toBe(2);
+    expect(offset()).toHaveBeenCalledWith(48);
   });
 });
 

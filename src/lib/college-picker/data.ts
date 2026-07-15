@@ -37,6 +37,7 @@ export type AvoidFactor =
   | "College_FYP"
   | "Religious_Element"
   | "Admission_Interview"
+  | "Admission_Video"
   | "Admission_Written_Test";
 
 /** 其他看重因素（选填，勾选后给推荐指数加固定分，不参与名次加权）。 */
@@ -137,6 +138,7 @@ export const AVOID_FACTORS: readonly FactorOption<AvoidFactor>[] = [
   { id: "College_FYP", nameZh: "书院 FYP / 毕业要求" },
   { id: "Religious_Element", nameZh: "宗教元素" },
   { id: "Admission_Interview", nameZh: "入学面试" },
+  { id: "Admission_Video", nameZh: "入学视频" },
   { id: "Admission_Written_Test", nameZh: "入学笔试" },
 ];
 
@@ -279,54 +281,63 @@ export const FLAGS: Record<CollegeId, Record<AvoidFactor, "Y" | "N">> = {
     College_FYP: "Y",
     Religious_Element: "Y",
     Admission_Interview: "N",
+    Admission_Video: "N",
     Admission_Written_Test: "N",
   },
   na: {
     College_FYP: "N",
     Religious_Element: "N",
     Admission_Interview: "N",
+    Admission_Video: "N",
     Admission_Written_Test: "N",
   },
   uc: {
     College_FYP: "Y",
     Religious_Element: "N",
     Admission_Interview: "N",
+    Admission_Video: "N",
     Admission_Written_Test: "N",
   },
   sc: {
     College_FYP: "N",
     Religious_Element: "N",
     Admission_Interview: "N",
+    Admission_Video: "N",
     Admission_Written_Test: "N",
   },
   mc: {
     College_FYP: "N",
     Religious_Element: "N",
     Admission_Interview: "Y",
+    Admission_Video: "N",
     Admission_Written_Test: "Y",
   },
   shho: {
     College_FYP: "N",
     Religious_Element: "N",
-    Admission_Interview: "Y",
+    Admission_Interview: "N",
+    Admission_Video: "Y",
     Admission_Written_Test: "Y",
   },
   cwc: {
     College_FYP: "Y",
     Religious_Element: "N",
     Admission_Interview: "Y",
+    Admission_Video: "N",
     Admission_Written_Test: "Y",
   },
   wys: {
     College_FYP: "Y",
     Religious_Element: "N",
-    Admission_Interview: "Y",
+    Admission_Interview: "N",
+    Admission_Video: "Y",
     Admission_Written_Test: "N",
   },
   lws: {
     College_FYP: "N",
     Religious_Element: "N",
-    Admission_Interview: "N",
+    Admission_Interview: "Y",
+    Admission_Video: "N",
     Admission_Written_Test: "Y",
   },
 };
@@ -423,5 +434,6 @@ export const AVOID_REASON_LABEL: Record<AvoidFactor, string> = {
   College_FYP: "命中：不要书院 FYP",
   Religious_Element: "命中：不要宗教元素",
   Admission_Interview: "命中：不要入学面试",
+  Admission_Video: "命中：不要入学视频",
   Admission_Written_Test: "命中：不要入学笔试",
 };

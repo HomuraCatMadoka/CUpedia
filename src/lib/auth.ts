@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
 import { shouldRejectOtpRequest } from "@/lib/email";
 import { sendOtpEmail } from "@/lib/otp-email";
+import { registrationOtpPlugin } from "@/lib/registration-otp-plugin";
 
 export const auth = betterAuth({
   secret: process.env.AUTH_SECRET,
@@ -46,6 +47,7 @@ export const auth = betterAuth({
       otpLength: 6,
       expiresIn: 300,
     }),
+    registrationOtpPlugin(),
   ],
   hooks: {
     // Enforce the eligible-account whitelist server-side at the email-OTP

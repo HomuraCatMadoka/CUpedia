@@ -27,7 +27,7 @@ import type { Course } from "@/app/(main)/courses/course-types";
 // depend on.
 // ─────────────────────────────────────────────────────────────────────────
 
-/** Max courses returned per list query — the catalog is too large to dump. */
+/** Courses rendered per catalog page — the full catalog has ~4.8k rows. */
 const PAGE_SIZE = 48;
 
 /** A review as presented to the client. Author identity is never exposed —
@@ -97,6 +97,15 @@ export type CourseFilter = {
   subject?: string;
   /** Course level by leading digit: "1000".."4000", or "5000" for 5000+ (postgrad). */
   level?: string;
+  /** One-based catalog page. */
+  page?: number;
+};
+
+export type CoursePage = {
+  courses: CourseView[];
+  total: number;
+  page: number;
+  pageSize: number;
 };
 
 // ── Course row projection ──
@@ -248,105 +257,59 @@ async function buildViews(rows: CourseRow[]): Promise<CourseView[]> {
 
 // ── Course reads ──
 
-/** List courses. A free-text query searches code + title (code-prefix hits
- * ranked first). With no query, courses that already have ratings/reviews
- * surface first, falling back to the first catalog page so nothing is empty. */
+/** List one page of courses. A free-text query searches code + title
+ * (code-prefix hits ranked first). With no query, courses that already have
+ * ratings/reviews surface first, followed by the rest of the catalog. */
 export async function getCourses(
   filter: CourseFilter = {},
-): Promise<CourseView[]> {
+): Promise<CoursePage> {
   const q = filter.query?.trim() ?? "";
   const creditsCond = creditsCondition(filter.credits);
   const levelCond = levelCondition(filter.level);
   const subject = filter.subject?.trim().toUpperCase();
+  const page = Math.max(1, Math.floor(filter.page ?? 1));
+  const like = `%${q.toLowerCase()}%`;
+  const codeLike = `%${normalizeCode(q).toLowerCase()}%`;
+  const codePrefix = `${normalizeCode(q).toLowerCase()}%`;
+  const where = and(
+    subject ? eq(courses.subject, subject) : undefined,
+    creditsCond,
+    levelCond,
+    q
+      ? or(
+          sql`lower(${courses.code}) like ${codeLike}`,
+          sql`lower(${courses.title}) like ${like}`,
+        )
+      : undefined,
+  );
 
-  // Subject browse (#267): the whole subject, alphabetical, no page cap — a
-  // subject is naturally bounded to a few dozen ~ a couple hundred courses, so
-  // pagination is unnecessary. An optional query narrows *within* the subject.
-  if (subject) {
-    const like = `%${q.toLowerCase()}%`;
-    const rows = await db
+  const [totalRows, rows] = await Promise.all([
+    db.select({ total: count() }).from(courses).where(where),
+    db
       .select(courseCols)
       .from(courses)
-      .where(
-        and(
-          eq(courses.subject, subject),
-          creditsCond,
-          levelCond,
-          q
-            ? or(
-                sql`lower(${courses.code}) like ${like}`,
-                sql`lower(${courses.title}) like ${like}`,
-              )
-            : undefined,
-        ),
-      )
-      .orderBy(courses.code);
-    return buildViews(rows);
-  }
-
-  let rows: CourseRow[];
-  if (q) {
-    const like = `%${q.toLowerCase()}%`;
-    const codeLike = `%${normalizeCode(q).toLowerCase()}%`;
-    const codePrefix = `${normalizeCode(q).toLowerCase()}%`;
-    rows = await db
-      .select(courseCols)
-      .from(courses)
-      .where(
-        and(
-          or(
-            sql`lower(${courses.code}) like ${codeLike}`,
-            sql`lower(${courses.title}) like ${like}`,
-          ),
-          creditsCond,
-          levelCond,
-        ),
-      )
+      .where(where)
       .orderBy(
-        sql`case when lower(${courses.code}) like ${codePrefix} then 0 else 1 end`,
+        q
+          ? sql`case when lower(${courses.code}) like ${codePrefix} then 0 else 1 end`
+          : sql`(
+              (select count(*) from ${courseRatings}
+                where ${courseRatings.courseCode} = ${courses.code}) +
+              (select count(*) from ${courseReviews}
+                where ${courseReviews.courseCode} = ${courses.code})
+            ) desc`,
         courses.code,
       )
-      .limit(PAGE_SIZE);
-  } else {
-    // Rank by how much user activity each course has; blank slate → catalog head.
-    const [ratingAgg, reviewAgg] = await Promise.all([
-      db
-        .select({ code: courseRatings.courseCode, cnt: count() })
-        .from(courseRatings)
-        .groupBy(courseRatings.courseCode),
-      db
-        .select({ code: courseReviews.courseCode, cnt: count() })
-        .from(courseReviews)
-        .groupBy(courseReviews.courseCode),
-    ]);
-    const activity = new Map<string, number>();
-    for (const r of [...ratingAgg, ...reviewAgg]) {
-      activity.set(r.code, (activity.get(r.code) ?? 0) + Number(r.cnt));
-    }
-    const activeCodes = [...activity.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, PAGE_SIZE)
-      .map(([code]) => code);
+      .limit(PAGE_SIZE)
+      .offset((page - 1) * PAGE_SIZE),
+  ]);
 
-    if (activeCodes.length) {
-      rows = await db
-        .select(courseCols)
-        .from(courses)
-        .where(and(inArray(courses.code, activeCodes), creditsCond, levelCond));
-      rows.sort(
-        (a, b) => (activity.get(b.code) ?? 0) - (activity.get(a.code) ?? 0),
-      );
-    } else {
-      rows = await db
-        .select(courseCols)
-        .from(courses)
-        .where(and(creditsCond, levelCond))
-        .orderBy(courses.code)
-        .limit(PAGE_SIZE);
-    }
-  }
-
-  return buildViews(rows);
+  return {
+    courses: await buildViews(rows),
+    total: Number(totalRows[0]?.total ?? 0),
+    page,
+    pageSize: PAGE_SIZE,
+  };
 }
 
 /** Subject codes with their course counts, alphabetical — powers the subject

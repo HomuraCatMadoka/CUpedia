@@ -1,8 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { usePathname } from "next/navigation";
-import { ChevronDownIcon, ChevronRightIcon, XIcon } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+  type MouseEvent,
+} from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Drawer } from "@base-ui/react/drawer";
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  LoaderCircleIcon,
+  PlusIcon,
+  XIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { PrefetchLink } from "@/components/layout/prefetch-link";
@@ -16,6 +31,12 @@ type TreeNode = {
 };
 
 const STORAGE_KEY = "wiki-sidebar-collapsed";
+const NAVIGATION_FEEDBACK_DELAY_MS = 180;
+
+type NavigateToPage = (
+  event: MouseEvent<HTMLAnchorElement>,
+  href: string,
+) => void;
 
 function buildTree(
   pages: { id: string; slug: string; title: string; parentId: string | null }[],
@@ -56,18 +77,25 @@ function ChildItem({
   depth,
   collapsedIds,
   onToggle,
+  onNavigate,
+  pendingHref,
+  feedbackHref,
 }: {
   node: TreeNode;
   depth: number;
   collapsedIds: Set<string>;
   onToggle: (id: string) => void;
+  onNavigate: NavigateToPage;
+  pendingHref: string | null;
+  feedbackHref: string | null;
 }) {
   const pathname = usePathname();
-  const { closeMobile, isMobile } = useSidebar();
   const href = `/wiki/${node.slug}`;
   const active = pathname === href;
   const hasChildren = node.children.length > 0;
   const collapsed = collapsedIds.has(node.id);
+  const pending = pendingHref === href;
+  const showFeedback = feedbackHref === href;
 
   return (
     <li>
@@ -75,7 +103,7 @@ function ChildItem({
         {hasChildren ? (
           <button
             onClick={() => onToggle(node.id)}
-            className="flex h-5 w-5 shrink-0 items-center justify-center text-xs text-muted-foreground"
+            className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-xs text-muted-foreground transition-[background-color,transform] hover:bg-[var(--sidebar-active-bg)] active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:size-5"
             aria-label={collapsed ? "展开" : "折叠"}
           >
             {collapsed ? (
@@ -85,19 +113,31 @@ function ChildItem({
             )}
           </button>
         ) : (
-          <span className="w-5 shrink-0" />
+          <span className="size-11 shrink-0 md:size-5" />
         )}
         <PrefetchLink
           href={href}
-          onClick={isMobile ? closeMobile : undefined}
+          onClick={(event) => onNavigate(event, href)}
+          aria-busy={showFeedback || undefined}
+          aria-disabled={pending || undefined}
+          aria-label={showFeedback ? `${node.title}，正在打开` : undefined}
           className={cn(
-            "block flex-1 truncate rounded px-2 py-1 text-sm hover:bg-[var(--sidebar-active-bg)]",
+            "flex min-h-11 flex-1 touch-manipulation items-center truncate rounded px-2 py-1 text-sm transition-[background-color,transform] hover:bg-[var(--sidebar-active-bg)] active:scale-[0.99] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0",
             active &&
               "border-l-2 border-[var(--sidebar-active-border)] bg-[var(--sidebar-active-bg)] font-medium",
+            showFeedback &&
+              "bg-[var(--sidebar-active-bg)] font-medium motion-reduce:transition-none",
           )}
           style={{ paddingLeft: `${depth * 12}px` }}
         >
-          {node.title}
+          <span className="min-w-0 flex-1 truncate">{node.title}</span>
+          {showFeedback && (
+            <LoaderCircleIcon
+              data-testid="wiki-navigation-pending"
+              aria-hidden="true"
+              className="ml-2 size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+            />
+          )}
         </PrefetchLink>
       </div>
       {hasChildren && !collapsed && (
@@ -109,6 +149,9 @@ function ChildItem({
               depth={depth + 1}
               collapsedIds={collapsedIds}
               onToggle={onToggle}
+              onNavigate={onNavigate}
+              pendingHref={pendingHref}
+              feedbackHref={feedbackHref}
             />
           ))}
         </ul>
@@ -121,23 +164,30 @@ function SectionGroup({
   node,
   collapsedIds,
   onToggle,
+  onNavigate,
+  pendingHref,
+  feedbackHref,
 }: {
   node: TreeNode;
   collapsedIds: Set<string>;
   onToggle: (id: string) => void;
+  onNavigate: NavigateToPage;
+  pendingHref: string | null;
+  feedbackHref: string | null;
 }) {
   const pathname = usePathname();
-  const { closeMobile, isMobile } = useSidebar();
   const href = `/wiki/${node.slug}`;
   const active = pathname === href;
   const collapsed = collapsedIds.has(node.id);
+  const pending = pendingHref === href;
+  const showFeedback = feedbackHref === href;
 
   return (
     <li className="mt-4 first:mt-0">
       <div className="flex items-center gap-1">
         <button
           onClick={() => onToggle(node.id)}
-          className="flex h-4 w-4 shrink-0 items-center justify-center text-[10px] text-muted-foreground"
+          className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-[10px] text-muted-foreground transition-[background-color,transform] hover:bg-[var(--sidebar-active-bg)] active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:size-4"
           aria-label={collapsed ? "展开" : "折叠"}
         >
           {collapsed ? (
@@ -148,14 +198,26 @@ function SectionGroup({
         </button>
         <PrefetchLink
           href={href}
-          onClick={isMobile ? closeMobile : undefined}
+          onClick={(event) => onNavigate(event, href)}
+          aria-busy={showFeedback || undefined}
+          aria-disabled={pending || undefined}
+          aria-label={showFeedback ? `${node.title}，正在打开` : undefined}
           className={cn(
-            "block flex-1 truncate text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground",
+            "flex min-h-11 flex-1 touch-manipulation items-center truncate rounded px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-[background-color,color,transform] hover:bg-[var(--sidebar-active-bg)] hover:text-foreground active:scale-[0.99] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:rounded-none md:px-0",
             active &&
               "border-l-2 border-[var(--sidebar-active-border)] pl-1 text-foreground",
+            showFeedback &&
+              "bg-[var(--sidebar-active-bg)] text-foreground motion-reduce:transition-none",
           )}
         >
-          {node.title}
+          <span className="min-w-0 flex-1 truncate">{node.title}</span>
+          {showFeedback && (
+            <LoaderCircleIcon
+              data-testid="wiki-navigation-pending"
+              aria-hidden="true"
+              className="ml-2 size-3.5 shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none"
+            />
+          )}
         </PrefetchLink>
       </div>
       {!collapsed && node.children.length > 0 && (
@@ -167,6 +229,9 @@ function SectionGroup({
               depth={0}
               collapsedIds={collapsedIds}
               onToggle={onToggle}
+              onNavigate={onNavigate}
+              pendingHref={pendingHref}
+              feedbackHref={feedbackHref}
             />
           ))}
         </ul>
@@ -175,8 +240,41 @@ function SectionGroup({
   );
 }
 
+function PageTree({
+  tree,
+  collapsedIds,
+  onToggle,
+  onNavigate,
+  pendingHref,
+  feedbackHref,
+}: {
+  tree: TreeNode[];
+  collapsedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onNavigate: NavigateToPage;
+  pendingHref: string | null;
+  feedbackHref: string | null;
+}) {
+  return (
+    <ul className="p-2">
+      {tree.map((node) => (
+        <SectionGroup
+          key={node.id}
+          node={node}
+          collapsedIds={collapsedIds}
+          onToggle={onToggle}
+          onNavigate={onNavigate}
+          pendingHref={pendingHref}
+          feedbackHref={feedbackHref}
+        />
+      ))}
+    </ul>
+  );
+}
+
 export function WikiSidebar({
   pages,
+  canEdit = false,
 }: {
   pages: {
     id: string;
@@ -184,9 +282,19 @@ export function WikiSidebar({
     title: string;
     parentId: string | null;
   }[];
+  canEdit?: boolean;
 }) {
-  const { state, collapse, closeMobile } = useSidebar();
+  const { state, isMobile, collapse, closeMobile, mobileTriggerRef } =
+    useSidebar();
+  const pathname = usePathname();
+  const router = useRouter();
   const tree = buildTree(pages);
+  const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const pendingHrefRef = useRef<string | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const [feedbackHref, setFeedbackHref] = useState<string | null>(null);
 
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsed);
 
@@ -200,53 +308,163 @@ export function WikiSidebar({
     });
   };
 
-  if (state === "collapsed") return null;
+  const clearPending = useCallback(() => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    feedbackTimerRef.current = null;
+    pendingHrefRef.current = null;
+    setPendingHref(null);
+    setFeedbackHref(null);
+  }, []);
 
-  const isOverlay = state === "mobile-open";
+  const onNavigate = useCallback<NavigateToPage>(
+    (event, href) => {
+      if (
+        !isMobile ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (pendingHrefRef.current) return;
+      if (href === pathname) {
+        closeMobile();
+        return;
+      }
+
+      pendingHrefRef.current = href;
+      setPendingHref(href);
+      feedbackTimerRef.current = setTimeout(() => {
+        setFeedbackHref(href);
+      }, NAVIGATION_FEEDBACK_DELAY_MS);
+
+      startTransition(() => router.push(href));
+    },
+    [closeMobile, isMobile, pathname, router],
+  );
+
+  useEffect(() => {
+    if (isPending || !pendingHref) return;
+    const reachedTarget = pathname === pendingHref;
+    const settle = window.setTimeout(() => {
+      clearPending();
+      if (reachedTarget) closeMobile();
+    }, 0);
+    return () => window.clearTimeout(settle);
+  }, [clearPending, closeMobile, isPending, pathname, pendingHref]);
+
+  useEffect(
+    () => () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    },
+    [],
+  );
+
+  const mobileOpen = state === "mobile-open";
 
   return (
     <>
-      {isOverlay && (
-        <div className="fixed inset-0 z-40 bg-black/30" onClick={closeMobile} />
-      )}
-      <nav
-        className={cn(
-          "flex h-[calc(100vh-3.5rem)] w-[var(--sidebar-width)] shrink-0 flex-col overflow-y-auto border-r bg-[var(--sidebar-bg)]",
-          isOverlay
-            ? "fixed left-0 top-14 z-50 shadow-lg"
-            : "sticky top-14 max-md:hidden",
-        )}
-        style={{
-          borderColor: "var(--sidebar-border-color)",
-          transition: "var(--sidebar-transition)",
-        }}
-      >
-        <div
-          className="flex items-center justify-between border-b px-3 py-2"
+      {state === "expanded" && (
+        <nav
+          aria-label="Wiki 页面树"
+          className="sticky top-[var(--navbar-height)] hidden h-[calc(100dvh-var(--navbar-height))] w-[var(--sidebar-width)] shrink-0 flex-col overflow-y-auto border-r bg-[var(--sidebar-bg)] md:flex md:top-14"
           style={{ borderColor: "var(--sidebar-border-color)" }}
         >
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Pages
-          </span>
-          <button
-            onClick={isOverlay ? closeMobile : collapse}
-            className="text-xs text-muted-foreground hover:text-foreground"
-            aria-label="收起导航"
+          <div
+            className="flex items-center justify-between border-b px-3 py-2"
+            style={{ borderColor: "var(--sidebar-border-color)" }}
           >
-            <XIcon aria-hidden="true" className="size-4" />
-          </button>
-        </div>
-        <ul className="flex-1 p-2">
-          {tree.map((node) => (
-            <SectionGroup
-              key={node.id}
-              node={node}
-              collapsedIds={collapsedIds}
-              onToggle={onToggle}
-            />
-          ))}
-        </ul>
-      </nav>
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Pages
+            </span>
+            <button
+              onClick={collapse}
+              className="rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              aria-label="收起导航"
+            >
+              <XIcon aria-hidden="true" className="size-4" />
+            </button>
+          </div>
+          <PageTree
+            tree={tree}
+            collapsedIds={collapsedIds}
+            onToggle={onToggle}
+            onNavigate={onNavigate}
+            pendingHref={pendingHref}
+            feedbackHref={feedbackHref}
+          />
+        </nav>
+      )}
+
+      <Drawer.Root
+        open={mobileOpen}
+        onOpenChange={(open) => {
+          if (!open) closeMobile();
+        }}
+        swipeDirection="left"
+      >
+        <Drawer.Portal>
+          <Drawer.Backdrop
+            data-testid="wiki-drawer-backdrop"
+            className="fixed inset-0 z-40 bg-black/35 opacity-100 backdrop-blur-[2px] transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0 md:hidden"
+          />
+          <Drawer.Viewport className="pointer-events-none fixed inset-0 z-50 flex justify-start overflow-hidden md:hidden">
+            <Drawer.Popup
+              id="wiki-mobile-drawer"
+              initialFocus={mobileCloseRef}
+              finalFocus={mobileTriggerRef}
+              className="pointer-events-auto h-[100dvh] w-[min(20rem,calc(100vw-3rem))] -translate-x-0 bg-[var(--sidebar-bg)] text-foreground shadow-2xl outline-none transition-transform duration-200 ease-out data-ending-style:-translate-x-full data-starting-style:-translate-x-full"
+            >
+              <Drawer.Content className="flex h-full min-h-0 flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+                <div
+                  className="flex min-h-14 shrink-0 items-center gap-2 border-b px-3"
+                  style={{ borderColor: "var(--sidebar-border-color)" }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <Drawer.Title className="text-sm font-semibold">
+                      Wiki 页面
+                    </Drawer.Title>
+                  </div>
+                  {canEdit && (
+                    <Link
+                      href="/wiki/new"
+                      onClick={closeMobile}
+                      className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[var(--sidebar-active-bg)] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      aria-label="新建页面"
+                    >
+                      <PlusIcon aria-hidden="true" className="size-4" />
+                    </Link>
+                  )}
+                  <Drawer.Close
+                    ref={mobileCloseRef}
+                    className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[var(--sidebar-active-bg)] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    aria-label="关闭导航"
+                  >
+                    <XIcon aria-hidden="true" className="size-4" />
+                  </Drawer.Close>
+                </div>
+                <nav
+                  aria-label="Wiki 页面树"
+                  className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain"
+                >
+                  <PageTree
+                    tree={tree}
+                    collapsedIds={collapsedIds}
+                    onToggle={onToggle}
+                    onNavigate={onNavigate}
+                    pendingHref={pendingHref}
+                    feedbackHref={feedbackHref}
+                  />
+                </nav>
+              </Drawer.Content>
+            </Drawer.Popup>
+          </Drawer.Viewport>
+        </Drawer.Portal>
+      </Drawer.Root>
     </>
   );
 }

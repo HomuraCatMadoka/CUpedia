@@ -41,6 +41,7 @@ const OTP_WHITELIST_PATHS = new Set([
   "/sign-in/email-otp",
   "/email-otp/request-password-reset",
   "/email-otp/reset-password",
+  "/register/check-otp",
 ]);
 
 // Authoritative server-side eligible-account gate for the email-OTP endpoints.

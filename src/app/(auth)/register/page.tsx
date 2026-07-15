@@ -90,14 +90,31 @@ export default function RegisterPage() {
     if (ok) setStep("otp");
   }
 
-  function handleOtpSubmit(e: React.FormEvent) {
+  async function handleOtpSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     if (otp.length !== 6) {
       setError("请输入 6 位验证码");
       return;
     }
-    setStep("profile");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/register/check-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, otp }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "验证码无效或已过期");
+        return;
+      }
+      setStep("profile");
+    } catch {
+      setError("验证失败，请稍后重试");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleProfileSubmit(e: React.FormEvent) {
@@ -235,8 +252,8 @@ export default function RegisterPage() {
               </button>
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full">
-              下一步
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "验证中..." : "下一步"}
             </Button>
           </form>
         )}
