@@ -235,7 +235,7 @@ describe("submitCourseReview", () => {
     expect(dbDelete).toHaveBeenCalledOnce();
   });
 
-  it("拒绝目录外或未任教该课程的教授", async () => {
+  it("拒绝目录外的教授", async () => {
     queueRows([COURSE], []);
     await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
       /教授目录/,
@@ -256,6 +256,44 @@ describe("searchProfessors", () => {
     queueRows([{ id: "p1", name: "Professor CHAN" }]);
     await expect(searchProfessors("csci 3150", "chan")).resolves.toEqual([
       { id: "p1", name: "Professor CHAN" },
+    ]);
+  });
+
+  it("按姓名返回未关联当前课程的目录教授", async () => {
+    queueRows([
+      { id: "legacy", name: "Professor LEGACY", courseCode: null },
+      { id: "current", name: "Professor CHAN", courseCode: "CSCI3150" },
+    ]);
+    await expect(searchProfessors("CSCI3150", "legacy")).resolves.toEqual([
+      { id: "legacy", name: "Professor LEGACY" },
+    ]);
+  });
+
+  it("姓名匹配相同时优先推荐曾任教当前课程的教授", async () => {
+    queueRows([
+      { id: "global", name: "Professor CHAN", courseCode: null },
+      { id: "course", name: "Professor CHAN", courseCode: "CSCI3150" },
+    ]);
+    await expect(searchProfessors("CSCI3150", "chan")).resolves.toEqual([
+      { id: "course", name: "Professor CHAN" },
+      { id: "global", name: "Professor CHAN" },
+    ]);
+  });
+
+  it("容忍多词姓名的轻微拼写错误且不推荐弱匹配", async () => {
+    queueRows([
+      { id: "target", name: "Professor CHAN Wing Kai", courseCode: null },
+      { id: "other", name: "Professor KAI", courseCode: null },
+    ]);
+    await expect(searchProfessors("CSCI3150", "kai chna")).resolves.toEqual([
+      { id: "target", name: "Professor CHAN Wing Kai" },
+    ]);
+  });
+
+  it("支持中文教授姓名查询", async () => {
+    queueRows([{ id: "seed", name: "测试教授 Chan", courseCode: "CSCI1130" }]);
+    await expect(searchProfessors("CSCI1130", "测试教授")).resolves.toEqual([
+      { id: "seed", name: "测试教授 Chan" },
     ]);
   });
 });
