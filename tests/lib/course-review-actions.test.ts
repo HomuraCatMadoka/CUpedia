@@ -90,6 +90,7 @@ import {
   getCourseRatingState,
   getCourseReviews,
   getCourses,
+  getCourseProfessorStats,
   searchProfessors,
   getCourseEnrollmentHistory,
 } from "@/lib/course-review-actions";
@@ -326,6 +327,94 @@ describe("searchProfessors", () => {
     await expect(searchProfessors("CSCI1130", "测试教授")).resolves.toEqual([
       { id: "seed", name: "测试教授 Chan" },
     ]);
+  });
+});
+
+describe("getCourseProfessorStats", () => {
+  it("返回教授 overall、任教学期均分和各自样本数", async () => {
+    queueRows(
+      [{ id: "p1", name: "Professor CHAN" }],
+      [
+        {
+          professorId: "p1",
+          academicYear: "2025-26",
+          term: "Term 1",
+          avg: "4.5",
+          cnt: 2,
+        },
+        {
+          professorId: "p1",
+          academicYear: "2024-25",
+          term: "Term 2",
+          avg: "3.5",
+          cnt: 1,
+        },
+      ],
+      [
+        {
+          academicYear: "2025-26",
+          term: "Term 1",
+          instructors: ["Professor CHAN"],
+        },
+        {
+          academicYear: "2023-24",
+          term: "Summer",
+          instructors: ["Professor CHAN"],
+        },
+      ],
+    );
+
+    await expect(getCourseProfessorStats("csci 3150")).resolves.toEqual([
+      {
+        id: "p1",
+        name: "Professor CHAN",
+        rating: 4.2,
+        ratingCount: 3,
+        terms: [
+          {
+            academicYear: "2025-26",
+            term: "Term 1",
+            rating: 4.5,
+            ratingCount: 2,
+          },
+          {
+            academicYear: "2024-25",
+            term: "Term 2",
+            rating: 3.5,
+            ratingCount: 1,
+          },
+          {
+            academicYear: "2023-24",
+            term: "Summer",
+            rating: null,
+            ratingCount: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("保留并排序超过 10 个任教学期", async () => {
+    const enrollments = ["2025-26", "2024-25", "2023-24", "2022-23"].flatMap(
+      (academicYear) =>
+        ["Term 1", "Term 2", "Summer"].map((term) => ({
+          academicYear,
+          term,
+          instructors: ["Professor CHAN"],
+        })),
+    );
+    queueRows([{ id: "p1", name: "Professor CHAN" }], [], enrollments);
+
+    const [stats] = await getCourseProfessorStats("CSCI3150");
+    expect(stats.terms).toHaveLength(12);
+    expect(stats.terms[0]).toMatchObject({
+      academicYear: "2025-26",
+      term: "Term 1",
+    });
+    expect(stats.terms.at(-1)).toMatchObject({
+      academicYear: "2022-23",
+      term: "Summer",
+    });
   });
 });
 

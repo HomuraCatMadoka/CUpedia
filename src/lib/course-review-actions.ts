@@ -45,6 +45,7 @@ export type CourseReviewView = {
   likeCount: number;
   likedByMe: boolean;
   canAdminDelete: boolean;
+  professorId: string | null;
   professorName: string | null;
   academicYear: string | null;
   term: CourseTerm | null;
@@ -52,6 +53,19 @@ export type CourseReviewView = {
 };
 
 export type ProfessorOption = { id: string; name: string };
+
+export type ProfessorTermRating = {
+  academicYear: string;
+  term: CourseTerm;
+  rating: number | null;
+  ratingCount: number;
+};
+
+export type CourseProfessorStats = ProfessorOption & {
+  rating: number | null;
+  ratingCount: number;
+  terms: ProfessorTermRating[];
+};
 
 export type CourseReviewSubmission = {
   academicYear: string;
@@ -427,6 +441,7 @@ export async function getCourseReviews(
         content: courseReviews.content,
         createdAt: courseReviews.createdAt,
         userId: courseReviews.userId,
+        professorId: courseReviews.professorId,
         professorName: sql<
           string | null
         >`coalesce(${courseReviews.professorNameSnapshot}, ${professors.name})`,
@@ -477,6 +492,7 @@ export async function getCourseReviews(
     likeCount: likeCount.get(r.id) ?? 0,
     likedByMe: mine.has(r.id),
     canAdminDelete: user?.role === "admin" && r.userId !== viewerId,
+    professorId: r.professorId,
     professorName: r.professorName,
     academicYear: r.academicYear,
     term: COURSE_TERMS.includes(r.term as CourseTerm)
@@ -493,6 +509,7 @@ export async function getCourseReviews(
       id: courseRatings.id,
       userId: courseRatings.userId,
       createdAt: courseRatings.createdAt,
+      professorId: courseRatings.professorId,
       professorName: courseRatings.professorNameSnapshot,
       academicYear: courseRatings.academicYear,
       term: courseRatings.term,
@@ -514,6 +531,7 @@ export async function getCourseReviews(
       likeCount: 0,
       likedByMe: false,
       canAdminDelete: true,
+      professorId: rating.professorId,
       professorName: rating.professorName,
       academicYear: rating.academicYear,
       term: COURSE_TERMS.includes(rating.term as CourseTerm)
@@ -552,6 +570,121 @@ const getCachedProfessorSearchCorpus = unstable_cache(
   ["course-review-professor-search"],
   { revalidate: 300, tags: ["professor-catalog"] },
 );
+
+/** Per-professor and per-offering aggregates for the course review filter.
+ * Ratings without offering metadata stay in the course-wide aggregate but are
+ * not guessed into a professor or term. */
+export async function getCourseProfessorStats(
+  code: string,
+): Promise<CourseProfessorStats[]> {
+  const courseCode = normalizeCode(code);
+  const [professorRows, ratingRows, enrollmentRows] = await Promise.all([
+    db
+      .select({ id: professors.id, name: professors.name })
+      .from(professors)
+      .innerJoin(
+        professorCourses,
+        eq(professors.id, professorCourses.professorId),
+      )
+      .where(eq(professorCourses.courseCode, courseCode))
+      .orderBy(professors.name),
+    db
+      .select({
+        professorId: courseRatings.professorId,
+        academicYear: courseRatings.academicYear,
+        term: courseRatings.term,
+        avg: sql<string | null>`avg(${courseRatings.score})`,
+        cnt: count(),
+      })
+      .from(courseRatings)
+      .where(eq(courseRatings.courseCode, courseCode))
+      .groupBy(
+        courseRatings.professorId,
+        courseRatings.academicYear,
+        courseRatings.term,
+      ),
+    db
+      .select({
+        academicYear: courseEnrollments.academicYear,
+        term: courseEnrollments.term,
+        instructors: courseEnrollments.instructors,
+      })
+      .from(courseEnrollments)
+      .where(eq(courseEnrollments.courseCode, courseCode)),
+  ]);
+
+  const normalizeName = (name: string) => name.trim().toLocaleLowerCase();
+  const professorIdByName = new Map(
+    professorRows.map((professor) => [
+      normalizeName(professor.name),
+      professor.id,
+    ]),
+  );
+  const taughtTerms = new Map<string, Set<string>>();
+  const addTerm = (professorId: string, academicYear: string, term: string) => {
+    if (!(COURSE_TERMS as readonly string[]).includes(term)) return;
+    const terms = taughtTerms.get(professorId) ?? new Set<string>();
+    terms.add(`${academicYear}\0${term}`);
+    taughtTerms.set(professorId, terms);
+  };
+  for (const row of enrollmentRows) {
+    for (const instructor of row.instructors) {
+      const professorId = professorIdByName.get(normalizeName(instructor));
+      if (professorId) addTerm(professorId, row.academicYear, row.term);
+    }
+  }
+
+  const ratingsByProfessor = new Map<
+    string,
+    Map<string, { avg: number; count: number }>
+  >();
+  for (const row of ratingRows) {
+    if (!row.professorId || !row.academicYear || !row.term) continue;
+    if (!(COURSE_TERMS as readonly string[]).includes(row.term)) continue;
+    const terms = ratingsByProfessor.get(row.professorId) ?? new Map();
+    terms.set(`${row.academicYear}\0${row.term}`, {
+      avg: Number(row.avg ?? 0),
+      count: Number(row.cnt),
+    });
+    ratingsByProfessor.set(row.professorId, terms);
+    addTerm(row.professorId, row.academicYear, row.term);
+  }
+
+  const termOrder = new Map<CourseTerm, number>(
+    COURSE_TERMS.map((term, index) => [term, index]),
+  );
+  return professorRows.map((professor) => {
+    const aggregates = ratingsByProfessor.get(professor.id) ?? new Map();
+    let weightedTotal = 0;
+    let ratingCount = 0;
+    for (const { avg, count: termCount } of aggregates.values()) {
+      weightedTotal += avg * termCount;
+      ratingCount += termCount;
+    }
+    const terms = [...(taughtTerms.get(professor.id) ?? [])]
+      .map((key) => {
+        const [academicYear, term] = key.split("\0") as [string, CourseTerm];
+        const aggregate = aggregates.get(key);
+        return {
+          academicYear,
+          term,
+          rating: aggregate ? roundScore(aggregate.avg) : null,
+          ratingCount: aggregate?.count ?? 0,
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.academicYear.localeCompare(a.academicYear) ||
+          (termOrder.get(a.term) ?? 0) - (termOrder.get(b.term) ?? 0),
+      );
+    return {
+      ...professor,
+      rating: ratingCount ? roundScore(weightedTotal / ratingCount) : null,
+      ratingCount,
+      terms,
+    };
+  });
+}
 
 export async function searchProfessors(
   code: string,

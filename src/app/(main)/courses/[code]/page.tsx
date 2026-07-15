@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeftIcon } from "lucide-react";
 import {
   getCourse,
+  getCourseProfessorStats,
   getCourseReviews,
   getCourseRatingState,
   getCourseEnrollmentHistory,
@@ -31,12 +32,14 @@ export default async function CourseDetailPage({
   const course = await getCourse(code);
   if (!course) notFound();
 
-  const [reviews, ratingState, enrollmentHistory, user] = await Promise.all([
-    getCourseReviews(course.code),
-    getCourseRatingState(course.code),
-    getCourseEnrollmentHistory(course.code),
-    getOptionalUser(),
-  ]);
+  const [reviews, ratingState, enrollmentHistory, professorStats, user] =
+    await Promise.all([
+      getCourseReviews(course.code),
+      getCourseRatingState(course.code),
+      getCourseEnrollmentHistory(course.code),
+      getCourseProfessorStats(course.code),
+      getOptionalUser(),
+    ]);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -166,6 +169,7 @@ export default async function CourseDetailPage({
               code={course.code}
               reviews={reviews}
               ratingState={ratingState}
+              professorStats={professorStats}
               academicYears={[
                 ...new Set([
                   ...enrollmentHistory.map((row) => row.academicYear),
