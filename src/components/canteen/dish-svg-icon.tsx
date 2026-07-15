@@ -1,4 +1,5 @@
-import type { LucideIcon, LucideProps } from "lucide-react";
+import type { ComponentType } from "react";
+import type { LucideProps } from "lucide-react";
 import {
   CakeSliceIcon,
   CupSodaIcon,
@@ -9,8 +10,15 @@ import {
 import { cn } from "@/lib/utils";
 import { resolveDishSvgKey, type DishSvgKey } from "@/lib/canteen-svg-keys";
 
+type DishIcon = ComponentType<LucideProps>;
+
 /** 一碗饭：碗底 + 米饭圆弧堆叠，小尺寸可辨认 */
-function RiceBowlIcon({ className, ...props }: LucideProps) {
+function RiceBowlIcon({
+  className,
+  absoluteStrokeWidth: _absoluteStrokeWidth,
+  size: _size,
+  ...props
+}: LucideProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -32,7 +40,12 @@ function RiceBowlIcon({ className, ...props }: LucideProps) {
 }
 
 /** 面食：横筷子 + 竖直下垂面条 + 下方碗 */
-function NoodleBowlIcon({ className, ...props }: LucideProps) {
+function NoodleBowlIcon({
+  className,
+  absoluteStrokeWidth: _absoluteStrokeWidth,
+  size: _size,
+  ...props
+}: LucideProps) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -59,7 +72,7 @@ function NoodleBowlIcon({ className, ...props }: LucideProps) {
   );
 }
 
-const DISH_ICONS: Record<DishSvgKey, LucideIcon> = {
+const DISH_ICONS: Record<DishSvgKey, DishIcon> = {
   default: UtensilsCrossedIcon,
   rice: RiceBowlIcon,
   bowl: SoupIcon,
