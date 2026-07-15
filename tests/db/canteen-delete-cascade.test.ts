@@ -5,6 +5,7 @@ import { Pool } from "pg";
 import {
   canteens,
   canteenMenuItems,
+  canteenMenuItemPrices,
   canteenDishVotes,
 } from "@/db/schema";
 
@@ -53,6 +54,13 @@ describe.skipIf(!hasDb)("canteen menu item hard delete cascade", () => {
       anonymousSessionId: "00000000-0000-4000-f000-000000000001",
       vote: "like",
     });
+    await db.insert(canteenMenuItemPrices).values({
+      menuItemId,
+      label: "凍",
+      amountMinor: 1300,
+      currency: "HKD",
+      sortOrder: 0,
+    });
   });
 
   afterAll(async () => {
@@ -61,12 +69,17 @@ describe.skipIf(!hasDb)("canteen menu item hard delete cascade", () => {
     await pool.end();
   });
 
-  it("deleting a menu item cascades away its vote rows", async () => {
+  it("deleting a menu item cascades away its votes and prices", async () => {
     const votesBefore = await db
       .select()
       .from(canteenDishVotes)
       .where(eq(canteenDishVotes.menuItemId, menuItemId));
     expect(votesBefore).toHaveLength(1);
+    const pricesBefore = await db
+      .select()
+      .from(canteenMenuItemPrices)
+      .where(eq(canteenMenuItemPrices.menuItemId, menuItemId));
+    expect(pricesBefore).toHaveLength(1);
 
     await db
       .delete(canteenMenuItems)
@@ -77,5 +90,10 @@ describe.skipIf(!hasDb)("canteen menu item hard delete cascade", () => {
       .from(canteenDishVotes)
       .where(eq(canteenDishVotes.menuItemId, menuItemId));
     expect(votesAfter).toHaveLength(0);
+    const pricesAfter = await db
+      .select()
+      .from(canteenMenuItemPrices)
+      .where(eq(canteenMenuItemPrices.menuItemId, menuItemId));
+    expect(pricesAfter).toHaveLength(0);
   });
 });

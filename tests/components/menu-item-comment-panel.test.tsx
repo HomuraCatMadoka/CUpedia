@@ -2,7 +2,13 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  cleanup,
+} from "@testing-library/react";
 import { MenuItemCommentPanel } from "@/components/canteen/menu-item-comment-panel";
 
 const {
@@ -92,9 +98,9 @@ describe("MenuItemCommentPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /评论/ }));
 
     await waitFor(() => {
-      expect(screen.getByRole("link", { name: "登录" }).getAttribute("href")).toBe(
-        "/login",
-      );
+      expect(
+        screen.getByRole("link", { name: "登录" }).getAttribute("href"),
+      ).toBe("/login");
     });
   });
 
@@ -127,9 +133,7 @@ describe("MenuItemCommentPanel", () => {
       updatedAt: new Date(),
     });
 
-    render(
-      <MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />,
-    );
+    render(<MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />);
     fireEvent.click(screen.getByRole("button", { name: /评论/ }));
 
     await waitFor(() => {
@@ -176,9 +180,7 @@ describe("MenuItemCommentPanel", () => {
       updatedAt: new Date(),
     });
 
-    render(
-      <MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />,
-    );
+    render(<MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />);
     fireEvent.click(screen.getByRole("button", { name: /评论/ }));
 
     await waitFor(() => {
@@ -211,16 +213,20 @@ describe("MenuItemCommentPanel", () => {
     ]);
     mockDeleteDishComment.mockResolvedValue(undefined);
 
-    render(
-      <MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />,
-    );
+    render(<MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />);
     fireEvent.click(screen.getByRole("button", { name: /评论/ }));
 
     await waitFor(() => {
       expect(screen.getByText("待删除")).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+    const deleteButton = screen.getByRole("button", {
+      name: "删除",
+    }) as HTMLButtonElement;
+    await waitFor(() => {
+      expect(deleteButton.disabled).toBe(false);
+    });
+    fireEvent.click(deleteButton);
 
     await waitFor(() => {
       expect(mockDeleteDishComment).toHaveBeenCalledWith("c1");

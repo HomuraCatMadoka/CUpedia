@@ -21,9 +21,12 @@ describe("GET /api/canteens/[id]/menu", () => {
   it("returns 404 when canteen does not exist", async () => {
     mockGetCanteenById.mockResolvedValue(null);
 
-    const res = await GET(new NextRequest("http://localhost/api/canteens/missing/menu"), {
-      params: Promise.resolve({ id: "missing" }),
-    });
+    const res = await GET(
+      new NextRequest("http://localhost/api/canteens/missing/menu"),
+      {
+        params: Promise.resolve({ id: "missing" }),
+      },
+    );
 
     expect(res.status).toBe(404);
   });
@@ -41,7 +44,17 @@ describe("GET /api/canteens/[id]/menu", () => {
         id: "i1",
         canteenId: "c1",
         name: "叉烧饭",
-        price: 28,
+        pricing: {
+          options: [
+            {
+              id: "p1",
+              label: null,
+              amountMinor: 2800,
+              currency: "HKD",
+              sortOrder: 0,
+            },
+          ],
+        },
         mealPeriod: "lunch" as const,
         sortOrder: 0,
         svgKey: "rice",
@@ -52,9 +65,12 @@ describe("GET /api/canteens/[id]/menu", () => {
     mockGetCanteenById.mockResolvedValue(canteen);
     mockGetCanteenMenuItems.mockResolvedValue(items);
 
-    const res = await GET(new NextRequest("http://localhost/api/canteens/c1/menu"), {
-      params: Promise.resolve({ id: "c1" }),
-    });
+    const res = await GET(
+      new NextRequest("http://localhost/api/canteens/c1/menu"),
+      {
+        params: Promise.resolve({ id: "c1" }),
+      },
+    );
     const json = await res.json();
 
     expect(res.status).toBe(200);

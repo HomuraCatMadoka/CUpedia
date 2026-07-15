@@ -11,6 +11,7 @@ import { upsertDishVote } from "@/lib/canteen-vote-actions";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MealPeriodBadge } from "@/components/canteen/meal-period-badge";
 import { MenuItemCommentPanel } from "@/components/canteen/menu-item-comment-panel";
+import { MenuItemPrice } from "@/components/canteen/menu-item-price";
 import { cn } from "@/lib/utils";
 
 function voteErrorMessage(code: string): string {
@@ -87,9 +88,10 @@ export function MenuItemVoteRow({
           initialCommentCount={initialCommentCount}
         />
       </div>
-      <p className="shrink-0 font-mono text-sm font-medium tabular-nums text-[var(--canteen-ink)]">
-        {item.price != null ? `$${item.price}` : "—"}
-      </p>
+      <MenuItemPrice
+        pricing={item.pricing}
+        className="w-full justify-start font-mono text-sm font-medium tabular-nums text-[var(--canteen-ink)] sm:w-auto sm:max-w-52 sm:shrink-0 sm:justify-end"
+      />
       <div
         className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto"
         role="group"

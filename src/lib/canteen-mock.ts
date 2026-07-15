@@ -7,7 +7,16 @@ import type {
   MenuItemVoteCounts,
   VoteChoice,
 } from "@/lib/canteen-types";
-import { parseMealPeriod, validateCanteenName, validateLocation, validateMenuItemName, validatePrice, validateSortOrder, validateSvgKey, compareMealPeriods } from "@/lib/canteen-types";
+import {
+  parseMealPeriod,
+  validateCanteenName,
+  validateLocation,
+  validateMenuItemName,
+  validatePricingInput,
+  validateSortOrder,
+  validateSvgKey,
+  compareMealPeriods,
+} from "@/lib/canteen-types";
 
 /** Dev/demo mode: in-memory canteen data, no PostgreSQL required. */
 export function isCanteenMockMode(): boolean {
@@ -60,7 +69,17 @@ function seedState(): MockState {
       id: "mock-item-breakfast",
       canteenId: demo.id,
       name: "演示早餐",
-      price: 8,
+      pricing: {
+        options: [
+          {
+            id: "mock-price-breakfast",
+            label: null,
+            amountMinor: 800,
+            currency: "HKD",
+            sortOrder: 0,
+          },
+        ],
+      },
       mealPeriod: "breakfast",
       sortOrder: 0,
       svgKey: "default",
@@ -71,7 +90,17 @@ function seedState(): MockState {
       id: "mock-item-demo",
       canteenId: demo.id,
       name: "演示菜品",
-      price: 10,
+      pricing: {
+        options: [
+          {
+            id: "mock-price-demo",
+            label: null,
+            amountMinor: 1000,
+            currency: "HKD",
+            sortOrder: 0,
+          },
+        ],
+      },
       mealPeriod: "lunch",
       sortOrder: 0,
       svgKey: "default",
@@ -82,7 +111,17 @@ function seedState(): MockState {
       id: "mock-item-dinner",
       canteenId: demo.id,
       name: "演示晚餐",
-      price: 12,
+      pricing: {
+        options: [
+          {
+            id: "mock-price-dinner",
+            label: null,
+            amountMinor: 1200,
+            currency: "HKD",
+            sortOrder: 0,
+          },
+        ],
+      },
       mealPeriod: "dinner",
       sortOrder: 0,
       svgKey: "default",
@@ -152,7 +191,8 @@ export function mockUpdateCanteen(
   if (idx < 0) throw new Error("CANTEEN_NOT_FOUND");
   const row = s.canteens[idx];
   if (input.name !== undefined) row.name = validateCanteenName(input.name);
-  if (input.location !== undefined) row.location = validateLocation(input.location);
+  if (input.location !== undefined)
+    row.location = validateLocation(input.location);
   row.updatedAt = now();
   return { ...row };
 }
@@ -175,6 +215,7 @@ export function mockCreateMenuItem(
   canteenId: string,
   input: {
     name: unknown;
+    pricing?: unknown;
     price?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
@@ -185,11 +226,20 @@ export function mockCreateMenuItem(
   const mealPeriod = parseMealPeriod(String(input.mealPeriod ?? "lunch"));
   if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
   const t = now();
+  const priceOptions = validatePricingInput(input.pricing, input.price) ?? [];
   const row: CanteenMenuItem = {
     id: crypto.randomUUID(),
     canteenId,
     name: validateMenuItemName(input.name),
-    price: validatePrice(input.price),
+    pricing:
+      priceOptions.length === 0
+        ? null
+        : {
+            options: priceOptions.map((option) => ({
+              id: crypto.randomUUID(),
+              ...option,
+            })),
+          },
     mealPeriod,
     sortOrder: validateSortOrder(input.sortOrder),
     svgKey: validateSvgKey(input.svgKey),
@@ -205,6 +255,7 @@ export function mockUpdateMenuItem(
   itemId: string,
   input: {
     name?: unknown;
+    pricing?: unknown;
     price?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
@@ -212,17 +263,31 @@ export function mockUpdateMenuItem(
   },
 ): CanteenMenuItem {
   const s = getState();
-  const idx = s.items.findIndex((i) => i.id === itemId && i.canteenId === canteenId);
+  const idx = s.items.findIndex(
+    (i) => i.id === itemId && i.canteenId === canteenId,
+  );
   if (idx < 0) throw new Error("MENU_ITEM_NOT_FOUND");
   const row = s.items[idx];
   if (input.name !== undefined) row.name = validateMenuItemName(input.name);
-  if (input.price !== undefined) row.price = validatePrice(input.price);
+  const priceOptions = validatePricingInput(input.pricing, input.price);
+  if (priceOptions !== undefined) {
+    row.pricing =
+      priceOptions.length === 0
+        ? null
+        : {
+            options: priceOptions.map((option) => ({
+              id: crypto.randomUUID(),
+              ...option,
+            })),
+          };
+  }
   if (input.mealPeriod !== undefined) {
     const mp = parseMealPeriod(String(input.mealPeriod));
     if (!mp) throw new Error("INVALID_MEAL_PERIOD");
     row.mealPeriod = mp;
   }
-  if (input.sortOrder !== undefined) row.sortOrder = validateSortOrder(input.sortOrder);
+  if (input.sortOrder !== undefined)
+    row.sortOrder = validateSortOrder(input.sortOrder);
   if (input.svgKey !== undefined) row.svgKey = validateSvgKey(input.svgKey);
   row.updatedAt = now();
   return { ...row };
@@ -230,7 +295,9 @@ export function mockUpdateMenuItem(
 
 export function mockDeleteMenuItem(canteenId: string, itemId: string): void {
   const s = getState();
-  const idx = s.items.findIndex((i) => i.id === itemId && i.canteenId === canteenId);
+  const idx = s.items.findIndex(
+    (i) => i.id === itemId && i.canteenId === canteenId,
+  );
   if (idx < 0) throw new Error("MENU_ITEM_NOT_FOUND");
   s.items.splice(idx, 1);
   s.votes = s.votes.filter((v) => v.menuItemId !== itemId);
@@ -239,7 +306,9 @@ export function mockDeleteMenuItem(canteenId: string, itemId: string): void {
 
 function mockCountCommentsForCanteen(canteenId: string): number {
   const itemIds = new Set(
-    getState().items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+    getState()
+      .items.filter((i) => i.canteenId === canteenId)
+      .map((i) => i.id),
   );
   return getState().comments.filter((c) => itemIds.has(c.menuItemId)).length;
 }
@@ -252,7 +321,9 @@ export function mockGetCommentCountsForCanteen(
   canteenId: string,
 ): Record<string, number> {
   const itemIds = new Set(
-    getState().items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+    getState()
+      .items.filter((i) => i.canteenId === canteenId)
+      .map((i) => i.id),
   );
   const result: Record<string, number> = {};
   for (const comment of getState().comments) {
@@ -326,12 +397,13 @@ export function mockAdminDeleteDishComment(commentId: string): void {
 
 function mockCountVotesForCanteen(canteenId: string): number {
   const itemIds = new Set(
-    getState().items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+    getState()
+      .items.filter((i) => i.canteenId === canteenId)
+      .map((i) => i.id),
   );
   return getState().votes.filter(
     (v) =>
-      itemIds.has(v.menuItemId) &&
-      (v.vote === "like" || v.vote === "dislike"),
+      itemIds.has(v.menuItemId) && (v.vote === "like" || v.vote === "dislike"),
   ).length;
 }
 
@@ -418,7 +490,9 @@ export function mockGetVoteCountsForCanteen(
   canteenId: string,
 ): Record<string, MenuItemVoteCounts> {
   const itemIds = new Set(
-    getState().items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+    getState()
+      .items.filter((i) => i.canteenId === canteenId)
+      .map((i) => i.id),
   );
   const result: Record<string, MenuItemVoteCounts> = {};
   for (const vote of getState().votes) {
@@ -439,7 +513,9 @@ export function mockGetMyVotesForCanteen(
   if (!voter.userId && !voter.anonymousSessionId) return {};
 
   const itemIds = new Set(
-    getState().items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+    getState()
+      .items.filter((i) => i.canteenId === canteenId)
+      .map((i) => i.id),
   );
   const result: Record<string, VoteChoice> = {};
   for (const vote of getState().votes) {
@@ -518,7 +594,8 @@ export function mockUpdateMenuImportDraft(
   );
   if (idx < 0) throw new Error("IMPORT_DRAFT_NOT_FOUND");
   const row = s.importDrafts[idx];
-  if (row.status === "published") throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
+  if (row.status === "published")
+    throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
   row.items = items;
   row.status = "ready";
   row.errorMessage = null;
@@ -532,7 +609,8 @@ export function mockPublishMenuImportDraft(
 ): CanteenMenuItem[] {
   const draft = mockGetMenuImportDraft(canteenId, draftId);
   if (!draft) throw new Error("IMPORT_DRAFT_NOT_FOUND");
-  if (draft.status === "published") throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
+  if (draft.status === "published")
+    throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
   if (draft.items.length === 0) throw new Error("IMPORT_DRAFT_EMPTY");
 
   const created = draft.items.map((item) =>

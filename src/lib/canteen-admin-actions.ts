@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import { canteenMenuItems, canteens } from "@/db/schema";
+import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
 import { count, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-guard";
@@ -29,6 +29,7 @@ import type {
   CanteenMenuItem,
   DeleteImpact,
   MealPeriod,
+  MenuItemPriceOptionInput,
 } from "@/lib/canteen-types";
 import {
   parseMealPeriod,
@@ -36,10 +37,41 @@ import {
   validateCanteenName,
   validateLocation,
   validateMenuItemName,
-  validatePrice,
+  validatePricingInput,
   validateSortOrder,
   validateSvgKey,
 } from "@/lib/canteen-types";
+import { buildMenuItemPricing } from "@/lib/canteen-pricing";
+
+function mapMenuItem(
+  row: typeof canteenMenuItems.$inferSelect,
+  options: Array<typeof canteenMenuItemPrices.$inferSelect>,
+): CanteenMenuItem {
+  return {
+    id: row.id,
+    canteenId: row.canteenId,
+    name: row.name,
+    pricing: buildMenuItemPricing(row.id, options, row.price),
+    mealPeriod: row.mealPeriod as MealPeriod,
+    sortOrder: row.sortOrder,
+    svgKey: row.svgKey,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function priceOptionValues(
+  menuItemId: string,
+  options: MenuItemPriceOptionInput[],
+  now: Date,
+) {
+  return options.map((option) => ({
+    menuItemId,
+    ...option,
+    createdAt: now,
+    updatedAt: now,
+  }));
+}
 
 async function countMenuItems(canteenId: string): Promise<number> {
   const result = await db
@@ -48,7 +80,6 @@ async function countMenuItems(canteenId: string): Promise<number> {
     .where(eq(canteenMenuItems.canteenId, canteenId));
   return result[0]?.value ?? 0;
 }
-
 
 export async function getCanteenDeleteImpact(
   canteenId: string,
@@ -126,9 +157,10 @@ export async function updateCanteen(
     revalidatePath("/canteen");
     return row;
   }
-  const updates: { name?: string; location?: string | null; updatedAt: Date } = {
-    updatedAt: new Date(),
-  };
+  const updates: { name?: string; location?: string | null; updatedAt: Date } =
+    {
+      updatedAt: new Date(),
+    };
   if (input.name !== undefined) updates.name = validateCanteenName(input.name);
   if (input.location !== undefined) {
     updates.location = validateLocation(input.location);
@@ -178,6 +210,8 @@ export async function createMenuItem(
   canteenId: string,
   input: {
     name: unknown;
+    pricing?: unknown;
+    /** @deprecated Use pricing.options. */
     price?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
@@ -200,25 +234,36 @@ export async function createMenuItem(
 
   const mealPeriod = parseMealPeriod(String(input.mealPeriod ?? "lunch"));
   if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+  const options = validatePricingInput(input.pricing, input.price) ?? [];
 
   const now = new Date();
-  const [row] = await db
-    .insert(canteenMenuItems)
-    .values({
-      canteenId,
-      name: validateMenuItemName(input.name),
-      price: validatePrice(input.price),
-      mealPeriod,
-      sortOrder: validateSortOrder(input.sortOrder),
-      svgKey: validateSvgKey(input.svgKey),
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning();
+  const row = await db.transaction(async (tx) => {
+    const [menuItem] = await tx
+      .insert(canteenMenuItems)
+      .values({
+        canteenId,
+        name: validateMenuItemName(input.name),
+        price: null,
+        mealPeriod,
+        sortOrder: validateSortOrder(input.sortOrder),
+        svgKey: validateSvgKey(input.svgKey),
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    const prices =
+      options.length === 0
+        ? []
+        : await tx
+            .insert(canteenMenuItemPrices)
+            .values(priceOptionValues(menuItem.id, options, now))
+            .returning();
+    return mapMenuItem(menuItem, prices);
+  });
 
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);
-  return row as CanteenMenuItem;
+  return row;
 }
 
 export async function bulkImportMenuItemsFromJson(
@@ -243,26 +288,38 @@ export async function bulkImportMenuItemsFromJson(
   if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
 
   const now = new Date();
-  const created = await db
-    .insert(canteenMenuItems)
-    .values(
-      rows.map((row) => ({
-        canteenId,
-        name: row.name,
-        price: row.price,
-        mealPeriod: row.mealPeriod,
-        sortOrder: row.sortOrder,
-        svgKey: row.svgKey,
-        createdAt: now,
-        updatedAt: now,
-      })),
-    )
-    .returning();
+  const created = await db.transaction(async (tx) => {
+    const menuItems: CanteenMenuItem[] = [];
+    for (const row of rows) {
+      const [menuItem] = await tx
+        .insert(canteenMenuItems)
+        .values({
+          canteenId,
+          name: row.name,
+          price: null,
+          mealPeriod: row.mealPeriod,
+          sortOrder: row.sortOrder,
+          svgKey: row.svgKey,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      const prices =
+        row.priceOptions.length === 0
+          ? []
+          : await tx
+              .insert(canteenMenuItemPrices)
+              .values(priceOptionValues(menuItem.id, row.priceOptions, now))
+              .returning();
+      menuItems.push(mapMenuItem(menuItem, prices));
+    }
+    return menuItems;
+  });
 
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);
   revalidatePath(`/canteen/${canteenId}`);
-  return created as CanteenMenuItem[];
+  return created;
 }
 
 export async function updateMenuItem(
@@ -270,6 +327,8 @@ export async function updateMenuItem(
   itemId: string,
   input: {
     name?: unknown;
+    pricing?: unknown;
+    /** @deprecated Use pricing.options. */
     price?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
@@ -295,7 +354,8 @@ export async function updateMenuItem(
   } = { updatedAt: new Date() };
 
   if (input.name !== undefined) updates.name = validateMenuItemName(input.name);
-  if (input.price !== undefined) updates.price = validatePrice(input.price);
+  const options = validatePricingInput(input.pricing, input.price);
+  if (options !== undefined) updates.price = null;
   if (input.mealPeriod !== undefined) {
     const mealPeriod = parseMealPeriod(String(input.mealPeriod));
     if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
@@ -306,22 +366,44 @@ export async function updateMenuItem(
   }
   if (input.svgKey !== undefined) updates.svgKey = validateSvgKey(input.svgKey);
 
-  const [row] = await db
-    .update(canteenMenuItems)
-    .set(updates)
-    .where(
-      and(
-        eq(canteenMenuItems.id, itemId),
-        eq(canteenMenuItems.canteenId, canteenId),
-      ),
-    )
-    .returning();
+  const row = await db.transaction(async (tx) => {
+    const [menuItem] = await tx
+      .update(canteenMenuItems)
+      .set(updates)
+      .where(
+        and(
+          eq(canteenMenuItems.id, itemId),
+          eq(canteenMenuItems.canteenId, canteenId),
+        ),
+      )
+      .returning();
 
-  if (!row) throw new Error("MENU_ITEM_NOT_FOUND");
+    if (!menuItem) throw new Error("MENU_ITEM_NOT_FOUND");
+
+    if (options !== undefined) {
+      await tx
+        .delete(canteenMenuItemPrices)
+        .where(eq(canteenMenuItemPrices.menuItemId, itemId));
+      const prices =
+        options.length === 0
+          ? []
+          : await tx
+              .insert(canteenMenuItemPrices)
+              .values(priceOptionValues(itemId, options, updates.updatedAt))
+              .returning();
+      return mapMenuItem(menuItem, prices);
+    }
+
+    const prices = await tx
+      .select()
+      .from(canteenMenuItemPrices)
+      .where(eq(canteenMenuItemPrices.menuItemId, itemId));
+    return mapMenuItem(menuItem, prices);
+  });
 
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);
-  return row as CanteenMenuItem;
+  return row;
 }
 
 export async function deleteMenuItem(

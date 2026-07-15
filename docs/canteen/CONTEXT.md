@@ -7,8 +7,11 @@
 **食堂（Canteen）**: 一个物理用餐点（如某书院食堂），有名称与可选位置。
 _Avoid_: 与「餐段」或「菜品」混称。
 
-**菜品（Menu item）**: 某食堂在某餐段供应的一道菜，含名称、价格、餐段、排序与图标 key。
+**菜品（Menu item）**: 某食堂在某餐段供应的一道菜，含名称、价格选项、餐段、排序与图标 key。
 _Avoid_: 把菜品当成全局实体——菜品始终归属某个食堂。
+
+**价格选项（Price option）**: 菜品可以没有价格，也可以有一个或多个带可选标签的价格。金额以最小货币单位保存（`amountMinor`；HKD 18 元为 `1800`），公开 DTO 固定为 `pricing.options[]`。UI 遍历选项，不识别「凍」「熱」等具体标签。旧 `canteen_menu_items.price` 仅供迁移期读取，所有新写入进入 `canteen_menu_item_prices`。
+_Avoid_: UI 直接读取数据库列；用标签文本作为程序标识；把套餐饮品加价合并进独立售卖价格。
 
 **餐段（Meal period）**: `breakfast` | `lunch` | `dinner`；排序语义为早→午→晚，**不能**用字符串 `localeCompare`。
 _Avoid_: 按字母序排列（会得到早→晚→午）。
@@ -21,7 +24,7 @@ _Avoid_: 按字母序排列（会得到早→晚→午）。
 
 **OCR 菜单导入**: Admin 上传菜单图片 → 单一云 OCR 调用点（Google Vision，可 mock）→ 尽力解析为草稿 → 校对（含餐段/价格）→ 批量发布到 `canteen_menu_items`。走专用 Admin import API（非 `/api/upload`），内部复用 MinIO `uploadFile`。OCR 失败不阻断，可降级手工录入。图片上限 5MB。
 
-**JSON 菜单导入**: Admin 在菜单管理页粘贴 JSON 数组（或 `{ "items": [...] }`）一键批量写入 `canteen_menu_items`；字段含 name、price、mealPeriod、sortOrder、svgKey。
+**JSON 菜单导入**: Admin 在菜单管理页粘贴 JSON 数组（或 `{ "items": [...] }`）一键批量写入菜单；字段含 name、pricing.options、mealPeriod、sortOrder、svgKey。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
 
 **硬删除（Hard delete）**: 食堂与菜品无 `deletedAt`；删除行时 DB `ON DELETE CASCADE` 清理关联 votes 与 comments。
 _Avoid_: 沿用 wiki 的软删除模式。
@@ -39,3 +42,4 @@ _Avoid_: 把 mock 数据当作生产 seed。
 
 - [0008 — 食堂硬删除与 mock 模式](../adr/0008-canteen-hard-delete-and-mock-mode.md)
 - [0009 — 食堂匿名投票写权限](../adr/0009-canteen-anonymous-vote-only.md)
+- [0013 — 食堂价格选项与稳定 API 边界](../adr/0013-canteen-pricing-api-boundary.md)

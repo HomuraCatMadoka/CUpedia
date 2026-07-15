@@ -58,6 +58,13 @@ vi.mock("@/db", () => ({
     update: (...args: unknown[]) => mockDbUpdate(...args),
     delete: (...args: unknown[]) => mockDbDelete(...args),
     select: (...args: unknown[]) => mockDbSelect(...args),
+    transaction: (callback: (tx: unknown) => unknown) =>
+      callback({
+        insert: (...args: unknown[]) => mockDbInsert(...args),
+        update: (...args: unknown[]) => mockDbUpdate(...args),
+        delete: (...args: unknown[]) => mockDbDelete(...args),
+        select: (...args: unknown[]) => mockDbSelect(...args),
+      }),
   },
 }));
 
@@ -74,6 +81,11 @@ import { getAdminUserForApi } from "@/lib/auth-guard";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockDbSelect.mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  });
 });
 
 function mockAdminSession() {
@@ -121,7 +133,9 @@ describe("canteen-admin-actions", () => {
         updatedAt: new Date(),
       },
     ]);
-    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning }) });
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({ returning }),
+    });
 
     const row = await createCanteen({ name: "Union" });
     expect(row.name).toBe("Union");
@@ -179,7 +193,7 @@ describe("canteen-admin-actions", () => {
     expect(mockDbDelete).toHaveBeenCalled();
   });
 
-  it("createMenuItem inserts for admin", async () => {
+  it("createMenuItem stores normalized price options for admin", async () => {
     mockAdminSession();
     mockDbQueryCanteens.findFirst.mockResolvedValue({ id: "c1" });
     const returning = vi.fn().mockResolvedValue([
@@ -187,7 +201,7 @@ describe("canteen-admin-actions", () => {
         id: "i1",
         canteenId: "c1",
         name: "饭",
-        price: 10,
+        price: null,
         mealPeriod: "lunch",
         sortOrder: 0,
         svgKey: "default",
@@ -195,10 +209,39 @@ describe("canteen-admin-actions", () => {
         updatedAt: new Date(),
       },
     ]);
-    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning }) });
+    const priceReturning = vi.fn().mockResolvedValue([
+      {
+        id: "p1",
+        menuItemId: "i1",
+        label: "凍",
+        amountMinor: 1300,
+        currency: "HKD",
+        sortOrder: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    mockDbInsert
+      .mockReturnValueOnce({
+        values: vi.fn().mockReturnValue({ returning }),
+      })
+      .mockReturnValueOnce({
+        values: vi.fn().mockReturnValue({ returning: priceReturning }),
+      });
 
-    const row = await createMenuItem("c1", { name: "饭", mealPeriod: "lunch" });
+    const row = await createMenuItem("c1", {
+      name: "饭",
+      mealPeriod: "lunch",
+      pricing: {
+        options: [{ label: "凍", amountMinor: 1300, currency: "HKD" }],
+      },
+    });
     expect(row.name).toBe("饭");
+    expect(row.pricing?.options[0]).toMatchObject({
+      id: "p1",
+      label: "凍",
+      amountMinor: 1300,
+    });
   });
 
   it("updateMenuItem updates for admin", async () => {
@@ -257,9 +300,8 @@ describe("canteen-admin-actions", () => {
     const prev = process.env.CANTEEN_MOCK_DATA;
     process.env.CANTEEN_MOCK_DATA = "true";
     try {
-      const { resetCanteenMockState, mockListMenuItems } = await import(
-        "@/lib/canteen-mock"
-      );
+      const { resetCanteenMockState, mockListMenuItems } =
+        await import("@/lib/canteen-mock");
       resetCanteenMockState();
       mockAdminSession();
 

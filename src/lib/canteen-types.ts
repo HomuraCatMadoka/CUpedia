@@ -21,11 +21,25 @@ export type Canteen = {
   updatedAt: Date;
 };
 
+export type CanteenPriceOption = {
+  id: string;
+  label: string | null;
+  amountMinor: number;
+  currency: string;
+  sortOrder: number;
+};
+
+export type MenuItemPricing = {
+  options: CanteenPriceOption[];
+} | null;
+
+export type MenuItemPriceOptionInput = Omit<CanteenPriceOption, "id">;
+
 export type CanteenMenuItem = {
   id: string;
   canteenId: string;
   name: string;
-  price: number | null;
+  pricing: MenuItemPricing;
   mealPeriod: MealPeriod;
   sortOrder: number;
   svgKey: string;
@@ -70,7 +84,11 @@ export type CanteenDishComment = {
   authorNickname: string;
 };
 
-export const MENU_IMPORT_DRAFT_STATUSES = ["ready", "failed", "published"] as const;
+export const MENU_IMPORT_DRAFT_STATUSES = [
+  "ready",
+  "failed",
+  "published",
+] as const;
 export type MenuImportDraftStatus = (typeof MENU_IMPORT_DRAFT_STATUSES)[number];
 
 export type MenuImportDraftItem = {
@@ -117,7 +135,7 @@ export const MENU_JSON_MAX_ROWS = 200;
 
 export type MenuItemJsonImportRow = {
   name: string;
-  price: number | null;
+  priceOptions: MenuItemPriceOptionInput[];
   mealPeriod: MealPeriod;
   sortOrder: number;
   svgKey: string;
@@ -143,16 +161,18 @@ export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
 
   if (!Array.isArray(parsed)) throw new Error("INVALID_MENU_JSON");
   if (parsed.length === 0) throw new Error("EMPTY_MENU_JSON");
-  if (parsed.length > MENU_JSON_MAX_ROWS) throw new Error("MENU_JSON_TOO_LARGE");
+  if (parsed.length > MENU_JSON_MAX_ROWS)
+    throw new Error("MENU_JSON_TOO_LARGE");
 
   return parsed.map((row, index) => {
     if (!row || typeof row !== "object") throw new Error("INVALID_MENU_JSON");
     const r = row as Record<string, unknown>;
     const mealPeriod = parseMealPeriod(String(r.mealPeriod ?? "lunch"));
     if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+    const priceOptions = validatePricingInput(r.pricing, r.price) ?? [];
     return {
       name: validateMenuItemName(r.name),
-      price: validatePrice(r.price),
+      priceOptions,
       mealPeriod,
       sortOrder: validateSortOrder(r.sortOrder ?? index),
       svgKey: validateSvgKey(r.svgKey),
@@ -206,6 +226,73 @@ export function validatePrice(price: unknown): number | null {
     throw new Error("INVALID_PRICE");
   }
   return n;
+}
+
+export function validatePricingInput(
+  pricing: unknown,
+  legacyPrice?: unknown,
+): MenuItemPriceOptionInput[] | undefined {
+  if (pricing === undefined && legacyPrice === undefined) return undefined;
+
+  if (pricing === undefined) {
+    const price = validatePrice(legacyPrice);
+    return price == null
+      ? []
+      : [
+          {
+            label: null,
+            amountMinor: price * 100,
+            currency: "HKD",
+            sortOrder: 0,
+          },
+        ];
+  }
+
+  if (pricing === null) return [];
+  if (!pricing || typeof pricing !== "object" || Array.isArray(pricing)) {
+    throw new Error("INVALID_PRICING");
+  }
+
+  const options = (pricing as Record<string, unknown>).options;
+  if (!Array.isArray(options) || options.length > 20) {
+    throw new Error("INVALID_PRICING");
+  }
+
+  return options.map((option, index) => {
+    if (!option || typeof option !== "object" || Array.isArray(option)) {
+      throw new Error("INVALID_PRICE_OPTION");
+    }
+    const row = option as Record<string, unknown>;
+    const rawLabel = row.label;
+    let label: string | null = null;
+    if (rawLabel != null && rawLabel !== "") {
+      if (typeof rawLabel !== "string") throw new Error("INVALID_PRICE_LABEL");
+      label = rawLabel.trim();
+      if (!label || label.length > 100) throw new Error("INVALID_PRICE_LABEL");
+    }
+
+    const amountMinor = row.amountMinor;
+    if (
+      typeof amountMinor !== "number" ||
+      !Number.isInteger(amountMinor) ||
+      amountMinor < 0 ||
+      amountMinor > 999_900
+    ) {
+      throw new Error("INVALID_PRICE_AMOUNT");
+    }
+
+    const currency = String(row.currency ?? "HKD")
+      .trim()
+      .toUpperCase();
+    if (!/^[A-Z]{3}$/.test(currency)) throw new Error("INVALID_CURRENCY");
+
+    return {
+      label,
+      amountMinor,
+      currency,
+      sortOrder: validateSortOrder(row.sortOrder ?? index),
+    };
+  });
 }
 
 export function validateSortOrder(sortOrder: unknown): number {

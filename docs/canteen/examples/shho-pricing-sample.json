@@ -1,0 +1,42 @@
+[
+  {
+    "name": "美式咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱 8oz", "amountMinor": 2100, "currency": "HKD" },
+        { "label": "熱 12oz", "amountMinor": 2700, "currency": "HKD" },
+        { "label": "凍 12oz", "amountMinor": 2700, "currency": "HKD" },
+        { "label": "凍 16oz", "amountMinor": 2900, "currency": "HKD" }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 0,
+    "svgKey": "drink"
+  },
+  {
+    "name": "鮮奶咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱 8oz", "amountMinor": 2400, "currency": "HKD" },
+        { "label": "熱 12oz", "amountMinor": 2900, "currency": "HKD" },
+        { "label": "凍 12oz", "amountMinor": 2900, "currency": "HKD" },
+        { "label": "凍 16oz", "amountMinor": 3100, "currency": "HKD" }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 1,
+    "svgKey": "drink"
+  },
+  {
+    "name": "奶茶",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 1100, "currency": "HKD" },
+        { "label": "凍", "amountMinor": 1300, "currency": "HKD" }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 2,
+    "svgKey": "drink"
+  }
+]

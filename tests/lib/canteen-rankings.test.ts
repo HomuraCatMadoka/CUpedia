@@ -16,7 +16,7 @@ function item(
     id,
     canteenId: "c1",
     name,
-    price: 10,
+    pricing: null,
     mealPeriod,
     sortOrder: 0,
     svgKey: "default",

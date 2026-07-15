@@ -2,7 +2,13 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  waitFor,
+} from "@testing-library/react";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import type { CanteenMenuItem } from "@/lib/canteen-types";
 import { AFTERNOON_HINT_TEXT } from "@/lib/canteen-meal-period";
@@ -21,9 +27,7 @@ vi.mock("@/components/canteen/menu-item-comment-panel", () => ({
     initialCommentCount = 0,
   }: {
     initialCommentCount?: number;
-  }) => (
-    <button type="button">{`评论 (${initialCommentCount})`}</button>
-  ),
+  }) => <button type="button">{`评论 (${initialCommentCount})`}</button>,
 }));
 
 function item(
@@ -36,7 +40,7 @@ function item(
     id,
     canteenId: "c1",
     name,
-    price: 10,
+    pricing: null,
     mealPeriod,
     sortOrder: 0,
     svgKey: "default",
@@ -175,23 +179,25 @@ describe("CanteenMenuView", () => {
   });
 
   it("keeps vote state when switching view tabs", async () => {
-    render(
-      <CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />,
-    );
+    render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
 
     await waitFor(() => {
       expect(screen.getByText("演示午餐")).toBeTruthy();
     });
 
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
-    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("1");
+    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain(
+      "1",
+    );
 
     fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
     fireEvent.click(screen.getByRole("tab", { name: "菜单" }));
 
-    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("1");
-    expect(screen.getByRole("button", { name: "点赞" }).getAttribute("aria-pressed")).toBe(
-      "true",
+    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain(
+      "1",
     );
+    expect(
+      screen.getByRole("button", { name: "点赞" }).getAttribute("aria-pressed"),
+    ).toBe("true");
   });
 });

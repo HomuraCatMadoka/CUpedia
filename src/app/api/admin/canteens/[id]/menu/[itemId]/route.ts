@@ -22,6 +22,7 @@ export async function PATCH(
       itemId,
       body as {
         name?: unknown;
+        pricing?: unknown;
         price?: unknown;
         mealPeriod?: unknown;
         sortOrder?: unknown;

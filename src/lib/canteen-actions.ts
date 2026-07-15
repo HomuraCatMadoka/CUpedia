@@ -1,10 +1,11 @@
 "use server";
 
 import { db } from "@/db";
-import { canteenMenuItems, canteens } from "@/db/schema";
+import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
 import { asc, eq, count } from "drizzle-orm";
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
 import { compareMealPeriods } from "@/lib/canteen-types";
+import { buildMenuItemPricing } from "@/lib/canteen-pricing";
 import {
   isCanteenMockMode,
   mockGetCanteen,
@@ -46,22 +47,71 @@ export async function getCanteenMenuItems(
   canteenId: string,
 ): Promise<CanteenMenuItem[]> {
   if (isCanteenMockMode()) return mockListMenuItems(canteenId);
-  const rows = (await db
+  const rows = await db
     .select({
       id: canteenMenuItems.id,
       canteenId: canteenMenuItems.canteenId,
       name: canteenMenuItems.name,
-      price: canteenMenuItems.price,
+      legacyPrice: canteenMenuItems.price,
       mealPeriod: canteenMenuItems.mealPeriod,
       sortOrder: canteenMenuItems.sortOrder,
       svgKey: canteenMenuItems.svgKey,
       createdAt: canteenMenuItems.createdAt,
       updatedAt: canteenMenuItems.updatedAt,
+      priceId: canteenMenuItemPrices.id,
+      priceLabel: canteenMenuItemPrices.label,
+      amountMinor: canteenMenuItemPrices.amountMinor,
+      currency: canteenMenuItemPrices.currency,
+      priceSortOrder: canteenMenuItemPrices.sortOrder,
     })
     .from(canteenMenuItems)
-    .where(eq(canteenMenuItems.canteenId, canteenId))) as CanteenMenuItem[];
+    .leftJoin(
+      canteenMenuItemPrices,
+      eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
+    )
+    .where(eq(canteenMenuItems.canteenId, canteenId));
 
-  return rows.sort((a, b) => {
+  const items = new Map<string, CanteenMenuItem>();
+  for (const row of rows) {
+    const existing = items.get(row.id);
+    const option = row.priceId
+      ? {
+          id: row.priceId,
+          label: row.priceLabel,
+          amountMinor: row.amountMinor!,
+          currency: row.currency!,
+          sortOrder: row.priceSortOrder!,
+        }
+      : null;
+    if (existing) {
+      if (option) existing.pricing!.options.push(option);
+      continue;
+    }
+    items.set(row.id, {
+      id: row.id,
+      canteenId: row.canteenId,
+      name: row.name,
+      pricing: buildMenuItemPricing(
+        row.id,
+        option ? [option] : [],
+        row.legacyPrice,
+      ),
+      mealPeriod: row.mealPeriod as CanteenMenuItem["mealPeriod"],
+      sortOrder: row.sortOrder,
+      svgKey: row.svgKey,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    });
+  }
+
+  for (const item of items.values()) {
+    item.pricing?.options.sort(
+      (a, b) =>
+        a.sortOrder - b.sortOrder || a.label?.localeCompare(b.label ?? "") || 0,
+    );
+  }
+
+  return [...items.values()].sort((a, b) => {
     const periodCmp = compareMealPeriods(a.mealPeriod, b.mealPeriod);
     if (periodCmp !== 0) return periodCmp;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
@@ -69,7 +119,9 @@ export async function getCanteenMenuItems(
   });
 }
 
-export async function getCanteenMenuItemCounts(): Promise<Record<string, number>> {
+export async function getCanteenMenuItemCounts(): Promise<
+  Record<string, number>
+> {
   if (isCanteenMockMode()) {
     const list = mockListCanteens();
     return Object.fromEntries(

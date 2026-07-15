@@ -1,6 +1,7 @@
 import type { RankedDish } from "@/lib/canteen-rankings";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MenuItemCommentPanel } from "@/components/canteen/menu-item-comment-panel";
+import { MenuItemPrice } from "@/components/canteen/menu-item-price";
 import { cn } from "@/lib/utils";
 
 export function CanteenRankingRow({
@@ -50,9 +51,10 @@ export function CanteenRankingRow({
           initialCommentCount={initialCommentCount}
         />
       </div>
-      <p className="shrink-0 font-mono text-sm tabular-nums text-[var(--canteen-ink)]">
-        {item.price != null ? `$${item.price}` : "—"}
-      </p>
+      <MenuItemPrice
+        pricing={item.pricing}
+        className="w-full justify-start font-mono text-sm tabular-nums text-[var(--canteen-ink)] sm:w-auto sm:max-w-52 sm:shrink-0 sm:justify-end"
+      />
     </li>
   );
 }

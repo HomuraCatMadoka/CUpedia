@@ -162,6 +162,20 @@
       "when": 1784109211349,
       "tag": "0022_powerful_weapon_omega",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1784136350754,
+      "tag": "0023_canteen_pricing_options",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784139380869,
+      "tag": "0024_protect_canteen_pricing_api",
+      "breakpoints": true
     }
   ]
 }

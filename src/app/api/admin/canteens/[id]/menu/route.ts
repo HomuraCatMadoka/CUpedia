@@ -35,6 +35,7 @@ export async function POST(
   }
   const input = body as {
     name?: unknown;
+    pricing?: unknown;
     price?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
@@ -46,6 +47,7 @@ export async function POST(
   try {
     const item = await createMenuItem(id, {
       name: input.name,
+      pricing: input.pricing,
       price: input.price,
       mealPeriod: input.mealPeriod,
       sortOrder: input.sortOrder,

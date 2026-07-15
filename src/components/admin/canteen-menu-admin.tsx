@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,10 +18,18 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CanteenMenuImportPanel } from "@/components/admin/canteen-menu-import-panel";
 import { CanteenMenuJsonImportPanel } from "@/components/admin/canteen-menu-json-import-panel";
-import { CanteenShell, PreviewBanner } from "@/components/canteen/canteen-shell";
+import {
+  CanteenShell,
+  PreviewBanner,
+} from "@/components/canteen/canteen-shell";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MealPeriodBadge } from "@/components/canteen/meal-period-badge";
-import { MEAL_PERIODS, type Canteen, type CanteenMenuItem } from "@/lib/canteen-types";
+import { MenuItemPrice } from "@/components/canteen/menu-item-price";
+import {
+  MEAL_PERIODS,
+  type Canteen,
+  type CanteenMenuItem,
+} from "@/lib/canteen-types";
 import type { DeleteImpact } from "@/lib/canteen-types";
 import * as liveActions from "@/lib/canteen-admin-actions";
 import * as previewActions from "@/lib/canteen-preview-actions";
@@ -31,6 +40,126 @@ const MEAL_LABELS: Record<(typeof MEAL_PERIODS)[number], string> = {
   lunch: "午餐",
   dinner: "晚餐",
 };
+
+type DraftPriceOption = {
+  key: string;
+  label: string;
+  amount: string;
+};
+
+function blankPriceOption(key = "0"): DraftPriceOption {
+  return { key, label: "", amount: "" };
+}
+
+function pricingInput(options: DraftPriceOption[]) {
+  const populated = options.filter(
+    (option) => option.label.trim() || option.amount.trim(),
+  );
+  return {
+    options: populated.map((option, index) => {
+      const rawAmount = option.amount.trim();
+      if (!/^\d+(?:\.\d{1,2})?$/.test(rawAmount)) {
+        throw new Error("INVALID_PRICE_AMOUNT");
+      }
+      const amount = Number(rawAmount);
+      const amountMinor = Math.round(amount * 100);
+      if (amountMinor > 999_900) {
+        throw new Error("INVALID_PRICE_AMOUNT");
+      }
+      return {
+        label: option.label.trim() || null,
+        amountMinor,
+        currency: "HKD",
+        sortOrder: index,
+      };
+    }),
+  };
+}
+
+function PriceOptionsEditor({
+  idPrefix,
+  options,
+  onChange,
+}: {
+  idPrefix: string;
+  options: DraftPriceOption[];
+  onChange: (options: DraftPriceOption[]) => void;
+}) {
+  function update(key: string, field: "label" | "amount", value: string) {
+    onChange(
+      options.map((option) =>
+        option.key === key ? { ...option, [field]: value } : option,
+      ),
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs font-medium text-[var(--canteen-muted)]">
+          价格选项
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label="添加价格选项"
+          title="添加价格选项"
+          onClick={() =>
+            onChange([...options, blankPriceOption(String(Date.now()))])
+          }
+        >
+          <Plus className="size-4" aria-hidden />
+        </Button>
+      </div>
+      {options.map((option, index) => (
+        <div
+          key={option.key}
+          className="grid grid-cols-[minmax(0,1fr)_7rem_2rem] gap-2"
+        >
+          <Input
+            id={`${idPrefix}-label-${index}`}
+            aria-label={`价格选项 ${index + 1} 标签`}
+            placeholder="标签，如：凍 12oz"
+            maxLength={100}
+            value={option.label}
+            onChange={(event) =>
+              update(option.key, "label", event.target.value)
+            }
+          />
+          <Input
+            id={`${idPrefix}-amount-${index}`}
+            aria-label={`价格选项 ${index + 1} 金额`}
+            placeholder="HKD"
+            type="number"
+            min={0}
+            max={9999}
+            step="0.01"
+            value={option.amount}
+            onChange={(event) =>
+              update(option.key, "amount", event.target.value)
+            }
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`删除价格选项 ${index + 1}`}
+            title="删除价格选项"
+            onClick={() => {
+              const next = options.filter(
+                (candidate) => candidate.key !== option.key,
+              );
+              onChange(next.length > 0 ? next : [blankPriceOption()]);
+            }}
+          >
+            <Trash2 className="size-4" aria-hidden />
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function formatDeleteImpact(impact: DeleteImpact) {
   const parts: string[] = [];
@@ -52,14 +181,20 @@ export function CanteenMenuAdmin({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
+  const [priceOptions, setPriceOptions] = useState<DraftPriceOption[]>([
+    blankPriceOption(),
+  ]);
   const [mealPeriod, setMealPeriod] =
     useState<(typeof MEAL_PERIODS)[number]>("lunch");
-  const [deleteTarget, setDeleteTarget] = useState<CanteenMenuItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CanteenMenuItem | null>(
+    null,
+  );
   const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null);
   const [editTarget, setEditTarget] = useState<CanteenMenuItem | null>(null);
   const [editName, setEditName] = useState("");
-  const [editPrice, setEditPrice] = useState("");
+  const [editPriceOptions, setEditPriceOptions] = useState<DraftPriceOption[]>([
+    blankPriceOption(),
+  ]);
   const [editSvgKey, setEditSvgKey] = useState("default");
 
   const listPath = previewMode ? "/canteen/manage" : "/admin/canteens";
@@ -88,12 +223,12 @@ export function CanteenMenuAdmin({
       try {
         await createMenuItem(canteen.id, {
           name,
-          price: price === "" ? null : price,
+          pricing: pricingInput(priceOptions),
           mealPeriod,
           sortOrder: "0",
         });
         setName("");
-        setPrice("");
+        setPriceOptions([blankPriceOption()]);
         router.refresh();
       } catch (err) {
         alert(err instanceof Error ? err.message : "添加失败");
@@ -118,7 +253,13 @@ export function CanteenMenuAdmin({
   function openEditDialog(item: CanteenMenuItem) {
     setEditTarget(item);
     setEditName(item.name);
-    setEditPrice(item.price != null ? String(item.price) : "");
+    setEditPriceOptions(
+      item.pricing?.options.map((option, index) => ({
+        key: option.id || String(index),
+        label: option.label ?? "",
+        amount: String(option.amountMinor / 100),
+      })) ?? [blankPriceOption()],
+    );
     setEditSvgKey(item.svgKey);
   }
 
@@ -129,7 +270,7 @@ export function CanteenMenuAdmin({
       try {
         await updateMenuItem(canteen.id, editTarget.id, {
           name: editName,
-          price: editPrice === "" ? null : editPrice,
+          pricing: pricingInput(editPriceOptions),
           svgKey: editSvgKey,
         });
         setEditTarget(null);
@@ -178,10 +319,15 @@ export function CanteenMenuAdmin({
         onSubmit={handleCreate}
         className="canteen-fade-in mb-8 rounded-2xl border border-[var(--canteen-bamboo)]/25 bg-white/70 p-5 backdrop-blur-sm"
       >
-        <p className="mb-4 text-sm font-medium text-[var(--canteen-ink)]">添加菜品</p>
+        <p className="mb-4 text-sm font-medium text-[var(--canteen-ink)]">
+          添加菜品
+        </p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1 sm:col-span-2">
-            <label className="text-xs font-medium text-[var(--canteen-muted)]" htmlFor="item-name">
+            <label
+              className="text-xs font-medium text-[var(--canteen-muted)]"
+              htmlFor="item-name"
+            >
               菜品名称
             </label>
             <Input
@@ -193,21 +339,18 @@ export function CanteenMenuAdmin({
               className="border-[var(--canteen-bamboo)]/30 bg-white/90"
             />
           </div>
-          <div className="space-y-1">
-            <label className="text-xs font-medium text-[var(--canteen-muted)]" htmlFor="item-price">
-              价格（HKD）
-            </label>
-            <Input
-              id="item-price"
-              type="number"
-              min={0}
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="border-[var(--canteen-bamboo)]/30 bg-white/90"
+          <div className="sm:col-span-2 lg:col-span-2">
+            <PriceOptionsEditor
+              idPrefix="item-price"
+              options={priceOptions}
+              onChange={setPriceOptions}
             />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-[var(--canteen-muted)]" htmlFor="item-meal">
+            <label
+              className="text-xs font-medium text-[var(--canteen-muted)]"
+              htmlFor="item-meal"
+            >
               餐段
             </label>
             <select
@@ -251,14 +394,20 @@ export function CanteenMenuAdmin({
                 i % 2 === 1 && "canteen-fade-in-delay-1",
               )}
             >
-              <DishSvgIcon svgKey={item.svgKey} className="size-10 rounded-xl" />
+              <DishSvgIcon
+                svgKey={item.svgKey}
+                className="size-10 rounded-xl"
+              />
               <div className="min-w-0 flex-1">
-                <p className="font-medium text-[var(--canteen-ink)]">{item.name}</p>
+                <p className="font-medium text-[var(--canteen-ink)]">
+                  {item.name}
+                </p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
                   <MealPeriodBadge period={item.mealPeriod} />
-                  <span className="font-mono text-sm text-[var(--canteen-purple)]">
-                    {item.price != null ? `$${item.price}` : "—"}
-                  </span>
+                  <MenuItemPrice
+                    pricing={item.pricing}
+                    className="font-mono text-sm text-[var(--canteen-purple)]"
+                  />
                 </div>
               </div>
               <select
@@ -308,7 +457,9 @@ export function CanteenMenuAdmin({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除「{deleteTarget?.name}」？</AlertDialogTitle>
+            <AlertDialogTitle>
+              确认删除「{deleteTarget?.name}」？
+            </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteImpact ? formatDeleteImpact(deleteImpact) : "加载中…"}
             </AlertDialogDescription>
@@ -346,18 +497,11 @@ export function CanteenMenuAdmin({
                   maxLength={200}
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="edit-item-price">
-                  价格（HKD）
-                </label>
-                <Input
-                  id="edit-item-price"
-                  type="number"
-                  min={0}
-                  value={editPrice}
-                  onChange={(e) => setEditPrice(e.target.value)}
-                />
-              </div>
+              <PriceOptionsEditor
+                idPrefix="edit-item-price"
+                options={editPriceOptions}
+                onChange={setEditPriceOptions}
+              />
               <div className="space-y-1">
                 <label className="text-sm font-medium" htmlFor="edit-item-svg">
                   图标 key

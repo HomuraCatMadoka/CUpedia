@@ -58,6 +58,7 @@ export async function previewCreateMenuItem(
   canteenId: string,
   input: {
     name: unknown;
+    pricing?: unknown;
     price?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
@@ -76,6 +77,7 @@ export async function previewUpdateMenuItem(
   itemId: string,
   input: {
     name?: unknown;
+    pricing?: unknown;
     price?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;

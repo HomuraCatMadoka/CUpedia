@@ -10,7 +10,14 @@ describe("parseMenuItemsJson", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
       name: "宫保鸡丁",
-      price: 28,
+      priceOptions: [
+        {
+          label: null,
+          amountMinor: 2800,
+          currency: "HKD",
+          sortOrder: 0,
+        },
+      ],
       mealPeriod: "lunch",
       sortOrder: 0,
       svgKey: "default",

@@ -3,9 +3,19 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useState } from "react";
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+  cleanup,
+} from "@testing-library/react";
 import { MenuItemVoteRow } from "@/components/canteen/menu-item-vote-row";
-import type { CanteenMenuItem, MenuItemVoteCounts, VoteChoice } from "@/lib/canteen-types";
+import type {
+  CanteenMenuItem,
+  MenuItemVoteCounts,
+  VoteChoice,
+} from "@/lib/canteen-types";
 import { applyVoteCountDelta } from "@/lib/canteen-types";
 
 const { mockUpsertDishVote } = vi.hoisted(() => ({
@@ -24,7 +34,24 @@ const ITEM: CanteenMenuItem = {
   id: "item-1",
   canteenId: "canteen-1",
   name: "演示菜品",
-  price: 12,
+  pricing: {
+    options: [
+      {
+        id: "price-hot",
+        label: "熱",
+        amountMinor: 1100,
+        currency: "HKD",
+        sortOrder: 0,
+      },
+      {
+        id: "price-iced",
+        label: "凍",
+        amountMinor: 1300,
+        currency: "HKD",
+        sortOrder: 1,
+      },
+    ],
+  },
   mealPeriod: "lunch",
   sortOrder: 0,
   svgKey: "default",
@@ -71,21 +98,34 @@ afterEach(() => {
 });
 
 describe("MenuItemVoteRow", () => {
+  it("renders generic labelled price options", () => {
+    render(<VoteRowHarness />);
+    expect(screen.getByText("熱 $11")).toBeTruthy();
+    expect(screen.getByText("凍 $13")).toBeTruthy();
+  });
+
   it("optimistically increments like count on click", async () => {
-    mockUpsertDishVote.mockImplementation(
-      () => new Promise(() => {}),
-    );
+    mockUpsertDishVote.mockImplementation(() => new Promise(() => {}));
     render(<VoteRowHarness />);
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
-    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("1");
+    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain(
+      "1",
+    );
   });
 
   it("toggles off like and decrements count", async () => {
     mockUpsertDishVote.mockResolvedValue({ menuItemId: ITEM.id, vote: null });
-    render(<VoteRowHarness initialCounts={{ likes: 1, dislikes: 0 }} initialVote="like" />);
+    render(
+      <VoteRowHarness
+        initialCounts={{ likes: 1, dislikes: 0 }}
+        initialVote="like"
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("0");
+      expect(
+        screen.getByRole("button", { name: "点赞" }).textContent,
+      ).toContain("0");
     });
     expect(mockUpsertDishVote).toHaveBeenCalledWith(ITEM.id, null);
   });
@@ -95,11 +135,20 @@ describe("MenuItemVoteRow", () => {
       menuItemId: ITEM.id,
       vote: "dislike",
     });
-    render(<VoteRowHarness initialCounts={{ likes: 1, dislikes: 0 }} initialVote="like" />);
+    render(
+      <VoteRowHarness
+        initialCounts={{ likes: 1, dislikes: 0 }}
+        initialVote="like"
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: "点踩" }));
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("0");
-      expect(screen.getByRole("button", { name: "点踩" }).textContent).toContain("1");
+      expect(
+        screen.getByRole("button", { name: "点赞" }).textContent,
+      ).toContain("0");
+      expect(
+        screen.getByRole("button", { name: "点踩" }).textContent,
+      ).toContain("1");
     });
     expect(mockUpsertDishVote).toHaveBeenCalledWith(ITEM.id, "dislike");
   });
@@ -110,7 +159,9 @@ describe("MenuItemVoteRow", () => {
     fireEvent.click(screen.getByRole("button", { name: "点赞" }));
     await waitFor(() => {
       expect(screen.getByRole("alert").textContent).toContain("操作太频繁");
-      expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain("0");
+      expect(
+        screen.getByRole("button", { name: "点赞" }).textContent,
+      ).toContain("0");
     });
   });
 

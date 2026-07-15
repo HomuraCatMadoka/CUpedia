@@ -8,6 +8,7 @@ import {
   wikiLinks,
   canteens,
   canteenMenuItems,
+  canteenMenuItemPrices,
   canteenDishVotes,
   canteenDishComments,
   menuImportDrafts,
@@ -72,6 +73,15 @@ describe("schema", () => {
     expect(cols.mealPeriod).toBeDefined();
     expect(cols.sortOrder).toBeDefined();
     expect(cols.svgKey).toBeDefined();
+  });
+
+  it("canteenMenuItemPrices stores labelled minor-unit prices", () => {
+    const cols = getTableColumns(canteenMenuItemPrices);
+    expect(cols.menuItemId).toBeDefined();
+    expect(cols.label).toBeDefined();
+    expect(cols.amountMinor).toBeDefined();
+    expect(cols.currency).toBeDefined();
+    expect(cols.sortOrder).toBeDefined();
   });
 
   it("canteenDishVotes table has vote identity columns", () => {

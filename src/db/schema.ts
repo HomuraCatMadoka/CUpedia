@@ -809,8 +809,49 @@ export const canteenMenuItemsRelations = relations(
       fields: [canteenMenuItems.canteenId],
       references: [canteens.id],
     }),
+    prices: many(canteenMenuItemPrices),
     votes: many(canteenDishVotes),
     comments: many(canteenDishComments),
+  }),
+);
+
+export const canteenMenuItemPrices = pgTable(
+  "canteen_menu_item_prices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    menuItemId: uuid("menu_item_id")
+      .notNull()
+      .references(() => canteenMenuItems.id, { onDelete: "cascade" }),
+    label: text("label"),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull().default("HKD"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_menu_item_prices_item_sort_idx").on(
+      table.menuItemId,
+      table.sortOrder,
+    ),
+    check(
+      "canteen_menu_item_prices_amount_chk",
+      sql`${table.amountMinor} >= 0 AND ${table.amountMinor} <= 999900`,
+    ),
+    check(
+      "canteen_menu_item_prices_currency_chk",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
+  ],
+);
+
+export const canteenMenuItemPricesRelations = relations(
+  canteenMenuItemPrices,
+  ({ one }) => ({
+    menuItem: one(canteenMenuItems, {
+      fields: [canteenMenuItemPrices.menuItemId],
+      references: [canteenMenuItems.id],
+    }),
   }),
 );
 
