@@ -24,16 +24,34 @@ function loadLexiconWords(): string[] {
   return [...words];
 }
 
-let mint: Mint | null = null;
+type SensitiveMatcher = {
+  mint: Mint;
+  numericTerms: RegExp[];
+};
 
-function getMint(): Mint {
-  if (!mint) mint = new Mint(loadLexiconWords());
-  return mint;
+function createMatcher(words: string[]): SensitiveMatcher {
+  return {
+    mint: new Mint(words.filter((word) => !/^\d+$/.test(word))),
+    numericTerms: words
+      .filter((word) => /^\d+$/.test(word))
+      .map((word) => new RegExp(`(?<!\\d)${word}(?!\\d)`)),
+  };
+}
+
+let matcher: SensitiveMatcher | null = null;
+
+function getMatcher(): SensitiveMatcher {
+  if (!matcher) matcher = createMatcher(loadLexiconWords());
+  return matcher;
 }
 
 /** True when `text` contains at least one lexicon hit. */
 export function containsSensitiveContent(text: string): boolean {
-  return !getMint().verify(text);
+  const current = getMatcher();
+  return (
+    !current.mint.verify(text) ||
+    current.numericTerms.some((pattern) => pattern.test(text))
+  );
 }
 
 /** Throws `SENSITIVE_CONTENT` when the text hits the lexicon. */
@@ -45,5 +63,5 @@ export function assertNoSensitiveContent(text: string): void {
 
 /** Test helper — pass `null` to reload the default lexicon on next check. */
 export function resetSensitiveMatcherForTests(words: string[] | null): void {
-  mint = words === null ? null : new Mint(words);
+  matcher = words === null ? null : createMatcher(words);
 }

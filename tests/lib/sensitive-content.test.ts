@@ -26,6 +26,13 @@ describe("sensitive-content", () => {
     );
   });
 
+  it("matches numeric terms only outside longer digit sequences", () => {
+    resetSensitiveMatcherForTests(["65"]);
+    expect(containsSensitiveContent("事件65回顾")).toBe(true);
+    expect(containsSensitiveContent("E2E静态-1784133300658")).toBe(false);
+    expect(containsSensitiveContent("电话96512345")).toBe(false);
+  });
+
   it("loads the vendored lexicon and catches a known guns-list term", () => {
     resetSensitiveMatcherForTests(null);
     const sample = readFileSync(
