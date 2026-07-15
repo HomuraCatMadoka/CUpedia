@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useMounted } from "@/hooks/use-mounted";
 import {
   distributeDanmakuToTracks,
   messagesForFlyover,
@@ -37,9 +38,10 @@ export function DanmakuBanner({
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const mounted = useMounted();
 
   const tracks = useMemo(
-    () => distributeDanmakuToTracks(messagesForFlyover(messages), 3),
+    () => distributeDanmakuToTracks(messagesForFlyover(messages), 4),
     [messages],
   );
 
@@ -82,25 +84,33 @@ export function DanmakuBanner({
         <h2 className="text-lg font-semibold">本月弹幕</h2>
       </div>
 
-      <div className="danmaku-track-layer relative h-24 overflow-hidden rounded-xl border bg-muted/30 md:h-28">
+      <div
+        className="danmaku-track-layer relative h-28 overflow-hidden rounded-xl border bg-muted/30 md:h-32"
+        data-ready={mounted ? "true" : undefined}
+      >
         {tracks.map((track, trackIndex) => (
           <div
             key={trackIndex}
-            className="absolute left-0 flex h-8 w-full items-center gap-8"
-            style={{ top: `${trackIndex * 2.25 + 0.5}rem` }}
+            className="danmaku-track"
+            style={{ top: `${trackIndex * 1.85 + 0.35}rem` }}
           >
-            {track.map((msg, i) => (
-              <span
-                key={msg.id}
-                className="danmaku-item text-foreground"
-                style={{
-                  animationDuration: `${18 + ((trackIndex + i) % 5) * 4}s`,
-                  animationDelay: `${(trackIndex * 2 + i) * 1.5}s`,
-                }}
-              >
-                {msg.content}
-              </span>
-            ))}
+            {track.map((msg, i) => {
+              // Stagger duration/delay so several bullets share a lane in parallel.
+              const durationSec = 12 + ((trackIndex * 3 + i * 5) % 11);
+              const delaySec = -((i * 2.4 + trackIndex * 0.7) % durationSec);
+              return (
+                <span
+                  key={msg.id}
+                  className="danmaku-item text-foreground"
+                  style={{
+                    animationDuration: `${durationSec}s`,
+                    animationDelay: `${delaySec}s`,
+                  }}
+                >
+                  {msg.content}
+                </span>
+              );
+            })}
           </div>
         ))}
       </div>

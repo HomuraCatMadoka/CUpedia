@@ -2,7 +2,21 @@
   pointer-events: none;
 }
 
+.danmaku-track-layer:not([data-ready="true"]) .danmaku-item {
+  visibility: hidden;
+}
+
+.danmaku-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2rem;
+}
+
 .danmaku-item {
+  position: absolute;
+  left: 0;
+  top: 0;
   display: inline-block;
   white-space: nowrap;
   padding: 0.2rem 0.75rem;
@@ -10,7 +24,10 @@
   background: rgb(0 0 0 / 0.06);
   font-size: 0.875rem;
   line-height: 1.5;
-  animation: danmaku-fly linear infinite;
+  /* Park off-screen before animation / stylesheet settle to avoid a left-edge flash. */
+  transform: translateX(100vw);
+  will-change: transform;
+  animation: danmaku-fly linear infinite both;
 }
 
 @keyframes danmaku-fly {
@@ -33,6 +50,9 @@
 
   .danmaku-item {
     animation: none;
+    position: static;
+    visibility: visible;
+    transform: none;
   }
 
   .danmaku-static-list {
