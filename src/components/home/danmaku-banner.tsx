@@ -99,9 +99,6 @@ export function DanmakuBanner({
                 }}
               >
                 {msg.content}
-                <span className="ml-2 text-xs text-muted-foreground">
-                  — {msg.authorNickname}
-                </span>
               </span>
             ))}
           </div>
@@ -116,11 +113,7 @@ export function DanmakuBanner({
           <li className="text-muted-foreground">暂无弹幕，来发第一条吧</li>
         ) : (
           messages.map((msg) => (
-            <li key={msg.id}>
-              <span className="font-medium">{msg.authorNickname}</span>
-              <span className="text-muted-foreground">：</span>
-              {msg.content}
-            </li>
+            <li key={msg.id}>{msg.content}</li>
           ))
         )}
       </ul>
