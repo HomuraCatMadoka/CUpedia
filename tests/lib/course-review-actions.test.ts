@@ -19,8 +19,10 @@ const {
   dbDelete,
   dbTransaction,
   dbChain,
+  professorSearchCache,
 } = vi.hoisted(() => {
   const queue: unknown[] = [];
+  const searchCache = new Map<string, unknown>();
   const chain: Record<string, unknown> = {};
   const methods = [
     "from",
@@ -50,10 +52,22 @@ const {
     dbDelete: vi.fn(() => chain),
     dbTransaction: vi.fn(),
     dbChain: chain,
+    professorSearchCache: searchCache,
   };
 });
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  unstable_cache:
+    (callback: (...args: unknown[]) => Promise<unknown>) =>
+    async (...args: unknown[]) => {
+      const key = JSON.stringify(args);
+      if (!professorSearchCache.has(key)) {
+        professorSearchCache.set(key, await callback(...args));
+      }
+      return professorSearchCache.get(key);
+    },
+}));
 vi.mock("@/lib/auth-guard", () => ({
   requireAuth: (...a: unknown[]) => mockRequireAuth(...a),
   getOptionalUser: (...a: unknown[]) => mockGetOptionalUser(...a),
@@ -76,6 +90,7 @@ import {
   getCourseRatingState,
   getCourseReviews,
   getCourses,
+  getCourseProfessorStats,
   searchProfessors,
   getCourseEnrollmentHistory,
 } from "@/lib/course-review-actions";
@@ -100,6 +115,7 @@ const values = () => dbChain.values as Mock;
 beforeEach(() => {
   vi.clearAllMocks();
   dbQueue.length = 0;
+  professorSearchCache.clear();
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
   mockGetOptionalUser.mockResolvedValue(null);
   dbTransaction.mockImplementation(
@@ -236,7 +252,7 @@ describe("submitCourseReview", () => {
     expect(dbDelete).toHaveBeenCalledOnce();
   });
 
-  it("拒绝目录外或未任教该课程的教授", async () => {
+  it("拒绝目录外的教授", async () => {
     queueRows([COURSE], []);
     await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
       /教授目录/,
@@ -258,6 +274,147 @@ describe("searchProfessors", () => {
     await expect(searchProfessors("csci 3150", "chan")).resolves.toEqual([
       { id: "p1", name: "Professor CHAN" },
     ]);
+  });
+
+  it("同一课程的连续姓名搜索复用教授目录", async () => {
+    queueRows([
+      { id: "p1", name: "Professor CHAN", courseCode: "CSCI3150" },
+      { id: "p2", name: "Professor LEGACY", courseCode: null },
+    ]);
+
+    await expect(searchProfessors("CSCI3150", "chan")).resolves.toEqual([
+      { id: "p1", name: "Professor CHAN" },
+    ]);
+    await expect(searchProfessors("CSCI3150", "legacy")).resolves.toEqual([
+      { id: "p2", name: "Professor LEGACY" },
+    ]);
+    expect(dbSelect).toHaveBeenCalledOnce();
+  });
+
+  it("按姓名返回未关联当前课程的目录教授", async () => {
+    queueRows([
+      { id: "legacy", name: "Professor LEGACY", courseCode: null },
+      { id: "current", name: "Professor CHAN", courseCode: "CSCI3150" },
+    ]);
+    await expect(searchProfessors("CSCI3150", "legacy")).resolves.toEqual([
+      { id: "legacy", name: "Professor LEGACY" },
+    ]);
+  });
+
+  it("姓名匹配相同时优先推荐曾任教当前课程的教授", async () => {
+    queueRows([
+      { id: "global", name: "Professor CHAN", courseCode: null },
+      { id: "course", name: "Professor CHAN", courseCode: "CSCI3150" },
+    ]);
+    await expect(searchProfessors("CSCI3150", "chan")).resolves.toEqual([
+      { id: "course", name: "Professor CHAN" },
+      { id: "global", name: "Professor CHAN" },
+    ]);
+  });
+
+  it("容忍多词姓名的轻微拼写错误且不推荐弱匹配", async () => {
+    queueRows([
+      { id: "target", name: "Professor CHAN Wing Kai", courseCode: null },
+      { id: "other", name: "Professor KAI", courseCode: null },
+    ]);
+    await expect(searchProfessors("CSCI3150", "kai chna")).resolves.toEqual([
+      { id: "target", name: "Professor CHAN Wing Kai" },
+    ]);
+  });
+
+  it("支持中文教授姓名查询", async () => {
+    queueRows([{ id: "seed", name: "测试教授 Chan", courseCode: "CSCI1130" }]);
+    await expect(searchProfessors("CSCI1130", "测试教授")).resolves.toEqual([
+      { id: "seed", name: "测试教授 Chan" },
+    ]);
+  });
+});
+
+describe("getCourseProfessorStats", () => {
+  it("返回教授 overall、任教学期均分和各自样本数", async () => {
+    queueRows(
+      [{ id: "p1", name: "Professor CHAN" }],
+      [
+        {
+          professorId: "p1",
+          academicYear: "2025-26",
+          term: "Term 1",
+          avg: "4.5",
+          cnt: 2,
+        },
+        {
+          professorId: "p1",
+          academicYear: "2024-25",
+          term: "Term 2",
+          avg: "3.5",
+          cnt: 1,
+        },
+      ],
+      [
+        {
+          academicYear: "2025-26",
+          term: "Term 1",
+          instructors: ["Professor CHAN"],
+        },
+        {
+          academicYear: "2023-24",
+          term: "Summer",
+          instructors: ["Professor CHAN"],
+        },
+      ],
+    );
+
+    await expect(getCourseProfessorStats("csci 3150")).resolves.toEqual([
+      {
+        id: "p1",
+        name: "Professor CHAN",
+        rating: 4.2,
+        ratingCount: 3,
+        terms: [
+          {
+            academicYear: "2025-26",
+            term: "Term 1",
+            rating: 4.5,
+            ratingCount: 2,
+          },
+          {
+            academicYear: "2024-25",
+            term: "Term 2",
+            rating: 3.5,
+            ratingCount: 1,
+          },
+          {
+            academicYear: "2023-24",
+            term: "Summer",
+            rating: null,
+            ratingCount: 0,
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("保留并排序超过 10 个任教学期", async () => {
+    const enrollments = ["2025-26", "2024-25", "2023-24", "2022-23"].flatMap(
+      (academicYear) =>
+        ["Term 1", "Term 2", "Summer"].map((term) => ({
+          academicYear,
+          term,
+          instructors: ["Professor CHAN"],
+        })),
+    );
+    queueRows([{ id: "p1", name: "Professor CHAN" }], [], enrollments);
+
+    const [stats] = await getCourseProfessorStats("CSCI3150");
+    expect(stats.terms).toHaveLength(12);
+    expect(stats.terms[0]).toMatchObject({
+      academicYear: "2025-26",
+      term: "Term 1",
+    });
+    expect(stats.terms.at(-1)).toMatchObject({
+      academicYear: "2022-23",
+      term: "Summer",
+    });
   });
 });
 

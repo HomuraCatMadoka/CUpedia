@@ -64,6 +64,14 @@ test("#293 unified submission validates required experience and supports half-st
   expect(reviews.rows[0].count).toBe(0);
 
   await expect(page.getByText("课程测评已发布")).toBeVisible();
+  await page.getByLabel("按任课教授筛选").selectOption("seed-professor-chan");
+  const professorSummary = page.getByTestId("professor-rating-summary");
+  await expect(professorSummary).toContainText("0.5");
+  await expect(professorSummary).toContainText("/ 5");
+  await expect(professorSummary).toContainText("2025-26");
+  await expect(professorSummary).toContainText("Term 2");
+  await expect(professorSummary).toContainText("1 次评分");
+
   await page.getByRole("button", { name: "编辑" }).click();
   await expect(page.getByLabel("学年")).toHaveValue("2025-26");
   await expect(page.getByLabel("学期")).toHaveValue("Term 2");
