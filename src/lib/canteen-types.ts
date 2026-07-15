@@ -70,6 +70,13 @@ export type CanteenDishComment = {
   authorNickname: string;
 };
 
+/** Admin list row — includes canteen / menu context for moderation UI. */
+export type AdminCanteenDishComment = CanteenDishComment & {
+  canteenId: string;
+  canteenName: string;
+  menuItemName: string;
+};
+
 export const MENU_IMPORT_DRAFT_STATUSES = ["ready", "failed", "published"] as const;
 export type MenuImportDraftStatus = (typeof MENU_IMPORT_DRAFT_STATUSES)[number];
 

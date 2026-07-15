@@ -1,19 +1,29 @@
 "use server";
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { canteenDishComments, canteenMenuItems, users } from "@/db/schema";
+import {
+  canteenDishComments,
+  canteenMenuItems,
+  canteens,
+  users,
+} from "@/db/schema";
 import { requireAdmin, requireCommentAuth } from "@/lib/auth-guard";
 import {
   isCanteenMockMode,
   mockAdminDeleteDishComment,
+  mockAdminListDishComments,
   mockCreateDishComment,
   mockDeleteDishComment,
   mockGetCommentsForMenuItem,
   mockMenuItemExists,
   mockUpdateDishComment,
 } from "@/lib/canteen-mock";
-import type { CanteenDishComment } from "@/lib/canteen-types";
+import type {
+  AdminCanteenDishComment,
+  CanteenDishComment,
+} from "@/lib/canteen-types";
 import { validateCommentContent } from "@/lib/canteen-types";
 import { assertNoSensitiveContent } from "@/lib/sensitive-content";
 
@@ -157,11 +167,44 @@ export async function deleteDishComment(commentId: string): Promise<void> {
   if (!result[0]) throw new Error("COMMENT_NOT_FOUND");
 }
 
+export async function adminListDishComments(): Promise<
+  AdminCanteenDishComment[]
+> {
+  await requireAdmin();
+
+  if (isCanteenMockMode()) return mockAdminListDishComments();
+
+  const rows = await db
+    .select({
+      id: canteenDishComments.id,
+      menuItemId: canteenDishComments.menuItemId,
+      userId: canteenDishComments.userId,
+      content: canteenDishComments.content,
+      createdAt: canteenDishComments.createdAt,
+      updatedAt: canteenDishComments.updatedAt,
+      authorNickname: users.nickname,
+      canteenId: canteens.id,
+      canteenName: canteens.name,
+      menuItemName: canteenMenuItems.name,
+    })
+    .from(canteenDishComments)
+    .innerJoin(users, eq(canteenDishComments.userId, users.id))
+    .innerJoin(
+      canteenMenuItems,
+      eq(canteenDishComments.menuItemId, canteenMenuItems.id),
+    )
+    .innerJoin(canteens, eq(canteenMenuItems.canteenId, canteens.id))
+    .orderBy(desc(canteenDishComments.createdAt));
+
+  return rows;
+}
+
 export async function adminDeleteDishComment(commentId: string): Promise<void> {
   await requireAdmin();
 
   if (isCanteenMockMode()) {
     mockAdminDeleteDishComment(commentId);
+    revalidatePath("/admin/canteen-comments");
     return;
   }
 
@@ -171,4 +214,5 @@ export async function adminDeleteDishComment(commentId: string): Promise<void> {
     .returning({ id: canteenDishComments.id });
 
   if (!result[0]) throw new Error("COMMENT_NOT_FOUND");
+  revalidatePath("/admin/canteen-comments");
 }
