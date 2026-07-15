@@ -1,3 +1,5 @@
+import { assertDanmakuNotBlocked } from "@/lib/danmaku-block";
+
 export const DANMAKU_MAX_LENGTH = 100;
 
 /** Cap flyover DOM nodes; static list still shows full month history. */
@@ -19,10 +21,17 @@ export function validateDanmakuContent(input: unknown): string {
     throw new Error("INVALID_DANMAKU");
   }
   if (/<[^>]+>/.test(trimmed)) throw new Error("INVALID_DANMAKU");
+  assertDanmakuNotBlocked(trimmed);
   return trimmed;
 }
 
-/** Spread messages across N animation tracks for even density. */
+/** Keep only the latest messages in the flyover layer to bound DOM size. */
+export function messagesForFlyover<T>(items: T[]): T[] {
+  if (items.length <= DANMAKU_FLY_MAX) return items;
+  return items.slice(-DANMAKU_FLY_MAX);
+}
+
+/** Round-robin helper kept for unit tests of even spreading. */
 export function distributeDanmakuToTracks<T>(
   items: T[],
   trackCount = 3,
@@ -32,10 +41,4 @@ export function distributeDanmakuToTracks<T>(
     tracks[i % trackCount].push(items[i]);
   }
   return tracks;
-}
-
-/** Keep only the latest messages in the flyover layer to bound DOM size. */
-export function messagesForFlyover<T>(items: T[]): T[] {
-  if (items.length <= DANMAKU_FLY_MAX) return items;
-  return items.slice(-DANMAKU_FLY_MAX);
 }

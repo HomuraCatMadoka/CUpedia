@@ -1,19 +1,24 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMounted } from "@/hooks/use-mounted";
 import {
-  distributeDanmakuToTracks,
-  messagesForFlyover,
-  type DanmakuMessage,
-} from "@/lib/danmaku-types";
+  DANMAKU_SCROLL_DURATION_SEC,
+  DANMAKU_TRACK_COUNT,
+  scheduleScrollingDanmaku,
+  type ScheduledDanmaku,
+} from "@/lib/danmaku-schedule";
+import { messagesForFlyover, type DanmakuMessage } from "@/lib/danmaku-types";
 import "./danmaku.css";
 
 function danmakuErrorMessage(code: string): string {
   if (code === "INVALID_DANMAKU") return "弹幕须为 1–100 字纯文本。";
+  if (code === "DANMAKU_BLOCKED" || code === "SENSITIVE_CONTENT") {
+    return "内容含违规或引流信息，请修改后重试。";
+  }
   if (code === "DANMAKU_RATE_LIMIT_EXCEEDED") {
     return "发送过于频繁，请稍后再试。";
   }
@@ -38,12 +43,45 @@ export function DanmakuBanner({
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [screenWidth, setScreenWidth] = useState(720);
   const mounted = useMounted();
+  const layerRef = useRef<HTMLDivElement>(null);
 
-  const tracks = useMemo(
-    () => distributeDanmakuToTracks(messagesForFlyover(messages), 4),
-    [messages],
+  useEffect(() => {
+    const el = layerRef.current;
+    if (!el) return;
+    const update = () => setScreenWidth(Math.max(320, el.clientWidth));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const flyItems = useMemo(() => messagesForFlyover(messages), [messages]);
+
+  const scheduled = useMemo(
+    () =>
+      scheduleScrollingDanmaku(
+        flyItems.map((m) => ({ id: m.id, content: m.content })),
+        {
+          trackCount: DANMAKU_TRACK_COUNT,
+          screenWidth,
+          duration: DANMAKU_SCROLL_DURATION_SEC,
+        },
+      ),
+    [flyItems, screenWidth],
   );
+
+  const byTrack = useMemo(() => {
+    const tracks: ScheduledDanmaku[][] = Array.from(
+      { length: DANMAKU_TRACK_COUNT },
+      () => [],
+    );
+    for (const item of scheduled) {
+      tracks[item.track]?.push(item);
+    }
+    return tracks;
+  }, [scheduled]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -85,32 +123,28 @@ export function DanmakuBanner({
       </div>
 
       <div
+        ref={layerRef}
         className="danmaku-track-layer relative h-28 overflow-hidden rounded-xl border bg-muted/30 md:h-32"
         data-ready={mounted ? "true" : undefined}
       >
-        {tracks.map((track, trackIndex) => (
+        {byTrack.map((track, trackIndex) => (
           <div
             key={trackIndex}
             className="danmaku-track"
             style={{ top: `${trackIndex * 1.85 + 0.35}rem` }}
           >
-            {track.map((msg, i) => {
-              // Stagger duration/delay so several bullets share a lane in parallel.
-              const durationSec = 12 + ((trackIndex * 3 + i * 5) % 11);
-              const delaySec = -((i * 2.4 + trackIndex * 0.7) % durationSec);
-              return (
-                <span
-                  key={msg.id}
-                  className="danmaku-item text-foreground"
-                  style={{
-                    animationDuration: `${durationSec}s`,
-                    animationDelay: `${delaySec}s`,
-                  }}
-                >
-                  {msg.content}
-                </span>
-              );
-            })}
+            {track.map((item) => (
+              <span
+                key={item.id}
+                className="danmaku-item text-foreground"
+                style={{
+                  animationDuration: `${item.duration}s`,
+                  animationDelay: `${-item.start}s`,
+                }}
+              >
+                {item.content}
+              </span>
+            ))}
           </div>
         ))}
       </div>
@@ -145,10 +179,11 @@ export function DanmakuBanner({
             <Input
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="说点什么…"
+              placeholder="发个友善的弹幕见证当下"
               maxLength={100}
               disabled={pending}
               aria-label="弹幕内容"
+              className="border-[rgba(26,35,50,0.32)] bg-[var(--canteen-surface)] placeholder:text-[var(--canteen-muted)] focus-visible:border-[var(--canteen-purple)]"
             />
             <Button type="submit" disabled={pending || !content.trim()}>
               {pending ? "发送中…" : "发送"}

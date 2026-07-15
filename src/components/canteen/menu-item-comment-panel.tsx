@@ -19,6 +19,7 @@ type MenuItemCommentPanelProps = {
 
 function commentErrorMessage(code: string): string {
   if (code === "INVALID_COMMENT") return "评论内容无效（纯文本，最多 500 字）";
+  if (code === "SENSITIVE_CONTENT") return "内容包含敏感词，无法发送";
   return "操作失败，请重试";
 }
 

@@ -4,6 +4,7 @@ import { assertDanmakuRateLimit } from "@/lib/danmaku-rate-limit";
 import type { DanmakuMessage } from "@/lib/danmaku-types";
 import { validateDanmakuContent } from "@/lib/danmaku-types";
 import { currentMonthHkt } from "@/lib/hkt-datetime";
+import { assertNoSensitiveContent } from "@/lib/sensitive-content";
 
 /** Internal write helper — not a Server Action; callers must derive identity from session. */
 export async function insertDanmakuForUser(
@@ -11,6 +12,7 @@ export async function insertDanmakuForUser(
   contentInput: unknown,
 ): Promise<DanmakuMessage> {
   const content = validateDanmakuContent(contentInput);
+  assertNoSensitiveContent(content);
   await assertDanmakuRateLimit(user.id);
 
   const month = currentMonthHkt();

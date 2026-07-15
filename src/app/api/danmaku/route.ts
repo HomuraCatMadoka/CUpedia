@@ -7,6 +7,8 @@ import { listCurrentMonthDanmaku } from "@/lib/danmaku-queries";
 function mapDanmakuError(message: string): number {
   switch (message) {
     case "INVALID_DANMAKU":
+    case "DANMAKU_BLOCKED":
+    case "SENSITIVE_CONTENT":
       return 400;
     case "DANMAKU_RATE_LIMIT_EXCEEDED":
       return 429;

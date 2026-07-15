@@ -15,6 +15,7 @@ import {
 } from "@/lib/canteen-mock";
 import type { CanteenDishComment } from "@/lib/canteen-types";
 import { validateCommentContent } from "@/lib/canteen-types";
+import { assertNoSensitiveContent } from "@/lib/sensitive-content";
 
 async function assertMenuItemExists(menuItemId: string): Promise<void> {
   if (isCanteenMockMode()) {
@@ -67,6 +68,7 @@ export async function createDishComment(
   contentInput: unknown,
 ): Promise<CanteenDishComment> {
   const content = validateCommentContent(contentInput);
+  assertNoSensitiveContent(content);
   const user = await requireCommentAuth();
   await assertMenuItemExists(menuItemId);
 
@@ -101,6 +103,7 @@ export async function updateDishComment(
   contentInput: unknown,
 ): Promise<CanteenDishComment> {
   const content = validateCommentContent(contentInput);
+  assertNoSensitiveContent(content);
   const user = await requireCommentAuth();
 
   if (isCanteenMockMode()) {
