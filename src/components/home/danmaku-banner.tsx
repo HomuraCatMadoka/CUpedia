@@ -124,7 +124,7 @@ export function DanmakuBanner({
 
       <div
         ref={layerRef}
-        className="danmaku-track-layer relative h-28 overflow-hidden rounded-xl border bg-muted/30 md:h-32"
+        className="danmaku-track-layer relative h-32 overflow-hidden rounded-xl border bg-muted/30"
         data-ready={mounted ? "true" : undefined}
       >
         {byTrack.map((track, trackIndex) => (
