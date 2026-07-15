@@ -4,5 +4,47 @@
     "alias": "Professor Chandrasekhar MADHAVAN NAIR",
     "evidenceUrl": "https://chandra.ie.cuhk.edu.hk/courses/Probability/CourseOutline.pdf",
     "note": "The current CUHK course outline uses the full timetable name while the Research Portal uses Professor NAIR Chandra."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/susan-zi-may-yau/",
+    "alias": "Dr. YAU Zi May Susan",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/susan-zi-may-yau/",
+    "note": "The timetable moves the English given name before the remaining given names."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/raphael-ange-francois-a-chiarelli/",
+    "alias": "Mr Raphael Ange Francois A. CHIARELLI",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/raphael-ange-francois-a-chiarelli/",
+    "note": "The timetable uses given-name-first order while the Research Portal uses surname-first order."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/marc-craig-lebane/",
+    "alias": "Mr. Marc Craig LeBane",
+    "evidenceUrl": "https://eltu.cuhk.edu.hk/teachers/lebane-marc/",
+    "note": "The ELTU profile confirms the timetable and Research Portal names refer to the same lecturer."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/james-d-frankel/",
+    "alias": "Professor James D FRANKEL",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/james-d-frankel/",
+    "note": "The timetable uses given-name-first order while the Research Portal uses surname-first order."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/kashish-arora/",
+    "alias": "Professor KASHISH-ARORA",
+    "evidenceUrl": "https://www.bschool.cuhk.edu.hk/staff/arora-kashish/",
+    "note": "The Business School profile confirms the hyphenated timetable name is Professor ARORA Kashish."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/nicholas-k-rimell/",
+    "alias": "Professor Nicholas K RIMELL",
+    "evidenceUrl": "https://www.phil.arts.cuhk.edu.hk/~phidept/outline/202526/202526T1_UGED1111H.pdf",
+    "note": "The current course outline confirms the timetable name and CUHK email."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/sherry-xue-yang/",
+    "alias": "Professor YANG Xue",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/sherry-xue-yang/",
+    "note": "The PHPC4033 instructor is Professor YANG Sherry Xue, not the distinct BME researcher Dr. XUE Yang."
   }
 ]
