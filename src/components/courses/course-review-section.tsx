@@ -381,7 +381,12 @@ export function CourseReviewSection({
                             }}
                             className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
                           >
-                            {option.name}
+                            <span className="block">{option.name}</span>
+                            {option.description && (
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {option.description}
+                              </span>
+                            )}
                           </button>
                         </li>
                       ))}

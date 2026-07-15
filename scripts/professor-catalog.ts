@@ -8,6 +8,15 @@ export type TeachingStaffSource = {
 export type ProfessorCatalogRecord = TeachingStaffSource & {
   id: string;
   searchText: string;
+  identityProfileUrl?: string;
+  identityEvidenceUrl?: string;
+};
+
+export type CourseInstructorOverride = {
+  coursePrefix: string;
+  instructorName: string;
+  profileUrl: string;
+  evidenceUrl: string;
 };
 
 const INVALID_NAMES = new Set(["", "-", "staff", "tba", "to be announced"]);
@@ -16,34 +25,54 @@ export function normalizeProfessorName(value: string): string {
   return value
     .normalize("NFKC")
     .trim()
+    .replace(/\s*<+\s*$/, "")
     .replace(/,\s*$/, "")
     .replace(/^(professor|prof\.)\s+/i, "Professor ")
     .replace(/^(doctor|dr\.)\s+/i, "Dr. ")
     .replace(/\s+/g, " ");
 }
 
-export function professorId(name: string): string {
-  const identity = normalizeProfessorName(name).toLocaleLowerCase();
+export function professorId(name: string, identityKey?: string): string {
+  const identity = [
+    normalizeProfessorName(name).toLocaleLowerCase(),
+    identityKey?.toLocaleLowerCase(),
+  ]
+    .filter(Boolean)
+    .join("\0");
   return createHash("sha256").update(identity).digest("hex").slice(0, 24);
 }
 
 export function buildProfessorCatalog(
   sources: TeachingStaffSource[],
+  overrides: CourseInstructorOverride[] = [],
 ): ProfessorCatalogRecord[] {
   const records = new Map<string, ProfessorCatalogRecord>();
   for (const source of sources) {
     const name = normalizeProfessorName(source.name);
     if (INVALID_NAMES.has(name.toLocaleLowerCase())) continue;
-    const id = professorId(name);
-    const existing = records.get(id);
-    records.set(id, {
-      id,
-      name,
-      searchText: name.toLocaleLowerCase(),
-      courses: [...new Set([...(existing?.courses ?? []), ...source.courses])]
-        .map((code) => code.replace(/\s+/g, "").toUpperCase())
-        .sort(),
-    });
+    for (const course of source.courses.map((code) =>
+      code.replace(/\s+/g, "").toUpperCase(),
+    )) {
+      const override = overrides.find(
+        (item) =>
+          normalizeProfessorName(item.instructorName) === name &&
+          course.startsWith(item.coursePrefix.toUpperCase()),
+      );
+      const id = professorId(name, override?.profileUrl);
+      const existing = records.get(id);
+      records.set(id, {
+        id,
+        name,
+        searchText: name.toLocaleLowerCase(),
+        courses: [...new Set([...(existing?.courses ?? []), course])].sort(),
+        ...(override
+          ? {
+              identityProfileUrl: override.profileUrl,
+              identityEvidenceUrl: override.evidenceUrl,
+            }
+          : {}),
+      });
+    }
   }
   return [...records.values()].sort((a, b) => a.name.localeCompare(b.name));
 }

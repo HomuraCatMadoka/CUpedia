@@ -1,0 +1,74 @@
+[
+  {
+    "coursePrefix": "ACCT",
+    "instructorName": "Professor CHEN Yue",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/yue-chen/",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/yue-chen/"
+  },
+  {
+    "coursePrefix": "EEEN",
+    "instructorName": "Professor CHEN Yue",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/yue-chen-2/",
+    "evidenceUrl": "https://www4.mae.cuhk.edu.hk/peoples/chenyue/"
+  },
+  {
+    "coursePrefix": "BMEG",
+    "instructorName": "Professor ZHANG Li",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/li-zhang/",
+    "evidenceUrl": "https://www.bme.cuhk.edu.hk/new/associate-faculty.php"
+  },
+  {
+    "coursePrefix": "BMEG",
+    "instructorName": "Professor ZHANG Ning",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/ning-zhang/",
+    "evidenceUrl": "https://www.bme.cuhk.edu.hk/new/people.php"
+  },
+  {
+    "coursePrefix": "BCME",
+    "instructorName": "Professor WANG Qian",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/qian-wang-2/",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/qian-wang-2/"
+  },
+  {
+    "coursePrefix": "PSYC",
+    "instructorName": "Professor WANG Qian",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/qian-wang/",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/qian-wang/"
+  },
+  {
+    "coursePrefix": "PHED",
+    "instructorName": "Dr. LIU Xuan",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/xuan-liu/",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/xuan-liu/"
+  },
+  {
+    "coursePrefix": "MGNT",
+    "instructorName": "Professor LIU Xuan",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/xuan-liu-2/",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/xuan-liu-2/"
+  },
+  {
+    "coursePrefix": "EESC",
+    "instructorName": "Dr. ZHANG Li",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/li-zhang-2/",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/li-zhang-2/"
+  },
+  {
+    "coursePrefix": "GECC",
+    "instructorName": "Dr. ZHANG Li",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/li-zhang-2/",
+    "evidenceUrl": "https://www.ccc.cuhk.edu.hk/attachment/publication/1758280033EUBgV.pdf"
+  },
+  {
+    "coursePrefix": "UGEB",
+    "instructorName": "Dr. ZHANG Li",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/li-zhang-2/",
+    "evidenceUrl": "https://www.ees.cuhk.edu.hk/staff/dr-li-kwan-kit-ronald/"
+  },
+  {
+    "coursePrefix": "PHYS",
+    "instructorName": "Professor XU Lei",
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/lei-xu/",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/lei-xu/"
+  }
+]

@@ -4,9 +4,14 @@ export type ProfessorSearchCandidate = {
   id: string;
   name: string;
   courseCode: string | null;
+  description?: string | null;
 };
 
-export type ProfessorSearchResult = { id: string; name: string };
+export type ProfessorSearchResult = {
+  id: string;
+  name: string;
+  description?: string;
+};
 
 export type ProfessorSearchIndex = ReturnType<
   FuseIndex<ProfessorSearchCandidate>["toJSON"]
@@ -59,5 +64,6 @@ export function searchProfessorCandidates(
     .map(({ item }) => ({
       id: item.id,
       name: item.name,
+      ...(item.description ? { description: item.description } : {}),
     }));
 }

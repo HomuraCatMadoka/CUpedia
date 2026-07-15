@@ -11,7 +11,11 @@ import {
   courseReviews,
   courses,
   professorCourses,
+  professorStaffIdentities,
   professors,
+  staffOrganisationAffiliations,
+  staffOrganisations,
+  staffPeople,
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
 import { COURSE_TERMS, type CourseTerm } from "@/lib/course-review-constants";
@@ -52,7 +56,11 @@ export type CourseReviewView = {
   score: number | null;
 };
 
-export type ProfessorOption = { id: string; name: string };
+export type ProfessorOption = {
+  id: string;
+  name: string;
+  description?: string;
+};
 
 export type ProfessorTermRating = {
   academicYear: string;
@@ -552,6 +560,15 @@ const getCachedProfessorSearchCorpus = unstable_cache(
         id: professors.id,
         name: professors.name,
         courseCode: professorCourses.courseCode,
+        description: sql<string | null>`(
+          select string_agg(distinct organisation.name, ' · ' order by organisation.name)
+          from ${staffOrganisationAffiliations} affiliation
+          join ${staffOrganisations} organisation
+            on organisation.id = affiliation.organisation_id
+          where affiliation.person_id = ${staffPeople.id}
+            and affiliation.is_current = true
+            and organisation.is_current = true
+        )`,
       })
       .from(professors)
       .leftJoin(
@@ -560,6 +577,14 @@ const getCachedProfessorSearchCorpus = unstable_cache(
           eq(professors.id, professorCourses.professorId),
           eq(professorCourses.courseCode, courseCode),
         ),
+      )
+      .leftJoin(
+        professorStaffIdentities,
+        eq(professors.id, professorStaffIdentities.professorId),
+      )
+      .leftJoin(
+        staffPeople,
+        eq(professorStaffIdentities.personId, staffPeople.id),
       )
       .orderBy(professors.name);
     return {

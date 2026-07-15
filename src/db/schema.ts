@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   primaryKey,
   check,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
@@ -387,6 +388,172 @@ export const courseRatings = pgTable(
   ],
 );
 
+export const staffPeople = pgTable(
+  "staff_people",
+  {
+    id: text("id").primaryKey(),
+    canonicalName: text("canonical_name").notNull(),
+    externalId: uuid("external_id").unique(),
+    profileUrl: text("profile_url").unique(),
+    source: text("source").notNull(),
+    identityKind: text("identity_kind").notNull().default("official"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    isCurrent: boolean("is_current").notNull().default(true),
+    missingRuns: integer("missing_runs").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("staff_people_canonical_name_idx").on(table.canonicalName),
+    check(
+      "staff_people_identity_kind_check",
+      sql`${table.identityKind} in ('official', 'external', 'unverified')`,
+    ),
+  ],
+);
+
+export const staffDepartments = pgTable("staff_departments", {
+  id: text("id").primaryKey(),
+  faculty: text("faculty").notNull(),
+  name: text("name").notNull(),
+  profileUrl: text("profile_url").notNull().unique(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const staffOrganisations = pgTable(
+  "staff_organisations",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    organisationType: text("organisation_type").notNull(),
+    parentId: text("parent_id").references(
+      (): AnyPgColumn => staffOrganisations.id,
+    ),
+    facultyId: text("faculty_id").references(
+      (): AnyPgColumn => staffOrganisations.id,
+    ),
+    profileUrl: text("profile_url").notNull().unique(),
+    source: text("source").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    isCurrent: boolean("is_current").notNull().default(true),
+    missingRuns: integer("missing_runs").notNull().default(0),
+  },
+  (table) => [
+    index("staff_organisations_parent_id_idx").on(table.parentId),
+    index("staff_organisations_faculty_id_idx").on(table.facultyId),
+    check(
+      "staff_organisations_type_check",
+      sql`${table.organisationType} in ('faculty', 'department', 'school', 'unit', 'centre', 'programme', 'institute', 'office', 'laboratory', 'other')`,
+    ),
+  ],
+);
+
+export const staffOrganisationAffiliations = pgTable(
+  "staff_organisation_affiliations",
+  {
+    personId: text("person_id")
+      .notNull()
+      .references(() => staffPeople.id, { onDelete: "cascade" }),
+    organisationId: text("organisation_id")
+      .notNull()
+      .references(() => staffOrganisations.id, { onDelete: "cascade" }),
+    sourceUrl: text("source_url").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    isCurrent: boolean("is_current").notNull().default(true),
+    missingRuns: integer("missing_runs").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.personId, table.organisationId] }),
+    index("staff_organisation_affiliations_org_idx").on(table.organisationId),
+  ],
+);
+
+export const staffAffiliationTitles = pgTable(
+  "staff_affiliation_titles",
+  {
+    personId: text("person_id").notNull(),
+    organisationId: text("organisation_id").notNull(),
+    title: text("title").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    isCurrent: boolean("is_current").notNull().default(true),
+    missingRuns: integer("missing_runs").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.personId, table.organisationId, table.title],
+    }),
+    foreignKey({
+      columns: [table.personId, table.organisationId],
+      foreignColumns: [
+        staffOrganisationAffiliations.personId,
+        staffOrganisationAffiliations.organisationId,
+      ],
+      name: "staff_affiliation_titles_affiliation_fk",
+    }).onDelete("cascade"),
+    index("staff_affiliation_titles_org_idx").on(table.organisationId),
+  ],
+);
+
+export const staffAliases = pgTable(
+  "staff_aliases",
+  {
+    personId: text("person_id")
+      .notNull()
+      .references(() => staffPeople.id, { onDelete: "cascade" }),
+    alias: text("alias").notNull(),
+    normalizedAlias: text("normalized_alias").notNull(),
+    source: text("source").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.personId, table.alias] }),
+    index("staff_aliases_normalized_alias_idx").on(table.normalizedAlias),
+  ],
+);
+
+export const staffAffiliations = pgTable(
+  "staff_affiliations",
+  {
+    personId: text("person_id")
+      .notNull()
+      .references(() => staffPeople.id, { onDelete: "cascade" }),
+    departmentId: text("department_id")
+      .notNull()
+      .references(() => staffDepartments.id, { onDelete: "cascade" }),
+    relationship: text("relationship").notNull(),
+    sourceUrl: text("source_url").notNull(),
+    verifiedAt: timestamp("verified_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.personId, table.departmentId, table.relationship],
+    }),
+    index("staff_affiliations_department_id_idx").on(table.departmentId),
+  ],
+);
+
 export const professors = pgTable(
   "professors",
   {
@@ -407,6 +574,62 @@ export const professorCourses = pgTable(
     courseCode: text("course_code").notNull(),
   },
   (table) => [primaryKey({ columns: [table.professorId, table.courseCode] })],
+);
+
+export const professorStaffIdentities = pgTable(
+  "professor_staff_identities",
+  {
+    professorId: text("professor_id")
+      .primaryKey()
+      .references(() => professors.id, { onDelete: "cascade" }),
+    personId: text("person_id")
+      .notNull()
+      .references(() => staffPeople.id, { onDelete: "cascade" }),
+    matchMethod: text("match_method").notNull(),
+    sourceUrl: text("source_url"),
+    verifiedAt: timestamp("verified_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("professor_staff_identities_person_id_idx").on(table.personId),
+    check(
+      "professor_staff_identities_match_method_check",
+      sql`${table.matchMethod} in ('automatic', 'manual_override')`,
+    ),
+  ],
+);
+
+export const staffTeachingAssignments = pgTable(
+  "staff_teaching_assignments",
+  {
+    personId: text("person_id")
+      .notNull()
+      .references(() => staffPeople.id, { onDelete: "cascade" }),
+    academicYear: text("academic_year").notNull(),
+    term: text("term").notNull(),
+    courseCode: text("course_code").notNull(),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.personId,
+        table.academicYear,
+        table.term,
+        table.courseCode,
+      ],
+    }),
+    index("staff_teaching_assignments_course_offering_idx").on(
+      table.courseCode,
+      table.academicYear,
+      table.term,
+    ),
+    check(
+      "staff_teaching_assignments_term_check",
+      sql`${table.term} in ('Term 1', 'Term 2', 'Summer')`,
+    ),
+  ],
 );
 
 export const courseEnrollments = pgTable(
@@ -435,6 +658,64 @@ export const courseEnrollments = pgTable(
       ],
     }),
     index("course_enrollments_course_code_idx").on(table.courseCode),
+  ],
+);
+
+export const courseOfferingInstructors = pgTable(
+  "course_offering_instructors",
+  {
+    academicYear: text("academic_year").notNull(),
+    term: text("term").notNull(),
+    courseCode: text("course_code").notNull(),
+    classCode: text("class_code").notNull(),
+    component: text("component").notNull(),
+    section: text("section").notNull(),
+    instructorName: text("instructor_name").notNull(),
+    personId: text("person_id").references(() => staffPeople.id, {
+      onDelete: "set null",
+    }),
+    matchStatus: text("match_status").notNull().default("unverified"),
+    evidenceUrl: text("evidence_url"),
+    capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.academicYear,
+        table.term,
+        table.classCode,
+        table.component,
+        table.section,
+        table.instructorName,
+      ],
+    }),
+    foreignKey({
+      columns: [
+        table.academicYear,
+        table.term,
+        table.classCode,
+        table.component,
+        table.section,
+      ],
+      foreignColumns: [
+        courseEnrollments.academicYear,
+        courseEnrollments.term,
+        courseEnrollments.classCode,
+        courseEnrollments.component,
+        courseEnrollments.section,
+      ],
+      name: "course_offering_instructors_enrollment_fk",
+    }).onDelete("cascade"),
+    index("course_offering_instructors_course_idx").on(
+      table.courseCode,
+      table.academicYear,
+      table.term,
+    ),
+    index("course_offering_instructors_person_idx").on(table.personId),
+    check(
+      "course_offering_instructors_match_status_check",
+      sql`${table.matchStatus} in ('automatic', 'manual', 'external', 'unverified')`,
+    ),
   ],
 );
 

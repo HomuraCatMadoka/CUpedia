@@ -1,0 +1,119 @@
+{
+  "BME": {
+    "Professor ZHANG Li": {
+      "profileUrl": "https://research.cuhk.edu.hk/en/persons/li-zhang/",
+      "targetRelationship": "associate",
+      "evidenceUrl": "https://www.bme.cuhk.edu.hk/new/associate-faculty.php",
+      "note": "Disambiguates the BME instructor from another CUHK staff member with the same name."
+    },
+    "Professor ZHANG Ning": {
+      "profileUrl": "https://research.cuhk.edu.hk/en/persons/ning-zhang/",
+      "targetRelationship": "teaching",
+      "evidenceUrl": "https://www.bme.cuhk.edu.hk/new/people.php",
+      "note": "Disambiguates Orthopaedics and Traumatology from the Economics professor with the same name."
+    },
+    "Professor MAK Fuk Tat": {
+      "syntheticIdentity": "bme-adjunct:mak-fuk-tat",
+      "canonicalName": "MAK Fuk Tat",
+      "identityKind": "official",
+      "targetRelationship": "adjunct",
+      "evidenceUrl": "https://www.bme.cuhk.edu.hk/new/adjunct-professors.php",
+      "note": "Current BME adjunct page is the identity source because no Research Portal profile was found."
+    }
+  },
+  "CSE": {
+    "Dr. LAM Tak Kei": {
+      "syntheticIdentity": "cse-teaching:lam-tak-kei",
+      "canonicalName": "LAM Tak Kei",
+      "identityKind": "official",
+      "targetRelationship": "teaching",
+      "evidenceUrl": "https://www.cse.cuhk.edu.hk/academics/teaching-schedule/",
+      "note": "Current CSE teaching schedule is the identity source because no Research Portal profile was found."
+    }
+  },
+  "IE": {
+    "Professor Chandrasekhar MADHAVAN NAIR": {
+      "profileUrl": "https://research.cuhk.edu.hk/en/persons/chandra-nair/",
+      "identityKind": "official",
+      "targetRelationship": "teaching",
+      "evidenceUrl": "https://chandra.ie.cuhk.edu.hk/courses/Probability/CourseOutline.pdf",
+      "note": "The current CUHK course outline confirms the timetable name; the Research Portal uses the shorter name Professor NAIR Chandra."
+    },
+    "Professor CHAN Yuen Yan": {
+      "syntheticIdentity": "ie-adjunct:chan-yuen-yan-rosanna",
+      "canonicalName": "CHAN Yuen Yan, Rosanna",
+      "identityKind": "official",
+      "targetRelationship": "adjunct",
+      "evidenceUrl": "https://www.ie.cuhk.edu.hk/faculty/chan-yuen-yan-rosanna/",
+      "note": "The current IE faculty page identifies her as an Adjunct Associate Professor."
+    },
+    "Professor CHAU Sze Yiu": {
+      "syntheticIdentity": "ie-adjunct:chau-sze-yiu",
+      "canonicalName": "CHAU Sze Yiu",
+      "identityKind": "official",
+      "targetRelationship": "adjunct",
+      "evidenceUrl": "https://www.ie.cuhk.edu.hk/faculty/chau-sze-yiu/",
+      "note": "The current IE faculty page identifies him as an Adjunct Associate Professor."
+    }
+  },
+  "MAE": {
+    "Professor HUI Kin Chuen": {
+      "syntheticIdentity": "mae-adjunct:hui-kin-chuen",
+      "canonicalName": "HUI Kin Chuen",
+      "identityKind": "official",
+      "targetRelationship": "adjunct",
+      "evidenceUrl": "https://www4.mae.cuhk.edu.hk/people/academic-staff/",
+      "note": "The current MAE staff page identifies him as an Adjunct Professor."
+    }
+  },
+  "SEEM": {
+    "Dr. CHUNG Wai Keung David": {
+      "syntheticIdentity": "seem-teaching:chung-wai-keung-david",
+      "canonicalName": "CHUNG Wai Keung David",
+      "identityKind": "unverified",
+      "targetRelationship": "teaching_record",
+      "evidenceUrl": "https://rgsntl.rgs.cuhk.edu.hk/rws_prd_applx2/Public/tt_dsp_timetable.aspx",
+      "note": "Kept as a distinct timetable instructor; no current SEEM staff or Research Portal profile was found."
+    },
+    "Dr. HO Sin Cheung": {
+      "syntheticIdentity": "seem-staff:ho-sin-cheung",
+      "canonicalName": "HO Sin Cheung",
+      "identityKind": "official",
+      "targetRelationship": "senior_lecturer",
+      "evidenceUrl": "https://www.se.cuhk.edu.hk/people/academic-staff/dr-ho-sin-cheung/",
+      "note": "The current SEEM academic staff page identifies her as a Senior Lecturer."
+    },
+    "Dr. WAN Sai Chuen": {
+      "syntheticIdentity": "seem-teaching:wan-sai-chuen-kelvin",
+      "canonicalName": "WAN Sai Chuen Kelvin",
+      "identityKind": "official",
+      "targetRelationship": "teaching",
+      "evidenceUrl": "https://www1.se.cuhk.edu.hk/~seem3430/",
+      "note": "The current SEEM3430 course site identifies the instructor as Kelvin WAN."
+    },
+    "Professor Abdullah KONAK": {
+      "syntheticIdentity": "external:abdullah-konak",
+      "canonicalName": "Abdullah KONAK",
+      "identityKind": "external",
+      "targetRelationship": "external_teaching",
+      "evidenceUrl": "https://www.summer.cuhk.edu.hk/2023/01/19/seem-3450-engineering-innovation-and-entrepreneurship/",
+      "note": "CUHK identifies him as a Penn State professor teaching the summer SEEM course."
+    },
+    "Professor LAM Kai Pui": {
+      "syntheticIdentity": "seem-teaching:lam-kai-pui",
+      "canonicalName": "LAM Kai Pui",
+      "identityKind": "official",
+      "targetRelationship": "teaching",
+      "evidenceUrl": "https://www1.se.cuhk.edu.hk/~seem3460/",
+      "note": "The current SEEM3460 course site identifies him as the instructor."
+    },
+    "Professor Sadan KULTUREL-KONAK": {
+      "syntheticIdentity": "external:sadan-kulturel-konak",
+      "canonicalName": "Sadan KULTUREL-KONAK",
+      "identityKind": "external",
+      "targetRelationship": "external_teaching",
+      "evidenceUrl": "https://www.summer.cuhk.edu.hk/2023/01/19/seem-3450-engineering-innovation-and-entrepreneurship/",
+      "note": "CUHK identifies her as a Penn State professor teaching the summer SEEM course."
+    }
+  }
+}

@@ -158,6 +158,35 @@ describe("searchProfessorCandidates", () => {
     ]);
   });
 
+  it("保留院系说明以区分同名教授", () => {
+    expect(
+      searchProfessorCandidates(
+        [
+          {
+            ...professor("cse", "Professor Alex Lee", "CSCI3150"),
+            description: "Department of Computer Science and Engineering",
+          },
+          {
+            ...professor("physics", "Professor Alex Lee"),
+            description: "Department of Physics",
+          },
+        ],
+        "alex lee",
+      ),
+    ).toEqual([
+      {
+        id: "cse",
+        name: "Professor Alex Lee",
+        description: "Department of Computer Science and Engineering",
+      },
+      {
+        id: "physics",
+        name: "Professor Alex Lee",
+        description: "Department of Physics",
+      },
+    ]);
+  });
+
   it("没有足够相似的姓名时返回空结果", () => {
     expect(
       searchProfessorCandidates(
