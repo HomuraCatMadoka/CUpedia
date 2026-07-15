@@ -53,6 +53,7 @@ export function CourseFilters({
   // Set a filter param (empty value clears it), then navigate.
   function setParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString());
+    params.delete("page");
     if (value) params.set(key, value);
     else params.delete(key);
     const qs = params.toString();

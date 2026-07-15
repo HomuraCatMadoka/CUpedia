@@ -223,7 +223,7 @@ export function MenuItemCommentPanel({
                 type="button"
                 disabled={pending || !draft.trim()}
                 onClick={handleCreate}
-                className="rounded-full border border-[var(--canteen-purple)]/30 bg-[var(--canteen-purple)]/10 px-3 py-1 text-xs font-medium text-[var(--canteen-purple)] disabled:opacity-50"
+                className="border border-[var(--canteen-purple)]/35 bg-[var(--canteen-purple)]/10 px-3 py-1 text-xs font-medium text-[var(--canteen-purple)] disabled:opacity-50"
               >
                 发表评论
               </button>

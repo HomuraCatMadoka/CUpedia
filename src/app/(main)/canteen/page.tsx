@@ -29,23 +29,26 @@ async function getDanmakuViewer() {
 }
 
 export default async function CanteenBrowsePage() {
+  const mock = isCanteenMockMode();
   const [canteens, countMap, danmaku, danmakuViewer] = await Promise.all([
     getCanteens(),
     getCanteenMenuItemCounts(),
-    listCurrentMonthDanmaku(),
-    getDanmakuViewer(),
+    mock ? Promise.resolve([]) : listCurrentMonthDanmaku(),
+    mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
   ]);
 
   return (
     <CanteenShell
-      eyebrow="中大食堂"
-      title="今天吃什么"
-      subtitle="浏览各食堂菜单，行内点赞/点踩参与大众口味测评。菜单由管理员维护。"
+      brandTitle
+      backHref="/"
+      backLabel="返回首页"
+      title="山城食记"
+      subtitle="还有食堂能吃吗"
       action={
         isCanteenMockMode() && process.env.NODE_ENV === "development" ? (
           <Link
             href="/canteen/manage"
-            className="inline-flex items-center rounded-full border border-[var(--canteen-purple)]/25 bg-white/80 px-4 py-2 text-sm font-medium text-[var(--canteen-purple)] transition-colors hover:bg-[var(--canteen-purple)] hover:text-white"
+            className="inline-flex items-center border border-[var(--canteen-purple)]/35 bg-[var(--canteen-surface)] px-4 py-2 text-sm font-medium text-[var(--canteen-purple)] transition-colors hover:bg-[var(--canteen-purple)] hover:text-white"
           >
             管理菜单
           </Link>
@@ -57,7 +60,7 @@ export default async function CanteenBrowsePage() {
       </div>
 
       {canteens.length === 0 ? (
-        <div className="canteen-fade-in rounded-2xl border border-dashed border-[var(--canteen-bamboo)]/40 bg-white/50 px-6 py-16 text-center">
+        <div className="canteen-fade-in canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
           <p className="canteen-display text-lg text-[var(--canteen-muted)]">
             暂无食堂
           </p>
@@ -66,14 +69,14 @@ export default async function CanteenBrowsePage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="canteen-fade-in canteen-ledger">
           {canteens.map((canteen, i) => (
             <CanteenCard
               key={canteen.id}
               canteen={canteen}
               href={`/canteen/${canteen.id}`}
               itemCount={countMap[canteen.id] ?? 0}
-              className={`canteen-fade-in ${i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}`}
+              className={i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}
             />
           ))}
         </div>

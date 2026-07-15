@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Canteen } from "@/lib/canteen-types";
 
@@ -9,6 +10,9 @@ export function CanteenShell({
   children,
   action,
   className,
+  brandTitle = false,
+  backHref,
+  backLabel = "返回",
 }: {
   eyebrow?: React.ReactNode;
   title: string;
@@ -16,25 +20,59 @@ export function CanteenShell({
   children: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
+  /** When true, title renders as brand wordmark (山城食记). */
+  brandTitle?: boolean;
+  /** Top-left back control; omit to hide. */
+  backHref?: string;
+  backLabel?: string;
 }) {
   return (
-    <div className={cn("mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10", className)}>
+    <div
+      className={cn(
+        "mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10",
+        className,
+      )}
+    >
+      {backHref ? (
+        <div className="canteen-fade-in mb-4">
+          <Link
+            href={backHref}
+            className="canteen-back-link"
+            aria-label={backLabel}
+          >
+            <ArrowLeft className="size-5 shrink-0" strokeWidth={2.25} aria-hidden />
+            <span className="sr-only sm:not-sr-only">{backLabel}</span>
+          </Link>
+        </div>
+      ) : null}
       <header className="canteen-fade-in mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-2">
+        <div className="space-y-3">
           {eyebrow ? (
             typeof eyebrow === "string" ? (
-              <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--canteen-muted)]">
+              <p className="text-xs font-medium tracking-[0.18em] text-[var(--canteen-muted)]">
                 {eyebrow}
               </p>
             ) : (
               <div className="text-sm text-[var(--canteen-muted)]">{eyebrow}</div>
             )
           ) : null}
-          <h1 className="canteen-display text-3xl font-semibold tracking-tight text-[var(--canteen-ink)] sm:text-4xl">
+          <h1
+            className={cn(
+              "text-[var(--canteen-ink)]",
+              brandTitle
+                ? "canteen-brand text-4xl sm:text-5xl"
+                : "canteen-display text-3xl font-semibold tracking-tight sm:text-4xl",
+            )}
+          >
             {title}
           </h1>
           {subtitle ? (
-            <p className="max-w-xl text-sm leading-relaxed text-[var(--canteen-muted)] sm:text-base">
+            <p
+              className={cn(
+                "max-w-xl leading-relaxed text-[var(--canteen-muted)]",
+                brandTitle ? "text-base sm:text-lg" : "text-sm sm:text-base",
+              )}
+            >
               {subtitle}
             </p>
           ) : null}
@@ -61,27 +99,44 @@ export function CanteenCard({
     <Link
       href={href}
       className={cn(
-        "canteen-steam group relative block overflow-hidden rounded-2xl border border-[var(--canteen-bamboo)]/25 bg-white/70 p-5 shadow-sm backdrop-blur-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[var(--canteen-purple)]/30 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--canteen-purple)]",
+        "canteen-ledger-row group flex items-center gap-4 px-1 py-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--canteen-purple)] sm:gap-6",
         className,
       )}
     >
-      <div
-        className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-[var(--canteen-morning)] via-[var(--canteen-noon)] to-[var(--canteen-evening)] opacity-80 transition-opacity group-hover:opacity-100"
+      <span
+        className="h-10 w-0.5 shrink-0 bg-[var(--canteen-purple)] opacity-70 transition-opacity group-hover:opacity-100"
         aria-hidden
       />
-      <div className="pl-3">
-        <h2 className="canteen-display text-xl font-semibold text-[var(--canteen-ink)] group-hover:text-[var(--canteen-purple)]">
+      <div className="min-w-0 flex-1">
+        <h2 className="canteen-display text-lg font-semibold text-[var(--canteen-ink)] group-hover:text-[var(--canteen-purple)] sm:text-xl">
           {canteen.name}
         </h2>
         {canteen.location ? (
-          <p className="mt-1 text-sm text-[var(--canteen-muted)]">{canteen.location}</p>
-        ) : null}
-        {itemCount !== undefined ? (
-          <p className="mt-3 text-xs font-medium tracking-wide text-[var(--canteen-bamboo)]">
-            {itemCount > 0 ? `${itemCount} 道菜品` : "暂无菜单"}
+          <p className="mt-1 text-sm text-[var(--canteen-muted)]">
+            {canteen.location}
           </p>
         ) : null}
       </div>
+      {itemCount !== undefined ? (
+        <p className="shrink-0 font-mono text-xs tabular-nums tracking-wide text-[var(--canteen-muted)] sm:text-sm">
+          {itemCount > 0 ? (
+            <>
+              <span className="text-[var(--canteen-ink)]">
+                {String(itemCount).padStart(2, "0")}
+              </span>{" "}
+              道菜
+            </>
+          ) : (
+            "暂无菜单"
+          )}
+        </p>
+      ) : null}
+      <span
+        className="shrink-0 text-[var(--canteen-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--canteen-purple)]"
+        aria-hidden
+      >
+        →
+      </span>
     </Link>
   );
 }
@@ -90,13 +145,16 @@ export function PreviewBanner() {
   return (
     <div
       role="status"
-      className="mb-6 rounded-xl border border-amber-300/60 bg-amber-50/90 px-4 py-3 text-sm text-amber-950"
+      className="mb-6 border border-[var(--canteen-morning)]/35 bg-[var(--canteen-morning)]/10 px-4 py-3 text-sm text-[var(--canteen-ink)]"
     >
       <span className="font-medium">演示模式</span>
-      <span className="text-amber-900/80">
+      <span className="text-[var(--canteen-muted)]">
         {" "}
         — 数据保存在内存中，无需数据库。正式管理请使用{" "}
-        <Link href="/admin/canteens" className="underline underline-offset-2">
+        <Link
+          href="/admin/canteens"
+          className="text-[var(--canteen-purple)] underline underline-offset-2"
+        >
           管理后台
         </Link>
         。
