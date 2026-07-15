@@ -136,28 +136,22 @@
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  border: 1px solid var(--canteen-line);
-  background: var(--canteen-surface);
-  padding: 0.35rem 0.85rem 0.35rem 0.65rem;
+  border: none;
+  background: transparent;
+  padding: 0.35rem 0.25rem;
   color: var(--canteen-ink);
   font-size: 0.875rem;
   font-weight: 500;
-  box-shadow: 0 1px 0 rgba(26, 35, 50, 0.06);
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    transform 120ms ease;
+  box-shadow: none;
+  transition: color 160ms ease;
 }
 
 .canteen-zone .canteen-back-link:hover {
-  border-color: rgba(42, 107, 120, 0.45);
-  background: #fff;
   color: var(--canteen-purple);
 }
 
 .canteen-zone .canteen-back-link:active {
-  transform: translateY(1px);
+  color: var(--canteen-purple);
 }
 
 .canteen-zone .canteen-back-link:focus-visible {

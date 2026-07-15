@@ -21,9 +21,9 @@ test("seed account signs in through the password login UI", async ({
   await page.getByRole("button", { name: "登录", exact: true }).click();
 
   // No domain gate, and no "Invalid origin": the submit reaches better-auth
-  // and lands on /wiki, authenticated.
+  // and lands on the site home, authenticated.
   await expect(page.getByText("仅支持 CUHK 邮箱")).toHaveCount(0);
-  await expect(page).toHaveURL(/\/wiki$/);
+  await expect(page).toHaveURL("/");
 
   const session = await page.request.get("/api/auth/get-session");
   expect((await session.json())?.user?.email).toBe(SEED_EMAIL);

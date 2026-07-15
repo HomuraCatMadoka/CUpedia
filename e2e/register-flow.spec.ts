@@ -114,9 +114,9 @@ test("new CUHK user completes registration and can sign in independently", async
   await requestOtp(page, email);
   await submitProfile(page, await readLatestOtp(email, "sign-in"), password);
 
-  await expect(page).toHaveURL(/\/wiki$/);
+  await expect(page).toHaveURL("/");
   await expect(
-    page.getByRole("heading", { name: "你的中大百科全书", level: 1 }),
+    page.getByRole("heading", { name: "CUpedia", level: 1 }),
   ).toBeVisible();
   const session = await page.request.get("/api/auth/get-session");
   expect((await session.json()).user).toMatchObject({
@@ -130,7 +130,7 @@ test("new CUHK user completes registration and can sign in independently", async
   await loginPage.getByLabel("邮箱").fill(email);
   await loginPage.getByLabel("密码").fill(password);
   await loginPage.getByRole("button", { name: "登录", exact: true }).click();
-  await expect(loginPage).toHaveURL(/\/wiki$/);
+  await expect(loginPage).toHaveURL("/");
   await context.close();
 
   const duplicate = await request.post("/api/auth/register", {

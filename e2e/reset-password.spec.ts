@@ -119,5 +119,5 @@ test("user resets through the page and signs in with the new password", async ({
   await page.getByLabel("邮箱").fill(email);
   await page.getByLabel("密码").fill(NEW_PASSWORD);
   await page.getByRole("button", { name: "登录", exact: true }).click();
-  await expect(page).toHaveURL(/\/wiki$/);
+  await expect(page).toHaveURL("/");
 });

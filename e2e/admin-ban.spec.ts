@@ -60,7 +60,7 @@ test("#246 admin bans and unbans a regular user", async ({ page, browser }) => {
   await expect(target.getByText("正常", { exact: true })).toBeVisible();
 
   const restoredLogin = await openFreshLogin(browser);
-  await restoredLogin.page.waitForURL("**/wiki");
+  await restoredLogin.page.waitForURL((url) => new URL(url).pathname === "/");
   const restoredSession = await restoredLogin.page.request.get(
     "/api/auth/get-session",
   );

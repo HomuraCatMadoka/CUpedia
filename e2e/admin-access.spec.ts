@@ -17,7 +17,7 @@ test("admin shell renders on every admin route", async ({ page }) => {
   await page.getByLabel("CUHK 邮箱").fill(ADMIN_EMAIL);
   await page.getByLabel("密码").fill(ADMIN_PASSWORD);
   await page.getByRole("button", { name: "登录", exact: true }).click();
-  await expect(page).toHaveURL(/\/wiki$/);
+  await expect(page).toHaveURL("/");
 
   for (const route of ADMIN_ROUTES) {
     const res = await page.goto(route);
