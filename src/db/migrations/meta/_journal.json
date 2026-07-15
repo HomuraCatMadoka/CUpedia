@@ -176,6 +176,13 @@
       "when": 1784139380869,
       "tag": "0024_protect_canteen_pricing_api",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1784141170503,
+      "tag": "0025_lock_down_public_data_api",
+      "breakpoints": true
     }
   ]
 }
