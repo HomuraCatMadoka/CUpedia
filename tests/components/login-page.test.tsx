@@ -56,6 +56,6 @@ describe("LoginPage password sign-in", () => {
       }),
     );
     expect(screen.queryByText("仅支持 CUHK 邮箱")).toBeNull();
-    await waitFor(() => expect(push).toHaveBeenCalledWith("/wiki"));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
   });
 });
