@@ -17,7 +17,8 @@ async function selectLunch(page: Page) {
 test.describe("canteen menu votes", () => {
   test("homepage canteen card navigates to browse page", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: /食堂/ }).click();
+    // Prefer the home module card (山城食记); nav also has「食堂测评」now.
+    await page.getByRole("link", { name: /山城食记/ }).click();
     await expect(page).toHaveURL(/\/canteen$/);
     await expect(page.getByText("演示食堂")).toBeVisible();
   });
