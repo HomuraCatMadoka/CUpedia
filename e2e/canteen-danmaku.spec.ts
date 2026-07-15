@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { CANTEEN_IDS } from "../scripts/seed-data";
 import { loginWithPassword } from "./helpers/auth";
 
@@ -7,6 +7,29 @@ const USER_PASSWORD = "password123";
 const ADMIN_EMAIL = "admin@test.com";
 const ADMIN_PASSWORD = "password123";
 const BANNED_EMAIL = "banned@test.com";
+const SAFE_SUFFIX_CHARS = "甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳";
+
+function uniqueDanmakuText(prefix: string) {
+  const suffix = Array.from(
+    crypto.randomUUID().replaceAll("-", ""),
+    (hex) => SAFE_SUFFIX_CHARS[Number.parseInt(hex, 16)],
+  ).join("");
+  return `${prefix}-${suffix}`;
+}
+
+async function submitDanmaku(page: Page, text: string) {
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/danmaku") &&
+      response.request().method() === "POST",
+  );
+
+  await page.getByLabel("弹幕内容").fill(text);
+  await page.getByRole("button", { name: "发送" }).click();
+
+  const response = await responsePromise;
+  expect(response.status(), await response.text()).toBe(201);
+}
 
 test.describe("canteen danmaku", () => {
   test("visitor sees danmaku section and cannot post", async ({ page }) => {
@@ -26,9 +49,8 @@ test.describe("canteen danmaku", () => {
     await loginWithPassword(page, USER_EMAIL, USER_PASSWORD);
     await page.goto("/canteen");
 
-    const text = `E2E弹幕-${Date.now()}`;
-    await page.getByLabel("弹幕内容").fill(text);
-    await page.getByRole("button", { name: "发送" }).click();
+    const text = uniqueDanmakuText("E2E弹幕");
+    await submitDanmaku(page, text);
 
     const flyover = page.locator(".danmaku-track-layer .danmaku-item", {
       hasText: text,
@@ -43,9 +65,8 @@ test.describe("canteen danmaku", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/canteen");
 
-    const text = `E2E静态-${Date.now()}`;
-    await page.getByLabel("弹幕内容").fill(text);
-    await page.getByRole("button", { name: "发送" }).click();
+    const text = uniqueDanmakuText("E2E静态");
+    await submitDanmaku(page, text);
 
     const staticList = page.getByRole("list", {
       name: "弹幕列表（减少动画模式）",
@@ -68,7 +89,7 @@ test.describe("canteen danmaku", () => {
 
   test("admin can delete danmaku from admin panel", async ({ page }) => {
     await loginWithPassword(page, USER_EMAIL, USER_PASSWORD);
-    const text = `E2E删除-${Date.now()}`;
+    const text = uniqueDanmakuText("E2E删除");
     const post = await page.request.post("/api/danmaku", {
       data: { content: text },
     });
