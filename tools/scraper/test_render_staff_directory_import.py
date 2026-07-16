@@ -161,6 +161,97 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
             "https://example.test/course-outline",
         )
 
+    def test_reviewed_person_creates_official_identity_and_affiliation(self):
+        payload = subject.build_payload(
+            self.directory(),
+            professors=[{"id": "prof-1", "name": "Dr Grace HOPPER"}],
+            reviewed_people=[{
+                "id": "profile:https://department.example/grace/",
+                "canonicalName": "HOPPER Grace",
+                "profileUrl": "https://department.example/grace/",
+                "sourceUrl": "https://department.example/grace/",
+                "organisationProfileUrl": "https://example.test/centre/",
+                "title": "Lecturer",
+                "aliases": [
+                    {
+                        "alias": "HOPPER Grace",
+                        "evidenceUrl": "https://department.example/grace/",
+                    },
+                    {
+                        "alias": "Dr Grace HOPPER",
+                        "evidenceUrl": "https://department.example/grace/",
+                    },
+                ],
+            }],
+        )
+
+        person = next(
+            item for item in payload["people"]
+            if item["id"] == "profile:https://department.example/grace/"
+        )
+        self.assertEqual(person["source"], "reviewed_department_directory")
+        self.assertEqual(person["identity_kind"], "official")
+        self.assertEqual(
+            sum(
+                item["person_id"] == person["id"]
+                and item["alias"] == "HOPPER Grace"
+                for item in payload["aliases"]
+            ),
+            1,
+        )
+        self.assertIn(
+            {
+                "person_id": person["id"],
+                "organisation_id": "centre",
+                "source_url": "https://department.example/grace/",
+            },
+            payload["affiliations"],
+        )
+        self.assertEqual(
+            payload["professor_links"],
+            [{
+                "professor_id": "prof-1",
+                "person_id": person["id"],
+                "match_method": "manual_override",
+                "source_url": "https://department.example/grace/",
+            }],
+        )
+
+    def test_reviewed_person_rejects_existing_profile(self):
+        with self.assertRaisesRegex(ValueError, "profile already belongs"):
+            subject.build_payload(
+                self.directory(),
+                reviewed_people=[{
+                    "id": "duplicate",
+                    "canonicalName": "Duplicate Ada",
+                    "profileUrl": "https://example.test/ada/",
+                    "sourceUrl": "https://example.test/ada/",
+                    "organisationProfileUrl": "https://example.test/centre/",
+                    "title": "Lecturer",
+                    "aliases": [],
+                }],
+            )
+
+    def test_reviewed_person_allows_null_profile_with_explicit_id(self):
+        payload = subject.build_payload(
+            self.directory(),
+            reviewed_people=[{
+                "id": "reviewed:cuhk-email:grace@example.test",
+                "canonicalName": "HOPPER Grace",
+                "profileUrl": None,
+                "sourceUrl": "https://department.example/roster.pdf",
+                "organisationProfileUrl": "https://example.test/centre/",
+                "title": "Instructor",
+                "aliases": [],
+            }],
+        )
+
+        person = next(
+            item for item in payload["people"]
+            if item["id"] == "reviewed:cuhk-email:grace@example.test"
+        )
+        self.assertIsNone(person["profile_url"])
+
     def test_directory_identity_sql_updates_automatic_and_preserves_manual(self):
         payload = subject.build_payload(
             self.directory(),

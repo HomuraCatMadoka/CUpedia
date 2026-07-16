@@ -113,7 +113,12 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   Known external and uncertain timetable-only identities remain explicitly
   classified as `external` and `unverified`; neither is assigned a fabricated
   department. Reviewed name variants live in `staff-alias-overrides.json` and
-  retain their official evidence URL.
+  retain their official evidence URL. Current CUHK teachers who have an
+  official department profile but no Research Portal record live in
+  `staff-person-overrides.json`; each entry must use an explicit stable ID,
+  official evidence URL and an existing Research Portal organisation. This
+  keeps the reviewed person, affiliation, title and timetable aliases
+  reproducible without treating a normalized name as an identity key.
 - **All-faculty production validation** — `compare_staff_production.py` performs
   no writes. It accepts only a normalized exact name that identifies one official
   profile or a reviewed evidence-backed alias, keeps homonyms ambiguous, and

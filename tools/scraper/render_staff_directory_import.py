@@ -13,6 +13,7 @@ import scrape_staff
 
 
 SOURCE = "cuhk_research_portal"
+REVIEWED_PERSON_SOURCE = "reviewed_department_directory"
 
 
 def build_professor_links(
@@ -79,6 +80,7 @@ def build_payload(
     directory: dict,
     reviewed_aliases: list[dict] | None = None,
     professors: list[dict] | None = None,
+    reviewed_people: list[dict] | None = None,
 ) -> dict:
     if directory.get("scope", {}).get("mode") != "full":
         raise ValueError("Refusing to import a non-full staff directory")
@@ -156,7 +158,85 @@ def build_payload(
                     "source_url": person["profileUrl"],
                 }
 
-    people_by_profile_url = {item["profile_url"]: item["id"] for item in people}
+    people_by_id = {item["id"]: item for item in people}
+    people_by_profile_url = {
+        item["profile_url"]: item["id"]
+        for item in people
+        if item["profile_url"]
+    }
+    for reviewed in reviewed_people or []:
+        person_id = reviewed["id"].strip()
+        canonical_name = reviewed["canonicalName"].strip()
+        source_url = reviewed["sourceUrl"].strip()
+        profile_url = reviewed.get("profileUrl")
+        if profile_url:
+            profile_url = scrape_staff.canonical_url(profile_url)
+        organisation_url = scrape_staff.canonical_url(
+            reviewed["organisationProfileUrl"]
+        )
+        organisation_id = organisation_ids.get(organisation_url)
+        if not person_id or not canonical_name or not source_url:
+            raise ValueError("Reviewed person requires id, name, and source URL")
+        if person_id in people_by_id:
+            raise ValueError(f"Reviewed person id already exists: {person_id}")
+        if profile_url and profile_url in people_by_profile_url:
+            raise ValueError(
+                f"Reviewed person profile already belongs to an official person: {profile_url}"
+            )
+        if not organisation_id:
+            raise ValueError(
+                f"Reviewed person organisation not found: {organisation_url}"
+            )
+
+        person = {
+            "id": person_id,
+            "canonical_name": canonical_name,
+            "external_id": None,
+            "profile_url": profile_url,
+            "source": REVIEWED_PERSON_SOURCE,
+            "identity_kind": "official",
+        }
+        people.append(person)
+        people_by_id[person_id] = person
+        if profile_url:
+            people_by_profile_url[profile_url] = person_id
+        affiliations[(person_id, organisation_id)] = {
+            "person_id": person_id,
+            "organisation_id": organisation_id,
+            "source_url": source_url,
+        }
+        title = reviewed.get("title", "").strip()
+        if title:
+            titles[(person_id, organisation_id, title)] = {
+                "person_id": person_id,
+                "organisation_id": organisation_id,
+                "title": title,
+                "source_url": source_url,
+            }
+        aliases.append(
+            {
+                "person_id": person_id,
+                "alias": canonical_name,
+                "normalized_alias": scrape_staff.normalise_name(canonical_name),
+                "source": "reviewed_manual_override",
+                "evidence_url": source_url,
+            }
+        )
+        for reviewed_alias in reviewed.get("aliases", []):
+            alias = reviewed_alias["alias"].strip()
+            evidence_url = reviewed_alias["evidenceUrl"].strip()
+            if not alias or not evidence_url:
+                raise ValueError("Reviewed person alias requires alias and evidence URL")
+            aliases.append(
+                {
+                    "person_id": person_id,
+                    "alias": alias,
+                    "normalized_alias": scrape_staff.normalise_name(alias),
+                    "source": "reviewed_manual_override",
+                    "evidence_url": evidence_url,
+                }
+            )
+
     for override in reviewed_aliases or []:
         profile_url = scrape_staff.canonical_url(override["profileUrl"])
         person_id = people_by_profile_url.get(profile_url)
@@ -174,6 +254,11 @@ def build_payload(
                 "evidence_url": override["evidenceUrl"],
             }
         )
+
+    aliases_by_key = {}
+    for alias in aliases:
+        aliases_by_key[(alias["person_id"], alias["alias"])] = alias
+    aliases = list(aliases_by_key.values())
 
     payload = {
         "observed_at": observed_at,
@@ -486,15 +571,26 @@ def main() -> None:
         default=Path(__file__).with_name("staff-alias-overrides.json"),
     )
     parser.add_argument(
+        "--person-overrides",
+        type=Path,
+        default=Path(__file__).with_name("staff-person-overrides.json"),
+    )
+    parser.add_argument(
         "--professors", type=Path, default=data_dir / "professors.json"
     )
     args = parser.parse_args()
 
     directory = json.loads(args.directory.read_text(encoding="utf-8"))
     reviewed_aliases = json.loads(args.alias_overrides.read_text(encoding="utf-8"))
+    reviewed_people = json.loads(args.person_overrides.read_text(encoding="utf-8"))
     professor_snapshot = json.loads(args.professors.read_text(encoding="utf-8"))
     professors = professor_snapshot.get("professors", professor_snapshot)
-    payload = build_payload(directory, reviewed_aliases, professors)
+    payload = build_payload(
+        directory,
+        reviewed_aliases,
+        professors,
+        reviewed_people,
+    )
     args.output.write_text(render_sql(payload), encoding="utf-8")
     print(json.dumps({key: len(value) if isinstance(value, list) else value for key, value in payload.items()}, indent=2))
     print(f"done -> {args.output}")

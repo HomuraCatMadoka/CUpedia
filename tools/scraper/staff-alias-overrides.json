@@ -148,5 +148,29 @@
     "alias": "Professor YIP Hon Kei",
     "evidenceUrl": "https://www.mschsm.cuhk.edu.hk/our-staff",
     "note": "The CUHK programme page identifies Professor YIP Hon Kei Benjamin of Public Health and Primary Care."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/john-hon-weng-lai/",
+    "alias": "Dr. LAI Hon Weng",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/john-hon-weng-lai/",
+    "note": "The timetable omits the English given name John from Management Principal Lecturer LAI John Hon Weng."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/lancelot-wai-ho-mui/",
+    "alias": "Dr. MUI Wai Ho",
+    "evidenceUrl": "https://www.chep.cuhk.edu.hk/en/home/page/About_Us/our-people/",
+    "note": "The CUHK Centre for Health Education and Health Promotion page identifies Dr MUI Wai Ho, Lancelot."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/ada-jingxuan-wang/",
+    "alias": "Dr. WANG Jingxuan",
+    "evidenceUrl": "https://research.cuhk.edu.hk/en/persons/ada-jingxuan-wang/",
+    "note": "The timetable omits the English given name Ada from PHPC Lecturer WANG Ada Jingxuan."
+  },
+  {
+    "profileUrl": "https://research.cuhk.edu.hk/en/persons/tony-ka-chun-yung/",
+    "alias": "Dr. YUNG Ka Chun",
+    "evidenceUrl": "https://www.med.cuhk.edu.hk/experts?area=&department=the-jockey-club-school-of-public-health-and-primary-care&keyword=",
+    "note": "The CU Medicine experts directory identifies PHPC Lecturer YUNG Ka Chun Tony."
   }
 ]
