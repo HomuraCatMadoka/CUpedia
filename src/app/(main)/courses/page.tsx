@@ -6,6 +6,10 @@ import type { CourseView } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { CourseFilters } from "@/components/courses/course-filters";
 import { CourseSearch } from "@/components/courses/course-search";
+import {
+  CourseCardLink,
+  CourseListNavigationReset,
+} from "@/components/courses/course-card-link";
 
 export default async function CoursesPage({
   searchParams,
@@ -29,9 +33,11 @@ export default async function CoursesPage({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const filtering = Boolean(q || subject || credits || level);
+  const currentListHref = pageHref({ credits, q, subject, level }, page);
 
   return (
     <div className="flex-1 overflow-y-auto">
+      <CourseListNavigationReset />
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div>
           <h1 className="text-2xl font-bold">课程测评</h1>
@@ -71,7 +77,11 @@ export default async function CoursesPage({
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {courses.map((c) => (
-                <CourseCard key={c.code} course={c} />
+                <CourseCard
+                  key={c.code}
+                  course={c}
+                  returnTo={currentListHref}
+                />
               ))}
             </div>
           )}
@@ -158,11 +168,19 @@ function PageLink({
   );
 }
 
-function CourseCard({ course: c }: { course: CourseView }) {
+function CourseCard({
+  course: c,
+  returnTo,
+}: {
+  course: CourseView;
+  returnTo: string;
+}) {
+  const detailHref = `/courses/${c.code}?from=${encodeURIComponent(returnTo)}`;
+
   return (
-    <Link
-      href={`/courses/${c.code}`}
-      prefetch={false}
+    <CourseCardLink
+      href={detailHref}
+      returnTo={returnTo}
       className="group flex min-h-[168px] flex-col justify-between rounded-xl border bg-card p-5 transition-colors hover:border-foreground/30"
     >
       <div className="flex items-start justify-between gap-2">
@@ -215,6 +233,6 @@ function CourseCard({ course: c }: { course: CourseView }) {
           </div>
         )}
       </div>
-    </Link>
+    </CourseCardLink>
   );
 }

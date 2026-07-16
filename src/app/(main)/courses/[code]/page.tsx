@@ -1,8 +1,6 @@
 export const dynamic = "force-dynamic";
 
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ChevronLeftIcon } from "lucide-react";
 import {
   getCourse,
   getCourseProfessorStats,
@@ -14,6 +12,7 @@ import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { Badge } from "@/components/ui/badge";
 import { CourseReviewSection } from "@/components/courses/course-review-section";
+import { CourseListBackLink } from "@/components/courses/course-list-back-link";
 
 function recentAcademicYears(now = new Date()): string[] {
   const start = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -25,12 +24,19 @@ function recentAcademicYears(now = new Date()): string[] {
 
 export default async function CourseDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ code: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { code } = await params;
+  const { from } = await searchParams;
   const course = await getCourse(code);
   if (!course) notFound();
+
+  const hasCourseListSource =
+    from === "/courses" || Boolean(from?.startsWith("/courses?"));
+  const returnTo = hasCourseListSource ? from! : "/courses";
 
   const [reviews, ratingState, enrollmentHistory, professorStats, user] =
     await Promise.all([
@@ -44,13 +50,10 @@ export default async function CourseDetailPage({
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-6 py-8">
-        <Link
-          href="/courses"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ChevronLeftIcon className="h-4 w-4" />
-          返回课程列表
-        </Link>
+        <CourseListBackLink
+          href={returnTo}
+          restoreHistory={hasCourseListSource}
+        />
 
         <div className="mt-4 rounded-2xl border p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
