@@ -13,6 +13,7 @@ tools/scraper/scrape_staff.py     →  scripts/data/staff-directory.json
 tools/scraper/resolve_staff_pilot.py → scripts/data/staff-engineering-report.json
 tools/scraper/compare_staff_production.py → scripts/data/staff-production-validation.json
 tools/scraper/render_staff_directory_import.py → scripts/data/staff-directory-import.sql
+tools/scraper/build_staff_source_queue.py → scripts/data/staff-source-queue.json
 ```
 
 ## Setup
@@ -53,6 +54,9 @@ python scrape_staff.py --departments department-of-biomedical-engineering,depart
 python resolve_staff_pilot.py
 # Read-only all-faculty validation against production professor rows:
 python compare_staff_production.py
+# Group reviewed missing people by official source and prioritize high-coverage
+# roster adapters:
+python build_staff_source_queue.py
 # Render the complete organisation/person snapshot as convergent SQL:
 python render_staff_directory_import.py
 # Render the reviewed report as a transactional, idempotent SQL import:
@@ -119,6 +123,12 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   official evidence URL and an existing Research Portal organisation. This
   keeps the reviewed person, affiliation, title and timetable aliases
   reproducible without treating a normalized name as an identity key.
+  `staff_person_sources` stores each upstream identity separately, keyed by
+  `(source, source_key)`. Source freshness and the two-run missing rule are
+  maintained there; `staff_people.is_current` remains true while any source is
+  current. Directory imports only clear aliases and automatic timetable links
+  owned by the sources declared in that import, so adding a department roster
+  cannot reset identities maintained by another adapter.
 - **All-faculty production validation** — `compare_staff_production.py` performs
   no writes. It accepts only a normalized exact name that identifies one official
   profile or a reviewed evidence-backed alias, keeps homonyms ambiguous, and

@@ -11,4 +11,4 @@ dependencies = [
 ]
 
 [tool.setuptools]
-py-modules = ["common", "scrape_courses", "scrape_handbook", "scrape_timetable", "scrape_staff", "resolve_staff_pilot", "compare_staff_production", "export_production_professor_snapshot", "render_staff_import", "render_staff_directory_import"]
+py-modules = ["common", "scrape_courses", "scrape_handbook", "scrape_timetable", "scrape_staff", "resolve_staff_pilot", "compare_staff_production", "export_production_professor_snapshot", "render_staff_import", "render_staff_directory_import", "build_staff_source_queue"]

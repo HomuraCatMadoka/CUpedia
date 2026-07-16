@@ -111,6 +111,7 @@ def build_payload(
         )
 
     people = []
+    person_sources = []
     aliases = []
     affiliations: dict[tuple[str, str], dict] = {}
     titles: dict[tuple[str, str, str], dict] = {}
@@ -124,6 +125,16 @@ def build_payload(
                 "profile_url": person["profileUrl"],
                 "source": SOURCE,
                 "identity_kind": "official",
+            }
+        )
+        source_key = person.get("externalId") or person["profileUrl"]
+        person_sources.append(
+            {
+                "person_id": person_id,
+                "source": SOURCE,
+                "source_key": source_key,
+                "profile_url": person["profileUrl"],
+                "source_url": person["profileUrl"],
             }
         )
         aliases.append(
@@ -171,12 +182,15 @@ def build_payload(
         profile_url = reviewed.get("profileUrl")
         if profile_url:
             profile_url = scrape_staff.canonical_url(profile_url)
+        source_key = reviewed.get("sourceKey", person_id).strip()
         organisation_url = scrape_staff.canonical_url(
             reviewed["organisationProfileUrl"]
         )
         organisation_id = organisation_ids.get(organisation_url)
-        if not person_id or not canonical_name or not source_url:
-            raise ValueError("Reviewed person requires id, name, and source URL")
+        if not person_id or not canonical_name or not source_url or not source_key:
+            raise ValueError(
+                "Reviewed person requires id, name, source key, and source URL"
+            )
         if person_id in people_by_id:
             raise ValueError(f"Reviewed person id already exists: {person_id}")
         if profile_url and profile_url in people_by_profile_url:
@@ -197,6 +211,15 @@ def build_payload(
             "identity_kind": "official",
         }
         people.append(person)
+        person_sources.append(
+            {
+                "person_id": person_id,
+                "source": REVIEWED_PERSON_SOURCE,
+                "source_key": source_key,
+                "profile_url": profile_url,
+                "source_url": source_url,
+            }
+        )
         people_by_id[person_id] = person
         if profile_url:
             people_by_profile_url[profile_url] = person_id
@@ -263,6 +286,11 @@ def build_payload(
     payload = {
         "observed_at": observed_at,
         "people": sorted(people, key=lambda item: item["id"]),
+        "person_sources": sorted(
+            person_sources,
+            key=lambda item: (item["source"], item["source_key"]),
+        ),
+        "managed_alias_sources": [SOURCE, "reviewed_manual_override"],
         "organisations": sorted(organisations, key=lambda item: item["id"]),
         "aliases": sorted(aliases, key=lambda item: (item["person_id"], item["alias"])),
         "affiliations": sorted(
@@ -369,6 +397,44 @@ on conflict (id) do update set
   missing_runs = 0,
   updated_at = now();
 
+do $$
+begin
+  if exists (
+    select 1
+    from staff_person_sources existing,
+         _staff_directory_import,
+         jsonb_to_recordset(payload->'person_sources') as incoming(
+           person_id text, source text, source_key text, profile_url text,
+           source_url text
+         )
+    where existing.source = incoming.source
+      and existing.source_key = incoming.source_key
+      and existing.person_id <> incoming.person_id
+  ) then
+    raise exception 'Staff source identity key belongs to another person';
+  end if;
+end
+$$;
+
+insert into staff_person_sources (
+  person_id, source, source_key, profile_url, source_url,
+  first_seen_at, last_seen_at, is_current, missing_runs
+)
+select x.person_id, x.source, x.source_key, x.profile_url, x.source_url,
+       meta.observed_at, meta.observed_at, true, 0
+from _staff_directory_import,
+     lateral (select (payload->>'observed_at')::timestamptz observed_at) meta,
+     jsonb_to_recordset(payload->'person_sources') as x(
+       person_id text, source text, source_key text, profile_url text,
+       source_url text
+     )
+on conflict (source, source_key) do update set
+  profile_url = excluded.profile_url,
+  source_url = excluded.source_url,
+  last_seen_at = excluded.last_seen_at,
+  is_current = true,
+  missing_runs = 0;
+
 insert into staff_organisations (
   id, name, organisation_type, parent_id, faculty_id, profile_url, source,
   first_seen_at, last_seen_at, is_current, missing_runs
@@ -392,8 +458,38 @@ on conflict (id) do update set
   is_current = true,
   missing_runs = 0;
 
-delete from staff_aliases
-where source in ('{SOURCE}', 'reviewed_manual_override');
+create temp table _staff_managed_people (
+  person_id text primary key
+) on commit drop;
+
+insert into _staff_managed_people (person_id)
+select distinct alias.person_id
+from staff_aliases alias,
+     _staff_directory_import,
+     lateral jsonb_array_elements_text(
+       payload->'managed_alias_sources'
+     ) managed(source)
+where alias.source = managed.source
+on conflict (person_id) do nothing;
+
+insert into _staff_managed_people (person_id)
+select distinct x.person_id
+from _staff_directory_import,
+     jsonb_to_recordset(payload->'person_sources') as x(
+       person_id text, source text, source_key text, profile_url text,
+       source_url text
+     )
+on conflict (person_id) do nothing;
+
+delete from staff_aliases alias
+using _staff_directory_import
+where exists (
+  select 1
+  from jsonb_array_elements_text(
+    payload->'managed_alias_sources'
+  ) managed(source)
+  where managed.source = alias.source
+);
 
 insert into staff_aliases (person_id, alias, normalized_alias, source)
 select x.person_id, x.alias, x.normalized_alias, x.source
@@ -407,11 +503,13 @@ on conflict (person_id, alias) do update set
 
 {identity_sql}
 
-update course_offering_instructors
+update course_offering_instructors offering
 set person_id = null,
     match_status = 'unverified',
     evidence_url = null
-where match_status <> 'manual';
+from _staff_managed_people managed
+where offering.person_id = managed.person_id
+  and offering.match_status <> 'manual';
 
 with unique_aliases as (
   select alias, min(person_id) as person_id
@@ -531,28 +629,38 @@ where organisation.source = '{SOURCE}'
     where x.id = organisation.id
   );
 
-update staff_people person
-set missing_runs = person.missing_runs + 1,
-    is_current = person.missing_runs + 1 < 2
-where person.source = '{SOURCE}'
-  and person.is_current
-  and exists (
-    select 1
-    from staff_organisation_affiliations affiliation
-    join staff_organisations organisation
-      on organisation.id = affiliation.organisation_id
-    where affiliation.person_id = person.id
-      and organisation.source = '{SOURCE}'
-  )
+update staff_person_sources person_source
+set missing_runs = person_source.missing_runs + 1,
+    is_current = person_source.missing_runs + 1 < 2
+where person_source.source = '{SOURCE}'
+  and person_source.is_current
   and not exists (
     select 1
     from _staff_directory_import,
-         jsonb_to_recordset(payload->'people') as x(
-           id text, canonical_name text, external_id uuid, profile_url text,
-           source text, identity_kind text
+         jsonb_to_recordset(payload->'person_sources') as x(
+           person_id text, source text, source_key text, profile_url text,
+           source_url text
          )
-    where x.id = person.id
+    where x.source = person_source.source
+      and x.source_key = person_source.source_key
   );
+
+with source_state as (
+  select person_id,
+         max(last_seen_at) as last_seen_at,
+         bool_or(is_current) as is_current,
+         case when bool_or(is_current) then 0 else min(missing_runs) end
+           as missing_runs
+  from staff_person_sources
+  group by person_id
+)
+update staff_people person
+set last_seen_at = source_state.last_seen_at,
+    is_current = source_state.is_current,
+    missing_runs = source_state.missing_runs,
+    updated_at = now()
+from source_state
+where source_state.person_id = person.id;
 
 commit;
 """

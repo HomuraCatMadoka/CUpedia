@@ -61,14 +61,39 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
             [item["title"] for item in payload["titles"]],
             ["Director", "Professor"],
         )
+        self.assertEqual(
+            payload["person_sources"],
+            [{
+                "person_id": "pure:9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2",
+                "source": "cuhk_research_portal",
+                "source_key": "9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2",
+                "profile_url": "https://example.test/ada/",
+                "source_url": "https://example.test/ada/",
+            }],
+        )
 
     def test_sql_uses_two_run_inactivation(self):
         sql = subject.render_sql(subject.build_payload(self.directory()))
         self.assertIn("missing_runs + 1 < 2", sql)
+        self.assertIn("insert into staff_person_sources", sql)
+        self.assertIn("update staff_person_sources", sql)
+        self.assertIn("source identity key belongs to another person", sql)
+        self.assertNotIn("person_id = excluded.person_id", sql)
         self.assertIn("update staff_organisations", sql)
         self.assertIn("update staff_people", sql)
         self.assertIn("update course_offering_instructors", sql)
         self.assertIn("offering.match_status <> 'manual'", sql)
+
+    def test_sql_scopes_alias_cleanup_and_offering_reset_to_import(self):
+        sql = subject.render_sql(subject.build_payload(self.directory()))
+        self.assertIn("payload->'managed_alias_sources'", sql)
+        self.assertNotIn(
+            "where source in ('cuhk_research_portal', 'reviewed_manual_override')",
+            sql,
+        )
+        self.assertIn("create temp table _staff_managed_people", sql)
+        self.assertIn("offering.person_id = managed.person_id", sql)
+        self.assertNotIn("where match_status <> 'manual';", sql)
 
     def test_rejects_partial_directory(self):
         directory = self.directory()
@@ -103,7 +128,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
     def test_sql_replaces_managed_aliases_and_reapplies_manual_evidence(self):
         sql = subject.render_sql(subject.build_payload(self.directory()))
         self.assertIn("delete from staff_aliases", sql)
-        self.assertIn("source in ('cuhk_research_portal', 'reviewed_manual_override')", sql)
+        self.assertIn("payload->'managed_alias_sources'", sql)
         self.assertIn("alias.source = 'reviewed_manual_override'", sql)
         self.assertIn("evidence_url = alias.evidence_url", sql)
 
@@ -232,6 +257,20 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                 }],
             )
 
+    def test_reviewed_person_rejects_empty_source_key(self):
+        reviewed = {
+            "id": "reviewed:grace",
+            "canonicalName": "HOPPER Grace",
+            "sourceKey": "",
+            "profileUrl": None,
+            "sourceUrl": "https://department.example/roster.pdf",
+            "organisationProfileUrl": "https://example.test/centre/",
+            "title": "Instructor",
+            "aliases": [],
+        }
+        with self.assertRaisesRegex(ValueError, "source key"):
+            subject.build_payload(self.directory(), reviewed_people=[reviewed])
+
     def test_reviewed_person_allows_null_profile_with_explicit_id(self):
         payload = subject.build_payload(
             self.directory(),
@@ -251,6 +290,13 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
             if item["id"] == "reviewed:cuhk-email:grace@example.test"
         )
         self.assertIsNone(person["profile_url"])
+        source = next(
+            item for item in payload["person_sources"]
+            if item["person_id"] == person["id"]
+        )
+        self.assertEqual(source["source"], "reviewed_department_directory")
+        self.assertEqual(source["source_key"], person["id"])
+        self.assertEqual(source["source_url"], "https://department.example/roster.pdf")
 
     def test_directory_identity_sql_updates_automatic_and_preserves_manual(self):
         payload = subject.build_payload(
