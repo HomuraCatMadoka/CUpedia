@@ -788,7 +788,7 @@ export const canteenMenuItems = pgTable(
     externalSource: text("external_source"),
     externalKey: text("external_key"),
     isAvailable: boolean("is_available").notNull().default(true),
-    lastSyncedAt: timestamp("last_synced_at"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

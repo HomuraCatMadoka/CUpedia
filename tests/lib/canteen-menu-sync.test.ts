@@ -129,4 +129,46 @@ describe("menu sync planner", () => {
       }),
     ).toThrow("DUPLICATE_EXTERNAL_KEY");
   });
+
+  it("rejects a serialized items field", () => {
+    expect(() =>
+      parseMenuSyncJson({
+        source: "order-place:102830",
+        items: JSON.stringify([{ externalKey: "same", name: "A" }]),
+      }),
+    ).toThrow("INVALID_MENU_SYNC");
+  });
+
+  it("treats equal pricing fields as unchanged regardless of object key order", () => {
+    const syncInput = parseMenuSyncJson({
+      source: "order-place:102830",
+      items: [
+        {
+          externalKey: "product-42:lunch",
+          name: "凍奶茶",
+          svgKey: "drink",
+          pricing: {
+            options: [
+              { label: "凍", amountMinor: 1300, currency: "HKD", sortOrder: 0 },
+            ],
+          },
+        },
+      ],
+    });
+    const priceOption = {
+      sortOrder: 0,
+      currency: "HKD",
+      amountMinor: 1300,
+      label: "凍",
+    };
+    const plan = planMenuSync(syncInput, [
+      existing({
+        externalSource: "order-place:102830",
+        externalKey: "product-42:lunch",
+        priceOptions: [priceOption],
+      }),
+    ]);
+    expect(plan.actions).toEqual([]);
+    expect(plan.unchanged).toBe(1);
+  });
 });

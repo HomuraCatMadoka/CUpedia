@@ -109,7 +109,7 @@
       "name": "川味雞中翼(3隻)．肉絲碗仔素翅",
       "mealPeriod": "lunch",
       "sortOrder": 6,
-      "svgKey": "bowl",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -245,7 +245,7 @@
       "name": "奶油脆脆豬仔包 ‧ 薯仔沙律",
       "mealPeriod": "lunch",
       "sortOrder": 14,
-      "svgKey": "noodle",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -262,7 +262,7 @@
       "name": "奶油脆脆豬仔包．薯條",
       "mealPeriod": "lunch",
       "sortOrder": 15,
-      "svgKey": "dessert",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -296,7 +296,7 @@
       "name": "奶醬脆脆豬仔包 ‧ 薯仔沙律",
       "mealPeriod": "lunch",
       "sortOrder": 17,
-      "svgKey": "noodle",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -313,7 +313,7 @@
       "name": "奶醬脆脆豬仔包 ‧ 薯條",
       "mealPeriod": "lunch",
       "sortOrder": 18,
-      "svgKey": "dessert",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -381,7 +381,7 @@
       "name": "沙律",
       "mealPeriod": "lunch",
       "sortOrder": 22,
-      "svgKey": "noodle",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -517,7 +517,7 @@
       "name": "炸雞髀 ‧ 沙律",
       "mealPeriod": "lunch",
       "sortOrder": 30,
-      "svgKey": "noodle",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -840,7 +840,7 @@
       "name": "豉油皇雞髀 ‧ 沙律",
       "mealPeriod": "lunch",
       "sortOrder": 49,
-      "svgKey": "noodle",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -1061,7 +1061,7 @@
       "name": "經典洋蔥豬扒包 ‧ 薯仔沙律",
       "mealPeriod": "lunch",
       "sortOrder": 62,
-      "svgKey": "noodle",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -1078,7 +1078,7 @@
       "name": "經典洋蔥豬扒包 ‧ 薯條",
       "mealPeriod": "lunch",
       "sortOrder": 63,
-      "svgKey": "dessert",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {

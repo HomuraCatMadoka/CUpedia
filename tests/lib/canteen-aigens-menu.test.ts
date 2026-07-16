@@ -54,4 +54,36 @@ describe("S.H. Ho Aigens menu adapter", () => {
       priceOptions: [{ amountMinor: 3800 }],
     });
   });
+
+  it("rejects the whole snapshot when a product price is missing", () => {
+    expect(() =>
+      buildShhoMenuSyncPayload({
+        data: {
+          menu: {
+            categories: [{ name: "飯類", periods: ["L"], groupIds: ["main"] }],
+            groups: [
+              { id: "main", items: [{ backendId: "42", name: "演示菜品" }] },
+            ],
+          },
+        },
+      }),
+    ).toThrow("INVALID_AIGENS_PRICE");
+  });
+
+  it("matches dish icons by complete keywords", () => {
+    const payload = buildShhoMenuSyncPayload({
+      data: {
+        menu: {
+          categories: [{ name: "小食", periods: ["L"], groupIds: ["main"] }],
+          groups: [
+            {
+              id: "main",
+              items: [{ backendId: "42", name: "薯仔沙律", price: 20 }],
+            },
+          ],
+        },
+      },
+    });
+    expect(payload.items[0].svgKey).toBe("default");
+  });
 });

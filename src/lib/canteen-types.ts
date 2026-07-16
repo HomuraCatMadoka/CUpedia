@@ -215,6 +215,7 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
     throw new Error("INVALID_TAKEOVER_FLAG");
   }
   const takeOverLegacyItems = record.takeOverLegacyItems === true;
+  if (!Array.isArray(record.items)) throw new Error("INVALID_MENU_SYNC");
   const rows = parseMenuItemsJson(record.items);
   const rawItems = record.items as Array<Record<string, unknown>>;
   const seen = new Set<string>();

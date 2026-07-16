@@ -1,0 +1,1 @@
+ALTER TABLE "canteen_menu_items" ALTER COLUMN "last_synced_at" SET DATA TYPE timestamp with time zone;

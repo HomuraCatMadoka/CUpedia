@@ -5,7 +5,9 @@ const ENDPOINT =
   "https://aigensstoreapp.appspot.com/api/v1/menu/store/102830.json?locale=default&open=true&menu=prekiosk&groupId=1000&country=hk";
 
 async function main() {
-  const response = await fetch(ENDPOINT);
+  const response = await fetch(ENDPOINT, {
+    signal: AbortSignal.timeout(15_000),
+  });
   if (!response.ok)
     throw new Error(`Aigens menu request failed: ${response.status}`);
   const payload = buildShhoMenuSyncPayload(await response.json());

@@ -48,11 +48,11 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       nickname: "同步测试",
       role: "user",
     });
-    await db.insert(canteens).values({ id: canteenId, name: "同步测试食堂" });
+    await db.insert(canteens).values({ id: canteenId, name: "演示食堂" });
     await db.insert(canteenMenuItems).values({
       id: itemId,
       canteenId,
-      name: "凍奶茶",
+      name: "演示菜品 A",
       mealPeriod: "lunch",
       svgKey: "drink",
     });
@@ -79,7 +79,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       items: [
         {
           externalKey: "product-42:lunch",
-          name: "凍奶茶",
+          name: "演示菜品 A",
           mealPeriod: "lunch",
           svgKey: "drink",
           pricing: { options: [{ amountMinor: 1300, currency: "HKD" }] },
@@ -87,8 +87,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       ],
     };
     const preview = await previewMenuSyncFromJson(canteenId, firstSnapshot);
-    expect(preview.actions[0]).toMatchObject({ action: "claim", itemId });
-    await applyMenuSyncFromJson(canteenId, firstSnapshot);
+    expect(preview.plan.actions[0]).toMatchObject({ action: "claim", itemId });
+    await applyMenuSyncFromJson(canteenId, firstSnapshot, preview.previewToken);
 
     const [claimed] = await db
       .select()
@@ -101,16 +101,25 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       isAvailable: true,
     });
 
-    await applyMenuSyncFromJson(canteenId, {
+    const secondSnapshot = {
       source: "order-place:102830",
       items: [
         {
           externalKey: "product-99:lunch",
-          name: "新菜",
+          name: "演示菜品 B",
           mealPeriod: "lunch",
         },
       ],
-    });
+    };
+    const secondPreview = await previewMenuSyncFromJson(
+      canteenId,
+      secondSnapshot,
+    );
+    await applyMenuSyncFromJson(
+      canteenId,
+      secondSnapshot,
+      secondPreview.previewToken,
+    );
 
     const [deactivated] = await db
       .select()
@@ -131,10 +140,42 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
     const publicMenu = await getCanteenMenuItems(canteenId);
     expect(publicMenu.some((item) => item.id === itemId)).toBe(false);
-    expect(publicMenu.some((item) => item.name === "新菜")).toBe(true);
+    expect(publicMenu.some((item) => item.name === "演示菜品 B")).toBe(true);
     await expect(createDishComment(itemId, "停供后新评论")).rejects.toThrow(
       "MENU_ITEM_NOT_FOUND",
     );
+  });
+
+  it("rejects missing and stale preview tokens before writing", async () => {
+    const source = `preview-test:${randomUUID()}`;
+    const snapshot = {
+      source,
+      items: [{ externalKey: "item:lunch", name: "演示菜品 C" }],
+    };
+    const preview = await previewMenuSyncFromJson(canteenId, snapshot);
+
+    await expect(
+      applyMenuSyncFromJson(canteenId, snapshot, null),
+    ).rejects.toThrow("MENU_SYNC_STALE");
+
+    const interveningItemId = randomUUID();
+    await db.insert(canteenMenuItems).values({
+      id: interveningItemId,
+      canteenId,
+      name: "演示菜品 D",
+    });
+    await expect(
+      applyMenuSyncFromJson(canteenId, snapshot, preview.previewToken),
+    ).rejects.toThrow("MENU_SYNC_STALE");
+
+    const written = await db
+      .select({ value: count() })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.externalSource, source));
+    expect(written[0].value).toBe(0);
+    await db
+      .delete(canteenMenuItems)
+      .where(eq(canteenMenuItems.id, interveningItemId));
   });
 
   it("enforces one external identity per canteen", async () => {

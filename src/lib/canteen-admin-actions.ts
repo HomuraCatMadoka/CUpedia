@@ -1,5 +1,6 @@
 "use server";
 
+import { createHash } from "node:crypto";
 import { db } from "@/db";
 import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
 import { count, eq, and } from "drizzle-orm";
@@ -30,6 +31,7 @@ import type {
   DeleteImpact,
   MealPeriod,
   MenuItemPriceOptionInput,
+  MenuSyncInput,
 } from "@/lib/canteen-types";
 import {
   parseMealPeriod,
@@ -415,10 +417,36 @@ function syncMenuSelection() {
   };
 }
 
+type MenuSyncPreview = {
+  plan: MenuSyncPlan;
+  previewToken: string;
+};
+
+function createMenuSyncPreviewToken(
+  input: MenuSyncInput,
+  existing: ExistingSyncMenuItem[],
+): string {
+  const normalizedExisting = [...existing]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map((item) => ({
+      ...item,
+      priceOptions: [...item.priceOptions].sort(
+        (a, b) =>
+          a.sortOrder - b.sortOrder ||
+          (a.label ?? "").localeCompare(b.label ?? "") ||
+          a.currency.localeCompare(b.currency) ||
+          a.amountMinor - b.amountMinor,
+      ),
+    }));
+  return createHash("sha256")
+    .update(JSON.stringify({ input, existing: normalizedExisting }))
+    .digest("hex");
+}
+
 export async function previewMenuSyncFromJson(
   canteenId: string,
   jsonInput: unknown,
-): Promise<MenuSyncPlan> {
+): Promise<MenuSyncPreview> {
   await requireAdmin();
   if (isCanteenMockMode()) throw new Error("MENU_SYNC_UNAVAILABLE");
   const input = parseMenuSyncJson(jsonInput);
@@ -430,12 +458,17 @@ export async function previewMenuSyncFromJson(
       eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
     )
     .where(eq(canteenMenuItems.canteenId, canteenId));
-  return planMenuSync(input, collectExistingSyncItems(rows));
+  const existing = collectExistingSyncItems(rows);
+  return {
+    plan: planMenuSync(input, existing),
+    previewToken: createMenuSyncPreviewToken(input, existing),
+  };
 }
 
 export async function applyMenuSyncFromJson(
   canteenId: string,
   jsonInput: unknown,
+  previewToken: unknown,
 ): Promise<MenuSyncPlan> {
   await requireAdmin();
   if (isCanteenMockMode()) throw new Error("MENU_SYNC_UNAVAILABLE");
@@ -459,6 +492,9 @@ export async function applyMenuSyncFromJson(
       .where(eq(canteenMenuItems.canteenId, canteenId))
       .for("update", { of: canteenMenuItems });
     const existing = collectExistingSyncItems(rows);
+    if (previewToken !== createMenuSyncPreviewToken(input, existing)) {
+      throw new Error("MENU_SYNC_STALE");
+    }
     const currentPlan = planMenuSync(input, existing);
     if (currentPlan.conflicts.length > 0) throw new Error("MENU_SYNC_CONFLICT");
 
@@ -518,7 +554,12 @@ export async function applyMenuSyncFromJson(
           lastSyncedAt: now,
           updatedAt: now,
         })
-        .where(eq(canteenMenuItems.id, itemId));
+        .where(
+          and(
+            eq(canteenMenuItems.id, itemId),
+            eq(canteenMenuItems.canteenId, canteenId),
+          ),
+        );
       if (action) {
         await tx
           .delete(canteenMenuItemPrices)
@@ -536,7 +577,12 @@ export async function applyMenuSyncFromJson(
       await tx
         .update(canteenMenuItems)
         .set({ isAvailable: false, lastSyncedAt: now, updatedAt: now })
-        .where(eq(canteenMenuItems.id, action.itemId));
+        .where(
+          and(
+            eq(canteenMenuItems.id, action.itemId),
+            eq(canteenMenuItems.canteenId, canteenId),
+          ),
+        );
     }
     return currentPlan;
   });

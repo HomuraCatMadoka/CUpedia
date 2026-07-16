@@ -3,7 +3,7 @@ import type {
   MenuItemPriceOptionInput,
   MenuSyncInput,
   MenuSyncItemInput,
-} from "@/lib/canteen-types";
+} from "./canteen-types";
 
 export type ExistingSyncMenuItem = {
   id: string;
@@ -176,5 +176,14 @@ function samePriceOptions(
   left: MenuItemPriceOptionInput[],
   right: MenuItemPriceOptionInput[],
 ): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  if (left.length !== right.length) return false;
+  return left.every((option, index) => {
+    const other = right[index];
+    return (
+      option.label === other.label &&
+      option.amountMinor === other.amountMinor &&
+      option.currency === other.currency &&
+      option.sortOrder === other.sortOrder
+    );
+  });
 }

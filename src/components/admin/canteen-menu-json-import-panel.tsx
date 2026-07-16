@@ -43,6 +43,7 @@ function jsonImportErrorMessage(code: string): string {
     return "takeOverLegacyItems 须为 true 或 false。";
   if (code === "MENU_SYNC_CONFLICT")
     return "同步存在匹配冲突，请先处理冲突后再应用。";
+  if (code === "MENU_SYNC_STALE") return "菜单已发生变化，请重新预览后再应用。";
   if (code === "EMPTY_MENU_JSON") return "JSON 不能为空。";
   if (code === "MENU_JSON_TOO_LARGE") return "单次最多导入 200 道菜品。";
   if (code === "INVALID_NAME") return "菜品名称无效。";
@@ -72,6 +73,7 @@ export function CanteenMenuJsonImportPanel({
   const [success, setSuccess] = useState<string | null>(null);
   const [plan, setPlan] = useState<MenuSyncPlan | null>(null);
   const [previewedJson, setPreviewedJson] = useState<string | null>(null);
+  const [previewToken, setPreviewToken] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   if (previewMode) {
@@ -85,11 +87,15 @@ export function CanteenMenuJsonImportPanel({
   function handlePreview() {
     setError(null);
     setSuccess(null);
+    setPlan(null);
+    setPreviewedJson(null);
+    setPreviewToken(null);
     startTransition(async () => {
       try {
-        const nextPlan = await previewMenuSyncFromJson(canteenId, json);
-        setPlan(nextPlan);
+        const preview = await previewMenuSyncFromJson(canteenId, json);
+        setPlan(preview.plan);
         setPreviewedJson(json);
+        setPreviewToken(preview.previewToken);
       } catch (err) {
         const code = err instanceof Error ? err.message : "IMPORT_FAILED";
         if (code === "NEXT_REDIRECT") {
@@ -102,18 +108,34 @@ export function CanteenMenuJsonImportPanel({
   }
 
   function handleApply() {
-    if (!plan || previewedJson !== json || plan.conflicts.length > 0) return;
+    if (
+      !plan ||
+      !previewToken ||
+      previewedJson !== json ||
+      plan.conflicts.length > 0
+    )
+      return;
     setError(null);
     setSuccess(null);
     startTransition(async () => {
       try {
-        const applied = await applyMenuSyncFromJson(canteenId, json);
+        const applied = await applyMenuSyncFromJson(
+          canteenId,
+          json,
+          previewToken,
+        );
         setPlan(applied);
-        setPreviewedJson(json);
+        setPreviewedJson(null);
+        setPreviewToken(null);
         setSuccess("菜单同步已应用，历史投票与评论保持不变。");
         router.refresh();
       } catch (err) {
         const code = err instanceof Error ? err.message : "IMPORT_FAILED";
+        if (code === "MENU_SYNC_STALE") {
+          setPlan(null);
+          setPreviewedJson(null);
+          setPreviewToken(null);
+        }
         setError(jsonImportErrorMessage(code));
       }
     });
@@ -139,6 +161,7 @@ export function CanteenMenuJsonImportPanel({
           setJson(e.target.value);
           setPlan(null);
           setPreviewedJson(null);
+          setPreviewToken(null);
           setSuccess(null);
         }}
         placeholder={SAMPLE_JSON}
@@ -151,7 +174,14 @@ export function CanteenMenuJsonImportPanel({
         <Button
           type="button"
           variant="outline"
-          onClick={() => setJson(SAMPLE_JSON)}
+          onClick={() => {
+            setJson(SAMPLE_JSON);
+            setPlan(null);
+            setPreviewedJson(null);
+            setPreviewToken(null);
+            setError(null);
+            setSuccess(null);
+          }}
           disabled={pending}
         >
           填入示例
@@ -169,6 +199,7 @@ export function CanteenMenuJsonImportPanel({
           disabled={
             pending ||
             !plan ||
+            !previewToken ||
             previewedJson !== json ||
             plan.conflicts.length > 0
           }

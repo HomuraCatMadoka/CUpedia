@@ -1,4 +1,8 @@
-import type { MealPeriod, MenuSyncInput } from "@/lib/canteen-types";
+import {
+  compareMealPeriods,
+  type MealPeriod,
+  type MenuSyncInput,
+} from "./canteen-types";
 
 type AigensItem = {
   backendId?: string;
@@ -69,10 +73,10 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
       const backendId = String(item.backendId ?? item.id ?? "").trim();
       if (!backendId) continue;
       const name = item.name.trim().replace(/\s+/g, " ");
+      const amountMinor = parseAigensPrice(item.price);
       for (const mealPeriod of periods) {
         const externalKey = `${backendId}:${mealPeriod}`;
         if (items.has(externalKey)) continue;
-        const amountMinor = Math.round((item.price ?? 0) * 100);
         items.set(externalKey, {
           externalKey,
           name,
@@ -89,7 +93,7 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
 
   const sortedItems = [...items.values()].sort(
     (a, b) =>
-      periodOrder(a.mealPeriod) - periodOrder(b.mealPeriod) ||
+      compareMealPeriods(a.mealPeriod, b.mealPeriod) ||
       a.name.localeCompare(b.name, "zh-HK"),
   );
   sortedItems.forEach((item, index) => {
@@ -102,15 +106,20 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
   };
 }
 
-function periodOrder(period: MealPeriod): number {
-  return { breakfast: 0, lunch: 1, dinner: 2 }[period];
+function parseAigensPrice(price: unknown): number {
+  if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
+    throw new Error("INVALID_AIGENS_PRICE");
+  }
+  const amountMinor = Math.round(price * 100);
+  if (amountMinor > 999_900) throw new Error("INVALID_AIGENS_PRICE");
+  return amountMinor;
 }
 
 function inferDishSvgKey(name: string): string {
-  if (/[麵粉喇沙]/.test(name)) return "noodle";
-  if (/[麻辣口水咖喱]/.test(name)) return "spicy";
-  if (/[飯粥]/.test(name)) return "rice";
-  if (/[煲碗湯]/.test(name)) return "bowl";
-  if (/[多士菠蘿包糕酥甜品]/.test(name)) return "dessert";
+  if (/(麵|米粉|河粉|意粉|喇沙)/u.test(name)) return "noodle";
+  if (/(麻辣|口水|咖喱)/u.test(name)) return "spicy";
+  if (/(飯|粥)/u.test(name)) return "rice";
+  if (/(煲|湯)/u.test(name)) return "bowl";
+  if (/(多士|菠蘿包|糕|酥|甜品)/u.test(name)) return "dessert";
   return "default";
 }

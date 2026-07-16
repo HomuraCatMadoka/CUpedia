@@ -28,7 +28,7 @@ vi.mock("@/lib/canteen-admin-actions", () => ({
 
 const JSON_INPUT = JSON.stringify({
   source: "order-place:102830",
-  items: [{ externalKey: "42:lunch", name: "凍奶茶" }],
+  items: [{ externalKey: "42:lunch", name: "演示菜品" }],
 });
 
 beforeEach(() => {
@@ -48,14 +48,14 @@ describe("CanteenMenuJsonImportPanel", () => {
           action: "create",
           itemId: null,
           externalKey: "42:lunch",
-          name: "凍奶茶",
+          name: "演示菜品",
           changedFields: ["all"],
         },
       ],
       conflicts: [],
       unchanged: 0,
     };
-    mockPreview.mockResolvedValue(plan);
+    mockPreview.mockResolvedValue({ plan, previewToken: "preview-token" });
     mockApply.mockResolvedValue(plan);
     render(<CanteenMenuJsonImportPanel canteenId="canteen-1" />);
 
@@ -76,24 +76,31 @@ describe("CanteenMenuJsonImportPanel", () => {
 
     fireEvent.click(applyButton);
     await waitFor(() =>
-      expect(mockApply).toHaveBeenCalledWith("canteen-1", JSON_INPUT),
+      expect(mockApply).toHaveBeenCalledWith(
+        "canteen-1",
+        JSON_INPUT,
+        "preview-token",
+      ),
     );
     expect(mockRefresh).toHaveBeenCalled();
   });
 
   it("keeps apply disabled when preview reports a conflict", async () => {
     mockPreview.mockResolvedValue({
-      source: "order-place:102830",
-      actions: [],
-      conflicts: [
-        {
-          externalKey: "42:lunch",
-          name: "凍奶茶",
-          reason: "AMBIGUOUS_LEGACY_MATCH",
-          candidateIds: ["a", "b"],
-        },
-      ],
-      unchanged: 0,
+      plan: {
+        source: "order-place:102830",
+        actions: [],
+        conflicts: [
+          {
+            externalKey: "42:lunch",
+            name: "演示菜品",
+            reason: "AMBIGUOUS_LEGACY_MATCH",
+            candidateIds: ["a", "b"],
+          },
+        ],
+        unchanged: 0,
+      },
+      previewToken: "conflict-token",
     });
     render(<CanteenMenuJsonImportPanel canteenId="canteen-1" />);
     fireEvent.change(screen.getByRole("textbox"), {
@@ -106,5 +113,27 @@ describe("CanteenMenuJsonImportPanel", () => {
       (screen.getByRole("button", { name: "应用同步" }) as HTMLButtonElement)
         .disabled,
     ).toBe(true);
+  });
+
+  it("clears an existing preview when loading the example", async () => {
+    const plan = {
+      source: "order-place:102830",
+      actions: [],
+      conflicts: [],
+      unchanged: 1,
+    };
+    mockPreview.mockResolvedValue({ plan, previewToken: "preview-token" });
+    render(<CanteenMenuJsonImportPanel canteenId="canteen-1" />);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: JSON_INPUT },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "预览同步" }));
+    const applyButton = screen.getByRole("button", { name: "应用同步" });
+    await waitFor(() =>
+      expect((applyButton as HTMLButtonElement).disabled).toBe(false),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "填入示例" }));
+    expect((applyButton as HTMLButtonElement).disabled).toBe(true);
   });
 });
