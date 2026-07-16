@@ -13,7 +13,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { COURSE_TERMS, type CourseTerm } from "@/lib/course-review-constants";
+import {
+  COURSE_REVIEW_TAG_OPTIONS,
+  COURSE_TERMS,
+  type CourseReviewTags,
+  type CourseTerm,
+} from "@/lib/course-review-constants";
 import {
   deleteCourseReviewSubmission,
   searchProfessors,
@@ -98,6 +103,23 @@ function StarRatingInput({
   );
 }
 
+const PRESET_TAGS = new Set<string>(
+  Object.values(COURSE_REVIEW_TAG_OPTIONS).flat(),
+);
+
+function parseReviewTags(tags: string[]): CourseReviewTags {
+  return {
+    workload: COURSE_REVIEW_TAG_OPTIONS.workload.find((tag) =>
+      tags.includes(tag),
+    ),
+    grade: COURSE_REVIEW_TAG_OPTIONS.grade.find((tag) => tags.includes(tag)),
+    enrollment: COURSE_REVIEW_TAG_OPTIONS.enrollment.find((tag) =>
+      tags.includes(tag),
+    ),
+    custom: tags.filter((tag) => !PRESET_TAGS.has(tag)),
+  };
+}
+
 export function CourseReviewSection({
   code,
   reviews,
@@ -122,6 +144,10 @@ export function CourseReviewSection({
   );
   const [term, setTerm] = useState<CourseTerm | "">(ratingState.lastTerm ?? "");
   const [score, setScore] = useState<number | null>(ratingState.lastScore);
+  const [reviewTags, setReviewTags] = useState<CourseReviewTags>(() =>
+    parseReviewTags(ratingState.lastTags),
+  );
+  const [customTagInput, setCustomTagInput] = useState("");
   const [error, setError] = useState("");
   const [submitting, startSubmit] = useTransition();
   const [, startSearch] = useTransition();
@@ -160,11 +186,17 @@ export function CourseReviewSection({
           professorId: professor.id,
           score,
           content,
+          tags: reviewTags,
         });
         setEditing(false);
         router.refresh();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "提交失败");
+        const message = e instanceof Error ? e.message : "提交失败";
+        setError(
+          message === "SENSITIVE_CONTENT"
+            ? "自定义标签包含敏感词，请修改后重试"
+            : message,
+        );
       }
     });
   }
@@ -238,7 +270,50 @@ export function CourseReviewSection({
     setProfessor(ratingState.lastProfessor);
     setProfessorQuery(ratingState.lastProfessor?.name ?? "");
     setContent(ratingState.lastContent);
+    setReviewTags(parseReviewTags(ratingState.lastTags));
+    setCustomTagInput("");
     setError("");
+  }
+
+  function togglePreset(
+    dimension: keyof typeof COURSE_REVIEW_TAG_OPTIONS,
+    tag: string,
+  ) {
+    setReviewTags((current) => ({
+      ...current,
+      [dimension]: current[dimension] === tag ? undefined : tag,
+    }));
+  }
+
+  function addCustomTag() {
+    const tag = customTagInput.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+    const custom = reviewTags.custom ?? [];
+    if (!tag) return;
+    if (tag.length > 12) {
+      setError("自定义标签最多 12 个字符");
+      return;
+    }
+    if (PRESET_TAGS.has(tag) || custom.includes(tag)) {
+      setCustomTagInput("");
+      return;
+    }
+    if (custom.length >= 5) {
+      setError("自定义标签最多 5 个");
+      return;
+    }
+    setReviewTags((current) => ({
+      ...current,
+      custom: [...(current.custom ?? []), tag],
+    }));
+    setCustomTagInput("");
+    setError("");
+  }
+
+  function removeCustomTag(tag: string) {
+    setReviewTags((current) => ({
+      ...current,
+      custom: (current.custom ?? []).filter((item) => item !== tag),
+    }));
   }
 
   return (
@@ -288,6 +363,14 @@ export function CourseReviewSection({
               <span className="rounded-full bg-secondary px-3 py-1.5">
                 {ratingState.lastProfessor?.name}
               </span>
+              {ratingState.lastTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-primary/10 px-3 py-1.5 text-primary"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
             <div className="rounded-xl border bg-secondary/20 p-4">
               <p className="text-xs font-medium text-muted-foreground">
@@ -407,6 +490,98 @@ export function CourseReviewSection({
                   已保留你上次的选择，可直接修改后更新。
                 </p>
               )}
+            </fieldset>
+
+            <fieldset className="space-y-4">
+              <legend className="text-sm font-medium">
+                课程体验
+                <span className="ml-2 font-normal text-muted-foreground">
+                  选填
+                </span>
+              </legend>
+              <div className="grid gap-4 sm:grid-cols-3">
+                {(
+                  Object.entries(COURSE_REVIEW_TAG_OPTIONS) as [
+                    keyof typeof COURSE_REVIEW_TAG_OPTIONS,
+                    readonly string[],
+                  ][]
+                ).map(([dimension, options]) => (
+                  <div key={dimension} className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {dimension === "workload"
+                        ? "Workload"
+                        : dimension === "grade"
+                          ? "Grade"
+                          : "抢课难度"}
+                    </p>
+                    <div className="flex gap-2">
+                      {options.map((tag) => (
+                        <button
+                          key={tag}
+                          type="button"
+                          aria-pressed={reviewTags[dimension] === tag}
+                          onClick={() => togglePreset(dimension, tag)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs transition-colors",
+                            reviewTags[dimension] === tag
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "bg-background hover:bg-accent",
+                          )}
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
+                  {(reviewTags.custom ?? []).map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => removeCustomTag(tag)}
+                      className="rounded-full bg-secondary px-3 py-1.5 text-xs hover:bg-destructive/10 hover:text-destructive"
+                      title="移除自定义标签"
+                    >
+                      {tag} ×
+                    </button>
+                  ))}
+                </div>
+                <div className="flex max-w-md gap-2">
+                  <input
+                    value={customTagInput}
+                    onChange={(event) => setCustomTagInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addCustomTag();
+                      }
+                    }}
+                    placeholder="添加自定义标签"
+                    maxLength={12}
+                    disabled={(reviewTags.custom?.length ?? 0) >= 5}
+                    className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCustomTag}
+                    disabled={
+                      !customTagInput.trim() ||
+                      (reviewTags.custom?.length ?? 0) >= 5
+                    }
+                  >
+                    添加
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  最多 5 个，每个最多 12 个字符
+                </p>
+              </div>
             </fieldset>
 
             <label className="block space-y-2 text-sm font-medium">
@@ -645,6 +820,21 @@ export function CourseReviewSection({
                 </p>
               )}
             </div>
+            {selectedProfessor.tags.length > 0 && (
+              <div
+                aria-label="教授课程体验标签"
+                className="flex flex-wrap gap-2 border-t border-black/10 px-4 py-4 sm:col-span-2 sm:px-5"
+              >
+                {selectedProfessor.tags.map((tag) => (
+                  <span
+                    key={tag.label}
+                    className="rounded-full bg-secondary px-3 py-1.5 text-xs"
+                  >
+                    {tag.label} {tag.count}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -692,6 +882,14 @@ export function CourseReviewSection({
                   {review.professorName}
                 </span>
               )}
+              {review.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-primary/10 px-2.5 py-1 text-primary"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
             {!review.isRatingOnly && (
               <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">

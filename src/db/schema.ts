@@ -370,6 +370,7 @@ export const courseRatings = pgTable(
     term: text("term"),
     professorId: text("professor_id").references(() => professors.id),
     professorNameSnapshot: text("professor_name_snapshot"),
+    tags: jsonb("tags").$type<string[]>().notNull().default([]),
     /** Last time this user rated this course (refreshed on each upsert). */
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
