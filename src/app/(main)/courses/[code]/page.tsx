@@ -7,6 +7,7 @@ import {
   getCourseReviews,
   getCourseRatingState,
   getCourseEnrollmentHistory,
+  isCourseProfessorOptional,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { getOptionalUser } from "@/lib/auth-guard";
@@ -38,14 +39,21 @@ export default async function CourseDetailPage({
     from === "/courses" || Boolean(from?.startsWith("/courses?"));
   const returnTo = hasCourseListSource ? from! : "/courses";
 
-  const [reviews, ratingState, enrollmentHistory, professorStats, user] =
-    await Promise.all([
-      getCourseReviews(course.code),
-      getCourseRatingState(course.code),
-      getCourseEnrollmentHistory(course.code),
-      getCourseProfessorStats(course.code),
-      getOptionalUser(),
-    ]);
+  const [
+    reviews,
+    ratingState,
+    enrollmentHistory,
+    professorStats,
+    user,
+    professorOptional,
+  ] = await Promise.all([
+    getCourseReviews(course.code),
+    getCourseRatingState(course.code),
+    getCourseEnrollmentHistory(course.code),
+    getCourseProfessorStats(course.code),
+    getOptionalUser(),
+    isCourseProfessorOptional(course.code),
+  ]);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -185,6 +193,7 @@ export default async function CourseDetailPage({
                 .sort()
                 .reverse()}
               isAuthenticated={!!user}
+              professorOptional={professorOptional}
             />
           </div>
         )}

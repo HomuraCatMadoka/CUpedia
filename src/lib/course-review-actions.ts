@@ -95,7 +95,7 @@ export type CourseReviewTagCount = {
 export type CourseReviewSubmission = {
   academicYear: string;
   term: CourseTerm;
-  professorId: string;
+  professorId: string | null;
   score: number;
   content?: string;
   tags?: CourseReviewTags;
@@ -896,6 +896,16 @@ export async function getCourseEnrollmentHistory(
   });
 }
 
+export async function isCourseProfessorOptional(
+  code: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ instructors: courseEnrollments.instructors })
+    .from(courseEnrollments)
+    .where(eq(courseEnrollments.courseCode, normalizeCode(code)));
+  return rows.length > 0 && rows.every((row) => row.instructors.length === 0);
+}
+
 // ── Mutations (require auth) ──
 
 /** Create or update one concrete course experience. The optional comment is
@@ -922,12 +932,17 @@ export async function submitCourseReview(
   const course = await findCourse(code);
   if (!course) throw new Error("课程不存在");
 
-  const [professor] = await db
-    .select({ id: professors.id, name: professors.name })
-    .from(professors)
-    .where(eq(professors.id, submission.professorId))
-    .limit(1);
-  if (!professor) throw new Error("请选择教授目录中的教授");
+  let professor: { id: string; name: string } | null = null;
+  if (submission.professorId) {
+    [professor] = await db
+      .select({ id: professors.id, name: professors.name })
+      .from(professors)
+      .where(eq(professors.id, submission.professorId))
+      .limit(1);
+    if (!professor) throw new Error("请选择教授目录中的教授");
+  } else if (!(await isCourseProfessorOptional(course.code))) {
+    throw new Error("请选择任课教授");
+  }
 
   const existingReviews = await db
     .select({ id: courseReviews.id })
@@ -950,8 +965,8 @@ export async function submitCourseReview(
         score: submission.score,
         academicYear: submission.academicYear,
         term: submission.term,
-        professorId: professor.id,
-        professorNameSnapshot: professor.name,
+        professorId: professor?.id ?? null,
+        professorNameSnapshot: professor?.name ?? null,
         isAnonymous,
         tags,
       })
@@ -961,8 +976,8 @@ export async function submitCourseReview(
           score: submission.score,
           academicYear: submission.academicYear,
           term: submission.term,
-          professorId: professor.id,
-          professorNameSnapshot: professor.name,
+          professorId: professor?.id ?? null,
+          professorNameSnapshot: professor?.name ?? null,
           isAnonymous,
           tags,
           createdAt: sql`now()`,
@@ -971,8 +986,8 @@ export async function submitCourseReview(
 
     const reviewValues = {
       content,
-      professorId: professor.id,
-      professorNameSnapshot: professor.name,
+      professorId: professor?.id ?? null,
+      professorNameSnapshot: professor?.name ?? null,
       academicYear: submission.academicYear,
       term: submission.term,
       score: submission.score,
