@@ -74,6 +74,22 @@ async function createRatingOnly(email: string) {
   }
 }
 
+async function createReview(email: string, content: string, createdAt: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `insert into course_reviews (course_code, user_id, content, created_at)
+       select 'CSCI1130', id, $2, $3
+       from users
+       where email = $1`,
+      [email, content, createdAt],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 test.afterEach(cleanup);
 
 test("#294 published submission can be edited, cleared, deleted, and moderated", async ({
@@ -197,4 +213,34 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
   await expect(ratingOnly).toHaveCount(0);
   await expect.poll(() => countRows("course_ratings")).toBe(0);
   await adminContext.close();
+});
+
+test("review cards with different content lengths do not overlap", async ({
+  page,
+}) => {
+  const shortReview = `short-review-${randomUUID()}`;
+  const longReview = `long-review-${randomUUID()}-${"很长的课程测评内容".repeat(180)}`;
+  contents.push(shortReview, longReview);
+
+  await createReview("user@test.com", shortReview, "2026-01-01T00:00:00Z");
+  await createReview(
+    "contributor@test.com",
+    longReview,
+    "2026-01-02T00:00:00Z",
+  );
+
+  await page.goto("/courses/CSCI1130");
+
+  const longCard = page.getByRole("listitem").filter({ hasText: longReview });
+  const shortCard = page.getByRole("listitem").filter({ hasText: shortReview });
+  await expect(longCard).toBeVisible();
+  await expect(shortCard).toBeVisible();
+
+  const [longBox, shortBox] = await Promise.all([
+    longCard.boundingBox(),
+    shortCard.boundingBox(),
+  ]);
+  expect(longBox).not.toBeNull();
+  expect(shortBox).not.toBeNull();
+  expect(shortBox!.y).toBeGreaterThanOrEqual(longBox!.y + longBox!.height - 1);
 });

@@ -52,6 +52,7 @@
     "@radix-ui/react-toolbar": "^1.1.11",
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/typography": "^0.5.19",
+    "@tanstack/react-virtual": "^3.14.6",
     "@udecode/cn": "^52.3.4",
     "better-auth": "^1.6.11",
     "class-variance-authority": "^0.7.1",

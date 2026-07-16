@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   CheckCircle2Icon,
   PencilIcon,
@@ -258,6 +259,29 @@ export function CourseReviewSection({
   const visibleCommentCount = visibleReviews.filter(
     (review) => !review.isRatingOnly,
   ).length;
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Jump back to the top of the scroll-box when the professor filter changes.
+  // Assign scrollTop instead of calling scrollTo(), which jsdom doesn't
+  // implement; both respect the CSS scroll-behavior on the box.
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+  }, [selectedProfessorId]);
+
+  // Wheel handoff at the top/bottom boundary is native behavior
+  // (overscroll-behavior defaults to `auto`), so no JS is needed for it.
+  // Row heights use the library default measureElement: it reads the free
+  // ResizeObserver borderBoxSize instead of forcing a layout pass.
+  const virtualizer = useVirtualizer({
+    count: visibleReviews.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 200,
+    gap: 12,
+    // Assume the max-h-[450px] viewport during SSR so the first reviews
+    // are part of the initial HTML instead of an empty list.
+    initialRect: { width: 768, height: 450 },
+  });
   const professorTermsByYear = selectedProfessor
     ? [
         ...new Set(selectedProfessor.terms.map((item) => item.academicYear)),
@@ -879,112 +903,134 @@ export function CourseReviewSection({
         )}
       </div>
 
-      <ul className="space-y-3">
-        {visibleReviews.length === 0 && (
-          <li className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+      <div
+        ref={scrollRef}
+        tabIndex={0}
+        role="region"
+        aria-label="同学测评列表"
+        className="max-h-[450px] overflow-y-auto rounded-xl scroll-smooth focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        {visibleReviews.length === 0 ? (
+          <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
             {selectedProfessor
               ? "该教授还没有文字测评。"
               : "还没有文字测评。你也可以只提交评分。"}
-          </li>
-        )}
-        {visibleReviews.map((review) => (
-          <li key={review.id} className="rounded-xl border p-5">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-sm font-medium">
-                {review.isRatingOnly
-                  ? "仅评分投稿"
-                  : (review.authorNickname ?? "匿名用户")}
-              </span>
-              <span
-                className="text-xs text-muted-foreground"
-                suppressHydrationWarning
-              >
-                {timeAgo(review.createdAt)}
-              </span>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              {review.score !== null && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                  <StarIcon className="size-3 fill-current" />
-                  {review.score.toFixed(1)}
-                </span>
-              )}
-              {review.academicYear && (
-                <span className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
-                  {review.academicYear}
-                </span>
-              )}
-              {review.term && (
-                <span className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
-                  {review.term}
-                </span>
-              )}
-              {review.professorName && (
-                <span className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
-                  {review.professorName}
-                </span>
-              )}
-              {review.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-primary/10 px-2.5 py-1 text-primary"
+          </div>
+        ) : (
+          <ul
+            className="relative"
+            style={{ height: `${virtualizer.getTotalSize()}px` }}
+          >
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const review = visibleReviews[virtualItem.index];
+              return (
+                <li
+                  key={review.id}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  className="absolute top-0 right-0 left-0 rounded-xl border p-5"
+                  style={{ transform: `translateY(${virtualItem.start}px)` }}
                 >
-                  {tag}
-                </span>
-              ))}
-            </div>
-            {!review.isRatingOnly && (
-              <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
-                {review.content}
-              </p>
-            )}
-            <div className="mt-4 flex items-center gap-3">
-              {!review.isRatingOnly && (
-                <button
-                  type="button"
-                  onClick={() => isAuthenticated && handleLike(review.id)}
-                  disabled={
-                    !isAuthenticated || (submitting && busyId === review.id)
-                  }
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors",
-                    review.likedByMe
-                      ? "bg-primary/10 text-primary"
-                      : "bg-secondary text-muted-foreground hover:bg-accent",
-                    !isAuthenticated && "cursor-not-allowed opacity-60",
-                  )}
-                  title={isAuthenticated ? "点赞" : "登录后可点赞"}
-                >
-                  <ThumbsUpIcon
-                    className={cn(
-                      "size-3.5",
-                      review.likedByMe && "fill-current",
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-sm font-medium">
+                      {review.isRatingOnly
+                        ? "仅评分投稿"
+                        : (review.authorNickname ?? "匿名用户")}
+                    </span>
+                    <span
+                      className="text-xs text-muted-foreground"
+                      suppressHydrationWarning
+                    >
+                      {timeAgo(review.createdAt)}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    {review.score !== null && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                        <StarIcon className="size-3 fill-current" />
+                        {review.score.toFixed(1)}
+                      </span>
                     )}
-                  />
-                  {review.likeCount}
-                </button>
-              )}
-              {review.canAdminDelete && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    handleDelete({
-                      id: review.id,
-                      type: review.isRatingOnly ? "rating" : "review",
-                    })
-                  }
-                  disabled={submitting && busyId === review.id}
-                  className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
-                  title="删除整条投稿"
-                >
-                  <Trash2Icon className="size-3.5" />
-                  删除投稿
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
+                    {review.academicYear && (
+                      <span className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
+                        {review.academicYear}
+                      </span>
+                    )}
+                    {review.term && (
+                      <span className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
+                        {review.term}
+                      </span>
+                    )}
+                    {review.professorName && (
+                      <span className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
+                        {review.professorName}
+                      </span>
+                    )}
+                    {review.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full bg-primary/10 px-2.5 py-1 text-primary"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  {!review.isRatingOnly && (
+                    <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+                      {review.content}
+                    </p>
+                  )}
+                  <div className="mt-4 flex items-center gap-3">
+                    {!review.isRatingOnly && (
+                      <button
+                        type="button"
+                        onClick={() => isAuthenticated && handleLike(review.id)}
+                        disabled={
+                          !isAuthenticated ||
+                          (submitting && busyId === review.id)
+                        }
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors",
+                          review.likedByMe
+                            ? "bg-primary/10 text-primary"
+                            : "bg-secondary text-muted-foreground hover:bg-accent",
+                          !isAuthenticated && "cursor-not-allowed opacity-60",
+                        )}
+                        title={isAuthenticated ? "点赞" : "登录后可点赞"}
+                      >
+                        <ThumbsUpIcon
+                          className={cn(
+                            "size-3.5",
+                            review.likedByMe && "fill-current",
+                          )}
+                        />
+                        {review.likeCount}
+                      </button>
+                    )}
+                    {review.canAdminDelete && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDelete({
+                            id: review.id,
+                            type: review.isRatingOnly ? "rating" : "review",
+                          })
+                        }
+                        disabled={submitting && busyId === review.id}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
+                        title="删除整条投稿"
+                      >
+                        <Trash2Icon className="size-3.5" />
+                        删除投稿
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
