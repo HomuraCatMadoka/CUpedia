@@ -2,6 +2,13 @@ import { expect, test } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 
 test.describe("#349 nickname editing", () => {
+  test.afterEach(async ({ page }) => {
+    const response = await page.request.post("/api/auth/nickname", {
+      data: { nickname: "TestUser" },
+    });
+    expect(response.ok()).toBe(true);
+  });
+
   test("opens the nickname dialog with the current nickname", async ({
     page,
   }) => {
