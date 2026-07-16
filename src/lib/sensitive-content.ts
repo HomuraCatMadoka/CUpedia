@@ -25,12 +25,14 @@ function loadLexiconWords(): string[] {
 }
 
 type SensitiveMatcher = {
+  words: string[];
   mint: Mint;
   numericTerms: RegExp[];
 };
 
 function createMatcher(words: string[]): SensitiveMatcher {
   return {
+    words,
     mint: new Mint(words.filter((word) => !/^\d+$/.test(word))),
     numericTerms: words
       .filter((word) => /^\d+$/.test(word))
@@ -39,6 +41,7 @@ function createMatcher(words: string[]): SensitiveMatcher {
 }
 
 let matcher: SensitiveMatcher | null = null;
+const matcherExceptions = new Map<string, SensitiveMatcher>();
 
 function getMatcher(): SensitiveMatcher {
   if (!matcher) matcher = createMatcher(loadLexiconWords());
@@ -46,8 +49,23 @@ function getMatcher(): SensitiveMatcher {
 }
 
 /** True when `text` contains at least one lexicon hit. */
-export function containsSensitiveContent(text: string): boolean {
-  const current = getMatcher();
+export function containsSensitiveContent(
+  text: string,
+  exceptions: readonly string[] = [],
+): boolean {
+  let current = getMatcher();
+  if (exceptions.length > 0) {
+    const key = [...new Set(exceptions)].sort().join("\0");
+    let exceptionMatcher = matcherExceptions.get(key);
+    if (!exceptionMatcher) {
+      const ignored = new Set(exceptions);
+      exceptionMatcher = createMatcher(
+        current.words.filter((word) => !ignored.has(word)),
+      );
+      matcherExceptions.set(key, exceptionMatcher);
+    }
+    current = exceptionMatcher;
+  }
   return (
     !current.mint.verify(text) ||
     current.numericTerms.some((pattern) => pattern.test(text))
@@ -55,13 +73,17 @@ export function containsSensitiveContent(text: string): boolean {
 }
 
 /** Throws `SENSITIVE_CONTENT` when the text hits the lexicon. */
-export function assertNoSensitiveContent(text: string): void {
-  if (containsSensitiveContent(text)) {
+export function assertNoSensitiveContent(
+  text: string,
+  exceptions: readonly string[] = [],
+): void {
+  if (containsSensitiveContent(text, exceptions)) {
     throw new Error(SENSITIVE_CONTENT_ERROR);
   }
 }
 
 /** Test helper — pass `null` to reload the default lexicon on next check. */
 export function resetSensitiveMatcherForTests(words: string[] | null): void {
+  matcherExceptions.clear();
   matcher = words === null ? null : createMatcher(words);
 }

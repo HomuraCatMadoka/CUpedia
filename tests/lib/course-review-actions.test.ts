@@ -310,6 +310,18 @@ describe("submitCourseReview", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("不豁免包含课程领域常用词的完整敏感词", async () => {
+    resetSensitiveMatcherForTests(["考试作弊"]);
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { custom: ["考试作弊"] },
+      }),
+    ).rejects.toThrow("SENSITIVE_CONTENT");
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
   it("含评论时原子写入评分和匿名评论快照", async () => {
     queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], [], []);
     await submitCourseReview("CSCI3150", {

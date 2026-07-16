@@ -268,7 +268,7 @@ function normalizeReviewTags(tags: CourseReviewTags | undefined): string[] {
   if (custom.some((tag) => COURSE_REVIEW_PRESET_TAGS.has(tag))) {
     throw new Error("自定义标签不能使用 preset");
   }
-  custom.forEach((tag) => assertNoSensitiveContent(tag.replaceAll("考试", "")));
+  custom.forEach((tag) => assertNoSensitiveContent(tag, ["考试"]));
   return [...new Set([...preset, ...custom].filter(Boolean))];
 }
 
