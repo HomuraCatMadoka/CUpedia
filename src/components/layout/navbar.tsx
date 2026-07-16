@@ -105,7 +105,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                     .nickname as string) || session.user.email}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={openNicknameDialog}>
+                  <DropdownMenuItem onClick={openNicknameDialog}>
                     修改昵称
                   </DropdownMenuItem>
                   <DropdownMenuItem onSelect={() => authClient.signOut()}>
