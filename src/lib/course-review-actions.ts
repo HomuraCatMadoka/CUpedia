@@ -30,7 +30,10 @@ import {
   searchProfessorCandidates,
 } from "@/lib/professor-search";
 import { assertNoSensitiveContent } from "@/lib/sensitive-content";
-import type { Course } from "@/app/(main)/courses/course-types";
+import {
+  getCourseGenderRestriction,
+  type Course,
+} from "@/app/(main)/courses/course-types";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Data-access layer for the course-review feature (#178).
@@ -164,6 +167,7 @@ const courseCols = {
   units: courses.units,
   description: courses.description,
   terms: courses.terms,
+  requirementsRaw: courses.requirementsRaw,
 };
 
 type CourseRow = {
@@ -173,6 +177,7 @@ type CourseRow = {
   units: string | null; // numeric → string in drizzle
   description: string | null;
   terms: string[] | null;
+  requirementsRaw: string | null;
 };
 
 function toCourse(r: CourseRow): Course {
@@ -183,6 +188,10 @@ function toCourse(r: CourseRow): Course {
     units: Number(r.units ?? 0),
     description: r.description ?? "",
     terms: r.terms ?? [],
+    genderRestriction: getCourseGenderRestriction(
+      r.subject,
+      r.requirementsRaw ?? "",
+    ),
   };
 }
 

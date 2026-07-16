@@ -14,6 +14,7 @@ import { getOptionalUser } from "@/lib/auth-guard";
 import { Badge } from "@/components/ui/badge";
 import { CourseReviewSection } from "@/components/courses/course-review-section";
 import { CourseListBackLink } from "@/components/courses/course-list-back-link";
+import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
 
 function recentAcademicYears(now = new Date()): string[] {
   const start = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -77,6 +78,7 @@ export default async function CourseDetailPage({
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Badge variant="secondary">{course.units} 学分</Badge>
+                <CourseGenderBadge restriction={course.genderRestriction} />
                 {course.terms.map((t) => (
                   <Badge key={t} variant="secondary">
                     {t}

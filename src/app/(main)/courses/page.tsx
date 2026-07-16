@@ -10,6 +10,7 @@ import {
   CourseCardLink,
   CourseListNavigationReset,
 } from "@/components/courses/course-card-link";
+import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
 
 export default async function CoursesPage({
   searchParams,
@@ -193,9 +194,12 @@ function CourseCard({
       </div>
 
       <div className="mt-3">
-        <h2 className="text-base font-semibold tracking-tight">
-          {formatCourseCode(c.code)}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-semibold tracking-tight">
+            {formatCourseCode(c.code)}
+          </h2>
+          <CourseGenderBadge restriction={c.genderRestriction} />
+        </div>
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
           {c.title}
         </p>
