@@ -785,6 +785,10 @@ export const canteenMenuItems = pgTable(
     mealPeriod: text("meal_period").notNull().default("lunch"),
     sortOrder: integer("sort_order").notNull().default(0),
     svgKey: text("svg_key").notNull().default("default"),
+    externalSource: text("external_source"),
+    externalKey: text("external_key"),
+    isAvailable: boolean("is_available").notNull().default(true),
+    lastSyncedAt: timestamp("last_synced_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -793,6 +797,15 @@ export const canteenMenuItems = pgTable(
     index("canteen_menu_items_canteen_meal_idx").on(
       table.canteenId,
       table.mealPeriod,
+    ),
+    uniqueIndex("canteen_menu_items_external_identity_uidx")
+      .on(table.canteenId, table.externalSource, table.externalKey)
+      .where(
+        sql`${table.externalSource} is not null and ${table.externalKey} is not null`,
+      ),
+    check(
+      "canteen_menu_items_external_identity_chk",
+      sql`(${table.externalSource} is null) = (${table.externalKey} is null)`,
     ),
   ],
 );

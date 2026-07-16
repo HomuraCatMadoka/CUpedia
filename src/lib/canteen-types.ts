@@ -141,6 +141,16 @@ export type MenuItemJsonImportRow = {
   svgKey: string;
 };
 
+export type MenuSyncItemInput = MenuItemJsonImportRow & {
+  externalKey: string;
+};
+
+export type MenuSyncInput = {
+  source: string;
+  takeOverLegacyItems: boolean;
+  items: MenuSyncItemInput[];
+};
+
 /** Parse admin JSON bulk import: array or `{ items: [...] }`. */
 export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
   let parsed: unknown = input;
@@ -178,6 +188,53 @@ export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
       svgKey: validateSvgKey(r.svgKey),
     };
   });
+}
+
+/** Parse a complete external-source snapshot used by preview/apply sync. */
+export function parseMenuSyncJson(input: unknown): MenuSyncInput {
+  let parsed: unknown = input;
+  if (typeof input === "string") {
+    const trimmed = input.trim();
+    if (!trimmed) throw new Error("EMPTY_MENU_JSON");
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error("INVALID_JSON");
+    }
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("INVALID_MENU_SYNC");
+  }
+  const record = parsed as Record<string, unknown>;
+  const source = validateExternalIdentity(record.source, "INVALID_SYNC_SOURCE");
+  if (
+    record.takeOverLegacyItems !== undefined &&
+    typeof record.takeOverLegacyItems !== "boolean"
+  ) {
+    throw new Error("INVALID_TAKEOVER_FLAG");
+  }
+  const takeOverLegacyItems = record.takeOverLegacyItems === true;
+  const rows = parseMenuItemsJson(record.items);
+  const rawItems = record.items as Array<Record<string, unknown>>;
+  const seen = new Set<string>();
+  const items = rows.map((row, index) => {
+    const externalKey = validateExternalIdentity(
+      rawItems[index]?.externalKey,
+      "INVALID_EXTERNAL_KEY",
+    );
+    if (seen.has(externalKey)) throw new Error("DUPLICATE_EXTERNAL_KEY");
+    seen.add(externalKey);
+    return { ...row, externalKey };
+  });
+  return { source, takeOverLegacyItems, items };
+}
+
+function validateExternalIdentity(input: unknown, code: string): string {
+  if (typeof input !== "string") throw new Error(code);
+  const value = input.trim();
+  if (!value || value.length > 200) throw new Error(code);
+  return value;
 }
 
 export function validateCommentContent(input: unknown): string {

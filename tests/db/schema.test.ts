@@ -73,6 +73,10 @@ describe("schema", () => {
     expect(cols.mealPeriod).toBeDefined();
     expect(cols.sortOrder).toBeDefined();
     expect(cols.svgKey).toBeDefined();
+    expect(cols.externalSource).toBeDefined();
+    expect(cols.externalKey).toBeDefined();
+    expect(cols.isAvailable).toBeDefined();
+    expect(cols.lastSyncedAt).toBeDefined();
   });
 
   it("canteenMenuItemPrices stores labelled minor-unit prices", () => {

@@ -29,7 +29,12 @@ async function assertMenuItemExists(menuItemId: string): Promise<void> {
   const items = await db
     .select({ id: canteenMenuItems.id })
     .from(canteenMenuItems)
-    .where(eq(canteenMenuItems.id, menuItemId))
+    .where(
+      and(
+        eq(canteenMenuItems.id, menuItemId),
+        eq(canteenMenuItems.isAvailable, true),
+      ),
+    )
     .limit(1);
   if (!items[0]) throw new Error("MENU_ITEM_NOT_FOUND");
 }

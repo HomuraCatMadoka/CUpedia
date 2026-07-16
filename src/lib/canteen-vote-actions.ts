@@ -26,9 +26,7 @@ import { parseVote } from "@/lib/canteen-types";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
 import { CANTEEN_VOTE_COUNTS_TAG } from "@/lib/canteen-vote-queries";
 
-type VoterIdentity =
-  | { userId: string }
-  | { anonymousSessionId: string };
+type VoterIdentity = { userId: string } | { anonymousSessionId: string };
 
 async function readAnonSessionId(): Promise<string | null> {
   const cookieStore = await cookies();
@@ -83,7 +81,12 @@ async function assertMenuItemExists(menuItemId: string): Promise<void> {
   const items = await db
     .select({ id: canteenMenuItems.id })
     .from(canteenMenuItems)
-    .where(eq(canteenMenuItems.id, menuItemId))
+    .where(
+      and(
+        eq(canteenMenuItems.id, menuItemId),
+        eq(canteenMenuItems.isAvailable, true),
+      ),
+    )
     .limit(1);
   if (!items[0]) throw new Error("MENU_ITEM_NOT_FOUND");
 }
@@ -145,6 +148,7 @@ const getCachedVoteCounts = unstable_cache(
       .where(
         and(
           eq(canteenMenuItems.canteenId, canteenId),
+          eq(canteenMenuItems.isAvailable, true),
           isNotNull(canteenDishVotes.vote),
         ),
       )
@@ -214,7 +218,13 @@ export async function getMyVotesForCanteen(
       canteenMenuItems,
       eq(canteenDishVotes.menuItemId, canteenMenuItems.id),
     )
-    .where(and(eq(canteenMenuItems.canteenId, canteenId), where));
+    .where(
+      and(
+        eq(canteenMenuItems.canteenId, canteenId),
+        eq(canteenMenuItems.isAvailable, true),
+        where,
+      ),
+    );
 
   const result: Record<string, VoteChoice> = {};
   for (const row of rows) {

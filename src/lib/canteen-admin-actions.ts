@@ -34,6 +34,7 @@ import type {
 import {
   parseMealPeriod,
   parseMenuItemsJson,
+  parseMenuSyncJson,
   validateCanteenName,
   validateLocation,
   validateMenuItemName,
@@ -42,6 +43,11 @@ import {
   validateSvgKey,
 } from "@/lib/canteen-types";
 import { buildMenuItemPricing } from "@/lib/canteen-pricing";
+import {
+  planMenuSync,
+  type ExistingSyncMenuItem,
+  type MenuSyncPlan,
+} from "@/lib/canteen-menu-sync";
 
 function mapMenuItem(
   row: typeof canteenMenuItems.$inferSelect,
@@ -320,6 +326,225 @@ export async function bulkImportMenuItemsFromJson(
   revalidatePath(`/api/canteens/${canteenId}/menu`);
   revalidatePath(`/canteen/${canteenId}`);
   return created;
+}
+
+type SyncMenuRow = {
+  id: string;
+  name: string;
+  mealPeriod: string;
+  sortOrder: number;
+  svgKey: string;
+  legacyPrice: number | null;
+  externalSource: string | null;
+  externalKey: string | null;
+  isAvailable: boolean;
+  priceId: string | null;
+  priceLabel: string | null;
+  amountMinor: number | null;
+  currency: string | null;
+  priceSortOrder: number | null;
+};
+
+function collectExistingSyncItems(rows: SyncMenuRow[]): ExistingSyncMenuItem[] {
+  const items = new Map<string, ExistingSyncMenuItem>();
+  for (const row of rows) {
+    const existing = items.get(row.id);
+    if (existing) {
+      if (row.priceId) {
+        existing.priceOptions.push({
+          label: row.priceLabel,
+          amountMinor: row.amountMinor!,
+          currency: row.currency!,
+          sortOrder: row.priceSortOrder!,
+        });
+      }
+      continue;
+    }
+    items.set(row.id, {
+      id: row.id,
+      name: row.name,
+      mealPeriod: row.mealPeriod as MealPeriod,
+      sortOrder: row.sortOrder,
+      svgKey: row.svgKey,
+      priceOptions: row.priceId
+        ? [
+            {
+              label: row.priceLabel,
+              amountMinor: row.amountMinor!,
+              currency: row.currency!,
+              sortOrder: row.priceSortOrder!,
+            },
+          ]
+        : row.legacyPrice == null
+          ? []
+          : [
+              {
+                label: null,
+                amountMinor: row.legacyPrice * 100,
+                currency: "HKD",
+                sortOrder: 0,
+              },
+            ],
+      externalSource: row.externalSource,
+      externalKey: row.externalKey,
+      isAvailable: row.isAvailable,
+    });
+  }
+  for (const item of items.values()) {
+    item.priceOptions.sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+  return [...items.values()];
+}
+
+function syncMenuSelection() {
+  return {
+    id: canteenMenuItems.id,
+    name: canteenMenuItems.name,
+    mealPeriod: canteenMenuItems.mealPeriod,
+    sortOrder: canteenMenuItems.sortOrder,
+    svgKey: canteenMenuItems.svgKey,
+    legacyPrice: canteenMenuItems.price,
+    externalSource: canteenMenuItems.externalSource,
+    externalKey: canteenMenuItems.externalKey,
+    isAvailable: canteenMenuItems.isAvailable,
+    priceId: canteenMenuItemPrices.id,
+    priceLabel: canteenMenuItemPrices.label,
+    amountMinor: canteenMenuItemPrices.amountMinor,
+    currency: canteenMenuItemPrices.currency,
+    priceSortOrder: canteenMenuItemPrices.sortOrder,
+  };
+}
+
+export async function previewMenuSyncFromJson(
+  canteenId: string,
+  jsonInput: unknown,
+): Promise<MenuSyncPlan> {
+  await requireAdmin();
+  if (isCanteenMockMode()) throw new Error("MENU_SYNC_UNAVAILABLE");
+  const input = parseMenuSyncJson(jsonInput);
+  const rows = await db
+    .select(syncMenuSelection())
+    .from(canteenMenuItems)
+    .leftJoin(
+      canteenMenuItemPrices,
+      eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
+    )
+    .where(eq(canteenMenuItems.canteenId, canteenId));
+  return planMenuSync(input, collectExistingSyncItems(rows));
+}
+
+export async function applyMenuSyncFromJson(
+  canteenId: string,
+  jsonInput: unknown,
+): Promise<MenuSyncPlan> {
+  await requireAdmin();
+  if (isCanteenMockMode()) throw new Error("MENU_SYNC_UNAVAILABLE");
+  const input = parseMenuSyncJson(jsonInput);
+  const now = new Date();
+
+  const plan = await db.transaction(async (tx) => {
+    const canteen = await tx.query.canteens.findFirst({
+      where: eq(canteens.id, canteenId),
+      columns: { id: true },
+    });
+    if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
+
+    const rows = await tx
+      .select(syncMenuSelection())
+      .from(canteenMenuItems)
+      .leftJoin(
+        canteenMenuItemPrices,
+        eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
+      )
+      .where(eq(canteenMenuItems.canteenId, canteenId))
+      .for("update", { of: canteenMenuItems });
+    const existing = collectExistingSyncItems(rows);
+    const currentPlan = planMenuSync(input, existing);
+    if (currentPlan.conflicts.length > 0) throw new Error("MENU_SYNC_CONFLICT");
+
+    const actionByKey = new Map(
+      currentPlan.actions.map((action) => [action.externalKey, action]),
+    );
+    const existingByKey = new Map(
+      existing
+        .filter(
+          (item) =>
+            item.externalSource === input.source && item.externalKey !== null,
+        )
+        .map((item) => [item.externalKey!, item]),
+    );
+
+    for (const item of input.items) {
+      const action = actionByKey.get(item.externalKey);
+      if (action?.action === "create") {
+        const [created] = await tx
+          .insert(canteenMenuItems)
+          .values({
+            canteenId,
+            name: item.name,
+            price: null,
+            mealPeriod: item.mealPeriod,
+            sortOrder: item.sortOrder,
+            svgKey: item.svgKey,
+            externalSource: input.source,
+            externalKey: item.externalKey,
+            isAvailable: true,
+            lastSyncedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning({ id: canteenMenuItems.id });
+        if (item.priceOptions.length > 0) {
+          await tx
+            .insert(canteenMenuItemPrices)
+            .values(priceOptionValues(created.id, item.priceOptions, now));
+        }
+        continue;
+      }
+
+      const itemId = action?.itemId ?? existingByKey.get(item.externalKey)?.id;
+      if (!itemId) throw new Error("MENU_SYNC_STALE");
+      await tx
+        .update(canteenMenuItems)
+        .set({
+          name: item.name,
+          price: null,
+          mealPeriod: item.mealPeriod,
+          sortOrder: item.sortOrder,
+          svgKey: item.svgKey,
+          externalSource: input.source,
+          externalKey: item.externalKey,
+          isAvailable: true,
+          lastSyncedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(canteenMenuItems.id, itemId));
+      if (action) {
+        await tx
+          .delete(canteenMenuItemPrices)
+          .where(eq(canteenMenuItemPrices.menuItemId, itemId));
+        if (item.priceOptions.length > 0) {
+          await tx
+            .insert(canteenMenuItemPrices)
+            .values(priceOptionValues(itemId, item.priceOptions, now));
+        }
+      }
+    }
+
+    for (const action of currentPlan.actions) {
+      if (action.action !== "deactivate" || !action.itemId) continue;
+      await tx
+        .update(canteenMenuItems)
+        .set({ isAvailable: false, lastSyncedAt: now, updatedAt: now })
+        .where(eq(canteenMenuItems.id, action.itemId));
+    }
+    return currentPlan;
+  });
+
+  revalidatePath(`/admin/canteens/${canteenId}`);
+  revalidatePath(`/api/canteens/${canteenId}/menu`);
+  revalidatePath(`/canteen/${canteenId}`);
+  return plan;
 }
 
 export async function updateMenuItem(

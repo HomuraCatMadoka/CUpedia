@@ -2,7 +2,7 @@
 
 import { db } from "@/db";
 import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
-import { asc, eq, count } from "drizzle-orm";
+import { asc, eq, count, and } from "drizzle-orm";
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
 import { compareMealPeriods } from "@/lib/canteen-types";
 import { buildMenuItemPricing } from "@/lib/canteen-pricing";
@@ -69,7 +69,12 @@ export async function getCanteenMenuItems(
       canteenMenuItemPrices,
       eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
     )
-    .where(eq(canteenMenuItems.canteenId, canteenId));
+    .where(
+      and(
+        eq(canteenMenuItems.canteenId, canteenId),
+        eq(canteenMenuItems.isAvailable, true),
+      ),
+    );
 
   const items = new Map<string, CanteenMenuItem>();
   for (const row of rows) {
@@ -134,6 +139,7 @@ export async function getCanteenMenuItemCounts(): Promise<
       value: count(),
     })
     .from(canteenMenuItems)
+    .where(eq(canteenMenuItems.isAvailable, true))
     .groupBy(canteenMenuItems.canteenId);
   return Object.fromEntries(rows.map((r) => [r.canteenId, r.value]));
 }

@@ -121,9 +121,7 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
 
   it("inserts a vote for an anonymous diner with a signed session cookie", async () => {
     mockCookiesGet.mockImplementation((name: string) =>
-      name === "canteen_anon_session"
-        ? { value: signedCookie() }
-        : undefined,
+      name === "canteen_anon_session" ? { value: signedCookie() } : undefined,
     );
     queueSelectResults([{ id: ITEM_ID }]);
     const { values, onConflictDoUpdate } = mockInsertWithConflict();
@@ -155,9 +153,7 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
 
   it("upserts via onConflictDoUpdate when the same diner changes their vote", async () => {
     mockCookiesGet.mockImplementation((name: string) =>
-      name === "canteen_anon_session"
-        ? { value: signedCookie() }
-        : undefined,
+      name === "canteen_anon_session" ? { value: signedCookie() } : undefined,
     );
     queueSelectResults([{ id: ITEM_ID }]);
     const { onConflictDoUpdate } = mockInsertWithConflict();
@@ -228,15 +224,15 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
     });
     queueSelectResults([{ id: ITEM_ID }]);
 
-    await expect(upsertDishVote(ITEM_ID, "like")).rejects.toThrow("USER_BANNED");
+    await expect(upsertDishVote(ITEM_ID, "like")).rejects.toThrow(
+      "USER_BANNED",
+    );
     expect(mockDbInsert).not.toHaveBeenCalled();
   });
 
   it("rejects votes for unknown menu items", async () => {
     mockCookiesGet.mockImplementation((name: string) =>
-      name === "canteen_anon_session"
-        ? { value: signedCookie() }
-        : undefined,
+      name === "canteen_anon_session" ? { value: signedCookie() } : undefined,
     );
     queueSelectResults([]);
 
@@ -249,9 +245,7 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
     process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN = "1";
     resetVoteRateLimitForTests();
     mockCookiesGet.mockImplementation((name: string) =>
-      name === "canteen_anon_session"
-        ? { value: signedCookie() }
-        : undefined,
+      name === "canteen_anon_session" ? { value: signedCookie() } : undefined,
     );
     queueSelectResults([]);
 
@@ -269,9 +263,7 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
 
   it("returns my current vote immediately from the database", async () => {
     mockCookiesGet.mockImplementation((name: string) =>
-      name === "canteen_anon_session"
-        ? { value: signedCookie() }
-        : undefined,
+      name === "canteen_anon_session" ? { value: signedCookie() } : undefined,
     );
     queueSelectResults([{ menuItemId: ITEM_ID, vote: "dislike" }]);
 
@@ -323,6 +315,7 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
     expect(whereArg).toEqual(
       and(
         eq(canteenMenuItems.canteenId, CANTEEN_ID),
+        eq(canteenMenuItems.isAvailable, true),
         isNotNull(canteenDishVotes.vote),
       ),
     );

@@ -1,8 +1,10 @@
-import { count, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishComments, canteenMenuItems } from "@/db/schema";
 
-export async function countCommentsForCanteen(canteenId: string): Promise<number> {
+export async function countCommentsForCanteen(
+  canteenId: string,
+): Promise<number> {
   const result = await db
     .select({ value: count() })
     .from(canteenDishComments)
@@ -38,7 +40,12 @@ export async function countCommentsByMenuItemForCanteen(
       canteenMenuItems,
       eq(canteenDishComments.menuItemId, canteenMenuItems.id),
     )
-    .where(eq(canteenMenuItems.canteenId, canteenId))
+    .where(
+      and(
+        eq(canteenMenuItems.canteenId, canteenId),
+        eq(canteenMenuItems.isAvailable, true),
+      ),
+    )
     .groupBy(canteenDishComments.menuItemId);
 
   return Object.fromEntries(rows.map((row) => [row.menuItemId, row.value]));
