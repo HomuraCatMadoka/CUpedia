@@ -23,6 +23,14 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                     "facultyUrl": faculty_url,
                 },
                 {
+                    "id": "office",
+                    "name": "Office of Example",
+                    "sourceUrl": "https://example.test/office/",
+                    "organisationType": "office",
+                    "parentUrl": None,
+                    "facultyUrl": None,
+                },
+                {
                     "id": "centre",
                     "name": "Centre for Example",
                     "sourceUrl": centre_url,
@@ -54,7 +62,9 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
 
     def test_payload_keeps_centres_and_multiple_titles(self):
         payload = subject.build_payload(self.directory())
-        self.assertEqual(len(payload["organisations"]), 2)
+        self.assertEqual(len(payload["organisations"]), 3)
+        office = next(item for item in payload["organisations"] if item["id"] == "office")
+        self.assertIsNone(office["faculty_id"])
         self.assertEqual(len(payload["people"]), 1)
         self.assertEqual(len(payload["affiliations"]), 1)
         self.assertEqual(

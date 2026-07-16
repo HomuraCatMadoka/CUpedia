@@ -104,7 +104,7 @@ def build_payload(
                 "name": item["name"],
                 "organisation_type": item["organisationType"],
                 "parent_id": organisation_ids.get(item.get("parentUrl")),
-                "faculty_id": organisation_ids[item["facultyUrl"]],
+                "faculty_id": organisation_ids.get(item.get("facultyUrl")),
                 "profile_url": item["sourceUrl"],
                 "source": SOURCE,
             }

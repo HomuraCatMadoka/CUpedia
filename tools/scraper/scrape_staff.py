@@ -107,6 +107,17 @@ def organisation_preview(html: str) -> tuple[list[str], int | None]:
     return sorted(set(urls)), count
 
 
+def discover_person_urls(
+    persons_sitemap_xml: str, preview_urls: list[str], preview: bool
+) -> list[str]:
+    """Combine the person sitemap with profiles exposed only on organisation cards."""
+    if preview:
+        return sorted(set(preview_urls))
+    return sorted(
+        set(sitemap_urls(persons_sitemap_xml, "/en/persons/")) | set(preview_urls)
+    )
+
+
 def decode_email(link) -> str | None:
     encoded = link.get("data-md5", "") if link else ""
     if encoded:
@@ -303,12 +314,17 @@ def build_directory(
         if org.name.startswith("Faculty of ")
         and (not faculty_filter or org.name.casefold() in faculty_filter)
     }
-    in_scope_urls = {
-        org.url
-        for org in organisations
-        if org.url in faculties_by_url
-        or any(url in faculties_by_url for _name, url in org.ancestors)
-    }
+    all_organisation_urls = {org.url for org in organisations}
+    in_scope_urls = (
+        {
+            org.url
+            for org in organisations
+            if org.url in faculties_by_url
+            or any(url in faculties_by_url for _name, url in org.ancestors)
+        }
+        if faculty_filter
+        else all_organisation_urls
+    )
     descendants = []
     faculty_for_organisation = {}
     for org in organisations:
@@ -316,7 +332,7 @@ def build_directory(
             (url for _name, url in reversed(org.ancestors) if url in faculties_by_url),
             None,
         )
-        if not faculty_url:
+        if org.url not in in_scope_urls:
             continue
         parent_url = next(
             (
@@ -381,7 +397,7 @@ def build_directory(
             if not org_url:
                 matching_urls = descendants_by_name.get(org_name, [])
                 org_url = matching_urls[0] if len(matching_urls) == 1 else None
-            if org_url in faculty_for_organisation:
+            if org_url in in_scope_urls:
                 official_people.add(person["id"])
             department = departments_by_url.get(org_url) or departments_by_name.get(
                 org_name
@@ -607,22 +623,20 @@ def main() -> None:
         organisations.append(organisation)
         preview_people, expected = organisation_preview(html)
         expected_counts[organisation.url] = expected
+        preview_urls.extend(preview_people)
         if selected_departments:
             for name, ancestor_url in organisation.ancestors:
                 if name.startswith("Faculty of ") and all(
                     item.url != ancestor_url for item in organisations
                 ):
                     organisations.append(Organisation(name, ancestor_url, ()))
-            preview_urls.extend(preview_people)
         print(f"  organisations {index}/{len(organisation_urls)}", end="\r", flush=True)
     print()
 
-    if args.preview:
-        person_urls = sorted(set(preview_urls))
-    else:
-        person_urls = sitemap_urls(common.get(session, PERSONS_SITEMAP), "/en/persons/")
-        if args.limit:
-            person_urls = person_urls[: args.limit]
+    persons_sitemap_xml = "" if args.preview else common.get(session, PERSONS_SITEMAP)
+    person_urls = discover_person_urls(persons_sitemap_xml, preview_urls, args.preview)
+    if args.limit:
+        person_urls = person_urls[: args.limit]
     def fetch_person(url: str) -> dict:
         html = fetcher.get("persons", url, PROFILE_MARKER)
         return parse_person(html, url)

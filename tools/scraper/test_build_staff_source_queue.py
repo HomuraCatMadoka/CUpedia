@@ -23,7 +23,9 @@ class BuildStaffSourceQueueTest(unittest.TestCase):
         self.assertEqual(
             queue["summary"],
             {
+                "auditPeople": 3,
                 "people": 3,
+                "directoryResolvedPeople": 0,
                 "peopleWithSource": 3,
                 "peopleMissingSource": 0,
                 "uniqueSources": 2,
@@ -46,6 +48,43 @@ class BuildStaffSourceQueueTest(unittest.TestCase):
         record = self.record("duplicate", "Ada", "https://example.test/roster")
         with self.assertRaisesRegex(ValueError, "duplicate professor id"):
             subject.build_queue({"records": [record, record]})
+
+    def test_removes_unique_refreshed_directory_matches(self):
+        audit = {
+            "records": [
+                self.record("matched", "Dr. Ada LOVELACE", "https://example.test/roster"),
+                self.record("queued", "Dr. Grace HOPPER", "https://example.test/roster"),
+            ]
+        }
+        directory = {
+            "people": [{
+                "id": "pure:ada",
+                "name": "Professor Ada LOVELACE",
+                "profileUrl": "https://example.test/ada/",
+            }]
+        }
+        matches = subject.directory_matches(audit, directory)
+        queue = subject.build_queue(audit, matches)
+
+        self.assertEqual(queue["summary"]["auditPeople"], 2)
+        self.assertEqual(queue["summary"]["people"], 1)
+        self.assertEqual(queue["summary"]["directoryResolvedPeople"], 1)
+        self.assertEqual(queue["sources"][0]["peopleCount"], 1)
+        self.assertEqual(
+            queue["directoryResolved"][0]["personId"],
+            "pure:ada",
+        )
+
+    def test_does_not_remove_ambiguous_directory_names(self):
+        audit = {"records": [self.record("same", "Ada LOVELACE", None)]}
+        directory = {
+            "people": [
+                {"id": "one", "name": "Dr. Ada LOVELACE", "profileUrl": "one"},
+                {"id": "two", "name": "Professor Ada LOVELACE", "profileUrl": "two"},
+            ]
+        }
+
+        self.assertEqual(subject.directory_matches(audit, directory), {})
 
     @staticmethod
     def record(professor_id, name, source_url):

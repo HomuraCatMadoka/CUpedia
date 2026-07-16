@@ -42,7 +42,8 @@ pnpm ingest:professors
 python export_production_professor_snapshot.py
 # Resume is automatic; use --fresh only to discard the existing manifest.
 
-# Official Research Portal faculty / department / staff directory
+# Official Research Portal organisation / staff directory. With no filter this
+# includes faculty trees and standalone institutes, centres, offices and units.
 python scrape_staff.py
 python scrape_staff.py --faculties Engineering,Science
 # Fast partial smoke test against a couple of department overview pages:
@@ -54,9 +55,9 @@ python scrape_staff.py --departments department-of-biomedical-engineering,depart
 python resolve_staff_pilot.py
 # Read-only all-faculty validation against production professor rows:
 python compare_staff_production.py
-# Group reviewed missing people by official source and prioritize high-coverage
-# roster adapters:
-python build_staff_source_queue.py
+# Group reviewed missing people by official source. A refreshed Pure directory
+# removes newly resolved identities before prioritizing roster adapters:
+python build_staff_source_queue.py --directory ../../scripts/data/staff-directory.json
 # Render the complete organisation/person snapshot as convergent SQL:
 python render_staff_directory_import.py
 # Render the reviewed report as a transactional, idempotent SQL import:
@@ -95,9 +96,13 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   URL as the source identity, never the display name. It emits exact normalized
   same-name and high-similarity candidates within each department for manual
   review instead of merging them.
-  Full output also contains the complete faculty → organisation hierarchy,
-  including schools, centres, programmes and units, plus every current title on
-  each person-organisation affiliation. `sourceFetchedAtRange` records when the
+  A full unfiltered run contains every organisation exposed by the portal,
+  including complete faculty trees and standalone schools, centres, programmes,
+  institutes, offices and units. Standalone organisations deliberately have a
+  null `facultyUrl`; they and their staff are retained rather than forced into a
+  faculty. Person discovery combines the person sitemap with profiles exposed
+  only on organisation cards. Every current title is retained on its
+  person-organisation affiliation, and `sourceFetchedAtRange` records when the
   cached source pages were actually fetched.
   `--preview` deliberately returns only the staff cards exposed on each
   department overview and marks `staffCoverage.complete` false; it is for
@@ -134,6 +139,10 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   profile or a reviewed evidence-backed alias, keeps homonyms ambiguous, and
   reports faculty coverage, unmatched production rows, and duplicate production
   identities for review.
+- **Manual source queue** — `build_staff_source_queue.py --directory ...`
+  removes only unique exact-name matches from the reviewed missing-person queue.
+  Homonyms remain queued for evidence-backed review; the output records removed
+  professor/person pairs in `directoryResolved` so the reduction is auditable.
 - **Course instructor homonyms** — `scripts/course-instructor-overrides.json`
   resolves only reviewed combinations of course prefix and raw timetable name.
   Ingestion stores every section instructor first, keeps unmatched rows as

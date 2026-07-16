@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import common
+import resolve_staff_pilot
 
 
 TARGET_CLASSIFICATION = "current_cuhk_missing_person"
@@ -26,7 +27,28 @@ def canonical_source_url(value: str) -> str:
     return urlunsplit(("https", parsed.netloc.casefold(), path, parsed.query, ""))
 
 
-def build_queue(audit: dict) -> dict:
+def directory_matches(audit: dict, directory: dict) -> dict[str, dict]:
+    """Return uniquely named official directory people keyed by professor id."""
+    people_by_name: dict[str, list[dict]] = defaultdict(list)
+    for person in directory.get("people", []):
+        people_by_name[resolve_staff_pilot.name_key(person["name"])].append(person)
+
+    matches = {}
+    for record in audit.get("records", []):
+        if record.get("classification") != TARGET_CLASSIFICATION:
+            continue
+        production_name = record.get("productionName") or record.get("name")
+        if not production_name:
+            continue
+        candidates = people_by_name.get(
+            resolve_staff_pilot.name_key(production_name), []
+        )
+        if len(candidates) == 1:
+            matches[record["professorId"]] = candidates[0]
+    return matches
+
+
+def build_queue(audit: dict, resolved_people: dict[str, dict] | None = None) -> dict:
     records = audit.get("records")
     if not isinstance(records, list):
         raise ValueError("Audit records must be a list")
@@ -34,7 +56,9 @@ def build_queue(audit: dict) -> dict:
     seen_professor_ids = set()
     grouped: dict[str, list[dict]] = defaultdict(list)
     missing_source = []
+    directory_resolved = []
     target_count = 0
+    resolved_people = resolved_people or {}
 
     for record in records:
         professor_id = record.get("professorId")
@@ -45,6 +69,19 @@ def build_queue(audit: dict) -> dict:
         if record.get("classification") != TARGET_CLASSIFICATION:
             continue
         target_count += 1
+        resolved = resolved_people.get(professor_id)
+        if resolved:
+            directory_resolved.append(
+                {
+                    "professorId": professor_id,
+                    "productionName": record.get("productionName")
+                    or record.get("name"),
+                    "personId": resolved["id"],
+                    "canonicalName": resolved["name"],
+                    "profileUrl": resolved["profileUrl"],
+                }
+            )
+            continue
         production_name = record.get("productionName") or record.get("name")
         if not production_name:
             raise ValueError(f"Target record has no instructor name: {professor_id}")
@@ -86,9 +123,13 @@ def build_queue(audit: dict) -> dict:
     missing_source.sort(
         key=lambda item: (item["productionName"], item["professorId"])
     )
+    directory_resolved.sort(
+        key=lambda item: (item["productionName"], item["professorId"])
+    )
 
     queued_count = sum(item["peopleCount"] for item in sources)
-    if queued_count + len(missing_source) != target_count:
+    remaining_count = queued_count + len(missing_source)
+    if remaining_count + len(directory_resolved) != target_count:
         raise ValueError("Source queue does not cover every target record")
 
     return {
@@ -96,7 +137,9 @@ def build_queue(audit: dict) -> dict:
         "sourceAudit": "audit-remaining-merged.json",
         "classification": TARGET_CLASSIFICATION,
         "summary": {
-            "people": target_count,
+            "auditPeople": target_count,
+            "people": remaining_count,
+            "directoryResolvedPeople": len(directory_resolved),
             "peopleWithSource": queued_count,
             "peopleMissingSource": len(missing_source),
             "uniqueSources": len(sources),
@@ -106,6 +149,7 @@ def build_queue(audit: dict) -> dict:
         },
         "sources": sources,
         "missingSource": missing_source,
+        "directoryResolved": directory_resolved,
     }
 
 
@@ -118,10 +162,19 @@ def main() -> None:
     parser.add_argument(
         "--output", type=Path, default=data_dir / "staff-source-queue.json"
     )
+    parser.add_argument(
+        "--directory",
+        type=Path,
+        help="optional refreshed staff-directory.json used to remove Pure matches",
+    )
     args = parser.parse_args()
 
     audit = json.loads(args.audit.read_text(encoding="utf-8"))
-    queue = build_queue(audit)
+    resolved_people = None
+    if args.directory:
+        directory = json.loads(args.directory.read_text(encoding="utf-8"))
+        resolved_people = directory_matches(audit, directory)
+    queue = build_queue(audit, resolved_people)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(queue, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
