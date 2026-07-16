@@ -198,6 +198,7 @@ describe("submitCourseReview", () => {
         term: "Term 2",
         professorId: "p1",
         professorNameSnapshot: "Professor CHAN",
+        isAnonymous: false,
       }),
     );
   });
@@ -209,9 +210,42 @@ describe("submitCourseReview", () => {
     expect(onConflict).toHaveBeenCalledOnce();
     expect(onConflict).toHaveBeenCalledWith(
       expect.objectContaining({
-        set: expect.objectContaining({ score: 4.5, term: "Term 2" }),
+        set: expect.objectContaining({
+          score: 4.5,
+          term: "Term 2",
+          isAnonymous: false,
+        }),
       }),
     );
+  });
+
+  it("显式匿名时同步保存到评分与文字评论", async () => {
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], [], []);
+
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      content: "保持匿名",
+      isAnonymous: true,
+    });
+
+    expect(values()).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ isAnonymous: true }),
+    );
+    expect(values()).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ content: "保持匿名", isAnonymous: true }),
+    );
+  });
+
+  it("拒绝畸形匿名选项", async () => {
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        isAnonymous: "yes" as never,
+      }),
+    ).rejects.toThrow(/匿名选项格式无效/);
+    expect(dbSelect).not.toHaveBeenCalled();
   });
 
   it("保存 preset 与规范化后的自定义标签", async () => {
@@ -351,11 +385,16 @@ describe("submitCourseReview", () => {
     await submitCourseReview("CSCI3150", {
       ...SUBMISSION,
       content: "更新后的内容",
+      isAnonymous: true,
     });
     expect(dbUpdate).toHaveBeenCalledOnce();
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(dbChain.set).toHaveBeenCalledWith(
-      expect.objectContaining({ content: "更新后的内容", score: 4.5 }),
+      expect.objectContaining({
+        content: "更新后的内容",
+        score: 4.5,
+        isAnonymous: true,
+      }),
     );
   });
 
@@ -731,6 +770,7 @@ describe("getCourseRatingState", () => {
       lastTerm: null,
       lastProfessor: null,
       lastContent: "",
+      lastIsAnonymous: false,
       myRatingCount: 0,
     });
   });
@@ -748,6 +788,7 @@ describe("getCourseRatingState", () => {
           professorId: "p1",
           professorName: "Professor CHAN",
           tags: ["hea", "靓 grade", "讲解清晰"],
+          isAnonymous: true,
         },
       ], // my rating
       [{ content: "很清楚" }], // latest own review
@@ -764,6 +805,7 @@ describe("getCourseRatingState", () => {
     });
     expect(state?.lastContent).toBe("很清楚");
     expect(state?.lastTags).toEqual(["hea", "靓 grade", "讲解清晰"]);
+    expect(state?.lastIsAnonymous).toBe(true);
     expect(state?.myRatingCount).toBe(1);
   });
 
@@ -789,6 +831,7 @@ describe("getCourseReviews", () => {
           term: "Term 2",
           score: 4.5,
           tags: ["hea", "靓 grade", "讲解清晰"],
+          authorNickname: "Alice",
         },
       ],
       [],
@@ -798,7 +841,34 @@ describe("getCourseReviews", () => {
       expect.objectContaining({
         id: "r1",
         tags: ["hea", "靓 grade", "讲解清晰"],
+        authorNickname: "Alice",
       }),
+    ]);
+  });
+
+  it("匿名评论不向客户端返回作者昵称", async () => {
+    queueRows(
+      [COURSE],
+      [
+        {
+          id: "r1",
+          content: "不署名",
+          createdAt: new Date("2026-07-13T00:00:00Z"),
+          userId: "other",
+          professorId: "p1",
+          professorName: "Professor CHAN",
+          academicYear: "2025-26",
+          term: "Term 2",
+          score: 4.5,
+          tags: [],
+          authorNickname: null,
+        },
+      ],
+      [],
+    );
+
+    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
+      expect.objectContaining({ id: "r1", authorNickname: null }),
     ]);
   });
 

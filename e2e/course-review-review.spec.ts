@@ -95,10 +95,15 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
   await expect(summary).toContainText("2025-26");
   await expect(summary).toContainText("Term 2");
   await expect(summary).toContainText("测试教授 Chan");
-  await expect(summary).toContainText("已附匿名评论");
+  await expect(summary).toContainText("已附署名评论");
   await expect(summary).toContainText(own);
+  const attributedReview = page.getByRole("listitem").filter({ hasText: own });
+  await expect(attributedReview.getByText("TestUser")).toBeVisible();
 
   await summary.getByRole("button", { name: "编辑" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "匿名发表" }),
+  ).not.toBeChecked();
   await expect(page.getByLabel("学年")).toHaveValue("2025-26");
   await expect(page.getByLabel("学期")).toHaveValue("Term 2");
   await expect(page.getByPlaceholder("搜索任课教授姓名")).toHaveValue(
@@ -109,9 +114,16 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
     page.getByPlaceholder("分享课程内容、功课量或考试体验…"),
   ).toHaveValue(own);
 
+  await page.getByRole("checkbox", { name: "匿名发表" }).check();
+  await page.getByRole("button", { name: "保存修改" }).click();
+  await expect(summary).toContainText("已附匿名评论");
+  await expect(attributedReview.getByText("匿名用户")).toBeVisible();
+
+  await summary.getByRole("button", { name: "编辑" }).click();
+  await expect(page.getByRole("checkbox", { name: "匿名发表" })).toBeChecked();
   await page.getByPlaceholder("分享课程内容、功课量或考试体验…").fill("");
   await page.getByRole("button", { name: "保存修改" }).click();
-  await expect(page.getByText("未填写匿名评论")).toBeVisible();
+  await expect(page.getByText("未填写文字评论")).toBeVisible();
   await expect(page.getByText(own)).toHaveCount(0);
   await expect.poll(() => countRows("course_reviews")).toBe(0);
   await expect.poll(() => countRows("course_ratings")).toBe(1);
@@ -122,6 +134,7 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
   await expect.poll(() => countRows("course_ratings")).toBe(0);
 
   await fillSubmission(page, moderated);
+  await page.getByRole("checkbox", { name: "匿名发表" }).check();
   await page.getByRole("button", { name: "提交测评" }).click();
   const ownReview = page.getByRole("listitem").filter({ hasText: own });
   await expect(ownReview).toHaveCount(0);

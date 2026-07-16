@@ -16,6 +16,7 @@ import {
   staffOrganisationAffiliations,
   staffOrganisations,
   staffPeople,
+  users,
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
 import {
@@ -47,9 +48,8 @@ const COURSE_REVIEW_PRESET_TAGS = new Set<string>(
   Object.values(COURSE_REVIEW_TAG_OPTIONS).flat(),
 );
 
-/** A review as presented to the client. Author identity is never exposed —
- * comments are anonymous — but ownership/like state for the *current* viewer
- * is resolved server-side so the UI can show withdraw/like-toggle affordances. */
+/** A review as presented to the client. Anonymous rows never expose author
+ * identity; attributed rows expose only the current nickname, never user ID. */
 export type CourseReviewView = {
   id: string;
   isRatingOnly: boolean;
@@ -64,6 +64,7 @@ export type CourseReviewView = {
   term: CourseTerm | null;
   score: number | null;
   tags: string[];
+  authorNickname: string | null;
 };
 
 export type ProfessorOption = {
@@ -98,6 +99,7 @@ export type CourseReviewSubmission = {
   score: number;
   content?: string;
   tags?: CourseReviewTags;
+  isAnonymous?: boolean;
 };
 
 export type CourseEnrollmentView = {
@@ -128,6 +130,7 @@ export type CourseRatingState = {
   lastProfessor: ProfessorOption | null;
   lastContent: string;
   lastTags: string[];
+  lastIsAnonymous: boolean;
   /** How many times the current user has rated this course. */
   myRatingCount: number;
 };
@@ -451,6 +454,7 @@ export async function getCourseRatingState(
       lastProfessor: null,
       lastContent: "",
       lastTags: [],
+      lastIsAnonymous: false,
       myRatingCount: 0,
     };
   }
@@ -463,6 +467,7 @@ export async function getCourseRatingState(
       professorId: courseRatings.professorId,
       professorName: courseRatings.professorNameSnapshot,
       tags: courseRatings.tags,
+      isAnonymous: courseRatings.isAnonymous,
     })
     .from(courseRatings)
     .where(
@@ -498,6 +503,7 @@ export async function getCourseRatingState(
         : null,
     lastContent: myReview?.content ?? "",
     lastTags: mine?.tags ?? [],
+    lastIsAnonymous: mine?.isAnonymous ?? false,
     myRatingCount: myRatings.length,
   };
 }
@@ -524,9 +530,14 @@ export async function getCourseReviews(
         term: courseReviews.term,
         score: courseReviews.score,
         tags: courseRatings.tags,
+        authorNickname: sql<string | null>`case
+          when ${courseReviews.isAnonymous} then null
+          else ${users.nickname}
+        end`,
       })
       .from(courseReviews)
       .leftJoin(professors, eq(courseReviews.professorId, professors.id))
+      .innerJoin(users, eq(courseReviews.userId, users.id))
       .leftJoin(
         courseRatings,
         and(
@@ -583,6 +594,7 @@ export async function getCourseReviews(
       : null,
     score: r.score,
     tags: r.tags ?? [],
+    authorNickname: r.authorNickname,
   }));
 
   if (user?.role !== "admin") return reviewViews;
@@ -624,6 +636,7 @@ export async function getCourseReviews(
         : null,
       score: rating.score,
       tags: rating.tags ?? [],
+      authorNickname: null,
     }));
 
   return [...reviewViews, ...ratingOnlyViews].sort((a, b) =>
@@ -892,6 +905,13 @@ export async function submitCourseReview(
   submission: CourseReviewSubmission,
 ): Promise<void> {
   const user = await requireAuth();
+  if (
+    submission.isAnonymous !== undefined &&
+    typeof submission.isAnonymous !== "boolean"
+  ) {
+    throw new Error("匿名选项格式无效");
+  }
+  const isAnonymous = submission.isAnonymous ?? false;
   validateScore(submission.score);
   validateAcademicYear(submission.academicYear);
   validateTerm(submission.term);
@@ -932,6 +952,7 @@ export async function submitCourseReview(
         term: submission.term,
         professorId: professor.id,
         professorNameSnapshot: professor.name,
+        isAnonymous,
         tags,
       })
       .onConflictDoUpdate({
@@ -942,6 +963,7 @@ export async function submitCourseReview(
           term: submission.term,
           professorId: professor.id,
           professorNameSnapshot: professor.name,
+          isAnonymous,
           tags,
           createdAt: sql`now()`,
         },
@@ -954,6 +976,7 @@ export async function submitCourseReview(
       academicYear: submission.academicYear,
       term: submission.term,
       score: submission.score,
+      isAnonymous,
     };
     if (content && existingReview) {
       await tx

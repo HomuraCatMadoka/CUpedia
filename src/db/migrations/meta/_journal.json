@@ -204,6 +204,20 @@
       "when": 1784191530665,
       "tag": "0028_jazzy_warhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1784206189737,
+      "tag": "0029_opposite_valkyrie",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1784206211000,
+      "tag": "0030_parched_carlie_cooper",
+      "breakpoints": true
     }
   ]
 }

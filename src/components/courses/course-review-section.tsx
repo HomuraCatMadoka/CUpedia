@@ -147,6 +147,7 @@ export function CourseReviewSection({
   const [reviewTags, setReviewTags] = useState<CourseReviewTags>(() =>
     parseReviewTags(ratingState.lastTags),
   );
+  const [isAnonymous, setIsAnonymous] = useState(ratingState.lastIsAnonymous);
   const [customTagInput, setCustomTagInput] = useState("");
   const [error, setError] = useState("");
   const [submitting, startSubmit] = useTransition();
@@ -187,6 +188,7 @@ export function CourseReviewSection({
           score,
           content,
           tags: reviewTags,
+          isAnonymous,
         });
         setEditing(false);
         router.refresh();
@@ -225,7 +227,10 @@ export function CourseReviewSection({
     startSubmit(async () => {
       try {
         await deleteCourseReviewSubmission(code, target);
-        if (!target) setEditing(true);
+        if (!target) {
+          setIsAnonymous(false);
+          setEditing(true);
+        }
         router.refresh();
       } finally {
         setBusyId(null);
@@ -271,6 +276,7 @@ export function CourseReviewSection({
     setProfessorQuery(ratingState.lastProfessor?.name ?? "");
     setContent(ratingState.lastContent);
     setReviewTags(parseReviewTags(ratingState.lastTags));
+    setIsAnonymous(ratingState.lastIsAnonymous);
     setCustomTagInput("");
     setError("");
   }
@@ -326,8 +332,8 @@ export function CourseReviewSection({
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               {isPublished
-                ? "你可以随时修改或删除这条匿名投稿。"
-                : "记录你实际修读的学期；评论选填，投稿始终匿名。"}
+                ? "你可以随时修改署名方式，或删除这条投稿。"
+                : "记录你实际修读的学期；评论选填，默认展示你的昵称。"}
             </p>
           </div>
         </div>
@@ -374,7 +380,11 @@ export function CourseReviewSection({
             </div>
             <div className="rounded-xl border bg-secondary/20 p-4">
               <p className="text-xs font-medium text-muted-foreground">
-                {ratingState.lastContent ? "已附匿名评论" : "未填写匿名评论"}
+                {ratingState.lastContent
+                  ? ratingState.lastIsAnonymous
+                    ? "已附匿名评论"
+                    : "已附署名评论"
+                  : "未填写文字评论"}
               </p>
               {ratingState.lastContent && (
                 <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
@@ -586,7 +596,7 @@ export function CourseReviewSection({
 
             <label className="block space-y-2 text-sm font-medium">
               <span>
-                匿名评论
+                文字评论
                 <span className="ml-2 font-normal text-muted-foreground">
                   选填
                 </span>
@@ -602,11 +612,17 @@ export function CourseReviewSection({
             </label>
 
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-5">
-              <p className="text-xs text-muted-foreground">
-                每人每门课一票；再次投稿会更新你的评分。
-              </p>
-              <div className="flex gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-5">
+              <div className="flex items-center gap-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={isAnonymous}
+                    onChange={(event) => setIsAnonymous(event.target.checked)}
+                    className="size-4 rounded border-input accent-primary"
+                  />
+                  匿名发表
+                </label>
                 {isPublished && (
                   <Button
                     variant="ghost"
@@ -851,7 +867,9 @@ export function CourseReviewSection({
           <li key={review.id} className="rounded-xl border p-5">
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm font-medium">
-                {review.isRatingOnly ? "仅评分投稿" : "匿名用户"}
+                {review.isRatingOnly
+                  ? "仅评分投稿"
+                  : (review.authorNickname ?? "匿名用户")}
               </span>
               <span
                 className="text-xs text-muted-foreground"

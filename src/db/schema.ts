@@ -371,6 +371,7 @@ export const courseRatings = pgTable(
     professorId: text("professor_id").references(() => professors.id),
     professorNameSnapshot: text("professor_name_snapshot"),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    isAnonymous: boolean("is_anonymous").notNull().default(false),
     /** Last time this user rated this course (refreshed on each upsert). */
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -735,6 +736,7 @@ export const courseReviews = pgTable(
     academicYear: text("academic_year"),
     term: text("term"),
     score: real("score"),
+    isAnonymous: boolean("is_anonymous").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
