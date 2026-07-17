@@ -1,6 +1,5 @@
 export type SubjectCountRule = {
-  subjectCodes: string[];
-  requiredCount: number;
+  subjectGroups: Array<{ subjectCodes: string[]; requiredCount: number }>;
 };
 
 export type AchievementRating = {
@@ -21,13 +20,11 @@ export function evaluateSubjectCountRule(
   ratings: AchievementRating[],
   occupiedRatingIds: ReadonlySet<string> = new Set(),
 ): SubjectCountEvaluation {
-  const subjects = new Set(rule.subjectCodes);
   const seenCourses = new Set<string>();
-  const matches = ratings
+  const candidates = ratings
     .filter((rating) => {
       if (
         occupiedRatingIds.has(rating.id) ||
-        !subjects.has(rating.subject) ||
         seenCourses.has(rating.courseCode)
       ) {
         return false;
@@ -37,12 +34,39 @@ export function evaluateSubjectCountRule(
     })
     .sort((a, b) => a.courseCode.localeCompare(b.courseCode));
 
+  const slots = rule.subjectGroups.flatMap((group) =>
+    Array.from(
+      { length: group.requiredCount },
+      () => new Set(group.subjectCodes),
+    ),
+  );
+  const slotAssignments = new Map<number, number>();
+
+  function assign(ratingIndex: number, visited: Set<number>): boolean {
+    const rating = candidates[ratingIndex];
+    for (const [slotIndex, subjects] of slots.entries()) {
+      if (visited.has(slotIndex) || !subjects.has(rating.subject)) continue;
+      visited.add(slotIndex);
+      const previousRating = slotAssignments.get(slotIndex);
+      if (previousRating === undefined || assign(previousRating, visited)) {
+        slotAssignments.set(slotIndex, ratingIndex);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  for (const ratingIndex of candidates.keys()) assign(ratingIndex, new Set());
+
+  const requiredCount = slots.length;
+  const evidenceRatingIds = [...new Set(slotAssignments.values())]
+    .sort((a, b) => a - b)
+    .map((index) => candidates[index].id);
+
   return {
-    eligible: matches.length >= rule.requiredCount,
-    matchedCount: Math.min(matches.length, rule.requiredCount),
-    requiredCount: rule.requiredCount,
-    evidenceRatingIds: matches
-      .slice(0, rule.requiredCount)
-      .map((rating) => rating.id),
+    eligible: evidenceRatingIds.length >= requiredCount,
+    matchedCount: evidenceRatingIds.length,
+    requiredCount,
+    evidenceRatingIds,
   };
 }

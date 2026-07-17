@@ -27,7 +27,7 @@ export default async function CourseAchievementsPage() {
                 <ProfessionalBadgeLogo
                   code={item.badgeCode}
                   size={64}
-                  tier="bronze"
+                  tier={item.tier}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
@@ -70,9 +70,20 @@ export default async function CourseAchievementsPage() {
                           <AchievementRedeemButton
                             displayName={item.displayName}
                             ruleId={item.ruleId}
+                            upgrade={item.tier !== "bronze"}
                           />
                         )}
                       </div>
+                      {!item.prerequisiteSatisfied && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          需要先点亮前置称号
+                        </p>
+                      )}
+                      {!item.slotAvailable && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          当前等级的称号槽位已占用
+                        </p>
+                      )}
                     </>
                   )}
                 </div>

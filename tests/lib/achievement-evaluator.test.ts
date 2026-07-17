@@ -14,7 +14,7 @@ describe("evaluateSubjectCountRule", () => {
   it("makes four matching subjects eligible without inspecting rating details", () => {
     expect(
       evaluateSubjectCountRule(
-        { subjectCodes: ["MATH"], requiredCount: 4 },
+        { subjectGroups: [{ subjectCodes: ["MATH"], requiredCount: 4 }] },
         ratings,
       ),
     ).toEqual({
@@ -27,11 +27,13 @@ describe("evaluateSubjectCountRule", () => {
 
   it("lets an unoccupied rating advance multiple candidate previews", () => {
     const first = evaluateSubjectCountRule(
-      { subjectCodes: ["MATH"], requiredCount: 4 },
+      { subjectGroups: [{ subjectCodes: ["MATH"], requiredCount: 4 }] },
       ratings,
     );
     const second = evaluateSubjectCountRule(
-      { subjectCodes: ["MATH", "PHYS"], requiredCount: 4 },
+      {
+        subjectGroups: [{ subjectCodes: ["MATH", "PHYS"], requiredCount: 4 }],
+      },
       ratings,
     );
 
@@ -43,12 +45,51 @@ describe("evaluateSubjectCountRule", () => {
 
   it("recalculates progress after redeemed evidence becomes occupied", () => {
     const evaluation = evaluateSubjectCountRule(
-      { subjectCodes: ["MATH", "PHYS"], requiredCount: 4 },
+      {
+        subjectGroups: [{ subjectCodes: ["MATH", "PHYS"], requiredCount: 4 }],
+      },
       ratings,
       new Set(["r1", "r2", "r3", "r4"]),
     );
 
     expect(evaluation).toMatchObject({ eligible: false, matchedCount: 1 });
     expect(evaluation.evidenceRatingIds).toEqual(["r5"]);
+  });
+
+  it("supports mixed subject compositions", () => {
+    const result = evaluateSubjectCountRule(
+      {
+        subjectGroups: [
+          { subjectCodes: ["ENGG"], requiredCount: 2 },
+          { subjectCodes: ["CSCI"], requiredCount: 2 },
+        ],
+      },
+      [
+        { id: "e1", courseCode: "ENGG1000", subject: "ENGG" },
+        { id: "e2", courseCode: "ENGG2000", subject: "ENGG" },
+        { id: "c1", courseCode: "CSCI1000", subject: "CSCI" },
+        { id: "c2", courseCode: "CSCI2000", subject: "CSCI" },
+      ],
+    );
+
+    expect(result).toMatchObject({ eligible: true, matchedCount: 4 });
+    expect(result.evidenceRatingIds).toHaveLength(4);
+  });
+
+  it("allocates overlapping groups without starving a strict group", () => {
+    const result = evaluateSubjectCountRule(
+      {
+        subjectGroups: [
+          { subjectCodes: ["ACCT", "FINA"], requiredCount: 1 },
+          { subjectCodes: ["ACCT"], requiredCount: 1 },
+        ],
+      },
+      [
+        { id: "a1", courseCode: "ACCT1000", subject: "ACCT" },
+        { id: "f1", courseCode: "FINA1000", subject: "FINA" },
+      ],
+    );
+
+    expect(result).toMatchObject({ eligible: true, matchedCount: 2 });
   });
 });

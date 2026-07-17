@@ -406,6 +406,11 @@ export const achievementRules = pgTable(
     badgeCode: text("badge_code").notNull(),
     subjectCodes: jsonb("subject_codes").$type<string[]>().notNull(),
     requiredCount: integer("required_count").notNull(),
+    subjectGroups: jsonb("subject_groups")
+      .$type<Array<{ subjectCodes: string[]; requiredCount: number }>>()
+      .notNull()
+      .default([]),
+    prerequisiteRuleKey: text("prerequisite_rule_key"),
     enabled: boolean("enabled").notNull().default(false),
     createdBy: uuid("created_by")
       .notNull()
@@ -430,6 +435,10 @@ export const achievementRules = pgTable(
       "achievement_rules_required_count_check",
       sql`${table.requiredCount} > 0`,
     ),
+    check(
+      "achievement_rules_tier_check",
+      sql`${table.tier} in ('bronze', 'silver', 'gold')`,
+    ),
   ],
 );
 
@@ -443,6 +452,7 @@ export const userAchievements = pgTable(
     ruleId: uuid("rule_id")
       .notNull()
       .references(() => achievementRules.id),
+    tier: text("tier").notNull().default("bronze"),
     status: text("status").notNull().default("active"),
     redeemedAt: timestamp("redeemed_at").defaultNow().notNull(),
     revokedAt: timestamp("revoked_at"),
@@ -453,9 +463,19 @@ export const userAchievements = pgTable(
       table.ruleId,
     ),
     index("user_achievements_user_status_idx").on(table.userId, table.status),
+    uniqueIndex("user_achievements_active_silver_uq")
+      .on(table.userId)
+      .where(sql`${table.status} = 'active' and ${table.tier} = 'silver'`),
+    uniqueIndex("user_achievements_active_gold_uq")
+      .on(table.userId)
+      .where(sql`${table.status} = 'active' and ${table.tier} = 'gold'`),
     check(
       "user_achievements_status_check",
-      sql`${table.status} in ('active', 'revoked')`,
+      sql`${table.status} in ('active', 'superseded', 'revoked')`,
+    ),
+    check(
+      "user_achievements_tier_check",
+      sql`${table.tier} in ('bronze', 'silver', 'gold')`,
     ),
   ],
 );

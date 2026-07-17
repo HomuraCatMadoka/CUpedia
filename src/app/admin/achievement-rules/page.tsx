@@ -9,7 +9,7 @@ export default async function AdminAchievementRulesPage() {
       <div>
         <h1 className="text-lg font-medium">专业成就规则</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          规则保存在数据库中；当前支持按学科代码累计评分课程。
+          规则保存在数据库中；支持学科组组合、等级和前置称号。
         </p>
       </div>
       <AchievementRuleForm />
@@ -32,8 +32,14 @@ export default async function AdminAchievementRulesPage() {
                     {rule.badgeCode}
                   </span>
                   <span className="text-muted-foreground">
-                    v{rule.version} · {rule.requiredCount} 门 ·{" "}
-                    {rule.subjectCodes.join(" / ")}
+                    v{rule.version} · {rule.tier} · {rule.requiredCount} 门 ·{" "}
+                    {rule.subjectGroups
+                      .map(
+                        (group) =>
+                          `${group.subjectCodes.join("/")}:${group.requiredCount}`,
+                      )
+                      .join(" + ") ||
+                      `${rule.subjectCodes.join("/")}:${rule.requiredCount}`}
                   </span>
                   <span
                     className={

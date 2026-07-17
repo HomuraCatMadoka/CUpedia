@@ -24,11 +24,24 @@ export function AchievementRuleForm() {
           displayName: String(formData.get("displayName") ?? ""),
           description: String(formData.get("description") ?? ""),
           badgeCode: String(formData.get("badgeCode") ?? ""),
-          subjectCodes: String(formData.get("subjectCodes") ?? "")
-            .split(",")
-            .map((code) => code.trim())
-            .filter(Boolean),
-          requiredCount: Number(formData.get("requiredCount")),
+          tier: String(formData.get("tier")) as "bronze" | "silver" | "gold",
+          subjectGroups: String(formData.get("subjectGroups") ?? "")
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .map((line) => {
+              const [codes, count] = line.split(":");
+              return {
+                subjectCodes: codes
+                  .split("/")
+                  .map((code) => code.trim())
+                  .filter(Boolean),
+                requiredCount: Number(count),
+              };
+            }),
+          prerequisiteRuleKey: String(
+            formData.get("prerequisiteRuleKey") ?? "",
+          ),
           enabled: formData.get("enabled") === "on",
         });
         setMessage("规则已保存");
@@ -69,19 +82,36 @@ export function AchievementRuleForm() {
         placeholder="MATH"
         required
       />
+      <div>
+        <Label htmlFor="achievement-tier">等级</Label>
+        <select
+          className="mt-1 h-9 w-full rounded-md border bg-transparent px-3 text-sm"
+          id="achievement-tier"
+          name="tier"
+        >
+          <option value="bronze">铜标</option>
+          <option value="silver">银标</option>
+          <option value="gold">金标</option>
+        </select>
+      </div>
       <Field
-        label="学科代码（逗号分隔）"
-        name="subjectCodes"
-        placeholder="MATH"
-        required
+        label="前置规则标识（银/金）"
+        name="prerequisiteRuleKey"
+        placeholder="math-bronze"
       />
-      <Field
-        label="需要课程数"
-        name="requiredCount"
-        type="number"
-        defaultValue="4"
-        required
-      />
+      <div className="sm:col-span-2">
+        <Label htmlFor="achievement-subject-groups">学科组</Label>
+        <Textarea
+          id="achievement-subject-groups"
+          name="subjectGroups"
+          className="mt-1 font-mono"
+          placeholder={"MATH:4\n或\nENGG:2\nCSCI:2"}
+          required
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          每行“学科/学科:门数”；同一行表示任意学科合计。
+        </p>
+      </div>
       <div className="sm:col-span-2">
         <Label htmlFor="achievement-description">说明</Label>
         <Textarea

@@ -41,4 +41,19 @@ describe("AchievementRedeemButton", () => {
     await waitFor(() => expect(mockRedeem).toHaveBeenCalledWith("rule-1"));
     expect(mockRefresh).toHaveBeenCalled();
   });
+
+  it("explains that an upgrade replaces the lower tier", () => {
+    render(
+      <AchievementRedeemButton
+        displayName="数学银标"
+        ruleId="rule-2"
+        upgrade
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "升级称号" }));
+    expect(screen.getByText("确认升级「数学银标」？")).toBeTruthy();
+    expect(screen.getByText(/低一级称号会从展示中消失/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "确认升级" })).toBeTruthy();
+  });
 });
