@@ -9,6 +9,7 @@ import {
 } from "vitest";
 
 const mockGetAchievementSummaries = vi.hoisted(() => vi.fn());
+const mockRecomputeAchievements = vi.hoisted(() => vi.fn());
 
 // ref #177 — course-review MVP data layer.
 //
@@ -86,6 +87,10 @@ vi.mock("@/lib/achievement-profile", () => ({
   getAchievementSummariesForAuthors: (...args: unknown[]) =>
     mockGetAchievementSummaries(...args),
 }));
+vi.mock("@/lib/achievement-recompute-db", () => ({
+  recomputeAchievementsBeforeRatingDeletion: (...args: unknown[]) =>
+    mockRecomputeAchievements(...args),
+}));
 vi.mock("@/db", () => ({
   db: {
     select: () => dbSelect(),
@@ -136,18 +141,23 @@ beforeEach(() => {
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
   mockGetOptionalUser.mockResolvedValue(null);
   mockGetAchievementSummaries.mockResolvedValue(new Map());
+  mockRecomputeAchievements.mockResolvedValue({ kind: "unchanged" });
   dbTransaction.mockImplementation(
     async (
       callback: (tx: {
+        select: () => typeof dbChain;
         insert: () => typeof dbChain;
         update: () => typeof dbChain;
         delete: () => typeof dbChain;
+        execute: () => Promise<void>;
       }) => unknown,
     ) =>
       callback({
+        select: () => dbSelect(),
         insert: () => dbInsert(),
         update: () => dbUpdate(),
         delete: () => dbDelete(),
+        execute: async () => undefined,
       }),
   );
 });
@@ -839,6 +849,34 @@ describe("deleteCourseReviewSubmission", () => {
       }),
     ).resolves.toBeUndefined();
     expect(dbDelete).toHaveBeenCalledTimes(2);
+  });
+
+  it("在同一事务内重算证据后删除评分", async () => {
+    queueRows([{ id: "rating1" }], [], []);
+    mockRecomputeAchievements.mockResolvedValue({ kind: "preserved" });
+
+    await deleteCourseReviewSubmission("CSCI3150", undefined, "preserved");
+
+    expect(mockRecomputeAchievements).toHaveBeenCalledWith(
+      expect.anything(),
+      "u1",
+      "rating1",
+      true,
+    );
+    expect(dbDelete).toHaveBeenCalledTimes(2);
+  });
+
+  it("并发变化导致实际影响更严重时中止整笔删除", async () => {
+    queueRows([{ id: "rating1" }]);
+    mockRecomputeAchievements.mockResolvedValue({
+      kind: "revoked",
+      nextTier: null,
+    });
+
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", undefined, "preserved"),
+    ).rejects.toThrow(/状态已变化/);
+    expect(dbDelete).not.toHaveBeenCalled();
   });
 });
 

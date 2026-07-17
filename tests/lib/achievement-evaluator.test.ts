@@ -22,6 +22,7 @@ describe("evaluateSubjectCountRule", () => {
       matchedCount: 4,
       requiredCount: 4,
       evidenceRatingIds: ["r1", "r2", "r3", "r4"],
+      evidenceRatingIdsBySlot: ["r4", "r3", "r2", "r1"],
     });
   });
 
