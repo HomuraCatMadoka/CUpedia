@@ -18,6 +18,7 @@ export function resolveDishSvgKey(svgKey: string): DishSvgKey {
 /** Infer category from dish name. Does not preserve `default` — callers that
  *  must leave existing `default` alone should skip those rows themselves. */
 export function inferDishSvgKeyFromName(name: string): DishSvgKey {
+  if (/(奶茶|咖啡|可樂|汽水|果汁|檸茶)/u.test(name)) return "drink";
   if (/(麵|米粉|河粉|意粉|喇沙)/u.test(name)) return "noodle";
   if (/(飯|粥)/u.test(name)) return "rice";
   if (/(煲|湯)/u.test(name)) return "bowl";

@@ -2,14 +2,20 @@ import { resolveDishSvgKey, type DishSvgKey } from "@/lib/canteen-svg-keys";
 import type { CanteenMenuItem } from "@/lib/canteen-types";
 
 /** Display order for menu sections (mains → sides → drinks). */
-export const MENU_SECTION_ORDER: readonly DishSvgKey[] = [
-  "rice",
-  "noodle",
-  "bowl",
-  "default",
-  "dessert",
-  "drink",
-] as const;
+const MENU_SECTION_RANK = {
+  rice: 0,
+  noodle: 1,
+  bowl: 2,
+  default: 3,
+  dessert: 4,
+  drink: 5,
+} as const satisfies Record<DishSvgKey, number>;
+
+export const MENU_SECTION_ORDER: readonly DishSvgKey[] = (
+  Object.entries(MENU_SECTION_RANK) as [DishSvgKey, number][]
+)
+  .sort((a, b) => a[1] - b[1])
+  .map(([key]) => key);
 
 const SECTION_LABELS: Record<DishSvgKey, string> = {
   rice: "饭类",

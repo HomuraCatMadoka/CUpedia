@@ -24,8 +24,10 @@ describe("dish svg keys", () => {
   });
 
   it("inferDishSvgKeyFromName classifies by dish name keywords", () => {
-    expect(inferDishSvgKeyFromName("麻辣雞飯")).toBe("rice");
-    expect(inferDishSvgKeyFromName("咖喱魚蛋")).toBe("default");
-    expect(inferDishSvgKeyFromName("牛肉麵")).toBe("noodle");
+    expect(inferDishSvgKeyFromName("演示飯類")).toBe("rice");
+    expect(inferDishSvgKeyFromName("演示菜品")).toBe("default");
+    expect(inferDishSvgKeyFromName("演示麵類")).toBe("noodle");
+    expect(inferDishSvgKeyFromName("演示奶茶")).toBe("drink");
+    expect(inferDishSvgKeyFromName("演示咖啡")).toBe("drink");
   });
 });
