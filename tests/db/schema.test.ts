@@ -122,8 +122,12 @@ describe("schema", () => {
     expect("moderationStatus" in cols).toBe(false);
   });
 
-  it("courseRatings stores course experience tags", () => {
+  it("courseRatings stores structured course experience tags", () => {
     const cols = getTableColumns(courseRatings);
-    expect(cols.tags).toBeDefined();
+    expect(cols.workload).toBeDefined();
+    expect(cols.grade).toBeDefined();
+    expect(cols.enrollment).toBeDefined();
+    expect(cols.attendance).toBeDefined();
+    expect(cols.customTags).toBeDefined();
   });
 });

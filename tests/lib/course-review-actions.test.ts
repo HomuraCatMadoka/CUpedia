@@ -344,13 +344,18 @@ describe("submitCourseReview", () => {
         workload: "hea",
         grade: "靓 grade",
         enrollment: "点击即送",
+        attendance: "要 attendance",
         custom: [" 讲解清晰 ", "考试   贴题", "讲解清晰"],
       },
     });
 
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
-        tags: ["hea", "靓 grade", "点击即送", "讲解清晰", "考试 贴题"],
+        workload: "light",
+        grade: "good",
+        enrollment: "easy",
+        attendance: "required",
+        customTags: ["讲解清晰", "考试 贴题"],
       }),
     );
   });
@@ -532,7 +537,13 @@ describe("getMyCourseReviewHistory", () => {
         academicYear: "2025-26",
         term: "Term 2",
         professorName: "Ada Lovelace",
-        tags: ["workload-high"],
+        storedTags: {
+          workload: "heavy",
+          grade: null,
+          enrollment: null,
+          attendance: null,
+          customTags: ["讲解清晰"],
+        },
         isAnonymous: false,
         content: "很清楚",
         updatedAt: new Date("2026-01-02T03:04:05Z"),
@@ -548,7 +559,7 @@ describe("getMyCourseReviewHistory", () => {
         academicYear: "2025-26",
         term: "Term 2",
         professorName: "Ada Lovelace",
-        tags: ["workload-high"],
+        tags: ["chur", "讲解清晰"],
         isAnonymous: false,
         content: "很清楚",
         updatedAt: "2026-01-02T03:04:05.000Z",
@@ -626,9 +637,36 @@ describe("getCourseProfessorStats", () => {
       [],
       [],
       [
-        { professorId: "p1", tags: ["hea", "靓 grade", "讲解清晰"] },
-        { professorId: "p1", tags: ["hea", "讲解清晰"] },
-        { professorId: "p1", tags: ["chur", "讲解清晰"] },
+        {
+          professorId: "p1",
+          storedTags: {
+            workload: "light",
+            grade: "good",
+            enrollment: null,
+            attendance: "required",
+            customTags: ["讲解清晰"],
+          },
+        },
+        {
+          professorId: "p1",
+          storedTags: {
+            workload: "light",
+            grade: null,
+            enrollment: null,
+            attendance: "required",
+            customTags: ["讲解清晰"],
+          },
+        },
+        {
+          professorId: "p1",
+          storedTags: {
+            workload: "heavy",
+            grade: null,
+            enrollment: null,
+            attendance: "not_required",
+            customTags: ["讲解清晰"],
+          },
+        },
       ],
     );
 
@@ -639,6 +677,8 @@ describe("getCourseProfessorStats", () => {
           { label: "hea", count: 2 },
           { label: "chur", count: 1 },
           { label: "靓 grade", count: 1 },
+          { label: "要 attendance", count: 2 },
+          { label: "无 attendance", count: 1 },
           { label: "讲解清晰", count: 3 },
         ],
       }),
@@ -952,7 +992,13 @@ describe("getCourseRatingState", () => {
           term: "Term 2",
           professorId: "p1",
           professorName: "Professor CHAN",
-          tags: ["hea", "靓 grade", "讲解清晰"],
+          storedTags: {
+            workload: "light",
+            grade: "good",
+            enrollment: null,
+            attendance: null,
+            customTags: ["讲解清晰"],
+          },
           isAnonymous: true,
         },
       ], // my rating
@@ -996,7 +1042,13 @@ describe("getCourseReviews", () => {
           academicYear: "2025-26",
           term: "Term 2",
           score: 4.5,
-          tags: ["hea", "靓 grade", "讲解清晰"],
+          storedTags: {
+            workload: "light",
+            grade: "good",
+            enrollment: null,
+            attendance: null,
+            customTags: ["讲解清晰"],
+          },
           authorNickname: "Alice",
         },
       ],

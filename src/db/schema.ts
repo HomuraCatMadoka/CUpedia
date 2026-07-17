@@ -370,7 +370,12 @@ export const courseRatings = pgTable(
     term: text("term"),
     professorId: text("professor_id").references(() => professors.id),
     professorNameSnapshot: text("professor_name_snapshot"),
-    tags: jsonb("tags").$type<string[]>().notNull().default([]),
+    workload: text("workload"),
+    grade: text("grade"),
+    enrollment: text("enrollment"),
+    attendance: text("attendance"),
+    /** Free-form labels only; preset dimensions live in typed columns above. */
+    customTags: jsonb("tags").$type<string[]>().notNull().default([]),
     isAnonymous: boolean("is_anonymous").notNull().default(false),
     /** Last time this user rated this course (refreshed on each upsert). */
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -386,6 +391,22 @@ export const courseRatings = pgTable(
     check(
       "course_ratings_term_check",
       sql`${table.term} is null or ${table.term} in ('Term 1', 'Term 2', 'Summer')`,
+    ),
+    check(
+      "course_ratings_workload_check",
+      sql`${table.workload} is null or ${table.workload} in ('heavy', 'light')`,
+    ),
+    check(
+      "course_ratings_grade_check",
+      sql`${table.grade} is null or ${table.grade} in ('good', 'bad')`,
+    ),
+    check(
+      "course_ratings_enrollment_check",
+      sql`${table.enrollment} is null or ${table.enrollment} in ('hard', 'easy')`,
+    ),
+    check(
+      "course_ratings_attendance_check",
+      sql`${table.attendance} is null or ${table.attendance} in ('required', 'not_required')`,
     ),
   ],
 );

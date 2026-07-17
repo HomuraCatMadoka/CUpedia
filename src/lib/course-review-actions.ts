@@ -33,6 +33,7 @@ import {
 } from "@/lib/achievement-recompute-db";
 import {
   COURSE_REVIEW_TAG_OPTIONS,
+  COURSE_REVIEW_TAG_STORAGE_VALUES,
   COURSE_TERMS,
   type CourseReviewTags,
   type CourseTerm,
@@ -198,6 +199,14 @@ const courseCols = {
   requirementsRaw: courses.requirementsRaw,
 };
 
+const storedReviewTagSelection = {
+  workload: courseRatings.workload,
+  grade: courseRatings.grade,
+  enrollment: courseRatings.enrollment,
+  attendance: courseRatings.attendance,
+  customTags: courseRatings.customTags,
+};
+
 type CourseRow = {
   code: string;
   subject: string;
@@ -266,7 +275,53 @@ function validateTerm(value: string): asserts value is CourseTerm {
   }
 }
 
-function normalizeReviewTags(tags: CourseReviewTags | undefined): string[] {
+type NormalizedReviewTags = {
+  workload: "heavy" | "light" | null;
+  grade: "good" | "bad" | null;
+  enrollment: "hard" | "easy" | null;
+  attendance: "required" | "not_required" | null;
+  customTags: string[];
+};
+
+type StoredReviewTags = {
+  workload: string | null;
+  grade: string | null;
+  enrollment: string | null;
+  attendance: string | null;
+  customTags: string[] | null;
+};
+
+function presentPresetTag(
+  dimension: keyof typeof COURSE_REVIEW_TAG_STORAGE_VALUES,
+  value: string | null,
+): string | null {
+  if (!value) return null;
+  return (
+    Object.entries(COURSE_REVIEW_TAG_STORAGE_VALUES[dimension]).find(
+      ([, storedValue]) => storedValue === value,
+    )?.[0] ?? null
+  );
+}
+
+function presentReviewTags(
+  tags: StoredReviewTags | null | undefined,
+): string[] {
+  if (!tags) return [];
+  const preset = [
+    presentPresetTag("workload", tags.workload),
+    presentPresetTag("grade", tags.grade),
+    presentPresetTag("enrollment", tags.enrollment),
+    presentPresetTag("attendance", tags.attendance),
+  ];
+  return [
+    ...preset.filter((tag): tag is string => tag !== null),
+    ...(tags.customTags ?? []),
+  ];
+}
+
+function normalizeReviewTags(
+  tags: CourseReviewTags | undefined,
+): NormalizedReviewTags {
   if (
     tags !== undefined &&
     (tags === null || typeof tags !== "object" || Array.isArray(tags))
@@ -294,11 +349,6 @@ function normalizeReviewTags(tags: CourseReviewTags | undefined): string[] {
       throw new Error("无效的课程体验标签");
     }
   }
-  const preset = tags
-    ? [tags.workload, tags.grade, tags.enrollment].flatMap((tag) =>
-        tag ? [tag] : [],
-      )
-    : [];
   const custom = (tags?.custom ?? []).map((tag) =>
     tag.trim().replace(/\s+/g, " ").toLocaleLowerCase(),
   );
@@ -309,7 +359,21 @@ function normalizeReviewTags(tags: CourseReviewTags | undefined): string[] {
     throw new Error("自定义标签不能使用 preset");
   }
   custom.forEach((tag) => assertNoSensitiveContent(tag, ["考试"]));
-  return [...new Set([...preset, ...custom].filter(Boolean))];
+  return {
+    workload: tags?.workload
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.workload[tags.workload]
+      : null,
+    grade: tags?.grade
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.grade[tags.grade]
+      : null,
+    enrollment: tags?.enrollment
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.enrollment[tags.enrollment]
+      : null,
+    attendance: tags?.attendance
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.attendance[tags.attendance]
+      : null,
+    customTags: [...new Set(custom.filter(Boolean))],
+  };
 }
 
 /** credits bucket → SQL predicate on the numeric `units` column. */
@@ -360,7 +424,7 @@ export async function getMyCourseReviewHistory(): Promise<
       professorName: sql<
         string | null
       >`coalesce(${courseRatings.professorNameSnapshot}, ${professors.name})`,
-      tags: courseRatings.tags,
+      storedTags: storedReviewTagSelection,
       isAnonymous: courseRatings.isAnonymous,
       content: sql<string | null>`(
         select review.content from ${courseReviews} review
@@ -377,11 +441,12 @@ export async function getMyCourseReviewHistory(): Promise<
     .where(eq(courseRatings.userId, user.id))
     .orderBy(desc(courseRatings.createdAt));
 
-  return rows.map((row) => ({
+  return rows.map(({ storedTags, ...row }) => ({
     ...row,
     term: COURSE_TERMS.includes(row.term as CourseTerm)
       ? (row.term as CourseTerm)
       : null,
+    tags: presentReviewTags(storedTags),
     content: row.content ?? "",
     updatedAt: row.updatedAt.toISOString(),
   }));
@@ -545,7 +610,7 @@ export async function getCourseRatingState(
       term: courseRatings.term,
       professorId: courseRatings.professorId,
       professorName: courseRatings.professorNameSnapshot,
-      tags: courseRatings.tags,
+      storedTags: storedReviewTagSelection,
       isAnonymous: courseRatings.isAnonymous,
     })
     .from(courseRatings)
@@ -581,7 +646,7 @@ export async function getCourseRatingState(
         ? { id: mine.professorId, name: mine.professorName }
         : null,
     lastContent: myReview?.content ?? "",
-    lastTags: mine?.tags ?? [],
+    lastTags: presentReviewTags(mine?.storedTags),
     lastIsAnonymous: mine?.isAnonymous ?? false,
     myRatingCount: myRatings.length,
   };
@@ -609,7 +674,7 @@ export async function getCourseReviews(
         academicYear: courseReviews.academicYear,
         term: courseReviews.term,
         score: courseReviews.score,
-        tags: courseRatings.tags,
+        storedTags: storedReviewTagSelection,
         authorNickname: sql<string | null>`case
           when ${courseReviews.isAnonymous} then null
           else ${users.nickname}
@@ -679,7 +744,7 @@ export async function getCourseReviews(
         ? (r.term as CourseTerm)
         : null,
       score: r.score,
-      tags: r.tags ?? [],
+      tags: presentReviewTags(r.storedTags),
       authorNickname: r.authorNickname,
       authorShowcaseId: author?.showcaseId ?? null,
       authorAchievements: author?.achievements ?? [],
@@ -699,7 +764,7 @@ export async function getCourseReviews(
       academicYear: courseRatings.academicYear,
       term: courseRatings.term,
       score: courseRatings.score,
-      tags: courseRatings.tags,
+      storedTags: storedReviewTagSelection,
     })
     .from(courseRatings)
     .where(eq(courseRatings.courseCode, course.code));
@@ -724,7 +789,7 @@ export async function getCourseReviews(
         ? (rating.term as CourseTerm)
         : null,
       score: rating.score,
-      tags: rating.tags ?? [],
+      tags: presentReviewTags(rating.storedTags),
       authorNickname: null,
       authorShowcaseId: null,
       authorAchievements: [],
@@ -831,7 +896,7 @@ export async function getCourseProfessorStats(
       db
         .select({
           professorId: courseRatings.professorId,
-          tags: courseRatings.tags,
+          storedTags: storedReviewTagSelection,
         })
         .from(courseRatings)
         .where(eq(courseRatings.courseCode, courseCode)),
@@ -882,7 +947,9 @@ export async function getCourseProfessorStats(
   for (const row of tagRows) {
     if (!row.professorId) continue;
     const counts = tagCountsByProfessor.get(row.professorId) ?? new Map();
-    for (const tag of row.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    for (const tag of presentReviewTags(row.storedTags)) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
     tagCountsByProfessor.set(row.professorId, counts);
   }
   return professorRows.map((professor) => {
@@ -1017,7 +1084,7 @@ export async function submitCourseReview(
   validateAcademicYear(submission.academicYear);
   validateTerm(submission.term);
   const content = submission.content?.trim() ?? "";
-  const tags = normalizeReviewTags(submission.tags);
+  const structuredTags = normalizeReviewTags(submission.tags);
   if (content.length > 2000) throw new Error("评论内容过长");
 
   const course = await findCourse(code);
@@ -1059,7 +1126,7 @@ export async function submitCourseReview(
         professorId: professor?.id ?? null,
         professorNameSnapshot: professor?.name ?? null,
         isAnonymous,
-        tags,
+        ...structuredTags,
       })
       .onConflictDoUpdate({
         target: [courseRatings.courseCode, courseRatings.userId],
@@ -1070,7 +1137,7 @@ export async function submitCourseReview(
           professorId: professor?.id ?? null,
           professorNameSnapshot: professor?.name ?? null,
           isAnonymous,
-          tags,
+          ...structuredTags,
           createdAt: sql`now()`,
         },
       });
