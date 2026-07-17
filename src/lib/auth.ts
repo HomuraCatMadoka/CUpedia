@@ -45,7 +45,10 @@ export const auth = betterAuth({
     emailOTP({
       sendVerificationOTP: sendOtpEmail,
       otpLength: 6,
-      expiresIn: 300,
+      expiresIn: 600,
+      // Delayed emails must not invalidate a code the user already received.
+      // Resends reuse the active code and refresh its ten-minute expiry.
+      resendStrategy: "reuse",
     }),
     registrationOtpPlugin(),
   ],

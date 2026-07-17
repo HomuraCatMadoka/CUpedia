@@ -87,6 +87,7 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto("/courses/CSCI1130");
 
+  await page.getByRole("link", { name: "写测评" }).click();
   await fillSubmission(page, own);
   await page.getByRole("button", { name: "提交测评" }).click();
   await expect(page.getByText("课程测评已发布")).toBeVisible();
@@ -130,9 +131,10 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
 
   page.once("dialog", (dialog) => dialog.accept());
   await summary.getByRole("button", { name: "删除" }).click();
-  await expect(page.getByRole("button", { name: "提交测评" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "开始填写" })).toBeVisible();
   await expect.poll(() => countRows("course_ratings")).toBe(0);
 
+  await page.getByRole("button", { name: "开始填写" }).click();
   await fillSubmission(page, moderated);
   await page.getByRole("checkbox", { name: "匿名发表" }).check();
   await page.getByRole("button", { name: "提交测评" }).click();

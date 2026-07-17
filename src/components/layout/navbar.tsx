@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +23,7 @@ import {
 import { CommandSearch } from "@/components/layout/command-search";
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
+  const router = useRouter();
   const { data: session } = authClient.useSession();
   // `useSession` reads a cookie-backed session snapshot synchronously on the
   // client, so the first client render can already know the user while the
@@ -33,6 +36,24 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const [nickname, setNickname] = useState("");
   const [nicknameError, setNicknameError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      const { error } = await authClient.signOut();
+      if (error) {
+        toast.error(error.message ?? "登出失败，请稍后重试");
+        return;
+      }
+      router.push("/login");
+      router.refresh();
+    } catch {
+      toast.error("登出失败，请稍后重试");
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   async function handleNicknameSave(e: React.FormEvent) {
     e.preventDefault();
@@ -108,8 +129,11 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                   <DropdownMenuItem onClick={openNicknameDialog}>
                     修改昵称
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => authClient.signOut()}>
-                    登出
+                  <DropdownMenuItem
+                    disabled={signingOut}
+                    onClick={handleSignOut}
+                  >
+                    {signingOut ? "登出中..." : "登出"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -80,6 +80,22 @@ test("expired OTP is understandable and does not create a user", async ({
   expect(await userExists(email)).toBe(false);
 });
 
+test("resending after returning to registration keeps the active OTP valid", async ({
+  page,
+}) => {
+  const email = freshEmail();
+  await requestOtp(page, email);
+  const firstOtp = await readLatestOtp(email, "sign-in");
+
+  await page.goto("/login");
+  await requestOtp(page, email);
+  expect(await readLatestOtp(email, "sign-in")).toBe(firstOtp);
+
+  await submitProfile(page, firstOtp);
+  await expect(page).toHaveURL("/");
+  expect(await userExists(email)).toBe(true);
+});
+
 test("concurrent wrong OTP checks cannot bypass the attempt limit", async ({
   page,
 }) => {

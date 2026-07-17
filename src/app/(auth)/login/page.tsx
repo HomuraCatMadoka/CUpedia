@@ -13,7 +13,7 @@ import { isAllowedEmail } from "@/lib/email";
 type Tab = "password" | "otp";
 type OtpStep = "email" | "code";
 
-const OTP_EXPIRY_SECONDS = 300;
+const OTP_EXPIRY_SECONDS = 600;
 
 export default function LoginPage() {
   const router = useRouter();

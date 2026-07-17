@@ -12,7 +12,7 @@ import { isAllowedEmail } from "@/lib/email";
 
 type Step = "email" | "reset" | "done";
 
-const OTP_EXPIRY_SECONDS = 300;
+const OTP_EXPIRY_SECONDS = 600;
 
 function resetErrorMessage(message?: string) {
   const normalized = message?.toLowerCase() ?? "";

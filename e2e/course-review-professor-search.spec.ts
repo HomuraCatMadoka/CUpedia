@@ -79,6 +79,7 @@ test("official professor outside the course assignment can be searched and submi
   await loginWithPassword(page, USER_EMAIL, "password123");
   await page.goto(`/courses/${COURSE_CODE}`);
 
+  await page.getByRole("link", { name: "写测评" }).click();
   await page.getByLabel("学年").selectOption("2025-26");
   await page.getByLabel("学期").selectOption("Term 2");
 

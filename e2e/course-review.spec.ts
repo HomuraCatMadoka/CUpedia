@@ -52,7 +52,7 @@ test("#267 subject filter shows the whole subject, uncapped", async ({
     page.getByText(`找到 ${expected} 门课程`, { exact: true }),
   ).toBeVisible();
 
-  const cards = page.locator('a[href^="/courses/"]');
+  const cards = page.getByTestId("course-card");
   await expect(cards).toHaveCount(expected);
   // Every card belongs to the selected subject.
   const hrefs = await cards.evaluateAll((els) =>
@@ -76,7 +76,7 @@ test("#267 level filter narrows to a single course level", async ({ page }) => {
     page.getByText(`找到 ${expected} 门课程`, { exact: true }),
   ).toBeVisible();
 
-  const cards = page.locator('a[href^="/courses/"]');
+  const cards = page.getByTestId("course-card");
   await expect(cards).toHaveCount(expected);
   const hrefs = await cards.evaluateAll((els) =>
     els.map((el) => el.getAttribute("href")),
@@ -120,11 +120,7 @@ test("#348 return link restores the unfiltered course list position", async ({
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const positionBeforeNavigation = await page.evaluate(() => window.scrollY);
   expect(positionBeforeNavigation).toBeGreaterThan(200);
-  await page
-    .locator('a[href^="/courses/"]')
-    .filter({ has: page.locator("h2") })
-    .last()
-    .click();
+  await page.getByTestId("course-card").last().click();
 
   await page.getByRole("link", { name: "返回课程列表" }).click();
 
@@ -203,6 +199,7 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await page.goto(`/courses/${CODE}`);
 
   // One submission records the concrete offering, rating and optional comment.
+  await page.getByRole("link", { name: "写测评" }).click();
   await page.getByLabel("学年").selectOption("2025-26");
   await page.getByLabel("学期").selectOption("Term 2");
   await selectSeedProfessor(page);
