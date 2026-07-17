@@ -51,6 +51,7 @@ vi.mock("@/lib/danmaku-mutations", () => ({
 }));
 
 import { adminDeleteDanmaku, createDanmaku } from "@/lib/danmaku-actions";
+import { canteenDanmakuMessages, danmakuMessages } from "@/db/schema";
 
 function mockAuthUser() {
   mockGetSession.mockResolvedValue({
@@ -94,7 +95,7 @@ describe("danmaku-actions", () => {
     await expect(createDanmaku("x")).rejects.toThrow("NEXT_REDIRECT");
   });
 
-  it("adminDeleteDanmaku hard-deletes row", async () => {
+  it("adminDeleteDanmaku hard-deletes a hub row", async () => {
     mockAuthUser();
     mockDbQueryUsers.findFirst.mockResolvedValueOnce({
       id: "admin-1",
@@ -112,7 +113,35 @@ describe("danmaku-actions", () => {
       where: vi.fn().mockReturnValue({ returning }),
     });
 
-    await adminDeleteDanmaku("dm-1");
-    expect(mockDbDelete).toHaveBeenCalled();
+    await adminDeleteDanmaku({ id: "dm-1", scope: "hub" });
+    expect(mockDbDelete).toHaveBeenCalledWith(danmakuMessages);
+  });
+
+  it("adminDeleteDanmaku hard-deletes a canteen row and revalidates it", async () => {
+    mockDbQueryUsers.findFirst.mockResolvedValueOnce({
+      id: "admin-1",
+      email: "admin@test.com",
+      nickname: "Admin",
+      role: "admin",
+      banned: false,
+    });
+    mockGetSession.mockResolvedValue({
+      user: { id: "admin-1", email: "admin@test.com" },
+    });
+    const returning = vi.fn().mockResolvedValue([{ id: "dm-1" }]);
+    mockDbDelete.mockReturnValue({
+      where: vi.fn().mockReturnValue({ returning }),
+    });
+
+    await adminDeleteDanmaku({
+      id: "dm-1",
+      scope: "canteen",
+      canteenId: "00000000-0000-4000-a000-000000000001",
+    });
+
+    expect(mockDbDelete).toHaveBeenCalledWith(canteenDanmakuMessages);
+    expect(mockRevalidatePath).toHaveBeenCalledWith(
+      "/canteen/00000000-0000-4000-a000-000000000001",
+    );
   });
 });

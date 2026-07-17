@@ -3,27 +3,12 @@ import { revalidatePath } from "next/cache";
 import { getDanmakuAuthorForApi } from "@/lib/auth-guard";
 import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
 import { listCurrentMonthDanmaku } from "@/lib/danmaku-queries";
-
-function mapDanmakuError(message: string): number {
-  switch (message) {
-    case "INVALID_DANMAKU":
-    case "DANMAKU_BLOCKED":
-    case "SENSITIVE_CONTENT":
-      return 400;
-    case "DANMAKU_RATE_LIMIT_EXCEEDED":
-      return 429;
-    default:
-      return 500;
-  }
-}
+import { publicDanmakuError, serializePublicDanmaku } from "@/lib/danmaku-api";
 
 export async function GET() {
   const messages = await listCurrentMonthDanmaku();
   return NextResponse.json({
-    messages: messages.map((m) => ({
-      ...m,
-      createdAt: m.createdAt.toISOString(),
-    })),
+    messages: messages.map(serializePublicDanmaku),
   });
 }
 
@@ -36,12 +21,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "USER_BANNED" }, { status: 403 });
   }
 
-  let body: { content?: unknown };
+  let raw: unknown;
   try {
-    body = await request.json();
+    raw = await request.json();
   } catch {
     return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
   }
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+  }
+  const body = raw as { content?: unknown };
 
   try {
     const message = await insertDanmakuForUser(
@@ -51,18 +40,15 @@ export async function POST(request: NextRequest) {
     revalidatePath("/");
     return NextResponse.json(
       {
-        message: {
-          ...message,
-          createdAt: message.createdAt.toISOString(),
-        },
+        message: serializePublicDanmaku(message),
       },
       { status: 201 },
     );
   } catch (e) {
-    const code = e instanceof Error ? e.message : "DANMAKU_FAILED";
+    const failure = publicDanmakuError(e);
     return NextResponse.json(
-      { error: code },
-      { status: mapDanmakuError(code) },
+      { error: failure.error },
+      { status: failure.status },
     );
   }
 }

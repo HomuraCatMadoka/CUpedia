@@ -14,6 +14,32 @@ export type DanmakuMessage = {
   createdAt: Date;
 };
 
+export type PublicDanmakuMessage = Pick<
+  DanmakuMessage,
+  "id" | "content" | "month" | "createdAt"
+>;
+
+export type AdminDanmakuMessage = DanmakuMessage &
+  (
+    | { scope: "hub"; canteenId: null; canteenName: null }
+    | {
+        scope: "canteen";
+        canteenId: string;
+        canteenName: string;
+      }
+  );
+
+export function toPublicDanmakuMessage(
+  message: PublicDanmakuMessage,
+): PublicDanmakuMessage {
+  return {
+    id: message.id,
+    content: message.content,
+    month: message.month,
+    createdAt: message.createdAt,
+  };
+}
+
 export function validateDanmakuContent(input: unknown): string {
   if (typeof input !== "string") throw new Error("INVALID_DANMAKU");
   const trimmed = input.trim();

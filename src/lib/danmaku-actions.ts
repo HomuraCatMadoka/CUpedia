@@ -3,7 +3,7 @@
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { danmakuMessages } from "@/db/schema";
+import { canteenDanmakuMessages, danmakuMessages } from "@/db/schema";
 import { requireAdmin, requireAuth } from "@/lib/auth-guard";
 import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
 import {
@@ -11,7 +11,7 @@ import {
   listCurrentMonthCanteenDanmaku,
   listCurrentMonthDanmaku,
 } from "@/lib/danmaku-queries";
-import type { DanmakuMessage } from "@/lib/danmaku-types";
+import type { AdminDanmakuMessage, DanmakuMessage } from "@/lib/danmaku-types";
 
 export { listCurrentMonthDanmaku, listCurrentMonthCanteenDanmaku };
 
@@ -27,19 +27,28 @@ export async function createDanmaku(
   return message;
 }
 
-export async function adminListDanmaku(): Promise<DanmakuMessage[]> {
+export async function adminListDanmaku(): Promise<AdminDanmakuMessage[]> {
   await requireAdmin();
   return adminListCurrentMonthDanmaku();
 }
 
-export async function adminDeleteDanmaku(danmakuId: string): Promise<void> {
+export async function adminDeleteDanmaku(
+  target:
+    | { id: string; scope: "hub" }
+    | { id: string; scope: "canteen"; canteenId: string },
+): Promise<void> {
   await requireAdmin();
+  const table =
+    target.scope === "canteen" ? canteenDanmakuMessages : danmakuMessages;
   const result = await db
-    .delete(danmakuMessages)
-    .where(eq(danmakuMessages.id, danmakuId))
-    .returning({ id: danmakuMessages.id });
+    .delete(table)
+    .where(eq(table.id, target.id))
+    .returning({ id: table.id });
 
   if (!result[0]) throw new Error("DANMAKU_NOT_FOUND");
   revalidatePath("/");
   revalidatePath("/admin/danmaku");
+  if (target.scope === "canteen") {
+    revalidatePath(`/canteen/${target.canteenId}`);
+  }
 }

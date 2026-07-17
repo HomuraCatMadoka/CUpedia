@@ -2,8 +2,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDanmakuMessages, canteens, danmakuMessages } from "@/db/schema";
 import {
-  assertCanteenDanmakuRateLimit,
-  assertDanmakuRateLimit,
+  assertCanteenDanmakuRateLimitInTransaction,
+  assertDanmakuRateLimitInTransaction,
 } from "@/lib/danmaku-rate-limit";
 import type { DanmakuMessage } from "@/lib/danmaku-types";
 import { validateDanmakuContent } from "@/lib/danmaku-types";
@@ -17,28 +17,29 @@ export async function insertDanmakuForUser(
 ): Promise<DanmakuMessage> {
   const content = validateDanmakuContent(contentInput);
   assertNoSensitiveContent(content);
-  await assertDanmakuRateLimit(user.id);
+  return db.transaction(async (tx) => {
+    await assertDanmakuRateLimitInTransaction(user.id, tx);
+    const month = currentMonthHkt();
+    const [row] = await tx
+      .insert(danmakuMessages)
+      .values({
+        userId: user.id,
+        content,
+        month,
+      })
+      .returning({
+        id: danmakuMessages.id,
+        userId: danmakuMessages.userId,
+        content: danmakuMessages.content,
+        month: danmakuMessages.month,
+        createdAt: danmakuMessages.createdAt,
+      });
 
-  const month = currentMonthHkt();
-  const [row] = await db
-    .insert(danmakuMessages)
-    .values({
-      userId: user.id,
-      content,
-      month,
-    })
-    .returning({
-      id: danmakuMessages.id,
-      userId: danmakuMessages.userId,
-      content: danmakuMessages.content,
-      month: danmakuMessages.month,
-      createdAt: danmakuMessages.createdAt,
-    });
-
-  return {
-    ...row,
-    authorNickname: user.nickname,
-  };
+    return {
+      ...row,
+      authorNickname: user.nickname,
+    };
+  });
 }
 
 /** Writes to canteen_danmaku_messages — never the hub danmaku_messages table. */
@@ -55,27 +56,28 @@ export async function insertCanteenDanmakuForUser(
 
   const content = validateDanmakuContent(contentInput);
   assertNoSensitiveContent(content);
-  await assertCanteenDanmakuRateLimit(user.id, canteenId);
+  return db.transaction(async (tx) => {
+    await assertCanteenDanmakuRateLimitInTransaction(user.id, canteenId, tx);
+    const month = currentMonthHkt();
+    const [row] = await tx
+      .insert(canteenDanmakuMessages)
+      .values({
+        canteenId,
+        userId: user.id,
+        content,
+        month,
+      })
+      .returning({
+        id: canteenDanmakuMessages.id,
+        userId: canteenDanmakuMessages.userId,
+        content: canteenDanmakuMessages.content,
+        month: canteenDanmakuMessages.month,
+        createdAt: canteenDanmakuMessages.createdAt,
+      });
 
-  const month = currentMonthHkt();
-  const [row] = await db
-    .insert(canteenDanmakuMessages)
-    .values({
-      canteenId,
-      userId: user.id,
-      content,
-      month,
-    })
-    .returning({
-      id: canteenDanmakuMessages.id,
-      userId: canteenDanmakuMessages.userId,
-      content: canteenDanmakuMessages.content,
-      month: canteenDanmakuMessages.month,
-      createdAt: canteenDanmakuMessages.createdAt,
-    });
-
-  return {
-    ...row,
-    authorNickname: user.nickname,
-  };
+    return {
+      ...row,
+      authorNickname: user.nickname,
+    };
+  });
 }

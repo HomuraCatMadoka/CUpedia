@@ -1171,7 +1171,7 @@ export const canteenDanmakuMessages = pgTable(
     ),
     index("canteen_danmaku_messages_user_id_idx").on(table.userId),
   ],
-);
+).enableRLS();
 
 export const canteenDanmakuMessagesRelations = relations(
   canteenDanmakuMessages,

@@ -906,7 +906,7 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
-      "isRLSEnabled": false
+      "isRLSEnabled": true
     },
     "public.canteen_dish_comments": {
       "name": "canteen_dish_comments",

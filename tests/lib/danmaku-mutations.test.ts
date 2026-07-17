@@ -1,22 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockAssertRateLimit, mockAssertCanteenRateLimit, mockDbInsert, mockFindCanteen } =
-  vi.hoisted(() => ({
-    mockAssertRateLimit: vi.fn(),
-    mockAssertCanteenRateLimit: vi.fn(),
-    mockDbInsert: vi.fn(),
-    mockFindCanteen: vi.fn(),
-  }));
+const {
+  mockAssertRateLimit,
+  mockAssertCanteenRateLimit,
+  mockDbInsert,
+  mockDbTransaction,
+  mockFindCanteen,
+  mockTxExecute,
+} = vi.hoisted(() => ({
+  mockAssertRateLimit: vi.fn(),
+  mockAssertCanteenRateLimit: vi.fn(),
+  mockDbInsert: vi.fn(),
+  mockDbTransaction: vi.fn(),
+  mockFindCanteen: vi.fn(),
+  mockTxExecute: vi.fn(),
+}));
 
 vi.mock("@/lib/danmaku-rate-limit", () => ({
-  assertDanmakuRateLimit: (...args: unknown[]) => mockAssertRateLimit(...args),
-  assertCanteenDanmakuRateLimit: (...args: unknown[]) =>
+  assertDanmakuRateLimitInTransaction: (...args: unknown[]) =>
+    mockAssertRateLimit(...args),
+  assertCanteenDanmakuRateLimitInTransaction: (...args: unknown[]) =>
     mockAssertCanteenRateLimit(...args),
 }));
 
 vi.mock("@/db", () => ({
   db: {
-    insert: (...args: unknown[]) => mockDbInsert(...args),
+    transaction: (callback: (tx: unknown) => unknown) => {
+      mockDbTransaction();
+      return callback({
+        execute: (...args: unknown[]) => mockTxExecute(...args),
+        insert: (...args: unknown[]) => mockDbInsert(...args),
+      });
+    },
     query: {
       canteens: {
         findFirst: (...args: unknown[]) => mockFindCanteen(...args),
@@ -59,7 +74,11 @@ describe("danmaku-mutations", () => {
       "期末加油",
     );
     expect(row.content).toBe("期末加油");
-    expect(mockAssertRateLimit).toHaveBeenCalledWith("user-1");
+    expect(mockDbTransaction).toHaveBeenCalledOnce();
+    expect(mockAssertRateLimit).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({ execute: expect.any(Function) }),
+    );
   });
 
   it("propagates rate limit errors", async () => {
@@ -100,11 +119,12 @@ describe("danmaku-mutations", () => {
         content: "好吃",
       }),
     );
+    expect(mockDbTransaction).toHaveBeenCalledOnce();
     expect(mockAssertCanteenRateLimit).toHaveBeenCalledWith(
       "user-1",
       "canteen-1",
+      expect.objectContaining({ execute: expect.any(Function) }),
     );
-    expect(mockAssertRateLimit).not.toHaveBeenCalled();
   });
 
   it("insertCanteenDanmakuForUser rejects unknown canteen", async () => {

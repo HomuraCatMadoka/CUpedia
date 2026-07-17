@@ -11,7 +11,10 @@ import {
   scheduleScrollingDanmaku,
   type ScheduledDanmaku,
 } from "@/lib/danmaku-schedule";
-import { messagesForFlyover, type DanmakuMessage } from "@/lib/danmaku-types";
+import {
+  messagesForFlyover,
+  type PublicDanmakuMessage,
+} from "@/lib/danmaku-types";
 import "./danmaku.css";
 
 function danmakuErrorMessage(code: string): string {
@@ -38,7 +41,7 @@ export function DanmakuBanner({
   title = "本月弹幕",
   apiPath = "/api/danmaku",
 }: {
-  initialMessages: DanmakuMessage[];
+  initialMessages: PublicDanmakuMessage[];
   viewer: ViewerState;
   title?: string;
   /** POST endpoint for this banner's danmaku store (hub vs per-canteen). */
@@ -99,7 +102,7 @@ export function DanmakuBanner({
           body: JSON.stringify({ content }),
         });
         const data = (await res.json()) as {
-          message?: DanmakuMessage & { createdAt: string };
+          message?: PublicDanmakuMessage & { createdAt: string };
           error?: string;
         };
         if (!res.ok) {
@@ -161,9 +164,7 @@ export function DanmakuBanner({
         {messages.length === 0 ? (
           <li className="text-muted-foreground">暂无弹幕，来发第一条吧</li>
         ) : (
-          messages.map((msg) => (
-            <li key={msg.id}>{msg.content}</li>
-          ))
+          messages.map((msg) => <li key={msg.id}>{msg.content}</li>)
         )}
       </ul>
 

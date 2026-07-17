@@ -15,24 +15,34 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { adminDeleteDanmaku } from "@/lib/danmaku-actions";
-import type { DanmakuMessage } from "@/lib/danmaku-types";
+import type { AdminDanmakuMessage } from "@/lib/danmaku-types";
 import { currentMonthHkt } from "@/lib/hkt-datetime";
 
 export function DanmakuAdminPanel({
   messages,
 }: {
-  messages: DanmakuMessage[];
+  messages: AdminDanmakuMessage[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [deleteTarget, setDeleteTarget] = useState<DanmakuMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminDanmakuMessage | null>(
+    null,
+  );
   const month = currentMonthHkt();
 
   function handleDelete() {
     if (!deleteTarget) return;
     startTransition(async () => {
       try {
-        await adminDeleteDanmaku(deleteTarget.id);
+        await adminDeleteDanmaku(
+          deleteTarget.scope === "canteen"
+            ? {
+                id: deleteTarget.id,
+                scope: "canteen",
+                canteenId: deleteTarget.canteenId,
+              }
+            : { id: deleteTarget.id, scope: "hub" },
+        );
         setDeleteTarget(null);
         router.refresh();
       } catch {
@@ -66,6 +76,7 @@ export function DanmakuAdminPanel({
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{msg.content}</p>
                 <p className="text-xs text-muted-foreground">
+                  {msg.scope === "canteen" ? msg.canteenName : "食堂总览"} ·{" "}
                   {msg.authorNickname} ·{" "}
                   {msg.createdAt.toLocaleString("zh-HK", {
                     timeZone: "Asia/Hong_Kong",
