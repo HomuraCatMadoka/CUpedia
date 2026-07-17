@@ -4,6 +4,16 @@ import Mint from "mint-filter";
 
 export const SENSITIVE_CONTENT_ERROR = "SENSITIVE_CONTENT";
 
+/**
+ * Publish-time gate: when off, `assertNoSensitiveContent` is a no-op.
+ * Default ON; set `SENSITIVE_CONTENT_FILTER=false` (or 0/off/no) to disable.
+ */
+export function isSensitiveContentFilterEnabled(): boolean {
+  const raw = process.env.SENSITIVE_CONTENT_FILTER;
+  if (raw == null || raw.trim() === "") return true;
+  return !["0", "false", "off", "no"].includes(raw.trim().toLowerCase());
+}
+
 const LEXICON_FILES = [
   "sensitive-words-politics.txt",
   "sensitive-words-porn.txt",
@@ -73,11 +83,12 @@ export function containsSensitiveContent(
   );
 }
 
-/** Throws `SENSITIVE_CONTENT` when the text hits the lexicon. */
+/** Throws `SENSITIVE_CONTENT` when the filter is on and the text hits the lexicon. */
 export function assertNoSensitiveContent(
   text: string,
   exceptions: readonly string[] = [],
 ): void {
+  if (!isSensitiveContentFilterEnabled()) return;
   if (containsSensitiveContent(text, exceptions)) {
     throw new Error(SENSITIVE_CONTENT_ERROR);
   }

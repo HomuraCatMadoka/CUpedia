@@ -12,4 +12,6 @@ Vendored from [konsheng/Sensitive-lexicon](https://github.com/konsheng/Sensitive
 
 Matcher at runtime: [`mint-filter`](https://github.com/ZhelinCheng/mint-filter) (Aho–Corasick).
 
+Publish gate: `assertNoSensitiveContent` only runs when `SENSITIVE_CONTENT_FILTER` is on (default). Set to `false` / `0` / `off` / `no` to skip checks on comment and danmaku publish.
+
 The full NetEase frontend lexicon is **not** loaded — it false-positives on ordinary campus terms (e.g. `考试`, `24`). Political coverage is kept via the dedicated politics lists plus the NetEase ∩ politics-seed subset above.

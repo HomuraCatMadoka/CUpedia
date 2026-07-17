@@ -65,4 +65,31 @@ describe("sensitive-content", () => {
     expect(sample).toBeTruthy();
     expect(containsSensitiveContent(`看看这个站 ${sample}`)).toBe(true);
   });
+
+  it("skips publish assert when SENSITIVE_CONTENT_FILTER is off", () => {
+    const prev = process.env.SENSITIVE_CONTENT_FILTER;
+    resetSensitiveMatcherForTests(["违禁样例词"]);
+    try {
+      process.env.SENSITIVE_CONTENT_FILTER = "false";
+      expect(containsSensitiveContent("前面违禁样例词后面")).toBe(true);
+      expect(() =>
+        assertNoSensitiveContent("前面违禁样例词后面"),
+      ).not.toThrow();
+    } finally {
+      process.env.SENSITIVE_CONTENT_FILTER = prev;
+    }
+  });
+
+  it("enforces publish assert when SENSITIVE_CONTENT_FILTER is on", () => {
+    const prev = process.env.SENSITIVE_CONTENT_FILTER;
+    resetSensitiveMatcherForTests(["违禁样例词"]);
+    try {
+      process.env.SENSITIVE_CONTENT_FILTER = "true";
+      expect(() => assertNoSensitiveContent("前面违禁样例词后面")).toThrow(
+        "SENSITIVE_CONTENT",
+      );
+    } finally {
+      process.env.SENSITIVE_CONTENT_FILTER = prev;
+    }
+  });
 });
