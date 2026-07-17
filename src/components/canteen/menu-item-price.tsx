@@ -1,5 +1,5 @@
 import type { MenuItemPricing } from "@/lib/canteen-types";
-import { formatPriceAmount } from "@/lib/canteen-pricing";
+import { formatPriceOption } from "@/lib/canteen-pricing";
 import { cn } from "@/lib/utils";
 
 export function MenuItemPrice({
@@ -17,19 +17,11 @@ export function MenuItemPrice({
 
   return (
     <span
-      className={cn(
-        "flex flex-wrap justify-end gap-x-2.5 gap-y-0.5",
-        className,
-      )}
+      className={cn("flex flex-wrap justify-end gap-x-2 gap-y-0.5", className)}
     >
       {pricing.options.map((option) => (
-        <span key={option.id} className="canteen-price-option whitespace-nowrap">
-          {option.label ? (
-            <span className="canteen-price-label">{option.label}</span>
-          ) : null}
-          <span className="tabular-nums">
-            {formatPriceAmount(option.amountMinor, option.currency)}
-          </span>
+        <span key={option.id} className="whitespace-nowrap">
+          {formatPriceOption(option)}
         </span>
       ))}
     </span>

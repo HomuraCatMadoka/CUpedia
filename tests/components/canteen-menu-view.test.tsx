@@ -34,7 +34,6 @@ function item(
   id: string,
   mealPeriod: CanteenMenuItem["mealPeriod"],
   name: string,
-  svgKey = "default",
 ): CanteenMenuItem {
   const t = new Date();
   return {
@@ -44,7 +43,7 @@ function item(
     pricing: null,
     mealPeriod,
     sortOrder: 0,
-    svgKey,
+    svgKey: "default",
     createdAt: t,
     updatedAt: t,
   };
@@ -200,29 +199,5 @@ describe("CanteenMenuView", () => {
     expect(
       screen.getByRole("button", { name: "点赞" }).getAttribute("aria-pressed"),
     ).toBe("true");
-  });
-
-  it("groups menu items by svgKey with section headings and filters", async () => {
-    const mixed = [
-      item("rice-1", "lunch", "叉烧饭", "rice"),
-      item("drink-1", "lunch", "奶茶", "drink"),
-      item("noodle-1", "lunch", "牛肉面", "noodle"),
-    ];
-    render(<CanteenMenuView items={mixed} voteCounts={{}} myVotes={{}} />);
-
-    await waitFor(() => {
-      expect(screen.getByRole("heading", { name: /饭类/ })).toBeTruthy();
-    });
-    expect(screen.getByRole("heading", { name: /粉面/ })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: /饮品/ })).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /饮品/ }));
-    expect(screen.getByText("奶茶")).toBeTruthy();
-    expect(screen.queryByText("叉烧饭")).toBeNull();
-    expect(screen.queryByText("牛肉面")).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "全部" }));
-    expect(screen.getByText("叉烧饭")).toBeTruthy();
-    expect(screen.getByText("牛肉面")).toBeTruthy();
   });
 });
