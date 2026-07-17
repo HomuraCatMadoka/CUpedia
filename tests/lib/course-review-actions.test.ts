@@ -10,6 +10,7 @@ import {
 
 const mockGetAchievementSummaries = vi.hoisted(() => vi.fn());
 const mockRecomputeAchievements = vi.hoisted(() => vi.fn());
+const mockSyncAchievementNotices = vi.hoisted(() => vi.fn());
 
 // ref #177 — course-review MVP data layer.
 //
@@ -91,6 +92,10 @@ vi.mock("@/lib/achievement-recompute-db", () => ({
   recomputeAchievementsBeforeRatingDeletion: (...args: unknown[]) =>
     mockRecomputeAchievements(...args),
 }));
+vi.mock("@/lib/achievement-notice-actions", () => ({
+  syncAchievementNoticesForUser: (...args: unknown[]) =>
+    mockSyncAchievementNotices(...args),
+}));
 vi.mock("@/db", () => ({
   db: {
     select: () => dbSelect(),
@@ -142,6 +147,7 @@ beforeEach(() => {
   mockGetOptionalUser.mockResolvedValue(null);
   mockGetAchievementSummaries.mockResolvedValue(new Map());
   mockRecomputeAchievements.mockResolvedValue({ kind: "unchanged" });
+  mockSyncAchievementNotices.mockResolvedValue([]);
   dbTransaction.mockImplementation(
     async (
       callback: (tx: {
@@ -203,9 +209,9 @@ describe("submitCourseReview", () => {
 
   it("仅评分时写入开课经历，不生成空评论", async () => {
     queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
-    await expect(
-      submitCourseReview("CSCI3150", SUBMISSION),
-    ).resolves.toBeUndefined();
+    await expect(submitCourseReview("CSCI3150", SUBMISSION)).resolves.toEqual({
+      newAchievementNotices: [],
+    });
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -229,7 +235,7 @@ describe("submitCourseReview", () => {
         ...SUBMISSION,
         professorId: null,
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ newAchievementNotices: [] });
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
         professorId: null,
@@ -422,7 +428,7 @@ describe("submitCourseReview", () => {
         ...SUBMISSION,
         tags: { custom: ["考试贴题"] },
       }),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ newAchievementNotices: [] });
   });
 
   it("不豁免包含课程领域常用词的完整敏感词", async () => {

@@ -24,6 +24,10 @@ import {
   type PublicAchievementSummary,
 } from "@/lib/achievement-profile";
 import {
+  syncAchievementNoticesForUser,
+  type AchievementNoticeToast,
+} from "@/lib/achievement-notice-actions";
+import {
   recomputeAchievementsBeforeRatingDeletion,
   type PublicDeletionImpact,
 } from "@/lib/achievement-recompute-db";
@@ -1000,7 +1004,7 @@ export async function isCourseProfessorOptional(
 export async function submitCourseReview(
   code: string,
   submission: CourseReviewSubmission,
-): Promise<void> {
+): Promise<{ newAchievementNotices: AchievementNoticeToast[] }> {
   const user = await requireAuth();
   if (
     submission.isAnonymous !== undefined &&
@@ -1115,6 +1119,8 @@ export async function submitCourseReview(
   revalidatePath(`/courses/${course.code}`);
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
+  const newAchievementNotices = await syncAchievementNoticesForUser(user.id);
+  return { newAchievementNotices };
 }
 
 /** Delete a whole submission (rating plus any comments). Authors delete their
@@ -1200,6 +1206,7 @@ export async function deleteCourseReviewSubmission(
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
   revalidatePath("/courses/achievements");
+  await syncAchievementNoticesForUser(ownerId);
 }
 
 export async function getCourseReviewDeletionImpact(

@@ -222,7 +222,13 @@ export async function getMyPersonTitleProgress(): Promise<
   PersonTitleProgress[]
 > {
   const user = await requireAuth();
-  const { recipes, owned } = await loadFusionInputs(user.id);
+  return getPersonTitleProgressForUser(user.id);
+}
+
+export async function getPersonTitleProgressForUser(
+  userId: string,
+): Promise<PersonTitleProgress[]> {
+  const { recipes, owned } = await loadFusionInputs(userId);
   const active = owned.filter((item) => item.status === "active");
   const activeKeys = new Set(active.map((item) => item.ruleKey));
   const activeGold = active.some((item) => item.tier === "gold");
@@ -250,137 +256,152 @@ export async function fusePersonTitle(recipeId: string, makePrimary: boolean) {
   if (!/^[0-9a-f-]{36}$/i.test(recipeId)) throw new Error("合成配方无效");
   await ensureAchievementProfile(user.id);
 
-  const result = await db.transaction(async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${user.id}))`);
-    const [recipe] = await tx
-      .select({
-        id: achievementFusionRecipes.id,
-        kind: achievementFusionRecipes.kind,
-        sourceRuleKeys: achievementFusionRecipes.sourceRuleKeys,
-        targetRuleId: achievementFusionRecipes.targetRuleId,
-        targetRuleKey: achievementRules.ruleKey,
-      })
-      .from(achievementFusionRecipes)
-      .innerJoin(
-        achievementRules,
-        eq(achievementFusionRecipes.targetRuleId, achievementRules.id),
-      )
-      .where(
-        and(
-          eq(achievementFusionRecipes.id, recipeId),
-          eq(achievementFusionRecipes.enabled, true),
-        ),
-      )
-      .limit(1);
-    if (!recipe) throw new Error("合成配方不存在或未启用");
+  let result: { id: string };
+  try {
+    result = await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${user.id}))`);
+      const [recipe] = await tx
+        .select({
+          id: achievementFusionRecipes.id,
+          kind: achievementFusionRecipes.kind,
+          sourceRuleKeys: achievementFusionRecipes.sourceRuleKeys,
+          targetRuleId: achievementFusionRecipes.targetRuleId,
+          targetRuleKey: achievementRules.ruleKey,
+        })
+        .from(achievementFusionRecipes)
+        .innerJoin(
+          achievementRules,
+          eq(achievementFusionRecipes.targetRuleId, achievementRules.id),
+        )
+        .where(
+          and(
+            eq(achievementFusionRecipes.id, recipeId),
+            eq(achievementFusionRecipes.enabled, true),
+          ),
+        )
+        .limit(1);
+      if (!recipe) throw new Error("合成配方不存在或未启用");
 
-    const sources = await tx
-      .select({ id: userAchievements.id, ruleKey: achievementRules.ruleKey })
-      .from(userAchievements)
-      .innerJoin(
-        achievementRules,
-        eq(userAchievements.ruleId, achievementRules.id),
-      )
-      .where(
-        and(
-          eq(userAchievements.userId, user.id),
-          eq(userAchievements.status, "active"),
-          inArray(achievementRules.ruleKey, recipe.sourceRuleKeys),
-        ),
-      );
-    const uniqueSources = new Map<string, string>();
-    for (const source of sources) {
-      if (!uniqueSources.has(source.ruleKey)) {
-        uniqueSources.set(source.ruleKey, source.id);
+      const sources = await tx
+        .select({ id: userAchievements.id, ruleKey: achievementRules.ruleKey })
+        .from(userAchievements)
+        .innerJoin(
+          achievementRules,
+          eq(userAchievements.ruleId, achievementRules.id),
+        )
+        .where(
+          and(
+            eq(userAchievements.userId, user.id),
+            eq(userAchievements.status, "active"),
+            inArray(achievementRules.ruleKey, recipe.sourceRuleKeys),
+          ),
+        );
+      const uniqueSources = new Map<string, string>();
+      for (const source of sources) {
+        if (!uniqueSources.has(source.ruleKey)) {
+          uniqueSources.set(source.ruleKey, source.id);
+        }
       }
-    }
-    if (
-      uniqueSources.size !== recipe.sourceRuleKeys.length ||
-      recipe.sourceRuleKeys.some((key) => !uniqueSources.has(key))
-    ) {
-      throw new Error("来源称号已变化，请刷新后重试");
-    }
-    const sourceIds = recipe.sourceRuleKeys.map(
-      (key) => uniqueSources.get(key)!,
-    );
-    const [otherGold] = await tx
-      .select({ id: userAchievements.id })
-      .from(userAchievements)
-      .where(
-        and(
-          eq(userAchievements.userId, user.id),
-          eq(userAchievements.status, "active"),
-          eq(userAchievements.tier, "gold"),
-          notInArray(userAchievements.id, sourceIds),
-        ),
-      )
-      .limit(1);
-    if (otherGold) throw new Error("金标称号槽位已占用");
-
-    const [historical] = await tx
-      .select({ id: userAchievements.id, status: userAchievements.status })
-      .from(userAchievements)
-      .innerJoin(
-        achievementRules,
-        eq(userAchievements.ruleId, achievementRules.id),
-      )
-      .where(
-        and(
-          eq(userAchievements.userId, user.id),
-          eq(achievementRules.ruleKey, recipe.targetRuleKey),
-        ),
-      )
-      .limit(1);
-    if (historical?.status === "active") throw new Error("称号已经合成");
-    await tx
-      .update(userAchievements)
-      .set({ status: "superseded" })
-      .where(inArray(userAchievements.id, sourceIds));
-    const [fusion] = historical
-      ? await tx
-          .update(userAchievements)
-          .set({
-            ruleId: recipe.targetRuleId,
-            tier: "gold",
-            status: "active",
-            revokedAt: null,
-          })
-          .where(eq(userAchievements.id, historical.id))
-          .returning({ id: userAchievements.id })
-      : await tx
-          .insert(userAchievements)
-          .values({
-            userId: user.id,
-            ruleId: recipe.targetRuleId,
-            tier: "gold",
-          })
-          .returning({ id: userAchievements.id });
-    await tx
-      .delete(achievementFusionSources)
-      .where(eq(achievementFusionSources.fusionAchievementId, fusion.id));
-    await tx.insert(achievementFusionSources).values(
-      sourceIds.map((sourceAchievementId) => ({
-        fusionAchievementId: fusion.id,
-        sourceAchievementId,
-      })),
-    );
-    await tx
-      .update(achievementProfiles)
-      .set({
-        primaryAchievementId: makePrimary ? fusion.id : null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(achievementProfiles.userId, user.id),
-          makePrimary
-            ? sql`true`
-            : inArray(achievementProfiles.primaryAchievementId, sourceIds),
-        ),
+      if (
+        uniqueSources.size !== recipe.sourceRuleKeys.length ||
+        recipe.sourceRuleKeys.some((key) => !uniqueSources.has(key))
+      ) {
+        throw new Error("来源称号已变化，请刷新后重试");
+      }
+      const sourceIds = recipe.sourceRuleKeys.map(
+        (key) => uniqueSources.get(key)!,
       );
-    return { id: fusion.id };
-  });
+      const [otherGold] = await tx
+        .select({ id: userAchievements.id })
+        .from(userAchievements)
+        .where(
+          and(
+            eq(userAchievements.userId, user.id),
+            eq(userAchievements.status, "active"),
+            eq(userAchievements.tier, "gold"),
+            notInArray(userAchievements.id, sourceIds),
+          ),
+        )
+        .limit(1);
+      if (otherGold) throw new Error("金标称号槽位已占用");
+
+      const [historical] = await tx
+        .select({ id: userAchievements.id, status: userAchievements.status })
+        .from(userAchievements)
+        .innerJoin(
+          achievementRules,
+          eq(userAchievements.ruleId, achievementRules.id),
+        )
+        .where(
+          and(
+            eq(userAchievements.userId, user.id),
+            eq(achievementRules.ruleKey, recipe.targetRuleKey),
+          ),
+        )
+        .limit(1);
+      if (historical?.status === "active") throw new Error("称号已经合成");
+      await tx
+        .update(userAchievements)
+        .set({ status: "superseded" })
+        .where(inArray(userAchievements.id, sourceIds));
+      const [fusion] = historical
+        ? await tx
+            .update(userAchievements)
+            .set({
+              ruleId: recipe.targetRuleId,
+              tier: "gold",
+              status: "active",
+              revokedAt: null,
+            })
+            .where(eq(userAchievements.id, historical.id))
+            .returning({ id: userAchievements.id })
+        : await tx
+            .insert(userAchievements)
+            .values({
+              userId: user.id,
+              ruleId: recipe.targetRuleId,
+              tier: "gold",
+            })
+            .returning({ id: userAchievements.id });
+      await tx
+        .delete(achievementFusionSources)
+        .where(eq(achievementFusionSources.fusionAchievementId, fusion.id));
+      await tx.insert(achievementFusionSources).values(
+        sourceIds.map((sourceAchievementId) => ({
+          fusionAchievementId: fusion.id,
+          sourceAchievementId,
+        })),
+      );
+      await tx
+        .update(achievementProfiles)
+        .set({
+          primaryAchievementId: makePrimary ? fusion.id : null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(achievementProfiles.userId, user.id),
+            makePrimary
+              ? sql`true`
+              : inArray(achievementProfiles.primaryAchievementId, sourceIds),
+          ),
+        );
+      return { id: fusion.id };
+    });
+  } catch (error) {
+    try {
+      const { syncAchievementNoticesForUser } =
+        await import("@/lib/achievement-notice-actions");
+      await syncAchievementNoticesForUser(user.id);
+    } catch {
+      // Keep the original fusion error when notice refresh also fails.
+    }
+    throw error;
+  }
   revalidatePath("/courses/achievements");
+  const { syncAchievementNoticesForUser } =
+    await import("@/lib/achievement-notice-actions");
+  await syncAchievementNoticesForUser(user.id);
   return result;
 }
 
@@ -435,4 +456,7 @@ export async function dismantlePersonTitle(achievementId: string) {
       );
   });
   revalidatePath("/courses/achievements");
+  const { syncAchievementNoticesForUser } =
+    await import("@/lib/achievement-notice-actions");
+  await syncAchievementNoticesForUser(user.id);
 }

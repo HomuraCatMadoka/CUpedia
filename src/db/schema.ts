@@ -607,6 +607,44 @@ export const achievementProfiles = pgTable(
   ],
 );
 
+export const achievementNotices = pgTable(
+  "achievement_notices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    opportunityKey: text("opportunity_key").notNull(),
+    kind: text("kind").notNull(),
+    targetId: uuid("target_id").notNull(),
+    targetTier: text("target_tier").notNull(),
+    displayName: text("display_name").notNull(),
+    seenAt: timestamp("seen_at"),
+    invalidatedAt: timestamp("invalidated_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_notices_user_opportunity_uq").on(
+      table.userId,
+      table.opportunityKey,
+    ),
+    index("achievement_notices_user_current_idx").on(
+      table.userId,
+      table.invalidatedAt,
+      table.seenAt,
+    ),
+    check(
+      "achievement_notices_kind_check",
+      sql`${table.kind} in ('professional', 'fusion')`,
+    ),
+    check(
+      "achievement_notices_tier_check",
+      sql`${table.targetTier} in ('bronze', 'silver', 'gold')`,
+    ),
+  ],
+);
+
 export const staffPeople = pgTable(
   "staff_people",
   {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AchievementRedeemButton } from "@/components/courses/achievement-redeem-button";
+import { AchievementNoticesSeen } from "@/components/courses/achievement-notices-seen";
 import { AchievementRevokeButton } from "@/components/courses/achievement-revoke-button";
 import { PrimaryAchievementButton } from "@/components/courses/primary-achievement-button";
 import {
@@ -11,18 +12,35 @@ import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-l
 import { getMyProfessionalAchievementProgress } from "@/lib/achievement-actions";
 import { getMyPersonTitleProgress } from "@/lib/achievement-fusion-actions";
 import { getMyAchievementProfile } from "@/lib/achievement-profile";
+import { getMyAchievementNoticeState } from "@/lib/achievement-notice-actions";
 
 export default async function CourseAchievementsPage() {
-  const [progress, profile, personTitles] = await Promise.all([
+  const [progress, profile, personTitles, noticeState] = await Promise.all([
     getMyProfessionalAchievementProgress(),
     getMyAchievementProfile(),
     getMyPersonTitleProgress(),
+    getMyAchievementNoticeState(),
   ]);
-  const candidates = progress.filter((item) => !item.redeemed);
+  const noticeOrder = new Map(
+    noticeState.notices.map((notice, index) => [notice.targetId, index]),
+  );
+  const candidates = progress
+    .filter((item) => !item.redeemed)
+    .sort(
+      (a, b) =>
+        (noticeOrder.get(a.ruleId) ?? Number.MAX_SAFE_INTEGER) -
+        (noticeOrder.get(b.ruleId) ?? Number.MAX_SAFE_INTEGER),
+    );
+  const orderedPersonTitles = [...personTitles].sort(
+    (a, b) =>
+      (noticeOrder.get(a.recipeId) ?? Number.MAX_SAFE_INTEGER) -
+      (noticeOrder.get(b.recipeId) ?? Number.MAX_SAFE_INTEGER),
+  );
 
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-5xl px-6 py-10">
+        <AchievementNoticesSeen unseenCount={noticeState.unseenCount} />
         <h1 className="text-2xl font-bold">我的成就</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           评分课程即可推进专业称号；候选进度实时计算。
@@ -33,6 +51,31 @@ export default async function CourseAchievementsPage() {
         >
           查看我的公开成就橱窗
         </Link>
+
+        {noticeState.notices.length > 0 && (
+          <section
+            className="mt-6 rounded-2xl border bg-secondary/20 p-5"
+            aria-labelledby="current-achievement-opportunities"
+          >
+            <h2
+              className="font-semibold"
+              id="current-achievement-opportunities"
+            >
+              现在可以点亮
+            </h2>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {noticeState.notices.map((notice) => (
+                <a
+                  className="rounded-full border bg-background px-3 py-1 text-sm"
+                  href="#achievement-opportunities"
+                  key={notice.opportunityKey}
+                >
+                  {notice.displayName}
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
 
         {profile.achievements.length > 0 && (
           <section className="mt-8" aria-labelledby="owned-achievements">
@@ -75,13 +118,13 @@ export default async function CourseAchievementsPage() {
             </div>
           </section>
         )}
-        {personTitles.some((title) => !title.redeemed) && (
+        {orderedPersonTitles.some((title) => !title.redeemed) && (
           <section className="mt-8" aria-labelledby="person-title-candidates">
             <h2 className="text-sm font-medium" id="person-title-candidates">
               可合成人名称号
             </h2>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              {personTitles
+              {orderedPersonTitles
                 .filter((title) => !title.redeemed)
                 .map((title) => (
                   <article
@@ -127,7 +170,10 @@ export default async function CourseAchievementsPage() {
             暂无可兑换或升级的专业成就
           </div>
         ) : (
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+          <div
+            className="mt-8 grid gap-4 sm:grid-cols-2"
+            id="achievement-opportunities"
+          >
             {candidates.map((item) => (
               <article
                 className="flex gap-4 rounded-2xl border bg-card p-5"

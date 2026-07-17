@@ -11,6 +11,7 @@ import {
   Trash2Icon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-actions";
 import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-logo";
@@ -202,7 +203,7 @@ export function CourseReviewSection({
         if (!term) throw new Error("请选择学期");
         if (!professor && !professorOptional) throw new Error("请选择任课教授");
         if (score === null) throw new Error("请选择总体评分");
-        await submitCourseReview(code, {
+        const result = await submitCourseReview(code, {
           academicYear,
           term,
           professorId: professor?.id ?? null,
@@ -211,6 +212,14 @@ export function CourseReviewSection({
           tags: reviewTags,
           isAnonymous,
         });
+        for (const notice of result.newAchievementNotices) {
+          toast.success(`可以点亮「${notice.displayName}」了`, {
+            action: {
+              label: "去看看",
+              onClick: () => router.push("/courses/achievements"),
+            },
+          });
+        }
         setEditing(false);
         router.refresh();
       } catch (e) {

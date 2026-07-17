@@ -241,8 +241,14 @@ export async function getMyProfessionalAchievementProgress(): Promise<
   ProfessionalAchievementProgress[]
 > {
   const user = await requireAuth();
+  return getProfessionalAchievementProgressForUser(user.id);
+}
+
+export async function getProfessionalAchievementProgressForUser(
+  userId: string,
+): Promise<ProfessionalAchievementProgress[]> {
   const { rules, ratings, occupiedRows, ownedRows } =
-    await loadUserAchievementInputs(user.id);
+    await loadUserAchievementInputs(userId);
   const occupied = new Set(occupiedRows.map((row) => row.ratingId));
   const activeOwned = ownedRows.filter((row) => row.status === "active");
   const activeKeys = new Set(activeOwned.map((row) => row.ruleKey));
@@ -501,8 +507,18 @@ export async function redeemProfessionalAchievement(ruleId: string) {
     });
 
     revalidatePath("/courses/achievements");
+    const { syncAchievementNoticesForUser } =
+      await import("@/lib/achievement-notice-actions");
+    await syncAchievementNoticesForUser(user.id);
     return result;
   } catch (error) {
+    try {
+      const { syncAchievementNoticesForUser } =
+        await import("@/lib/achievement-notice-actions");
+      await syncAchievementNoticesForUser(user.id);
+    } catch {
+      // Keep the original redemption error when notice refresh also fails.
+    }
     if (
       typeof error === "object" &&
       error &&
@@ -568,4 +584,7 @@ export async function revokeProfessionalAchievement(achievementId: string) {
   });
 
   revalidatePath("/courses/achievements");
+  const { syncAchievementNoticesForUser } =
+    await import("@/lib/achievement-notice-actions");
+  await syncAchievementNoticesForUser(user.id);
 }
