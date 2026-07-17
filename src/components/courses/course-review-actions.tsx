@@ -22,7 +22,17 @@ export function CourseReviewActions({
       <Link
         href={writeReviewHref}
         className={buttonVariants({ size: "lg" })}
-        onClick={() => {
+        onClick={(event) => {
+          const reviewSection = document.getElementById("course-review");
+          if (reviewSection) {
+            event.preventDefault();
+            window.history.replaceState(
+              window.history.state,
+              "",
+              writeReviewHref,
+            );
+            reviewSection.scrollIntoView({ block: "start" });
+          }
           window.dispatchEvent(new Event(OPEN_COURSE_REVIEW_EVENT));
         }}
       >
