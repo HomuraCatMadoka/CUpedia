@@ -1,0 +1,1 @@
+ALTER TABLE "achievement_catalogs" ALTER COLUMN "status" SET DEFAULT 'disabled';
