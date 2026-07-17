@@ -1,19 +1,30 @@
 /**
  * @vitest-environment jsdom
  */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
+const { refresh, submit, toastSuccess } = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  submit: vi.fn(),
+  toastSuccess: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ refresh }),
+  useRouter: () => ({ refresh, push: vi.fn() }),
 }));
+vi.mock("sonner", () => ({ toast: { success: toastSuccess } }));
 
 vi.mock("@/lib/course-review-actions", () => ({
   deleteCourseReviewSubmission: vi.fn(),
   searchProfessors: vi.fn(),
-  submitCourseReview: vi.fn(),
+  submitCourseReview: (...args: unknown[]) => submit(...args),
   toggleLike: vi.fn(),
 }));
 
@@ -68,6 +79,41 @@ describe("CourseReviewSection", () => {
       (screen.getByRole("button", { name: "提交测评" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it("首次满足成就条件时立即提示可以点亮", async () => {
+    submit.mockResolvedValue({
+      newAchievementNotices: [
+        { opportunityKey: "professional:rule:bronze", displayName: "数学铜标" },
+      ],
+    });
+    render(
+      <CourseReviewSection
+        code="GEUC2214"
+        reviews={[]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    fireEvent.change(screen.getByLabelText("学年"), {
+      target: { value: "2025-26" },
+    });
+    fireEvent.change(screen.getByLabelText("学期"), {
+      target: { value: "Term 1" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
+
+    await waitFor(() =>
+      expect(toastSuccess).toHaveBeenCalledWith(
+        "可以点亮「数学铜标」了",
+        expect.objectContaining({ action: expect.any(Object) }),
+      ),
+    );
   });
 
   it("测评很多时默认只渲染 10 条，并按批次继续展开", () => {

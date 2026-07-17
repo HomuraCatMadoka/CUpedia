@@ -11,6 +11,7 @@ import {
   CourseListNavigationReset,
 } from "@/components/courses/course-card-link";
 import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
+import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 
 export default async function CoursesPage({
   searchParams,
@@ -26,9 +27,10 @@ export default async function CoursesPage({
   const { credits, q, subject, level, page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const [result, subjects] = await Promise.all([
+  const [result, subjects, achievementNoticeCount] = await Promise.all([
     getCourses({ credits, query: q, subject, level, page }),
     getSubjects(),
+    getAchievementNoticeCount(),
   ]);
   const { courses, total, pageSize } = result;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -59,6 +61,14 @@ export default async function CoursesPage({
               className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
             >
               我的成就
+              {achievementNoticeCount > 0 && (
+                <span
+                  aria-label={`${achievementNoticeCount} 个未读成就提醒`}
+                  className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs text-background"
+                >
+                  {achievementNoticeCount}
+                </span>
+              )}
             </Link>
           </div>
         </div>

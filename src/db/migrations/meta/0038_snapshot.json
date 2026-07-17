@@ -1,6 +1,6 @@
 {
-  "id": "89cf7842-242c-4cc3-a2b3-b9cf02871b65",
-  "prevId": "b2fff75b-6888-488f-812b-6a73964d0f73",
+  "id": "9516d2ad-b65c-4c48-81c7-3a7133e3f7ec",
+  "prevId": "89cf7842-242c-4cc3-a2b3-b9cf02871b65",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1100,6 +1100,113 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
+    },
+    "public.canteen_danmaku_messages": {
+      "name": "canteen_danmaku_messages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "canteen_id": {
+          "name": "canteen_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "canteen_danmaku_messages_canteen_month_idx": {
+          "name": "canteen_danmaku_messages_canteen_month_idx",
+          "columns": [
+            {
+              "expression": "canteen_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "month",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "canteen_danmaku_messages_user_id_idx": {
+          "name": "canteen_danmaku_messages_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "canteen_danmaku_messages_canteen_id_canteens_id_fk": {
+          "name": "canteen_danmaku_messages_canteen_id_canteens_id_fk",
+          "tableFrom": "canteen_danmaku_messages",
+          "tableTo": "canteens",
+          "columnsFrom": ["canteen_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "canteen_danmaku_messages_user_id_users_id_fk": {
+          "name": "canteen_danmaku_messages_user_id_users_id_fk",
+          "tableFrom": "canteen_danmaku_messages",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": true
     },
     "public.canteen_dish_comments": {
       "name": "canteen_dish_comments",

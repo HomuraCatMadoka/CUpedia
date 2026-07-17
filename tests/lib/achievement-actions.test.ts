@@ -42,6 +42,9 @@ vi.mock("@/lib/auth-guard", () => ({
 vi.mock("@/lib/achievement-profile", () => ({
   ensureAchievementProfile: vi.fn(),
 }));
+vi.mock("@/lib/achievement-notice-actions", () => ({
+  syncAchievementNoticesForUser: vi.fn().mockResolvedValue([]),
+}));
 vi.mock("@/db", () => ({
   db: {
     select: () => dbChain,
