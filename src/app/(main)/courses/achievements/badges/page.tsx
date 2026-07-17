@@ -26,7 +26,7 @@ export default function ProfessionalBadgePreviewPage() {
           </p>
           <h1 className="mt-2 text-2xl font-bold">专业标视觉预览</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            专业代码固定为四位大写英文字母。
+            专业标仅由四位大写英文字母组成，以字色区分等级。
           </p>
         </div>
 

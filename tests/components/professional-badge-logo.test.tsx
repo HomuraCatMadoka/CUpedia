@@ -31,6 +31,9 @@ describe("ProfessionalBadgeLogo", () => {
       expect(badge.getAttribute("data-badge-tier")).toBe(tier);
       expect(badge.getAttribute("viewBox")).toBe("0 0 64 64");
       expect(badge.textContent).toContain("MATH");
+      expect(badge.querySelectorAll("circle")).toHaveLength(0);
+      expect(badge.querySelectorAll("path")).toHaveLength(0);
+      expect(badge.querySelectorAll("text")).toHaveLength(1);
     },
   );
 
