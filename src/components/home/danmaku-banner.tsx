@@ -35,9 +35,14 @@ type ViewerState =
 export function DanmakuBanner({
   initialMessages,
   viewer,
+  title = "本月弹幕",
+  apiPath = "/api/danmaku",
 }: {
   initialMessages: DanmakuMessage[];
   viewer: ViewerState;
+  title?: string;
+  /** POST endpoint for this banner's danmaku store (hub vs per-canteen). */
+  apiPath?: string;
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [content, setContent] = useState("");
@@ -88,7 +93,7 @@ export function DanmakuBanner({
     setError(null);
     startTransition(async () => {
       try {
-        const res = await fetch("/api/danmaku", {
+        const res = await fetch(apiPath, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content }),
@@ -117,9 +122,9 @@ export function DanmakuBanner({
   }
 
   return (
-    <section className="relative space-y-4" aria-label="本月弹幕">
+    <section className="relative space-y-4" aria-label={title}>
       <div className="text-center">
-        <h2 className="text-lg font-semibold">本月弹幕</h2>
+        <h2 className="text-lg font-semibold">{title}</h2>
       </div>
 
       <div

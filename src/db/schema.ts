@@ -957,6 +957,7 @@ export const canteenMenuItems = pgTable(
 export const canteensRelations = relations(canteens, ({ many }) => ({
   menuItems: many(canteenMenuItems),
   importDrafts: many(menuImportDrafts),
+  danmakuMessages: many(canteenDanmakuMessages),
 }));
 
 export const canteenMenuItemsRelations = relations(
@@ -1128,7 +1129,46 @@ export const menuImportDraftsRelations = relations(
   }),
 );
 
-// ── Homepage monthly danmaku (#192) ──
+// ── Canteen-scoped monthly danmaku (separate from hub danmaku_messages) ──
+
+export const canteenDanmakuMessages = pgTable(
+  "canteen_danmaku_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    month: text("month").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_danmaku_messages_canteen_month_idx").on(
+      table.canteenId,
+      table.month,
+    ),
+    index("canteen_danmaku_messages_user_id_idx").on(table.userId),
+  ],
+);
+
+export const canteenDanmakuMessagesRelations = relations(
+  canteenDanmakuMessages,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [canteenDanmakuMessages.canteenId],
+      references: [canteens.id],
+    }),
+    user: one(users, {
+      fields: [canteenDanmakuMessages.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+// ── Hub /canteen browse monthly danmaku (#192) ──
 
 export const danmakuMessages = pgTable(
   "danmaku_messages",

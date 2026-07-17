@@ -1,6 +1,10 @@
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { danmakuMessages } from "@/db/schema";
-import { assertDanmakuRateLimit } from "@/lib/danmaku-rate-limit";
+import { canteenDanmakuMessages, canteens, danmakuMessages } from "@/db/schema";
+import {
+  assertCanteenDanmakuRateLimit,
+  assertDanmakuRateLimit,
+} from "@/lib/danmaku-rate-limit";
 import type { DanmakuMessage } from "@/lib/danmaku-types";
 import { validateDanmakuContent } from "@/lib/danmaku-types";
 import { currentMonthHkt } from "@/lib/hkt-datetime";
@@ -29,6 +33,45 @@ export async function insertDanmakuForUser(
       content: danmakuMessages.content,
       month: danmakuMessages.month,
       createdAt: danmakuMessages.createdAt,
+    });
+
+  return {
+    ...row,
+    authorNickname: user.nickname,
+  };
+}
+
+/** Writes to canteen_danmaku_messages — never the hub danmaku_messages table. */
+export async function insertCanteenDanmakuForUser(
+  user: { id: string; nickname: string },
+  canteenId: string,
+  contentInput: unknown,
+): Promise<DanmakuMessage> {
+  const canteen = await db.query.canteens.findFirst({
+    where: eq(canteens.id, canteenId),
+    columns: { id: true },
+  });
+  if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
+
+  const content = validateDanmakuContent(contentInput);
+  assertNoSensitiveContent(content);
+  await assertCanteenDanmakuRateLimit(user.id, canteenId);
+
+  const month = currentMonthHkt();
+  const [row] = await db
+    .insert(canteenDanmakuMessages)
+    .values({
+      canteenId,
+      userId: user.id,
+      content,
+      month,
+    })
+    .returning({
+      id: canteenDanmakuMessages.id,
+      userId: canteenDanmakuMessages.userId,
+      content: canteenDanmakuMessages.content,
+      month: canteenDanmakuMessages.month,
+      createdAt: canteenDanmakuMessages.createdAt,
     });
 
   return {

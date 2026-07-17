@@ -1,6 +1,6 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { danmakuMessages, users } from "@/db/schema";
+import { canteenDanmakuMessages, danmakuMessages, users } from "@/db/schema";
 import type { DanmakuMessage } from "@/lib/danmaku-types";
 import { currentMonthHkt } from "@/lib/hkt-datetime";
 
@@ -39,6 +39,33 @@ export async function listCurrentMonthDanmaku(
     .innerJoin(users, eq(danmakuMessages.userId, users.id))
     .where(eq(danmakuMessages.month, month))
     .orderBy(asc(danmakuMessages.createdAt));
+
+  return rows.map(mapRow);
+}
+
+export async function listCurrentMonthCanteenDanmaku(
+  canteenId: string,
+  now = new Date(),
+): Promise<DanmakuMessage[]> {
+  const month = currentMonthHkt(now);
+  const rows = await db
+    .select({
+      id: canteenDanmakuMessages.id,
+      userId: canteenDanmakuMessages.userId,
+      content: canteenDanmakuMessages.content,
+      month: canteenDanmakuMessages.month,
+      createdAt: canteenDanmakuMessages.createdAt,
+      authorNickname: users.nickname,
+    })
+    .from(canteenDanmakuMessages)
+    .innerJoin(users, eq(canteenDanmakuMessages.userId, users.id))
+    .where(
+      and(
+        eq(canteenDanmakuMessages.canteenId, canteenId),
+        eq(canteenDanmakuMessages.month, month),
+      ),
+    )
+    .orderBy(asc(canteenDanmakuMessages.createdAt));
 
   return rows.map(mapRow);
 }

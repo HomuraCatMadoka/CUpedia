@@ -8,11 +8,12 @@ import { requireAdmin, requireAuth } from "@/lib/auth-guard";
 import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
 import {
   adminListCurrentMonthDanmaku,
+  listCurrentMonthCanteenDanmaku,
   listCurrentMonthDanmaku,
 } from "@/lib/danmaku-queries";
 import type { DanmakuMessage } from "@/lib/danmaku-types";
 
-export { listCurrentMonthDanmaku };
+export { listCurrentMonthDanmaku, listCurrentMonthCanteenDanmaku };
 
 export async function createDanmaku(
   contentInput: unknown,
