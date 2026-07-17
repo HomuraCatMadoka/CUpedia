@@ -25,6 +25,7 @@ vi.mock("@/db", () => ({
   },
 }));
 
+import { canteenDanmakuMessages } from "@/db/schema";
 import {
   insertCanteenDanmakuForUser,
   insertDanmakuForUser,
@@ -82,9 +83,8 @@ describe("danmaku-mutations", () => {
         createdAt: now,
       },
     ]);
-    mockDbInsert.mockReturnValue({
-      values: vi.fn().mockReturnValue({ returning }),
-    });
+    const values = vi.fn().mockReturnValue({ returning });
+    mockDbInsert.mockReturnValue({ values });
 
     const row = await insertCanteenDanmakuForUser(
       { id: "user-1", nickname: "Tester" },
@@ -92,6 +92,14 @@ describe("danmaku-mutations", () => {
       "好吃",
     );
     expect(row.content).toBe("好吃");
+    expect(mockDbInsert).toHaveBeenCalledWith(canteenDanmakuMessages);
+    expect(values).toHaveBeenCalledWith(
+      expect.objectContaining({
+        canteenId: "canteen-1",
+        userId: "user-1",
+        content: "好吃",
+      }),
+    );
     expect(mockAssertCanteenRateLimit).toHaveBeenCalledWith(
       "user-1",
       "canteen-1",

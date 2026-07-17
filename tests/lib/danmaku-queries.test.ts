@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { and, eq } from "drizzle-orm";
+import { canteenDanmakuMessages } from "@/db/schema";
+import { currentMonthHkt } from "@/lib/hkt-datetime";
 
 const { mockDbSelect } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
@@ -47,6 +50,7 @@ describe("danmaku-queries", () => {
 
   it("listCurrentMonthCanteenDanmaku filters by canteen and month", async () => {
     const july = new Date("2026-07-15T12:00:00Z");
+    const month = currentMonthHkt(july);
     const chain = {
       from: vi.fn().mockReturnThis(),
       innerJoin: vi.fn().mockReturnThis(),
@@ -56,7 +60,7 @@ describe("danmaku-queries", () => {
           id: "cdm-1",
           userId: "u1",
           content: "食堂弹幕",
-          month: "2026-07",
+          month,
           createdAt: july,
           authorNickname: "Bob",
         },
@@ -67,6 +71,11 @@ describe("danmaku-queries", () => {
     const rows = await listCurrentMonthCanteenDanmaku("canteen-1", july);
     expect(rows).toHaveLength(1);
     expect(rows[0].content).toBe("食堂弹幕");
-    expect(chain.where).toHaveBeenCalled();
+    expect(chain.where).toHaveBeenCalledWith(
+      and(
+        eq(canteenDanmakuMessages.canteenId, "canteen-1"),
+        eq(canteenDanmakuMessages.month, month),
+      ),
+    );
   });
 });

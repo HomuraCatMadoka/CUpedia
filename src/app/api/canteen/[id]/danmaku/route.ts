@@ -46,12 +46,20 @@ export async function POST(
     return NextResponse.json({ error: "USER_BANNED" }, { status: 403 });
   }
 
-  let body: { content?: unknown };
+  let raw: unknown;
   try {
-    body = await request.json();
+    raw = await request.json();
   } catch {
     return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
   }
+  if (
+    raw === null ||
+    typeof raw !== "object" ||
+    Array.isArray(raw)
+  ) {
+    return NextResponse.json({ error: "INVALID_JSON" }, { status: 400 });
+  }
+  const body = raw as { content?: unknown };
 
   try {
     const message = await insertCanteenDanmakuForUser(

@@ -44,7 +44,7 @@ describe("/api/canteen/[id]/danmaku", () => {
       {
         id: "d1",
         userId: "u1",
-        content: "推荐鱼香肉丝",
+        content: "演示菜品",
         month: "2026-07",
         authorNickname: "Alice",
         createdAt: new Date("2026-07-01T00:00:00Z"),
@@ -58,7 +58,7 @@ describe("/api/canteen/[id]/danmaku", () => {
     expect(mockList).toHaveBeenCalledWith("canteen-1");
     const body = await res.json();
     expect(body.messages).toHaveLength(1);
-    expect(body.messages[0].content).toBe("推荐鱼香肉丝");
+    expect(body.messages[0].content).toBe("演示菜品");
   });
 
   it("POST rejects anonymous with 401", async () => {
@@ -104,6 +104,25 @@ describe("/api/canteen/[id]/danmaku", () => {
       "好吃",
     );
     expect(mockRevalidate).toHaveBeenCalledWith("/canteen/canteen-1");
+  });
+
+  it("POST rejects non-object JSON body with 400", async () => {
+    mockGetDanmakuAuthorForApi.mockResolvedValue({
+      id: "u1",
+      nickname: "Alice",
+      banned: false,
+    });
+    const req = new NextRequest(
+      "http://localhost/api/canteen/canteen-1/danmaku",
+      {
+        method: "POST",
+        body: JSON.stringify(["not", "an", "object"]),
+      },
+    );
+    const res = await POST(req, { params });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "INVALID_JSON" });
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 
   it("POST maps CANTEEN_NOT_FOUND to 404", async () => {
