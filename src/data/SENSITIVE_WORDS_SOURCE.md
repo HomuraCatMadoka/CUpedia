@@ -14,4 +14,6 @@ Matcher at runtime: [`mint-filter`](https://github.com/ZhelinCheng/mint-filter) 
 
 Publish gate: `assertNoSensitiveContent` only runs when `SENSITIVE_CONTENT_FILTER` is on (default). Set to `false` / `0` / `off` / `no` to skip checks on comment and danmaku publish.
 
+URL list entries are normalized to hostname (path/port stripped) on load. Overly broad politics terms and `a.com` were removed to limit substring false positives.
+
 The full NetEase frontend lexicon is **not** loaded — it false-positives on ordinary campus terms (e.g. `考试`, `24`). Political coverage is kept via the dedicated politics lists plus the NetEase ∩ politics-seed subset above.

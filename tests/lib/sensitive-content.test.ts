@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertNoSensitiveContent,
   containsSensitiveContent,
@@ -9,6 +9,7 @@ import {
 
 afterEach(() => {
   resetSensitiveMatcherForTests(null);
+  vi.unstubAllEnvs();
 });
 
 describe("sensitive-content", () => {
@@ -53,6 +54,12 @@ describe("sensitive-content", () => {
     expect(containsSensitiveContent("宿舍号是24")).toBe(false);
   });
 
+  it("does not ban ordinary politics false-positive terms", () => {
+    resetSensitiveMatcherForTests(null);
+    expect(containsSensitiveContent("下午三点在图书馆集合")).toBe(false);
+    expect(containsSensitiveContent("移民署办事指南")).toBe(false);
+  });
+
   it("blocks a vendored illegal-url domain", () => {
     resetSensitiveMatcherForTests(null);
     const sample = readFileSync(
@@ -66,30 +73,24 @@ describe("sensitive-content", () => {
     expect(containsSensitiveContent(`看看这个站 ${sample}`)).toBe(true);
   });
 
+  it("does not treat a.com as a blocked domain substring", () => {
+    resetSensitiveMatcherForTests(null);
+    expect(containsSensitiveContent("visit xa.com later")).toBe(false);
+    expect(containsSensitiveContent("not-a.com")).toBe(false);
+  });
+
   it("skips publish assert when SENSITIVE_CONTENT_FILTER is off", () => {
-    const prev = process.env.SENSITIVE_CONTENT_FILTER;
     resetSensitiveMatcherForTests(["违禁样例词"]);
-    try {
-      process.env.SENSITIVE_CONTENT_FILTER = "false";
-      expect(containsSensitiveContent("前面违禁样例词后面")).toBe(true);
-      expect(() =>
-        assertNoSensitiveContent("前面违禁样例词后面"),
-      ).not.toThrow();
-    } finally {
-      process.env.SENSITIVE_CONTENT_FILTER = prev;
-    }
+    vi.stubEnv("SENSITIVE_CONTENT_FILTER", "false");
+    expect(containsSensitiveContent("前面违禁样例词后面")).toBe(true);
+    expect(() => assertNoSensitiveContent("前面违禁样例词后面")).not.toThrow();
   });
 
   it("enforces publish assert when SENSITIVE_CONTENT_FILTER is on", () => {
-    const prev = process.env.SENSITIVE_CONTENT_FILTER;
     resetSensitiveMatcherForTests(["违禁样例词"]);
-    try {
-      process.env.SENSITIVE_CONTENT_FILTER = "true";
-      expect(() => assertNoSensitiveContent("前面违禁样例词后面")).toThrow(
-        "SENSITIVE_CONTENT",
-      );
-    } finally {
-      process.env.SENSITIVE_CONTENT_FILTER = prev;
-    }
+    vi.stubEnv("SENSITIVE_CONTENT_FILTER", "true");
+    expect(() => assertNoSensitiveContent("前面违禁样例词后面")).toThrow(
+      "SENSITIVE_CONTENT",
+    );
   });
 });

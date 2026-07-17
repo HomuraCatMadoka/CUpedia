@@ -10,8 +10,10 @@ export const SENSITIVE_CONTENT_ERROR = "SENSITIVE_CONTENT";
  */
 export function isSensitiveContentFilterEnabled(): boolean {
   const raw = process.env.SENSITIVE_CONTENT_FILTER;
-  if (raw == null || raw.trim() === "") return true;
-  return !["0", "false", "off", "no"].includes(raw.trim().toLowerCase());
+  if (raw == null) return true;
+  const value = raw.trim().toLowerCase();
+  if (value === "") return true;
+  return value !== "0" && value !== "false" && value !== "off" && value !== "no";
 }
 
 const LEXICON_FILES = [
@@ -22,14 +24,28 @@ const LEXICON_FILES = [
   "sensitive-words-urls.txt",
 ] as const;
 
+/** Strip path/port/query so URL lexicon entries match on hostname only. */
+function normalizeUrlLexiconEntry(raw: string): string | null {
+  let host = raw.trim();
+  if (!host) return null;
+  host = host.replace(/^[a-z][a-z0-9+.-]*:\/\//i, "");
+  host = host.split(/[/?#]/, 1)[0] ?? "";
+  if (/:\d+$/.test(host)) host = host.replace(/:\d+$/, "");
+  host = host.trim().toLowerCase();
+  return host.length >= 2 ? host : null;
+}
+
 function loadLexiconWords(): string[] {
   const dir = join(process.cwd(), "src", "data");
   const words = new Set<string>();
   for (const file of LEXICON_FILES) {
     const text = readFileSync(join(dir, file), "utf8");
+    const isUrlList = file === "sensitive-words-urls.txt";
     for (const line of text.split(/\r?\n/)) {
-      const word = line.trim();
-      if (word.length >= 2) words.add(word);
+      const word = isUrlList
+        ? normalizeUrlLexiconEntry(line)
+        : line.trim() || null;
+      if (word && word.length >= 2) words.add(word);
     }
   }
   return [...words];
