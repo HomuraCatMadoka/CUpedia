@@ -18,10 +18,10 @@ export async function sendOtpEmail({ email, otp, type }: OtpEmail) {
         : "CUpedia 密码重置验证码";
   const text =
     type === "sign-in"
-      ? `你的登录验证码是：${otp}，5 分钟内有效。`
+      ? `你的登录验证码是：${otp}，10 分钟内有效。`
       : type === "email-verification"
-        ? `你的验证码是：${otp}，5 分钟内有效。`
-        : `你的密码重置验证码是：${otp}，5 分钟内有效。`;
+        ? `你的验证码是：${otp}，10 分钟内有效。`
+        : `你的密码重置验证码是：${otp}，10 分钟内有效。`;
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
