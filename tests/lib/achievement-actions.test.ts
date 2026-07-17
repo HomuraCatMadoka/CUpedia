@@ -39,6 +39,9 @@ vi.mock("@/lib/auth-guard", () => ({
   requireAdmin: (...args: unknown[]) => mockRequireAdmin(...args),
   requireAuth: (...args: unknown[]) => mockRequireAuth(...args),
 }));
+vi.mock("@/lib/achievement-profile", () => ({
+  ensureAchievementProfile: vi.fn(),
+}));
 vi.mock("@/db", () => ({
   db: {
     select: () => dbChain,

@@ -86,6 +86,8 @@ describe("CourseReviewSection", () => {
       score: 4,
       tags: [],
       authorNickname: `同学 ${index + 1}`,
+      authorShowcaseId: null,
+      authorAchievements: [],
     }));
 
     render(
@@ -107,5 +109,85 @@ describe("CourseReviewSection", () => {
 
     expect(screen.getAllByRole("listitem")).toHaveLength(12);
     expect(screen.getByText("测评内容 12")).toBeTruthy();
+  });
+
+  it("署名投稿展示实时成就与橱窗入口，匿名投稿不泄露身份", () => {
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            id: "signed",
+            isRatingOnly: false,
+            content: "署名投稿",
+            createdAt: new Date().toISOString(),
+            likeCount: 0,
+            likedByMe: false,
+            canAdminDelete: false,
+            professorId: null,
+            professorName: null,
+            academicYear: "2025-26",
+            term: "Term 1",
+            score: 5,
+            tags: [],
+            authorNickname: "Alice",
+            authorShowcaseId: "00000000-0000-4000-a000-000000000099",
+            authorAchievements: [
+              {
+                id: "a1",
+                displayName: "数学金标",
+                badgeCode: "MATH",
+                tier: "gold",
+                category: "professional",
+                publicDescription: "",
+                primary: true,
+              },
+              {
+                id: "a2",
+                displayName: "物理铜标",
+                badgeCode: "PHYS",
+                tier: "bronze",
+                category: "professional",
+                publicDescription: "",
+                primary: false,
+              },
+            ],
+          },
+          {
+            id: "anonymous",
+            isRatingOnly: false,
+            content: "匿名投稿",
+            createdAt: new Date().toISOString(),
+            likeCount: 0,
+            likedByMe: false,
+            canAdminDelete: false,
+            professorId: null,
+            professorName: null,
+            academicYear: "2025-26",
+            term: "Term 1",
+            score: 4,
+            tags: [],
+            authorNickname: null,
+            authorShowcaseId: null,
+            authorAchievements: [],
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated={false}
+        professorOptional={false}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Alice" }).getAttribute("href"),
+    ).toBe(
+      "/courses/achievements/showcase/00000000-0000-4000-a000-000000000099",
+    );
+    expect(screen.getByRole("img", { name: "MATH 专业金标" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "PHYS 专业铜标" })).toBeTruthy();
+    expect(screen.getByText("匿名用户")).toBeTruthy();
+    expect(screen.getAllByLabelText("作者成就")).toHaveLength(1);
   });
 });

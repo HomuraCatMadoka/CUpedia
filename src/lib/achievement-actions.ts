@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
   achievementEvidence,
+  achievementProfiles,
   achievementRules,
   courseRatings,
   courses,
@@ -16,6 +17,7 @@ import {
   type AchievementRating,
 } from "@/lib/achievement-evaluator";
 import { requireAdmin, requireAuth } from "@/lib/auth-guard";
+import { ensureAchievementProfile } from "@/lib/achievement-profile";
 
 export type ProfessionalAchievementRuleInput = {
   ruleKey: string;
@@ -326,6 +328,7 @@ export async function getMyProfessionalAchievementProgress(): Promise<
 export async function redeemProfessionalAchievement(ruleId: string) {
   const user = await requireAuth();
   if (!/^[0-9a-f-]{36}$/i.test(ruleId)) throw new Error("称号规则无效");
+  await ensureAchievementProfile(user.id);
 
   try {
     const result = await db.transaction(async (tx) => {
@@ -458,6 +461,21 @@ export async function redeemProfessionalAchievement(ruleId: string) {
           .update(userAchievements)
           .set({ status: "superseded" })
           .where(eq(userAchievements.id, prerequisiteAchievementId));
+        await tx
+          .update(achievementProfiles)
+          .set({
+            primaryAchievementId: achievement.id,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(achievementProfiles.userId, user.id),
+              eq(
+                achievementProfiles.primaryAchievementId,
+                prerequisiteAchievementId,
+              ),
+            ),
+          );
       }
       return { id: achievement.id };
     });
