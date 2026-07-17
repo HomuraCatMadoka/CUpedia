@@ -50,7 +50,8 @@ describe("CourseEnrollmentHistory", () => {
         .getAttribute("aria-pressed"),
     ).toBe("true");
     expect(screen.getAllByTestId("enrollment-row")).toHaveLength(10);
-    expect(screen.getByText("显示 10 / 12 个 Section")).toBeTruthy();
+    expect(screen.queryByText("显示 10 / 12 个 Section")).toBeNull();
+    expect(screen.queryByText(`共 ${HISTORY.length} 个 Section`)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "查看其余 2 个" }));
 

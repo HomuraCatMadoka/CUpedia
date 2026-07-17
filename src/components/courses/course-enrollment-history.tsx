@@ -77,17 +77,10 @@ export function CourseEnrollmentHistory({
       className="mt-4 scroll-mt-36 overflow-hidden rounded-2xl border bg-card"
     >
       <div className="border-b bg-secondary/25 px-4 py-5 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold">选课人数参考</h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              根据 CUHK Teaching Timetable 的名额减剩余名额推算
-            </p>
-          </div>
-          <span className="rounded-full bg-background px-3 py-1 text-xs text-muted-foreground tabular-nums">
-            共 {enrollmentHistory.length} 个 Section
-          </span>
-        </div>
+        <h2 className="text-lg font-semibold">选课人数参考</h2>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          根据 CUHK Teaching Timetable 的名额减剩余名额推算
+        </p>
       </div>
 
       <div className="space-y-5 p-4 sm:p-6">
@@ -200,10 +193,7 @@ export function CourseEnrollmentHistory({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground tabular-nums">
-            显示 {visibleRows.length} / {filteredRows.length} 个 Section
-          </p>
+        <div className="flex justify-end">
           {filteredRows.length > INITIAL_ROW_LIMIT && (
             <button
               type="button"

@@ -7,12 +7,10 @@ import { buttonVariants } from "@/components/ui/button";
 export const OPEN_COURSE_REVIEW_EVENT = "course-review:open";
 
 export function CourseReviewActions({
-  reviewCount,
   hasPublishedReview,
   writeReviewHref,
   commentsHref,
 }: {
-  reviewCount: number;
   hasPublishedReview: boolean;
   writeReviewHref: string;
   commentsHref: string;
@@ -44,7 +42,7 @@ export function CourseReviewActions({
         className={buttonVariants({ size: "lg", variant: "outline" })}
       >
         <MessageSquareTextIcon aria-hidden="true" />
-        查看 {reviewCount} 条评论
+        查看评论
       </Link>
     </div>
   );

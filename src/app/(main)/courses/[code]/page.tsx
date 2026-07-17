@@ -133,7 +133,6 @@ export default async function CourseDetailPage({
           </div>
 
           <CourseReviewActions
-            reviewCount={course.reviewCount}
             hasPublishedReview={ratingState?.lastScore != null}
             writeReviewHref={detailHref("reviews", "#course-review")}
             commentsHref={detailHref("reviews", "#peer-reviews")}
