@@ -7,6 +7,7 @@ export function CanteenShell({
   eyebrow,
   title,
   subtitle,
+  announcement,
   children,
   action,
   className,
@@ -17,6 +18,8 @@ export function CanteenShell({
   eyebrow?: React.ReactNode;
   title: string;
   subtitle?: string;
+  /** Plain notice under the title (no border/box). */
+  announcement?: string | null;
   children: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
@@ -74,6 +77,14 @@ export function CanteenShell({
               )}
             >
               {subtitle}
+            </p>
+          ) : null}
+          {announcement ? (
+            <p
+              role="status"
+              className="max-w-xl whitespace-pre-wrap text-sm leading-relaxed text-[var(--canteen-ink)]/80 sm:text-base"
+            >
+              {announcement}
             </p>
           ) : null}
         </div>

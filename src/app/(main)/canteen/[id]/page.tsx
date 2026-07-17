@@ -71,6 +71,7 @@ export default async function CanteenMenuPage({
       backLabel="全部食堂"
       title={canteen.name}
       subtitle={canteen.location ?? undefined}
+      announcement={canteen.announcement}
     >
       <div className="mb-10">
         <DanmakuBanner

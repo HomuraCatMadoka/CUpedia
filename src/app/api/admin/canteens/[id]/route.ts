@@ -35,7 +35,7 @@ export async function PATCH(
   try {
     const canteen = await updateCanteen(
       id,
-      body as { name?: unknown; location?: unknown },
+      body as { name?: unknown; location?: unknown; announcement?: unknown },
     );
     return NextResponse.json({ canteen });
   } catch (e) {
@@ -43,7 +43,11 @@ export async function PATCH(
     if (message === "CANTEEN_NOT_FOUND") {
       return NextResponse.json({ error: message }, { status: 404 });
     }
-    if (message === "INVALID_NAME" || message === "INVALID_LOCATION") {
+    if (
+      message === "INVALID_NAME" ||
+      message === "INVALID_LOCATION" ||
+      message === "INVALID_ANNOUNCEMENT"
+    ) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     throw e;

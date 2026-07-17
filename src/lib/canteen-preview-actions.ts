@@ -22,6 +22,7 @@ function assertPreview() {
 export async function previewCreateCanteen(input: {
   name: unknown;
   location?: unknown;
+  announcement?: unknown;
 }) {
   assertPreview();
   const row = mockCreateCanteen(input);
@@ -32,13 +33,14 @@ export async function previewCreateCanteen(input: {
 
 export async function previewUpdateCanteen(
   id: string,
-  input: { name?: unknown; location?: unknown },
+  input: { name?: unknown; location?: unknown; announcement?: unknown },
 ) {
   assertPreview();
   const row = mockUpdateCanteen(id, input);
   revalidatePath("/canteen");
   revalidatePath("/canteen/manage");
   revalidatePath(`/canteen/manage/${id}`);
+  revalidatePath(`/canteen/${id}`);
   return row;
 }
 

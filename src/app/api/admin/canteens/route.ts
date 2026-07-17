@@ -21,7 +21,11 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const input = body as { name?: unknown; location?: unknown };
+  const input = body as {
+    name?: unknown;
+    location?: unknown;
+    announcement?: unknown;
+  };
   if (input.name === undefined) {
     return NextResponse.json({ error: "INVALID_NAME" }, { status: 400 });
   }
@@ -29,11 +33,16 @@ export async function POST(request: NextRequest) {
     const canteen = await createCanteen({
       name: input.name,
       location: input.location,
+      announcement: input.announcement,
     });
     return NextResponse.json({ canteen }, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Bad request";
-    if (message === "INVALID_NAME" || message === "INVALID_LOCATION") {
+    if (
+      message === "INVALID_NAME" ||
+      message === "INVALID_LOCATION" ||
+      message === "INVALID_ANNOUNCEMENT"
+    ) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
     throw e;

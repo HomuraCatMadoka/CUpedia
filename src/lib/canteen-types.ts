@@ -17,6 +17,8 @@ export type Canteen = {
   id: string;
   name: string;
   location: string | null;
+  /** Optional notice under the name (takeaway fee, drink add-on, etc.). */
+  announcement: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -274,6 +276,14 @@ export function validateLocation(location: unknown): string | null {
   if (typeof location !== "string") throw new Error("INVALID_LOCATION");
   const trimmed = location.trim();
   if (trimmed.length > 500) throw new Error("INVALID_LOCATION");
+  return trimmed || null;
+}
+
+export function validateAnnouncement(announcement: unknown): string | null {
+  if (announcement == null || announcement === "") return null;
+  if (typeof announcement !== "string") throw new Error("INVALID_ANNOUNCEMENT");
+  const trimmed = announcement.trim();
+  if (trimmed.length > 500) throw new Error("INVALID_ANNOUNCEMENT");
   return trimmed || null;
 }
 

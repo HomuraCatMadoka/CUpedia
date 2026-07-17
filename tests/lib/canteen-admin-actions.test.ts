@@ -129,6 +129,7 @@ describe("canteen-admin-actions", () => {
         id: "c1",
         name: "Union",
         location: null,
+        announcement: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -167,6 +168,7 @@ describe("canteen-admin-actions", () => {
         id: "c1",
         name: "Renamed",
         location: "B",
+        announcement: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       },
@@ -180,6 +182,28 @@ describe("canteen-admin-actions", () => {
     const row = await updateCanteen("c1", { name: "Renamed", location: "B" });
     expect(row.name).toBe("Renamed");
     expect(mockDbUpdate).toHaveBeenCalled();
+  });
+
+  it("updateCanteen can set announcement", async () => {
+    mockAdminSession();
+    const returning = vi.fn().mockResolvedValue([
+      {
+        id: "c1",
+        name: "Union",
+        location: null,
+        announcement: "外带加 $1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+    mockDbUpdate.mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({ returning }),
+      }),
+    });
+
+    const row = await updateCanteen("c1", { announcement: "外带加 $1" });
+    expect(row.announcement).toBe("外带加 $1");
   });
 
   it("deleteCanteen removes row for admin", async () => {

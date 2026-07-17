@@ -5,6 +5,7 @@ import {
   parseMealPeriod,
   validateCanteenName,
   validateLocation,
+  validateAnnouncement,
   validateMenuItemName,
   validatePrice,
   validatePricingInput,
@@ -40,6 +41,15 @@ describe("canteen-types", () => {
   it("validateLocation allows null", () => {
     expect(validateLocation(null)).toBeNull();
     expect(validateLocation("  SHB  ")).toBe("SHB");
+  });
+
+  it("validateAnnouncement allows null and trims", () => {
+    expect(validateAnnouncement(null)).toBeNull();
+    expect(validateAnnouncement("")).toBeNull();
+    expect(validateAnnouncement("  外带加 $1  ")).toBe("外带加 $1");
+    expect(() => validateAnnouncement("x".repeat(501))).toThrow(
+      "INVALID_ANNOUNCEMENT",
+    );
   });
 
   it("validatePrice allows null and rejects negative", () => {

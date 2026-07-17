@@ -1108,6 +1108,8 @@ export const canteens = pgTable("canteens", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
   location: text("location"),
+  /** Admin notice shown under the canteen name (e.g. takeaway surcharge). */
+  announcement: text("announcement"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

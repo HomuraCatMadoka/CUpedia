@@ -4,8 +4,11 @@
 
 ## Language
 
-**食堂（Canteen）**: 一个物理用餐点（如某书院食堂），有名称与可选位置。
+**食堂（Canteen）**: 一个物理用餐点（如某书院食堂），有名称、可选位置与可选公告。
 _Avoid_: 与「餐段」或「菜品」混称。
+
+**公告（Announcement）**: 管理员维护的短提示，展示在食堂详情页名称下方、弹幕上方（无边框灰底），用于外带加价、随餐饮品加价等说明；空则不展示。
+_Avoid_: 用弹幕或菜品名承载固定营运说明。
 
 **菜品（Menu item）**: 某食堂在某餐段供应的一道菜，含名称、价格选项、餐段、排序与图标 key。
 _Avoid_: 把菜品当成全局实体——菜品始终归属某个食堂。
@@ -37,7 +40,7 @@ _Avoid_: 把 mock 数据当作生产 seed。
 
 **首页入口**: `src/app/(main)/page.tsx` 食堂模块卡片已启用（无「即将上线」），链接 `/canteen`。公开区品牌为「山城食记」，副标题「还有食堂能吃吗」；视觉为冷色账本风，菜品图仅 SVG（`DishSvgIcon`），不做真实菜品摄影。
 
-**菜品 SVG 图标**: `src/lib/canteen-svg-keys.ts` 定义品类 key（`default`、`rice`、`bowl`、`noodle`、`drink`、`dessert`）；`DishSvgIcon` 在菜单行展示，`data-svg-key` 供 e2e 断言。未知 key 回退 `default`；写入经 `validateSvgKey()` 白名单校验。菜单视图按 `svgKey` 分组展示（饭类→粉面→煲汤→小吃→甜品→饮品），可用顶部分类 chips 筛选；排行榜仍为扁平列表。
+**菜品 SVG 图标**: `src/lib/canteen-svg-keys.ts` 定义品类 key（`default`、`rice`、`bowl`、`noodle`、`drink`、`dessert`）；`DishSvgIcon` 在菜单行展示，`data-svg-key` 供 e2e 断言。未知 key 回退 `default`；写入经 `validateSvgKey()` 白名单校验。菜单视图按 `svgKey` 分组展示（饭类→粉面→煲汤→小食→甜品→饮品），可用顶部分类 chips 筛选；排行榜仍为扁平列表。
 
 **E2E 种子**: `scripts/seed-data.ts` 含固定 UUID 的「演示食堂」与午餐菜品（`rice`/`bowl` svgKey），供 `e2e/canteen-menu-votes.spec.ts` 投票路径；`e2e/canteen-danmaku.spec.ts` 覆盖食堂页弹幕（#192）。命名遵循 [ADR 0007](../adr/0007-e2e-tests-named-by-feature.md)（按功能而非 issue 号）。
 

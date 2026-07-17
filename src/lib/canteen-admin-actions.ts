@@ -39,6 +39,7 @@ import {
   parseMenuSyncJson,
   validateCanteenName,
   validateLocation,
+  validateAnnouncement,
   validateMenuItemName,
   validatePricingInput,
   validateSortOrder,
@@ -123,6 +124,7 @@ export async function getMenuItemDeleteImpact(
 export async function createCanteen(input: {
   name: unknown;
   location?: unknown;
+  announcement?: unknown;
 }): Promise<Canteen> {
   await requireAdmin();
   if (isCanteenMockMode()) {
@@ -134,27 +136,30 @@ export async function createCanteen(input: {
   }
   const name = validateCanteenName(input.name);
   const location = validateLocation(input.location ?? null);
+  const announcement = validateAnnouncement(input.announcement ?? null);
   const now = new Date();
 
   const [row] = await db
     .insert(canteens)
-    .values({ name, location, createdAt: now, updatedAt: now })
+    .values({ name, location, announcement, createdAt: now, updatedAt: now })
     .returning({
       id: canteens.id,
       name: canteens.name,
       location: canteens.location,
+      announcement: canteens.announcement,
       createdAt: canteens.createdAt,
       updatedAt: canteens.updatedAt,
     });
 
   revalidatePath("/admin/canteens");
   revalidatePath("/api/canteens");
+  revalidatePath("/canteen");
   return row;
 }
 
 export async function updateCanteen(
   id: string,
-  input: { name?: unknown; location?: unknown },
+  input: { name?: unknown; location?: unknown; announcement?: unknown },
 ): Promise<Canteen> {
   await requireAdmin();
   if (isCanteenMockMode()) {
@@ -163,15 +168,23 @@ export async function updateCanteen(
     revalidatePath(`/admin/canteens/${id}`);
     revalidatePath("/api/canteens");
     revalidatePath("/canteen");
+    revalidatePath(`/canteen/${id}`);
     return row;
   }
-  const updates: { name?: string; location?: string | null; updatedAt: Date } =
-    {
-      updatedAt: new Date(),
-    };
+  const updates: {
+    name?: string;
+    location?: string | null;
+    announcement?: string | null;
+    updatedAt: Date;
+  } = {
+    updatedAt: new Date(),
+  };
   if (input.name !== undefined) updates.name = validateCanteenName(input.name);
   if (input.location !== undefined) {
     updates.location = validateLocation(input.location);
+  }
+  if (input.announcement !== undefined) {
+    updates.announcement = validateAnnouncement(input.announcement);
   }
 
   const [row] = await db
@@ -182,6 +195,7 @@ export async function updateCanteen(
       id: canteens.id,
       name: canteens.name,
       location: canteens.location,
+      announcement: canteens.announcement,
       createdAt: canteens.createdAt,
       updatedAt: canteens.updatedAt,
     });
@@ -192,6 +206,8 @@ export async function updateCanteen(
   revalidatePath(`/admin/canteens/${id}`);
   revalidatePath("/api/canteens");
   revalidatePath(`/api/canteens/${id}/menu`);
+  revalidatePath("/canteen");
+  revalidatePath(`/canteen/${id}`);
   return row;
 }
 

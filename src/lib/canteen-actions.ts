@@ -20,6 +20,7 @@ export async function getCanteens(): Promise<Canteen[]> {
       id: canteens.id,
       name: canteens.name,
       location: canteens.location,
+      announcement: canteens.announcement,
       createdAt: canteens.createdAt,
       updatedAt: canteens.updatedAt,
     })
@@ -34,6 +35,7 @@ export async function getCanteenById(id: string): Promise<Canteen | null> {
       id: canteens.id,
       name: canteens.name,
       location: canteens.location,
+      announcement: canteens.announcement,
       createdAt: canteens.createdAt,
       updatedAt: canteens.updatedAt,
     })

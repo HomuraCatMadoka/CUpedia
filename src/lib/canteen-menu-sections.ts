@@ -21,7 +21,7 @@ const SECTION_LABELS: Record<DishSvgKey, string> = {
   rice: "饭类",
   noodle: "粉面",
   bowl: "煲汤",
-  default: "小吃",
+  default: "小食",
   dessert: "甜品",
   drink: "饮品",
 };

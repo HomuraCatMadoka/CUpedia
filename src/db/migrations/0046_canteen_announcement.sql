@@ -1,0 +1,1 @@
+ALTER TABLE "canteens" ADD COLUMN "announcement" text;

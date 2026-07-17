@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,11 +48,13 @@ export function CanteenAdminPanel({
   const [isPending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Canteen | null>(null);
   const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null);
   const [editTarget, setEditTarget] = useState<Canteen | null>(null);
   const [editName, setEditName] = useState("");
   const [editLocation, setEditLocation] = useState("");
+  const [editAnnouncement, setEditAnnouncement] = useState("");
 
   const basePath = previewMode ? "/canteen/manage" : "/admin/canteens";
   const createCanteen = previewMode
@@ -77,9 +80,14 @@ export function CanteenAdminPanel({
     e.preventDefault();
     startTransition(async () => {
       try {
-        await createCanteen({ name, location: location || null });
+        await createCanteen({
+          name,
+          location: location || null,
+          announcement: announcement || null,
+        });
         setName("");
         setLocation("");
+        setAnnouncement("");
         router.refresh();
       } catch (err) {
         alert(err instanceof Error ? err.message : "创建失败");
@@ -91,6 +99,7 @@ export function CanteenAdminPanel({
     setEditTarget(canteen);
     setEditName(canteen.name);
     setEditLocation(canteen.location ?? "");
+    setEditAnnouncement(canteen.announcement ?? "");
   }
 
   function handleEdit(e: React.FormEvent) {
@@ -101,6 +110,7 @@ export function CanteenAdminPanel({
         await updateCanteen(editTarget.id, {
           name: editName,
           location: editLocation || null,
+          announcement: editAnnouncement || null,
         });
         setEditTarget(null);
         router.refresh();
@@ -173,6 +183,22 @@ export function CanteenAdminPanel({
           >
             添加食堂
           </Button>
+        </div>
+        <div className="mt-3 space-y-1">
+          <label
+            className="text-xs font-medium text-[var(--canteen-muted)]"
+            htmlFor="canteen-announcement"
+          >
+            公告（可选）
+          </label>
+          <Textarea
+            id="canteen-announcement"
+            value={announcement}
+            onChange={(e) => setAnnouncement(e.target.value)}
+            maxLength={500}
+            placeholder="例如：外带加一块钱 · 随餐饮品加三块钱"
+            className="min-h-16 border-[var(--canteen-bamboo)]/30 bg-white/90"
+          />
         </div>
       </form>
 
@@ -276,6 +302,22 @@ export function CanteenAdminPanel({
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
                   maxLength={500}
+                />
+              </div>
+              <div className="space-y-1">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="edit-canteen-announcement"
+                >
+                  公告
+                </label>
+                <Textarea
+                  id="edit-canteen-announcement"
+                  value={editAnnouncement}
+                  onChange={(e) => setEditAnnouncement(e.target.value)}
+                  maxLength={500}
+                  placeholder="例如：外带加一块钱 · 随餐饮品加三块钱"
+                  className="min-h-16"
                 />
               </div>
             </div>

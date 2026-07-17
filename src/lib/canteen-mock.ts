@@ -9,6 +9,7 @@ import type {
 } from "@/lib/canteen-types";
 import {
   parseMealPeriod,
+  validateAnnouncement,
   validateCanteenName,
   validateLocation,
   validateMenuItemName,
@@ -61,6 +62,7 @@ function seedState(): MockState {
     id: "mock-canteen-demo",
     name: "演示食堂",
     location: null,
+    announcement: "外带加 $1 · 随餐饮品加 $3",
     createdAt: t,
     updatedAt: t,
   };
@@ -169,12 +171,14 @@ export function mockListMenuItems(canteenId: string): CanteenMenuItem[] {
 export function mockCreateCanteen(input: {
   name: unknown;
   location?: unknown;
+  announcement?: unknown;
 }): Canteen {
   const t = now();
   const row: Canteen = {
     id: crypto.randomUUID(),
     name: validateCanteenName(input.name),
     location: validateLocation(input.location ?? null),
+    announcement: validateAnnouncement(input.announcement ?? null),
     createdAt: t,
     updatedAt: t,
   };
@@ -184,7 +188,7 @@ export function mockCreateCanteen(input: {
 
 export function mockUpdateCanteen(
   id: string,
-  input: { name?: unknown; location?: unknown },
+  input: { name?: unknown; location?: unknown; announcement?: unknown },
 ): Canteen {
   const s = getState();
   const idx = s.canteens.findIndex((c) => c.id === id);
@@ -193,6 +197,8 @@ export function mockUpdateCanteen(
   if (input.name !== undefined) row.name = validateCanteenName(input.name);
   if (input.location !== undefined)
     row.location = validateLocation(input.location);
+  if (input.announcement !== undefined)
+    row.announcement = validateAnnouncement(input.announcement);
   row.updatedAt = now();
   return { ...row };
 }

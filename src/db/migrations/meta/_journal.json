@@ -323,6 +323,13 @@
       "when": 1784522181823,
       "tag": "0045_backfill_all_staff_person_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1784291235442,
+      "tag": "0046_canteen_announcement",
+      "breakpoints": true
     }
   ]
 }
