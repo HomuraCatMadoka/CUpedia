@@ -1,13 +1,16 @@
 import { AchievementCatalogImport } from "@/components/admin/achievement-catalog-import";
 import { AchievementCatalogStatusButton } from "@/components/admin/achievement-catalog-status-button";
 import { AchievementRuleForm } from "@/components/admin/achievement-rule-form";
+import { PersonTitleRecipeForm } from "@/components/admin/person-title-recipe-form";
+import { getPersonTitleRecipes } from "@/lib/achievement-fusion-actions";
 import { getAchievementCatalogs } from "@/lib/achievement-catalog-actions";
 import { getProfessionalAchievementRules } from "@/lib/achievement-actions";
 
 export default async function AdminAchievementRulesPage() {
-  const [rules, catalogs] = await Promise.all([
+  const [rules, catalogs, personRecipes] = await Promise.all([
     getProfessionalAchievementRules(),
     getAchievementCatalogs(),
+    getPersonTitleRecipes(),
   ]);
 
   return (
@@ -68,6 +71,36 @@ export default async function AdminAchievementRulesPage() {
         </div>
       </section>
       <AchievementRuleForm />
+      <PersonTitleRecipeForm />
+      <section aria-labelledby="person-title-recipe-list">
+        <h2 className="text-sm font-medium" id="person-title-recipe-list">
+          人名称号配方版本
+        </h2>
+        <div className="mt-3 overflow-hidden rounded-xl border">
+          {personRecipes.length === 0 ? (
+            <p className="p-5 text-sm text-muted-foreground">尚无配方</p>
+          ) : (
+            <ul className="divide-y">
+              {personRecipes.map((recipe) => (
+                <li
+                  className="flex flex-wrap gap-3 px-5 py-4 text-sm"
+                  key={recipe.id}
+                >
+                  <span className="font-medium">{recipe.displayName}</span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {recipe.badgeCode}
+                  </span>
+                  <span className="text-muted-foreground">
+                    v{recipe.version} · {recipe.kind} ·{" "}
+                    {recipe.sourceRuleKeys.join(" + ")}
+                  </span>
+                  <span>{recipe.enabled ? "已启用" : "未启用"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
       <section aria-labelledby="achievement-rule-list">
         <h2 className="text-sm font-medium" id="achievement-rule-list">
           已有版本

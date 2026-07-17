@@ -110,4 +110,28 @@ describe("planAchievementAfterRatingDeletion", () => {
       }),
     ).toEqual({ kind: "unchanged" });
   });
+
+  it("preserves a fused source when another eligible rating can replace it", () => {
+    const [bronze] = chain("bronze");
+    const result = planAchievementAfterRatingDeletion({
+      deletedRatingId: "r1",
+      ratings: ratings(5),
+      achievements: [{ ...bronze, status: "active" }],
+      occupiedOutsideChain: new Set(),
+    });
+
+    expect(result).toMatchObject({ kind: "preserved", nextTier: "bronze" });
+  });
+
+  it("invalidates a fused source only when its bound rule can no longer be met", () => {
+    const [bronze] = chain("bronze");
+    const result = planAchievementAfterRatingDeletion({
+      deletedRatingId: "r1",
+      ratings: ratings(4),
+      achievements: [{ ...bronze, status: "active" }],
+      occupiedOutsideChain: new Set(),
+    });
+
+    expect(result.kind).toBe("revoked");
+  });
 });

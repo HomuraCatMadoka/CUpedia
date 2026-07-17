@@ -267,6 +267,13 @@ export async function getMyProfessionalAchievementProgress(): Promise<
         },
       ];
     }
+    if (
+      ownedRows.some(
+        (row) => row.ruleKey === rule.ruleKey && row.status === "superseded",
+      )
+    ) {
+      return [];
+    }
     const evaluation = evaluateSubjectCountRule(
       {
         subjectGroups:

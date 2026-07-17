@@ -297,6 +297,44 @@ describe("professional achievement progress and redemption", () => {
     });
   });
 
+  it("does not offer a source badge again while an upgrade or fusion consumes it", async () => {
+    dbQueue.push(
+      [
+        {
+          id: "rule-1",
+          ruleKey: "math-bronze",
+          version: 1,
+          displayName: "数学铜标",
+          description: "",
+          badgeCode: "MATH",
+          tier: "bronze",
+          subjectCodes: ["MATH"],
+          subjectGroups: [{ subjectCodes: ["MATH"], requiredCount: 4 }],
+          requiredCount: 4,
+          prerequisiteRuleKey: null,
+        },
+      ],
+      [],
+      [],
+      [
+        {
+          achievementId: "achievement-1",
+          ruleId: "rule-1",
+          status: "superseded",
+          ruleKey: "math-bronze",
+          version: 1,
+          displayName: "数学铜标",
+          description: "",
+          badgeCode: "MATH",
+          tier: "bronze",
+          requiredCount: 4,
+        },
+      ],
+    );
+
+    await expect(getMyProfessionalAchievementProgress()).resolves.toEqual([]);
+  });
+
   it("upgrades with four new ratings and supersedes the prerequisite", async () => {
     const ruleId = "00000000-0000-4000-a000-000000000099";
     const newRatings = [5, 6, 7, 8].map((number) => ({

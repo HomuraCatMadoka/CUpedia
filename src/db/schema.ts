@@ -514,6 +514,63 @@ export const userAchievements = pgTable(
   ],
 );
 
+export const achievementFusionRecipes = pgTable(
+  "achievement_fusion_recipes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    recipeKey: text("recipe_key").notNull(),
+    version: integer("version").notNull(),
+    kind: text("kind").notNull(),
+    targetRuleId: uuid("target_rule_id")
+      .notNull()
+      .references(() => achievementRules.id),
+    sourceRuleKeys: jsonb("source_rule_keys").$type<string[]>().notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_fusion_recipes_key_version_uq").on(
+      table.recipeKey,
+      table.version,
+    ),
+    uniqueIndex("achievement_fusion_recipes_one_enabled_uq")
+      .on(table.recipeKey)
+      .where(sql`${table.enabled} = true`),
+    check(
+      "achievement_fusion_recipes_kind_check",
+      sql`${table.kind} in ('dual_bronze', 'same_profession_gold')`,
+    ),
+    check(
+      "achievement_fusion_recipes_version_check",
+      sql`${table.version} > 0`,
+    ),
+  ],
+);
+
+export const achievementFusionSources = pgTable(
+  "achievement_fusion_sources",
+  {
+    fusionAchievementId: uuid("fusion_achievement_id")
+      .notNull()
+      .references(() => userAchievements.id, { onDelete: "cascade" }),
+    sourceAchievementId: uuid("source_achievement_id")
+      .notNull()
+      .references(() => userAchievements.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.fusionAchievementId, table.sourceAchievementId],
+    }),
+    uniqueIndex("achievement_fusion_sources_source_uq").on(
+      table.sourceAchievementId,
+    ),
+  ],
+);
+
 export const achievementEvidence = pgTable(
   "achievement_evidence",
   {

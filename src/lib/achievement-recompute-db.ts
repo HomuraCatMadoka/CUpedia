@@ -1,8 +1,9 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   achievementEvidence,
+  achievementFusionSources,
   achievementProfiles,
   achievementRules,
   courseRatings,
@@ -18,7 +19,7 @@ import {
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 export type PublicDeletionImpact = {
-  kind: AchievementDeletionImpact["kind"];
+  kind: AchievementDeletionImpact["kind"] | "dismantled";
   nextTier?: "bronze" | "silver" | "gold" | null;
 };
 
@@ -28,6 +29,7 @@ export async function recomputeAchievementsBeforeRatingDeletion(
   ratingId: string,
   apply: boolean,
 ): Promise<PublicDeletionImpact> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
   const achievementRows = await tx
     .select({
       id: userAchievements.id,
@@ -70,6 +72,22 @@ export async function recomputeAchievementsBeforeRatingDeletion(
     .from(courseRatings)
     .innerJoin(courses, eq(courseRatings.courseCode, courses.code))
     .where(eq(courseRatings.userId, userId));
+  const fusionLinks = await tx
+    .select({
+      fusionAchievementId: achievementFusionSources.fusionAchievementId,
+      sourceAchievementId: achievementFusionSources.sourceAchievementId,
+    })
+    .from(achievementFusionSources)
+    .innerJoin(
+      userAchievements,
+      eq(achievementFusionSources.fusionAchievementId, userAchievements.id),
+    )
+    .where(
+      and(
+        eq(userAchievements.userId, userId),
+        eq(userAchievements.status, "active"),
+      ),
+    );
 
   const evidenceByAchievement = new Map<string, string[]>();
   for (const row of evidenceRows) {
@@ -97,6 +115,116 @@ export async function recomputeAchievementsBeforeRatingDeletion(
     }),
   );
   const byKey = new Map(achievements.map((item) => [item.ruleKey, item]));
+
+  for (const link of fusionLinks) {
+    const source = achievements.find(
+      (item) => item.id === link.sourceAchievementId,
+    );
+    if (!source) continue;
+    const chain: RecomputableAchievement[] = [];
+    let cursor: RecomputableAchievement | undefined = source;
+    while (cursor) {
+      chain.unshift(cursor);
+      cursor = cursor.prerequisiteRuleKey
+        ? byKey.get(cursor.prerequisiteRuleKey)
+        : undefined;
+    }
+    if (!chain.some((item) => item.evidenceRatingIds.includes(ratingId))) {
+      continue;
+    }
+    const simulatedChain = chain.map((item) => ({
+      ...item,
+      status: item.id === source.id ? ("active" as const) : item.status,
+    }));
+    const chainIds = new Set(chain.map((item) => item.id));
+    const occupiedOutsideChain = new Set(
+      evidenceRows
+        .filter((row) => !chainIds.has(row.achievementId))
+        .map((row) => row.ratingId),
+    );
+    const blockedActiveTiers = new Set<"silver" | "gold">(
+      achievements
+        .filter(
+          (item) =>
+            item.status === "active" &&
+            item.id !== link.fusionAchievementId &&
+            item.tier !== "bronze",
+        )
+        .map((item) => item.tier as "silver" | "gold"),
+    );
+    const impact = planAchievementAfterRatingDeletion({
+      deletedRatingId: ratingId,
+      ratings,
+      achievements: simulatedChain,
+      occupiedOutsideChain,
+      blockedActiveTiers,
+    });
+    if (impact.kind === "unchanged") return impact;
+    if (!apply) {
+      return impact.kind === "preserved"
+        ? { kind: "preserved", nextTier: impact.nextTier }
+        : { kind: "dismantled", nextTier: null };
+    }
+
+    await rewriteAchievementEvidence(tx, impact, ratings);
+    if (impact.kind === "preserved") {
+      return { kind: "preserved", nextTier: impact.nextTier };
+    }
+
+    const allLinks = fusionLinks.filter(
+      (item) => item.fusionAchievementId === link.fusionAchievementId,
+    );
+    const otherSourceIds = allLinks
+      .map((item) => item.sourceAchievementId)
+      .filter((id) => id !== source.id);
+    const now = new Date();
+    await tx
+      .update(userAchievements)
+      .set({ status: "revoked", revokedAt: now })
+      .where(eq(userAchievements.id, link.fusionAchievementId));
+    for (const item of chain) {
+      const retained = Object.hasOwn(impact.evidenceByAchievement, item.id);
+      const status =
+        item.id === impact.nextActiveAchievementId
+          ? "active"
+          : retained
+            ? "superseded"
+            : "revoked";
+      await tx
+        .update(userAchievements)
+        .set({ status, revokedAt: status === "revoked" ? now : null })
+        .where(eq(userAchievements.id, item.id));
+    }
+    if (otherSourceIds.length) {
+      await tx
+        .update(userAchievements)
+        .set({ status: "active", revokedAt: null })
+        .where(inArray(userAchievements.id, otherSourceIds));
+    }
+    await tx
+      .delete(achievementFusionSources)
+      .where(
+        eq(
+          achievementFusionSources.fusionAchievementId,
+          link.fusionAchievementId,
+        ),
+      );
+    const restoredPrimary =
+      impact.nextActiveAchievementId ?? otherSourceIds[0] ?? null;
+    await tx
+      .update(achievementProfiles)
+      .set({ primaryAchievementId: restoredPrimary, updatedAt: now })
+      .where(
+        and(
+          eq(achievementProfiles.userId, userId),
+          eq(
+            achievementProfiles.primaryAchievementId,
+            link.fusionAchievementId,
+          ),
+        ),
+      );
+    return { kind: "dismantled", nextTier: null };
+  }
 
   for (const active of achievements.filter(
     (item) => item.status === "active",
@@ -139,26 +267,7 @@ export async function recomputeAchievementsBeforeRatingDeletion(
     if (impact.kind === "unchanged") return impact;
     if (!apply) return { kind: impact.kind, nextTier: impact.nextTier };
 
-    await tx
-      .delete(achievementEvidence)
-      .where(
-        inArray(
-          achievementEvidence.achievementId,
-          impact.affectedAchievementIds,
-        ),
-      );
-    const ratingCourseCodes = new Map(
-      ratings.map((rating) => [rating.id, rating.courseCode]),
-    );
-    const evidence = Object.entries(impact.evidenceByAchievement).flatMap(
-      ([achievementId, ratingIds]) =>
-        ratingIds.map((nextRatingId) => ({
-          achievementId,
-          ratingId: nextRatingId,
-          courseCode: ratingCourseCodes.get(nextRatingId)!,
-        })),
-    );
-    if (evidence.length) await tx.insert(achievementEvidence).values(evidence);
+    await rewriteAchievementEvidence(tx, impact, ratings);
 
     const now = new Date();
     for (const item of chain) {
@@ -192,4 +301,28 @@ export async function recomputeAchievementsBeforeRatingDeletion(
   }
 
   return { kind: "unchanged" };
+}
+
+async function rewriteAchievementEvidence(
+  tx: Transaction,
+  impact: Exclude<AchievementDeletionImpact, { kind: "unchanged" }>,
+  ratings: Array<{ id: string; courseCode: string; subject: string }>,
+) {
+  await tx
+    .delete(achievementEvidence)
+    .where(
+      inArray(achievementEvidence.achievementId, impact.affectedAchievementIds),
+    );
+  const ratingCourseCodes = new Map(
+    ratings.map((rating) => [rating.id, rating.courseCode]),
+  );
+  const evidence = Object.entries(impact.evidenceByAchievement).flatMap(
+    ([achievementId, ratingIds]) =>
+      ratingIds.map((nextRatingId) => ({
+        achievementId,
+        ratingId: nextRatingId,
+        courseCode: ratingCourseCodes.get(nextRatingId)!,
+      })),
+  );
+  if (evidence.length) await tx.insert(achievementEvidence).values(evidence);
 }

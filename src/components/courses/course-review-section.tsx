@@ -246,7 +246,9 @@ export function CourseReviewSection({
             ? `\n\n删除后，有关专业称号将降为${impact.nextTier === "silver" ? "银标" : "铜标"}。`
             : impact.kind === "revoked"
               ? "\n\n删除后，有关专业称号将不再满足条件并被撤销。"
-              : "";
+              : impact.kind === "dismantled"
+                ? "\n\n删除后，人名称号将自动拆解，仍有效的来源称号会恢复。"
+                : "";
         if (
           !window.confirm(
             `确定删除整条课程测评吗？评分、评论和收到的点赞都会一并删除。${achievementCopy}`,
