@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-actions";
 import { cn } from "@/lib/utils";
 import {
   COURSE_REVIEW_TAG_OPTIONS,
@@ -29,6 +30,8 @@ import {
   type CourseReviewView,
   type ProfessorOption,
 } from "@/lib/course-review-actions";
+
+const INITIAL_REVIEW_LIMIT = 10;
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -143,7 +146,7 @@ export function CourseReviewSection({
 }) {
   const router = useRouter();
   const isPublished = ratingState.lastScore !== null;
-  const [editing, setEditing] = useState(!isPublished);
+  const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(ratingState.lastContent);
   const [academicYear, setAcademicYear] = useState(
     ratingState.lastAcademicYear ?? "",
@@ -160,6 +163,8 @@ export function CourseReviewSection({
   const [, startSearch] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedProfessorId, setSelectedProfessorId] = useState("");
+  const [visibleReviewLimit, setVisibleReviewLimit] =
+    useState(INITIAL_REVIEW_LIMIT);
   const [showAllTermYears, setShowAllTermYears] = useState(false);
   const [professorQuery, setProfessorQuery] = useState(
     ratingState.lastProfessor?.name ?? "",
@@ -170,6 +175,14 @@ export function CourseReviewSection({
   const [professor, setProfessor] = useState<ProfessorOption | null>(
     ratingState.lastProfessor,
   );
+
+  useEffect(() => {
+    const openEditor = () => setEditing(true);
+    if (window.location.hash === "#course-review") openEditor();
+    window.addEventListener(OPEN_COURSE_REVIEW_EVENT, openEditor);
+    return () =>
+      window.removeEventListener(OPEN_COURSE_REVIEW_EVENT, openEditor);
+  }, []);
 
   function handleProfessorQuery(value: string) {
     setProfessorQuery(value);
@@ -235,7 +248,7 @@ export function CourseReviewSection({
         await deleteCourseReviewSubmission(code, target);
         if (!target) {
           setIsAnonymous(false);
-          setEditing(true);
+          setEditing(false);
         }
         router.refresh();
       } finally {
@@ -258,6 +271,8 @@ export function CourseReviewSection({
   const visibleCommentCount = visibleReviews.filter(
     (review) => !review.isRatingOnly,
   ).length;
+  const displayedReviews = visibleReviews.slice(0, visibleReviewLimit);
+  const hiddenReviewCount = visibleReviews.length - displayedReviews.length;
   const professorTermsByYear = selectedProfessor
     ? [
         ...new Set(selectedProfessor.terms.map((item) => item.academicYear)),
@@ -333,7 +348,7 @@ export function CourseReviewSection({
   }
 
   return (
-    <section className="space-y-8">
+    <section id="course-review" className="scroll-mt-20 space-y-8">
       <div className="overflow-hidden rounded-2xl border bg-card">
         <div className="border-b bg-secondary/25 px-6 py-5">
           <div>
@@ -359,67 +374,85 @@ export function CourseReviewSection({
             </Link>{" "}
             后提交测评或点赞。
           </div>
-        ) : isPublished && !editing ? (
-          <div className="space-y-5 p-6">
-            <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
-              <CheckCircle2Icon className="size-4" />
-              课程测评已发布
-            </div>
-            <div className="flex flex-wrap gap-2 text-sm">
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                <StarIcon className="size-3.5 fill-current" />
-                {ratingState.lastScore?.toFixed(1)}
-              </span>
-              <span className="rounded-full bg-secondary px-3 py-1.5">
-                {ratingState.lastAcademicYear}
-              </span>
-              <span className="rounded-full bg-secondary px-3 py-1.5">
-                {ratingState.lastTerm}
-              </span>
-              {ratingState.lastProfessor && (
+        ) : !editing ? (
+          isPublished ? (
+            <div className="space-y-5 p-6">
+              <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                <CheckCircle2Icon className="size-4" />
+                课程测评已发布
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                  <StarIcon className="size-3.5 fill-current" />
+                  {ratingState.lastScore?.toFixed(1)}
+                </span>
                 <span className="rounded-full bg-secondary px-3 py-1.5">
-                  {ratingState.lastProfessor.name}
+                  {ratingState.lastAcademicYear}
                 </span>
-              )}
-              {ratingState.lastTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="rounded-full bg-primary/10 px-3 py-1.5 text-primary"
-                >
-                  {tag}
+                <span className="rounded-full bg-secondary px-3 py-1.5">
+                  {ratingState.lastTerm}
                 </span>
-              ))}
-            </div>
-            <div className="rounded-xl border bg-secondary/20 p-4">
-              <p className="text-xs font-medium text-muted-foreground">
-                {ratingState.lastContent
-                  ? ratingState.lastIsAnonymous
-                    ? "已附匿名评论"
-                    : "已附署名评论"
-                  : "未填写文字评论"}
-              </p>
-              {ratingState.lastContent && (
-                <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
-                  {ratingState.lastContent}
+                {ratingState.lastProfessor && (
+                  <span className="rounded-full bg-secondary px-3 py-1.5">
+                    {ratingState.lastProfessor.name}
+                  </span>
+                )}
+                {ratingState.lastTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-primary/10 px-3 py-1.5 text-primary"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+              <div className="rounded-xl border bg-secondary/20 p-4">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {ratingState.lastContent
+                    ? ratingState.lastIsAnonymous
+                      ? "已附匿名评论"
+                      : "已附署名评论"
+                    : "未填写文字评论"}
                 </p>
-              )}
+                {ratingState.lastContent && (
+                  <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
+                    {ratingState.lastContent}
+                  </p>
+                )}
+              </div>
+              <div className="flex justify-end gap-2 border-t pt-5">
+                <Button variant="outline" onClick={() => setEditing(true)}>
+                  <PencilIcon className="size-4" />
+                  编辑
+                </Button>
+                <Button
+                  variant="outline"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => handleDelete()}
+                  disabled={submitting && busyId === "own-submission"}
+                >
+                  <Trash2Icon className="size-4" />
+                  删除
+                </Button>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 border-t pt-5">
-              <Button variant="outline" onClick={() => setEditing(true)}>
-                <PencilIcon className="size-4" />
-                编辑
-              </Button>
+          ) : (
+            <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium">分享你的实际修读体验</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                  评分必填，文字评论和课程体验标签均为选填。
+                </p>
+              </div>
               <Button
-                variant="outline"
-                className="text-destructive hover:text-destructive"
-                onClick={() => handleDelete()}
-                disabled={submitting && busyId === "own-submission"}
+                className="self-start sm:self-auto"
+                onClick={() => setEditing(true)}
               >
-                <Trash2Icon className="size-4" />
-                删除
+                <PencilIcon className="size-4" />
+                开始填写
               </Button>
             </div>
-          </div>
+          )
         ) : (
           <div className="space-y-6 p-6">
             <div className="grid gap-4 sm:grid-cols-2">
@@ -647,18 +680,16 @@ export function CourseReviewSection({
                   />
                   匿名发表
                 </label>
-                {isPublished && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      resetForm();
-                      setEditing(false);
-                    }}
-                    disabled={submitting}
-                  >
-                    取消
-                  </Button>
-                )}
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    resetForm();
+                    setEditing(false);
+                  }}
+                  disabled={submitting}
+                >
+                  取消
+                </Button>
                 <Button onClick={handleSubmit} disabled={submitting || !ready}>
                   {submitting
                     ? "保存中…"
@@ -672,7 +703,7 @@ export function CourseReviewSection({
         )}
       </div>
 
-      <div className="space-y-4 border-b pb-5">
+      <div id="peer-reviews" className="scroll-mt-20 space-y-4 border-b pb-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-lg font-semibold tracking-tight">同学测评</h2>
@@ -690,6 +721,7 @@ export function CourseReviewSection({
               onChange={(event) => {
                 setSelectedProfessorId(event.target.value);
                 setShowAllTermYears(false);
+                setVisibleReviewLimit(INITIAL_REVIEW_LIMIT);
               }}
               disabled={professorStats.length === 0}
               className="h-9 w-full rounded-md border border-black/10 bg-background px-3 text-sm font-normal text-foreground outline-none transition-colors hover:border-black/20 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
@@ -887,7 +919,7 @@ export function CourseReviewSection({
               : "还没有文字测评。你也可以只提交评分。"}
           </li>
         )}
-        {visibleReviews.map((review) => (
+        {displayedReviews.map((review) => (
           <li key={review.id} className="rounded-xl border p-5">
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm font-medium">
@@ -985,6 +1017,21 @@ export function CourseReviewSection({
           </li>
         ))}
       </ul>
+
+      {hiddenReviewCount > 0 && (
+        <div className="flex justify-center">
+          <Button
+            variant="outline"
+            onClick={() =>
+              setVisibleReviewLimit((current) =>
+                Math.min(current + INITIAL_REVIEW_LIMIT, visibleReviews.length),
+              )
+            }
+          >
+            再看 {Math.min(INITIAL_REVIEW_LIMIT, hiddenReviewCount)} 条测评
+          </Button>
+        </div>
+      )}
     </section>
   );
 }

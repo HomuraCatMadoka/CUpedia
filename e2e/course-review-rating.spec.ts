@@ -46,6 +46,7 @@ test("#351 course with confirmed empty instructor data accepts a review without 
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto("/courses/CSCI1120");
 
+  await page.getByRole("link", { name: "写测评" }).click();
   await expect(page.getByText("课程资料未列任课教授，可留空")).toBeVisible();
   await page.getByLabel("学年").selectOption("2025-26");
   await page.getByLabel("学期").selectOption("Term 1");
@@ -74,6 +75,7 @@ test("#293 unified submission validates required experience and supports half-st
 
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto("/courses/CSCI1130");
+  await page.getByRole("link", { name: "写测评" }).click();
   const submit = page.getByRole("button", { name: "提交测评" });
   await expect(submit).toBeDisabled();
 

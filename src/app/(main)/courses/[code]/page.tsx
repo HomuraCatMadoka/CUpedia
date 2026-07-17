@@ -15,6 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { CourseReviewSection } from "@/components/courses/course-review-section";
 import { CourseListBackLink } from "@/components/courses/course-list-back-link";
 import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
+import { CourseReviewActions } from "@/components/courses/course-review-actions";
+import { CourseEnrollmentHistory } from "@/components/courses/course-enrollment-history";
+import {
+  CourseDetailTabs,
+  type CourseDetailTab,
+} from "@/components/courses/course-detail-tabs";
 
 function recentAcademicYears(now = new Date()): string[] {
   const start = now.getMonth() >= 7 ? now.getFullYear() : now.getFullYear() - 1;
@@ -29,35 +35,53 @@ export default async function CourseDetailPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; tab?: string }>;
 }) {
   const { code } = await params;
-  const { from } = await searchParams;
+  const { from, tab } = await searchParams;
   const course = await getCourse(code);
   if (!course) notFound();
+  const courseCode = course.code;
+
+  const activeTab: CourseDetailTab =
+    tab === "enrollment" ? "enrollment" : "reviews";
 
   const hasCourseListSource =
     from === "/courses" || Boolean(from?.startsWith("/courses?"));
   const returnTo = hasCourseListSource ? from! : "/courses";
+  function detailHref(targetTab: CourseDetailTab, hash?: string): string {
+    const query = new URLSearchParams();
+    if (hasCourseListSource) query.set("from", from!);
+    if (targetTab === "enrollment") query.set("tab", "enrollment");
+    const suffix = query.size ? `?${query.toString()}` : "";
+    return `/courses/${encodeURIComponent(courseCode)}${suffix}${hash ?? ""}`;
+  }
+
+  const reviewsHref = detailHref("reviews");
+  const enrollmentHref = detailHref("enrollment");
 
   const [
-    reviews,
     ratingState,
     enrollmentHistory,
-    professorStats,
     user,
     professorOptional,
+    reviews,
+    professorStats,
   ] = await Promise.all([
-    getCourseReviews(course.code),
     getCourseRatingState(course.code),
     getCourseEnrollmentHistory(course.code),
-    getCourseProfessorStats(course.code),
     getOptionalUser(),
     isCourseProfessorOptional(course.code),
+    activeTab === "reviews"
+      ? getCourseReviews(course.code)
+      : Promise.resolve([]),
+    activeTab === "reviews"
+      ? getCourseProfessorStats(course.code)
+      : Promise.resolve([]),
   ]);
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="min-w-0 flex-1">
       <div className="mx-auto max-w-3xl px-6 py-8">
         <CourseListBackLink
           href={returnTo}
@@ -108,6 +132,13 @@ export default async function CourseDetailPage({
             </div>
           </div>
 
+          <CourseReviewActions
+            reviewCount={course.reviewCount}
+            hasPublishedReview={ratingState?.lastScore != null}
+            writeReviewHref={detailHref("reviews", "#course-review")}
+            commentsHref={detailHref("reviews", "#peer-reviews")}
+          />
+
           {course.description && (
             <p className="mt-5 border-t pt-5 text-sm leading-relaxed text-muted-foreground">
               {course.description}
@@ -115,68 +146,16 @@ export default async function CourseDetailPage({
           )}
         </div>
 
-        {enrollmentHistory.length > 0 && (
-          <section className="mt-6 rounded-2xl border p-6">
-            <h2 className="text-lg font-semibold">选课人数参考</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              根据 CUHK Teaching Timetable 的名额减剩余名额推算
-            </p>
-            {[...new Set(enrollmentHistory.map((row) => row.academicYear))].map(
-              (academicYear) => (
-                <div key={academicYear} className="mt-5 space-y-5">
-                  <h3 className="text-sm font-semibold">{academicYear}</h3>
-                  {[
-                    ...new Set(
-                      enrollmentHistory
-                        .filter((row) => row.academicYear === academicYear)
-                        .map((row) => row.term),
-                    ),
-                  ].map((term) => (
-                    <div key={term}>
-                      <h4 className="border-b pb-2 text-sm font-medium">
-                        {term}
-                      </h4>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                        {enrollmentHistory
-                          .filter(
-                            (row) =>
-                              row.academicYear === academicYear &&
-                              row.term === term,
-                          )
-                          .map((row) => (
-                            <div
-                              key={row.section ?? "all"}
-                              className="rounded-xl bg-secondary/50 p-4"
-                            >
-                              {row.section && (
-                                <p className="text-sm font-medium">
-                                  Section {row.section}
-                                </p>
-                              )}
-                              <p className="mt-1 text-2xl font-semibold">
-                                {row.enrolled} 人
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                总名额 {row.quota}
-                              </p>
-                              {row.instructors.length > 0 && (
-                                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                                  {row.instructors.join(" · ")}
-                                </p>
-                              )}
-                            </div>
-                          ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ),
-            )}
-          </section>
-        )}
+        <CourseDetailTabs
+          activeTab={activeTab}
+          reviewCount={course.reviewCount}
+          enrollmentCount={enrollmentHistory.length}
+          reviewsHref={reviewsHref}
+          enrollmentHref={enrollmentHref}
+        />
 
-        {ratingState && (
-          <div className="mt-8">
+        {activeTab === "reviews" && ratingState && (
+          <div className="mt-4">
             <CourseReviewSection
               key={`${course.code}-${ratingState.ratingCount}-${ratingState.myRatingCount}`}
               code={course.code}
@@ -199,6 +178,15 @@ export default async function CourseDetailPage({
             />
           </div>
         )}
+
+        {activeTab === "enrollment" &&
+          (enrollmentHistory.length > 0 ? (
+            <CourseEnrollmentHistory enrollmentHistory={enrollmentHistory} />
+          ) : (
+            <div className="mt-4 rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+              暂无选课人数记录。
+            </div>
+          ))}
       </div>
     </div>
   );

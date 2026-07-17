@@ -203,6 +203,7 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await page.goto(`/courses/${CODE}`);
 
   // One submission records the concrete offering, rating and optional comment.
+  await page.getByRole("link", { name: "写测评" }).click();
   await page.getByLabel("学年").selectOption("2025-26");
   await page.getByLabel("学期").selectOption("Term 2");
   await selectSeedProfessor(page);
