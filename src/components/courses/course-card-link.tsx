@@ -25,6 +25,7 @@ export function CourseCardLink({
 }) {
   return (
     <Link
+      data-testid="course-card"
       href={href}
       prefetch={false}
       onClick={(event) => {
