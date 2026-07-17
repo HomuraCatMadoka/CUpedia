@@ -43,6 +43,7 @@ export function CourseDetailTabs({
             <Link
               key={tab.id}
               href={tab.href}
+              scroll={false}
               aria-label={`${tab.label} ${tab.count}`}
               aria-current={active ? "page" : undefined}
               className={cn(
