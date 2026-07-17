@@ -3,7 +3,6 @@ import type { LucideProps } from "lucide-react";
 import {
   CakeSliceIcon,
   CupSodaIcon,
-  FlameIcon,
   SoupIcon,
   UtensilsCrossedIcon,
 } from "lucide-react";
@@ -76,7 +75,6 @@ const DISH_ICONS: Record<DishSvgKey, DishIcon> = {
   default: UtensilsCrossedIcon,
   rice: RiceBowlIcon,
   bowl: SoupIcon,
-  spicy: FlameIcon,
   noodle: NoodleBowlIcon,
   drink: CupSodaIcon,
   dessert: CakeSliceIcon,

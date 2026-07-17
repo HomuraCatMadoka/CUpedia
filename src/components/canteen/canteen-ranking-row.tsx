@@ -39,8 +39,16 @@ export function CanteenRankingRow({
         {String(rank).padStart(2, "0")}
       </span>
       <DishSvgIcon svgKey={item.svgKey} className="size-10 rounded-md" />
-      <div className="min-w-0 flex-1 basis-[calc(100%-7rem)] sm:basis-auto">
-        <p className="font-medium text-[var(--canteen-ink)]">{item.name}</p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 font-medium text-[var(--canteen-ink)]">
+            {item.name}
+          </p>
+          <MenuItemPrice
+            pricing={item.pricing}
+            className="max-w-[50%] shrink-0 justify-end font-mono text-sm tabular-nums text-[var(--canteen-ink)] sm:max-w-52"
+          />
+        </div>
         <p className="mt-0.5 text-xs text-[var(--canteen-muted)]">
           {primaryLabel} {primary} · {secondaryLabel} {secondary}
         </p>
@@ -51,10 +59,6 @@ export function CanteenRankingRow({
           initialCommentCount={initialCommentCount}
         />
       </div>
-      <MenuItemPrice
-        pricing={item.pricing}
-        className="w-full justify-start font-mono text-sm tabular-nums text-[var(--canteen-ink)] sm:w-auto sm:max-w-52 sm:shrink-0 sm:justify-end"
-      />
     </li>
   );
 }

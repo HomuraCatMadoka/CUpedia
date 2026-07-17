@@ -4,7 +4,6 @@ import type { CanteenMenuItem } from "@/lib/canteen-types";
 /** Display order for menu sections (mains → sides → drinks). */
 export const MENU_SECTION_ORDER: readonly DishSvgKey[] = [
   "rice",
-  "spicy",
   "noodle",
   "bowl",
   "default",
@@ -14,7 +13,6 @@ export const MENU_SECTION_ORDER: readonly DishSvgKey[] = [
 
 const SECTION_LABELS: Record<DishSvgKey, string> = {
   rice: "饭类",
-  spicy: "麻辣",
   noodle: "粉面",
   bowl: "煲汤",
   default: "小吃",

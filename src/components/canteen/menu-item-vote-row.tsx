@@ -73,8 +73,16 @@ export function MenuItemVoteRow({
       )}
     >
       <DishSvgIcon svgKey={item.svgKey} className="size-11 rounded-md" />
-      <div className="min-w-0 flex-1 basis-[calc(100%-4rem)] sm:basis-auto">
-        <p className="font-medium text-[var(--canteen-ink)]">{item.name}</p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-3">
+          <p className="min-w-0 font-medium text-[var(--canteen-ink)]">
+            {item.name}
+          </p>
+          <MenuItemPrice
+            pricing={item.pricing}
+            className="max-w-[50%] shrink-0 justify-end font-mono text-sm font-medium tabular-nums text-[var(--canteen-ink)] sm:max-w-52"
+          />
+        </div>
         <MealPeriodBadge period={item.mealPeriod} className="mt-1" />
         {error ? (
           <p className="mt-1 text-xs text-red-700" role="alert">
@@ -88,12 +96,8 @@ export function MenuItemVoteRow({
           initialCommentCount={initialCommentCount}
         />
       </div>
-      <MenuItemPrice
-        pricing={item.pricing}
-        className="w-full justify-start font-mono text-sm font-medium tabular-nums text-[var(--canteen-ink)] sm:w-auto sm:max-w-52 sm:shrink-0 sm:justify-end"
-      />
       <div
-        className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto"
+        className="flex w-full shrink-0 items-center justify-end gap-2 sm:ml-auto sm:w-auto"
         role="group"
         aria-label="投票"
       >

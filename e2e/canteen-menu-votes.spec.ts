@@ -50,7 +50,7 @@ test.describe("canteen menu votes", () => {
     await page.goto(DEMO_CANTEEN_URL);
     await selectLunch(page);
     await expect(page.locator('[data-svg-key="rice"]').first()).toBeVisible();
-    await expect(page.locator('[data-svg-key="spicy"]').first()).toBeVisible();
+    await expect(page.locator('[data-svg-key="bowl"]').first()).toBeVisible();
   });
 
   test("logged-in diner can change vote from like to dislike", async ({

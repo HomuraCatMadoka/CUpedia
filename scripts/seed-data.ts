@@ -46,7 +46,7 @@ export const CANTEEN_IDS = {
 
 export const MENU_ITEM_IDS = {
   demoRice: "00000000-0000-4000-e100-000000000001",
-  demoSpicy: "00000000-0000-4000-e100-000000000002",
+  demoBowl: "00000000-0000-4000-e100-000000000002",
   demoNoodle: "00000000-0000-4000-e100-000000000003",
 } as const;
 
@@ -89,13 +89,13 @@ export const SEED_MENU_ITEMS: SeedMenuItem[] = [
     svgKey: "rice",
   },
   {
-    id: MENU_ITEM_IDS.demoSpicy,
+    id: MENU_ITEM_IDS.demoBowl,
     canteenId: CANTEEN_IDS.demo,
-    name: "演示辣味",
+    name: "演示煲汤",
     price: 18,
     mealPeriod: "lunch",
     sortOrder: 1,
-    svgKey: "spicy",
+    svgKey: "bowl",
   },
   {
     id: MENU_ITEM_IDS.demoNoodle,

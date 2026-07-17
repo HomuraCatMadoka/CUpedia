@@ -398,7 +398,7 @@
       "name": "咖喱魚蛋",
       "mealPeriod": "lunch",
       "sortOrder": 23,
-      "svgKey": "spicy",
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
@@ -636,7 +636,7 @@
       "name": "泰式黃咖喱吉列豬扒．煎蛋飯",
       "mealPeriod": "lunch",
       "sortOrder": 37,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -891,7 +891,7 @@
       "name": "麻辣皮蛋口水雞 ‧ 白飯",
       "mealPeriod": "lunch",
       "sortOrder": 52,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -908,7 +908,7 @@
       "name": "麻辣肉丁．切雞飯",
       "mealPeriod": "lunch",
       "sortOrder": 53,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -925,7 +925,7 @@
       "name": "麻辣肉丁．明爐燒鴨飯",
       "mealPeriod": "lunch",
       "sortOrder": 54,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -942,7 +942,7 @@
       "name": "麻辣肉丁．油雞飯",
       "mealPeriod": "lunch",
       "sortOrder": 55,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -959,7 +959,7 @@
       "name": "麻辣肉丁．蜜汁叉燒飯",
       "mealPeriod": "lunch",
       "sortOrder": 56,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -976,7 +976,7 @@
       "name": "麻辣肉丁．醬油雞髀飯",
       "mealPeriod": "lunch",
       "sortOrder": 57,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -1435,7 +1435,7 @@
       "name": "泰式黃咖喱吉列豬扒．煎蛋飯",
       "mealPeriod": "dinner",
       "sortOrder": 84,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -1503,7 +1503,7 @@
       "name": "麻辣皮蛋口水雞 ‧ 白飯",
       "mealPeriod": "dinner",
       "sortOrder": 88,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -1520,7 +1520,7 @@
       "name": "麻辣肉丁．切雞飯",
       "mealPeriod": "dinner",
       "sortOrder": 89,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -1537,7 +1537,7 @@
       "name": "麻辣肉丁．明爐燒鴨飯",
       "mealPeriod": "dinner",
       "sortOrder": 90,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -1554,7 +1554,7 @@
       "name": "麻辣肉丁．油雞飯",
       "mealPeriod": "dinner",
       "sortOrder": 91,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -1571,7 +1571,7 @@
       "name": "麻辣肉丁．蜜汁叉燒飯",
       "mealPeriod": "dinner",
       "sortOrder": 92,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
@@ -1588,7 +1588,7 @@
       "name": "麻辣肉丁．醬油雞髀飯",
       "mealPeriod": "dinner",
       "sortOrder": 93,
-      "svgKey": "spicy",
+      "svgKey": "rice",
       "pricing": {
         "options": [
           {
