@@ -1171,7 +1171,9 @@ export async function deleteCourseReviewSubmission(
       if (
         expectedImpact &&
         impact.kind !== expectedImpact &&
-        (impact.kind === "downgraded" || impact.kind === "revoked")
+        (impact.kind === "downgraded" ||
+          impact.kind === "revoked" ||
+          impact.kind === "dismantled")
       ) {
         throw new Error("称号状态已变化，请确认最新影响后重试");
       }

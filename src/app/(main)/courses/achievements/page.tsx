@@ -3,14 +3,20 @@ import Link from "next/link";
 import { AchievementRedeemButton } from "@/components/courses/achievement-redeem-button";
 import { AchievementRevokeButton } from "@/components/courses/achievement-revoke-button";
 import { PrimaryAchievementButton } from "@/components/courses/primary-achievement-button";
+import {
+  PersonTitleDismantleButton,
+  PersonTitleFuseButton,
+} from "@/components/courses/person-title-actions";
 import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-logo";
 import { getMyProfessionalAchievementProgress } from "@/lib/achievement-actions";
+import { getMyPersonTitleProgress } from "@/lib/achievement-fusion-actions";
 import { getMyAchievementProfile } from "@/lib/achievement-profile";
 
 export default async function CourseAchievementsPage() {
-  const [progress, profile] = await Promise.all([
+  const [progress, profile, personTitles] = await Promise.all([
     getMyProfessionalAchievementProgress(),
     getMyAchievementProfile(),
+    getMyPersonTitleProgress(),
   ]);
   const candidates = progress.filter((item) => !item.redeemed);
 
@@ -52,18 +58,71 @@ export default async function CourseAchievementsPage() {
                       achievementId={achievement.id}
                       primary={achievement.primary}
                     />
-                    <AchievementRevokeButton
-                      achievementId={achievement.id}
-                      displayName={achievement.displayName}
-                    />
+                    {achievement.category === "person" ? (
+                      <PersonTitleDismantleButton
+                        achievementId={achievement.id}
+                        displayName={achievement.displayName}
+                      />
+                    ) : (
+                      <AchievementRevokeButton
+                        achievementId={achievement.id}
+                        displayName={achievement.displayName}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           </section>
         )}
+        {personTitles.some((title) => !title.redeemed) && (
+          <section className="mt-8" aria-labelledby="person-title-candidates">
+            <h2 className="text-sm font-medium" id="person-title-candidates">
+              可合成人名称号
+            </h2>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              {personTitles
+                .filter((title) => !title.redeemed)
+                .map((title) => (
+                  <article
+                    className="flex gap-4 rounded-2xl border bg-card p-5"
+                    key={title.recipeId}
+                  >
+                    <ProfessionalBadgeLogo
+                      code={title.badgeCode}
+                      size={64}
+                      tier="gold"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold">{title.displayName}</h3>
+                      {title.description && (
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          {title.description}
+                        </p>
+                      )}
+                      {title.eligible ? (
+                        <div className="mt-3">
+                          <PersonTitleFuseButton
+                            displayName={title.displayName}
+                            recipeId={title.recipeId}
+                          />
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          {title.slotAvailable
+                            ? "来源称号尚未集齐"
+                            : "金标称号槽位已占用"}
+                        </p>
+                      )}
+                    </div>
+                  </article>
+                ))}
+            </div>
+          </section>
+        )}
 
-        {candidates.length === 0 ? (
+        {candidates.length === 0 &&
+        !personTitles.some((title) => !title.redeemed) ? (
           <div className="mt-8 rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
             暂无可兑换或升级的专业成就
           </div>

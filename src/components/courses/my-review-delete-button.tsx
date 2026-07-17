@@ -89,6 +89,8 @@ export function MyReviewDeleteButton({
               ` 删除后，有关专业称号将降为${impact.nextTier === "silver" ? "银标" : "铜标"}。`}
             {impact?.kind === "revoked" &&
               " 删除后，有关专业称号将不再满足条件并被撤销。"}
+            {impact?.kind === "dismantled" &&
+              " 删除后，人名称号将无法维持并自动拆解，仍有效的来源称号会恢复。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
