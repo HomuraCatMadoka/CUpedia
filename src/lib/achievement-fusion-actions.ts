@@ -288,10 +288,21 @@ export async function fusePersonTitle(recipeId: string, makePrimary: boolean) {
           inArray(achievementRules.ruleKey, recipe.sourceRuleKeys),
         ),
       );
-    if (sources.length !== recipe.sourceRuleKeys.length) {
+    const uniqueSources = new Map<string, string>();
+    for (const source of sources) {
+      if (!uniqueSources.has(source.ruleKey)) {
+        uniqueSources.set(source.ruleKey, source.id);
+      }
+    }
+    if (
+      uniqueSources.size !== recipe.sourceRuleKeys.length ||
+      recipe.sourceRuleKeys.some((key) => !uniqueSources.has(key))
+    ) {
       throw new Error("来源称号已变化，请刷新后重试");
     }
-    const sourceIds = sources.map((source) => source.id);
+    const sourceIds = recipe.sourceRuleKeys.map(
+      (key) => uniqueSources.get(key)!,
+    );
     const [otherGold] = await tx
       .select({ id: userAchievements.id })
       .from(userAchievements)

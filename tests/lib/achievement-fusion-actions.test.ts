@@ -203,6 +203,28 @@ describe("person-title fusion lifecycle", () => {
     await expect(fusePersonTitle(recipeId, false)).rejects.toThrow(/金标/);
   });
 
+  it("rejects duplicate versions of one source instead of consuming them twice", async () => {
+    queue.push(
+      [
+        {
+          id: recipeId,
+          kind: "dual_bronze",
+          sourceRuleKeys: ["math-bronze", "phys-bronze"],
+          targetRuleId: "target-rule",
+          targetRuleKey: "person-newton",
+        },
+      ],
+      [
+        { id: "math-v1", ruleKey: "math-bronze" },
+        { id: "math-v2", ruleKey: "math-bronze" },
+      ],
+    );
+
+    await expect(fusePersonTitle(recipeId, false)).rejects.toThrow(
+      /来源称号已变化/,
+    );
+  });
+
   it("dismantles atomically and restores all sources", async () => {
     const achievementId = "00000000-0000-4000-a000-000000000372";
     queue.push(

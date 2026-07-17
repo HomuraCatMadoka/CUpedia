@@ -1,4 +1,4 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -29,6 +29,7 @@ export async function recomputeAchievementsBeforeRatingDeletion(
   ratingId: string,
   apply: boolean,
 ): Promise<PublicDeletionImpact> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
   const achievementRows = await tx
     .select({
       id: userAchievements.id,
