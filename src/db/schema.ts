@@ -393,10 +393,43 @@ export const courseRatings = pgTable(
 // ── 课程成就：版本化规则 / 已点亮实例 / 内部证据 ──
 // 生产规则只存在数据库中；应用代码只解释通用的 subject-count 条件。
 
+export const achievementCatalogs = pgTable(
+  "achievement_catalogs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    version: integer("version").notNull(),
+    sourceLabel: text("source_label").notNull(),
+    status: text("status").notNull().default("disabled"),
+    programmeCount: integer("programme_count").notNull(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    publishedAt: timestamp("published_at"),
+  },
+  (table) => [
+    uniqueIndex("achievement_catalogs_version_uq").on(table.version),
+    uniqueIndex("achievement_catalogs_one_active_uq")
+      .on(table.status)
+      .where(sql`${table.status} = 'active'`),
+    check("achievement_catalogs_version_check", sql`${table.version} > 0`),
+    check(
+      "achievement_catalogs_status_check",
+      sql`${table.status} in ('active', 'disabled', 'superseded')`,
+    ),
+    check(
+      "achievement_catalogs_programme_count_check",
+      sql`${table.programmeCount} > 0`,
+    ),
+  ],
+);
+
 export const achievementRules = pgTable(
   "achievement_rules",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    catalogId: uuid("catalog_id").references(() => achievementCatalogs.id),
+    programmeKey: text("programme_key"),
     ruleKey: text("rule_key").notNull(),
     version: integer("version").notNull(),
     category: text("category").notNull().default("professional"),
@@ -411,6 +444,7 @@ export const achievementRules = pgTable(
       .notNull()
       .default([]),
     prerequisiteRuleKey: text("prerequisite_rule_key"),
+    catalogEnabled: boolean("catalog_enabled").notNull().default(true),
     enabled: boolean("enabled").notNull().default(false),
     createdBy: uuid("created_by")
       .notNull()
