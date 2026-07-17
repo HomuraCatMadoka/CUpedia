@@ -390,6 +390,93 @@ export const courseRatings = pgTable(
   ],
 );
 
+// ── 课程成就：版本化规则 / 已点亮实例 / 内部证据 ──
+// 生产规则只存在数据库中；应用代码只解释通用的 subject-count 条件。
+
+export const achievementRules = pgTable(
+  "achievement_rules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ruleKey: text("rule_key").notNull(),
+    version: integer("version").notNull(),
+    category: text("category").notNull().default("professional"),
+    tier: text("tier").notNull().default("bronze"),
+    displayName: text("display_name").notNull(),
+    description: text("description").notNull().default(""),
+    badgeCode: text("badge_code").notNull(),
+    subjectCodes: jsonb("subject_codes").$type<string[]>().notNull(),
+    requiredCount: integer("required_count").notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_rules_key_version_uq").on(
+      table.ruleKey,
+      table.version,
+    ),
+    uniqueIndex("achievement_rules_one_enabled_version_uq")
+      .on(table.ruleKey)
+      .where(sql`${table.enabled} = true`),
+    check("achievement_rules_version_check", sql`${table.version} > 0`),
+    check(
+      "achievement_rules_badge_code_check",
+      sql`${table.badgeCode} ~ '^[A-Z]{4}$'`,
+    ),
+    check(
+      "achievement_rules_required_count_check",
+      sql`${table.requiredCount} > 0`,
+    ),
+  ],
+);
+
+export const userAchievements = pgTable(
+  "user_achievements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => achievementRules.id),
+    status: text("status").notNull().default("active"),
+    redeemedAt: timestamp("redeemed_at").defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => [
+    uniqueIndex("user_achievements_user_rule_uq").on(
+      table.userId,
+      table.ruleId,
+    ),
+    index("user_achievements_user_status_idx").on(table.userId, table.status),
+    check(
+      "user_achievements_status_check",
+      sql`${table.status} in ('active', 'revoked')`,
+    ),
+  ],
+);
+
+export const achievementEvidence = pgTable(
+  "achievement_evidence",
+  {
+    achievementId: uuid("achievement_id")
+      .notNull()
+      .references(() => userAchievements.id, { onDelete: "cascade" }),
+    ratingId: uuid("rating_id")
+      .notNull()
+      .references(() => courseRatings.id, { onDelete: "restrict" }),
+    courseCode: text("course_code").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.achievementId, table.ratingId] }),
+    uniqueIndex("achievement_evidence_rating_uq").on(table.ratingId),
+  ],
+);
+
 export const staffPeople = pgTable(
   "staff_people",
   {

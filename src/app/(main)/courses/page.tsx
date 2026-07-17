@@ -40,11 +40,19 @@ export default async function CoursesPage({
     <div className="flex-1 overflow-y-auto">
       <CourseListNavigationReset />
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <div>
-          <h1 className="text-2xl font-bold">课程测评</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            搜索课程、查看同学评价，登录后即可匿名评论与点赞
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">课程测评</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              搜索课程、查看同学评价，登录后即可匿名评论与点赞
+            </p>
+          </div>
+          <Link
+            href="/courses/achievements"
+            className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
+          >
+            我的成就
+          </Link>
         </div>
 
         <div className="mt-8 space-y-5">
