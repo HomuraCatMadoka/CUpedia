@@ -100,8 +100,10 @@ afterEach(() => {
 describe("MenuItemVoteRow", () => {
   it("renders generic labelled price options", () => {
     render(<VoteRowHarness />);
-    expect(screen.getByText("熱 $11")).toBeTruthy();
-    expect(screen.getByText("凍 $13")).toBeTruthy();
+    expect(screen.getByText("熱")).toBeTruthy();
+    expect(screen.getByText("$11")).toBeTruthy();
+    expect(screen.getByText("凍")).toBeTruthy();
+    expect(screen.getByText("$13")).toBeTruthy();
   });
 
   it("optimistically increments like count on click", async () => {
