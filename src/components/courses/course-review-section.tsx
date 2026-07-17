@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-actions";
+import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-logo";
 import { cn } from "@/lib/utils";
 import {
   COURSE_REVIEW_TAG_OPTIONS,
@@ -921,12 +922,45 @@ export function CourseReviewSection({
         )}
         {displayedReviews.map((review) => (
           <li key={review.id} className="rounded-xl border p-5">
-            <div className="flex items-center justify-between gap-4">
-              <span className="text-sm font-medium">
-                {review.isRatingOnly
-                  ? "仅评分投稿"
-                  : (review.authorNickname ?? "匿名用户")}
-              </span>
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                {review.isRatingOnly ? (
+                  <span className="text-sm font-medium">仅评分投稿</span>
+                ) : review.authorShowcaseId && review.authorNickname ? (
+                  <Link
+                    className="text-sm font-medium hover:underline"
+                    href={`/courses/achievements/showcase/${review.authorShowcaseId}`}
+                  >
+                    {review.authorNickname}
+                  </Link>
+                ) : (
+                  <span className="text-sm font-medium">
+                    {review.authorNickname ?? "匿名用户"}
+                  </span>
+                )}
+                {review.authorAchievements.length > 0 && (
+                  <div
+                    aria-label="作者成就"
+                    className="mt-2 flex flex-wrap items-center gap-1.5"
+                  >
+                    {[...review.authorAchievements]
+                      .sort((a, b) => Number(b.primary) - Number(a.primary))
+                      .map((achievement) => (
+                        <ProfessionalBadgeLogo
+                          className={cn(
+                            "rounded-full",
+                            achievement.primary &&
+                              "ring-2 ring-amber-500 ring-offset-1",
+                          )}
+                          code={achievement.badgeCode}
+                          key={achievement.id}
+                          size={28}
+                          tier={achievement.tier}
+                        />
+                      ))}
+                  </div>
+                )}
+              </div>
               <span
                 className="text-xs text-muted-foreground"
                 suppressHydrationWarning

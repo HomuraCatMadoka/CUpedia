@@ -8,6 +8,8 @@ import {
   type Mock,
 } from "vitest";
 
+const mockGetAchievementSummaries = vi.hoisted(() => vi.fn());
+
 // ref #177 — course-review MVP data layer.
 //
 // The catalog reads hit the real `courses` table and the rating/review/like
@@ -80,6 +82,10 @@ vi.mock("@/lib/auth-guard", () => ({
   requireAuth: (...a: unknown[]) => mockRequireAuth(...a),
   getOptionalUser: (...a: unknown[]) => mockGetOptionalUser(...a),
 }));
+vi.mock("@/lib/achievement-profile", () => ({
+  getAchievementSummariesForAuthors: (...args: unknown[]) =>
+    mockGetAchievementSummaries(...args),
+}));
 vi.mock("@/db", () => ({
   db: {
     select: () => dbSelect(),
@@ -129,6 +135,7 @@ beforeEach(() => {
   resetSensitiveMatcherForTests([]);
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
   mockGetOptionalUser.mockResolvedValue(null);
+  mockGetAchievementSummaries.mockResolvedValue(new Map());
   dbTransaction.mockImplementation(
     async (
       callback: (tx: {
@@ -939,6 +946,7 @@ describe("getCourseReviews", () => {
           content: "很清楚",
           createdAt: new Date("2026-07-13T00:00:00Z"),
           userId: "other",
+          isAnonymous: false,
           professorId: "p1",
           professorName: "Professor CHAN",
           academicYear: "2025-26",
@@ -956,6 +964,8 @@ describe("getCourseReviews", () => {
         id: "r1",
         tags: ["hea", "靓 grade", "讲解清晰"],
         authorNickname: "Alice",
+        authorShowcaseId: null,
+        authorAchievements: [],
       }),
     ]);
   });
@@ -969,6 +979,7 @@ describe("getCourseReviews", () => {
           content: "不署名",
           createdAt: new Date("2026-07-13T00:00:00Z"),
           userId: "other",
+          isAnonymous: true,
           professorId: "p1",
           professorName: "Professor CHAN",
           academicYear: "2025-26",
@@ -982,8 +993,68 @@ describe("getCourseReviews", () => {
     );
 
     await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
-      expect.objectContaining({ id: "r1", authorNickname: null }),
+      expect.objectContaining({
+        id: "r1",
+        authorNickname: null,
+        authorShowcaseId: null,
+        authorAchievements: [],
+      }),
     ]);
+    expect(mockGetAchievementSummaries).toHaveBeenCalledWith([]);
+  });
+
+  it("署名评论实时返回公开橱窗和当前成就，不返回证据", async () => {
+    mockGetAchievementSummaries.mockResolvedValue(
+      new Map([
+        [
+          "other",
+          {
+            showcaseId: "00000000-0000-4000-a000-000000000099",
+            achievements: [
+              {
+                id: "achievement-1",
+                displayName: "数学铜标",
+                badgeCode: "MATH",
+                tier: "bronze",
+                category: "professional",
+                publicDescription: "",
+                primary: true,
+              },
+            ],
+          },
+        ],
+      ]),
+    );
+    queueRows(
+      [COURSE],
+      [
+        {
+          id: "r1",
+          content: "署名",
+          createdAt: new Date("2026-07-13T00:00:00Z"),
+          userId: "other",
+          isAnonymous: false,
+          professorId: null,
+          professorName: null,
+          academicYear: "2025-26",
+          term: "Term 2",
+          score: 4.5,
+          tags: [],
+          authorNickname: "Alice",
+        },
+      ],
+      [],
+    );
+
+    const [review] = await getCourseReviews("CSCI3150");
+    expect(review.authorShowcaseId).toBe(
+      "00000000-0000-4000-a000-000000000099",
+    );
+    expect(review.authorAchievements[0]).toMatchObject({
+      badgeCode: "MATH",
+      primary: true,
+    });
+    expect(review.authorAchievements[0]).not.toHaveProperty("evidence");
   });
 
   it("管理员可看到没有评论的评分投稿管理卡片", async () => {

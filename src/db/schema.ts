@@ -531,6 +531,25 @@ export const achievementEvidence = pgTable(
   ],
 );
 
+export const achievementProfiles = pgTable(
+  "achievement_profiles",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    showcaseId: uuid("showcase_id").defaultRandom().notNull(),
+    primaryAchievementId: uuid("primary_achievement_id").references(
+      () => userAchievements.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_profiles_showcase_id_uq").on(table.showcaseId),
+  ],
+);
+
 export const staffPeople = pgTable(
   "staff_people",
   {
