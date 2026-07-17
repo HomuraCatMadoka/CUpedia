@@ -52,6 +52,9 @@ describe("CourseReviewSection", () => {
       />,
     );
 
+    expect(screen.queryByLabelText("学年")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+
     expect(screen.getByText("课程资料未列任课教授，可留空")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("学年"), {
       target: { value: "2025-26" },
@@ -65,5 +68,44 @@ describe("CourseReviewSection", () => {
       (screen.getByRole("button", { name: "提交测评" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it("测评很多时默认只渲染 10 条，并按批次继续展开", () => {
+    const reviews = Array.from({ length: 12 }, (_, index) => ({
+      id: `review-${index}`,
+      isRatingOnly: false,
+      content: `测评内容 ${index + 1}`,
+      createdAt: new Date(2026, 6, 17, 10, index).toISOString(),
+      likeCount: 0,
+      likedByMe: false,
+      canAdminDelete: false,
+      professorId: null,
+      professorName: null,
+      academicYear: "2025-26",
+      term: "Term 2" as const,
+      score: 4,
+      tags: [],
+      authorNickname: `同学 ${index + 1}`,
+    }));
+
+    render(
+      <CourseReviewSection
+        code="ELTU1001"
+        reviews={reviews}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated={false}
+        professorOptional={false}
+      />,
+    );
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(10);
+    expect(screen.queryByText("测评内容 11")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "再看 2 条测评" }));
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(12);
+    expect(screen.getByText("测评内容 12")).toBeTruthy();
   });
 });
