@@ -54,12 +54,14 @@ import {
   createProfessionalAchievementRule,
   getMyProfessionalAchievementProgress,
   redeemProfessionalAchievement,
+  revokeProfessionalAchievement,
 } from "@/lib/achievement-actions";
 
 const tx = {
   select: () => dbChain,
   insert: () => dbChain,
   update: () => dbChain,
+  delete: () => dbChain,
   execute: vi.fn(),
 };
 
@@ -371,5 +373,76 @@ describe("professional achievement progress and redemption", () => {
     await expect(
       redeemProfessionalAchievement("00000000-0000-4000-a000-000000000099"),
     ).rejects.toThrow("称号兑换发生冲突，请刷新后重试");
+  });
+
+  it("reuses revoked history without resetting first redemption time", async () => {
+    const ruleId = "00000000-0000-4000-a000-000000000099";
+    const ratingRows = [1, 2, 3, 4].map((number) => ({
+      id: `r${number}`,
+      courseCode: `MATH${number}010`,
+      subject: "MATH",
+    }));
+    dbQueue.push(
+      [
+        {
+          id: ruleId,
+          ruleKey: "math-bronze",
+          tier: "bronze",
+          subjectCodes: ["MATH"],
+          subjectGroups: [{ subjectCodes: ["MATH"], requiredCount: 4 }],
+          requiredCount: 4,
+          prerequisiteRuleKey: null,
+        },
+      ],
+      [{ id: "old-achievement", status: "revoked" }],
+      ratingRows,
+      [],
+      [{ id: "old-achievement" }],
+      [],
+    );
+
+    await redeemProfessionalAchievement(ruleId);
+
+    expect(dbChain.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "active",
+        revokedAt: null,
+      }),
+    );
+    expect(dbChain.set).not.toHaveBeenCalledWith(
+      expect.objectContaining({ redeemedAt: expect.anything() }),
+    );
+  });
+
+  it("voluntarily revokes the complete chain while retaining ratings", async () => {
+    const achievementId = "00000000-0000-4000-a000-000000000099";
+    dbQueue.push(
+      [
+        {
+          id: achievementId,
+          status: "active",
+          ruleKey: "math-silver",
+          prerequisiteRuleKey: "math-bronze",
+        },
+        {
+          id: "00000000-0000-4000-a000-000000000098",
+          status: "superseded",
+          ruleKey: "math-bronze",
+          prerequisiteRuleKey: null,
+        },
+      ],
+      [],
+      [],
+      [],
+    );
+
+    await revokeProfessionalAchievement(achievementId);
+
+    expect(dbChain.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "revoked" }),
+    );
+    expect(dbChain.set).toHaveBeenCalledWith(
+      expect.objectContaining({ primaryAchievementId: null }),
+    );
   });
 });

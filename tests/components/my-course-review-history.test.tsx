@@ -10,8 +10,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockDelete, mockRefresh } = vi.hoisted(() => ({
+const { mockDelete, mockImpact, mockRefresh } = vi.hoisted(() => ({
   mockDelete: vi.fn(),
+  mockImpact: vi.fn(),
   mockRefresh: vi.fn(),
 }));
 
@@ -20,6 +21,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/course-review-actions", () => ({
   deleteCourseReviewSubmission: (...args: unknown[]) => mockDelete(...args),
+  getCourseReviewDeletionImpact: (...args: unknown[]) => mockImpact(...args),
 }));
 
 import { MyCourseReviewHistory } from "@/components/courses/my-course-review-history";
@@ -65,19 +67,31 @@ describe("MyCourseReviewHistory", () => {
   });
 
   it("confirms deletion and refreshes the private list", async () => {
+    mockImpact.mockResolvedValue({ kind: "preserved" });
     mockDelete.mockResolvedValue(undefined);
     render(<MyCourseReviewHistory items={[ITEM]} />);
 
     fireEvent.click(screen.getByRole("button", { name: "删除" }));
     expect(screen.getByRole("alertdialog")).toBeTruthy();
+    await screen.findByRole("button", { name: "确认删除" });
     fireEvent.click(screen.getByRole("button", { name: "确认删除" }));
 
     await waitFor(() =>
-      expect(mockDelete).toHaveBeenCalledWith("CSCI3150", {
-        id: "rating-1",
-        type: "rating",
-      }),
+      expect(mockDelete).toHaveBeenCalledWith(
+        "CSCI3150",
+        { id: "rating-1", type: "rating" },
+        "preserved",
+      ),
     );
     expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  it("only warns about achievements when deletion really downgrades one", async () => {
+    mockImpact.mockResolvedValue({ kind: "downgraded", nextTier: "silver" });
+    render(<MyCourseReviewHistory items={[ITEM]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+
+    expect(await screen.findByText(/将降为银标/)).toBeTruthy();
   });
 });

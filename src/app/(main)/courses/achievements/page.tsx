@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AchievementRedeemButton } from "@/components/courses/achievement-redeem-button";
+import { AchievementRevokeButton } from "@/components/courses/achievement-revoke-button";
 import { PrimaryAchievementButton } from "@/components/courses/primary-achievement-button";
 import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-logo";
 import { getMyProfessionalAchievementProgress } from "@/lib/achievement-actions";
@@ -50,6 +51,10 @@ export default async function CourseAchievementsPage() {
                     <PrimaryAchievementButton
                       achievementId={achievement.id}
                       primary={achievement.primary}
+                    />
+                    <AchievementRevokeButton
+                      achievementId={achievement.id}
+                      displayName={achievement.displayName}
                     />
                   </div>
                 </div>

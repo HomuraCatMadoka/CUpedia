@@ -16,7 +16,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { deleteCourseReviewSubmission } from "@/lib/course-review-actions";
+import {
+  deleteCourseReviewSubmission,
+  getCourseReviewDeletionImpact,
+} from "@/lib/course-review-actions";
+import type { PublicDeletionImpact } from "@/lib/achievement-recompute-db";
 
 export function MyReviewDeleteButton({
   courseCode,
@@ -28,16 +32,21 @@ export function MyReviewDeleteButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const [impact, setImpact] = useState<PublicDeletionImpact | null>(null);
   const [pending, startTransition] = useTransition();
 
   function remove() {
     setError("");
     startTransition(async () => {
       try {
-        await deleteCourseReviewSubmission(courseCode, {
-          id: ratingId,
-          type: "rating",
-        });
+        await deleteCourseReviewSubmission(
+          courseCode,
+          {
+            id: ratingId,
+            type: "rating",
+          },
+          impact?.kind,
+        );
         setOpen(false);
         router.refresh();
       } catch (cause) {
@@ -46,8 +55,27 @@ export function MyReviewDeleteButton({
     });
   }
 
+  function changeOpen(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen) return;
+    setError("");
+    setImpact(null);
+    startTransition(async () => {
+      try {
+        setImpact(
+          await getCourseReviewDeletionImpact(courseCode, {
+            id: ratingId,
+            type: "rating",
+          }),
+        );
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "无法检查删除影响");
+      }
+    });
+  }
+
   return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
+    <AlertDialog open={open} onOpenChange={changeOpen}>
       <AlertDialogTrigger render={<Button size="sm" variant="outline" />}>
         <Trash2Icon aria-hidden="true" />
         删除
@@ -57,6 +85,10 @@ export function MyReviewDeleteButton({
           <AlertDialogTitle>删除 {courseCode} 的测评？</AlertDialogTitle>
           <AlertDialogDescription>
             这会删除你的评分和评论；此操作不能撤销。
+            {impact?.kind === "downgraded" &&
+              ` 删除后，有关专业称号将降为${impact.nextTier === "silver" ? "银标" : "铜标"}。`}
+            {impact?.kind === "revoked" &&
+              " 删除后，有关专业称号将不再满足条件并被撤销。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
@@ -68,11 +100,11 @@ export function MyReviewDeleteButton({
           <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
           <AlertDialogAction
             className="text-destructive"
-            disabled={pending}
+            disabled={pending || !impact}
             onClick={remove}
             variant="outline"
           >
-            {pending ? "删除中…" : "确认删除"}
+            {pending ? (impact ? "删除中…" : "检查中…") : "确认删除"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

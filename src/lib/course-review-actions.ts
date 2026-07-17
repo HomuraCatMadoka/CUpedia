@@ -24,6 +24,10 @@ import {
   type PublicAchievementSummary,
 } from "@/lib/achievement-profile";
 import {
+  recomputeAchievementsBeforeRatingDeletion,
+  type PublicDeletionImpact,
+} from "@/lib/achievement-recompute-db";
+import {
   COURSE_REVIEW_TAG_OPTIONS,
   COURSE_TERMS,
   type CourseReviewTags,
@@ -1119,6 +1123,7 @@ export async function submitCourseReview(
 export async function deleteCourseReviewSubmission(
   code: string,
   target?: { id: string; type: "review" | "rating" },
+  expectedImpact?: PublicDeletionImpact["kind"],
 ): Promise<void> {
   const user = await requireAuth();
   const courseCode = normalizeCode(code);
@@ -1143,6 +1148,34 @@ export async function deleteCourseReviewSubmission(
   }
 
   await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`${ownerId}:${courseCode}`}))`,
+    );
+    const [rating] = await tx
+      .select({ id: courseRatings.id })
+      .from(courseRatings)
+      .where(
+        and(
+          eq(courseRatings.courseCode, courseCode),
+          eq(courseRatings.userId, ownerId),
+        ),
+      )
+      .limit(1);
+    if (rating) {
+      const impact = await recomputeAchievementsBeforeRatingDeletion(
+        tx,
+        ownerId,
+        rating.id,
+        true,
+      );
+      if (
+        expectedImpact &&
+        impact.kind !== expectedImpact &&
+        (impact.kind === "downgraded" || impact.kind === "revoked")
+      ) {
+        throw new Error("称号状态已变化，请确认最新影响后重试");
+      }
+    }
     await tx
       .delete(courseReviews)
       .where(
@@ -1164,6 +1197,45 @@ export async function deleteCourseReviewSubmission(
   revalidatePath(`/courses/${courseCode}`);
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
+  revalidatePath("/courses/achievements");
+}
+
+export async function getCourseReviewDeletionImpact(
+  code: string,
+  target?: { id: string; type: "review" | "rating" },
+): Promise<PublicDeletionImpact> {
+  const user = await requireAuth();
+  const courseCode = normalizeCode(code);
+  let ownerId = user.id;
+  if (target) {
+    const source = target.type === "review" ? courseReviews : courseRatings;
+    const [submission] = await db
+      .select({ userId: source.userId, courseCode: source.courseCode })
+      .from(source)
+      .where(eq(source.id, target.id))
+      .limit(1);
+    if (!submission) throw new Error("投稿不存在");
+    if (submission.courseCode !== courseCode) throw new Error("投稿与课程不符");
+    if (submission.userId !== user.id && user.role !== "admin") {
+      throw new Error("无权删除该投稿");
+    }
+    ownerId = submission.userId;
+  }
+  return db.transaction(async (tx) => {
+    const [rating] = await tx
+      .select({ id: courseRatings.id })
+      .from(courseRatings)
+      .where(
+        and(
+          eq(courseRatings.courseCode, courseCode),
+          eq(courseRatings.userId, ownerId),
+        ),
+      )
+      .limit(1);
+    return rating
+      ? recomputeAchievementsBeforeRatingDeletion(tx, ownerId, rating.id, false)
+      : { kind: "unchanged" as const };
+  });
 }
 
 /** Toggle the current user's like on a review. Returns the new like count. */

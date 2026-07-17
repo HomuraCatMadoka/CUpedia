@@ -23,6 +23,7 @@ import {
 } from "@/lib/course-review-constants";
 import {
   deleteCourseReviewSubmission,
+  getCourseReviewDeletionImpact,
   searchProfessors,
   submitCourseReview,
   toggleLike,
@@ -236,17 +237,24 @@ export function CourseReviewSection({
   }
 
   function handleDelete(target?: { id: string; type: "review" | "rating" }) {
-    if (
-      !window.confirm(
-        "确定删除整条课程测评吗？评分、评论和收到的点赞都会一并删除。",
-      )
-    ) {
-      return;
-    }
     setBusyId(target?.id ?? "own-submission");
     startSubmit(async () => {
       try {
-        await deleteCourseReviewSubmission(code, target);
+        const impact = await getCourseReviewDeletionImpact(code, target);
+        const achievementCopy =
+          impact.kind === "downgraded"
+            ? `\n\n删除后，有关专业称号将降为${impact.nextTier === "silver" ? "银标" : "铜标"}。`
+            : impact.kind === "revoked"
+              ? "\n\n删除后，有关专业称号将不再满足条件并被撤销。"
+              : "";
+        if (
+          !window.confirm(
+            `确定删除整条课程测评吗？评分、评论和收到的点赞都会一并删除。${achievementCopy}`,
+          )
+        ) {
+          return;
+        }
+        await deleteCourseReviewSubmission(code, target, impact.kind);
         if (!target) {
           setIsAnonymous(false);
           setEditing(false);

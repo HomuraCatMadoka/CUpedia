@@ -13,6 +13,7 @@ export type SubjectCountEvaluation = {
   matchedCount: number;
   requiredCount: number;
   evidenceRatingIds: string[];
+  evidenceRatingIdsBySlot: string[];
 };
 
 export function evaluateSubjectCountRule(
@@ -62,11 +63,16 @@ export function evaluateSubjectCountRule(
   const evidenceRatingIds = [...new Set(slotAssignments.values())]
     .sort((a, b) => a - b)
     .map((index) => candidates[index].id);
+  const evidenceRatingIdsBySlot = slots.map((_, slotIndex) => {
+    const ratingIndex = slotAssignments.get(slotIndex);
+    return ratingIndex === undefined ? "" : candidates[ratingIndex].id;
+  });
 
   return {
     eligible: evidenceRatingIds.length >= requiredCount,
     matchedCount: evidenceRatingIds.length,
     requiredCount,
     evidenceRatingIds,
+    evidenceRatingIdsBySlot,
   };
 }

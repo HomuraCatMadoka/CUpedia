@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
@@ -246,7 +246,6 @@ export async function getMyProfessionalAchievementProgress(): Promise<
   const occupied = new Set(occupiedRows.map((row) => row.ratingId));
   const activeOwned = ownedRows.filter((row) => row.status === "active");
   const activeKeys = new Set(activeOwned.map((row) => row.ruleKey));
-  const historicalKeys = new Set(ownedRows.map((row) => row.ruleKey));
   const activeTiers = new Set(activeOwned.map((row) => row.tier));
 
   const progress = rules.flatMap((rule) => {
@@ -268,8 +267,6 @@ export async function getMyProfessionalAchievementProgress(): Promise<
         },
       ];
     }
-    if (historicalKeys.has(rule.ruleKey)) return [];
-
     const evaluation = evaluateSubjectCountRule(
       {
         subjectGroups:
@@ -354,8 +351,11 @@ export async function redeemProfessionalAchievement(ruleId: string) {
         .limit(1);
       if (!rule) throw new Error("称号规则不存在或未启用");
 
-      const existing = await tx
-        .select({ id: userAchievements.id })
+      const [existing] = await tx
+        .select({
+          id: userAchievements.id,
+          status: userAchievements.status,
+        })
         .from(userAchievements)
         .innerJoin(
           achievementRules,
@@ -368,7 +368,9 @@ export async function redeemProfessionalAchievement(ruleId: string) {
           ),
         )
         .limit(1);
-      if (existing.length) throw new Error("称号已经点亮");
+      if (existing && existing.status !== "revoked") {
+        throw new Error("称号已经点亮");
+      }
 
       let prerequisiteAchievementId: string | null = null;
       if (rule.prerequisiteRuleKey) {
@@ -443,10 +445,21 @@ export async function redeemProfessionalAchievement(ruleId: string) {
       );
       if (!evaluation.eligible) throw new Error("尚未满足点亮条件");
 
-      const [achievement] = await tx
-        .insert(userAchievements)
-        .values({ userId: user.id, ruleId, tier: rule.tier })
-        .returning({ id: userAchievements.id });
+      const [achievement] = existing
+        ? await tx
+            .update(userAchievements)
+            .set({
+              ruleId,
+              tier: rule.tier,
+              status: "active",
+              revokedAt: null,
+            })
+            .where(eq(userAchievements.id, existing.id))
+            .returning({ id: userAchievements.id })
+        : await tx
+            .insert(userAchievements)
+            .values({ userId: user.id, ruleId, tier: rule.tier })
+            .returning({ id: userAchievements.id });
       const selected = new Set(evaluation.evidenceRatingIds);
       const evidence = (ratings as AchievementRating[])
         .filter((rating) => selected.has(rating.id))
@@ -493,4 +506,59 @@ export async function redeemProfessionalAchievement(ruleId: string) {
     }
     throw error;
   }
+}
+
+export async function revokeProfessionalAchievement(achievementId: string) {
+  const user = await requireAuth();
+  if (!/^[0-9a-f-]{36}$/i.test(achievementId)) throw new Error("称号无效");
+
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${user.id}))`);
+    const rows = await tx
+      .select({
+        id: userAchievements.id,
+        status: userAchievements.status,
+        ruleKey: achievementRules.ruleKey,
+        prerequisiteRuleKey: achievementRules.prerequisiteRuleKey,
+      })
+      .from(userAchievements)
+      .innerJoin(
+        achievementRules,
+        eq(userAchievements.ruleId, achievementRules.id),
+      )
+      .where(eq(userAchievements.userId, user.id));
+    const active = rows.find(
+      (row) => row.id === achievementId && row.status === "active",
+    );
+    if (!active) throw new Error("称号不存在或已撤销");
+
+    const byKey = new Map(rows.map((row) => [row.ruleKey, row]));
+    const chainIds: string[] = [];
+    let cursor: typeof active | undefined = active;
+    while (cursor) {
+      chainIds.push(cursor.id);
+      cursor = cursor.prerequisiteRuleKey
+        ? byKey.get(cursor.prerequisiteRuleKey)
+        : undefined;
+    }
+    await tx
+      .delete(achievementEvidence)
+      .where(inArray(achievementEvidence.achievementId, chainIds));
+    const now = new Date();
+    await tx
+      .update(userAchievements)
+      .set({ status: "revoked", revokedAt: now })
+      .where(inArray(userAchievements.id, chainIds));
+    await tx
+      .update(achievementProfiles)
+      .set({ primaryAchievementId: null, updatedAt: now })
+      .where(
+        and(
+          eq(achievementProfiles.userId, user.id),
+          eq(achievementProfiles.primaryAchievementId, achievementId),
+        ),
+      );
+  });
+
+  revalidatePath("/courses/achievements");
 }
