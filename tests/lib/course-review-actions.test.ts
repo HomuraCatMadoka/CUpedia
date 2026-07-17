@@ -203,6 +203,69 @@ describe("submitCourseReview", () => {
     );
   });
 
+  it("确认无任课教授的课程允许教授留空", async () => {
+    queueRows([COURSE], [{ instructors: [] }], [], []);
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        professorId: null,
+      }),
+    ).resolves.toBeUndefined();
+    expect(values()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        professorId: null,
+        professorNameSnapshot: null,
+      }),
+    );
+  });
+
+  it("无任课教授的文字评论也保存空教授快照", async () => {
+    queueRows([COURSE], [{ instructors: [] }], [], [], []);
+
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      professorId: null,
+      content: "学院统筹的课程",
+    });
+
+    expect(values()).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        content: "学院统筹的课程",
+        professorId: null,
+        professorNameSnapshot: null,
+      }),
+    );
+  });
+
+  it("任一开课组件有已知教授时仍拒绝留空", async () => {
+    queueRows(
+      [COURSE],
+      [{ instructors: [] }, { instructors: ["Professor CHAN"] }],
+    );
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        professorId: null,
+      }),
+    ).rejects.toThrow(/请选择任课教授/);
+    expect(dbInsert).not.toHaveBeenCalled();
+  });
+
+  it("没有开课资料时不把未知教授误判为可留空", async () => {
+    queueRows([COURSE], []);
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        professorId: null,
+      }),
+    ).rejects.toThrow(/请选择任课教授/);
+    expect(dbInsert).not.toHaveBeenCalled();
+  });
+
   it("同一用户重复投稿是更新评分（upsert，一人一票）", async () => {
     queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
     await submitCourseReview("CSCI3150", SUBMISSION);
@@ -519,6 +582,13 @@ describe("getCourseProfessorStats", () => {
     queueRows(
       [{ id: "p1", name: "Professor CHAN" }],
       [
+        {
+          professorId: null,
+          academicYear: "2025-26",
+          term: "Term 1",
+          avg: "5",
+          cnt: 100,
+        },
         {
           professorId: "p1",
           academicYear: "2025-26",

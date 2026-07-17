@@ -74,7 +74,10 @@ function StarRatingInput({
         {Array.from({ length: 5 }, (_, index) => {
           const position = index + 1;
           return (
-            <span key={position} className="relative">
+            <span
+              key={position}
+              className="relative rounded-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring"
+            >
               <StarGlyph value={value ?? 0} position={position} />
               {[position - 0.5, position].map((score, half) => (
                 <button
@@ -84,9 +87,10 @@ function StarRatingInput({
                   aria-label={`${score} 星`}
                   aria-checked={value === score}
                   disabled={disabled}
+                  onPointerDown={(event) => event.preventDefault()}
                   onClick={() => onChange(score)}
                   className={cn(
-                    "absolute inset-y-0 z-10 w-1/2 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                    "absolute inset-y-0 z-10 w-1/2 rounded-sm focus-visible:outline-none",
                     half === 0 ? "left-0" : "right-0",
                     disabled ? "cursor-not-allowed" : "cursor-pointer",
                   )}
@@ -127,6 +131,7 @@ export function CourseReviewSection({
   professorStats,
   academicYears,
   isAuthenticated,
+  professorOptional,
 }: {
   code: string;
   reviews: CourseReviewView[];
@@ -134,6 +139,7 @@ export function CourseReviewSection({
   professorStats: CourseProfessorStats[];
   academicYears: string[];
   isAuthenticated: boolean;
+  professorOptional: boolean;
 }) {
   const router = useRouter();
   const isPublished = ratingState.lastScore !== null;
@@ -179,12 +185,12 @@ export function CourseReviewSection({
       try {
         if (!academicYear) throw new Error("请选择学年");
         if (!term) throw new Error("请选择学期");
-        if (!professor) throw new Error("请选择任课教授");
+        if (!professor && !professorOptional) throw new Error("请选择任课教授");
         if (score === null) throw new Error("请选择总体评分");
         await submitCourseReview(code, {
           academicYear,
           term,
-          professorId: professor.id,
+          professorId: professor?.id ?? null,
           score,
           content,
           tags: reviewTags,
@@ -238,7 +244,11 @@ export function CourseReviewSection({
     });
   }
 
-  const ready = !!academicYear && !!term && !!professor && score !== null;
+  const ready =
+    !!academicYear &&
+    !!term &&
+    (!!professor || professorOptional) &&
+    score !== null;
   const selectedProfessor = professorStats.find(
     (item) => item.id === selectedProfessorId,
   );
@@ -366,9 +376,11 @@ export function CourseReviewSection({
               <span className="rounded-full bg-secondary px-3 py-1.5">
                 {ratingState.lastTerm}
               </span>
-              <span className="rounded-full bg-secondary px-3 py-1.5">
-                {ratingState.lastProfessor?.name}
-              </span>
+              {ratingState.lastProfessor && (
+                <span className="rounded-full bg-secondary px-3 py-1.5">
+                  {ratingState.lastProfessor.name}
+                </span>
+              )}
               {ratingState.lastTags.map((tag) => (
                 <span
                   key={tag}
@@ -450,7 +462,14 @@ export function CourseReviewSection({
             </div>
 
             <label className="block space-y-2 text-sm font-medium">
-              <span>任课教授</span>
+              <span>
+                任课教授
+                {professorOptional && (
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    选填
+                  </span>
+                )}
+              </span>
               <div className="relative">
                 <input
                   value={professorQuery}
@@ -486,6 +505,11 @@ export function CourseReviewSection({
                     </ul>
                   )}
               </div>
+              {professorOptional && (
+                <span className="block text-xs font-normal text-muted-foreground">
+                  课程资料未列任课教授，可留空
+                </span>
+              )}
             </label>
 
             <fieldset className="space-y-2">

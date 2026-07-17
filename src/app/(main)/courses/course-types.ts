@@ -11,7 +11,22 @@ export type Course = {
   units: number;
   description: string;
   terms: string[];
+  genderRestriction: CourseGenderRestriction;
 };
+
+export type CourseGenderRestriction = "male" | "female" | null;
+
+/** PHED uses separate course codes for its male- and female-only offerings. */
+export function getCourseGenderRestriction(
+  subject: string,
+  requirementsRaw: string,
+): CourseGenderRestriction {
+  if (subject.toUpperCase() !== "PHED") return null;
+  if (/\bfor\s+female\s+only\b/i.test(requirementsRaw)) return "female";
+  // PHED1043 currently contains the source typo "For male olny".
+  if (/\bfor\s+male\s+(?:only|olny)\b/i.test(requirementsRaw)) return "male";
+  return null;
+}
 
 /** Format a stored code ("CSCI3150") for display ("CSCI 3150"). */
 export function formatCourseCode(code: string): string {

@@ -187,7 +187,13 @@ describe("MenuItemCommentPanel", () => {
       expect(screen.getByText("旧内容")).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    const editButton = screen.getByRole("button", {
+      name: "编辑",
+    }) as HTMLButtonElement;
+    await waitFor(() => {
+      expect(editButton.disabled).toBe(false);
+    });
+    fireEvent.click(editButton);
     fireEvent.change(screen.getByDisplayValue("旧内容"), {
       target: { value: "新内容" },
     });
