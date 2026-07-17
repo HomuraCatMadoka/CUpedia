@@ -20,6 +20,10 @@ import {
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
 import {
+  getAchievementSummariesForAuthors,
+  type PublicAchievementSummary,
+} from "@/lib/achievement-profile";
+import {
   COURSE_REVIEW_TAG_OPTIONS,
   COURSE_TERMS,
   type CourseReviewTags,
@@ -68,6 +72,8 @@ export type CourseReviewView = {
   score: number | null;
   tags: string[];
   authorNickname: string | null;
+  authorShowcaseId: string | null;
+  authorAchievements: PublicAchievementSummary[];
 };
 
 export type ProfessorOption = {
@@ -587,6 +593,7 @@ export async function getCourseReviews(
         content: courseReviews.content,
         createdAt: courseReviews.createdAt,
         userId: courseReviews.userId,
+        isAnonymous: courseReviews.isAnonymous,
         professorId: courseReviews.professorId,
         professorName: sql<
           string | null
@@ -643,24 +650,33 @@ export async function getCourseReviews(
         )
       : new Set<string>();
 
-  const reviewViews: CourseReviewView[] = rows.map((r) => ({
-    id: r.id,
-    isRatingOnly: false,
-    content: r.content,
-    createdAt: r.createdAt.toISOString(),
-    likeCount: likeCount.get(r.id) ?? 0,
-    likedByMe: mine.has(r.id),
-    canAdminDelete: user?.role === "admin" && r.userId !== viewerId,
-    professorId: r.professorId,
-    professorName: r.professorName,
-    academicYear: r.academicYear,
-    term: COURSE_TERMS.includes(r.term as CourseTerm)
-      ? (r.term as CourseTerm)
-      : null,
-    score: r.score,
-    tags: r.tags ?? [],
-    authorNickname: r.authorNickname,
-  }));
+  const authorAchievements = await getAchievementSummariesForAuthors(
+    rows.filter((row) => !row.isAnonymous).map((row) => row.userId),
+  );
+
+  const reviewViews: CourseReviewView[] = rows.map((r) => {
+    const author = r.isAnonymous ? undefined : authorAchievements.get(r.userId);
+    return {
+      id: r.id,
+      isRatingOnly: false,
+      content: r.content,
+      createdAt: r.createdAt.toISOString(),
+      likeCount: likeCount.get(r.id) ?? 0,
+      likedByMe: mine.has(r.id),
+      canAdminDelete: user?.role === "admin" && r.userId !== viewerId,
+      professorId: r.professorId,
+      professorName: r.professorName,
+      academicYear: r.academicYear,
+      term: COURSE_TERMS.includes(r.term as CourseTerm)
+        ? (r.term as CourseTerm)
+        : null,
+      score: r.score,
+      tags: r.tags ?? [],
+      authorNickname: r.authorNickname,
+      authorShowcaseId: author?.showcaseId ?? null,
+      authorAchievements: author?.achievements ?? [],
+    };
+  });
 
   if (user?.role !== "admin") return reviewViews;
 
@@ -702,6 +718,8 @@ export async function getCourseReviews(
       score: rating.score,
       tags: rating.tags ?? [],
       authorNickname: null,
+      authorShowcaseId: null,
+      authorAchievements: [],
     }));
 
   return [...reviewViews, ...ratingOnlyViews].sort((a, b) =>

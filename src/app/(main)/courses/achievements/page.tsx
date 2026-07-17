@@ -1,9 +1,17 @@
+import Link from "next/link";
+
 import { AchievementRedeemButton } from "@/components/courses/achievement-redeem-button";
+import { PrimaryAchievementButton } from "@/components/courses/primary-achievement-button";
 import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-logo";
 import { getMyProfessionalAchievementProgress } from "@/lib/achievement-actions";
+import { getMyAchievementProfile } from "@/lib/achievement-profile";
 
 export default async function CourseAchievementsPage() {
-  const progress = await getMyProfessionalAchievementProgress();
+  const [progress, profile] = await Promise.all([
+    getMyProfessionalAchievementProgress(),
+    getMyAchievementProfile(),
+  ]);
+  const candidates = progress.filter((item) => !item.redeemed);
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -12,14 +20,51 @@ export default async function CourseAchievementsPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           评分课程即可推进专业称号；候选进度实时计算。
         </p>
+        <Link
+          className="mt-3 inline-flex text-sm font-medium underline underline-offset-4"
+          href={`/courses/achievements/showcase/${profile.showcaseId}`}
+        >
+          查看我的公开成就橱窗
+        </Link>
 
-        {progress.length === 0 ? (
+        {profile.achievements.length > 0 && (
+          <section className="mt-8" aria-labelledby="owned-achievements">
+            <h2 className="text-sm font-medium" id="owned-achievements">
+              已有称号
+            </h2>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {profile.achievements.map((achievement) => (
+                <div
+                  className="flex items-center gap-3 rounded-xl border bg-card p-3"
+                  key={achievement.id}
+                >
+                  <ProfessionalBadgeLogo
+                    code={achievement.badgeCode}
+                    size={40}
+                    tier={achievement.tier}
+                  />
+                  <div>
+                    <p className="text-sm font-medium">
+                      {achievement.displayName}
+                    </p>
+                    <PrimaryAchievementButton
+                      achievementId={achievement.id}
+                      primary={achievement.primary}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {candidates.length === 0 ? (
           <div className="mt-8 rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-            暂无已启用的专业成就
+            暂无可兑换或升级的专业成就
           </div>
         ) : (
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {progress.map((item) => (
+            {candidates.map((item) => (
               <article
                 className="flex gap-4 rounded-2xl border bg-card p-5"
                 key={item.ruleId}
