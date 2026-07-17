@@ -46,4 +46,23 @@ describe("sensitive-content", () => {
     expect(containsSensitiveContent(`前缀${sample}后缀`)).toBe(true);
     expect(containsSensitiveContent("期末食堂加油")).toBe(false);
   });
+
+  it("does not ban ordinary campus terms that NetEase falsely flagged", () => {
+    resetSensitiveMatcherForTests(null);
+    expect(containsSensitiveContent("明天有考试")).toBe(false);
+    expect(containsSensitiveContent("宿舍号是24")).toBe(false);
+  });
+
+  it("blocks a vendored illegal-url domain", () => {
+    resetSensitiveMatcherForTests(null);
+    const sample = readFileSync(
+      join(process.cwd(), "src/data/sensitive-words-urls.txt"),
+      "utf8",
+    )
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((word) => word.length >= 2 && word.includes("."));
+    expect(sample).toBeTruthy();
+    expect(containsSensitiveContent(`看看这个站 ${sample}`)).toBe(true);
+  });
 });

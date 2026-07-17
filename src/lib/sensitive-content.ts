@@ -5,10 +5,11 @@ import Mint from "mint-filter";
 export const SENSITIVE_CONTENT_ERROR = "SENSITIVE_CONTENT";
 
 const LEXICON_FILES = [
-  "sensitive-words-netease.txt",
+  "sensitive-words-politics.txt",
   "sensitive-words-porn.txt",
   "sensitive-words-violence.txt",
   "sensitive-words-guns.txt",
+  "sensitive-words-urls.txt",
 ] as const;
 
 function loadLexiconWords(): string[] {
