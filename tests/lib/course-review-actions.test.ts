@@ -101,6 +101,7 @@ import {
   getCourseProfessorStats,
   searchProfessors,
   getCourseEnrollmentHistory,
+  getMyCourseReviewHistory,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { resetSensitiveMatcherForTests } from "@/lib/sensitive-content";
@@ -487,6 +488,49 @@ describe("submitCourseReview", () => {
     await expect(submitCourseReview("NOPE0000", SUBMISSION)).rejects.toThrow(
       /课程不存在/,
     );
+  });
+});
+
+describe("getMyCourseReviewHistory", () => {
+  it("requires authentication before reading private history", async () => {
+    mockRequireAuth.mockRejectedValue(new Error("未登录"));
+
+    await expect(getMyCourseReviewHistory()).rejects.toThrow("未登录");
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("returns only review submission fields and current comment content", async () => {
+    queueRows([
+      {
+        ratingId: "rating-1",
+        courseCode: "CSCI3150",
+        courseTitle: "Operating Systems",
+        score: 4.5,
+        academicYear: "2025-26",
+        term: "Term 2",
+        professorName: "Ada Lovelace",
+        tags: ["workload-high"],
+        isAnonymous: false,
+        content: "很清楚",
+        updatedAt: new Date("2026-01-02T03:04:05Z"),
+      },
+    ]);
+
+    await expect(getMyCourseReviewHistory()).resolves.toEqual([
+      {
+        ratingId: "rating-1",
+        courseCode: "CSCI3150",
+        courseTitle: "Operating Systems",
+        score: 4.5,
+        academicYear: "2025-26",
+        term: "Term 2",
+        professorName: "Ada Lovelace",
+        tags: ["workload-high"],
+        isAnonymous: false,
+        content: "很清楚",
+        updatedAt: "2026-01-02T03:04:05.000Z",
+      },
+    ]);
   });
 });
 

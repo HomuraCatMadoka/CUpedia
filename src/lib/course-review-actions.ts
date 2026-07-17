@@ -158,6 +158,20 @@ export type CoursePage = {
   pageSize: number;
 };
 
+export type MyCourseReviewHistoryItem = {
+  ratingId: string;
+  courseCode: string;
+  courseTitle: string;
+  score: number;
+  academicYear: string | null;
+  term: CourseTerm | null;
+  professorName: string | null;
+  tags: string[];
+  isAnonymous: boolean;
+  content: string;
+  updatedAt: string;
+};
+
 // ── Course row projection ──
 
 const courseCols = {
@@ -315,6 +329,48 @@ async function ratingAggFor(
     .from(courseRatings)
     .where(eq(courseRatings.courseCode, courseCode));
   return { avg: Number(row?.avg ?? 0), cnt: Number(row?.cnt ?? 0) };
+}
+
+export async function getMyCourseReviewHistory(): Promise<
+  MyCourseReviewHistoryItem[]
+> {
+  const user = await requireAuth();
+  const rows = await db
+    .select({
+      ratingId: courseRatings.id,
+      courseCode: courseRatings.courseCode,
+      courseTitle: courses.title,
+      score: courseRatings.score,
+      academicYear: courseRatings.academicYear,
+      term: courseRatings.term,
+      professorName: sql<
+        string | null
+      >`coalesce(${courseRatings.professorNameSnapshot}, ${professors.name})`,
+      tags: courseRatings.tags,
+      isAnonymous: courseRatings.isAnonymous,
+      content: sql<string | null>`(
+        select review.content from ${courseReviews} review
+        where review.course_code = ${courseRatings.courseCode}
+          and review.user_id = ${courseRatings.userId}
+        order by review.created_at desc
+        limit 1
+      )`,
+      updatedAt: courseRatings.createdAt,
+    })
+    .from(courseRatings)
+    .innerJoin(courses, eq(courseRatings.courseCode, courses.code))
+    .leftJoin(professors, eq(courseRatings.professorId, professors.id))
+    .where(eq(courseRatings.userId, user.id))
+    .orderBy(desc(courseRatings.createdAt));
+
+  return rows.map((row) => ({
+    ...row,
+    term: COURSE_TERMS.includes(row.term as CourseTerm)
+      ? (row.term as CourseTerm)
+      : null,
+    content: row.content ?? "",
+    updatedAt: row.updatedAt.toISOString(),
+  }));
 }
 
 /** Attach rating/review aggregates to catalog rows, preserving their order.
@@ -1036,6 +1092,7 @@ export async function submitCourseReview(
 
   revalidatePath(`/courses/${course.code}`);
   revalidatePath("/courses");
+  revalidatePath("/courses/my-reviews");
 }
 
 /** Delete a whole submission (rating plus any comments). Authors delete their
@@ -1088,6 +1145,7 @@ export async function deleteCourseReviewSubmission(
 
   revalidatePath(`/courses/${courseCode}`);
   revalidatePath("/courses");
+  revalidatePath("/courses/my-reviews");
 }
 
 /** Toggle the current user's like on a review. Returns the new like count. */

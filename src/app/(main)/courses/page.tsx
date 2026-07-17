@@ -47,12 +47,20 @@ export default async function CoursesPage({
               搜索课程、查看同学评价，登录后即可匿名评论与点赞
             </p>
           </div>
-          <Link
-            href="/courses/achievements"
-            className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
-          >
-            我的成就
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/courses/my-reviews"
+              className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
+            >
+              我的评价
+            </Link>
+            <Link
+              href="/courses/achievements"
+              className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
+            >
+              我的成就
+            </Link>
+          </div>
         </div>
 
         <div className="mt-8 space-y-5">
