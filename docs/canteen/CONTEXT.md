@@ -37,7 +37,7 @@ _Avoid_: 把 mock 数据当作生产 seed。
 
 **首页入口**: `src/app/(main)/page.tsx` 食堂模块卡片已启用（无「即将上线」），链接 `/canteen`。公开区品牌为「山城食记」，副标题「还有食堂能吃吗」；视觉为冷色账本风，菜品图仅 SVG（`DishSvgIcon`），不做真实菜品摄影。
 
-**菜品 SVG 图标**: `src/lib/canteen-svg-keys.ts` 定义品类 key（`default`、`rice`、`bowl`、`spicy`、`noodle`、`drink`、`dessert`）；`DishSvgIcon` 在菜单行展示，`data-svg-key` 供 e2e 断言。未知 key 回退 `default`；写入经 `validateSvgKey()` 白名单校验。菜单视图按 `svgKey` 分组展示（饭类→麻辣→粉面→煲汤→其他→甜品→饮品），可用顶部分类 chips 筛选；排行榜仍为扁平列表。
+**菜品 SVG 图标**: `src/lib/canteen-svg-keys.ts` 定义品类 key（`default`、`rice`、`bowl`、`spicy`、`noodle`、`drink`、`dessert`）；`DishSvgIcon` 在菜单行展示，`data-svg-key` 供 e2e 断言。未知 key 回退 `default`；写入经 `validateSvgKey()` 白名单校验。菜单视图按 `svgKey` 分组展示（饭类→麻辣→粉面→煲汤→小吃→甜品→饮品），可用顶部分类 chips 筛选；排行榜仍为扁平列表。
 
 **E2E 种子**: `scripts/seed-data.ts` 含固定 UUID 的「演示食堂」与午餐菜品（`rice`/`spicy` svgKey），供 `e2e/canteen-menu-votes.spec.ts` 投票路径；`e2e/canteen-danmaku.spec.ts` 覆盖食堂页弹幕（#192）。命名遵循 [ADR 0007](../adr/0007-e2e-tests-named-by-feature.md)（按功能而非 issue 号）。
 
