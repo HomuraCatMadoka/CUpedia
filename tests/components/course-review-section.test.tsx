@@ -50,6 +50,34 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("CourseReviewSection", () => {
+  it("展示并互斥选择考勤要求标签", () => {
+    render(
+      <CourseReviewSection
+        code="CSCI3150"
+        reviews={[]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+
+    expect(screen.getByText("考勤要求")).toBeTruthy();
+    const required = screen.getByRole("button", { name: "要 attendance" });
+    const notRequired = screen.getByRole("button", { name: "无 attendance" });
+
+    fireEvent.click(required);
+    expect(required.getAttribute("aria-pressed")).toBe("true");
+    expect(notRequired.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(notRequired);
+    expect(required.getAttribute("aria-pressed")).toBe("false");
+    expect(notRequired.getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("无任课教授课程在教授留空时也可提交", () => {
     render(
       <CourseReviewSection

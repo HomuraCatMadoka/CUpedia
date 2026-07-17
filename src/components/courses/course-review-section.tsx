@@ -126,6 +126,9 @@ function parseReviewTags(tags: string[]): CourseReviewTags {
     enrollment: COURSE_REVIEW_TAG_OPTIONS.enrollment.find((tag) =>
       tags.includes(tag),
     ),
+    attendance: COURSE_REVIEW_TAG_OPTIONS.attendance.find((tag) =>
+      tags.includes(tag),
+    ),
     custom: tags.filter((tag) => !PRESET_TAGS.has(tag)),
   };
 }
@@ -586,7 +589,7 @@ export function CourseReviewSection({
                   选填
                 </span>
               </legend>
-              <div className="grid gap-4 sm:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5">
                 {(
                   Object.entries(COURSE_REVIEW_TAG_OPTIONS) as [
                     keyof typeof COURSE_REVIEW_TAG_OPTIONS,
@@ -594,14 +597,16 @@ export function CourseReviewSection({
                   ][]
                 ).map(([dimension, options]) => (
                   <div key={dimension} className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground">
                       {dimension === "workload"
                         ? "Workload"
                         : dimension === "grade"
                           ? "Grade"
-                          : "抢课难度"}
+                          : dimension === "enrollment"
+                            ? "抢课难度"
+                            : "考勤要求"}
                     </p>
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/70 p-1">
                       {options.map((tag) => (
                         <button
                           key={tag}
@@ -609,10 +614,10 @@ export function CourseReviewSection({
                           aria-pressed={reviewTags[dimension] === tag}
                           onClick={() => togglePreset(dimension, tag)}
                           className={cn(
-                            "rounded-full border px-3 py-1.5 text-xs transition-colors",
+                            "min-h-9 w-full whitespace-nowrap rounded-md border border-transparent px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                             reviewTags[dimension] === tag
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "bg-background hover:bg-accent",
+                              ? "bg-background text-foreground shadow-sm"
+                              : "bg-transparent hover:bg-background/70",
                           )}
                         >
                           {tag}

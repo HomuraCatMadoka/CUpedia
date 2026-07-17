@@ -267,6 +267,20 @@
       "when": 1784277064989,
       "tag": "0037_petite_malcolm_colcord",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1784278376732,
+      "tag": "0038_structured-course-review-tags",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1784278377344,
+      "tag": "0039_backfill-course-review-tags",
+      "breakpoints": true
     }
   ]
 }
