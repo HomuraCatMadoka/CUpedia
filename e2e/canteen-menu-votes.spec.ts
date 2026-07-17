@@ -60,7 +60,7 @@ test.describe("canteen menu votes", () => {
     await page.goto(DEMO_CANTEEN_URL);
     await selectLunch(page);
 
-    const row = page.getByRole("listitem").filter({ hasText: "演示辣味" });
+    const row = page.getByRole("listitem").filter({ hasText: "演示煲汤" });
     const likeBtn = row.getByRole("button", { name: "点赞" });
     const dislikeBtn = row.getByRole("button", { name: "点踩" });
 
