@@ -129,6 +129,58 @@
   color: #fff;
 }
 
+.canteen-zone .canteen-section-chip {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--canteen-line);
+  background: var(--canteen-surface);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--canteen-ink);
+  white-space: nowrap;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+  cursor: pointer;
+}
+
+.canteen-zone .canteen-section-chip:hover {
+  border-color: rgba(42, 107, 120, 0.4);
+  background: #fff;
+}
+
+.canteen-zone .canteen-section-chip:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
+}
+
+.canteen-zone .canteen-section-chip-on {
+  border-color: var(--canteen-purple);
+  background: rgba(42, 107, 120, 0.12);
+  color: var(--canteen-ink);
+}
+
+.canteen-zone .canteen-section-chip-on .font-mono {
+  color: var(--canteen-purple);
+}
+
+.canteen-zone .canteen-price-option {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+}
+
+.canteen-zone .canteen-price-label {
+  font-family: var(--font-canteen-body), system-ui, sans-serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--canteen-muted);
+}
+
 .canteen-zone .canteen-back-link {
   display: inline-flex;
   min-height: 2.75rem;

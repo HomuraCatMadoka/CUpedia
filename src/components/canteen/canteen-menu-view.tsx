@@ -13,6 +13,8 @@ import {
   defaultMealPeriodForHkt,
   shouldShowAfternoonHint,
 } from "@/lib/canteen-meal-period";
+import { groupMenuItemsBySvgKey } from "@/lib/canteen-menu-sections";
+import type { DishSvgKey } from "@/lib/canteen-svg-keys";
 import {
   filterItemsByMealPeriod,
   rankAvoidDishes,
@@ -25,6 +27,7 @@ import {
 } from "@/components/canteen/canteen-period-tabs";
 import { CanteenRankingRow } from "@/components/canteen/canteen-ranking-row";
 import { MenuItemVoteRow } from "@/components/canteen/menu-item-vote-row";
+import { cn } from "@/lib/utils";
 
 type CanteenMenuViewProps = {
   items: CanteenMenuItem[];
@@ -46,6 +49,9 @@ export function CanteenMenuView({
   const [period, setPeriod] = useState<MealPeriod>("lunch");
   const [showAfternoonHint, setShowAfternoonHint] = useState(false);
   const [view, setView] = useState<CanteenViewMode>("menu");
+  const [sectionFilter, setSectionFilter] = useState<DishSvgKey | "all">(
+    "all",
+  );
 
   // Client-only meal-period init. defaultMealPeriodForHkt / shouldShowAfternoonHint
   // read the viewer's *current* Asia/Hong_Kong wall clock, which the server does
@@ -91,6 +97,16 @@ export function CanteenMenuView({
     [items, period],
   );
 
+  const menuSections = useMemo(
+    () => groupMenuItemsBySvgKey(periodItems),
+    [periodItems],
+  );
+
+  const visibleSections = useMemo(() => {
+    if (sectionFilter === "all") return menuSections;
+    return menuSections.filter((section) => section.svgKey === sectionFilter);
+  }, [menuSections, sectionFilter]);
+
   const periodCounts = useMemo(() => {
     const out: Record<string, MenuItemVoteCounts> = {};
     for (const item of periodItems) {
@@ -109,6 +125,11 @@ export function CanteenMenuView({
     [periodItems, periodCounts],
   );
 
+  function handlePeriodChange(next: MealPeriod) {
+    setPeriod(next);
+    setSectionFilter("all");
+  }
+
   if (items.length === 0) {
     return (
       <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
@@ -120,8 +141,44 @@ export function CanteenMenuView({
   return (
     <div className="space-y-6">
       <div className="sticky top-0 z-10 -mx-4 space-y-3 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
-        <CanteenPeriodTabs value={period} onChange={setPeriod} />
+        <CanteenPeriodTabs value={period} onChange={handlePeriodChange} />
         <CanteenViewTabs value={view} onChange={setView} />
+        {view === "menu" && menuSections.length > 1 ? (
+          <div
+            role="toolbar"
+            aria-label="菜品分类"
+            className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            <button
+              type="button"
+              aria-pressed={sectionFilter === "all"}
+              onClick={() => setSectionFilter("all")}
+              className={cn(
+                "canteen-section-chip shrink-0",
+                sectionFilter === "all" && "canteen-section-chip-on",
+              )}
+            >
+              全部
+            </button>
+            {menuSections.map((section) => (
+              <button
+                key={section.svgKey}
+                type="button"
+                aria-pressed={sectionFilter === section.svgKey}
+                onClick={() => setSectionFilter(section.svgKey)}
+                className={cn(
+                  "canteen-section-chip shrink-0",
+                  sectionFilter === section.svgKey && "canteen-section-chip-on",
+                )}
+              >
+                {section.label}
+                <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
+                  {section.items.length}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
         {showAfternoonHint && period === "lunch" ? (
           <p
             role="status"
@@ -137,20 +194,38 @@ export function CanteenMenuView({
           <p className="text-[var(--canteen-muted)]">该餐段暂无菜品</p>
         </div>
       ) : view === "menu" ? (
-        <ul className="canteen-ledger">
-          {periodItems.map((item) => (
-            <MenuItemVoteRow
-              key={item.id}
-              item={item}
-              counts={periodCounts[item.id]}
-              myVote={liveMyVotes[item.id] ?? null}
-              onVoteChange={handleVoteChange}
-              currentUserId={currentUserId}
-              commentBlocked={commentBlocked}
-              initialCommentCount={commentCounts[item.id] ?? 0}
-            />
+        <div className="space-y-8">
+          {visibleSections.map((section) => (
+            <section
+              key={section.svgKey}
+              aria-labelledby={`canteen-section-${section.svgKey}`}
+            >
+              <h2
+                id={`canteen-section-${section.svgKey}`}
+                className="canteen-display mb-1 border-b border-[var(--canteen-line)] pb-2 text-lg font-semibold text-[var(--canteen-ink)]"
+              >
+                {section.label}
+                <span className="ml-2 font-mono text-sm font-normal tabular-nums text-[var(--canteen-muted)]">
+                  {section.items.length}
+                </span>
+              </h2>
+              <ul className="canteen-ledger">
+                {section.items.map((item) => (
+                  <MenuItemVoteRow
+                    key={item.id}
+                    item={item}
+                    counts={periodCounts[item.id]}
+                    myVote={liveMyVotes[item.id] ?? null}
+                    onVoteChange={handleVoteChange}
+                    currentUserId={currentUserId}
+                    commentBlocked={commentBlocked}
+                    initialCommentCount={commentCounts[item.id] ?? 0}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       ) : view === "recommend" ? (
         <section aria-label="大众推荐榜">
           <ul className="canteen-ledger">
