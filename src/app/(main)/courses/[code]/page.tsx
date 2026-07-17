@@ -49,10 +49,12 @@ export default async function CourseDetailPage({
 
   const hasCourseListSource =
     from === "/courses" || Boolean(from?.startsWith("/courses?"));
-  const returnTo = hasCourseListSource ? from! : "/courses";
+  const hasReviewHistorySource = from === "/courses/my-reviews";
+  const hasReturnSource = hasCourseListSource || hasReviewHistorySource;
+  const returnTo = hasReturnSource ? from! : "/courses";
   function detailHref(targetTab: CourseDetailTab, hash?: string): string {
     const query = new URLSearchParams();
-    if (hasCourseListSource) query.set("from", from!);
+    if (hasReturnSource) query.set("from", from!);
     if (targetTab === "enrollment") query.set("tab", "enrollment");
     const suffix = query.size ? `?${query.toString()}` : "";
     return `/courses/${encodeURIComponent(courseCode)}${suffix}${hash ?? ""}`;
@@ -87,6 +89,7 @@ export default async function CourseDetailPage({
         <CourseListBackLink
           href={returnTo}
           restoreHistory={hasCourseListSource}
+          label={hasReviewHistorySource ? "返回我的评价" : undefined}
         />
 
         <div className="mt-4 rounded-2xl border p-6">

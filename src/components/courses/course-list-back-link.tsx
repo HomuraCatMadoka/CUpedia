@@ -8,9 +8,11 @@ import { consumeCourseListNavigation } from "@/components/courses/course-list-na
 export function CourseListBackLink({
   href,
   restoreHistory,
+  label = "返回课程列表",
 }: {
   href: string;
   restoreHistory: boolean;
+  label?: string;
 }) {
   const router = useRouter();
 
@@ -38,7 +40,7 @@ export function CourseListBackLink({
       className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
     >
       <ChevronLeftIcon className="h-4 w-4" />
-      返回课程列表
+      {label}
     </Link>
   );
 }
