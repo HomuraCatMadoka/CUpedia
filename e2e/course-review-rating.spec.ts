@@ -85,18 +85,25 @@ test("#293 unified submission validates required experience and supports half-st
   await expect(submit).toBeEnabled();
   await submit.click();
 
-  let rating = await query<{
-    score: number;
-    academic_year: string;
-    term: string;
-  }>(
-    `select score, academic_year, term from course_ratings r
-     join users u on u.id = r.user_id
-     where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
-  );
-  expect(rating.rows).toEqual([
-    { score: 0.5, academic_year: "2025-26", term: "Term 2" },
-  ]);
+  let rating: Awaited<
+    ReturnType<
+      typeof query<{
+        score: number;
+        academic_year: string;
+        term: string;
+      }>
+    >
+  >;
+  await expect
+    .poll(async () => {
+      rating = await query(
+        `select score, academic_year, term from course_ratings r
+         join users u on u.id = r.user_id
+         where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
+      );
+      return rating.rows;
+    })
+    .toEqual([{ score: 0.5, academic_year: "2025-26", term: "Term 2" }]);
   const reviews = await query<{ count: number }>(
     "select count(*)::int as count from course_reviews where course_code = 'CSCI1130'",
   );
