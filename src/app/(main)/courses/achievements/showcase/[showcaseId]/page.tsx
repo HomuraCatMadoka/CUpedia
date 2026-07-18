@@ -18,8 +18,15 @@ export default async function AchievementShowcasePage({
   const showcase = await getPublicAchievementShowcase(showcaseId);
   if (!showcase) notFound();
 
+  const tierRank = { gold: 0, silver: 1, bronze: 2 } as const;
   const achievements = [...showcase.achievements].sort(
-    (a, b) => Number(b.primary) - Number(a.primary),
+    (a, b) =>
+      Number(b.primary) - Number(a.primary) ||
+      tierRank[a.tier] - tierRank[b.tier] ||
+      a.badgeCode.localeCompare(b.badgeCode),
+  );
+  const primaryAchievement = achievements.find(
+    (achievement) => achievement.primary,
   );
 
   return (
@@ -28,14 +35,23 @@ export default async function AchievementShowcasePage({
         <p className="text-xs font-medium tracking-[0.2em] text-muted-foreground uppercase">
           Achievement Showcase
         </p>
-        <h1 className="mt-2 text-3xl font-bold">{showcase.nickname}</h1>
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-bold">{showcase.nickname}</h1>
+          {primaryAchievement && (
+            <ProfessionalBadgeLogo
+              code={primaryAchievement.badgeCode}
+              size={42}
+              tier={primaryAchievement.tier}
+            />
+          )}
+        </div>
         <p className="mt-2 text-sm text-muted-foreground">
           这里只展示当前成就，不展示测评记录或解锁所用课程。
         </p>
 
         {achievements.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
-            暂无已点亮成就
+            暂无已获得成就
           </div>
         ) : (
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -44,18 +60,11 @@ export default async function AchievementShowcasePage({
                 className="rounded-2xl border bg-card p-5"
                 key={achievement.id}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <ProfessionalBadgeLogo
-                    code={achievement.badgeCode}
-                    size={64}
-                    tier={achievement.tier}
-                  />
-                  {achievement.primary && (
-                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
-                      主称号
-                    </span>
-                  )}
-                </div>
+                <ProfessionalBadgeLogo
+                  code={achievement.badgeCode}
+                  size={64}
+                  tier={achievement.tier}
+                />
                 <h2 className="mt-4 font-semibold">
                   {achievement.displayName}
                 </h2>

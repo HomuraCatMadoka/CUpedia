@@ -12,6 +12,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -126,6 +127,17 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                     .nickname as string) || session.user.email}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => router.push("/courses/my-reviews")}
+                  >
+                    我的测评
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => router.push("/courses/achievements")}
+                  >
+                    我的成就
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={openNicknameDialog}>
                     修改昵称
                   </DropdownMenuItem>

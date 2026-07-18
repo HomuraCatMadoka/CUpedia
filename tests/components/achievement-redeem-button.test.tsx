@@ -32,12 +32,12 @@ describe("AchievementRedeemButton", () => {
     mockRedeem.mockResolvedValue({ id: "achievement-1" });
     render(<AchievementRedeemButton displayName="数学铜标" ruleId="rule-1" />);
 
-    fireEvent.click(screen.getByRole("button", { name: "点亮称号" }));
+    fireEvent.click(screen.getByRole("button", { name: "领取成就" }));
     expect(screen.getByRole("alertdialog")).toBeTruthy();
-    expect(screen.getByText("确认点亮「数学铜标」？")).toBeTruthy();
+    expect(screen.getByText("确认领取「数学铜标」？")).toBeTruthy();
     expect(screen.queryByText(/MATH1010/)).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "确认点亮" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认领取" }));
     await waitFor(() => expect(mockRedeem).toHaveBeenCalledWith("rule-1"));
     expect(mockRefresh).toHaveBeenCalled();
   });
@@ -51,9 +51,9 @@ describe("AchievementRedeemButton", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "升级称号" }));
+    fireEvent.click(screen.getByRole("button", { name: "升级成就" }));
     expect(screen.getByText("确认升级「数学银标」？")).toBeTruthy();
-    expect(screen.getByText(/低一级称号会从展示中消失/)).toBeTruthy();
+    expect(screen.getByText(/低一级成就会从展示中消失/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "确认升级" })).toBeTruthy();
   });
 });

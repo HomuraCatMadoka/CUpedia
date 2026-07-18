@@ -54,7 +54,7 @@ export default async function CoursesPage({
               href="/courses/my-reviews"
               className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
             >
-              我的评价
+              我的测评
             </Link>
             <Link
               href="/courses/achievements"

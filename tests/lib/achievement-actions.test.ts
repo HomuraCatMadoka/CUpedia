@@ -281,6 +281,7 @@ describe("professional achievement progress and redemption", () => {
           achievementId: "achievement-v1",
           ruleId: "rule-v1",
           status: "active",
+          category: "professional",
           ruleKey: "math-bronze",
           version: 1,
           displayName: "原版数学铜标",
@@ -324,6 +325,7 @@ describe("professional achievement progress and redemption", () => {
           achievementId: "achievement-1",
           ruleId: "rule-1",
           status: "superseded",
+          category: "professional",
           ruleKey: "math-bronze",
           version: 1,
           displayName: "数学铜标",
@@ -403,7 +405,7 @@ describe("professional achievement progress and redemption", () => {
     );
 
     await expect(redeemProfessionalAchievement(ruleId)).rejects.toThrow(
-      "只能同时拥有一个银标",
+      "只能同时拥有一个银级成就",
     );
     expect(dbChain.values).not.toHaveBeenCalled();
   });
@@ -413,7 +415,7 @@ describe("professional achievement progress and redemption", () => {
 
     await expect(
       redeemProfessionalAchievement("00000000-0000-4000-a000-000000000099"),
-    ).rejects.toThrow("称号兑换发生冲突，请刷新后重试");
+    ).rejects.toThrow("成就领取发生冲突，请刷新后重试");
   });
 
   it("reuses revoked history without resetting first redemption time", async () => {

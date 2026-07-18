@@ -11,19 +11,27 @@ const TIER_STYLES: Record<
   {
     label: string;
     ink: string;
+    fontSize: number;
+    fontWeight: number;
   }
 > = {
   bronze: {
-    label: "铜标",
-    ink: "#AD633D",
+    label: "铜级",
+    ink: "#A34B32",
+    fontSize: 16,
+    fontWeight: 800,
   },
   silver: {
-    label: "银标",
-    ink: "#7A8791",
+    label: "银级",
+    ink: "#526775",
+    fontSize: 17,
+    fontWeight: 850,
   },
   gold: {
-    label: "金标",
-    ink: "#C49317",
+    label: "金级",
+    ink: "#B27800",
+    fontSize: 18,
+    fontWeight: 900,
   },
 };
 
@@ -38,12 +46,14 @@ type ProfessionalBadgeLogoProps = Omit<
   code: string;
   tier: ProfessionalBadgeTier;
   size?: number;
+  compact?: boolean;
 };
 
 export function ProfessionalBadgeLogo({
   code,
   tier,
   size = 48,
+  compact = false,
   className,
   ...props
 }: ProfessionalBadgeLogoProps) {
@@ -54,7 +64,7 @@ export function ProfessionalBadgeLogo({
   }
 
   const colors = TIER_STYLES[tier];
-  const accessibleName = `${code} 专业${colors.label}`;
+  const accessibleName = `${code} ${colors.label}专业成就`;
 
   return (
     <svg
@@ -63,9 +73,9 @@ export function ProfessionalBadgeLogo({
       className={cn("inline-block shrink-0", className)}
       data-badge-code={code}
       data-badge-tier={tier}
-      height={size}
+      height={compact ? Math.round((size * 27) / 64) : size}
       role="img"
-      viewBox="0 0 64 64"
+      viewBox={compact ? "0 19 64 27" : "0 0 64 64"}
       width={size}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -74,8 +84,8 @@ export function ProfessionalBadgeLogo({
         dominantBaseline="middle"
         fill={colors.ink}
         fontFamily="ui-sans-serif, system-ui, sans-serif"
-        fontSize="16"
-        fontWeight="850"
+        fontSize={colors.fontSize}
+        fontWeight={colors.fontWeight}
         letterSpacing="0.25"
         textAnchor="middle"
         x="32"

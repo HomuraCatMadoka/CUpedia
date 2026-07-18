@@ -216,7 +216,7 @@ export function CourseReviewSection({
           isAnonymous,
         });
         for (const notice of result.newAchievementNotices) {
-          toast.success(`可以点亮「${notice.displayName}」了`, {
+          toast.success(`可以领取「${notice.displayName}」了`, {
             action: {
               label: "去看看",
               onClick: () => router.push("/courses/achievements"),
@@ -255,11 +255,11 @@ export function CourseReviewSection({
         const impact = await getCourseReviewDeletionImpact(code, target);
         const achievementCopy =
           impact.kind === "downgraded"
-            ? `\n\n删除后，有关专业称号将降为${impact.nextTier === "silver" ? "银标" : "铜标"}。`
+            ? `\n\n删除后，有关专业成就将降为${impact.nextTier === "silver" ? "银级" : "铜级"}。`
             : impact.kind === "revoked"
-              ? "\n\n删除后，有关专业称号将不再满足条件并被撤销。"
+              ? "\n\n删除后，有关专业成就将不再满足条件并被撤销。"
               : impact.kind === "dismantled"
-                ? "\n\n删除后，人名称号将自动拆解，仍有效的来源称号会恢复。"
+                ? "\n\n删除后，人物成就将自动拆解，仍有效的来源成就会恢复。"
                 : "";
         if (
           !window.confirm(
@@ -947,38 +947,43 @@ export function CourseReviewSection({
         {displayedReviews.map((review) => (
           <li key={review.id} className="rounded-xl border p-5">
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                {review.isRatingOnly ? (
-                  <span className="text-sm font-medium">仅评分投稿</span>
-                ) : review.authorShowcaseId && review.authorNickname ? (
-                  <Link
-                    className="text-sm font-medium hover:underline"
-                    href={`/courses/achievements/showcase/${review.authorShowcaseId}`}
-                  >
-                    {review.authorNickname}
-                  </Link>
-                ) : (
-                  <span className="text-sm font-medium">
-                    {review.authorNickname ?? "匿名用户"}
-                  </span>
-                )}
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+                <span className="shrink-0">
+                  {review.isRatingOnly ? (
+                    <span className="text-sm font-medium">仅评分投稿</span>
+                  ) : review.authorShowcaseId && review.authorNickname ? (
+                    <Link
+                      className="text-sm font-medium hover:underline"
+                      href={`/courses/achievements/showcase/${review.authorShowcaseId}`}
+                    >
+                      {review.authorNickname}
+                    </Link>
+                  ) : (
+                    <span className="text-sm font-medium">
+                      {review.authorNickname ?? "匿名用户"}
+                    </span>
+                  )}
+                </span>
                 {review.authorAchievements.length > 0 && (
                   <div
                     aria-label="作者成就"
-                    className="mt-2 flex flex-wrap items-center gap-1.5"
+                    className="flex flex-wrap items-center gap-1"
                   >
                     {[...review.authorAchievements]
-                      .sort((a, b) => Number(b.primary) - Number(a.primary))
+                      .sort((a, b) => {
+                        const tierOrder = { gold: 0, silver: 1, bronze: 2 };
+                        return (
+                          tierOrder[a.tier] - tierOrder[b.tier] ||
+                          Number(b.primary) - Number(a.primary) ||
+                          a.badgeCode.localeCompare(b.badgeCode)
+                        );
+                      })
                       .map((achievement) => (
                         <ProfessionalBadgeLogo
-                          className={cn(
-                            "rounded-full",
-                            achievement.primary &&
-                              "ring-2 ring-amber-500 ring-offset-1",
-                          )}
                           code={achievement.badgeCode}
+                          compact
                           key={achievement.id}
-                          size={28}
+                          size={achievement.primary ? 56 : 52}
                           tier={achievement.tier}
                         />
                       ))}

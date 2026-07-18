@@ -219,6 +219,7 @@ async function loadUserAchievementInputs(userId: string) {
         achievementId: userAchievements.id,
         ruleId: userAchievements.ruleId,
         status: userAchievements.status,
+        category: achievementRules.category,
         ruleKey: achievementRules.ruleKey,
         version: achievementRules.version,
         displayName: achievementRules.displayName,
@@ -250,7 +251,9 @@ export async function getProfessionalAchievementProgressForUser(
   const { rules, ratings, occupiedRows, ownedRows } =
     await loadUserAchievementInputs(userId);
   const occupied = new Set(occupiedRows.map((row) => row.ratingId));
-  const activeOwned = ownedRows.filter((row) => row.status === "active");
+  const activeOwned = ownedRows.filter(
+    (row) => row.status === "active" && row.category === "professional",
+  );
   const activeKeys = new Set(activeOwned.map((row) => row.ruleKey));
   const activeTiers = new Set(activeOwned.map((row) => row.tier));
 
@@ -337,7 +340,7 @@ export async function getProfessionalAchievementProgressForUser(
 
 export async function redeemProfessionalAchievement(ruleId: string) {
   const user = await requireAuth();
-  if (!/^[0-9a-f-]{36}$/i.test(ruleId)) throw new Error("称号规则无效");
+  if (!/^[0-9a-f-]{36}$/i.test(ruleId)) throw new Error("成就规则无效");
   await ensureAchievementProfile(user.id);
 
   try {
@@ -362,7 +365,7 @@ export async function redeemProfessionalAchievement(ruleId: string) {
           ),
         )
         .limit(1);
-      if (!rule) throw new Error("称号规则不存在或未启用");
+      if (!rule) throw new Error("成就规则不存在或未启用");
 
       const [existing] = await tx
         .select({
@@ -382,7 +385,7 @@ export async function redeemProfessionalAchievement(ruleId: string) {
         )
         .limit(1);
       if (existing && existing.status !== "revoked") {
-        throw new Error("称号已经点亮");
+        throw new Error("成就已经领取");
       }
 
       let prerequisiteAchievementId: string | null = null;
@@ -402,7 +405,7 @@ export async function redeemProfessionalAchievement(ruleId: string) {
             ),
           )
           .limit(1);
-        if (!prerequisite) throw new Error("需要先点亮前置称号");
+        if (!prerequisite) throw new Error("需要先获得前一级成就");
         prerequisiteAchievementId = prerequisite.id;
       }
 
@@ -410,17 +413,22 @@ export async function redeemProfessionalAchievement(ruleId: string) {
         const occupiedSlot = await tx
           .select({ id: userAchievements.id })
           .from(userAchievements)
+          .innerJoin(
+            achievementRules,
+            eq(userAchievements.ruleId, achievementRules.id),
+          )
           .where(
             and(
               eq(userAchievements.userId, user.id),
               eq(userAchievements.status, "active"),
               eq(userAchievements.tier, rule.tier),
+              eq(achievementRules.category, "professional"),
             ),
           )
           .limit(1);
         if (occupiedSlot.length)
           throw new Error(
-            `只能同时拥有一个${rule.tier === "silver" ? "银标" : "金标"}`,
+            `只能同时拥有一个${rule.tier === "silver" ? "银级" : "金级"}成就`,
           );
       }
 
@@ -456,7 +464,7 @@ export async function redeemProfessionalAchievement(ruleId: string) {
         ratings,
         new Set(occupiedRows.map((row) => row.ratingId)),
       );
-      if (!evaluation.eligible) throw new Error("尚未满足点亮条件");
+      if (!evaluation.eligible) throw new Error("尚未满足领取条件");
 
       const [achievement] = existing
         ? await tx
@@ -525,7 +533,7 @@ export async function redeemProfessionalAchievement(ruleId: string) {
       "code" in error &&
       error.code === "23505"
     ) {
-      throw new Error("称号兑换发生冲突，请刷新后重试");
+      throw new Error("成就领取发生冲突，请刷新后重试");
     }
     throw error;
   }
@@ -533,7 +541,7 @@ export async function redeemProfessionalAchievement(ruleId: string) {
 
 export async function revokeProfessionalAchievement(achievementId: string) {
   const user = await requireAuth();
-  if (!/^[0-9a-f-]{36}$/i.test(achievementId)) throw new Error("称号无效");
+  if (!/^[0-9a-f-]{36}$/i.test(achievementId)) throw new Error("成就无效");
 
   await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${user.id}))`);
@@ -553,7 +561,7 @@ export async function revokeProfessionalAchievement(achievementId: string) {
     const active = rows.find(
       (row) => row.id === achievementId && row.status === "active",
     );
-    if (!active) throw new Error("称号不存在或已撤销");
+    if (!active) throw new Error("成就不存在或已撤销");
 
     const byKey = new Map(rows.map((row) => [row.ruleKey, row]));
     const chainIds: string[] = [];

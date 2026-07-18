@@ -47,16 +47,20 @@ export function AchievementRevokeButton({
       <AlertDialogTrigger
         render={<Button className="h-auto p-0" variant="link" />}
       >
-        撤销称号
+        撤销成就
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>撤销「{displayName}」？</AlertDialogTitle>
+          <AlertDialogTitle>撤销「{displayName}」成就？</AlertDialogTitle>
           <AlertDialogDescription>
-            整个专业称号会从展示中移除，相关评分不会删除。之后仍可重新点亮，不能只降一级。
+            这个专业成就会从展示中移除，相关评分不会删除。之后仍可重新领取，不能只降一级。
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {error && <p className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>取消</AlertDialogCancel>
           <AlertDialogAction

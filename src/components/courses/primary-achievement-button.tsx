@@ -36,7 +36,7 @@ export function PrimaryAchievementButton({
         type="button"
         variant={primary ? "secondary" : "outline"}
       >
-        {pending ? "保存中…" : primary ? "取消主称号" : "设为主称号"}
+        {pending ? "保存中…" : primary ? "取消评论旁展示" : "设为评论旁展示"}
       </Button>
       {error && (
         <p className="mt-1 text-xs text-destructive" role="alert">

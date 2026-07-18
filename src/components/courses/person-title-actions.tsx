@@ -46,13 +46,13 @@ export function PersonTitleFuseButton({
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger render={<Button size="sm" />}>
-        合成称号
+        合成人物成就
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>合成「{displayName}」？</AlertDialogTitle>
+          <AlertDialogTitle>合成「{displayName}」成就？</AlertDialogTitle>
           <AlertDialogDescription>
-            来源称号会暂时从展示中消失，但其课程归属会保留；之后可以拆解恢复。
+            来源成就会暂时从展示中消失，但其课程归属会保留；之后可以拆解恢复。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <label className="flex items-center gap-2 text-sm">
@@ -61,7 +61,7 @@ export function PersonTitleFuseButton({
             onChange={(event) => setMakePrimary(event.target.checked)}
             type="checkbox"
           />
-          同时设为主称号
+          同时设为评论旁展示
         </label>
         {error && <p className="text-sm text-destructive">{error}</p>}
         <AlertDialogFooter>
@@ -97,13 +97,13 @@ export function PersonTitleDismantleButton({
       <AlertDialogTrigger
         render={<Button className="h-auto p-0" variant="link" />}
       >
-        拆解称号
+        拆解成就
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>拆解「{displayName}」？</AlertDialogTitle>
+          <AlertDialogTitle>拆解「{displayName}」成就？</AlertDialogTitle>
           <AlertDialogDescription>
-            人名称号会消失，合成时使用的来源称号会恢复展示。
+            人物成就会消失，合成时使用的来源成就会恢复展示。
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

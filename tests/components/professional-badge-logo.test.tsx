@@ -14,9 +14,9 @@ afterEach(cleanup);
 
 describe("ProfessionalBadgeLogo", () => {
   const tierLabels = {
-    bronze: "铜标",
-    silver: "银标",
-    gold: "金标",
+    bronze: "铜级",
+    silver: "银级",
+    gold: "金级",
   } as const;
 
   it.each(PROFESSIONAL_BADGE_TIERS)(
@@ -25,7 +25,7 @@ describe("ProfessionalBadgeLogo", () => {
       render(<ProfessionalBadgeLogo code="MATH" tier={tier} />);
 
       const badge = screen.getByRole("img", {
-        name: `MATH 专业${tierLabels[tier]}`,
+        name: `MATH ${tierLabels[tier]}专业成就`,
       });
       expect(badge.tagName).toBe("svg");
       expect(badge.getAttribute("data-badge-tier")).toBe(tier);
@@ -49,6 +49,17 @@ describe("ProfessionalBadgeLogo", () => {
     badge = screen.getByRole("img");
     expect(badge.getAttribute("width")).toBe("28");
     expect(badge.getAttribute("height")).toBe("28");
+  });
+
+  it("uses a compact view box for inline achievement labels", () => {
+    render(
+      <ProfessionalBadgeLogo code="CSCI" compact size={52} tier="silver" />,
+    );
+
+    const badge = screen.getByRole("img");
+    expect(badge.getAttribute("width")).toBe("52");
+    expect(badge.getAttribute("height")).toBe("22");
+    expect(badge.getAttribute("viewBox")).toBe("0 19 64 27");
   });
 
   it.each(["math", "Math", "MAT", "MATHS", "数学01", "AB1D"])(

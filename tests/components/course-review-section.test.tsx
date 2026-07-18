@@ -109,7 +109,7 @@ describe("CourseReviewSection", () => {
     ).toBe(false);
   });
 
-  it("首次满足成就条件时立即提示可以点亮", async () => {
+  it("首次满足成就条件时立即提示可以领取", async () => {
     submit.mockResolvedValue({
       newAchievementNotices: [
         { opportunityKey: "professional:rule:bronze", displayName: "数学铜标" },
@@ -138,7 +138,7 @@ describe("CourseReviewSection", () => {
 
     await waitFor(() =>
       expect(toastSuccess).toHaveBeenCalledWith(
-        "可以点亮「数学铜标」了",
+        "可以领取「数学铜标」了",
         expect.objectContaining({ action: expect.any(Object) }),
       ),
     );
@@ -208,6 +208,15 @@ describe("CourseReviewSection", () => {
             authorShowcaseId: "00000000-0000-4000-a000-000000000099",
             authorAchievements: [
               {
+                id: "a2",
+                displayName: "物理铜标",
+                badgeCode: "PHYS",
+                tier: "bronze",
+                category: "professional",
+                publicDescription: "",
+                primary: false,
+              },
+              {
                 id: "a1",
                 displayName: "数学金标",
                 badgeCode: "MATH",
@@ -217,10 +226,10 @@ describe("CourseReviewSection", () => {
                 primary: true,
               },
               {
-                id: "a2",
-                displayName: "物理铜标",
-                badgeCode: "PHYS",
-                tier: "bronze",
+                id: "a3",
+                displayName: "经济银标",
+                badgeCode: "ECON",
+                tier: "silver",
                 category: "professional",
                 publicDescription: "",
                 primary: false,
@@ -254,14 +263,23 @@ describe("CourseReviewSection", () => {
       />,
     );
 
-    expect(
-      screen.getByRole("link", { name: "Alice" }).getAttribute("href"),
-    ).toBe(
+    const aliceLink = screen.getByRole("link", { name: "Alice" });
+    expect(aliceLink.getAttribute("href")).toBe(
       "/courses/achievements/showcase/00000000-0000-4000-a000-000000000099",
     );
-    expect(screen.getByRole("img", { name: "MATH 专业金标" })).toBeTruthy();
-    expect(screen.getByRole("img", { name: "PHYS 专业铜标" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "MATH 金级专业成就" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "ECON 银级专业成就" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "PHYS 铜级专业成就" })).toBeTruthy();
     expect(screen.getByText("匿名用户")).toBeTruthy();
+    const authorAchievements = screen.getByLabelText("作者成就");
     expect(screen.getAllByLabelText("作者成就")).toHaveLength(1);
+    const authorIdentity = aliceLink.parentElement?.parentElement;
+    expect(authorIdentity?.className).toContain("flex");
+    expect(authorIdentity?.contains(authorAchievements)).toBe(true);
+    expect(
+      [...authorAchievements.querySelectorAll("svg")].map((badge) =>
+        badge.getAttribute("data-badge-tier"),
+      ),
+    ).toEqual(["gold", "silver", "bronze"]);
   });
 });

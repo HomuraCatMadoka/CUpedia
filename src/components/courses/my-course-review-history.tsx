@@ -1,30 +1,91 @@
+"use client";
+
 import Link from "next/link";
-import { PencilIcon, StarIcon } from "lucide-react";
+import { ChevronDownIcon, PencilIcon, StarIcon } from "lucide-react";
+import { useState } from "react";
 
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { buttonVariants } from "@/components/ui/button";
 import { MyReviewDeleteButton } from "@/components/courses/my-review-delete-button";
 import type { MyCourseReviewHistoryItem } from "@/lib/course-review-actions";
 
+function subjectCode(courseCode: string) {
+  return (
+    courseCode
+      .replace(/\s+/g, "")
+      .toUpperCase()
+      .match(/^[A-Z]+/)?.[0] ?? courseCode
+  );
+}
+
 export function MyCourseReviewHistory({
   items,
 }: {
   items: MyCourseReviewHistoryItem[];
 }) {
-  if (items.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed p-10 text-center">
-        <p className="text-sm text-muted-foreground">你还没有评价过课程。</p>
-        <Link href="/courses" className={buttonVariants({ className: "mt-4" })}>
-          浏览课程
-        </Link>
-      </div>
-    );
+  const [selectedSubject, setSelectedSubject] = useState("all");
+  const subjectCounts = new Map<string, number>();
+  for (const item of items) {
+    const subject = subjectCode(item.courseCode);
+    subjectCounts.set(subject, (subjectCounts.get(subject) ?? 0) + 1);
   }
+  const subjects = [...subjectCounts].sort(([a], [b]) => a.localeCompare(b));
+  const filteredItems =
+    selectedSubject === "all"
+      ? items
+      : items.filter(
+          (item) => subjectCode(item.courseCode) === selectedSubject,
+        );
+  const courseCount = new Set(items.map((item) => item.courseCode)).size;
+
+  const subjectPicker =
+    items.length > 0 ? (
+      <label className="relative block w-full sm:w-64">
+        <span className="sr-only">按学科筛选</span>
+        <select
+          aria-label="按学科筛选"
+          className="h-9 w-full appearance-none rounded-lg border border-input bg-transparent px-3 pr-9 text-sm outline-none transition-colors hover:bg-muted/40 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          onChange={(event) => setSelectedSubject(event.target.value)}
+          value={selectedSubject}
+        >
+          <option value="all">全部学科 {courseCount} 门</option>
+          {subjects.map(([subject, count]) => (
+            <option key={subject} value={subject}>
+              {subject} {count} 门
+            </option>
+          ))}
+        </select>
+        <ChevronDownIcon
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground"
+        />
+      </label>
+    ) : null;
 
   return (
     <div className="space-y-4">
-      {items.map((item) => {
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {subjectPicker}
+        <p className="shrink-0 text-sm font-medium">
+          已评价 {courseCount} 门课
+        </p>
+      </div>
+
+      {items.length === 0 && (
+        <div className="rounded-2xl border border-dashed p-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            你还没有提交过课程测评。
+          </p>
+          <Link
+            href="/courses"
+            className={buttonVariants({ className: "mt-4" })}
+          >
+            浏览课程
+          </Link>
+        </div>
+      )}
+
+      {filteredItems.map((item) => {
         const editHref = `/courses/${encodeURIComponent(item.courseCode)}?from=${encodeURIComponent("/courses/my-reviews")}#course-review`;
         return (
           <article

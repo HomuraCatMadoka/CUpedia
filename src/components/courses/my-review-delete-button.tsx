@@ -86,11 +86,11 @@ export function MyReviewDeleteButton({
           <AlertDialogDescription>
             这会删除你的评分和评论；此操作不能撤销。
             {impact?.kind === "downgraded" &&
-              ` 删除后，有关专业称号将降为${impact.nextTier === "silver" ? "银标" : "铜标"}。`}
+              ` 删除后，有关专业成就将降为${impact.nextTier === "silver" ? "银级" : "铜级"}。`}
             {impact?.kind === "revoked" &&
-              " 删除后，有关专业称号将不再满足条件并被撤销。"}
+              " 删除后，有关专业成就将不再满足条件并被撤销。"}
             {impact?.kind === "dismantled" &&
-              " 删除后，人名称号将无法维持并自动拆解，仍有效的来源称号会恢复。"}
+              " 删除后，人物成就将无法维持并自动拆解，仍有效的来源成就会恢复。"}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (

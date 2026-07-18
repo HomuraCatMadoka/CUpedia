@@ -10,7 +10,7 @@ describe("MyCourseReviewsLoading", () => {
   it("announces the loading state", () => {
     render(<MyCourseReviewsLoading />);
     expect(
-      screen.getByRole("status", { name: "正在加载我的课程评价" }),
+      screen.getByRole("status", { name: "正在加载我的测评" }),
     ).toBeTruthy();
   });
 });

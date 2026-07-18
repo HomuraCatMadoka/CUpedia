@@ -52,6 +52,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenuContent: ({ children }: { children: React.ReactNode }) => (
     <div>{children}</div>
   ),
+  DropdownMenuSeparator: () => <hr />,
   DropdownMenuItem: ({
     children,
     disabled,
@@ -107,5 +108,15 @@ describe("Navbar sign-out", () => {
     await waitFor(() => expect(toastError).toHaveBeenCalledWith("请求失败"));
     expect(push).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("offers global links to personal course pages", () => {
+    render(<Navbar />);
+
+    fireEvent.click(screen.getByRole("button", { name: "我的测评" }));
+    expect(push).toHaveBeenCalledWith("/courses/my-reviews");
+
+    fireEvent.click(screen.getByRole("button", { name: "我的成就" }));
+    expect(push).toHaveBeenCalledWith("/courses/achievements");
   });
 });

@@ -13,7 +13,7 @@ export async function setPrimaryAchievement(achievementId: string | null) {
   await ensureAchievementProfile(user.id);
 
   if (achievementId !== null) {
-    if (!/^[0-9a-f-]{36}$/i.test(achievementId)) throw new Error("称号无效");
+    if (!/^[0-9a-f-]{36}$/i.test(achievementId)) throw new Error("成就无效");
     const [owned] = await db
       .select({ id: userAchievements.id })
       .from(userAchievements)
@@ -25,7 +25,7 @@ export async function setPrimaryAchievement(achievementId: string | null) {
         ),
       )
       .limit(1);
-    if (!owned) throw new Error("只能选择当前拥有的称号");
+    if (!owned) throw new Error("只能选择当前拥有的成就");
   }
 
   await db

@@ -47,7 +47,8 @@ describe("MyCourseReviewHistory", () => {
   it("renders the empty state", () => {
     render(<MyCourseReviewHistory items={[]} />);
 
-    expect(screen.getByText("你还没有评价过课程。")).toBeTruthy();
+    expect(screen.getByText("已评价 0 门课")).toBeTruthy();
+    expect(screen.getByText("你还没有提交过课程测评。")).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "浏览课程" }).getAttribute("href"),
     ).toBe("/courses");
@@ -64,6 +65,44 @@ describe("MyCourseReviewHistory", () => {
     expect(
       screen.getByRole("link", { name: "编辑" }).getAttribute("href"),
     ).toContain("/courses/CSCI3150?from=%2Fcourses%2Fmy-reviews#course-review");
+  });
+
+  it("shows evaluated subject counts and filters by subject code", () => {
+    render(
+      <MyCourseReviewHistory
+        items={[
+          ITEM,
+          {
+            ...ITEM,
+            ratingId: "rating-2",
+            courseCode: "MATH1010",
+            courseTitle: "University Mathematics",
+          },
+          {
+            ...ITEM,
+            ratingId: "rating-3",
+            courseCode: "MATH1020",
+            courseTitle: "General Mathematics",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("已评价 3 门课")).toBeTruthy();
+    const subjectFilter = screen.getByRole("combobox", {
+      name: "按学科筛选",
+    });
+    expect(
+      [...subjectFilter.querySelectorAll("option")].map(
+        (option) => option.textContent,
+      ),
+    ).toEqual(["全部学科 3 门", "CSCI 1 门", "MATH 2 门"]);
+
+    fireEvent.change(subjectFilter, { target: { value: "MATH" } });
+
+    expect(screen.getByText("University Mathematics")).toBeTruthy();
+    expect(screen.getByText("General Mathematics")).toBeTruthy();
+    expect(screen.queryByText("Operating Systems")).toBeNull();
   });
 
   it("confirms deletion and refreshes the private list", async () => {
@@ -92,6 +131,6 @@ describe("MyCourseReviewHistory", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "删除" }));
 
-    expect(await screen.findByText(/将降为银标/)).toBeTruthy();
+    expect(await screen.findByText(/将降为银级/)).toBeTruthy();
   });
 });

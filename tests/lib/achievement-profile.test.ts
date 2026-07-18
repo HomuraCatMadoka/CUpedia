@@ -112,12 +112,12 @@ describe("achievement profiles", () => {
     );
   });
 
-  it("rejects a primary title the user does not own", async () => {
+  it("rejects a primary achievement the user does not own", async () => {
     const achievementId = "00000000-0000-4000-a000-000000000088";
     dbQueue.push([], []);
 
     await expect(setPrimaryAchievement(achievementId)).rejects.toThrow(
-      "只能选择当前拥有的称号",
+      "只能选择当前拥有的成就",
     );
   });
 });

@@ -89,7 +89,7 @@ export default async function CourseDetailPage({
         <CourseListBackLink
           href={returnTo}
           restoreHistory={hasCourseListSource}
-          label={hasReviewHistorySource ? "返回我的评价" : undefined}
+          label={hasReviewHistorySource ? "返回我的测评" : undefined}
         />
 
         <div className="mt-4 rounded-2xl border p-6">

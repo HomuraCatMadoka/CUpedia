@@ -2,7 +2,7 @@ export default function MyCourseReviewsLoading() {
   return (
     <div
       className="flex-1 overflow-y-auto"
-      aria-label="正在加载我的课程评价"
+      aria-label="正在加载我的测评"
       role="status"
     >
       <div className="mx-auto max-w-3xl animate-pulse px-6 py-10">
