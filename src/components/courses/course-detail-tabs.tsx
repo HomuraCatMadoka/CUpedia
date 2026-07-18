@@ -6,13 +6,11 @@ export type CourseDetailTab = "reviews" | "enrollment";
 export function CourseDetailTabs({
   activeTab,
   reviewCount,
-  enrollmentCount,
   reviewsHref,
   enrollmentHref,
 }: {
   activeTab: CourseDetailTab;
   reviewCount: number;
-  enrollmentCount: number;
   reviewsHref: string;
   enrollmentHref: string;
 }) {
@@ -25,8 +23,8 @@ export function CourseDetailTabs({
     },
     {
       id: "enrollment" as const,
-      label: "选课人数",
-      count: enrollmentCount,
+      label: "选课人数参考",
+      count: null,
       href: enrollmentHref,
     },
   ];
@@ -44,7 +42,9 @@ export function CourseDetailTabs({
               key={tab.id}
               href={tab.href}
               scroll={false}
-              aria-label={`${tab.label} ${tab.count}`}
+              aria-label={
+                tab.count === null ? tab.label : `${tab.label} ${tab.count}`
+              }
               aria-current={active ? "page" : undefined}
               className={cn(
                 "flex min-w-0 items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
@@ -54,16 +54,18 @@ export function CourseDetailTabs({
               )}
             >
               <span className="truncate">{tab.label}</span>
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px] tabular-nums",
-                  active
-                    ? "bg-background/15 text-background"
-                    : "bg-background text-muted-foreground",
-                )}
-              >
-                {tab.count}
-              </span>
+              {tab.count !== null && (
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] tabular-nums",
+                    active
+                      ? "bg-background/15 text-background"
+                      : "bg-background text-muted-foreground",
+                  )}
+                >
+                  {tab.count}
+                </span>
+              )}
             </Link>
           );
         })}

@@ -150,7 +150,6 @@ export default async function CourseDetailPage({
         <CourseDetailTabs
           activeTab={activeTab}
           reviewCount={course.reviewCount}
-          enrollmentCount={enrollmentHistory.length}
           reviewsHref={reviewsHref}
           enrollmentHref={enrollmentHref}
         />

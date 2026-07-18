@@ -18,24 +18,24 @@ vi.mock("next/link", () => ({
 afterEach(cleanup);
 
 describe("CourseDetailTabs", () => {
-  it("展示两个带数量的深链标签并标记当前视图", () => {
+  it("只为同学测评展示内容数量，并标记当前视图", () => {
     render(
       <CourseDetailTabs
         activeTab="enrollment"
         reviewCount={37}
-        enrollmentCount={134}
         reviewsHref="/courses/ELTU1001?from=%2Fcourses"
         enrollmentHref="/courses/ELTU1001?from=%2Fcourses&tab=enrollment"
       />,
     );
 
     const reviews = screen.getByRole("link", { name: "同学测评 37" });
-    const enrollment = screen.getByRole("link", { name: "选课人数 134" });
+    const enrollment = screen.getByRole("link", { name: "选课人数参考" });
     expect(reviews.getAttribute("href")).toBe(
       "/courses/ELTU1001?from=%2Fcourses",
     );
     expect(reviews.getAttribute("data-scroll")).toBe("false");
     expect(enrollment.getAttribute("data-scroll")).toBe("false");
     expect(enrollment.getAttribute("aria-current")).toBe("page");
+    expect(screen.queryByText("134")).toBeNull();
   });
 });
