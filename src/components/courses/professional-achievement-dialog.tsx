@@ -112,8 +112,8 @@ export function ProfessionalAchievementDialog({
     setError("");
     startTransition(async () => {
       try {
-        await setPrimaryAchievement(primary ? null : currentAchievementId);
-        toast.success(primary ? "已取消评论旁展示" : "已设为评论旁展示");
+        await setPrimaryAchievement(currentAchievementId);
+        toast.success("已设为评论旁展示");
         router.refresh();
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "操作失败");
@@ -261,7 +261,7 @@ export function ProfessionalAchievementDialog({
                 >
                   {heading}
                 </h3>
-                <div className="mt-3 border-y">
+                <div className="mt-3">
                   {target ? (
                     target.subjectGroups.map((group, groupIndex) => (
                       <div
@@ -327,8 +327,8 @@ export function ProfessionalAchievementDialog({
               </section>
             </div>
 
-            <DialogFooter className="m-0 rounded-none px-6 py-4 sm:items-center sm:justify-between">
-              <div className="min-h-5 text-xs">
+            <DialogFooter className="m-0 flex-row flex-wrap items-center justify-between rounded-none px-6 py-4 sm:justify-between">
+              <div className="min-h-5 shrink-0 text-xs">
                 {item.current && (
                   <AchievementRevokeButton
                     achievementId={item.current.achievementId}
@@ -336,20 +336,16 @@ export function ProfessionalAchievementDialog({
                   />
                 )}
               </div>
-              {actionable || item.current ? (
-                <div className="flex flex-wrap justify-end gap-2">
-                  {item.current && (
+              {actionable || (item.current && !primary) ? (
+                <div className="ml-auto flex flex-wrap justify-end gap-2">
+                  {item.current && !primary && (
                     <Button
                       disabled={pending}
                       onClick={changePrimary}
                       type="button"
-                      variant={primary ? "secondary" : "outline"}
+                      variant="outline"
                     >
-                      {pending
-                        ? "保存中…"
-                        : primary
-                          ? "取消评论旁展示"
-                          : "设为评论旁展示"}
+                      {pending ? "保存中…" : "设为评论旁展示"}
                     </Button>
                   )}
                   {actionable && target && (
@@ -363,11 +359,11 @@ export function ProfessionalAchievementDialog({
                     </Button>
                   )}
                 </div>
-              ) : (
+              ) : !item.current ? (
                 <Button disabled type="button">
                   {target ? "还未满足条件" : "暂时不能领取"}
                 </Button>
-              )}
+              ) : null}
             </DialogFooter>
           </>
         )}

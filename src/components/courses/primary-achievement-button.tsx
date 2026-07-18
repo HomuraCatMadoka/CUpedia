@@ -17,6 +17,8 @@ export function PrimaryAchievementButton({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
 
+  if (primary) return null;
+
   return (
     <div>
       <Button
@@ -25,7 +27,7 @@ export function PrimaryAchievementButton({
           startTransition(async () => {
             try {
               setError("");
-              await setPrimaryAchievement(primary ? null : achievementId);
+              await setPrimaryAchievement(achievementId);
               router.refresh();
             } catch (cause) {
               setError(cause instanceof Error ? cause.message : "操作失败");
@@ -34,9 +36,9 @@ export function PrimaryAchievementButton({
         }
         size="sm"
         type="button"
-        variant={primary ? "secondary" : "outline"}
+        variant="outline"
       >
-        {pending ? "保存中…" : primary ? "取消评论旁展示" : "设为评论旁展示"}
+        {pending ? "保存中…" : "设为评论旁展示"}
       </Button>
       {error && (
         <p className="mt-1 text-xs text-destructive" role="alert">

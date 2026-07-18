@@ -313,6 +313,39 @@ describe("ProfessionalAchievementInventory", () => {
 
     expect(screen.getByRole("button", { name: "设为评论旁展示" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "升级 MATH" })).toBeTruthy();
+    const footerClassName = screen
+      .getByRole("dialog")
+      .querySelector('[data-slot="dialog-footer"]')?.className;
+    expect(footerClassName).toContain("flex-row");
+    expect(footerClassName).toContain("items-center");
+    expect(footerClassName).toContain("justify-between");
+    expect(footerClassName).toContain("sm:justify-between");
+    expect(footerClassName).not.toContain("flex-col-reverse");
+  });
+
+  it("does not offer to remove the current achievement from comment display", () => {
+    const item = makeProgramme("MATH", {
+      displayName: "数学",
+      currentTier: "silver",
+      eligible: false,
+    });
+
+    render(
+      <ProfessionalAchievementInventory
+        items={[item]}
+        primaryAchievementId={item.current?.achievementId ?? null}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "数学，已获得" }));
+
+    expect(screen.queryByRole("button", { name: "取消评论旁展示" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "设为评论旁展示" })).toBeNull();
+    expect(screen.getByRole("button", { name: /撤销/ })).toBeTruthy();
+    expect(
+      screen.getByRole("region", { name: "升级条件" }).querySelector(".mt-3")
+        ?.className,
+    ).not.toContain("border-y");
   });
 
   it("supports a silver-to-gold achievement with no bronze tier", () => {
