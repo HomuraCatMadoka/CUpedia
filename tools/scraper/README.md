@@ -6,7 +6,7 @@ own venv (see [ADR 0005](../../docs/adr/0005-course-tree-data-provenance.md)).
 Output lands in `scripts/data/` for the TS ingest scripts to consume.
 
 ```
-tools/scraper/scrape_courses.py   →  scripts/data/courses.json      → pnpm ingest:courses
+tools/scraper/scrape_courses.py   →  scripts/data/{courses,subjects}.json → pnpm ingest:courses
 tools/scraper/scrape_handbook.py  →  scripts/data/handbook/*.{html,json} → pnpm ingest:skeleton
 tools/scraper/scrape_timetable.py →  scripts/data/professors.json → pnpm ingest:professors
 tools/scraper/scrape_staff.py     →  scripts/data/staff-directory.json
@@ -30,6 +30,7 @@ pip install -e .                      # requests + beautifulsoup4 + ddddocr
 python scrape_courses.py --subjects ACCT,CSCI    # a couple of subjects
 python scrape_courses.py                         # all ~259 subjects (~2–3h)
 python scrape_courses.py --fresh                 # ignore prior output, start over
+python scrape_courses.py --catalog-only          # refresh subjects.json only
 
 # Current Handbook Major Programme schemes (latest four admission years)
 python scrape_handbook.py

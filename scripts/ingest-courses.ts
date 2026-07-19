@@ -2,7 +2,7 @@
 // 数据由 tools/scraper/scrape_courses.py 产出。幂等（按 code 冲突更新）。
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import dotenv from "dotenv";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -30,9 +30,12 @@ async function main() {
   const file = resolve(__dirname, "data/courses.json");
   const subjectsFile = resolve(__dirname, "data/subjects.json");
   const raw = JSON.parse(readFileSync(file, "utf8")) as RawCourse[];
-  const subjects = JSON.parse(
-    readFileSync(subjectsFile, "utf8"),
-  ) as RawSubject[];
+  // Keep ingestion compatible with an existing cached courses.json. The
+  // scraper writes subjects.json on every new run, but older data directories
+  // legitimately do not have it yet.
+  const subjects = existsSync(subjectsFile)
+    ? (JSON.parse(readFileSync(subjectsFile, "utf8")) as RawSubject[])
+    : [];
   const rows = raw
     .map(normalizeCourse)
     .filter((c): c is NonNullable<typeof c> => c !== null)
