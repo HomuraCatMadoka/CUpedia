@@ -20,37 +20,47 @@ export function AchievementAvatar({
     lg: "size-28 rounded-xl after:rounded-xl",
     preview: "size-44 rounded-xl after:rounded-xl sm:size-48",
   }[size];
+  const hasTitle = Boolean(title && size !== "xs");
+  const frameRadius = size === "sm" ? "rounded-lg" : "rounded-xl";
 
   return (
     <div className={cn("inline-flex flex-col items-center", className)}>
-      <Avatar
+      <div
         className={cn(
-          dimensions,
-          "overflow-hidden bg-white after:border-black/10",
-          title && "ring-1 ring-[#b8862e] after:border-[#d8b766]",
+          "inline-flex flex-col",
+          hasTitle && cn(frameRadius, "overflow-hidden ring-1 ring-[#b8862e]"),
         )}
       >
-        <AvatarImage
-          alt="用户头像"
-          className="rounded-[inherit] bg-white object-contain p-[3%]"
-          src={resolveAvatarUrl(image)}
-        />
-        <AvatarFallback className="rounded-[inherit] bg-white">
-          CU
-        </AvatarFallback>
-      </Avatar>
-      {title && size !== "xs" && (
-        <span
+        <Avatar
           className={cn(
-            "-mt-px max-w-full rounded-b-md border border-[#d8b766] bg-[#fffaf0] px-2 py-0.5 text-center font-medium text-[#9a6815]",
-            size === "sm" ? "text-[10px]" : "text-xs",
-            (size === "lg" || size === "preview") &&
-              "min-w-24 px-3 py-1 text-sm",
+            dimensions,
+            "overflow-hidden bg-white after:border-black/10",
+            hasTitle &&
+              "rounded-b-none after:rounded-b-none after:border-[#d8b766]",
           )}
         >
-          {title.displayName}
-        </span>
-      )}
+          <AvatarImage
+            alt="用户头像"
+            className="rounded-[inherit] bg-white object-contain p-[3%]"
+            src={resolveAvatarUrl(image)}
+          />
+          <AvatarFallback className="rounded-[inherit] bg-white">
+            CU
+          </AvatarFallback>
+        </Avatar>
+        {hasTitle && title && (
+          <span
+            className={cn(
+              "w-full truncate border-t border-[#d8b766] bg-[#fffaf0] px-1 py-0.5 text-center font-medium text-[#9a6815]",
+              size === "sm" ? "text-[10px]" : "text-xs",
+              (size === "lg" || size === "preview") && "px-3 py-1 text-sm",
+            )}
+            title={title.displayName}
+          >
+            {title.displayName}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
