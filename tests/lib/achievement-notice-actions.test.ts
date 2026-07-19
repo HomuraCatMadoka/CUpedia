@@ -7,7 +7,7 @@ const {
   requireAuth,
   getOptionalUser,
   professionalProgress,
-  fusionProgress,
+  hiddenProgress,
   insert,
   update,
 } = vi.hoisted(() => {
@@ -33,7 +33,7 @@ const {
     requireAuth: vi.fn(),
     getOptionalUser: vi.fn(),
     professionalProgress: vi.fn(),
-    fusionProgress: vi.fn(),
+    hiddenProgress: vi.fn(),
     insert: vi.fn(() => query),
     update: vi.fn(() => query),
   };
@@ -48,9 +48,9 @@ vi.mock("@/lib/achievement-actions", () => ({
   getProfessionalAchievementProgressForUser: (...args: unknown[]) =>
     professionalProgress(...args),
 }));
-vi.mock("@/lib/achievement-fusion-actions", () => ({
-  getPersonTitleProgressForUser: (...args: unknown[]) =>
-    fusionProgress(...args),
+vi.mock("@/lib/hidden-achievement", () => ({
+  getHiddenAchievementGroupsForUser: (...args: unknown[]) =>
+    hiddenProgress(...args),
 }));
 vi.mock("@/db", () => ({
   db: {
@@ -87,7 +87,7 @@ beforeEach(() => {
   requireAuth.mockResolvedValue({ id: "user", role: "user" });
   getOptionalUser.mockResolvedValue({ id: "user" });
   professionalProgress.mockResolvedValue([eligibleProfessional]);
-  fusionProgress.mockResolvedValue([]);
+  hiddenProgress.mockResolvedValue([]);
   transaction.mockImplementation(async (callback) => callback(tx));
 });
 

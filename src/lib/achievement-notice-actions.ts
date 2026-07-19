@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { achievementNotices } from "@/db/schema";
 import { getProfessionalAchievementProgressForUser } from "@/lib/achievement-actions";
-import { getPersonTitleProgressForUser } from "@/lib/achievement-fusion-actions";
+import { getHiddenAchievementGroupsForUser } from "@/lib/hidden-achievement";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
 
 export type AchievementNoticeToast = {
@@ -25,7 +25,7 @@ async function getCurrentOpportunities(
 ): Promise<CurrentOpportunity[]> {
   const [professional, fusion] = await Promise.all([
     getProfessionalAchievementProgressForUser(userId),
-    getPersonTitleProgressForUser(userId),
+    getHiddenAchievementGroupsForUser(userId),
   ]);
   return [
     ...professional
@@ -38,11 +38,11 @@ async function getCurrentOpportunities(
         displayName: item.displayName,
       })),
     ...fusion
-      .filter((item) => item.eligible && !item.redeemed)
+      .filter((item) => item.claimable)
       .map((item) => ({
-        opportunityKey: `fusion:${item.recipeId}:gold`,
+        opportunityKey: `hidden:${item.sourceRuleKey}:legend`,
         kind: "fusion" as const,
-        targetId: item.recipeId,
+        targetId: item.options[0].recipeId,
         targetTier: "gold" as const,
         displayName: item.displayName,
       })),

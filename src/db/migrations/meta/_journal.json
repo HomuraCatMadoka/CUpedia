@@ -288,6 +288,13 @@
       "when": 1784279651677,
       "tag": "0040_sloppy_the_initiative",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784458467982,
+      "tag": "0041_dizzy_bloodstrike",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,384 @@
+{
+  "version": 1,
+  "sourceLabel": "Tencent Docs 专业称号（单专业，2026-07-19）",
+  "recipes": [
+    {
+      "recipeKey": "socrates",
+      "kind": "same_profession_gold",
+      "displayName": "苏格拉底",
+      "badgeCode": "SOCR",
+      "sourceRuleKeys": ["phil-gold"]
+    },
+    {
+      "recipeKey": "xu-yuanchong",
+      "kind": "same_profession_gold",
+      "displayName": "许渊冲",
+      "badgeCode": "XYCH",
+      "sourceRuleKeys": ["tran-gold"]
+    },
+    {
+      "recipeKey": "cangjie",
+      "kind": "same_profession_gold",
+      "displayName": "仓颉",
+      "badgeCode": "CANG",
+      "sourceRuleKeys": ["chll-gold"]
+    },
+    {
+      "recipeKey": "fei-xiaotong",
+      "kind": "same_profession_gold",
+      "displayName": "费孝通",
+      "badgeCode": "FEIX",
+      "sourceRuleKeys": ["ches-gold"]
+    },
+    {
+      "recipeKey": "shakespeare",
+      "kind": "same_profession_gold",
+      "displayName": "莎士比亚",
+      "badgeCode": "SHAK",
+      "sourceRuleKeys": ["enge-gold"]
+    },
+    {
+      "recipeKey": "picasso",
+      "kind": "same_profession_gold",
+      "displayName": "毕加索",
+      "badgeCode": "PICA",
+      "sourceRuleKeys": ["faas-gold"]
+    },
+    {
+      "recipeKey": "sima-qian",
+      "kind": "same_profession_gold",
+      "displayName": "司马迁",
+      "badgeCode": "SIMA",
+      "sourceRuleKeys": ["hist-gold"]
+    },
+    {
+      "recipeKey": "dazai-osamu",
+      "kind": "same_profession_gold",
+      "displayName": "太宰治",
+      "badgeCode": "DAZA",
+      "sourceRuleKeys": ["jasp-gold"]
+    },
+    {
+      "recipeKey": "chao-yuen-ren",
+      "kind": "same_profession_gold",
+      "displayName": "赵元任",
+      "badgeCode": "YREN",
+      "sourceRuleKeys": ["ling-gold"]
+    },
+    {
+      "recipeKey": "bach",
+      "kind": "same_profession_gold",
+      "displayName": "Bach",
+      "badgeCode": "BACH",
+      "sourceRuleKeys": ["musc-gold"]
+    },
+    {
+      "recipeKey": "martin-luther",
+      "kind": "same_profession_gold",
+      "displayName": "马丁路德",
+      "badgeCode": "LUTH",
+      "sourceRuleKeys": ["theo-gold"]
+    },
+
+    {
+      "recipeKey": "buffett",
+      "kind": "same_profession_gold",
+      "displayName": "巴菲特",
+      "badgeCode": "BUFF",
+      "sourceRuleKeys": ["ibba-gold"]
+    },
+    {
+      "recipeKey": "li-ka-shing",
+      "kind": "same_profession_gold",
+      "displayName": "李嘉诚",
+      "badgeCode": "LKSH",
+      "sourceRuleKeys": ["htmg-gold"]
+    },
+
+    {
+      "recipeKey": "tao-xingzhi",
+      "kind": "same_profession_gold",
+      "displayName": "陶行知",
+      "badgeCode": "TAOX",
+      "sourceRuleKeys": ["cled-gold"]
+    },
+
+    {
+      "recipeKey": "elda",
+      "kind": "same_profession_gold",
+      "displayName": "Elda（小叽）",
+      "badgeCode": "ELDA",
+      "sourceRuleKeys": ["aist-gold"]
+    },
+    {
+      "recipeKey": "platelet",
+      "kind": "same_profession_gold",
+      "displayName": "血小板",
+      "badgeCode": "PLAT",
+      "sourceRuleKeys": ["bmeg-gold"]
+    },
+    {
+      "recipeKey": "von-neumann",
+      "kind": "same_profession_gold",
+      "displayName": "冯·诺依曼",
+      "badgeCode": "VONN",
+      "sourceRuleKeys": ["ceng-gold"]
+    },
+    {
+      "recipeKey": "iron-man",
+      "kind": "same_profession_gold",
+      "displayName": "钢铁侠",
+      "badgeCode": "IRON",
+      "sourceRuleKeys": ["eleg-gold"]
+    },
+    {
+      "recipeKey": "wall-e",
+      "kind": "same_profession_gold",
+      "displayName": "WALL-E",
+      "badgeCode": "WALL",
+      "sourceRuleKeys": ["eeen-gold"]
+    },
+    {
+      "recipeKey": "cz",
+      "kind": "same_profession_gold",
+      "displayName": "CZ",
+      "badgeCode": "CZCZ",
+      "sourceRuleKeys": ["ftec-gold"]
+    },
+    {
+      "recipeKey": "shannon",
+      "kind": "same_profession_gold",
+      "displayName": "香农",
+      "badgeCode": "SHAN",
+      "sourceRuleKeys": ["ierg-gold"]
+    },
+    {
+      "recipeKey": "edward-elric",
+      "kind": "same_profession_gold",
+      "displayName": "爱德华·艾力克",
+      "badgeCode": "ELRI",
+      "sourceRuleKeys": ["mase-gold"]
+    },
+    {
+      "recipeKey": "amuro-ray",
+      "kind": "same_profession_gold",
+      "displayName": "阿姆罗·雷",
+      "badgeCode": "AMUR",
+      "sourceRuleKeys": ["maeg-gold"]
+    },
+    {
+      "recipeKey": "sebastian",
+      "kind": "same_profession_gold",
+      "displayName": "塞巴斯蒂安",
+      "badgeCode": "SEBA",
+      "sourceRuleKeys": ["seem-gold"]
+    },
+    {
+      "recipeKey": "alfred-pennyworth",
+      "kind": "same_profession_gold",
+      "displayName": "阿福",
+      "badgeCode": "ALFR",
+      "sourceRuleKeys": ["seem-gold"]
+    },
+    {
+      "recipeKey": "turing",
+      "kind": "same_profession_gold",
+      "displayName": "图灵",
+      "badgeCode": "TURI",
+      "sourceRuleKeys": ["csci-gold"]
+    },
+    {
+      "recipeKey": "fourier",
+      "kind": "same_profession_gold",
+      "displayName": "傅里叶",
+      "badgeCode": "FOUR",
+      "sourceRuleKeys": ["mieg-gold"]
+    },
+
+    {
+      "recipeKey": "grotius",
+      "kind": "same_profession_gold",
+      "displayName": "格劳秀斯",
+      "badgeCode": "GROT",
+      "sourceRuleKeys": ["laws-gold"]
+    },
+
+    {
+      "recipeKey": "lo-yuk-ming",
+      "kind": "same_profession_gold",
+      "displayName": "卢煜明",
+      "badgeCode": "LOYM",
+      "sourceRuleKeys": ["sbms-gold"]
+    },
+    {
+      "recipeKey": "zhong-nanshan",
+      "kind": "same_profession_gold",
+      "displayName": "钟南山",
+      "badgeCode": "ZHNG",
+      "sourceRuleKeys": ["phpc-gold"]
+    },
+    {
+      "recipeKey": "duanmu-rong",
+      "kind": "same_profession_gold",
+      "displayName": "端木蓉",
+      "badgeCode": "DUAN",
+      "sourceRuleKeys": ["bcme-gold"]
+    },
+    {
+      "recipeKey": "hua-tuo",
+      "kind": "same_profession_gold",
+      "displayName": "华佗",
+      "badgeCode": "HUAT",
+      "sourceRuleKeys": ["bcme-gold"]
+    },
+    {
+      "recipeKey": "ai-haibara",
+      "kind": "same_profession_gold",
+      "displayName": "灰原哀",
+      "badgeCode": "HAIB",
+      "sourceRuleKeys": ["phar-gold"]
+    },
+
+    {
+      "recipeKey": "alphafold",
+      "kind": "same_profession_gold",
+      "displayName": "AlphaFold",
+      "badgeCode": "ALPH",
+      "sourceRuleKeys": ["bche-gold"]
+    },
+    {
+      "recipeKey": "dr-zomboss",
+      "kind": "same_profession_gold",
+      "displayName": "僵王博士（Dr. Zomboss）",
+      "badgeCode": "ZOMB",
+      "sourceRuleKeys": ["bche-gold"]
+    },
+    {
+      "recipeKey": "darwin",
+      "kind": "same_profession_gold",
+      "displayName": "达尔文",
+      "badgeCode": "DARW",
+      "sourceRuleKeys": ["biol-gold"]
+    },
+    {
+      "recipeKey": "walter-white",
+      "kind": "same_profession_gold",
+      "displayName": "沃尔特·怀特",
+      "badgeCode": "WALT",
+      "sourceRuleKeys": ["chem-gold"]
+    },
+    {
+      "recipeKey": "nanachi",
+      "kind": "same_profession_gold",
+      "displayName": "娜娜奇",
+      "badgeCode": "NANA",
+      "sourceRuleKeys": ["eesc-gold"]
+    },
+    {
+      "recipeKey": "gordon-ramsay",
+      "kind": "same_profession_gold",
+      "displayName": "Gordon Ramsay",
+      "badgeCode": "RAMS",
+      "sourceRuleKeys": ["fnsc-gold"]
+    },
+    {
+      "recipeKey": "yau-shing-tung",
+      "kind": "same_profession_gold",
+      "displayName": "丘成桐",
+      "badgeCode": "YAUS",
+      "sourceRuleKeys": ["math-gold"]
+    },
+    {
+      "recipeKey": "ramanujan",
+      "kind": "same_profession_gold",
+      "displayName": "拉马努金",
+      "badgeCode": "RAMA",
+      "sourceRuleKeys": ["math-gold"]
+    },
+    {
+      "recipeKey": "einstein",
+      "kind": "same_profession_gold",
+      "displayName": "爱因斯坦",
+      "badgeCode": "EINS",
+      "sourceRuleKeys": ["phys-gold"]
+    },
+    {
+      "recipeKey": "rao",
+      "kind": "same_profession_gold",
+      "displayName": "拉奥",
+      "badgeCode": "RAOO",
+      "sourceRuleKeys": ["stat-gold"]
+    },
+    {
+      "recipeKey": "bayes",
+      "kind": "same_profession_gold",
+      "displayName": "贝叶斯",
+      "badgeCode": "BAYE",
+      "sourceRuleKeys": ["stat-gold"]
+    },
+
+    {
+      "recipeKey": "i-m-pei",
+      "kind": "same_profession_gold",
+      "displayName": "贝聿铭",
+      "badgeCode": "PEII",
+      "sourceRuleKeys": ["arch-gold"]
+    },
+    {
+      "recipeKey": "keynes",
+      "kind": "same_profession_gold",
+      "displayName": "凯恩斯",
+      "badgeCode": "KEYN",
+      "sourceRuleKeys": ["econ-gold"]
+    },
+    {
+      "recipeKey": "chiang-kai-shek",
+      "kind": "same_profession_gold",
+      "displayName": "蒋介石",
+      "badgeCode": "CKSH",
+      "sourceRuleKeys": ["gpad-gold"]
+    },
+    {
+      "recipeKey": "piaget",
+      "kind": "same_profession_gold",
+      "displayName": "皮亚杰",
+      "badgeCode": "PIAG",
+      "sourceRuleKeys": ["psyc-gold"]
+    },
+    {
+      "recipeKey": "beauvoir",
+      "kind": "same_profession_gold",
+      "displayName": "波伏娃",
+      "badgeCode": "BEAU",
+      "sourceRuleKeys": ["gdrs-gold"]
+    },
+    {
+      "recipeKey": "xu-xiake",
+      "kind": "same_profession_gold",
+      "displayName": "徐霞客",
+      "badgeCode": "XUXI",
+      "sourceRuleKeys": ["grmd-gold"]
+    },
+    {
+      "recipeKey": "marco-polo",
+      "kind": "same_profession_gold",
+      "displayName": "马可波罗",
+      "badgeCode": "POLO",
+      "sourceRuleKeys": ["glsd-gold"]
+    },
+    {
+      "recipeKey": "marx",
+      "kind": "same_profession_gold",
+      "displayName": "马克思",
+      "badgeCode": "MARX",
+      "sourceRuleKeys": ["soci-gold"]
+    },
+    {
+      "recipeKey": "liang-sicheng",
+      "kind": "same_profession_gold",
+      "displayName": "梁思成",
+      "badgeCode": "LIAN",
+      "sourceRuleKeys": ["ursp-gold"]
+    }
+  ]
+}

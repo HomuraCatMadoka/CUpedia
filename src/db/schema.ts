@@ -572,6 +572,32 @@ export const achievementFusionRecipes = pgTable(
   ],
 );
 
+export const userHiddenAchievements = pgTable(
+  "user_hidden_achievements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceRuleKey: text("source_rule_key").notNull(),
+    selectedRecipeId: uuid("selected_recipe_id")
+      .notNull()
+      .references(() => achievementFusionRecipes.id, { onDelete: "restrict" }),
+    equipped: boolean("equipped").notNull().default(false),
+    claimedAt: timestamp("claimed_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_hidden_achievements_user_source_uq").on(
+      table.userId,
+      table.sourceRuleKey,
+    ),
+    uniqueIndex("user_hidden_achievements_one_equipped_uq")
+      .on(table.userId)
+      .where(sql`${table.equipped} = true`),
+  ],
+);
+
 export const achievementFusionSources = pgTable(
   "achievement_fusion_sources",
   {

@@ -49,14 +49,16 @@ describe("achievement profiles", () => {
   it("returns a public showcase without review history, evidence, or raw rules", async () => {
     const showcaseId = "00000000-0000-4000-a000-000000000099";
     dbQueue.push(
-      [{ userId: "user-1", showcaseId, nickname: "Alice" }],
+      [{ userId: "user-1", showcaseId, nickname: "Alice", image: null }],
       [],
+      [{ userId: "user-1", showcaseId, image: null }],
       [
         {
           userId: "user-1",
           showcaseId,
           primaryAchievementId: "achievement-1",
           achievementId: "achievement-1",
+          ruleKey: "math-bronze",
           displayName: "数学铜标",
           badgeCode: "MATH",
           tier: "bronze",
@@ -68,11 +70,20 @@ describe("achievement profiles", () => {
           showcaseId,
           primaryAchievementId: "achievement-1",
           achievementId: "achievement-hidden",
+          ruleKey: "hidden-title",
           displayName: "隐藏称号",
           badgeCode: "HIDE",
           tier: "gold",
           category: "hidden",
           description: "绝不能公开的条件",
+        },
+      ],
+      [
+        {
+          userId: "user-1",
+          sourceRuleKey: "math-bronze",
+          displayName: "拉马努金",
+          badgeCode: "RAMA",
         },
       ],
     );
@@ -86,16 +97,29 @@ describe("achievement profiles", () => {
       primary: true,
     });
     expect(showcase?.achievements[1].publicDescription).toBe("");
+    expect(showcase?.equippedTitle).toEqual({
+      displayName: "拉马努金",
+      badgeCode: "MATH",
+    });
     expect(showcase?.achievements[0]).not.toHaveProperty("subjectGroups");
     expect(showcase?.achievements[0]).not.toHaveProperty("evidence");
   });
 
   it("lazily creates one stable random showcase profile for the owner", async () => {
     const showcaseId = "00000000-0000-4000-a000-000000000099";
-    dbQueue.push([], [], [], [{ showcaseId }]);
+    dbQueue.push(
+      [],
+      [],
+      [{ userId: "user-1", showcaseId, image: null }],
+      [],
+      [],
+      [{ showcaseId }],
+    );
 
     await expect(getMyAchievementProfile()).resolves.toEqual({
       showcaseId,
+      avatarUrl: "/images/default-avatar.jpg",
+      equippedTitle: null,
       achievements: [],
     });
     expect(dbChain.onConflictDoNothing).toHaveBeenCalled();

@@ -1,7 +1,9 @@
 import { AchievementCatalogImport } from "@/components/admin/achievement-catalog-import";
 import { AchievementCatalogStatusButton } from "@/components/admin/achievement-catalog-status-button";
 import { AchievementRuleForm } from "@/components/admin/achievement-rule-form";
+import { PersonTitleCatalogImport } from "@/components/admin/person-title-catalog-import";
 import { PersonTitleRecipeForm } from "@/components/admin/person-title-recipe-form";
+import personTitleCatalog from "@/data/person-title-catalog.v1.json";
 import { getPersonTitleRecipes } from "@/lib/achievement-fusion-actions";
 import { getAchievementCatalogs } from "@/lib/achievement-catalog-actions";
 import { getProfessionalAchievementRules } from "@/lib/achievement-actions";
@@ -71,6 +73,9 @@ export default async function AdminAchievementRulesPage() {
         </div>
       </section>
       <AchievementRuleForm />
+      <PersonTitleCatalogImport
+        initialJson={JSON.stringify(personTitleCatalog, null, 2)}
+      />
       <PersonTitleRecipeForm />
       <section aria-labelledby="person-title-recipe-list">
         <h2 className="text-sm font-medium" id="person-title-recipe-list">

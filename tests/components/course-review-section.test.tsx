@@ -274,8 +274,11 @@ describe("CourseReviewSection", () => {
     const authorAchievements = screen.getByLabelText("作者成就");
     expect(screen.getAllByLabelText("作者成就")).toHaveLength(1);
     const authorIdentity = aliceLink.parentElement?.parentElement;
-    expect(authorIdentity?.className).toContain("flex");
+    expect(authorIdentity?.className).toContain("min-w-0");
     expect(authorIdentity?.contains(authorAchievements)).toBe(true);
+    expect(authorAchievements.className).toContain("mt-1");
+    expect(authorIdentity?.children[0]?.contains(aliceLink)).toBe(true);
+    expect(authorIdentity?.children[1]).toBe(authorAchievements);
     expect(
       [...authorAchievements.querySelectorAll("svg")].map((badge) =>
         badge.getAttribute("data-badge-tier"),

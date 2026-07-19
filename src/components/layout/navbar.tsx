@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CommandSearch } from "@/components/layout/command-search";
+import { AchievementAvatar } from "@/components/user/achievement-avatar";
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const router = useRouter();
@@ -122,9 +123,12 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             <CommandSearch />
             {mounted && session?.user ? (
               <DropdownMenu>
-                <DropdownMenuTrigger className="min-h-11 touch-manipulation rounded-md px-3 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1.5">
-                  {((session.user as Record<string, unknown>)
-                    .nickname as string) || session.user.email}
+                <DropdownMenuTrigger className="flex min-h-11 touch-manipulation items-center gap-2 rounded-md px-2 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1">
+                  <AchievementAvatar image={session.user.image} size="xs" />
+                  <span className="hidden sm:inline">
+                    {((session.user as Record<string, unknown>)
+                      .nickname as string) || session.user.email}
+                  </span>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem

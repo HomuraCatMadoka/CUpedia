@@ -23,6 +23,7 @@ import {
   getAchievementSummariesForAuthors,
   type PublicAchievementSummary,
 } from "@/lib/achievement-profile";
+import type { EquippedPersonTitle } from "@/lib/user-avatar";
 import {
   syncAchievementNoticesForUser,
   type AchievementNoticeToast,
@@ -83,6 +84,8 @@ export type CourseReviewView = {
   authorNickname: string | null;
   authorShowcaseId: string | null;
   authorAchievements: PublicAchievementSummary[];
+  authorAvatarUrl?: string | null;
+  authorEquippedTitle?: EquippedPersonTitle | null;
 };
 
 export type ProfessorOption = {
@@ -748,6 +751,8 @@ export async function getCourseReviews(
       authorNickname: r.authorNickname,
       authorShowcaseId: author?.showcaseId ?? null,
       authorAchievements: author?.achievements ?? [],
+      authorAvatarUrl: author?.avatarUrl ?? null,
+      authorEquippedTitle: author?.equippedTitle ?? null,
     };
   });
 
@@ -793,6 +798,8 @@ export async function getCourseReviews(
       authorNickname: null,
       authorShowcaseId: null,
       authorAchievements: [],
+      authorAvatarUrl: null,
+      authorEquippedTitle: null,
     }));
 
   return [...reviewViews, ...ratingOnlyViews].sort((a, b) =>
