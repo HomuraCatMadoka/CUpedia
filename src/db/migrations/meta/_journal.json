@@ -295,6 +295,13 @@
       "when": 1784458467982,
       "tag": "0041_dizzy_bloodstrike",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1784465625899,
+      "tag": "0042_repair_hidden_achievements",
+      "breakpoints": true
     }
   ]
 }
