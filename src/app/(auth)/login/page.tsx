@@ -44,6 +44,7 @@ export default function LoginPage() {
       const { error: authError } = await authClient.signIn.email({
         email,
         password,
+        rememberMe: true,
       });
       if (authError) {
         setError(authError.message ?? "登录失败，请检查邮箱和密码");
