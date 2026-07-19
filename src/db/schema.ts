@@ -234,6 +234,14 @@ export const courses = pgTable(
   (table) => [index("courses_subject_idx").on(table.subject)],
 );
 
+// Official AQS subject catalog. Names belong to the subject, not to every
+// individual course, so keep them normalized in one database-backed catalog.
+export const courseSubjects = pgTable("course_subjects", {
+  code: text("code").primaryKey(),
+  nameEn: text("name_en").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const majors = pgTable("majors", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),

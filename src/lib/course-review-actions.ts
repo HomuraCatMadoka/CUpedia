@@ -9,6 +9,7 @@ import {
   courseEnrollments,
   courseReviewLikes,
   courseReviews,
+  courseSubjects,
   courses,
   professorCourses,
   professorStaffIdentities,
@@ -553,18 +554,25 @@ export async function getCourses(
   };
 }
 
-/** Subject codes with their course counts, alphabetical — powers the subject
- * filter combobox (the count is the only descriptor the catalog carries; there
- * is no subject-name/faculty column). */
+/** Subject codes, database-backed display names, and course counts. */
 export async function getSubjects(): Promise<
-  { subject: string; count: number }[]
+  { subject: string; name: string | null; count: number }[]
 > {
   const rows = await db
-    .select({ subject: courses.subject, count: count() })
+    .select({
+      subject: courses.subject,
+      nameEn: courseSubjects.nameEn,
+      count: count(),
+    })
     .from(courses)
-    .groupBy(courses.subject)
+    .leftJoin(courseSubjects, eq(courseSubjects.code, courses.subject))
+    .groupBy(courses.subject, courseSubjects.nameEn)
     .orderBy(courses.subject);
-  return rows.map((r) => ({ subject: r.subject, count: Number(r.count) }));
+  return rows.map((r) => ({
+    subject: r.subject,
+    name: r.nameEn,
+    count: Number(r.count),
+  }));
 }
 
 /** Fetch a single course by code (space-insensitive), or null if unknown. */

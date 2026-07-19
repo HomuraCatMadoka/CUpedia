@@ -302,6 +302,20 @@
       "when": 1784465625899,
       "tag": "0042_repair_hidden_achievements",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1784475468032,
+      "tag": "0043_jittery_cable",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784475474499,
+      "tag": "0044_seed_official_course_subjects",
+      "breakpoints": true
     }
   ]
 }

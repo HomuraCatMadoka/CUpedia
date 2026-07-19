@@ -79,14 +79,18 @@ def _hidden(soup) -> dict[str, str]:
     }
 
 
-def subjects(s) -> list[str]:
+def subject_catalog(s) -> list[dict[str, str]]:
     soup = BeautifulSoup(common.get(s, CATALOG), "html.parser")
     sel = soup.find("select", id="ddl_subject")
-    return [
-        o["value"]
-        for o in sel.find_all("option")
-        if re.fullmatch(r"[A-Z]{3,4}", o.get("value", ""))
-    ]
+    catalog = []
+    for option in sel.find_all("option"):
+        code = option.get("value", "")
+        if not re.fullmatch(r"[A-Z]{3,4}", code):
+            continue
+        label = option.get_text(" ", strip=True)
+        name = re.sub(rf"^{re.escape(code)}\s*-\s*", "", label).strip()
+        catalog.append({"code": code, "nameEn": name or code})
+    return catalog
 
 
 def reach_listing(s, subject: str, retries: int = 8) -> str | None:
@@ -183,18 +187,30 @@ def main() -> None:
     ap.add_argument("--subjects", help="comma-separated subset, e.g. ACCT,CSCI")
     ap.add_argument("--limit-subjects", type=int, default=0, help="0 = all")
     ap.add_argument("--fresh", action="store_true", help="ignore existing output")
+    ap.add_argument(
+        "--catalog-only",
+        action="store_true",
+        help="refresh subjects.json without solving captchas or scraping courses",
+    )
     args = ap.parse_args()
 
     s = common.session()
+    catalog = subject_catalog(s)
     targets = (
         [x.strip().upper() for x in args.subjects.split(",")]
         if args.subjects
-        else subjects(s)
+        else [item["code"] for item in catalog]
     )
     if args.limit_subjects:
         targets = targets[: args.limit_subjects]
 
     data_dir = common.ensure_data_dir()
+    (data_dir / "subjects.json").write_text(
+        json.dumps(catalog, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    if args.catalog_only:
+        print(f'done: {len(catalog)} subjects -> {data_dir / "subjects.json"}')
+        return
     out = data_dir / "courses.json"
     ledger = data_dir / "courses.attempted.json"  # every attempted subject, incl. empty
     fresh = args.fresh

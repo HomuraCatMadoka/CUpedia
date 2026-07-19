@@ -117,6 +117,7 @@ import {
   getCourseRatingState,
   getCourseReviews,
   getCourses,
+  getSubjects,
   getCourseProfessorStats,
   searchProfessors,
   getCourseEnrollmentHistory,
@@ -1216,6 +1217,28 @@ describe("getCourses（学科筛选 #267）", () => {
     const result = await getCourses({ page: 2 });
     expect(result.page).toBe(2);
     expect(offset()).toHaveBeenCalledWith(48);
+  });
+});
+
+describe("getSubjects", () => {
+  it("返回数据库中的官方英文学科名", async () => {
+    queueRows([
+      {
+        subject: "ELED",
+        nameEn: "English Language Education",
+        count: 17,
+      },
+      {
+        subject: "ELEG",
+        nameEn: "Electronic Engineering",
+        count: 32,
+      },
+    ]);
+
+    await expect(getSubjects()).resolves.toEqual([
+      { subject: "ELED", name: "English Language Education", count: 17 },
+      { subject: "ELEG", name: "Electronic Engineering", count: 32 },
+    ]);
   });
 });
 
