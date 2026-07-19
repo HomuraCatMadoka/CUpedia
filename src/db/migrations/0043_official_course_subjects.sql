@@ -1,3 +1,9 @@
+CREATE TABLE "course_subjects" (
+	"code" text PRIMARY KEY NOT NULL,
+	"name_en" text NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 -- Seed the database from the official CUHK AQS subject catalog snapshot.
 -- Future refreshes come from tools/scraper/scrape_courses.py -> pnpm ingest:courses.
 INSERT INTO "course_subjects" ("code", "name_en") VALUES
