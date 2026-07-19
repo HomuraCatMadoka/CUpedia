@@ -195,6 +195,13 @@
       "sourceRuleKeys": ["seem-gold"]
     },
     {
+      "recipeKey": "zhuge-liang",
+      "kind": "same_profession_gold",
+      "displayName": "诸葛亮",
+      "badgeCode": "ZHUG",
+      "sourceRuleKeys": ["seem-gold"]
+    },
+    {
       "recipeKey": "turing",
       "kind": "same_profession_gold",
       "displayName": "图灵",

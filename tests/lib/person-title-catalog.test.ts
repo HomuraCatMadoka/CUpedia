@@ -18,7 +18,7 @@ describe("person-title catalog validation", () => {
   it("contains only the approved single-programme recipes", () => {
     const catalog = validatePersonTitleCatalog(catalogV1);
 
-    expect(catalog.recipes).toHaveLength(55);
+    expect(catalog.recipes).toHaveLength(56);
     expect(
       new Set(catalog.recipes.flatMap((recipe) => recipe.sourceRuleKeys)),
     ).toHaveProperty("size", 49);
@@ -50,6 +50,11 @@ describe("person-title catalog validation", () => {
         .filter((recipe) => recipe.sourceRuleKeys.includes("pacc-gold"))
         .map((recipe) => recipe.displayName),
     ).toEqual(["不学会计", "巴菲特"]);
+    expect(
+      catalog.recipes
+        .filter((recipe) => recipe.sourceRuleKeys.includes("seem-gold"))
+        .map((recipe) => recipe.displayName),
+    ).toEqual(["塞巴斯蒂安", "阿福", "诸葛亮"]);
   });
 
   it("normalizes a valid catalog and defaults recipes to enabled", () => {
