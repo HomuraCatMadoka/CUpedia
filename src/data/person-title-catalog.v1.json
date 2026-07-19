@@ -94,6 +94,20 @@
       "badgeCode": "LKSH",
       "sourceRuleKeys": ["htmg-gold"]
     },
+    {
+      "recipeKey": "no-accounting",
+      "kind": "same_profession_gold",
+      "displayName": "不学会计",
+      "badgeCode": "NOAC",
+      "sourceRuleKeys": ["pacc-gold"]
+    },
+    {
+      "recipeKey": "buffett-pacc",
+      "kind": "same_profession_gold",
+      "displayName": "巴菲特",
+      "badgeCode": "PBUF",
+      "sourceRuleKeys": ["pacc-gold"]
+    },
 
     {
       "recipeKey": "tao-xingzhi",

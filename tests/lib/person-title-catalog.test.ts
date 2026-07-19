@@ -18,10 +18,10 @@ describe("person-title catalog validation", () => {
   it("contains only the approved single-programme recipes", () => {
     const catalog = validatePersonTitleCatalog(catalogV1);
 
-    expect(catalog.recipes).toHaveLength(53);
+    expect(catalog.recipes).toHaveLength(55);
     expect(
       new Set(catalog.recipes.flatMap((recipe) => recipe.sourceRuleKeys)),
-    ).toHaveProperty("size", 48);
+    ).toHaveProperty("size", 49);
     expect(
       catalog.recipes.every((recipe) => recipe.kind === "same_profession_gold"),
     ).toBe(true);
@@ -45,6 +45,11 @@ describe("person-title catalog validation", () => {
     ).not.toEqual(
       expect.arrayContaining(["cdas-gold", "cmbi-gold", "mbte-gold"]),
     );
+    expect(
+      catalog.recipes
+        .filter((recipe) => recipe.sourceRuleKeys.includes("pacc-gold"))
+        .map((recipe) => recipe.displayName),
+    ).toEqual(["不学会计", "巴菲特"]);
   });
 
   it("normalizes a valid catalog and defaults recipes to enabled", () => {
