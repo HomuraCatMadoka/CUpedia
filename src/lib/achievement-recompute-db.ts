@@ -15,6 +15,7 @@ import {
   type AchievementDeletionImpact,
   type RecomputableAchievement,
 } from "@/lib/achievement-recompute";
+import { evaluateSubjectCountRule } from "@/lib/achievement-evaluator";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -22,6 +23,174 @@ export type PublicDeletionImpact = {
   kind: AchievementDeletionImpact["kind"] | "dismantled";
   nextTier?: "bronze" | "silver" | "gold" | null;
 };
+
+/** Replaces fallback ESTR evidence with newly available regular engineering
+ * subjects. The full prerequisite chain is matched together so the rewrite
+ * preserves every already-redeemed tier and the global one-rating constraint. */
+export async function rebindFallbackAchievementEvidenceAfterRatingChange(
+  tx: Transaction,
+  userId: string,
+): Promise<number> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+  const achievementRows = await tx
+    .select({
+      id: userAchievements.id,
+      tier: userAchievements.tier,
+      status: userAchievements.status,
+      ruleKey: achievementRules.ruleKey,
+      prerequisiteRuleKey: achievementRules.prerequisiteRuleKey,
+      subjectCodes: achievementRules.subjectCodes,
+      subjectGroups: achievementRules.subjectGroups,
+      requiredCount: achievementRules.requiredCount,
+    })
+    .from(userAchievements)
+    .innerJoin(
+      achievementRules,
+      eq(userAchievements.ruleId, achievementRules.id),
+    )
+    .where(
+      and(
+        eq(userAchievements.userId, userId),
+        ne(userAchievements.status, "revoked"),
+        eq(achievementRules.category, "professional"),
+      ),
+    );
+  const evidenceRows = await tx
+    .select({
+      achievementId: achievementEvidence.achievementId,
+      ratingId: achievementEvidence.ratingId,
+    })
+    .from(achievementEvidence)
+    .innerJoin(
+      userAchievements,
+      eq(achievementEvidence.achievementId, userAchievements.id),
+    )
+    .where(eq(userAchievements.userId, userId));
+  const ratings = await tx
+    .select({
+      id: courseRatings.id,
+      courseCode: courseRatings.courseCode,
+      subject: courses.subject,
+    })
+    .from(courseRatings)
+    .innerJoin(courses, eq(courseRatings.courseCode, courses.code))
+    .where(eq(courseRatings.userId, userId));
+
+  const evidenceByAchievement = new Map<string, string[]>();
+  for (const row of evidenceRows) {
+    const ids = evidenceByAchievement.get(row.achievementId) ?? [];
+    ids.push(row.ratingId);
+    evidenceByAchievement.set(row.achievementId, ids);
+  }
+  const achievements: RecomputableAchievement[] = achievementRows.map(
+    (row) => ({
+      id: row.id,
+      tier: row.tier as RecomputableAchievement["tier"],
+      status: row.status as RecomputableAchievement["status"],
+      ruleKey: row.ruleKey,
+      prerequisiteRuleKey: row.prerequisiteRuleKey,
+      subjectGroups:
+        row.subjectGroups.length > 0
+          ? row.subjectGroups
+          : [
+              {
+                subjectCodes: row.subjectCodes,
+                requiredCount: row.requiredCount,
+              },
+            ],
+      evidenceRatingIds: evidenceByAchievement.get(row.id) ?? [],
+    }),
+  );
+  const ratingById = new Map(ratings.map((rating) => [rating.id, rating]));
+  const byKey = new Map(achievements.map((item) => [item.ruleKey, item]));
+  const prerequisiteKeys = new Set(
+    achievements.flatMap((item) =>
+      item.prerequisiteRuleKey ? [item.prerequisiteRuleKey] : [],
+    ),
+  );
+  const leaves = achievements.filter(
+    (item) => !prerequisiteKeys.has(item.ruleKey),
+  );
+  let reboundChains = 0;
+
+  for (const leaf of leaves) {
+    const chain: RecomputableAchievement[] = [];
+    let cursor: RecomputableAchievement | undefined = leaf;
+    while (cursor) {
+      chain.unshift(cursor);
+      cursor = cursor.prerequisiteRuleKey
+        ? byKey.get(cursor.prerequisiteRuleKey)
+        : undefined;
+    }
+    const chainIds = new Set(chain.map((item) => item.id));
+    const currentEvidence = chain.flatMap(
+      (item) => evidenceByAchievement.get(item.id) ?? [],
+    );
+    if (
+      !currentEvidence.some(
+        (ratingId) => ratingById.get(ratingId)?.subject === "ESTR",
+      )
+    ) {
+      continue;
+    }
+
+    const occupiedOutsideChain = new Set(
+      [...evidenceByAchievement.entries()].flatMap(([achievementId, ids]) =>
+        chainIds.has(achievementId) ? [] : ids,
+      ),
+    );
+    const evaluation = evaluateSubjectCountRule(
+      { subjectGroups: chain.flatMap((item) => item.subjectGroups) },
+      ratings,
+      occupiedOutsideChain,
+    );
+    if (!evaluation.eligible) continue;
+
+    const nextEvidence = new Map<string, string[]>();
+    let slotOffset = 0;
+    for (const item of chain) {
+      const slotCount = item.subjectGroups.reduce(
+        (total, group) => total + group.requiredCount,
+        0,
+      );
+      nextEvidence.set(
+        item.id,
+        evaluation.evidenceRatingIdsBySlot.slice(
+          slotOffset,
+          slotOffset + slotCount,
+        ),
+      );
+      slotOffset += slotCount;
+    }
+    const changed = chain.some((item) => {
+      const current = [...(evidenceByAchievement.get(item.id) ?? [])].sort();
+      const next = [...(nextEvidence.get(item.id) ?? [])].sort();
+      return current.join("\0") !== next.join("\0");
+    });
+    if (!changed) continue;
+
+    await tx
+      .delete(achievementEvidence)
+      .where(inArray(achievementEvidence.achievementId, [...chainIds]));
+    const nextRows = [...nextEvidence.entries()].flatMap(
+      ([achievementId, ratingIds]) =>
+        ratingIds.map((ratingId) => ({
+          achievementId,
+          ratingId,
+          courseCode: ratingById.get(ratingId)!.courseCode,
+        })),
+    );
+    if (nextRows.length) {
+      await tx.insert(achievementEvidence).values(nextRows);
+    }
+    for (const [achievementId, ratingIds] of nextEvidence) {
+      evidenceByAchievement.set(achievementId, ratingIds);
+    }
+    reboundChains += 1;
+  }
+
+  return reboundChains;
+}
 
 export async function recomputeAchievementsBeforeRatingDeletion(
   tx: Transaction,

@@ -93,4 +93,38 @@ describe("evaluateSubjectCountRule", () => {
 
     expect(result).toMatchObject({ eligible: true, matchedCount: 2 });
   });
+
+  it("uses ESTR only when regular engineering subjects cannot fill the rule", () => {
+    const rule = {
+      subjectGroups: [
+        { subjectCodes: ["CSCI", "ENGG", "ESTR"], requiredCount: 4 },
+      ],
+    };
+    const regularRatings = [
+      { id: "c1", courseCode: "CSCI1000", subject: "CSCI" },
+      { id: "c2", courseCode: "CSCI2000", subject: "CSCI" },
+      { id: "e1", courseCode: "ENGG1000", subject: "ENGG" },
+      { id: "e2", courseCode: "ENGG2000", subject: "ENGG" },
+    ];
+    const estr = { id: "s1", courseCode: "ESTR1000", subject: "ESTR" };
+
+    const withEnoughRegular = evaluateSubjectCountRule(rule, [
+      estr,
+      ...regularRatings,
+    ]);
+    expect(withEnoughRegular.evidenceRatingIds).not.toContain("s1");
+
+    const needsFallback = evaluateSubjectCountRule(rule, [
+      estr,
+      ...regularRatings.slice(0, 3),
+    ]);
+    expect(needsFallback).toMatchObject({ eligible: true, matchedCount: 4 });
+    expect(needsFallback.evidenceRatingIds).toContain("s1");
+
+    const afterRegularReview = evaluateSubjectCountRule(rule, [
+      estr,
+      ...regularRatings,
+    ]);
+    expect(afterRegularReview.evidenceRatingIds).not.toContain("s1");
+  });
 });

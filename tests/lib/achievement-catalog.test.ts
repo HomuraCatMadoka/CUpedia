@@ -76,6 +76,37 @@ describe("achievement catalog validation", () => {
     });
   });
 
+  it("adds ESTR as a fallback to every engineering group only", () => {
+    const result = validateAchievementCatalog({
+      version: 4,
+      sourceLabel: "engineering fallback review",
+      programmes: [
+        {
+          ...programme("engineering-test", "engineering"),
+          tiers: [
+            {
+              tier: "bronze",
+              displayName: "工科铜标",
+              subjectGroups: [
+                { subjectCodes: ["ENGG"], requiredCount: 2 },
+                { subjectCodes: ["CSCI", "ESTR"], requiredCount: 2 },
+              ],
+            },
+          ],
+        },
+        { ...programme("science-test", "science"), tiers: [tier("bronze")] },
+      ],
+    });
+
+    expect(result.rules[0].subjectGroups).toEqual([
+      { subjectCodes: ["ENGG", "ESTR"], requiredCount: 2 },
+      { subjectCodes: ["CSCI", "ESTR"], requiredCount: 2 },
+    ]);
+    expect(result.rules[0].subjectCodes).toEqual(["ENGG", "ESTR", "CSCI"]);
+    expect(result.rules[0].requiredCount).toBe(4);
+    expect(result.rules[1].subjectGroups[0].subjectCodes).toEqual(["TEST"]);
+  });
+
   it("allows an approved programme to start at silver with eight ratings", () => {
     const result = validateAchievementCatalog({
       version: 3,

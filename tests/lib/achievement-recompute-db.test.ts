@@ -20,7 +20,10 @@ const { queue, chain, execute, insert, update, remove } = vi.hoisted(() => {
 
 vi.mock("@/db", () => ({ db: { transaction: vi.fn() } }));
 
-import { recomputeAchievementsBeforeRatingDeletion } from "@/lib/achievement-recompute-db";
+import {
+  rebindFallbackAchievementEvidenceAfterRatingChange,
+  recomputeAchievementsBeforeRatingDeletion,
+} from "@/lib/achievement-recompute-db";
 
 const tx = {
   select: () => chain,
@@ -177,5 +180,71 @@ describe("fusion recovery after rating deletion", () => {
     );
     expect(update).not.toHaveBeenCalled();
     expect(remove).toHaveBeenCalledOnce();
+  });
+});
+
+describe("ESTR fallback evidence rebinding", () => {
+  const engineeringAchievement = {
+    id: "engineering",
+    tier: "bronze",
+    status: "active",
+    ruleKey: "csci-bronze",
+    prerequisiteRuleKey: null,
+    subjectCodes: ["CSCI", "ENGG", "ESTR"],
+    subjectGroups: [
+      { subjectCodes: ["CSCI", "ENGG", "ESTR"], requiredCount: 4 },
+    ],
+    requiredCount: 4,
+  };
+  const engineeringRatings = [
+    { id: "c1", courseCode: "CSCI1000", subject: "CSCI" },
+    { id: "c2", courseCode: "CSCI2000", subject: "CSCI" },
+    { id: "e1", courseCode: "ENGG1000", subject: "ENGG" },
+    { id: "e2", courseCode: "ENGG2000", subject: "ENGG" },
+    { id: "s1", courseCode: "ESTR1000", subject: "ESTR" },
+  ];
+
+  it("releases ESTR when a regular engineering rating becomes available", async () => {
+    queue.push(
+      [engineeringAchievement],
+      [
+        { achievementId: "engineering", ratingId: "c1" },
+        { achievementId: "engineering", ratingId: "c2" },
+        { achievementId: "engineering", ratingId: "e1" },
+        { achievementId: "engineering", ratingId: "s1" },
+      ],
+      engineeringRatings,
+      [],
+      [],
+    );
+
+    await expect(
+      rebindFallbackAchievementEvidenceAfterRatingChange(tx as never, "user"),
+    ).resolves.toBe(1);
+    expect(chain.values).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ ratingId: "e2" })]),
+    );
+    const insertedRows = (chain.values as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as Array<{ ratingId: string }>;
+    expect(insertedRows.map((row) => row.ratingId)).not.toContain("s1");
+  });
+
+  it("does not rewrite evidence when the chain is not using ESTR", async () => {
+    queue.push(
+      [engineeringAchievement],
+      [
+        { achievementId: "engineering", ratingId: "c1" },
+        { achievementId: "engineering", ratingId: "c2" },
+        { achievementId: "engineering", ratingId: "e1" },
+        { achievementId: "engineering", ratingId: "e2" },
+      ],
+      engineeringRatings,
+    );
+
+    await expect(
+      rebindFallbackAchievementEvidenceAfterRatingChange(tx as never, "user"),
+    ).resolves.toBe(0);
+    expect(remove).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
   });
 });
