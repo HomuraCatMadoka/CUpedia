@@ -53,6 +53,7 @@ describe("LoginPage password sign-in", () => {
       expect(signInEmail).toHaveBeenCalledWith({
         email: "user@test.com",
         password: "password123",
+        rememberMe: true,
       }),
     );
     expect(screen.queryByText("仅支持 CUHK 邮箱")).toBeNull();

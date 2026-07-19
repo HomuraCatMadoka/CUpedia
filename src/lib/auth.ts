@@ -69,6 +69,8 @@ export const auth = betterAuth({
   // sign-ins in one window would otherwise trip better-auth's 429 default.
   rateLimit: { enabled: process.env.E2E_TEST !== "1" },
   session: {
+    expiresIn: 60 * 60 * 24 * 365,
+    updateAge: 60 * 60 * 24,
     cookieCache: {
       enabled: true,
       maxAge: 300,
