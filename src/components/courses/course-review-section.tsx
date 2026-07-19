@@ -984,7 +984,7 @@ export function CourseReviewSection({
                   {review.authorAchievements.length > 0 && (
                     <div
                       aria-label="作者成就"
-                      className="mt-1 flex flex-wrap items-center gap-1"
+                      className="mt-1 flex flex-wrap items-end gap-1"
                     >
                       {[...review.authorAchievements]
                         .sort((a, b) => {

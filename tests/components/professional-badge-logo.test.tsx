@@ -34,6 +34,10 @@ describe("ProfessionalBadgeLogo", () => {
       expect(badge.querySelectorAll("circle")).toHaveLength(0);
       expect(badge.querySelectorAll("path")).toHaveLength(0);
       expect(badge.querySelectorAll("text")).toHaveLength(1);
+      expect(badge.querySelector("text")?.getAttribute("font-size")).toBe("17");
+      expect(badge.querySelector("text")?.getAttribute("font-weight")).toBe(
+        "800",
+      );
     },
   );
 
@@ -57,9 +61,14 @@ describe("ProfessionalBadgeLogo", () => {
     );
 
     const badge = screen.getByRole("img");
+    const label = badge.querySelector("text");
     expect(badge.getAttribute("width")).toBe("52");
-    expect(badge.getAttribute("height")).toBe("22");
-    expect(badge.getAttribute("viewBox")).toBe("0 19 64 27");
+    expect(badge.getAttribute("height")).toBe("15");
+    expect(badge.getAttribute("viewBox")).toBe("0 24 64 18");
+    expect(label?.getAttribute("dominant-baseline")).toBe("alphabetic");
+    expect(label?.getAttribute("x")).toBe("0");
+    expect(label?.getAttribute("text-anchor")).toBe("start");
+    expect(label?.getAttribute("y")).toBe("39");
   });
 
   it.each(["math", "Math", "MAT", "MATHS", "数学01", "AB1D"])(

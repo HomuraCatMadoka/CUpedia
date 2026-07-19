@@ -206,6 +206,10 @@ describe("CourseReviewSection", () => {
             tags: [],
             authorNickname: "Alice",
             authorShowcaseId: "00000000-0000-4000-a000-000000000099",
+            authorEquippedTitle: {
+              displayName: "牛顿",
+              badgeCode: "NEWT",
+            },
             authorAchievements: [
               {
                 id: "a2",
@@ -270,6 +274,7 @@ describe("CourseReviewSection", () => {
     expect(screen.getByRole("img", { name: "MATH 金级专业成就" })).toBeTruthy();
     expect(screen.getByRole("img", { name: "ECON 银级专业成就" })).toBeTruthy();
     expect(screen.getByRole("img", { name: "PHYS 铜级专业成就" })).toBeTruthy();
+    expect(screen.getByText("牛顿")).toBeTruthy();
     expect(screen.getByText("匿名用户")).toBeTruthy();
     const authorAchievements = screen.getByLabelText("作者成就");
     expect(screen.getAllByLabelText("作者成就")).toHaveLength(1);
@@ -277,6 +282,7 @@ describe("CourseReviewSection", () => {
     expect(authorIdentity?.className).toContain("min-w-0");
     expect(authorIdentity?.contains(authorAchievements)).toBe(true);
     expect(authorAchievements.className).toContain("mt-1");
+    expect(authorAchievements.className).toContain("items-end");
     expect(authorIdentity?.children[0]?.contains(aliceLink)).toBe(true);
     expect(authorIdentity?.children[1]).toBe(authorAchievements);
     expect(
