@@ -20,7 +20,7 @@ test.describe("#315 global Header navigation ownership", () => {
       "/college-picker",
     );
     await expect(
-      header.getByRole("link", { name: "课程测评（测试中）" }),
+      header.getByRole("link", { name: "课程测评" }),
     ).toHaveAttribute("href", "/courses");
     await expect(header.getByRole("link", { name: "选课技能树" })).toHaveCount(
       0,
@@ -46,7 +46,7 @@ test.describe("#315 global Header navigation ownership", () => {
       page.getByRole("button", { name: "搜索 (⌘K)" }),
       page.getByRole("link", { name: "登录" }),
       page.getByRole("link", { name: "分院帽" }),
-      page.getByRole("link", { name: "课程测评（测试中）" }),
+      page.getByRole("link", { name: "课程测评" }),
     ];
 
     for (const target of targets) {

@@ -116,7 +116,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               href="/courses"
               className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
             >
-              课程测评（测试中）
+              课程测评
             </Link>
           </div>
           <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
