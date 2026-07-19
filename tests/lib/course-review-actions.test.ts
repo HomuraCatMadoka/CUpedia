@@ -10,6 +10,7 @@ import {
 
 const mockGetAchievementSummaries = vi.hoisted(() => vi.fn());
 const mockRecomputeAchievements = vi.hoisted(() => vi.fn());
+const mockRebindAchievementEvidence = vi.hoisted(() => vi.fn());
 const mockSyncAchievementNotices = vi.hoisted(() => vi.fn());
 
 // ref #177 — course-review MVP data layer.
@@ -89,6 +90,8 @@ vi.mock("@/lib/achievement-profile", () => ({
     mockGetAchievementSummaries(...args),
 }));
 vi.mock("@/lib/achievement-recompute-db", () => ({
+  rebindFallbackAchievementEvidenceAfterRatingChange: (...args: unknown[]) =>
+    mockRebindAchievementEvidence(...args),
   recomputeAchievementsBeforeRatingDeletion: (...args: unknown[]) =>
     mockRecomputeAchievements(...args),
 }));
@@ -147,6 +150,7 @@ beforeEach(() => {
   mockGetOptionalUser.mockResolvedValue(null);
   mockGetAchievementSummaries.mockResolvedValue(new Map());
   mockRecomputeAchievements.mockResolvedValue({ kind: "unchanged" });
+  mockRebindAchievementEvidence.mockResolvedValue(0);
   mockSyncAchievementNotices.mockResolvedValue([]);
   dbTransaction.mockImplementation(
     async (
@@ -224,6 +228,10 @@ describe("submitCourseReview", () => {
         professorNameSnapshot: "Professor CHAN",
         isAnonymous: false,
       }),
+    );
+    expect(mockRebindAchievementEvidence).toHaveBeenCalledWith(
+      expect.anything(),
+      "u1",
     );
   });
 

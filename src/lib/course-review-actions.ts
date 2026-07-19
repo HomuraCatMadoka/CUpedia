@@ -29,6 +29,7 @@ import {
   type AchievementNoticeToast,
 } from "@/lib/achievement-notice-actions";
 import {
+  rebindFallbackAchievementEvidenceAfterRatingChange,
   recomputeAchievementsBeforeRatingDeletion,
   type PublicDeletionImpact,
 } from "@/lib/achievement-recompute-db";
@@ -1122,6 +1123,7 @@ export async function submitCourseReview(
   const existingReview = existingReviews[0];
 
   await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${user.id}))`);
     await tx
       .insert(courseRatings)
       .values({
@@ -1188,6 +1190,8 @@ export async function submitCourseReview(
           ),
         );
     }
+
+    await rebindFallbackAchievementEvidenceAfterRatingChange(tx, user.id);
   });
 
   revalidatePath(`/courses/${course.code}`);

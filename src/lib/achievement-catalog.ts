@@ -160,10 +160,17 @@ export function validateAchievementCatalog(
       if (!["bronze", "silver", "gold"].includes(tier)) {
         throw new Error(`${label}称号等级无效`);
       }
-      const subjectGroups = normalizeSubjectGroups(
+      const normalizedSubjectGroups = normalizeSubjectGroups(
         tierRule.subjectGroups,
         `${label}${tier}`,
       );
+      const subjectGroups = normalizedSubjectGroups.map((group) => ({
+        ...group,
+        subjectCodes:
+          faculty === "engineering"
+            ? [...new Set([...group.subjectCodes, "ESTR"])]
+            : group.subjectCodes,
+      }));
       const requiredCount = subjectGroups.reduce(
         (sum, group) => sum + group.requiredCount,
         0,

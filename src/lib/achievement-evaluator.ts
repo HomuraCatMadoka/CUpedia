@@ -16,6 +16,8 @@ export type SubjectCountEvaluation = {
   evidenceRatingIdsBySlot: string[];
 };
 
+const FALLBACK_SUBJECT_CODES = new Set(["ESTR"]);
+
 export function evaluateSubjectCountRule(
   rule: SubjectCountRule,
   ratings: AchievementRating[],
@@ -33,7 +35,12 @@ export function evaluateSubjectCountRule(
       seenCourses.add(rating.courseCode);
       return true;
     })
-    .sort((a, b) => a.courseCode.localeCompare(b.courseCode));
+    .sort(
+      (a, b) =>
+        Number(FALLBACK_SUBJECT_CODES.has(a.subject)) -
+          Number(FALLBACK_SUBJECT_CODES.has(b.subject)) ||
+        a.courseCode.localeCompare(b.courseCode),
+    );
 
   const slots = rule.subjectGroups.flatMap((group) =>
     Array.from(
