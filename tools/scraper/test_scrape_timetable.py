@@ -26,7 +26,7 @@ class TimetableScraperTest(unittest.TestCase):
 
     def test_rejects_truncated_or_title_only_instructors(self):
         value = "\n".join([
-            "Pr", "Pro", "Profes", "Profess", "Professor", "Dr.",
+            "Pr", "Pro", "Prof", "Profes", "Profess", "Professor", "Dr.",
             "Professor CHAN Wing Kai",
         ])
 

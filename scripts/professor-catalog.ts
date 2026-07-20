@@ -27,6 +27,7 @@ const INVALID_NAMES = new Set([
   "to be announced",
   "pr",
   "pro",
+  "prof",
   "profes",
   "profess",
   "professor",

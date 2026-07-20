@@ -57,6 +57,12 @@ class BuildStaffSourceQueueTest(unittest.TestCase):
             ]
         }
         directory = {
+            "scope": {"mode": "full", "complete": True},
+            "organisations": [{
+                "name": "Example Department",
+                "sourceUrl": "https://example.test/department/",
+                "staffCoverage": {"complete": True, "expected": None, "scraped": 0},
+            }],
             "people": [{
                 "id": "pure:ada",
                 "name": "Professor Ada LOVELACE",
@@ -78,6 +84,12 @@ class BuildStaffSourceQueueTest(unittest.TestCase):
     def test_does_not_remove_ambiguous_directory_names(self):
         audit = {"records": [self.record("same", "Ada LOVELACE", None)]}
         directory = {
+            "scope": {"mode": "full", "complete": True},
+            "organisations": [{
+                "name": "Example Department",
+                "sourceUrl": "https://example.test/department/",
+                "staffCoverage": {"complete": True, "expected": None, "scraped": 0},
+            }],
             "people": [
                 {"id": "one", "name": "Dr. Ada LOVELACE", "profileUrl": "one"},
                 {"id": "two", "name": "Professor Ada LOVELACE", "profileUrl": "two"},
@@ -85,6 +97,18 @@ class BuildStaffSourceQueueTest(unittest.TestCase):
         }
 
         self.assertEqual(subject.directory_matches(audit, directory), {})
+
+    def test_rejects_incomplete_directory_matches(self):
+        audit = {"records": [self.record("same", "Ada LOVELACE", None)]}
+        directory = {
+            "scope": {"mode": "full", "complete": False},
+            "people": [
+                {"id": "one", "name": "Dr. Ada LOVELACE", "profileUrl": "one"}
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            subject.directory_matches(audit, directory)
 
     @staticmethod
     def record(professor_id, name, source_url):

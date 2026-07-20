@@ -11,6 +11,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import common
 import resolve_staff_pilot
+import scrape_staff
 
 
 TARGET_CLASSIFICATION = "current_cuhk_missing_person"
@@ -29,6 +30,7 @@ def canonical_source_url(value: str) -> str:
 
 def directory_matches(audit: dict, directory: dict) -> dict[str, dict]:
     """Return uniquely named official directory people keyed by professor id."""
+    scrape_staff.require_complete_directory(directory)
     people_by_name: dict[str, list[dict]] = defaultdict(list)
     for person in directory.get("people", []):
         people_by_name[resolve_staff_pilot.name_key(person["name"])].append(person)

@@ -59,8 +59,11 @@ python compare_staff_production.py
 # Group reviewed missing people by official source. A refreshed Pure directory
 # removes newly resolved identities before prioritizing roster adapters:
 python build_staff_source_queue.py --directory ../../scripts/data/staff-directory.json
-# Render the complete organisation/person snapshot as convergent SQL:
+# Render a newly observed, complete organisation/person snapshot as SQL:
 python render_staff_directory_import.py
+# Reconcile every production automatic identity from live database aliases;
+# this is the only workflow that intentionally performs a global replacement:
+python reconcile_professor_staff_identities.py
 # Render the reviewed report as a transactional, idempotent SQL import:
 python render_staff_import.py
 # The first full run takes roughly three hours because robots.txt requires a
@@ -107,7 +110,11 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   cached source pages were actually fetched.
   `--preview` deliberately returns only the staff cards exposed on each
   department overview and marks `staffCoverage.complete` false; it is for
-  validating new departments before a full sitemap-backed run.
+  validating new departments before a full sitemap-backed run. The scraper
+  publishes `scope.complete` only when the run is full and every organisation
+  coverage check passes. Import, comparison and source-queue tools reject any
+  directory without that explicit completeness guarantee, as well as otherwise
+  complete runs filtered with `--faculties` or `--departments`.
 - **Staff resolution pilot** — `resolve_staff_pilot.py` reads the linked Supabase
   project but never writes to it. It resolves the six Engineering department
   course prefixes against
@@ -117,6 +124,10 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   Every department also records `staffCoverage`; a Research Portal count larger
   than the profile-affiliation join is reported as incomplete, so the captured
   “official staff without courses” list is not treated as a complete conclusion.
+  Global directory workflows additionally require coverage for every managed
+  organisation, including standalone institutes, centres and offices. Consumers
+  recompute affiliation counts from the people payload and reject inconsistent,
+  scoped or empty snapshots before generating SQL.
   `render_staff_import.py` refuses unresolved or incomplete input, preserves
   timetable aliases, renders reviewed duplicate merges, and only assigns a
   timetable name when that exact alias belongs to one staff identity.
@@ -134,7 +145,12 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   maintained there; `staff_people.is_current` remains true while any source is
   current. Directory imports only clear aliases and automatic timetable links
   owned by the sources declared in that import, so adding a department roster
-  cannot reset identities maintained by another adapter.
+  cannot reset identities maintained by another adapter. Automatic professor
+  identities are reconciled only for professor IDs declared in the local
+  professor snapshot; production IDs absent from that snapshot are preserved.
+  Imports take a transaction-scoped advisory lock and require `observed_at` to
+  be newer than all managed rows. Retrying the same generated SQL is rejected
+  safely instead of counting a replay as another missing-source observation.
 - **All-faculty production validation** — `compare_staff_production.py` performs
   no writes. It accepts only a normalized exact name that identifies one official
   profile or a reviewed evidence-backed alias, keeps homonyms ambiguous, and

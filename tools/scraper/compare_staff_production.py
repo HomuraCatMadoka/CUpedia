@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import common
+import scrape_staff
 from resolve_staff_pilot import REPO_ROOT, load_cached_people, name_key
 
 
@@ -185,6 +186,7 @@ def build_report(
     portal_people: list[dict] | None = None,
     reviewed_aliases: list[dict] | None = None,
 ) -> dict:
+    scrape_staff.require_complete_directory(directory)
     people = directory_people(directory)
     candidates_by_name: dict[str, list[dict]] = defaultdict(list)
     for person in people.values():

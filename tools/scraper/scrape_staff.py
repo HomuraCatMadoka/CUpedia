@@ -373,12 +373,12 @@ def build_directory(
         }
         faculties_by_url[faculty_url]["departments"].append(department)
         departments_by_url[org.url] = department
-    departments_by_name = {
-        item["name"].casefold(): item for item in departments_by_url.values()
-    }
-    faculties_by_name = {
-        item["name"].casefold(): item for item in faculties_by_url.values()
-    }
+    departments_by_name: dict[str, list[dict]] = {}
+    for item in departments_by_url.values():
+        departments_by_name.setdefault(item["name"].casefold(), []).append(item)
+    faculties_by_name: dict[str, list[dict]] = {}
+    for item in faculties_by_url.values():
+        faculties_by_name.setdefault(item["name"].casefold(), []).append(item)
 
     descendants_by_name: dict[str, list[str]] = {}
     for item in descendants:
@@ -399,10 +399,14 @@ def build_directory(
                 org_url = matching_urls[0] if len(matching_urls) == 1 else None
             if org_url in in_scope_urls:
                 official_people.add(person["id"])
-            department = departments_by_url.get(org_url) or departments_by_name.get(
-                org_name
+            named_departments = departments_by_name.get(org_name, [])
+            department = departments_by_url.get(org_url) or (
+                named_departments[0] if len(named_departments) == 1 else None
             )
-            faculty = faculties_by_url.get(org_url) or faculties_by_name.get(org_name)
+            named_faculties = faculties_by_name.get(org_name, [])
+            faculty = faculties_by_url.get(org_url) or (
+                named_faculties[0] if len(named_faculties) == 1 else None
+            )
             item = {
                 "id": person["id"],
                 "name": person["name"],
@@ -546,17 +550,107 @@ def department_urls(value: str | None) -> list[str]:
     return sorted(set(urls))
 
 
-def add_staff_coverage(result: dict, expected_counts: dict[str, int | None], mode: str) -> None:
+def organisation_staff_counts(result: dict) -> dict[str, int]:
+    organisations_by_url = {}
+    for item in result.get("organisations", []):
+        if not item.get("sourceUrl") or not item.get("name"):
+            raise ValueError("Cannot calculate organisation coverage from malformed data")
+        if item["sourceUrl"] in organisations_by_url:
+            raise ValueError("Cannot calculate organisation coverage with duplicate URLs")
+        organisations_by_url[item["sourceUrl"]] = item
+    organisation_urls_by_name: dict[str, list[str]] = {}
+    for item in organisations_by_url.values():
+        organisation_urls_by_name.setdefault(item["name"].casefold(), []).append(
+            item["sourceUrl"]
+        )
+    staff_by_organisation: dict[str, set[str]] = {
+        url: set() for url in organisations_by_url
+    }
+    for person in result.get("people", []):
+        assigned_urls = set()
+        for affiliation in person.get("affiliations", []):
+            organisation_url = affiliation.get("organisationUrl")
+            if organisation_url not in organisations_by_url:
+                matching_urls = organisation_urls_by_name.get(
+                    affiliation.get("organisation", "").casefold(), []
+                )
+                organisation_url = (
+                    matching_urls[0] if len(matching_urls) == 1 else None
+                )
+            if organisation_url in organisations_by_url:
+                assigned_urls.add(organisation_url)
+        for organisation_url in assigned_urls:
+            if not person.get("id"):
+                raise ValueError(
+                    "Cannot calculate organisation coverage for a person without an id"
+                )
+            staff_by_organisation[organisation_url].add(person["id"])
+    return {
+        organisation_url: len(person_ids)
+        for organisation_url, person_ids in staff_by_organisation.items()
+    }
+
+
+def add_staff_coverage(
+    result: dict, expected_counts: dict[str, int | None], mode: str
+) -> None:
+    organisations_by_url = {
+        item["sourceUrl"]: item for item in result.get("organisations", [])
+    }
+    staff_counts = organisation_staff_counts(result)
+
+    for organisation_url, organisation in organisations_by_url.items():
+        expected = expected_counts.get(organisation_url)
+        scraped = staff_counts[organisation_url]
+        organisation["staffCoverage"] = {
+            "complete": mode == "full"
+            and (expected is None or scraped >= expected),
+            "expected": expected,
+            "scraped": scraped,
+        }
+
     for faculty in result["faculties"]:
         for department in faculty["departments"]:
-            expected = expected_counts.get(department["sourceUrl"])
-            scraped = len(department["staff"])
-            department["staffCoverage"] = {
-                "complete": mode == "full"
-                and (expected is None or scraped >= expected),
-                "expected": expected,
-                "scraped": scraped,
-            }
+            department["staffCoverage"] = organisations_by_url[
+                department["sourceUrl"]
+            ]["staffCoverage"].copy()
+
+
+def staff_coverage_complete(result: dict, mode: str) -> bool:
+    organisations = result.get("organisations", [])
+    if mode != "full" or not organisations:
+        return False
+    staff_counts = organisation_staff_counts(result)
+    for organisation in organisations:
+        coverage = organisation.get("staffCoverage", {})
+        expected = coverage.get("expected")
+        scraped = coverage.get("scraped")
+        if coverage.get("complete") is not True:
+            return False
+        if (
+            type(scraped) is not int
+            or scraped != staff_counts[organisation["sourceUrl"]]
+        ):
+            return False
+        if expected is not None and (
+            type(expected) is not int or expected < 0 or scraped < expected
+        ):
+            return False
+    return True
+
+
+def require_complete_directory(directory: dict) -> None:
+    scope = directory.get("scope", {})
+    if scope.get("mode") != "full":
+        raise ValueError("Refusing to use a non-full staff directory")
+    if scope.get("complete") is not True:
+        raise ValueError("Refusing to use an incomplete staff directory")
+    if scope.get("selectedDepartments") or scope.get("selectedFaculties"):
+        raise ValueError("Refusing to use a scoped staff directory")
+    if not staff_coverage_complete(directory, "full"):
+        raise ValueError(
+            "Refusing to use directory without complete organisation coverage"
+        )
 
 
 def main() -> None:
@@ -600,6 +694,7 @@ def main() -> None:
     if args.workers < 1:
         raise SystemExit("--workers must be at least 1")
     selected_departments = department_urls(args.departments)
+    faculty_filter = parse_faculty_filter(args.faculties)
     if args.preview and not selected_departments:
         raise SystemExit("--preview requires --departments")
 
@@ -648,7 +743,7 @@ def main() -> None:
             print(f"  persons {index}/{len(person_urls)}", end="\r", flush=True)
     print()
 
-    result = build_directory(organisations, people, parse_faculty_filter(args.faculties))
+    result = build_directory(organisations, people, faculty_filter)
     if fetcher.source_times:
         result["sourceFetchedAtRange"] = {
             "oldest": min(fetcher.source_times).isoformat().replace("+00:00", "Z"),
@@ -658,8 +753,10 @@ def main() -> None:
     result["scope"] = {
         "mode": mode,
         "selectedDepartments": selected_departments,
+        "selectedFaculties": sorted(faculty_filter or []),
     }
     add_staff_coverage(result, expected_counts, mode)
+    result["scope"]["complete"] = staff_coverage_complete(result, mode)
     filename = "staff-directory.preview.json" if args.preview else "staff-directory.json"
     out = data_dir / filename
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")

@@ -35,6 +35,7 @@ describe("professor catalog", () => {
     for (const value of [
       "Pr",
       "Pro",
+      "Prof",
       "Profes",
       "Profess",
       "Professor",

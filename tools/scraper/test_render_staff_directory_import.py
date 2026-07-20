@@ -8,7 +8,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
         faculty_url = "https://example.test/faculty/"
         centre_url = "https://example.test/centre/"
         return {
-            "scope": {"mode": "full"},
+            "scope": {"mode": "full", "complete": True},
             "sourceFetchedAtRange": {
                 "oldest": "2026-07-15T00:00:00Z",
                 "newest": "2026-07-15T01:00:00Z",
@@ -21,6 +21,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                     "organisationType": "faculty",
                     "parentUrl": None,
                     "facultyUrl": faculty_url,
+                    "staffCoverage": {"complete": True, "expected": None, "scraped": 0},
                 },
                 {
                     "id": "office",
@@ -29,6 +30,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                     "organisationType": "office",
                     "parentUrl": None,
                     "facultyUrl": None,
+                    "staffCoverage": {"complete": True, "expected": None, "scraped": 0},
                 },
                 {
                     "id": "centre",
@@ -37,10 +39,12 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                     "organisationType": "centre",
                     "parentUrl": faculty_url,
                     "facultyUrl": faculty_url,
+                    "staffCoverage": {"complete": True, "expected": 1, "scraped": 1},
                 },
             ],
             "people": [
                 {
+                    "id": "ada",
                     "externalId": "9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2",
                     "name": "Professor Ada LOVELACE",
                     "profileUrl": "https://example.test/ada/",
@@ -81,18 +85,41 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                 "source_url": "https://example.test/ada/",
             }],
         )
+        self.assertEqual(
+            payload["managed_person_sources"],
+            ["cuhk_research_portal", "reviewed_department_directory"],
+        )
 
     def test_sql_uses_two_run_inactivation(self):
         sql = subject.render_sql(subject.build_payload(self.directory()))
         self.assertIn("missing_runs + 1 < 2", sql)
         self.assertIn("insert into staff_person_sources", sql)
         self.assertIn("update staff_person_sources", sql)
+        self.assertIn("payload->'managed_person_sources'", sql)
+        self.assertNotIn(
+            "where person_source.source = 'cuhk_research_portal'", sql
+        )
         self.assertIn("source identity key belongs to another person", sql)
         self.assertNotIn("person_id = excluded.person_id", sql)
         self.assertIn("update staff_organisations", sql)
         self.assertIn("update staff_people", sql)
         self.assertIn("update course_offering_instructors", sql)
         self.assertIn("offering.match_status <> 'manual'", sql)
+
+    def test_sql_rejects_replayed_or_stale_snapshot_before_mutation(self):
+        sql = subject.render_sql(subject.build_payload(self.directory()))
+
+        lock_position = sql.index("pg_advisory_xact_lock")
+        guard_position = sql.index("Staff directory snapshot is not newer")
+        people_insert_position = sql.index("insert into staff_people")
+        self.assertLess(lock_position, guard_position)
+        self.assertLess(guard_position, people_insert_position)
+        self.assertIn(
+            "person_source.last_seen_at >= snapshot_observed_at", sql
+        )
+        self.assertIn(
+            "organisation.last_seen_at >= snapshot_observed_at", sql
+        )
 
     def test_sql_scopes_alias_cleanup_and_offering_reset_to_import(self):
         sql = subject.render_sql(subject.build_payload(self.directory()))
@@ -109,6 +136,12 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
         directory = self.directory()
         directory["scope"]["mode"] = "preview"
         with self.assertRaisesRegex(ValueError, "non-full"):
+            subject.build_payload(directory)
+
+    def test_rejects_incomplete_full_directory(self):
+        directory = self.directory()
+        directory["scope"]["complete"] = False
+        with self.assertRaisesRegex(ValueError, "incomplete"):
             subject.build_payload(directory)
 
     def test_reviewed_alias_reuses_official_person(self):
@@ -161,6 +194,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
     def test_ambiguous_normalized_name_is_not_linked(self):
         directory = self.directory()
         directory["people"].append({
+            "id": "other-ada",
             "externalId": "2cb2c1ef-7772-47c2-8125-6e0739f537b1",
             "name": "Professor Ada LOVELACE",
             "profileUrl": "https://example.test/other-ada/",
@@ -308,19 +342,25 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
         self.assertEqual(source["source_key"], person["id"])
         self.assertEqual(source["source_url"], "https://department.example/roster.pdf")
 
-    def test_directory_identity_sql_updates_automatic_and_preserves_manual(self):
+    def test_directory_identity_sql_replaces_automatic_and_preserves_manual(self):
         payload = subject.build_payload(
             self.directory(),
-            professors=[{"id": "prof-1", "name": "LOVELACE Ada"}],
+            professors=[
+                {"id": "prof-1", "name": "LOVELACE Ada"},
+                {"id": "prof-unmatched", "name": "Unknown Person"},
+            ],
         )
         sql = subject.render_sql(payload)
 
-        self.assertNotIn("delete from professor_staff_identities", sql)
-        self.assertIn("payload->'professor_links'", sql)
-        self.assertIn("on conflict (professor_id) do update", sql)
-        self.assertIn(
-            "where professor_staff_identities.match_method = 'automatic'", sql
+        self.assertEqual(
+            payload["managed_professor_ids"],
+            ["prof-1", "prof-unmatched"],
         )
+        self.assertIn("delete from professor_staff_identities", sql)
+        self.assertIn("where identity.match_method = 'automatic'", sql)
+        self.assertIn("payload->'managed_professor_ids'", sql)
+        self.assertIn("payload->'professor_links'", sql)
+        self.assertIn("on conflict (professor_id) do nothing", sql)
         self.assertNotIn("where match_method = 'manual_override'", sql)
 
     def test_identity_sql_is_omitted_without_professor_snapshot(self):

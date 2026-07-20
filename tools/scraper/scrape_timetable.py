@@ -19,7 +19,7 @@ TERM_PAUSE = 0.5
 _ocr = None
 INVALID_INSTRUCTOR_NAMES = {
     "", "-", "staff", "tba", "to be announced",
-    "pr", "pro", "profes", "profess", "professor", "prof.",
+    "pr", "pro", "prof", "profes", "profess", "professor", "prof.",
     "doctor", "dr", "dr.", "mr", "mr.", "ms", "ms.", "miss",
 }
 
