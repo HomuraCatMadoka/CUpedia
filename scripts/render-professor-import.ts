@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 import {
   buildProfessorCatalog,
+  isValidProfessorName,
   normalizeProfessorName,
   type CourseInstructorOverride,
   type TeachingStaffSource,
@@ -214,7 +215,9 @@ async function main() {
       section: row.section,
       quota: row.quota,
       vacancy: row.vacancy,
-      instructors: row.instructors.map(normalizeProfessorName),
+      instructors: row.instructors
+        .map(normalizeProfessorName)
+        .filter(isValidProfessorName),
     })),
     overrides: overrides.map((override) => ({
       course_prefix: override.coursePrefix,

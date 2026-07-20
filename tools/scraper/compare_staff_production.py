@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import common
+import scrape_staff
 from resolve_staff_pilot import REPO_ROOT, load_cached_people, name_key
 
 
@@ -51,7 +52,9 @@ def load_production(path: Path | None) -> list[dict]:
     if path is None:
         return query_production()
     value = json.loads(path.read_text(encoding="utf-8"))
-    return value.get("rows", value)
+    if isinstance(value, list):
+        return value
+    return value.get("rows") or value.get("professors") or []
 
 
 def directory_people(directory: dict) -> dict[str, dict]:
@@ -79,10 +82,10 @@ def directory_people(directory: dict) -> dict[str, dict]:
                 if not organisation or organisation_url in seen:
                     continue
                 seen.add(organisation_url)
-                faculty = organisations[organisation["facultyUrl"]]
+                faculty = organisations.get(organisation.get("facultyUrl"))
                 memberships.append(
                     {
-                        "faculty": faculty["name"],
+                        "faculty": faculty["name"] if faculty else None,
                         "department": (
                             None
                             if organisation["organisationType"] == "faculty"
@@ -183,6 +186,7 @@ def build_report(
     portal_people: list[dict] | None = None,
     reviewed_aliases: list[dict] | None = None,
 ) -> dict:
+    scrape_staff.require_complete_directory(directory)
     people = directory_people(directory)
     candidates_by_name: dict[str, list[dict]] = defaultdict(list)
     for person in people.values():
@@ -294,7 +298,7 @@ def build_report(
     matched_profiles = set(production_by_profile)
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "mode": "all_faculties_read_only_exact_name_validation",
+        "mode": "all_organisations_read_only_exact_name_validation",
         "summary": {
             "faculties": len(faculties),
             "departments": sum(len(faculty["departments"]) for faculty in faculties),

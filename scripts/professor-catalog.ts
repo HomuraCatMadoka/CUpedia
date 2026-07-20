@@ -19,7 +19,28 @@ export type CourseInstructorOverride = {
   evidenceUrl: string;
 };
 
-const INVALID_NAMES = new Set(["", "-", "staff", "tba", "to be announced"]);
+const INVALID_NAMES = new Set([
+  "",
+  "-",
+  "staff",
+  "tba",
+  "to be announced",
+  "pr",
+  "pro",
+  "prof",
+  "profes",
+  "profess",
+  "professor",
+  "prof.",
+  "doctor",
+  "dr",
+  "dr.",
+  "mr",
+  "mr.",
+  "ms",
+  "ms.",
+  "miss",
+]);
 
 export function normalizeProfessorName(value: string): string {
   return value
@@ -30,6 +51,10 @@ export function normalizeProfessorName(value: string): string {
     .replace(/^(professor|prof\.)\s+/i, "Professor ")
     .replace(/^(doctor|dr\.)\s+/i, "Dr. ")
     .replace(/\s+/g, " ");
+}
+
+export function isValidProfessorName(value: string): boolean {
+  return !INVALID_NAMES.has(normalizeProfessorName(value).toLocaleLowerCase());
 }
 
 export function professorId(name: string, identityKey?: string): string {
@@ -49,7 +74,7 @@ export function buildProfessorCatalog(
   const records = new Map<string, ProfessorCatalogRecord>();
   for (const source of sources) {
     const name = normalizeProfessorName(source.name);
-    if (INVALID_NAMES.has(name.toLocaleLowerCase())) continue;
+    if (!isValidProfessorName(name)) continue;
     for (const course of source.courses.map((code) =>
       code.replace(/\s+/g, "").toUpperCase(),
     )) {

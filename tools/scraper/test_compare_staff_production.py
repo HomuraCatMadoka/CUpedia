@@ -1,4 +1,7 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
 import compare_staff_production as subject
 
@@ -10,6 +13,12 @@ def staff(name, url):
 class CompareStaffProductionTest(unittest.TestCase):
     def setUp(self):
         self.directory = {
+            "scope": {"mode": "full", "complete": True},
+            "organisations": [{
+                "name": "Department of One",
+                "sourceUrl": "https://example.test/one/",
+                "staffCoverage": {"complete": True, "expected": None, "scraped": 0},
+            }],
             "faculties": [
                 {
                     "name": "Faculty of Example",
@@ -63,18 +72,21 @@ class CompareStaffProductionTest(unittest.TestCase):
 
     def test_organisation_first_directory_builds_faculty_summary(self):
         directory = {
+            "scope": {"mode": "full", "complete": True},
             "organisations": [
                 {
                     "name": "Faculty of Example",
                     "sourceUrl": "https://example.test/faculty/",
                     "organisationType": "faculty",
                     "facultyUrl": "https://example.test/faculty/",
+                    "staffCoverage": {"complete": True, "expected": None, "scraped": 0},
                 },
                 {
                     "name": "Department of One",
                     "sourceUrl": "https://example.test/one/",
                     "organisationType": "department",
                     "facultyUrl": "https://example.test/faculty/",
+                    "staffCoverage": {"complete": True, "expected": 1, "scraped": 1},
                 },
             ],
             "people": [{
@@ -92,6 +104,49 @@ class CompareStaffProductionTest(unittest.TestCase):
         self.assertEqual(report["summary"]["faculties"], 1)
         self.assertEqual(report["summary"]["departments"], 1)
         self.assertEqual(report["faculties"]["Faculty of Example"]["officialPeople"], 1)
+
+    def test_organisation_first_directory_keeps_standalone_unit(self):
+        directory = {
+            "scope": {"mode": "full", "complete": True},
+            "organisations": [
+                {
+                    "name": "Independent Research Institute",
+                    "sourceUrl": "https://example.test/institute/",
+                    "organisationType": "institute",
+                    "facultyUrl": None,
+                    "staffCoverage": {"complete": True, "expected": 1, "scraped": 1},
+                }
+            ],
+            "people": [
+                {
+                    "id": "grace",
+                    "name": "Grace HOPPER",
+                    "email": None,
+                    "profileUrl": "https://example.test/grace/",
+                    "affiliations": [
+                        {
+                            "organisation": "Independent Research Institute",
+                            "organisationUrl": "https://example.test/institute/",
+                        }
+                    ],
+                }
+            ],
+        }
+
+        report = subject.build_report(
+            directory,
+            [{"id": "p1", "name": "HOPPER Grace", "courses": []}],
+        )
+
+        self.assertEqual(report["summary"]["officialPeople"], 1)
+        self.assertEqual(report["summary"]["matchedProductionRows"], 1)
+        self.assertEqual(report["summary"]["unmatchedProductionRows"], 0)
+
+    def test_rejects_incomplete_directory(self):
+        directory = {**self.directory, "scope": {"mode": "full", "complete": False}}
+
+        with self.assertRaisesRegex(ValueError, "incomplete"):
+            subject.build_report(directory, [])
 
     def test_separates_other_portal_units_from_missing_profiles(self):
         production = [
@@ -128,6 +183,16 @@ class CompareStaffProductionTest(unittest.TestCase):
 
         self.assertEqual(report["summary"]["matchedProductionRows"], 1)
         self.assertEqual(report["summary"]["unmatchedProductionRows"], 0)
+
+    def test_loads_exported_production_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "professors.json"
+            path.write_text(
+                json.dumps({"professors": [{"id": "p1", "name": "Ada"}]}),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(subject.load_production(path), [{"id": "p1", "name": "Ada"}])
 
 
 if __name__ == "__main__":
