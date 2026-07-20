@@ -76,6 +76,18 @@ describe("CourseFilters", () => {
     );
   });
 
+  it("关闭抽屉时按网址状态更新移动端筛选按钮样式", () => {
+    const { rerender } = render(<CourseFilters credits="3" subjects={[]} />);
+    const activeTrigger = screen.getAllByRole("button", { name: "筛选" })[0];
+    expect(activeTrigger.className).toContain("bg-muted");
+
+    rerender(<CourseFilters subjects={[]} />);
+
+    const clearedTrigger = screen.getAllByRole("button", { name: "筛选" })[0];
+    expect(clearedTrigger.className).toContain("bg-background");
+    expect(clearedTrigger.className).not.toContain("bg-muted");
+  });
+
   it("展开后保留完整官方英文名，并提供原生悬停文本", () => {
     const name = "Entrepreneurship & Innovation";
     render(<CourseFilters subjects={[{ subject: "EPIN", name, count: 16 }]} />);

@@ -500,6 +500,9 @@ function MobileFilterDrawer({
   const [selectedCredits, setSelectedCredits] = useState(credits ?? "");
   const [selectedLevel, setSelectedLevel] = useState(level ?? "");
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const hasActiveFilters = open
+    ? Boolean(selectedCredits || selectedLevel)
+    : Boolean(credits || level);
 
   function changeOpen(nextOpen: boolean) {
     if (nextOpen) {
@@ -527,9 +530,7 @@ function MobileFilterDrawer({
         onClick={() => changeOpen(true)}
         className={cn(
           "flex min-h-11 min-w-24 touch-manipulation items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition-colors hover:border-foreground/30 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
-          selectedCredits || selectedLevel
-            ? "border-foreground/40 bg-muted"
-            : "bg-background",
+          hasActiveFilters ? "border-foreground/40 bg-muted" : "bg-background",
         )}
         aria-haspopup="dialog"
         aria-expanded={open}
