@@ -140,6 +140,16 @@ function queueRows(...rows: unknown[]) {
   dbQueue.push(...rows);
 }
 
+function sqlText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map(sqlText).join("");
+  if (!value || typeof value !== "object") return "";
+  const chunk = value as { queryChunks?: unknown[]; value?: unknown[] };
+  if (chunk.queryChunks) return sqlText(chunk.queryChunks);
+  if (chunk.value) return sqlText(chunk.value);
+  return "";
+}
+
 const values = () => dbChain.values as Mock;
 
 beforeEach(() => {
@@ -1193,6 +1203,7 @@ describe("getCourseReviews", () => {
 describe("getCourses（学科筛选 #267）", () => {
   const limit = () => dbChain.limit as Mock;
   const offset = () => dbChain.offset as Mock;
+  const orderBy = () => dbChain.orderBy as Mock;
 
   it("返回总课程数和当前页，课程目录不再被静默截断为 48 门", async () => {
     const firstPage = Array.from({ length: 48 }, (_, i) => ({
@@ -1217,6 +1228,40 @@ describe("getCourses（学科筛选 #267）", () => {
     const result = await getCourses({ page: 2 });
     expect(result.page).toBe(2);
     expect(offset()).toHaveBeenCalledWith(48);
+  });
+
+  it("支持按最新评价和评价人数排序", async () => {
+    queueRows([{ total: 1 }], [{ ...COURSE }], [], []);
+    await getCourses({ sort: "latest" });
+    const latestOrder = orderBy().mock.calls.at(-1)?.[0];
+
+    queueRows([{ total: 1 }], [{ ...COURSE }], [], []);
+    await getCourses({ sort: "rating-count" });
+    const ratingCountOrder = orderBy().mock.calls.at(-1)?.[0];
+
+    expect(sqlText(latestOrder)).toContain("desc nulls last");
+    expect(sqlText(latestOrder)).toContain("max(");
+    expect(sqlText(ratingCountOrder)).toContain("count(*)");
+    expect(sqlText(ratingCountOrder)).not.toContain("nulls last");
+  });
+
+  it("返回最后评论时间，不混入评分时间", async () => {
+    const latestReview = new Date("2026-07-19T12:30:00.000Z");
+    queueRows(
+      [{ total: 1 }],
+      [{ ...COURSE }],
+      [{ code: COURSE.code, avg: "4.5", cnt: 2 }],
+      [{ code: COURSE.code, cnt: 1, latestAt: latestReview }],
+    );
+
+    const result = await getCourses({ subject: "CSCI" });
+
+    expect(result.courses[0]).toMatchObject({
+      rating: 4.5,
+      ratingCount: 2,
+      reviewCount: 1,
+      latestCommentAt: latestReview.toISOString(),
+    });
   });
 });
 

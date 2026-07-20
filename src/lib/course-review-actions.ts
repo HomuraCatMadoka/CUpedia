@@ -140,6 +140,8 @@ export type CourseView = Course & {
   /** User-average rating (one decimal), or null when nobody has rated yet. */
   rating: number | null;
   ratingCount: number;
+  /** Most recent written review, for recency context in the catalog. */
+  latestCommentAt: string | null;
 };
 
 export type CourseRatingState = {
@@ -167,6 +169,8 @@ export type CourseFilter = {
   subject?: string;
   /** Course level by leading digit: "1000".."4000", or "5000" for 5000+ (postgrad). */
   level?: string;
+  /** Catalog order. Defaults to the number of unique evaluators. */
+  sort?: "latest" | "rating-count";
   /** One-based catalog page. */
   page?: number;
 };
@@ -473,7 +477,11 @@ async function buildViews(rows: CourseRow[]): Promise<CourseView[]> {
       .where(inArray(courseRatings.courseCode, codes))
       .groupBy(courseRatings.courseCode),
     db
-      .select({ code: courseReviews.courseCode, cnt: count() })
+      .select({
+        code: courseReviews.courseCode,
+        cnt: count(),
+        latestAt: sql<Date | null>`max(${courseReviews.createdAt})`,
+      })
       .from(courseReviews)
       .where(inArray(courseReviews.courseCode, codes))
       .groupBy(courseReviews.courseCode),
@@ -481,18 +489,34 @@ async function buildViews(rows: CourseRow[]): Promise<CourseView[]> {
   const ratingMap = new Map(
     ratingRows.map((r) => [
       r.code,
-      { avg: Number(r.avg ?? 0), cnt: Number(r.cnt) },
+      {
+        avg: Number(r.avg ?? 0),
+        cnt: Number(r.cnt),
+      },
     ]),
   );
-  const reviewMap = new Map(reviewRows.map((r) => [r.code, Number(r.cnt)]));
+  const reviewMap = new Map(
+    reviewRows.map((r) => [
+      r.code,
+      { cnt: Number(r.cnt), latestAt: r.latestAt },
+    ]),
+  );
 
   return rows.map((r) => {
-    const agg = ratingMap.get(r.code) ?? { avg: 0, cnt: 0 };
+    const agg = ratingMap.get(r.code) ?? {
+      avg: 0,
+      cnt: 0,
+    };
+    const reviewAgg = reviewMap.get(r.code) ?? { cnt: 0, latestAt: null };
     return {
       ...toCourse(r),
       rating: agg.cnt > 0 ? roundScore(agg.avg) : null,
       ratingCount: agg.cnt,
-      reviewCount: reviewMap.get(r.code) ?? 0,
+      reviewCount: reviewAgg.cnt,
+      latestCommentAt:
+        reviewAgg.latestAt instanceof Date
+          ? reviewAgg.latestAt.toISOString()
+          : null,
     };
   });
 }
@@ -509,6 +533,7 @@ export async function getCourses(
   const creditsCond = creditsCondition(filter.credits);
   const levelCond = levelCondition(filter.level);
   const subject = filter.subject?.trim().toUpperCase();
+  const sort = filter.sort === "latest" ? "latest" : "rating-count";
   const page = Math.max(1, Math.floor(filter.page ?? 1));
   const like = `%${q.toLowerCase()}%`;
   const codeLike = `%${normalizeCode(q).toLowerCase()}%`;
@@ -524,6 +549,20 @@ export async function getCourses(
         )
       : undefined,
   );
+  const ratingCountOrder = sql`(
+    select count(*) from ${courseRatings}
+    where ${courseRatings.courseCode} = ${courses.code}
+  )`;
+  const latestEvaluationOrder = sql`greatest(
+    (select max(${courseRatings.createdAt}) from ${courseRatings}
+      where ${courseRatings.courseCode} = ${courses.code}),
+    (select max(${courseReviews.createdAt}) from ${courseReviews}
+      where ${courseReviews.courseCode} = ${courses.code})
+  )`;
+  const selectedOrder =
+    sort === "latest"
+      ? sql`${latestEvaluationOrder} desc nulls last`
+      : sql`${ratingCountOrder} desc`;
 
   const [totalRows, rows] = await Promise.all([
     db.select({ total: count() }).from(courses).where(where),
@@ -534,12 +573,8 @@ export async function getCourses(
       .orderBy(
         q
           ? sql`case when lower(${courses.code}) like ${codePrefix} then 0 else 1 end`
-          : sql`(
-              (select count(*) from ${courseRatings}
-                where ${courseRatings.courseCode} = ${courses.code}) +
-              (select count(*) from ${courseReviews}
-                where ${courseReviews.courseCode} = ${courses.code})
-            ) desc`,
+          : selectedOrder,
+        ...(q ? [selectedOrder] : []),
         courses.code,
       )
       .limit(PAGE_SIZE)
