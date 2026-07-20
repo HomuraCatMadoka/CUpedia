@@ -25,6 +25,44 @@ async function fillExperience(page: Page) {
 test.afterEach(async () => {
   await query("delete from course_reviews where course_code = 'CSCI1130'");
   await query("delete from course_ratings where course_code = 'CSCI1130'");
+  await query("delete from course_reviews where course_code = 'CSCI1120'");
+  await query("delete from course_ratings where course_code = 'CSCI1120'");
+  await query("delete from course_enrollments where course_code = 'CSCI1120'");
+});
+
+test("#351 course with confirmed empty instructor data accepts a review without professor", async ({
+  page,
+}) => {
+  await query(
+    `insert into course_enrollments (
+       academic_year, term, course_code, class_code, class_nbr,
+       component, section, quota, vacancy, instructors, captured_at
+     ) values (
+       '2025-26', 'Term 1', 'CSCI1120', 'CSCI1120', '351',
+       'LEC', '-LEC', 30, 5, '{}', now()
+     )`,
+  );
+
+  await loginWithPassword(page, "user@test.com", "password123");
+  await page.goto("/courses/CSCI1120");
+
+  await page.getByRole("link", { name: "写测评" }).click();
+  await expect(page.getByText("课程资料未列任课教授，可留空")).toBeVisible();
+  await page.getByLabel("学年").selectOption("2025-26");
+  await page.getByLabel("学期").selectOption("Term 1");
+  await page.getByRole("radio", { name: "4.5 星" }).click();
+  await page.getByRole("button", { name: "提交测评" }).click();
+
+  await expect
+    .poll(async () => {
+      const result = await query<{ professor_id: string | null }>(
+        `select professor_id from course_ratings r
+       join users u on u.id = r.user_id
+       where r.course_code = 'CSCI1120' and u.email = 'user@test.com'`,
+      );
+      return result.rows;
+    })
+    .toEqual([{ professor_id: null }]);
 });
 
 test("#293 unified submission validates required experience and supports half-star bounds", async ({
@@ -37,6 +75,7 @@ test("#293 unified submission validates required experience and supports half-st
 
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto("/courses/CSCI1130");
+  await page.getByRole("link", { name: "写测评" }).click();
   const submit = page.getByRole("button", { name: "提交测评" });
   await expect(submit).toBeDisabled();
 
@@ -46,18 +85,28 @@ test("#293 unified submission validates required experience and supports half-st
   await expect(submit).toBeEnabled();
   await submit.click();
 
-  let rating = await query<{
-    score: number;
-    academic_year: string;
-    term: string;
-  }>(
-    `select score, academic_year, term from course_ratings r
-     join users u on u.id = r.user_id
-     where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
-  );
-  expect(rating.rows).toEqual([
-    { score: 0.5, academic_year: "2025-26", term: "Term 2" },
-  ]);
+  let rating: Awaited<
+    ReturnType<
+      typeof query<{
+        score: number;
+        academic_year: string;
+        term: string;
+      }>
+    >
+  >;
+  await expect
+    .poll(
+      async () => {
+        rating = await query(
+          `select score, academic_year, term from course_ratings r
+           join users u on u.id = r.user_id
+           where r.course_code = 'CSCI1130' and u.email = 'user@test.com'`,
+        );
+        return rating.rows;
+      },
+      { intervals: [250, 500, 1_000] },
+    )
+    .toEqual([{ score: 0.5, academic_year: "2025-26", term: "Term 2" }]);
   const reviews = await query<{ count: number }>(
     "select count(*)::int as count from course_reviews where course_code = 'CSCI1130'",
   );

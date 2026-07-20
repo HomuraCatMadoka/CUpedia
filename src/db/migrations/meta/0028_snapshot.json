@@ -1,5 +1,5 @@
 {
-  "id": "b4c3aef8-2aa5-47a9-bd08-fff1c1c45671",
+  "id": "33d1bb90-f986-400c-baf5-82e38c0be3b4",
   "prevId": "c668eb44-ba18-410d-bee4-35b1d0fa094b",
   "version": "7",
   "dialect": "postgresql",
@@ -1279,6 +1279,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "tags": {
+          "name": "tags",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
         },
         "created_at": {
           "name": "created_at",
@@ -2992,123 +2999,6 @@
           "value": "\"staff_people\".\"identity_kind\" in ('official', 'external', 'unverified')"
         }
       },
-      "isRLSEnabled": false
-    },
-    "public.staff_person_sources": {
-      "name": "staff_person_sources",
-      "schema": "",
-      "columns": {
-        "person_id": {
-          "name": "person_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "source_key": {
-          "name": "source_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "profile_url": {
-          "name": "profile_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_url": {
-          "name": "source_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "first_seen_at": {
-          "name": "first_seen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "last_seen_at": {
-          "name": "last_seen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "is_current": {
-          "name": "is_current",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "missing_runs": {
-          "name": "missing_runs",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        }
-      },
-      "indexes": {
-        "staff_person_sources_person_id_idx": {
-          "name": "staff_person_sources_person_id_idx",
-          "columns": [
-            {
-              "expression": "person_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "staff_person_sources_profile_url_idx": {
-          "name": "staff_person_sources_profile_url_idx",
-          "columns": [
-            {
-              "expression": "profile_url",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "staff_person_sources_person_id_staff_people_id_fk": {
-          "name": "staff_person_sources_person_id_staff_people_id_fk",
-          "tableFrom": "staff_person_sources",
-          "tableTo": "staff_people",
-          "columnsFrom": ["person_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "staff_person_sources_source_source_key_pk": {
-          "name": "staff_person_sources_source_source_key_pk",
-          "columns": ["source", "source_key"]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.staff_teaching_assignments": {

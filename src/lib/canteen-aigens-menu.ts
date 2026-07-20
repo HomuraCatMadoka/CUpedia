@@ -1,3 +1,4 @@
+import { inferDishSvgKeyFromName } from "@/lib/canteen-svg-keys";
 import {
   compareMealPeriods,
   type MealPeriod,
@@ -85,7 +86,7 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
           ],
           mealPeriod,
           sortOrder: 0,
-          svgKey: inferDishSvgKey(name),
+          svgKey: inferDishSvgKeyFromName(name),
         });
       }
     }
@@ -115,11 +116,3 @@ function parseAigensPrice(price: unknown): number {
   return amountMinor;
 }
 
-function inferDishSvgKey(name: string): string {
-  if (/(麵|米粉|河粉|意粉|喇沙)/u.test(name)) return "noodle";
-  if (/(麻辣|口水|咖喱)/u.test(name)) return "spicy";
-  if (/(飯|粥)/u.test(name)) return "rice";
-  if (/(煲|湯)/u.test(name)) return "bowl";
-  if (/(多士|菠蘿包|糕|酥|甜品)/u.test(name)) return "dessert";
-  return "default";
-}

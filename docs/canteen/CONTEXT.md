@@ -10,7 +10,7 @@ _Avoid_: 与「餐段」或「菜品」混称。
 **菜品（Menu item）**: 某食堂在某餐段供应的一道菜，含名称、价格选项、餐段、排序与图标 key。
 _Avoid_: 把菜品当成全局实体——菜品始终归属某个食堂。
 
-**价格选项（Price option）**: 菜品可以没有价格，也可以有一个或多个带可选标签的价格。金额以最小货币单位保存（`amountMinor`；HKD 18 元为 `1800`），公开 DTO 固定为 `pricing.options[]`。UI 遍历选项，不识别「凍」「熱」等具体标签。旧 `canteen_menu_items.price` 仅供迁移期读取，所有新写入进入 `canteen_menu_item_prices`。
+**价格选项（Price option）**: 菜品可以没有价格，也可以有一个或多个带可选标签的价格。金额以最小货币单位保存（`amountMinor`；HKD 18 元为 `1800`），公开 DTO 固定为 `pricing.options[]`。UI 遍历选项，不识别「凍」「熱」等具体标签（标签与金额分行强调展示）。旧 `canteen_menu_items.price` 仅供迁移期读取，所有新写入进入 `canteen_menu_item_prices`。逸夫饮品凍/热样板见 [`examples/shaw-drink-pricing-sample.json`](examples/shaw-drink-pricing-sample.json)（金额为展示样板，需对照 Café Shaw 实价校对）。
 _Avoid_: UI 直接读取数据库列；用标签文本作为程序标识；把套餐饮品加价合并进独立售卖价格。
 
 **餐段（Meal period）**: `breakfast` | `lunch` | `dinner`；排序语义为早→午→晚，**不能**用字符串 `localeCompare`。
@@ -37,9 +37,9 @@ _Avoid_: 把 mock 数据当作生产 seed。
 
 **首页入口**: `src/app/(main)/page.tsx` 食堂模块卡片已启用（无「即将上线」），链接 `/canteen`。公开区品牌为「山城食记」，副标题「还有食堂能吃吗」；视觉为冷色账本风，菜品图仅 SVG（`DishSvgIcon`），不做真实菜品摄影。
 
-**菜品 SVG 图标**: `src/lib/canteen-svg-keys.ts` 定义品类 key（`default`、`rice`、`bowl`、`spicy`、`noodle`、`drink`、`dessert`）；`DishSvgIcon` 在菜单行展示，`data-svg-key` 供 e2e 断言。未知 key 回退 `default`；写入经 `validateSvgKey()` 白名单校验。
+**菜品 SVG 图标**: `src/lib/canteen-svg-keys.ts` 定义品类 key（`default`、`rice`、`bowl`、`noodle`、`drink`、`dessert`）；`DishSvgIcon` 在菜单行展示，`data-svg-key` 供 e2e 断言。未知 key 回退 `default`；写入经 `validateSvgKey()` 白名单校验。菜单视图按 `svgKey` 分组展示（饭类→粉面→煲汤→小吃→甜品→饮品），可用顶部分类 chips 筛选；排行榜仍为扁平列表。
 
-**E2E 种子**: `scripts/seed-data.ts` 含固定 UUID 的「演示食堂」与午餐菜品（`rice`/`spicy` svgKey），供 `e2e/canteen-menu-votes.spec.ts` 投票路径；`e2e/canteen-danmaku.spec.ts` 覆盖食堂页弹幕（#192）。命名遵循 [ADR 0007](../adr/0007-e2e-tests-named-by-feature.md)（按功能而非 issue 号）。
+**E2E 种子**: `scripts/seed-data.ts` 含固定 UUID 的「演示食堂」与午餐菜品（`rice`/`bowl` svgKey），供 `e2e/canteen-menu-votes.spec.ts` 投票路径；`e2e/canteen-danmaku.spec.ts` 覆盖食堂页弹幕（#192）。命名遵循 [ADR 0007](../adr/0007-e2e-tests-named-by-feature.md)（按功能而非 issue 号）。
 
 ## Related ADRs
 

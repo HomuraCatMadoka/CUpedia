@@ -1,0 +1,146 @@
+[
+  {
+    "name": "意大利芝士咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 2200, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2500, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 1,
+    "svgKey": "drink"
+  },
+  {
+    "name": "香橙可可咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 2200, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2500, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 2,
+    "svgKey": "drink"
+  },
+  {
+    "name": "玫瑰咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 2200, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2500, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 3,
+    "svgKey": "drink"
+  },
+  {
+    "name": "今日精選咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 2000, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2300, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 4,
+    "svgKey": "drink"
+  },
+  {
+    "name": "鮮奶紅豆焙茶",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 1800, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2000, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 5,
+    "svgKey": "drink"
+  },
+  {
+    "name": "鮮奶焙茶",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 1800, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2000, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 6,
+    "svgKey": "drink"
+  },
+  {
+    "name": "伯爵紅茶",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 1500, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 1700, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 7,
+    "svgKey": "drink"
+  },
+  {
+    "name": "桂花烏龍茶",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 1600, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 1800, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 8,
+    "svgKey": "drink"
+  },
+  {
+    "name": "水果紅茶",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 1600, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 1800, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 9,
+    "svgKey": "drink"
+  },
+  {
+    "name": "朱古力咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 2200, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2500, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 33,
+    "svgKey": "drink"
+  },
+  {
+    "name": "香濃鮮奶朱古力",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 2000, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2300, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 34,
+    "svgKey": "drink"
+  },
+  {
+    "name": "雲呢拿咖啡",
+    "pricing": {
+      "options": [
+        { "label": "熱", "amountMinor": 2200, "currency": "HKD", "sortOrder": 0 },
+        { "label": "凍", "amountMinor": 2500, "currency": "HKD", "sortOrder": 1 }
+      ]
+    },
+    "mealPeriod": "lunch",
+    "sortOrder": 35,
+    "svgKey": "drink"
+  }
+]

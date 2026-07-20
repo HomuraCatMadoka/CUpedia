@@ -234,6 +234,14 @@ export const courses = pgTable(
   (table) => [index("courses_subject_idx").on(table.subject)],
 );
 
+// Official AQS subject catalog. Names belong to the subject, not to every
+// individual course, so keep them normalized in one database-backed catalog.
+export const courseSubjects = pgTable("course_subjects", {
+  code: text("code").primaryKey(),
+  nameEn: text("name_en").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const majors = pgTable("majors", {
   id: uuid("id").defaultRandom().primaryKey(),
   name: text("name").notNull(),
@@ -370,6 +378,13 @@ export const courseRatings = pgTable(
     term: text("term"),
     professorId: text("professor_id").references(() => professors.id),
     professorNameSnapshot: text("professor_name_snapshot"),
+    workload: text("workload"),
+    grade: text("grade"),
+    enrollment: text("enrollment"),
+    attendance: text("attendance"),
+    /** Free-form labels only; preset dimensions live in typed columns above. */
+    customTags: jsonb("tags").$type<string[]>().notNull().default([]),
+    isAnonymous: boolean("is_anonymous").notNull().default(false),
     /** Last time this user rated this course (refreshed on each upsert). */
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -384,6 +399,303 @@ export const courseRatings = pgTable(
     check(
       "course_ratings_term_check",
       sql`${table.term} is null or ${table.term} in ('Term 1', 'Term 2', 'Summer')`,
+    ),
+    check(
+      "course_ratings_workload_check",
+      sql`${table.workload} is null or ${table.workload} in ('heavy', 'light')`,
+    ),
+    check(
+      "course_ratings_grade_check",
+      sql`${table.grade} is null or ${table.grade} in ('good', 'bad')`,
+    ),
+    check(
+      "course_ratings_enrollment_check",
+      sql`${table.enrollment} is null or ${table.enrollment} in ('hard', 'easy')`,
+    ),
+    check(
+      "course_ratings_attendance_check",
+      sql`${table.attendance} is null or ${table.attendance} in ('required', 'not_required')`,
+    ),
+  ],
+);
+
+// ── 课程成就：版本化规则 / 已点亮实例 / 内部证据 ──
+// 生产规则只存在数据库中；应用代码只解释通用的 subject-count 条件。
+
+export const achievementCatalogs = pgTable(
+  "achievement_catalogs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    version: integer("version").notNull(),
+    sourceLabel: text("source_label").notNull(),
+    status: text("status").notNull().default("disabled"),
+    programmeCount: integer("programme_count").notNull(),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    publishedAt: timestamp("published_at"),
+  },
+  (table) => [
+    uniqueIndex("achievement_catalogs_version_uq").on(table.version),
+    uniqueIndex("achievement_catalogs_one_active_uq")
+      .on(table.status)
+      .where(sql`${table.status} = 'active'`),
+    check("achievement_catalogs_version_check", sql`${table.version} > 0`),
+    check(
+      "achievement_catalogs_status_check",
+      sql`${table.status} in ('active', 'disabled', 'superseded')`,
+    ),
+    check(
+      "achievement_catalogs_programme_count_check",
+      sql`${table.programmeCount} > 0`,
+    ),
+  ],
+);
+
+export const achievementRules = pgTable(
+  "achievement_rules",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    catalogId: uuid("catalog_id").references(() => achievementCatalogs.id),
+    programmeKey: text("programme_key"),
+    ruleKey: text("rule_key").notNull(),
+    version: integer("version").notNull(),
+    category: text("category").notNull().default("professional"),
+    tier: text("tier").notNull().default("bronze"),
+    displayName: text("display_name").notNull(),
+    description: text("description").notNull().default(""),
+    badgeCode: text("badge_code").notNull(),
+    subjectCodes: jsonb("subject_codes").$type<string[]>().notNull(),
+    requiredCount: integer("required_count").notNull(),
+    subjectGroups: jsonb("subject_groups")
+      .$type<Array<{ subjectCodes: string[]; requiredCount: number }>>()
+      .notNull()
+      .default([]),
+    prerequisiteRuleKey: text("prerequisite_rule_key"),
+    catalogEnabled: boolean("catalog_enabled").notNull().default(true),
+    enabled: boolean("enabled").notNull().default(false),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_rules_key_version_uq").on(
+      table.ruleKey,
+      table.version,
+    ),
+    uniqueIndex("achievement_rules_one_enabled_version_uq")
+      .on(table.ruleKey)
+      .where(sql`${table.enabled} = true`),
+    check("achievement_rules_version_check", sql`${table.version} > 0`),
+    check(
+      "achievement_rules_badge_code_check",
+      sql`${table.badgeCode} ~ '^[A-Z]{4}$'`,
+    ),
+    check(
+      "achievement_rules_required_count_check",
+      sql`${table.requiredCount} > 0`,
+    ),
+    check(
+      "achievement_rules_tier_check",
+      sql`${table.tier} in ('bronze', 'silver', 'gold')`,
+    ),
+  ],
+);
+
+export const userAchievements = pgTable(
+  "user_achievements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => achievementRules.id),
+    tier: text("tier").notNull().default("bronze"),
+    status: text("status").notNull().default("active"),
+    redeemedAt: timestamp("redeemed_at").defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => [
+    uniqueIndex("user_achievements_user_rule_uq").on(
+      table.userId,
+      table.ruleId,
+    ),
+    index("user_achievements_user_status_idx").on(table.userId, table.status),
+    uniqueIndex("user_achievements_active_silver_uq")
+      .on(table.userId)
+      .where(sql`${table.status} = 'active' and ${table.tier} = 'silver'`),
+    uniqueIndex("user_achievements_active_gold_uq")
+      .on(table.userId)
+      .where(sql`${table.status} = 'active' and ${table.tier} = 'gold'`),
+    check(
+      "user_achievements_status_check",
+      sql`${table.status} in ('active', 'superseded', 'revoked')`,
+    ),
+    check(
+      "user_achievements_tier_check",
+      sql`${table.tier} in ('bronze', 'silver', 'gold')`,
+    ),
+  ],
+);
+
+export const achievementFusionRecipes = pgTable(
+  "achievement_fusion_recipes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    recipeKey: text("recipe_key").notNull(),
+    version: integer("version").notNull(),
+    kind: text("kind").notNull(),
+    targetRuleId: uuid("target_rule_id")
+      .notNull()
+      .references(() => achievementRules.id),
+    sourceRuleKeys: jsonb("source_rule_keys").$type<string[]>().notNull(),
+    enabled: boolean("enabled").notNull().default(false),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_fusion_recipes_key_version_uq").on(
+      table.recipeKey,
+      table.version,
+    ),
+    uniqueIndex("achievement_fusion_recipes_one_enabled_uq")
+      .on(table.recipeKey)
+      .where(sql`${table.enabled} = true`),
+    check(
+      "achievement_fusion_recipes_kind_check",
+      sql`${table.kind} in ('dual_bronze', 'same_profession_gold')`,
+    ),
+    check(
+      "achievement_fusion_recipes_version_check",
+      sql`${table.version} > 0`,
+    ),
+  ],
+);
+
+export const userHiddenAchievements = pgTable(
+  "user_hidden_achievements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sourceRuleKey: text("source_rule_key").notNull(),
+    selectedRecipeId: uuid("selected_recipe_id")
+      .notNull()
+      .references(() => achievementFusionRecipes.id, { onDelete: "restrict" }),
+    equipped: boolean("equipped").notNull().default(false),
+    claimedAt: timestamp("claimed_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_hidden_achievements_user_source_uq").on(
+      table.userId,
+      table.sourceRuleKey,
+    ),
+    uniqueIndex("user_hidden_achievements_one_equipped_uq")
+      .on(table.userId)
+      .where(sql`${table.equipped} = true`),
+  ],
+);
+
+export const achievementFusionSources = pgTable(
+  "achievement_fusion_sources",
+  {
+    fusionAchievementId: uuid("fusion_achievement_id")
+      .notNull()
+      .references(() => userAchievements.id, { onDelete: "cascade" }),
+    sourceAchievementId: uuid("source_achievement_id")
+      .notNull()
+      .references(() => userAchievements.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.fusionAchievementId, table.sourceAchievementId],
+    }),
+    uniqueIndex("achievement_fusion_sources_source_uq").on(
+      table.sourceAchievementId,
+    ),
+  ],
+);
+
+export const achievementEvidence = pgTable(
+  "achievement_evidence",
+  {
+    achievementId: uuid("achievement_id")
+      .notNull()
+      .references(() => userAchievements.id, { onDelete: "cascade" }),
+    ratingId: uuid("rating_id")
+      .notNull()
+      .references(() => courseRatings.id, { onDelete: "restrict" }),
+    courseCode: text("course_code").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.achievementId, table.ratingId] }),
+    uniqueIndex("achievement_evidence_rating_uq").on(table.ratingId),
+  ],
+);
+
+export const achievementProfiles = pgTable(
+  "achievement_profiles",
+  {
+    userId: uuid("user_id")
+      .primaryKey()
+      .references(() => users.id, { onDelete: "cascade" }),
+    showcaseId: uuid("showcase_id").defaultRandom().notNull(),
+    primaryAchievementId: uuid("primary_achievement_id").references(
+      () => userAchievements.id,
+      { onDelete: "set null" },
+    ),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_profiles_showcase_id_uq").on(table.showcaseId),
+  ],
+);
+
+export const achievementNotices = pgTable(
+  "achievement_notices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    opportunityKey: text("opportunity_key").notNull(),
+    kind: text("kind").notNull(),
+    targetId: uuid("target_id").notNull(),
+    targetTier: text("target_tier").notNull(),
+    displayName: text("display_name").notNull(),
+    seenAt: timestamp("seen_at"),
+    invalidatedAt: timestamp("invalidated_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("achievement_notices_user_opportunity_uq").on(
+      table.userId,
+      table.opportunityKey,
+    ),
+    index("achievement_notices_user_current_idx").on(
+      table.userId,
+      table.invalidatedAt,
+      table.seenAt,
+    ),
+    check(
+      "achievement_notices_kind_check",
+      sql`${table.kind} in ('professional', 'fusion')`,
+    ),
+    check(
+      "achievement_notices_tier_check",
+      sql`${table.targetTier} in ('bronze', 'silver', 'gold')`,
     ),
   ],
 );
@@ -760,6 +1072,7 @@ export const courseReviews = pgTable(
     academicYear: text("academic_year"),
     term: text("term"),
     score: real("score"),
+    isAnonymous: boolean("is_anonymous").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -839,6 +1152,7 @@ export const canteenMenuItems = pgTable(
 export const canteensRelations = relations(canteens, ({ many }) => ({
   menuItems: many(canteenMenuItems),
   importDrafts: many(menuImportDrafts),
+  danmakuMessages: many(canteenDanmakuMessages),
 }));
 
 export const canteenMenuItemsRelations = relations(
@@ -1010,7 +1324,46 @@ export const menuImportDraftsRelations = relations(
   }),
 );
 
-// ── Homepage monthly danmaku (#192) ──
+// ── Canteen-scoped monthly danmaku (separate from hub danmaku_messages) ──
+
+export const canteenDanmakuMessages = pgTable(
+  "canteen_danmaku_messages",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    month: text("month").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_danmaku_messages_canteen_month_idx").on(
+      table.canteenId,
+      table.month,
+    ),
+    index("canteen_danmaku_messages_user_id_idx").on(table.userId),
+  ],
+).enableRLS();
+
+export const canteenDanmakuMessagesRelations = relations(
+  canteenDanmakuMessages,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [canteenDanmakuMessages.canteenId],
+      references: [canteens.id],
+    }),
+    user: one(users, {
+      fields: [canteenDanmakuMessages.userId],
+      references: [users.id],
+    }),
+  }),
+);
+
+// ── Hub /canteen browse monthly danmaku (#192) ──
 
 export const danmakuMessages = pgTable(
   "danmaku_messages",

@@ -104,7 +104,7 @@ describe("thickened seed fixtures", () => {
     );
     expect(demoItems.length).toBeGreaterThanOrEqual(2);
     expect(demoItems.some((i) => i.svgKey === "rice")).toBe(true);
-    expect(demoItems.some((i) => i.svgKey === "spicy")).toBe(true);
+    expect(demoItems.some((i) => i.svgKey === "bowl")).toBe(true);
   });
 
   it("builds a hierarchy at least 3 levels deep", async () => {

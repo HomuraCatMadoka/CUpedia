@@ -9,6 +9,7 @@ import {
   courseEnrollments,
   courseReviewLikes,
   courseReviews,
+  courseSubjects,
   courses,
   professorCourses,
   professorStaffIdentities,
@@ -16,14 +17,39 @@ import {
   staffOrganisationAffiliations,
   staffOrganisations,
   staffPeople,
+  users,
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
-import { COURSE_TERMS, type CourseTerm } from "@/lib/course-review-constants";
+import {
+  getAchievementSummariesForAuthors,
+  type PublicAchievementSummary,
+} from "@/lib/achievement-profile";
+import type { EquippedPersonTitle } from "@/lib/user-avatar";
+import {
+  syncAchievementNoticesForUser,
+  type AchievementNoticeToast,
+} from "@/lib/achievement-notice-actions";
+import {
+  rebindFallbackAchievementEvidenceAfterRatingChange,
+  recomputeAchievementsBeforeRatingDeletion,
+  type PublicDeletionImpact,
+} from "@/lib/achievement-recompute-db";
+import {
+  COURSE_REVIEW_TAG_OPTIONS,
+  COURSE_REVIEW_TAG_STORAGE_VALUES,
+  COURSE_TERMS,
+  type CourseReviewTags,
+  type CourseTerm,
+} from "@/lib/course-review-constants";
 import {
   buildProfessorSearchIndex,
   searchProfessorCandidates,
 } from "@/lib/professor-search";
-import type { Course } from "@/app/(main)/courses/course-types";
+import { assertNoSensitiveContent } from "@/lib/sensitive-content";
+import {
+  getCourseGenderRestriction,
+  type Course,
+} from "@/app/(main)/courses/course-types";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Data-access layer for the course-review feature (#178).
@@ -37,10 +63,12 @@ import type { Course } from "@/app/(main)/courses/course-types";
 
 /** Courses rendered per catalog page — the full catalog has ~4.8k rows. */
 const PAGE_SIZE = 48;
+const COURSE_REVIEW_PRESET_TAGS = new Set<string>(
+  Object.values(COURSE_REVIEW_TAG_OPTIONS).flat(),
+);
 
-/** A review as presented to the client. Author identity is never exposed —
- * comments are anonymous — but ownership/like state for the *current* viewer
- * is resolved server-side so the UI can show withdraw/like-toggle affordances. */
+/** A review as presented to the client. Anonymous rows never expose author
+ * identity; attributed rows expose only the current nickname, never user ID. */
 export type CourseReviewView = {
   id: string;
   isRatingOnly: boolean;
@@ -54,6 +82,12 @@ export type CourseReviewView = {
   academicYear: string | null;
   term: CourseTerm | null;
   score: number | null;
+  tags: string[];
+  authorNickname: string | null;
+  authorShowcaseId: string | null;
+  authorAchievements: PublicAchievementSummary[];
+  authorAvatarUrl?: string | null;
+  authorEquippedTitle?: EquippedPersonTitle | null;
 };
 
 export type ProfessorOption = {
@@ -73,14 +107,22 @@ export type CourseProfessorStats = ProfessorOption & {
   rating: number | null;
   ratingCount: number;
   terms: ProfessorTermRating[];
+  tags: CourseReviewTagCount[];
+};
+
+export type CourseReviewTagCount = {
+  label: string;
+  count: number;
 };
 
 export type CourseReviewSubmission = {
   academicYear: string;
   term: CourseTerm;
-  professorId: string;
+  professorId: string | null;
   score: number;
   content?: string;
+  tags?: CourseReviewTags;
+  isAnonymous?: boolean;
 };
 
 export type CourseEnrollmentView = {
@@ -110,6 +152,8 @@ export type CourseRatingState = {
   lastTerm: CourseTerm | null;
   lastProfessor: ProfessorOption | null;
   lastContent: string;
+  lastTags: string[];
+  lastIsAnonymous: boolean;
   /** How many times the current user has rated this course. */
   myRatingCount: number;
 };
@@ -134,6 +178,20 @@ export type CoursePage = {
   pageSize: number;
 };
 
+export type MyCourseReviewHistoryItem = {
+  ratingId: string;
+  courseCode: string;
+  courseTitle: string;
+  score: number;
+  academicYear: string | null;
+  term: CourseTerm | null;
+  professorName: string | null;
+  tags: string[];
+  isAnonymous: boolean;
+  content: string;
+  updatedAt: string;
+};
+
 // ── Course row projection ──
 
 const courseCols = {
@@ -143,6 +201,15 @@ const courseCols = {
   units: courses.units,
   description: courses.description,
   terms: courses.terms,
+  requirementsRaw: courses.requirementsRaw,
+};
+
+const storedReviewTagSelection = {
+  workload: courseRatings.workload,
+  grade: courseRatings.grade,
+  enrollment: courseRatings.enrollment,
+  attendance: courseRatings.attendance,
+  customTags: courseRatings.customTags,
 };
 
 type CourseRow = {
@@ -152,6 +219,7 @@ type CourseRow = {
   units: string | null; // numeric → string in drizzle
   description: string | null;
   terms: string[] | null;
+  requirementsRaw: string | null;
 };
 
 function toCourse(r: CourseRow): Course {
@@ -162,6 +230,10 @@ function toCourse(r: CourseRow): Course {
     units: Number(r.units ?? 0),
     description: r.description ?? "",
     terms: r.terms ?? [],
+    genderRestriction: getCourseGenderRestriction(
+      r.subject,
+      r.requirementsRaw ?? "",
+    ),
   };
 }
 
@@ -208,6 +280,107 @@ function validateTerm(value: string): asserts value is CourseTerm {
   }
 }
 
+type NormalizedReviewTags = {
+  workload: "heavy" | "light" | null;
+  grade: "good" | "bad" | null;
+  enrollment: "hard" | "easy" | null;
+  attendance: "required" | "not_required" | null;
+  customTags: string[];
+};
+
+type StoredReviewTags = {
+  workload: string | null;
+  grade: string | null;
+  enrollment: string | null;
+  attendance: string | null;
+  customTags: string[] | null;
+};
+
+function presentPresetTag(
+  dimension: keyof typeof COURSE_REVIEW_TAG_STORAGE_VALUES,
+  value: string | null,
+): string | null {
+  if (!value) return null;
+  return (
+    Object.entries(COURSE_REVIEW_TAG_STORAGE_VALUES[dimension]).find(
+      ([, storedValue]) => storedValue === value,
+    )?.[0] ?? null
+  );
+}
+
+function presentReviewTags(
+  tags: StoredReviewTags | null | undefined,
+): string[] {
+  if (!tags) return [];
+  const preset = [
+    presentPresetTag("workload", tags.workload),
+    presentPresetTag("grade", tags.grade),
+    presentPresetTag("enrollment", tags.enrollment),
+    presentPresetTag("attendance", tags.attendance),
+  ];
+  return [
+    ...preset.filter((tag): tag is string => tag !== null),
+    ...(tags.customTags ?? []),
+  ];
+}
+
+function normalizeReviewTags(
+  tags: CourseReviewTags | undefined,
+): NormalizedReviewTags {
+  if (
+    tags !== undefined &&
+    (tags === null || typeof tags !== "object" || Array.isArray(tags))
+  ) {
+    throw new Error("标签格式无效");
+  }
+  if (
+    tags?.custom !== undefined &&
+    (!Array.isArray(tags.custom) ||
+      !tags.custom.every((tag) => typeof tag === "string"))
+  ) {
+    throw new Error("标签格式无效");
+  }
+  if ((tags?.custom?.length ?? 0) > 5) {
+    throw new Error("自定义标签最多 5 个");
+  }
+  for (const [dimension, options] of Object.entries(
+    COURSE_REVIEW_TAG_OPTIONS,
+  )) {
+    const value = tags?.[dimension as keyof CourseReviewTags];
+    if (value !== undefined && typeof value !== "string") {
+      throw new Error("标签格式无效");
+    }
+    if (value && !options.includes(value as never)) {
+      throw new Error("无效的课程体验标签");
+    }
+  }
+  const custom = (tags?.custom ?? []).map((tag) =>
+    tag.trim().replace(/\s+/g, " ").toLocaleLowerCase(),
+  );
+  if (custom.some((tag) => tag.length > 12)) {
+    throw new Error("自定义标签最多 12 个字符");
+  }
+  if (custom.some((tag) => COURSE_REVIEW_PRESET_TAGS.has(tag))) {
+    throw new Error("自定义标签不能使用 preset");
+  }
+  custom.forEach((tag) => assertNoSensitiveContent(tag, ["考试"]));
+  return {
+    workload: tags?.workload
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.workload[tags.workload]
+      : null,
+    grade: tags?.grade
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.grade[tags.grade]
+      : null,
+    enrollment: tags?.enrollment
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.enrollment[tags.enrollment]
+      : null,
+    attendance: tags?.attendance
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.attendance[tags.attendance]
+      : null,
+    customTags: [...new Set(custom.filter(Boolean))],
+  };
+}
+
 /** credits bucket → SQL predicate on the numeric `units` column. */
 function creditsCondition(credits?: string) {
   if (!credits) return undefined;
@@ -239,6 +412,49 @@ async function ratingAggFor(
     .from(courseRatings)
     .where(eq(courseRatings.courseCode, courseCode));
   return { avg: Number(row?.avg ?? 0), cnt: Number(row?.cnt ?? 0) };
+}
+
+export async function getMyCourseReviewHistory(): Promise<
+  MyCourseReviewHistoryItem[]
+> {
+  const user = await requireAuth();
+  const rows = await db
+    .select({
+      ratingId: courseRatings.id,
+      courseCode: courseRatings.courseCode,
+      courseTitle: courses.title,
+      score: courseRatings.score,
+      academicYear: courseRatings.academicYear,
+      term: courseRatings.term,
+      professorName: sql<
+        string | null
+      >`coalesce(${courseRatings.professorNameSnapshot}, ${professors.name})`,
+      storedTags: storedReviewTagSelection,
+      isAnonymous: courseRatings.isAnonymous,
+      content: sql<string | null>`(
+        select review.content from ${courseReviews} review
+        where review.course_code = ${courseRatings.courseCode}
+          and review.user_id = ${courseRatings.userId}
+        order by review.created_at desc
+        limit 1
+      )`,
+      updatedAt: courseRatings.createdAt,
+    })
+    .from(courseRatings)
+    .innerJoin(courses, eq(courseRatings.courseCode, courses.code))
+    .leftJoin(professors, eq(courseRatings.professorId, professors.id))
+    .where(eq(courseRatings.userId, user.id))
+    .orderBy(desc(courseRatings.createdAt));
+
+  return rows.map(({ storedTags, ...row }) => ({
+    ...row,
+    term: COURSE_TERMS.includes(row.term as CourseTerm)
+      ? (row.term as CourseTerm)
+      : null,
+    tags: presentReviewTags(storedTags),
+    content: row.content ?? "",
+    updatedAt: row.updatedAt.toISOString(),
+  }));
 }
 
 /** Attach rating/review aggregates to catalog rows, preserving their order.
@@ -338,18 +554,25 @@ export async function getCourses(
   };
 }
 
-/** Subject codes with their course counts, alphabetical — powers the subject
- * filter combobox (the count is the only descriptor the catalog carries; there
- * is no subject-name/faculty column). */
+/** Subject codes, database-backed display names, and course counts. */
 export async function getSubjects(): Promise<
-  { subject: string; count: number }[]
+  { subject: string; name: string | null; count: number }[]
 > {
   const rows = await db
-    .select({ subject: courses.subject, count: count() })
+    .select({
+      subject: courses.subject,
+      nameEn: courseSubjects.nameEn,
+      count: count(),
+    })
     .from(courses)
-    .groupBy(courses.subject)
+    .leftJoin(courseSubjects, eq(courseSubjects.code, courses.subject))
+    .groupBy(courses.subject, courseSubjects.nameEn)
     .orderBy(courses.subject);
-  return rows.map((r) => ({ subject: r.subject, count: Number(r.count) }));
+  return rows.map((r) => ({
+    subject: r.subject,
+    name: r.nameEn,
+    count: Number(r.count),
+  }));
 }
 
 /** Fetch a single course by code (space-insensitive), or null if unknown. */
@@ -386,6 +609,8 @@ export async function getCourseRatingState(
       lastTerm: null,
       lastProfessor: null,
       lastContent: "",
+      lastTags: [],
+      lastIsAnonymous: false,
       myRatingCount: 0,
     };
   }
@@ -397,6 +622,8 @@ export async function getCourseRatingState(
       term: courseRatings.term,
       professorId: courseRatings.professorId,
       professorName: courseRatings.professorNameSnapshot,
+      storedTags: storedReviewTagSelection,
+      isAnonymous: courseRatings.isAnonymous,
     })
     .from(courseRatings)
     .where(
@@ -431,6 +658,8 @@ export async function getCourseRatingState(
         ? { id: mine.professorId, name: mine.professorName }
         : null,
     lastContent: myReview?.content ?? "",
+    lastTags: presentReviewTags(mine?.storedTags),
+    lastIsAnonymous: mine?.isAnonymous ?? false,
     myRatingCount: myRatings.length,
   };
 }
@@ -449,6 +678,7 @@ export async function getCourseReviews(
         content: courseReviews.content,
         createdAt: courseReviews.createdAt,
         userId: courseReviews.userId,
+        isAnonymous: courseReviews.isAnonymous,
         professorId: courseReviews.professorId,
         professorName: sql<
           string | null
@@ -456,9 +686,22 @@ export async function getCourseReviews(
         academicYear: courseReviews.academicYear,
         term: courseReviews.term,
         score: courseReviews.score,
+        storedTags: storedReviewTagSelection,
+        authorNickname: sql<string | null>`case
+          when ${courseReviews.isAnonymous} then null
+          else ${users.nickname}
+        end`,
       })
       .from(courseReviews)
       .leftJoin(professors, eq(courseReviews.professorId, professors.id))
+      .innerJoin(users, eq(courseReviews.userId, users.id))
+      .leftJoin(
+        courseRatings,
+        and(
+          eq(courseReviews.courseCode, courseRatings.courseCode),
+          eq(courseReviews.userId, courseRatings.userId),
+        ),
+      )
       .where(eq(courseReviews.courseCode, course.code))
       .orderBy(desc(courseReviews.createdAt)),
     getOptionalUser(),
@@ -492,22 +735,35 @@ export async function getCourseReviews(
         )
       : new Set<string>();
 
-  const reviewViews: CourseReviewView[] = rows.map((r) => ({
-    id: r.id,
-    isRatingOnly: false,
-    content: r.content,
-    createdAt: r.createdAt.toISOString(),
-    likeCount: likeCount.get(r.id) ?? 0,
-    likedByMe: mine.has(r.id),
-    canAdminDelete: user?.role === "admin" && r.userId !== viewerId,
-    professorId: r.professorId,
-    professorName: r.professorName,
-    academicYear: r.academicYear,
-    term: COURSE_TERMS.includes(r.term as CourseTerm)
-      ? (r.term as CourseTerm)
-      : null,
-    score: r.score,
-  }));
+  const authorAchievements = await getAchievementSummariesForAuthors(
+    rows.filter((row) => !row.isAnonymous).map((row) => row.userId),
+  );
+
+  const reviewViews: CourseReviewView[] = rows.map((r) => {
+    const author = r.isAnonymous ? undefined : authorAchievements.get(r.userId);
+    return {
+      id: r.id,
+      isRatingOnly: false,
+      content: r.content,
+      createdAt: r.createdAt.toISOString(),
+      likeCount: likeCount.get(r.id) ?? 0,
+      likedByMe: mine.has(r.id),
+      canAdminDelete: user?.role === "admin" && r.userId !== viewerId,
+      professorId: r.professorId,
+      professorName: r.professorName,
+      academicYear: r.academicYear,
+      term: COURSE_TERMS.includes(r.term as CourseTerm)
+        ? (r.term as CourseTerm)
+        : null,
+      score: r.score,
+      tags: presentReviewTags(r.storedTags),
+      authorNickname: r.authorNickname,
+      authorShowcaseId: author?.showcaseId ?? null,
+      authorAchievements: author?.achievements ?? [],
+      authorAvatarUrl: author?.avatarUrl ?? null,
+      authorEquippedTitle: author?.equippedTitle ?? null,
+    };
+  });
 
   if (user?.role !== "admin") return reviewViews;
 
@@ -522,6 +778,7 @@ export async function getCourseReviews(
       academicYear: courseRatings.academicYear,
       term: courseRatings.term,
       score: courseRatings.score,
+      storedTags: storedReviewTagSelection,
     })
     .from(courseRatings)
     .where(eq(courseRatings.courseCode, course.code));
@@ -546,6 +803,12 @@ export async function getCourseReviews(
         ? (rating.term as CourseTerm)
         : null,
       score: rating.score,
+      tags: presentReviewTags(rating.storedTags),
+      authorNickname: null,
+      authorShowcaseId: null,
+      authorAchievements: [],
+      authorAvatarUrl: null,
+      authorEquippedTitle: null,
     }));
 
   return [...reviewViews, ...ratingOnlyViews].sort((a, b) =>
@@ -603,40 +866,57 @@ export async function getCourseProfessorStats(
   code: string,
 ): Promise<CourseProfessorStats[]> {
   const courseCode = normalizeCode(code);
-  const [professorRows, ratingRows, enrollmentRows] = await Promise.all([
-    db
-      .select({ id: professors.id, name: professors.name })
-      .from(professors)
-      .innerJoin(
-        professorCourses,
-        eq(professors.id, professorCourses.professorId),
-      )
-      .where(eq(professorCourses.courseCode, courseCode))
-      .orderBy(professors.name),
-    db
-      .select({
-        professorId: courseRatings.professorId,
-        academicYear: courseRatings.academicYear,
-        term: courseRatings.term,
-        avg: sql<string | null>`avg(${courseRatings.score})`,
-        cnt: count(),
-      })
-      .from(courseRatings)
-      .where(eq(courseRatings.courseCode, courseCode))
-      .groupBy(
-        courseRatings.professorId,
-        courseRatings.academicYear,
-        courseRatings.term,
-      ),
-    db
-      .select({
-        academicYear: courseEnrollments.academicYear,
-        term: courseEnrollments.term,
-        instructors: courseEnrollments.instructors,
-      })
-      .from(courseEnrollments)
-      .where(eq(courseEnrollments.courseCode, courseCode)),
-  ]);
+  const [professorRows, ratingRows, enrollmentRows, tagRows] =
+    await Promise.all([
+      db
+        .select({ id: professors.id, name: professors.name })
+        .from(professors)
+        .where(
+          or(
+            sql`exists (
+            select 1 from ${professorCourses} professor_course
+            where professor_course.professor_id = ${professors.id}
+              and professor_course.course_code = ${courseCode}
+          )`,
+            sql`exists (
+            select 1 from ${courseRatings} rating
+            where rating.professor_id = ${professors.id}
+              and rating.course_code = ${courseCode}
+          )`,
+          ),
+        )
+        .orderBy(professors.name),
+      db
+        .select({
+          professorId: courseRatings.professorId,
+          academicYear: courseRatings.academicYear,
+          term: courseRatings.term,
+          avg: sql<string | null>`avg(${courseRatings.score})`,
+          cnt: count(),
+        })
+        .from(courseRatings)
+        .where(eq(courseRatings.courseCode, courseCode))
+        .groupBy(
+          courseRatings.professorId,
+          courseRatings.academicYear,
+          courseRatings.term,
+        ),
+      db
+        .select({
+          academicYear: courseEnrollments.academicYear,
+          term: courseEnrollments.term,
+          instructors: courseEnrollments.instructors,
+        })
+        .from(courseEnrollments)
+        .where(eq(courseEnrollments.courseCode, courseCode)),
+      db
+        .select({
+          professorId: courseRatings.professorId,
+          storedTags: storedReviewTagSelection,
+        })
+        .from(courseRatings)
+        .where(eq(courseRatings.courseCode, courseCode)),
+    ]);
 
   const normalizeName = (name: string) => name.trim().toLocaleLowerCase();
   const professorIdByName = new Map(
@@ -678,6 +958,16 @@ export async function getCourseProfessorStats(
   const termOrder = new Map<CourseTerm, number>(
     COURSE_TERMS.map((term, index) => [term, index]),
   );
+  const presetDimensions = Object.values(COURSE_REVIEW_TAG_OPTIONS);
+  const tagCountsByProfessor = new Map<string, Map<string, number>>();
+  for (const row of tagRows) {
+    if (!row.professorId) continue;
+    const counts = tagCountsByProfessor.get(row.professorId) ?? new Map();
+    for (const tag of presentReviewTags(row.storedTags)) {
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    tagCountsByProfessor.set(row.professorId, counts);
+  }
   return professorRows.map((professor) => {
     const aggregates = ratingsByProfessor.get(professor.id) ?? new Map();
     let weightedTotal = 0;
@@ -702,11 +992,29 @@ export async function getCourseProfessorStats(
           b.academicYear.localeCompare(a.academicYear) ||
           (termOrder.get(a.term) ?? 0) - (termOrder.get(b.term) ?? 0),
       );
+    const tagCounts = tagCountsByProfessor.get(professor.id) ?? new Map();
+    const tags = [
+      ...presetDimensions.flatMap((options) =>
+        options
+          .map((label) => ({ label, count: tagCounts.get(label) ?? 0 }))
+          .filter(({ count: tagCount }) => tagCount > 0)
+          .sort((a, b) => b.count - a.count),
+      ),
+      ...[...tagCounts]
+        .filter(
+          ([label, tagCount]) =>
+            !COURSE_REVIEW_PRESET_TAGS.has(label) && tagCount >= 3,
+        )
+        .map(([label, tagCount]) => ({ label, count: tagCount }))
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+        .slice(0, 5),
+    ];
     return {
       ...professor,
       rating: ratingCount ? roundScore(weightedTotal / ratingCount) : null,
       ratingCount,
       terms,
+      tags,
     };
   });
 }
@@ -762,6 +1070,16 @@ export async function getCourseEnrollmentHistory(
   });
 }
 
+export async function isCourseProfessorOptional(
+  code: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ instructors: courseEnrollments.instructors })
+    .from(courseEnrollments)
+    .where(eq(courseEnrollments.courseCode, normalizeCode(code)));
+  return rows.length > 0 && rows.every((row) => row.instructors.length === 0);
+}
+
 // ── Mutations (require auth) ──
 
 /** Create or update one concrete course experience. The optional comment is
@@ -769,23 +1087,36 @@ export async function getCourseEnrollmentHistory(
 export async function submitCourseReview(
   code: string,
   submission: CourseReviewSubmission,
-): Promise<void> {
+): Promise<{ newAchievementNotices: AchievementNoticeToast[] }> {
   const user = await requireAuth();
+  if (
+    submission.isAnonymous !== undefined &&
+    typeof submission.isAnonymous !== "boolean"
+  ) {
+    throw new Error("匿名选项格式无效");
+  }
+  const isAnonymous = submission.isAnonymous ?? false;
   validateScore(submission.score);
   validateAcademicYear(submission.academicYear);
   validateTerm(submission.term);
   const content = submission.content?.trim() ?? "";
+  const structuredTags = normalizeReviewTags(submission.tags);
   if (content.length > 2000) throw new Error("评论内容过长");
 
   const course = await findCourse(code);
   if (!course) throw new Error("课程不存在");
 
-  const [professor] = await db
-    .select({ id: professors.id, name: professors.name })
-    .from(professors)
-    .where(eq(professors.id, submission.professorId))
-    .limit(1);
-  if (!professor) throw new Error("请选择教授目录中的教授");
+  let professor: { id: string; name: string } | null = null;
+  if (submission.professorId) {
+    [professor] = await db
+      .select({ id: professors.id, name: professors.name })
+      .from(professors)
+      .where(eq(professors.id, submission.professorId))
+      .limit(1);
+    if (!professor) throw new Error("请选择教授目录中的教授");
+  } else if (!(await isCourseProfessorOptional(course.code))) {
+    throw new Error("请选择任课教授");
+  }
 
   const existingReviews = await db
     .select({ id: courseReviews.id })
@@ -800,6 +1131,7 @@ export async function submitCourseReview(
   const existingReview = existingReviews[0];
 
   await db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${user.id}))`);
     await tx
       .insert(courseRatings)
       .values({
@@ -808,8 +1140,10 @@ export async function submitCourseReview(
         score: submission.score,
         academicYear: submission.academicYear,
         term: submission.term,
-        professorId: professor.id,
-        professorNameSnapshot: professor.name,
+        professorId: professor?.id ?? null,
+        professorNameSnapshot: professor?.name ?? null,
+        isAnonymous,
+        ...structuredTags,
       })
       .onConflictDoUpdate({
         target: [courseRatings.courseCode, courseRatings.userId],
@@ -817,19 +1151,22 @@ export async function submitCourseReview(
           score: submission.score,
           academicYear: submission.academicYear,
           term: submission.term,
-          professorId: professor.id,
-          professorNameSnapshot: professor.name,
+          professorId: professor?.id ?? null,
+          professorNameSnapshot: professor?.name ?? null,
+          isAnonymous,
+          ...structuredTags,
           createdAt: sql`now()`,
         },
       });
 
     const reviewValues = {
       content,
-      professorId: professor.id,
-      professorNameSnapshot: professor.name,
+      professorId: professor?.id ?? null,
+      professorNameSnapshot: professor?.name ?? null,
       academicYear: submission.academicYear,
       term: submission.term,
       score: submission.score,
+      isAnonymous,
     };
     if (content && existingReview) {
       await tx
@@ -861,10 +1198,15 @@ export async function submitCourseReview(
           ),
         );
     }
+
+    await rebindFallbackAchievementEvidenceAfterRatingChange(tx, user.id);
   });
 
   revalidatePath(`/courses/${course.code}`);
   revalidatePath("/courses");
+  revalidatePath("/courses/my-reviews");
+  const newAchievementNotices = await syncAchievementNoticesForUser(user.id);
+  return { newAchievementNotices };
 }
 
 /** Delete a whole submission (rating plus any comments). Authors delete their
@@ -873,6 +1215,7 @@ export async function submitCourseReview(
 export async function deleteCourseReviewSubmission(
   code: string,
   target?: { id: string; type: "review" | "rating" },
+  expectedImpact?: PublicDeletionImpact["kind"],
 ): Promise<void> {
   const user = await requireAuth();
   const courseCode = normalizeCode(code);
@@ -897,6 +1240,36 @@ export async function deleteCourseReviewSubmission(
   }
 
   await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`${ownerId}:${courseCode}`}))`,
+    );
+    const [rating] = await tx
+      .select({ id: courseRatings.id })
+      .from(courseRatings)
+      .where(
+        and(
+          eq(courseRatings.courseCode, courseCode),
+          eq(courseRatings.userId, ownerId),
+        ),
+      )
+      .limit(1);
+    if (rating) {
+      const impact = await recomputeAchievementsBeforeRatingDeletion(
+        tx,
+        ownerId,
+        rating.id,
+        true,
+      );
+      if (
+        expectedImpact &&
+        impact.kind !== expectedImpact &&
+        (impact.kind === "downgraded" ||
+          impact.kind === "revoked" ||
+          impact.kind === "dismantled")
+      ) {
+        throw new Error("称号状态已变化，请确认最新影响后重试");
+      }
+    }
     await tx
       .delete(courseReviews)
       .where(
@@ -917,6 +1290,47 @@ export async function deleteCourseReviewSubmission(
 
   revalidatePath(`/courses/${courseCode}`);
   revalidatePath("/courses");
+  revalidatePath("/courses/my-reviews");
+  revalidatePath("/courses/achievements");
+  await syncAchievementNoticesForUser(ownerId);
+}
+
+export async function getCourseReviewDeletionImpact(
+  code: string,
+  target?: { id: string; type: "review" | "rating" },
+): Promise<PublicDeletionImpact> {
+  const user = await requireAuth();
+  const courseCode = normalizeCode(code);
+  let ownerId = user.id;
+  if (target) {
+    const source = target.type === "review" ? courseReviews : courseRatings;
+    const [submission] = await db
+      .select({ userId: source.userId, courseCode: source.courseCode })
+      .from(source)
+      .where(eq(source.id, target.id))
+      .limit(1);
+    if (!submission) throw new Error("投稿不存在");
+    if (submission.courseCode !== courseCode) throw new Error("投稿与课程不符");
+    if (submission.userId !== user.id && user.role !== "admin") {
+      throw new Error("无权删除该投稿");
+    }
+    ownerId = submission.userId;
+  }
+  return db.transaction(async (tx) => {
+    const [rating] = await tx
+      .select({ id: courseRatings.id })
+      .from(courseRatings)
+      .where(
+        and(
+          eq(courseRatings.courseCode, courseCode),
+          eq(courseRatings.userId, ownerId),
+        ),
+      )
+      .limit(1);
+    return rating
+      ? recomputeAchievementsBeforeRatingDeletion(tx, ownerId, rating.id, false)
+      : { kind: "unchanged" as const };
+  });
 }
 
 /** Toggle the current user's like on a review. Returns the new like count. */

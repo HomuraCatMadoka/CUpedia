@@ -6,6 +6,12 @@ import type { CourseView } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { CourseFilters } from "@/components/courses/course-filters";
 import { CourseSearch } from "@/components/courses/course-search";
+import {
+  CourseCardLink,
+  CourseListNavigationReset,
+} from "@/components/courses/course-card-link";
+import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
+import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 
 export default async function CoursesPage({
   searchParams,
@@ -21,23 +27,50 @@ export default async function CoursesPage({
   const { credits, q, subject, level, page: pageParam } = await searchParams;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const [result, subjects] = await Promise.all([
+  const [result, subjects, achievementNoticeCount] = await Promise.all([
     getCourses({ credits, query: q, subject, level, page }),
     getSubjects(),
+    getAchievementNoticeCount(),
   ]);
   const { courses, total, pageSize } = result;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const filtering = Boolean(q || subject || credits || level);
+  const currentListHref = pageHref({ credits, q, subject, level }, page);
 
   return (
     <div className="flex-1 overflow-y-auto">
+      <CourseListNavigationReset />
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <div>
-          <h1 className="text-2xl font-bold">课程测评</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            搜索课程、查看同学评价，登录后即可匿名评论与点赞
-          </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">课程测评</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              搜索课程、查看同学评价，登录后即可匿名评论与点赞
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Link
+              href="/courses/my-reviews"
+              className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
+            >
+              我的测评
+            </Link>
+            <Link
+              href="/courses/achievements"
+              className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
+            >
+              我的成就
+              {achievementNoticeCount > 0 && (
+                <span
+                  aria-label={`${achievementNoticeCount} 个未读成就提醒`}
+                  className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs text-background"
+                >
+                  {achievementNoticeCount}
+                </span>
+              )}
+            </Link>
+          </div>
         </div>
 
         <div className="mt-8 space-y-5">
@@ -71,7 +104,11 @@ export default async function CoursesPage({
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {courses.map((c) => (
-                <CourseCard key={c.code} course={c} />
+                <CourseCard
+                  key={c.code}
+                  course={c}
+                  returnTo={currentListHref}
+                />
               ))}
             </div>
           )}
@@ -158,11 +195,19 @@ function PageLink({
   );
 }
 
-function CourseCard({ course: c }: { course: CourseView }) {
+function CourseCard({
+  course: c,
+  returnTo,
+}: {
+  course: CourseView;
+  returnTo: string;
+}) {
+  const detailHref = `/courses/${c.code}?from=${encodeURIComponent(returnTo)}`;
+
   return (
-    <Link
-      href={`/courses/${c.code}`}
-      prefetch={false}
+    <CourseCardLink
+      href={detailHref}
+      returnTo={returnTo}
       className="group flex min-h-[168px] flex-col justify-between rounded-xl border bg-card p-5 transition-colors hover:border-foreground/30"
     >
       <div className="flex items-start justify-between gap-2">
@@ -175,9 +220,12 @@ function CourseCard({ course: c }: { course: CourseView }) {
       </div>
 
       <div className="mt-3">
-        <h2 className="text-base font-semibold tracking-tight">
-          {formatCourseCode(c.code)}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-semibold tracking-tight">
+            {formatCourseCode(c.code)}
+          </h2>
+          <CourseGenderBadge restriction={c.genderRestriction} />
+        </div>
         <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
           {c.title}
         </p>
@@ -215,6 +263,6 @@ function CourseCard({ course: c }: { course: CourseView }) {
           </div>
         )}
       </div>
-    </Link>
+    </CourseCardLink>
   );
 }

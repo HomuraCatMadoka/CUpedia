@@ -50,7 +50,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
     ]);
     expect(payload.items[0]).toMatchObject({
       name: "麻辣 雞飯",
-      svgKey: "spicy",
+      svgKey: "rice",
       priceOptions: [{ amountMinor: 3800 }],
     });
   });

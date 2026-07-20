@@ -45,7 +45,10 @@ export const auth = betterAuth({
     emailOTP({
       sendVerificationOTP: sendOtpEmail,
       otpLength: 6,
-      expiresIn: 300,
+      expiresIn: 600,
+      // Delayed emails must not invalidate a code the user already received.
+      // Resends reuse the active code and refresh its ten-minute expiry.
+      resendStrategy: "reuse",
     }),
     registrationOtpPlugin(),
   ],
@@ -66,6 +69,8 @@ export const auth = betterAuth({
   // sign-ins in one window would otherwise trip better-auth's 429 default.
   rateLimit: { enabled: process.env.E2E_TEST !== "1" },
   session: {
+    expiresIn: 60 * 60 * 24 * 365,
+    updateAge: 60 * 60 * 24,
     cookieCache: {
       enabled: true,
       maxAge: 300,

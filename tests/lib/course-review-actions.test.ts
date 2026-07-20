@@ -1,4 +1,17 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type Mock,
+} from "vitest";
+
+const mockGetAchievementSummaries = vi.hoisted(() => vi.fn());
+const mockRecomputeAchievements = vi.hoisted(() => vi.fn());
+const mockRebindAchievementEvidence = vi.hoisted(() => vi.fn());
+const mockSyncAchievementNotices = vi.hoisted(() => vi.fn());
 
 // ref #177 — course-review MVP data layer.
 //
@@ -72,6 +85,20 @@ vi.mock("@/lib/auth-guard", () => ({
   requireAuth: (...a: unknown[]) => mockRequireAuth(...a),
   getOptionalUser: (...a: unknown[]) => mockGetOptionalUser(...a),
 }));
+vi.mock("@/lib/achievement-profile", () => ({
+  getAchievementSummariesForAuthors: (...args: unknown[]) =>
+    mockGetAchievementSummaries(...args),
+}));
+vi.mock("@/lib/achievement-recompute-db", () => ({
+  rebindFallbackAchievementEvidenceAfterRatingChange: (...args: unknown[]) =>
+    mockRebindAchievementEvidence(...args),
+  recomputeAchievementsBeforeRatingDeletion: (...args: unknown[]) =>
+    mockRecomputeAchievements(...args),
+}));
+vi.mock("@/lib/achievement-notice-actions", () => ({
+  syncAchievementNoticesForUser: (...args: unknown[]) =>
+    mockSyncAchievementNotices(...args),
+}));
 vi.mock("@/db", () => ({
   db: {
     select: () => dbSelect(),
@@ -90,11 +117,14 @@ import {
   getCourseRatingState,
   getCourseReviews,
   getCourses,
+  getSubjects,
   getCourseProfessorStats,
   searchProfessors,
   getCourseEnrollmentHistory,
+  getMyCourseReviewHistory,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
+import { resetSensitiveMatcherForTests } from "@/lib/sensitive-content";
 
 const COURSE = {
   code: "CSCI3150",
@@ -116,23 +146,34 @@ beforeEach(() => {
   vi.clearAllMocks();
   dbQueue.length = 0;
   professorSearchCache.clear();
+  resetSensitiveMatcherForTests([]);
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
   mockGetOptionalUser.mockResolvedValue(null);
+  mockGetAchievementSummaries.mockResolvedValue(new Map());
+  mockRecomputeAchievements.mockResolvedValue({ kind: "unchanged" });
+  mockRebindAchievementEvidence.mockResolvedValue(0);
+  mockSyncAchievementNotices.mockResolvedValue([]);
   dbTransaction.mockImplementation(
     async (
       callback: (tx: {
+        select: () => typeof dbChain;
         insert: () => typeof dbChain;
         update: () => typeof dbChain;
         delete: () => typeof dbChain;
+        execute: () => Promise<void>;
       }) => unknown,
     ) =>
       callback({
+        select: () => dbSelect(),
         insert: () => dbInsert(),
         update: () => dbUpdate(),
         delete: () => dbDelete(),
+        execute: async () => undefined,
       }),
   );
 });
+
+afterEach(() => resetSensitiveMatcherForTests(null));
 
 const SUBMISSION = {
   academicYear: "2025-26",
@@ -173,9 +214,9 @@ describe("submitCourseReview", () => {
 
   it("仅评分时写入开课经历，不生成空评论", async () => {
     queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
-    await expect(
-      submitCourseReview("CSCI3150", SUBMISSION),
-    ).resolves.toBeUndefined();
+    await expect(submitCourseReview("CSCI3150", SUBMISSION)).resolves.toEqual({
+      newAchievementNotices: [],
+    });
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -186,8 +227,76 @@ describe("submitCourseReview", () => {
         term: "Term 2",
         professorId: "p1",
         professorNameSnapshot: "Professor CHAN",
+        isAnonymous: false,
       }),
     );
+    expect(mockRebindAchievementEvidence).toHaveBeenCalledWith(
+      expect.anything(),
+      "u1",
+    );
+  });
+
+  it("确认无任课教授的课程允许教授留空", async () => {
+    queueRows([COURSE], [{ instructors: [] }], [], []);
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        professorId: null,
+      }),
+    ).resolves.toEqual({ newAchievementNotices: [] });
+    expect(values()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        professorId: null,
+        professorNameSnapshot: null,
+      }),
+    );
+  });
+
+  it("无任课教授的文字评论也保存空教授快照", async () => {
+    queueRows([COURSE], [{ instructors: [] }], [], [], []);
+
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      professorId: null,
+      content: "学院统筹的课程",
+    });
+
+    expect(values()).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        content: "学院统筹的课程",
+        professorId: null,
+        professorNameSnapshot: null,
+      }),
+    );
+  });
+
+  it("任一开课组件有已知教授时仍拒绝留空", async () => {
+    queueRows(
+      [COURSE],
+      [{ instructors: [] }, { instructors: ["Professor CHAN"] }],
+    );
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        professorId: null,
+      }),
+    ).rejects.toThrow(/请选择任课教授/);
+    expect(dbInsert).not.toHaveBeenCalled();
+  });
+
+  it("没有开课资料时不把未知教授误判为可留空", async () => {
+    queueRows([COURSE], []);
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        professorId: null,
+      }),
+    ).rejects.toThrow(/请选择任课教授/);
+    expect(dbInsert).not.toHaveBeenCalled();
   });
 
   it("同一用户重复投稿是更新评分（upsert，一人一票）", async () => {
@@ -197,9 +306,155 @@ describe("submitCourseReview", () => {
     expect(onConflict).toHaveBeenCalledOnce();
     expect(onConflict).toHaveBeenCalledWith(
       expect.objectContaining({
-        set: expect.objectContaining({ score: 4.5, term: "Term 2" }),
+        set: expect.objectContaining({
+          score: 4.5,
+          term: "Term 2",
+          isAnonymous: false,
+        }),
       }),
     );
+  });
+
+  it("显式匿名时同步保存到评分与文字评论", async () => {
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], [], []);
+
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      content: "保持匿名",
+      isAnonymous: true,
+    });
+
+    expect(values()).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ isAnonymous: true }),
+    );
+    expect(values()).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ content: "保持匿名", isAnonymous: true }),
+    );
+  });
+
+  it("拒绝畸形匿名选项", async () => {
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        isAnonymous: "yes" as never,
+      }),
+    ).rejects.toThrow(/匿名选项格式无效/);
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("保存 preset 与规范化后的自定义标签", async () => {
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      tags: {
+        workload: "hea",
+        grade: "靓 grade",
+        enrollment: "点击即送",
+        attendance: "要 attendance",
+        custom: [" 讲解清晰 ", "考试   贴题", "讲解清晰"],
+      },
+    });
+
+    expect(values()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workload: "light",
+        grade: "good",
+        enrollment: "easy",
+        attendance: "required",
+        customTags: ["讲解清晰", "考试 贴题"],
+      }),
+    );
+  });
+
+  it("拒绝超过五个自定义标签", async () => {
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { custom: ["一", "二", "三", "四", "五", "六"] },
+      }),
+    ).rejects.toThrow(/最多 5 个/);
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("拒绝伪造 preset 标签", async () => {
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { workload: "躺平" } as never,
+      }),
+    ).rejects.toThrow(/无效的课程体验标签/);
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("拒绝用自定义标签绕过 preset 单选限制", async () => {
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { workload: "chur", custom: ["hea"] },
+      }),
+    ).rejects.toThrow(/自定义标签不能使用 preset/);
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it.each([{ custom: "hea" }, { custom: [42] }, { workload: ["chur", "hea"] }])(
+    "拒绝畸形标签请求 %#",
+    async (tags) => {
+      await expect(
+        submitCourseReview("CSCI3150", {
+          ...SUBMISSION,
+          tags: tags as never,
+        }),
+      ).rejects.toThrow(/标签格式无效/);
+      expect(dbSelect).not.toHaveBeenCalled();
+    },
+  );
+
+  it("拒绝超过十二个字符的自定义标签", async () => {
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { custom: ["这是一个超过十二个字符的自定义标签"] },
+      }),
+    ).rejects.toThrow(/最多 12 个字符/);
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("拒绝包含敏感词的自定义标签", async () => {
+    resetSensitiveMatcherForTests(["违禁样例词"]);
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { custom: ["违禁样例词"] },
+      }),
+    ).rejects.toThrow("SENSITIVE_CONTENT");
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("允许包含课程领域常用词的自定义标签", async () => {
+    resetSensitiveMatcherForTests(["考试"]);
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { custom: ["考试贴题"] },
+      }),
+    ).resolves.toEqual({ newAchievementNotices: [] });
+  });
+
+  it("不豁免包含课程领域常用词的完整敏感词", async () => {
+    resetSensitiveMatcherForTests(["考试作弊"]);
+
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        tags: { custom: ["考试作弊"] },
+      }),
+    ).rejects.toThrow("SENSITIVE_CONTENT");
+    expect(dbSelect).not.toHaveBeenCalled();
   });
 
   it("含评论时原子写入评分和匿名评论快照", async () => {
@@ -231,11 +486,16 @@ describe("submitCourseReview", () => {
     await submitCourseReview("CSCI3150", {
       ...SUBMISSION,
       content: "更新后的内容",
+      isAnonymous: true,
     });
     expect(dbUpdate).toHaveBeenCalledOnce();
     expect(dbInsert).toHaveBeenCalledOnce();
     expect(dbChain.set).toHaveBeenCalledWith(
-      expect.objectContaining({ content: "更新后的内容", score: 4.5 }),
+      expect.objectContaining({
+        content: "更新后的内容",
+        score: 4.5,
+        isAnonymous: true,
+      }),
     );
   });
 
@@ -265,6 +525,55 @@ describe("submitCourseReview", () => {
     await expect(submitCourseReview("NOPE0000", SUBMISSION)).rejects.toThrow(
       /课程不存在/,
     );
+  });
+});
+
+describe("getMyCourseReviewHistory", () => {
+  it("requires authentication before reading private history", async () => {
+    mockRequireAuth.mockRejectedValue(new Error("未登录"));
+
+    await expect(getMyCourseReviewHistory()).rejects.toThrow("未登录");
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("returns only review submission fields and current comment content", async () => {
+    queueRows([
+      {
+        ratingId: "rating-1",
+        courseCode: "CSCI3150",
+        courseTitle: "Operating Systems",
+        score: 4.5,
+        academicYear: "2025-26",
+        term: "Term 2",
+        professorName: "Ada Lovelace",
+        storedTags: {
+          workload: "heavy",
+          grade: null,
+          enrollment: null,
+          attendance: null,
+          customTags: ["讲解清晰"],
+        },
+        isAnonymous: false,
+        content: "很清楚",
+        updatedAt: new Date("2026-01-02T03:04:05Z"),
+      },
+    ]);
+
+    await expect(getMyCourseReviewHistory()).resolves.toEqual([
+      {
+        ratingId: "rating-1",
+        courseCode: "CSCI3150",
+        courseTitle: "Operating Systems",
+        score: 4.5,
+        academicYear: "2025-26",
+        term: "Term 2",
+        professorName: "Ada Lovelace",
+        tags: ["chur", "讲解清晰"],
+        isAnonymous: false,
+        content: "很清楚",
+        updatedAt: "2026-01-02T03:04:05.000Z",
+      },
+    ]);
   });
 });
 
@@ -331,10 +640,71 @@ describe("searchProfessors", () => {
 });
 
 describe("getCourseProfessorStats", () => {
+  it("按当前课程和教授汇总非零标签计数", async () => {
+    queueRows(
+      [{ id: "p1", name: "Professor CHAN" }],
+      [],
+      [],
+      [
+        {
+          professorId: "p1",
+          storedTags: {
+            workload: "light",
+            grade: "good",
+            enrollment: null,
+            attendance: "required",
+            customTags: ["讲解清晰"],
+          },
+        },
+        {
+          professorId: "p1",
+          storedTags: {
+            workload: "light",
+            grade: null,
+            enrollment: null,
+            attendance: "required",
+            customTags: ["讲解清晰"],
+          },
+        },
+        {
+          professorId: "p1",
+          storedTags: {
+            workload: "heavy",
+            grade: null,
+            enrollment: null,
+            attendance: "not_required",
+            customTags: ["讲解清晰"],
+          },
+        },
+      ],
+    );
+
+    await expect(getCourseProfessorStats("CSCI3150")).resolves.toEqual([
+      expect.objectContaining({
+        id: "p1",
+        tags: [
+          { label: "hea", count: 2 },
+          { label: "chur", count: 1 },
+          { label: "靓 grade", count: 1 },
+          { label: "要 attendance", count: 2 },
+          { label: "无 attendance", count: 1 },
+          { label: "讲解清晰", count: 3 },
+        ],
+      }),
+    ]);
+  });
+
   it("返回教授 overall、任教学期均分和各自样本数", async () => {
     queueRows(
       [{ id: "p1", name: "Professor CHAN" }],
       [
+        {
+          professorId: null,
+          academicYear: "2025-26",
+          term: "Term 1",
+          avg: "5",
+          cnt: 100,
+        },
         {
           professorId: "p1",
           academicYear: "2025-26",
@@ -370,6 +740,7 @@ describe("getCourseProfessorStats", () => {
         name: "Professor CHAN",
         rating: 4.2,
         ratingCount: 3,
+        tags: [],
         terms: [
           {
             academicYear: "2025-26",
@@ -534,6 +905,34 @@ describe("deleteCourseReviewSubmission", () => {
     ).resolves.toBeUndefined();
     expect(dbDelete).toHaveBeenCalledTimes(2);
   });
+
+  it("在同一事务内重算证据后删除评分", async () => {
+    queueRows([{ id: "rating1" }], [], []);
+    mockRecomputeAchievements.mockResolvedValue({ kind: "preserved" });
+
+    await deleteCourseReviewSubmission("CSCI3150", undefined, "preserved");
+
+    expect(mockRecomputeAchievements).toHaveBeenCalledWith(
+      expect.anything(),
+      "u1",
+      "rating1",
+      true,
+    );
+    expect(dbDelete).toHaveBeenCalledTimes(2);
+  });
+
+  it("并发变化导致实际影响更严重时中止整笔删除", async () => {
+    queueRows([{ id: "rating1" }]);
+    mockRecomputeAchievements.mockResolvedValue({
+      kind: "revoked",
+      nextTier: null,
+    });
+
+    await expect(
+      deleteCourseReviewSubmission("CSCI3150", undefined, "preserved"),
+    ).rejects.toThrow(/状态已变化/);
+    expect(dbDelete).not.toHaveBeenCalled();
+  });
 });
 
 describe("toggleLike", () => {
@@ -585,6 +984,7 @@ describe("getCourseRatingState", () => {
       lastTerm: null,
       lastProfessor: null,
       lastContent: "",
+      lastIsAnonymous: false,
       myRatingCount: 0,
     });
   });
@@ -601,6 +1001,14 @@ describe("getCourseRatingState", () => {
           term: "Term 2",
           professorId: "p1",
           professorName: "Professor CHAN",
+          storedTags: {
+            workload: "light",
+            grade: "good",
+            enrollment: null,
+            attendance: null,
+            customTags: ["讲解清晰"],
+          },
+          isAnonymous: true,
         },
       ], // my rating
       [{ content: "很清楚" }], // latest own review
@@ -616,6 +1024,8 @@ describe("getCourseRatingState", () => {
       name: "Professor CHAN",
     });
     expect(state?.lastContent).toBe("很清楚");
+    expect(state?.lastTags).toEqual(["hea", "靓 grade", "讲解清晰"]);
+    expect(state?.lastIsAnonymous).toBe(true);
     expect(state?.myRatingCount).toBe(1);
   });
 
@@ -626,6 +1036,132 @@ describe("getCourseRatingState", () => {
 });
 
 describe("getCourseReviews", () => {
+  it("公开评论展示同一投稿选择的标签", async () => {
+    queueRows(
+      [COURSE],
+      [
+        {
+          id: "r1",
+          content: "很清楚",
+          createdAt: new Date("2026-07-13T00:00:00Z"),
+          userId: "other",
+          isAnonymous: false,
+          professorId: "p1",
+          professorName: "Professor CHAN",
+          academicYear: "2025-26",
+          term: "Term 2",
+          score: 4.5,
+          storedTags: {
+            workload: "light",
+            grade: "good",
+            enrollment: null,
+            attendance: null,
+            customTags: ["讲解清晰"],
+          },
+          authorNickname: "Alice",
+        },
+      ],
+      [],
+    );
+
+    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
+      expect.objectContaining({
+        id: "r1",
+        tags: ["hea", "靓 grade", "讲解清晰"],
+        authorNickname: "Alice",
+        authorShowcaseId: null,
+        authorAchievements: [],
+      }),
+    ]);
+  });
+
+  it("匿名评论不向客户端返回作者昵称", async () => {
+    queueRows(
+      [COURSE],
+      [
+        {
+          id: "r1",
+          content: "不署名",
+          createdAt: new Date("2026-07-13T00:00:00Z"),
+          userId: "other",
+          isAnonymous: true,
+          professorId: "p1",
+          professorName: "Professor CHAN",
+          academicYear: "2025-26",
+          term: "Term 2",
+          score: 4.5,
+          tags: [],
+          authorNickname: null,
+        },
+      ],
+      [],
+    );
+
+    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
+      expect.objectContaining({
+        id: "r1",
+        authorNickname: null,
+        authorShowcaseId: null,
+        authorAchievements: [],
+      }),
+    ]);
+    expect(mockGetAchievementSummaries).toHaveBeenCalledWith([]);
+  });
+
+  it("署名评论实时返回公开橱窗和当前成就，不返回证据", async () => {
+    mockGetAchievementSummaries.mockResolvedValue(
+      new Map([
+        [
+          "other",
+          {
+            showcaseId: "00000000-0000-4000-a000-000000000099",
+            achievements: [
+              {
+                id: "achievement-1",
+                displayName: "数学铜标",
+                badgeCode: "MATH",
+                tier: "bronze",
+                category: "professional",
+                publicDescription: "",
+                primary: true,
+              },
+            ],
+          },
+        ],
+      ]),
+    );
+    queueRows(
+      [COURSE],
+      [
+        {
+          id: "r1",
+          content: "署名",
+          createdAt: new Date("2026-07-13T00:00:00Z"),
+          userId: "other",
+          isAnonymous: false,
+          professorId: null,
+          professorName: null,
+          academicYear: "2025-26",
+          term: "Term 2",
+          score: 4.5,
+          tags: [],
+          authorNickname: "Alice",
+        },
+      ],
+      [],
+    );
+
+    const [review] = await getCourseReviews("CSCI3150");
+    expect(review.authorShowcaseId).toBe(
+      "00000000-0000-4000-a000-000000000099",
+    );
+    expect(review.authorAchievements[0]).toMatchObject({
+      badgeCode: "MATH",
+      primary: true,
+    });
+    expect(review.authorAchievements[0]).not.toHaveProperty("evidence");
+  });
+
   it("管理员可看到没有评论的评分投稿管理卡片", async () => {
     mockGetOptionalUser.mockResolvedValue({ id: "admin", role: "admin" });
     queueRows(
@@ -681,6 +1217,28 @@ describe("getCourses（学科筛选 #267）", () => {
     const result = await getCourses({ page: 2 });
     expect(result.page).toBe(2);
     expect(offset()).toHaveBeenCalledWith(48);
+  });
+});
+
+describe("getSubjects", () => {
+  it("返回数据库中的官方英文学科名", async () => {
+    queueRows([
+      {
+        subject: "ELED",
+        nameEn: "English Language Education",
+        count: 17,
+      },
+      {
+        subject: "ELEG",
+        nameEn: "Electronic Engineering",
+        count: 32,
+      },
+    ]);
+
+    await expect(getSubjects()).resolves.toEqual([
+      { subject: "ELED", name: "English Language Education", count: 17 },
+      { subject: "ELEG", name: "Electronic Engineering", count: 32 },
+    ]);
   });
 });
 

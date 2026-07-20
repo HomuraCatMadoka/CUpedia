@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
+import { toast } from "sonner";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +12,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -19,8 +22,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CommandSearch } from "@/components/layout/command-search";
+import { AchievementAvatar } from "@/components/user/achievement-avatar";
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
+  const router = useRouter();
   const { data: session } = authClient.useSession();
   // `useSession` reads a cookie-backed session snapshot synchronously on the
   // client, so the first client render can already know the user while the
@@ -33,6 +38,24 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const [nickname, setNickname] = useState("");
   const [nicknameError, setNicknameError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      const { error } = await authClient.signOut();
+      if (error) {
+        toast.error(error.message ?? "登出失败，请稍后重试");
+        return;
+      }
+      router.push("/login");
+      router.refresh();
+    } catch {
+      toast.error("登出失败，请稍后重试");
+    } finally {
+      setSigningOut(false);
+    }
+  }
 
   async function handleNicknameSave(e: React.FormEvent) {
     e.preventDefault();
@@ -93,23 +116,40 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               href="/courses"
               className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
             >
-              课程测评（测试中）
+              课程测评
             </Link>
           </div>
           <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
             <CommandSearch />
             {mounted && session?.user ? (
               <DropdownMenu>
-                <DropdownMenuTrigger className="min-h-11 touch-manipulation rounded-md px-3 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1.5">
-                  {((session.user as Record<string, unknown>)
-                    .nickname as string) || session.user.email}
+                <DropdownMenuTrigger className="flex min-h-11 touch-manipulation items-center gap-2 rounded-md px-2 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1">
+                  <AchievementAvatar image={session.user.image} size="xs" />
+                  <span className="hidden sm:inline">
+                    {((session.user as Record<string, unknown>)
+                      .nickname as string) || session.user.email}
+                  </span>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onSelect={openNicknameDialog}>
+                  <DropdownMenuItem
+                    onClick={() => router.push("/courses/my-reviews")}
+                  >
+                    我的测评
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => router.push("/courses/achievements")}
+                  >
+                    我的成就
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={openNicknameDialog}>
                     修改昵称
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => authClient.signOut()}>
-                    登出
+                  <DropdownMenuItem
+                    disabled={signingOut}
+                    onClick={handleSignOut}
+                  >
+                    {signingOut ? "登出中..." : "登出"}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -62,5 +62,6 @@ describe("sendOtpEmail", () => {
       }),
     );
     expect(fetchMock.mock.calls[0][1].body).toContain("654321");
+    expect(fetchMock.mock.calls[0][1].body).toContain("10 分钟内有效");
   });
 });

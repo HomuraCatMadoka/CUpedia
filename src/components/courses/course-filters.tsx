@@ -17,9 +17,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { SUBJECT_NAMES } from "@/app/(main)/courses/subject-names";
 
-export type SubjectOption = { subject: string; count: number };
+export type SubjectOption = {
+  subject: string;
+  name: string | null;
+  count: number;
+};
 
 // Credits 0–3 cover ~98% of the catalog; the 4+ tail stays reachable via
 // search/subject (the backend still honors a "other" bucket if ever passed).
@@ -49,6 +52,9 @@ export function CourseFilters({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const selectedSubjectName = subjects.find(
+    (option) => option.subject === subject,
+  )?.name;
 
   // Set a filter param (empty value clears it), then navigate.
   function setParam(key: string, value: string) {
@@ -107,7 +113,7 @@ export function CourseFilters({
           {subject && (
             <Chip onClear={() => setParam("subject", "")}>
               {subject}
-              {SUBJECT_NAMES[subject] ? ` ${SUBJECT_NAMES[subject]}` : ""}
+              {selectedSubjectName ? ` ${selectedSubjectName}` : ""}
             </Chip>
           )}
           {credits && (
@@ -180,6 +186,9 @@ function SubjectCombobox({
   onSelect: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const selectedSubjectName = subjects.find(
+    (option) => option.subject === subject,
+  )?.name;
 
   function pick(value: string) {
     onSelect(value);
@@ -188,17 +197,23 @@ function SubjectCombobox({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="inline-flex h-9 min-w-36 max-w-56 items-center justify-between gap-2 rounded-lg border bg-background px-3 text-sm transition-colors hover:border-foreground/40">
-        <span className={cn("truncate", !subject && "text-muted-foreground")}>
+      <PopoverTrigger className="inline-flex h-9 min-w-36 max-w-[calc(100vw-3rem)] items-center justify-between gap-2 rounded-lg border bg-background px-3 text-sm transition-colors hover:border-foreground/40 sm:max-w-80">
+        <span
+          className={cn("truncate", !subject && "text-muted-foreground")}
+          title={selectedSubjectName ?? undefined}
+        >
           {subject
-            ? SUBJECT_NAMES[subject]
-              ? `${subject} ${SUBJECT_NAMES[subject]}`
+            ? selectedSubjectName
+              ? `${subject} ${selectedSubjectName}`
               : subject
             : "全部学科"}
         </span>
         <ChevronsUpDownIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-64 p-0">
+      <PopoverContent
+        align="start"
+        className="w-[calc(100vw-2rem)] p-0 sm:w-96"
+      >
         <Command>
           <CommandInput placeholder="搜索学科代号…" />
           <CommandList>
@@ -214,30 +229,32 @@ function SubjectCombobox({
                 全部学科
               </CommandItem>
               {subjects.map((s) => {
-                const name = SUBJECT_NAMES[s.subject];
                 return (
                   <CommandItem
                     key={s.subject}
-                    // cmdk filters on this value — include the name so typing
-                    // Chinese matches too.
-                    value={`${s.subject} ${name ?? ""}`}
+                    // cmdk filters on this value — include the official name
+                    // so English queries match too.
+                    value={`${s.subject} ${s.name ?? ""}`}
                     onSelect={() => pick(s.subject)}
-                    className="grid grid-cols-[1rem_4.5rem_minmax(0,1fr)_auto] [&>svg:last-child]:hidden"
+                    className="grid grid-cols-[1rem_4.5rem_minmax(0,1fr)_auto] items-start py-2 [&>svg:last-child]:hidden"
                   >
                     <CheckIcon
                       className={cn(
-                        "mr-2 h-4 w-4 shrink-0",
+                        "mt-0.5 mr-2 h-4 w-4 shrink-0",
                         subject === s.subject ? "opacity-100" : "opacity-0",
                       )}
                     />
-                    <span className="font-mono">{s.subject}</span>
-                    {name && (
-                      <span className="truncate text-muted-foreground">
-                        {name}
+                    <span className="pt-0.5 font-mono">{s.subject}</span>
+                    {s.name && (
+                      <span
+                        className="line-clamp-2 break-words leading-5 text-muted-foreground"
+                        title={s.name}
+                      >
+                        {s.name}
                       </span>
                     )}
-                    {!name && <span />}
-                    <span className="pl-2 text-right text-xs text-muted-foreground">
+                    {!s.name && <span />}
+                    <span className="pt-0.5 pl-2 text-right text-xs text-muted-foreground">
                       {s.count}
                     </span>
                   </CommandItem>

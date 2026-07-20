@@ -13,7 +13,7 @@ import { validateNickname } from "@/lib/nickname";
 
 type Step = "email" | "otp" | "profile";
 
-const OTP_EXPIRY_SECONDS = 300;
+const OTP_EXPIRY_SECONDS = 600;
 
 export default function RegisterPage() {
   const router = useRouter();

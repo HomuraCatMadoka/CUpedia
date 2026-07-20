@@ -13,6 +13,7 @@ import {
   canteenDishComments,
   menuImportDrafts,
   danmakuMessages,
+  courseRatings,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -119,5 +120,14 @@ describe("schema", () => {
     expect(cols.month).toBeDefined();
     expect(cols.createdAt).toBeDefined();
     expect("moderationStatus" in cols).toBe(false);
+  });
+
+  it("courseRatings stores structured course experience tags", () => {
+    const cols = getTableColumns(courseRatings);
+    expect(cols.workload).toBeDefined();
+    expect(cols.grade).toBeDefined();
+    expect(cols.enrollment).toBeDefined();
+    expect(cols.attendance).toBeDefined();
+    expect(cols.customTags).toBeDefined();
   });
 });

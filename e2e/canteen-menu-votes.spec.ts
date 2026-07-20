@@ -50,7 +50,7 @@ test.describe("canteen menu votes", () => {
     await page.goto(DEMO_CANTEEN_URL);
     await selectLunch(page);
     await expect(page.locator('[data-svg-key="rice"]').first()).toBeVisible();
-    await expect(page.locator('[data-svg-key="spicy"]').first()).toBeVisible();
+    await expect(page.locator('[data-svg-key="bowl"]').first()).toBeVisible();
   });
 
   test("logged-in diner can change vote from like to dislike", async ({
@@ -60,7 +60,7 @@ test.describe("canteen menu votes", () => {
     await page.goto(DEMO_CANTEEN_URL);
     await selectLunch(page);
 
-    const row = page.getByRole("listitem").filter({ hasText: "演示辣味" });
+    const row = page.getByRole("listitem").filter({ hasText: "演示煲汤" });
     const likeBtn = row.getByRole("button", { name: "点赞" });
     const dislikeBtn = row.getByRole("button", { name: "点踩" });
 

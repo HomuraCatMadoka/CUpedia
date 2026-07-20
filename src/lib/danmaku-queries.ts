@@ -1,7 +1,16 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { danmakuMessages, users } from "@/db/schema";
-import type { DanmakuMessage } from "@/lib/danmaku-types";
+import {
+  canteenDanmakuMessages,
+  canteens,
+  danmakuMessages,
+  users,
+} from "@/db/schema";
+import type {
+  AdminDanmakuMessage,
+  DanmakuMessage,
+  PublicDanmakuMessage,
+} from "@/lib/danmaku-types";
 import { currentMonthHkt } from "@/lib/hkt-datetime";
 
 function mapRow(row: {
@@ -22,42 +31,105 @@ function mapRow(row: {
   };
 }
 
+function mapPublicRow(row: PublicDanmakuMessage): PublicDanmakuMessage {
+  return {
+    id: row.id,
+    content: row.content,
+    month: row.month,
+    createdAt: row.createdAt,
+  };
+}
+
 export async function listCurrentMonthDanmaku(
   now = new Date(),
-): Promise<DanmakuMessage[]> {
+): Promise<PublicDanmakuMessage[]> {
   const month = currentMonthHkt(now);
   const rows = await db
     .select({
       id: danmakuMessages.id,
-      userId: danmakuMessages.userId,
       content: danmakuMessages.content,
       month: danmakuMessages.month,
       createdAt: danmakuMessages.createdAt,
-      authorNickname: users.nickname,
     })
     .from(danmakuMessages)
-    .innerJoin(users, eq(danmakuMessages.userId, users.id))
     .where(eq(danmakuMessages.month, month))
     .orderBy(asc(danmakuMessages.createdAt));
 
-  return rows.map(mapRow);
+  return rows.map(mapPublicRow);
 }
 
-export async function adminListCurrentMonthDanmaku(): Promise<DanmakuMessage[]> {
-  const month = currentMonthHkt();
+export async function listCurrentMonthCanteenDanmaku(
+  canteenId: string,
+  now = new Date(),
+): Promise<PublicDanmakuMessage[]> {
+  const month = currentMonthHkt(now);
   const rows = await db
     .select({
-      id: danmakuMessages.id,
-      userId: danmakuMessages.userId,
-      content: danmakuMessages.content,
-      month: danmakuMessages.month,
-      createdAt: danmakuMessages.createdAt,
-      authorNickname: users.nickname,
+      id: canteenDanmakuMessages.id,
+      content: canteenDanmakuMessages.content,
+      month: canteenDanmakuMessages.month,
+      createdAt: canteenDanmakuMessages.createdAt,
     })
-    .from(danmakuMessages)
-    .innerJoin(users, eq(danmakuMessages.userId, users.id))
-    .where(eq(danmakuMessages.month, month))
-    .orderBy(desc(danmakuMessages.createdAt));
+    .from(canteenDanmakuMessages)
+    .where(
+      and(
+        eq(canteenDanmakuMessages.canteenId, canteenId),
+        eq(canteenDanmakuMessages.month, month),
+      ),
+    )
+    .orderBy(asc(canteenDanmakuMessages.createdAt));
 
-  return rows.map(mapRow);
+  return rows.map(mapPublicRow);
+}
+
+export async function adminListCurrentMonthDanmaku(): Promise<
+  AdminDanmakuMessage[]
+> {
+  const month = currentMonthHkt();
+  const [hubRows, canteenRows] = await Promise.all([
+    db
+      .select({
+        id: danmakuMessages.id,
+        userId: danmakuMessages.userId,
+        content: danmakuMessages.content,
+        month: danmakuMessages.month,
+        createdAt: danmakuMessages.createdAt,
+        authorNickname: users.nickname,
+      })
+      .from(danmakuMessages)
+      .innerJoin(users, eq(danmakuMessages.userId, users.id))
+      .where(eq(danmakuMessages.month, month))
+      .orderBy(desc(danmakuMessages.createdAt)),
+    db
+      .select({
+        id: canteenDanmakuMessages.id,
+        userId: canteenDanmakuMessages.userId,
+        content: canteenDanmakuMessages.content,
+        month: canteenDanmakuMessages.month,
+        createdAt: canteenDanmakuMessages.createdAt,
+        authorNickname: users.nickname,
+        canteenId: canteenDanmakuMessages.canteenId,
+        canteenName: canteens.name,
+      })
+      .from(canteenDanmakuMessages)
+      .innerJoin(users, eq(canteenDanmakuMessages.userId, users.id))
+      .innerJoin(canteens, eq(canteenDanmakuMessages.canteenId, canteens.id))
+      .where(eq(canteenDanmakuMessages.month, month))
+      .orderBy(desc(canteenDanmakuMessages.createdAt)),
+  ]);
+
+  return [
+    ...hubRows.map((row) => ({
+      ...mapRow(row),
+      scope: "hub" as const,
+      canteenId: null,
+      canteenName: null,
+    })),
+    ...canteenRows.map((row) => ({
+      ...mapRow(row),
+      scope: "canteen" as const,
+      canteenId: row.canteenId,
+      canteenName: row.canteenName,
+    })),
+  ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }

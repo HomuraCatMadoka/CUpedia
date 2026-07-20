@@ -49,6 +49,8 @@ describe("/api/danmaku", () => {
     const body = await res.json();
     expect(body.messages).toHaveLength(1);
     expect(body.messages[0].content).toBe("你好");
+    expect(body.messages[0]).not.toHaveProperty("userId");
+    expect(body.messages[0]).not.toHaveProperty("authorNickname");
   });
 
   it("POST rejects anonymous with 401", async () => {
@@ -101,5 +103,21 @@ describe("/api/danmaku", () => {
       { id: "u1", nickname: "Alice" },
       "加油",
     );
+  });
+
+  it("does not expose unexpected database errors", async () => {
+    mockGetDanmakuAuthorForApi.mockResolvedValue({
+      id: "u1",
+      nickname: "Alice",
+      banned: false,
+    });
+    mockInsert.mockRejectedValue(new Error("connection terminated"));
+    const req = new NextRequest("http://localhost/api/danmaku", {
+      method: "POST",
+      body: JSON.stringify({ content: "hi" }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "DANMAKU_FAILED" });
   });
 });

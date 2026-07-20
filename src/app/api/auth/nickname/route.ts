@@ -24,5 +24,23 @@ export async function POST(req: Request) {
     .set({ nickname: result.nickname, updatedAt: new Date() })
     .where(eq(users.id, user.id));
 
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+
+  // The cached session user still contains the previous nickname. Expire only
+  // that cache (including secure and chunked variants) so the next session
+  // read uses the updated database row without signing the user out.
+  for (const cookie of (req.headers.get("cookie") ?? "").split(";")) {
+    const name = cookie.split("=", 1)[0].trim();
+    if (/^(?:__Secure-)?better-auth\.session_data(?:\.\d+)?$/.test(name)) {
+      response.cookies.set({
+        name,
+        value: "",
+        expires: new Date(0),
+        path: "/",
+        secure: name.startsWith("__Secure-"),
+      });
+    }
+  }
+
+  return response;
 }
