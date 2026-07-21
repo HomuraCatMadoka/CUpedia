@@ -330,6 +330,13 @@
       "when": 1784291235442,
       "tag": "0046_canteen_announcement",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1784623825297,
+      "tag": "0047_repair_canteen_announcement",
+      "breakpoints": true
     }
   ]
 }
