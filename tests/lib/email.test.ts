@@ -139,7 +139,6 @@ describe("isAllowedEmail", () => {
 describe("shouldRejectOtpRequest", () => {
   const SEND = "/email-otp/send-verification-otp";
   const VERIFY = "/sign-in/email-otp";
-  const REGISTER_CHECK = "/register/check-otp";
 
   it("rejects ineligible email on the send path", () => {
     expect(shouldRejectOtpRequest(SEND, "attacker@gmail.com")).toBe(true);
@@ -149,8 +148,8 @@ describe("shouldRejectOtpRequest", () => {
     expect(shouldRejectOtpRequest(VERIFY, "attacker@gmail.com")).toBe(true);
   });
 
-  it("rejects ineligible email on the registration pre-check path", () => {
-    expect(shouldRejectOtpRequest(REGISTER_CHECK, "attacker@gmail.com")).toBe(
+  it("rejects ineligible email on the canonical email signup path", () => {
+    expect(shouldRejectOtpRequest("/sign-up/email", "attacker@gmail.com")).toBe(
       true,
     );
   });

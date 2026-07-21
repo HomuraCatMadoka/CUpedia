@@ -1,13 +1,19 @@
 import { NextRequest } from "next/server";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockGetDanmakuAuthorForApi, mockInsert, mockList, mockRevalidate } =
-  vi.hoisted(() => ({
-    mockGetDanmakuAuthorForApi: vi.fn(),
-    mockInsert: vi.fn(),
-    mockList: vi.fn(),
-    mockRevalidate: vi.fn(),
-  }));
+const {
+  mockGetDanmakuAuthorForApi,
+  mockInsert,
+  mockList,
+  mockRevalidate,
+  mockAssertContributorComplete,
+} = vi.hoisted(() => ({
+  mockGetDanmakuAuthorForApi: vi.fn(),
+  mockInsert: vi.fn(),
+  mockList: vi.fn(),
+  mockRevalidate: vi.fn(),
+  mockAssertContributorComplete: vi.fn(async (user) => user),
+}));
 
 vi.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => mockRevalidate(...args),
@@ -15,6 +21,11 @@ vi.mock("next/cache", () => ({
 
 vi.mock("@/lib/auth-guard", () => ({
   getDanmakuAuthorForApi: () => mockGetDanmakuAuthorForApi(),
+}));
+
+vi.mock("@/lib/contributor-account", () => ({
+  assertContributorComplete: (user: unknown) =>
+    mockAssertContributorComplete(user),
 }));
 
 vi.mock("@/lib/danmaku-mutations", () => ({
@@ -72,6 +83,33 @@ describe("/api/canteen/[id]/danmaku", () => {
     const res = await POST(req, { params });
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "UNAUTHORIZED" });
+  });
+
+  it("POST rejects an incomplete attributed account before inserting", async () => {
+    mockGetDanmakuAuthorForApi.mockResolvedValue({
+      id: "u1",
+      nickname: "",
+      banned: false,
+    });
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      Object.assign(new Error("ACCOUNT_SETUP_REQUIRED"), {
+        code: "ACCOUNT_SETUP_REQUIRED",
+        needs: { nickname: true, password: true },
+      }),
+    );
+    const req = new NextRequest(
+      `http://localhost/api/canteen/${CANTEEN_ID}/danmaku`,
+      { method: "POST", body: JSON.stringify({ content: "hi" }) },
+    );
+
+    const res = await POST(req, { params });
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({
+      error: "ACCOUNT_SETUP_REQUIRED",
+      needs: { nickname: true, password: true },
+    });
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 
   it("POST creates canteen-scoped danmaku", async () => {

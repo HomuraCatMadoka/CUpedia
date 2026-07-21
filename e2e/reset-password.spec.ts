@@ -6,7 +6,8 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
-import { expireLatestOtp, readLatestOtp } from "./helpers/otp";
+import { expireLatestOtp } from "./helpers/otp";
+import { LOCAL_E2E_OTP } from "@/lib/e2e-otp";
 
 const OLD_PASSWORD = "old-password-1";
 const NEW_PASSWORD = "new-password-2";
@@ -16,20 +17,22 @@ function freshEmail() {
 }
 
 async function createUser(request: APIRequestContext, email: string) {
-  const otpRequest = await request.post(
-    "/api/auth/email-otp/send-verification-otp",
-    { data: { email, type: "sign-in" } },
-  );
-  expect(otpRequest.ok()).toBe(true);
-  const registration = await request.post("/api/auth/register", {
+  const registration = await request.post("/api/auth/sign-up/email", {
     data: {
       email,
-      otp: await readLatestOtp(email, "sign-in"),
       password: OLD_PASSWORD,
+      name: "重置测试",
       nickname: "重置测试",
     },
   });
   expect(registration.ok()).toBe(true);
+  const verification = await request.post("/api/auth/email-otp/verify-email", {
+    data: {
+      email,
+      otp: LOCAL_E2E_OTP,
+    },
+  });
+  expect(verification.ok()).toBe(true);
 }
 
 async function requestReset(page: Page, email: string) {
@@ -74,8 +77,7 @@ test("wrong OTP does not change the password", async ({
   const email = freshEmail();
   await createUser(request, email);
   await requestReset(page, email);
-  const actualOtp = await readLatestOtp(email, "forget-password");
-  const wrongOtp = actualOtp === "000000" ? "999999" : "000000";
+  const wrongOtp = "000000";
 
   await submitReset(page, wrongOtp);
 
@@ -92,7 +94,7 @@ test("expired OTP does not change the password", async ({
   const email = freshEmail();
   await createUser(request, email);
   await requestReset(page, email);
-  const otp = await readLatestOtp(email, "forget-password");
+  const otp = LOCAL_E2E_OTP;
   await expireLatestOtp(email, "forget-password");
 
   await submitReset(page, otp);
@@ -110,7 +112,7 @@ test("user resets through the page and signs in with the new password", async ({
   const email = freshEmail();
   await createUser(request, email);
   await requestReset(page, email);
-  await submitReset(page, await readLatestOtp(email, "forget-password"));
+  await submitReset(page, LOCAL_E2E_OTP);
 
   await expect(page.getByText("密码已重置，请使用新密码登录。")).toBeVisible();
   expect(await passwordWorks(baseURL!, email, OLD_PASSWORD)).toBe(false);

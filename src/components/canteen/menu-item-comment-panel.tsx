@@ -10,6 +10,7 @@ import {
   updateDishComment,
 } from "@/lib/canteen-comment-actions";
 import { cn } from "@/lib/utils";
+import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 
 type MenuItemCommentPanelProps = {
   menuItemId: string;
@@ -38,6 +39,7 @@ export function MenuItemCommentPanel({
   const [editDraft, setEditDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { ensureContributorSetup } = useContributorSetup();
 
   const loadComments = useCallback(() => {
     startTransition(async () => {
@@ -61,6 +63,7 @@ export function MenuItemCommentPanel({
     const content = draft.trim();
     if (!content) return;
     startTransition(async () => {
+      if (!(await ensureContributorSetup())) return;
       try {
         const created = await createDishComment(menuItemId, content);
         setComments((prev) => [...(prev ?? []), created]);
@@ -184,7 +187,8 @@ export function MenuItemCommentPanel({
                       {comment.content}
                     </p>
                   )}
-                  {currentUserId === comment.userId && editingId !== comment.id ? (
+                  {currentUserId === comment.userId &&
+                  editingId !== comment.id ? (
                     <div className="mt-1 flex gap-2">
                       <button
                         type="button"
@@ -234,7 +238,10 @@ export function MenuItemCommentPanel({
             </div>
           ) : (
             <p className="text-xs text-[var(--canteen-muted)]">
-              <Link href="/login" className="text-[var(--canteen-purple)] hover:underline">
+              <Link
+                href="/login"
+                className="text-[var(--canteen-purple)] hover:underline"
+              >
                 登录
               </Link>
               后可发表评论

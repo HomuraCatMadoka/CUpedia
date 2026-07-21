@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Discussion } from "@/lib/discussion-actions";
 import { addReply, resolveDiscussion } from "@/lib/discussion-actions";
 import { cn } from "@/lib/utils";
+import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 
 function TimeAgo({ date }: { date: Date }) {
   const now = new Date();
@@ -47,10 +48,12 @@ export function DiscussionThread({
 }) {
   const [reply, setReply] = useState("");
   const [pending, startTransition] = useTransition();
+  const { ensureContributorSetup } = useContributorSetup();
 
   const handleReply = () => {
     if (!reply.trim()) return;
     startTransition(async () => {
+      if (!(await ensureContributorSetup())) return;
       await addReply(discussion.id, reply);
       setReply("");
       onUpdate();

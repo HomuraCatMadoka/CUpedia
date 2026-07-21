@@ -10,6 +10,7 @@ import {
   updateTag,
 } from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
+import { assertContributorComplete } from "@/lib/contributor-account";
 import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
@@ -135,7 +136,7 @@ export async function createWikiPage(data: {
   content: string;
   parentId?: string | null;
 }) {
-  const user = await requireEditor();
+  const user = await assertContributorComplete(await requireEditor());
   if (!validateSlug(data.slug)) throw new Error("Invalid slug");
 
   const page = await db.transaction(async (tx) => {
@@ -261,7 +262,7 @@ export async function updateWikiPage(data: {
   /** Ancestor content (editor's initialValue) for three-way merge. */
   baseContent?: string;
 }): Promise<WikiPageRow | UpdateConflict> {
-  const user = await requireEditor();
+  const user = await assertContributorComplete(await requireEditor());
 
   const existing = await db.query.wikiPages.findFirst({
     where: eq(wikiPages.slug, data.slug),
@@ -410,7 +411,7 @@ export async function getRevision(pageId: string, revisionId: string) {
 }
 
 export async function rollbackToRevision(pageId: string, revisionId: string) {
-  const user = await requireEditor();
+  const user = await assertContributorComplete(await requireEditor());
   const revision = await getRevision(pageId, revisionId);
   if (!revision) throw new Error("Revision not found");
 

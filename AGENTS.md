@@ -10,7 +10,7 @@ Next.js 16 App Router wiki application for CUHK students ("你的中大百科全
 .
 ├── src/
 │   ├── app/              # App Router pages & API routes
-│   │   ├── (auth)/       # Login, register, nickname setup
+│   │   ├── (auth)/       # Login, complete registration, password reset
 │   │   ├── (main)/       # Homepage, wiki (read/edit/search/history)
 │   │   ├── admin/        # User management, deleted pages
 │   │   └── api/          # Auth, upload, wiki-assets
@@ -185,7 +185,10 @@ replays the journal in order and reproduces the exact schema.
 - **Allowed domains**: `@cuhk.edu.hk`, `@link.cuhk.edu.hk` (enforced in `email.ts`)
 - **IDs**: UUID (`advanced.database.generateId: "uuid"`)
 - **Roles**: `user` (default), `admin`; `banned` flag — both as better-auth additional fields
-- **First login**: Forces nickname setup before proceeding
+- **Registration**: Collects nickname + password before email-verification OTP;
+  OTP login never creates users
+- **Legacy accounts**: Browsing remains available; attributed writes require both
+  nickname and a credential password, completed in context without losing drafts
 
 > Seed accounts log in with email + password `password123` — no OTP needed,
 > since they are created with `emailVerified: true`.

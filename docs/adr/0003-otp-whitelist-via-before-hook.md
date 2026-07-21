@@ -1,5 +1,7 @@
 # 邮箱资格白名单经 before-hook 强制,而非 disableSignUp
 
+> 已由 ADR 0015 取代。注册已改用原生 email/password signup，OTP 登录不再承担建号职责。
+
 账号资格白名单(ADR 0001)必须在 email-OTP 的**服务端边界**强制。我们用 better-auth 的 `before` hook(`src/lib/auth.ts`)在发码(`/email-otp/send-verification-otp`)与验码(`/sign-in/email-otp`)两个端点调 `isAllowedEmail` 拦截,而**不**用 emailOTP 插件的 `disableSignUp: true`。
 
 ## Considered Options

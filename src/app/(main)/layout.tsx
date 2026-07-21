@@ -3,6 +3,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarMobileToggle } from "@/components/layout/sidebar-mobile-toggle";
 import { SIDEBAR_COOKIE } from "@/lib/sidebar-cookie";
+import { ContributorSetupProvider } from "@/components/auth/contributor-setup-provider";
 
 export default async function MainLayout({
   children,
@@ -13,11 +14,13 @@ export default async function MainLayout({
     (await cookies()).get(SIDEBAR_COOKIE)?.value === "collapsed";
 
   return (
-    <SidebarProvider initialCollapsed={collapsed}>
-      <Navbar leading={<SidebarMobileToggle />} />
-      <main className="flex min-h-[calc(100dvh-var(--navbar-height))]">
-        {children}
-      </main>
-    </SidebarProvider>
+    <ContributorSetupProvider>
+      <SidebarProvider initialCollapsed={collapsed}>
+        <Navbar leading={<SidebarMobileToggle />} />
+        <main className="flex min-h-[calc(100dvh-var(--navbar-height))]">
+          {children}
+        </main>
+      </SidebarProvider>
+    </ContributorSetupProvider>
   );
 }

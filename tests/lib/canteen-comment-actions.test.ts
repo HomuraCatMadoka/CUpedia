@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-const { mockGetSession, mockRedirect, mockDbQueryUsers } = vi.hoisted(() => ({
+const {
+  mockGetSession,
+  mockRedirect,
+  mockDbQueryUsers,
+  mockAssertContributorComplete,
+} = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockRedirect: vi.fn(),
   mockDbQueryUsers: { findFirst: vi.fn() },
+  mockAssertContributorComplete: vi.fn(async (user) => user),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -25,6 +31,10 @@ vi.mock("@/lib/auth", () => ({
   },
 }));
 
+vi.mock("@/lib/contributor-account", () => ({
+  assertContributorComplete: mockAssertContributorComplete,
+}));
+
 vi.mock("@/db", () => ({
   db: {
     query: { users: mockDbQueryUsers },
@@ -43,7 +53,10 @@ import {
   getCommentsForMenuItem,
   updateDishComment,
 } from "@/lib/canteen-comment-actions";
-import { getCanteenDeleteImpact, getMenuItemDeleteImpact } from "@/lib/canteen-admin-actions";
+import {
+  getCanteenDeleteImpact,
+  getMenuItemDeleteImpact,
+} from "@/lib/canteen-admin-actions";
 import { resetCanteenMockState } from "@/lib/canteen-mock";
 
 const ITEM_ID = "mock-item-demo";
@@ -107,6 +120,18 @@ describe("canteen-comment-actions (mock mode)", () => {
     await expect(createDishComment(ITEM_ID, "匿名留言")).rejects.toThrow(
       "NEXT_REDIRECT",
     );
+  });
+
+  it("blocks an incomplete account before creating an attributed comment", async () => {
+    mockLoggedInUser();
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(createDishComment(ITEM_ID, "很好吃")).rejects.toThrow(
+      "ACCOUNT_SETUP_REQUIRED",
+    );
+    expect(await getCommentsForMenuItem(ITEM_ID)).toEqual([]);
   });
 
   it("rejects invalid comment content before auth", async () => {

@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { discussions, users } from "@/db/schema";
 import { eq, and, isNull, asc } from "drizzle-orm";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
+import { assertContributorComplete } from "@/lib/contributor-account";
 
 export type Discussion = {
   id: string;
@@ -78,7 +79,7 @@ export async function createDiscussion(
   commentMarkId: string,
   content: string,
 ) {
-  const user = await requireAuth();
+  const user = await assertContributorComplete(await requireAuth());
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Content cannot be empty");
 
@@ -96,7 +97,7 @@ export async function createDiscussion(
 }
 
 export async function addReply(discussionId: string, content: string) {
-  const user = await requireAuth();
+  const user = await assertContributorComplete(await requireAuth());
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Content cannot be empty");
 

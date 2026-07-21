@@ -7,6 +7,7 @@ const {
   mockDbDelete,
   mockInsert,
   mockRevalidatePath,
+  mockAssertContributorComplete,
 } = vi.hoisted(() => ({
   mockRedirect: vi.fn(),
   mockGetSession: vi.fn(),
@@ -14,6 +15,7 @@ const {
   mockDbDelete: vi.fn(),
   mockInsert: vi.fn(),
   mockRevalidatePath: vi.fn(),
+  mockAssertContributorComplete: vi.fn(async (user) => user),
 }));
 
 vi.mock("next/navigation", () => ({
@@ -48,6 +50,11 @@ vi.mock("@/db", () => ({
 
 vi.mock("@/lib/danmaku-mutations", () => ({
   insertDanmakuForUser: (...args: unknown[]) => mockInsert(...args),
+}));
+
+vi.mock("@/lib/contributor-account", () => ({
+  assertContributorComplete: (user: unknown) =>
+    mockAssertContributorComplete(user),
 }));
 
 import { adminDeleteDanmaku, createDanmaku } from "@/lib/danmaku-actions";
@@ -93,6 +100,16 @@ describe("danmaku-actions", () => {
   it("createDanmaku redirects anonymous callers", async () => {
     mockGetSession.mockResolvedValue(null);
     await expect(createDanmaku("x")).rejects.toThrow("NEXT_REDIRECT");
+  });
+
+  it("createDanmaku blocks incomplete accounts before insertion", async () => {
+    mockAuthUser();
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(createDanmaku("x")).rejects.toThrow("ACCOUNT_SETUP_REQUIRED");
+    expect(mockInsert).not.toHaveBeenCalled();
   });
 
   it("adminDeleteDanmaku hard-deletes a hub row", async () => {

@@ -8,6 +8,7 @@ import {
   publicDanmakuError,
   serializePublicDanmaku,
 } from "@/lib/danmaku-api";
+import { assertContributorComplete } from "@/lib/contributor-account";
 
 export async function GET(
   _request: NextRequest,
@@ -37,6 +38,25 @@ export async function POST(
   }
   if (author.banned) {
     return NextResponse.json({ error: "USER_BANNED" }, { status: 403 });
+  }
+  try {
+    await assertContributorComplete(author);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ACCOUNT_SETUP_REQUIRED"
+    ) {
+      return NextResponse.json(
+        {
+          error: "ACCOUNT_SETUP_REQUIRED",
+          needs: "needs" in error ? error.needs : undefined,
+        },
+        { status: 409 },
+      );
+    }
+    throw error;
   }
 
   let raw: unknown;

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { normalizeNickname, validateNickname } from "@/lib/nickname";
+import {
+  normalizeNickname,
+  validateNickname,
+  validateSignupNickname,
+} from "@/lib/nickname";
 
 describe("normalizeNickname", () => {
   it("trims leading and trailing whitespace", () => {
@@ -115,5 +119,21 @@ describe("validateNickname", () => {
     const twenty = "你好世界测试名称甲乙丙丁戊己庚辛壬癸子丑";
     expect(twenty.length).toBe(20);
     expect(validateNickname(twenty).ok).toBe(true);
+  });
+});
+
+describe("validateSignupNickname", () => {
+  it.each([undefined, null, "", "x", "a".repeat(21), "bad-name"])(
+    "rejects an invalid nickname supplied directly to signup: %s",
+    (nickname) => {
+      expect(validateSignupNickname(nickname).ok).toBe(false);
+    },
+  );
+
+  it("returns the normalized nickname for signup persistence", () => {
+    expect(validateSignupNickname("  测试   用户  ")).toEqual({
+      ok: true,
+      nickname: "测试 用户",
+    });
   });
 });

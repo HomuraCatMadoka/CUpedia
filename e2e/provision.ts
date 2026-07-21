@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { Client } from "pg";
@@ -23,10 +23,27 @@ async function main() {
   assertSafeE2eDatabase(url);
   await assertDatabaseReady(withDatabase(url, "postgres"));
   await ensureDatabase(url, root);
-  execSync("pnpm drizzle-kit migrate", { cwd: root, stdio: "inherit" });
+  execFileSync(
+    process.execPath,
+    ["node_modules/drizzle-kit/bin.cjs", "migrate"],
+    {
+      cwd: root,
+      stdio: "inherit",
+    },
+  );
   await resetData(url);
   rmSync(path.join(root, ".next", "cache"), { recursive: true, force: true });
-  execSync("pnpm seed", { cwd: root, stdio: "inherit" });
+  execFileSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "--import",
+      "./scripts/css-stub.mjs",
+      "scripts/seed.ts",
+    ],
+    { cwd: root, stdio: "inherit" },
+  );
 }
 
 function requireEnv(key: string): string {

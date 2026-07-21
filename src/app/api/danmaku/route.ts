@@ -4,6 +4,7 @@ import { getDanmakuAuthorForApi } from "@/lib/auth-guard";
 import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
 import { listCurrentMonthDanmaku } from "@/lib/danmaku-queries";
 import { publicDanmakuError, serializePublicDanmaku } from "@/lib/danmaku-api";
+import { assertContributorComplete } from "@/lib/contributor-account";
 
 export async function GET() {
   const messages = await listCurrentMonthDanmaku();
@@ -19,6 +20,25 @@ export async function POST(request: NextRequest) {
   }
   if (author.banned) {
     return NextResponse.json({ error: "USER_BANNED" }, { status: 403 });
+  }
+  try {
+    await assertContributorComplete(author);
+  } catch (error) {
+    if (
+      error &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ACCOUNT_SETUP_REQUIRED"
+    ) {
+      return NextResponse.json(
+        {
+          error: "ACCOUNT_SETUP_REQUIRED",
+          needs: "needs" in error ? error.needs : undefined,
+        },
+        { status: 409 },
+      );
+    }
+    throw error;
   }
 
   let raw: unknown;

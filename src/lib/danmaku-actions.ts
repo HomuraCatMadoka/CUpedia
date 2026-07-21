@@ -12,13 +12,14 @@ import {
   listCurrentMonthDanmaku,
 } from "@/lib/danmaku-queries";
 import type { AdminDanmakuMessage, DanmakuMessage } from "@/lib/danmaku-types";
+import { assertContributorComplete } from "@/lib/contributor-account";
 
 export { listCurrentMonthDanmaku, listCurrentMonthCanteenDanmaku };
 
 export async function createDanmaku(
   contentInput: unknown,
 ): Promise<DanmakuMessage> {
-  const user = await requireAuth();
+  const user = await assertContributorComplete(await requireAuth());
   const message = await insertDanmakuForUser(
     { id: user.id, nickname: user.nickname },
     contentInput,

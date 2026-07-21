@@ -10,6 +10,7 @@ const {
   mockDbUpdate,
   mockDbDelete,
   mockHeaders,
+  mockAssertContributorComplete,
 } = vi.hoisted(() => {
   const chain = () => {
     const obj: Record<string, unknown> = {};
@@ -32,6 +33,7 @@ const {
     mockDbUpdate: vi.fn().mockReturnValue(chain()),
     mockDbDelete: vi.fn().mockReturnValue(chain()),
     mockHeaders: vi.fn().mockResolvedValue(new Headers()),
+    mockAssertContributorComplete: vi.fn(async (user) => user),
   };
 });
 
@@ -52,6 +54,10 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/site-settings", () => ({
   getWikiEditRoleFresh: vi.fn().mockResolvedValue("user"),
+}));
+
+vi.mock("@/lib/contributor-account", () => ({
+  assertContributorComplete: mockAssertContributorComplete,
 }));
 
 vi.mock("@/db", () => ({
@@ -171,6 +177,18 @@ describe("getDiscussions", () => {
 });
 
 describe("createDiscussion", () => {
+  it("blocks an incomplete account before inserting attributed content", async () => {
+    mockAuthSession();
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(createDiscussion("p1", "mark1", "hello")).rejects.toThrow(
+      "ACCOUNT_SETUP_REQUIRED",
+    );
+    expect(mockDbInsert).not.toHaveBeenCalled();
+  });
+
   it("rejects unauthenticated caller", async () => {
     mockGetSession.mockResolvedValue(null);
     await expect(createDiscussion("p1", "mark1", "hello")).rejects.toThrow(
@@ -197,6 +215,19 @@ describe("createDiscussion", () => {
 });
 
 describe("addReply", () => {
+  it("blocks an incomplete account before looking up the discussion", async () => {
+    mockAuthSession();
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(addReply("d1", "reply")).rejects.toThrow(
+      "ACCOUNT_SETUP_REQUIRED",
+    );
+    expect(mockDbQueryDiscussions.findFirst).not.toHaveBeenCalled();
+    expect(mockDbInsert).not.toHaveBeenCalled();
+  });
+
   it("rejects reply to non-root discussion", async () => {
     mockAuthSession();
     mockDbQueryDiscussions.findFirst.mockResolvedValue(null);

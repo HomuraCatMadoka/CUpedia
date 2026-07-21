@@ -16,6 +16,7 @@ import {
   type PublicDanmakuMessage,
 } from "@/lib/danmaku-types";
 import "./danmaku.css";
+import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 
 function danmakuErrorMessage(code: string): string {
   if (code === "INVALID_DANMAKU") return "弹幕须为 1–100 字纯文本。";
@@ -54,6 +55,7 @@ export function DanmakuBanner({
   const [screenWidth, setScreenWidth] = useState(720);
   const mounted = useMounted();
   const layerRef = useRef<HTMLDivElement>(null);
+  const { ensureContributorSetup } = useContributorSetup();
 
   useEffect(() => {
     const el = layerRef.current;
@@ -96,6 +98,7 @@ export function DanmakuBanner({
     setError(null);
     startTransition(async () => {
       try {
+        if (!(await ensureContributorSetup())) return;
         const res = await fetch(apiPath, {
           method: "POST",
           headers: { "Content-Type": "application/json" },

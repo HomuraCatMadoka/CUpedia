@@ -24,3 +24,7 @@ export function validateNickname(
   }
   return { ok: true, nickname };
 }
+
+export function validateSignupNickname(input: unknown) {
+  return validateNickname(typeof input === "string" ? input : "");
+}

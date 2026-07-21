@@ -38,6 +38,7 @@ import {
   type EditConflict,
 } from "@/components/wiki/edit-conflict-dialog";
 import type { Discussion } from "@/lib/discussion-actions";
+import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import {
   extractText,
   normalizeInitialValue,
@@ -117,6 +118,7 @@ export function WikiEditor({
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState<EditConflict | null>(null);
   const router = useRouter();
+  const { ensureContributorSetup } = useContributorSetup();
 
   const baselineRef = useRef(expectedUpdatedAt);
   const baseContentRef = useRef(initialContent);
@@ -192,6 +194,7 @@ export function WikiEditor({
       setError("标题不能为空");
       return;
     }
+    if (!(await ensureContributorSetup())) return;
     setSubmitting(true);
 
     const result = await save(JSON.stringify(editor.children));
@@ -217,10 +220,11 @@ export function WikiEditor({
     }
 
     router.push(`/wiki/${result.slug}`);
-  }, [title, save, editor, router]);
+  }, [title, save, editor, router, ensureContributorSetup]);
 
   const keepMine = useCallback(async () => {
     if (!conflict) return;
+    if (!(await ensureContributorSetup())) return;
     setSubmitting(true);
     baselineRef.current = conflict.theirUpdatedAt;
     const result = await save(JSON.stringify(editor.children));
@@ -231,7 +235,7 @@ export function WikiEditor({
     }
     setConflict(null);
     router.push(`/wiki/${result.slug}`);
-  }, [conflict, save, editor, router]);
+  }, [conflict, save, editor, router, ensureContributorSetup]);
 
   const discardMine = useCallback(() => {
     if (!conflict) return;

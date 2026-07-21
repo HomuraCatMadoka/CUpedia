@@ -20,6 +20,7 @@ import {
   users,
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
+import { assertContributorComplete } from "@/lib/contributor-account";
 import {
   getAchievementSummariesForAuthors,
   type PublicAchievementSummary,
@@ -1096,6 +1097,7 @@ export async function submitCourseReview(
     throw new Error("匿名选项格式无效");
   }
   const isAnonymous = submission.isAnonymous ?? false;
+  if (!isAnonymous) await assertContributorComplete(user);
   validateScore(submission.score);
   validateAcademicYear(submission.academicYear);
   validateTerm(submission.term);

@@ -4,8 +4,10 @@ type OtpEmail = {
   type: "sign-in" | "email-verification" | "forget-password" | "change-email";
 };
 
+import { getLocalE2eOtp } from "@/lib/e2e-otp";
+
 export async function sendOtpEmail({ email, otp, type }: OtpEmail) {
-  if (process.env.E2E_TEST === "1") return;
+  if (getLocalE2eOtp()) return;
 
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error("BREVO_API_KEY is not configured");

@@ -13,6 +13,7 @@ const {
   mockDbTransaction,
   mockDbQueryWikiPages,
   mockDbQueryWikiRevisions,
+  mockAssertContributorComplete,
 } = vi.hoisted(() => {
   const unstableCacheCalls: unknown[][] = [];
   const cacheStore = new Map<string, unknown>();
@@ -43,6 +44,7 @@ const {
     mockDbTransaction: vi.fn(),
     mockDbQueryWikiPages: { findFirst: vi.fn() },
     mockDbQueryWikiRevisions: { findFirst: vi.fn(), findMany: vi.fn() },
+    mockAssertContributorComplete: vi.fn(async (user) => user),
   };
 });
 
@@ -100,6 +102,10 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/auth-guard", () => ({
   requireEditor: vi.fn().mockResolvedValue({ id: "user-1" }),
   requireAdmin: vi.fn().mockResolvedValue({ id: "admin-1" }),
+}));
+
+vi.mock("@/lib/contributor-account", () => ({
+  assertContributorComplete: mockAssertContributorComplete,
 }));
 
 vi.mock("@/lib/slug", () => ({
@@ -209,6 +215,44 @@ describe("searchWikiPages (cached)", () => {
 });
 
 describe("cache invalidation — revalidateTag called", () => {
+  it("blocks wiki creation before starting a transaction for an incomplete account", async () => {
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(
+      createWikiPage({ slug: "test", title: "Test", content: "content" }),
+    ).rejects.toThrow("ACCOUNT_SETUP_REQUIRED");
+    expect(mockDbTransaction).not.toHaveBeenCalled();
+  });
+
+  it("blocks wiki updates before reading the page for an incomplete account", async () => {
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(
+      updateWikiPage({
+        slug: "test",
+        title: "Test",
+        content: "content",
+        expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
+      }),
+    ).rejects.toThrow("ACCOUNT_SETUP_REQUIRED");
+    expect(mockDbQueryWikiPages.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("blocks wiki rollback before reading the revision for an incomplete account", async () => {
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(rollbackToRevision("page-1", "revision-1")).rejects.toThrow(
+      "ACCOUNT_SETUP_REQUIRED",
+    );
+    expect(mockDbQueryWikiRevisions.findFirst).not.toHaveBeenCalled();
+  });
+
   it("createWikiPage calls revalidateTag", async () => {
     mockDbTransaction.mockImplementation(
       async (fn: (...a: unknown[]) => unknown) => {

@@ -6,7 +6,8 @@ import { db } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
 import { shouldRejectOtpRequest } from "@/lib/email";
 import { sendOtpEmail } from "@/lib/otp-email";
-import { registrationOtpPlugin } from "@/lib/registration-otp-plugin";
+import { getLocalE2eOtp, isLocalE2eRuntime } from "@/lib/e2e-otp";
+import { validateSignupNickname } from "@/lib/nickname";
 
 export const auth = betterAuth({
   secret: process.env.AUTH_SECRET,
@@ -22,7 +23,7 @@ export const auth = betterAuth({
   }),
   user: {
     additionalFields: {
-      nickname: { type: "string", required: false, defaultValue: "" },
+      nickname: { type: "string", required: true },
       role: {
         type: ["user", "admin"],
         required: false,
@@ -40,25 +41,42 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+    requireEmailVerification: true,
+    autoSignIn: false,
+  },
+  emailVerification: {
+    autoSignInAfterVerification: true,
   },
   plugins: [
     emailOTP({
       sendVerificationOTP: sendOtpEmail,
+      generateOTP: () => getLocalE2eOtp() ?? undefined,
+      overrideDefaultEmailVerification: true,
+      disableSignUp: true,
       otpLength: 6,
       expiresIn: 600,
       // Delayed emails must not invalidate a code the user already received.
       // Resends reuse the active code and refresh its ten-minute expiry.
       resendStrategy: "reuse",
     }),
-    registrationOtpPlugin(),
   ],
   hooks: {
-    // Enforce the eligible-account whitelist server-side at the email-OTP
-    // boundary — the client pages check too, but that is bypassable.
+    // Enforce the eligible-account whitelist server-side at account creation
+    // and email-OTP boundaries — client checks are bypassable.
     before: createAuthMiddleware(async (ctx) => {
-      const email = (ctx.body as { email?: unknown } | undefined)?.email;
+      const body = ctx.body as
+        | { email?: unknown; nickname?: unknown }
+        | undefined;
+      const email = body?.email;
       if (shouldRejectOtpRequest(ctx.path, email)) {
         throw new APIError("BAD_REQUEST", { message: "仅支持 CUHK 邮箱" });
+      }
+      if (ctx.path === "/sign-up/email") {
+        const nickname = validateSignupNickname(body?.nickname);
+        if (!nickname.ok) {
+          throw new APIError("BAD_REQUEST", { message: nickname.error });
+        }
+        if (body) body.nickname = nickname.nickname;
       }
     }),
   },
@@ -67,7 +85,7 @@ export const auth = betterAuth({
   },
   // Disable the per-IP request rate limit only under e2e, where many serial
   // sign-ins in one window would otherwise trip better-auth's 429 default.
-  rateLimit: { enabled: process.env.E2E_TEST !== "1" },
+  rateLimit: { enabled: !isLocalE2eRuntime() },
   session: {
     expiresIn: 60 * 60 * 24 * 365,
     updateAge: 60 * 60 * 24,

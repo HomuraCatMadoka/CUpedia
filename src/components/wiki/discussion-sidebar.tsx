@@ -11,12 +11,14 @@ import {
 import { useDiscussions } from "./discussion-context";
 import { DiscussionThread, NewCommentForm } from "./discussion-popover";
 import { createDiscussion } from "@/lib/discussion-actions";
+import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 
 export function DiscussionSidebar({ pageId }: { pageId: string }) {
   const { discussions, activeCommentId, setActiveCommentId, refresh } =
     useDiscussions();
   const editor = useEditorRef();
   const [, startTransition] = useTransition();
+  const { ensureContributorSetup } = useContributorSetup();
 
   const commentApi = editor.getApi(BaseCommentPlugin);
   const commentTf = editor.getTransforms(BaseCommentPlugin);
@@ -29,6 +31,7 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
 
   const handleNewComment = (content: string) => {
     startTransition(async () => {
+      if (!(await ensureContributorSetup())) return;
       const commentId = nanoid(10);
       try {
         const id = await createDiscussion(pageId, commentId, content);

@@ -12,6 +12,7 @@ const mockGetAchievementSummaries = vi.hoisted(() => vi.fn());
 const mockRecomputeAchievements = vi.hoisted(() => vi.fn());
 const mockRebindAchievementEvidence = vi.hoisted(() => vi.fn());
 const mockSyncAchievementNotices = vi.hoisted(() => vi.fn());
+const mockAssertContributorComplete = vi.hoisted(() => vi.fn());
 
 // ref #177 — course-review MVP data layer.
 //
@@ -85,6 +86,10 @@ vi.mock("@/lib/auth-guard", () => ({
   requireAuth: (...a: unknown[]) => mockRequireAuth(...a),
   getOptionalUser: (...a: unknown[]) => mockGetOptionalUser(...a),
 }));
+vi.mock("@/lib/contributor-account", () => ({
+  assertContributorComplete: (...args: unknown[]) =>
+    mockAssertContributorComplete(...args),
+}));
 vi.mock("@/lib/achievement-profile", () => ({
   getAchievementSummariesForAuthors: (...args: unknown[]) =>
     mockGetAchievementSummaries(...args),
@@ -148,6 +153,7 @@ beforeEach(() => {
   professorSearchCache.clear();
   resetSensitiveMatcherForTests([]);
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
+  mockAssertContributorComplete.mockImplementation(async (user) => user);
   mockGetOptionalUser.mockResolvedValue(null);
   mockGetAchievementSummaries.mockResolvedValue(new Map());
   mockRecomputeAchievements.mockResolvedValue({ kind: "unchanged" });
@@ -183,6 +189,29 @@ const SUBMISSION = {
 };
 
 describe("submitCourseReview", () => {
+  it("署名投稿前要求账户同时具有昵称和密码", async () => {
+    mockAssertContributorComplete.mockRejectedValueOnce(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+
+    await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
+      "ACCOUNT_SETUP_REQUIRED",
+    );
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("匿名投稿不要求公开身份资料完整", async () => {
+    mockAssertContributorComplete.mockRejectedValue(
+      new Error("ACCOUNT_SETUP_REQUIRED"),
+    );
+    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+
+    await expect(
+      submitCourseReview("CSCI3150", { ...SUBMISSION, isAnonymous: true }),
+    ).resolves.toEqual({ newAchievementNotices: [] });
+    expect(mockAssertContributorComplete).not.toHaveBeenCalled();
+  });
+
   it("拒绝未登录用户", async () => {
     mockRequireAuth.mockRejectedValue(new Error("未登录"));
     await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow();

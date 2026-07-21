@@ -17,6 +17,7 @@ import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-act
 import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-logo";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
 import { cn } from "@/lib/utils";
+import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import {
   COURSE_REVIEW_TAG_OPTIONS,
   COURSE_TERMS,
@@ -152,6 +153,7 @@ export function CourseReviewSection({
   professorOptional: boolean;
 }) {
   const router = useRouter();
+  const { ensureContributorSetup } = useContributorSetup();
   const isPublished = ratingState.lastScore !== null;
   const [editing, setEditing] = useState(false);
   const [content, setContent] = useState(ratingState.lastContent);
@@ -207,6 +209,7 @@ export function CourseReviewSection({
         if (!term) throw new Error("请选择学期");
         if (!professor && !professorOptional) throw new Error("请选择任课教授");
         if (score === null) throw new Error("请选择总体评分");
+        if (!isAnonymous && !(await ensureContributorSetup())) return;
         const result = await submitCourseReview(code, {
           academicYear,
           term,
