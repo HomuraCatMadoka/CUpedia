@@ -73,6 +73,7 @@ export async function adminListRecentDishComments(
       createdAt: canteenDishComments.createdAt,
       updatedAt: canteenDishComments.updatedAt,
       authorNickname: users.nickname,
+      authorEmail: users.email,
       canteenId: canteens.id,
       canteenName: canteens.name,
       menuItemName: canteenMenuItems.name,
@@ -84,10 +85,7 @@ export async function adminListRecentDishComments(
       eq(canteenDishComments.menuItemId, canteenMenuItems.id),
     )
     .innerJoin(canteens, eq(canteenMenuItems.canteenId, canteens.id))
-    .orderBy(
-      desc(canteenDishComments.createdAt),
-      desc(canteenDishComments.id),
-    )
+    .orderBy(desc(canteenDishComments.createdAt), desc(canteenDishComments.id))
     .limit(limit);
 
   return rows;

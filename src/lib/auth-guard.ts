@@ -136,6 +136,7 @@ export async function getSessionVoterUser(): Promise<{
 export async function requireCommentAuth(): Promise<{
   id: string;
   nickname: string;
+  email: string;
 }> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) redirect("/login");
@@ -143,15 +144,23 @@ export async function requireCommentAuth(): Promise<{
   if (process.env.CANTEEN_MOCK_DATA === "true") {
     const nickname =
       session.user.name?.trim() || session.user.email?.split("@")[0] || "用户";
-    return { id: session.user.id, nickname };
+    return {
+      id: session.user.id,
+      nickname,
+      email: session.user.email ?? `${session.user.id}@mock.local`,
+    };
   }
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
-    columns: { id: true, nickname: true, banned: true },
+    columns: { id: true, email: true, nickname: true, banned: true },
   });
   if (!dbUser || dbUser.banned) redirect("/login?error=banned");
-  return { id: dbUser.id, nickname: dbUser.nickname };
+  return {
+    id: dbUser.id,
+    email: dbUser.email,
+    nickname: dbUser.nickname,
+  };
 }
 
 /** Logged-in voter eligible to write (not banned). Anonymous callers get null. */

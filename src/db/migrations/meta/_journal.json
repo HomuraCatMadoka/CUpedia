@@ -337,6 +337,13 @@
       "when": 1784623825297,
       "tag": "0047_repair_canteen_announcement",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1784644477839,
+      "tag": "0048_lazy_puppet_master",
+      "breakpoints": true
     }
   ]
 }

@@ -91,6 +91,7 @@ export type AdminDishComment = CanteenDishComment & {
   canteenId: string;
   canteenName: string;
   menuItemName: string;
+  authorEmail: string;
 };
 
 export const ADMIN_DISH_COMMENT_LIST_LIMIT = 200;

@@ -1279,6 +1279,40 @@ export const canteenDishComments = pgTable(
   (table) => [
     index("canteen_dish_comments_menu_item_id_idx").on(table.menuItemId),
     index("canteen_dish_comments_user_id_idx").on(table.userId),
+    index("canteen_dish_comments_created_at_id_idx").on(
+      table.createdAt,
+      table.id,
+    ),
+  ],
+);
+
+export const adminAuditLogs = pgTable(
+  "admin_audit_logs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorEmail: text("actor_email").notNull(),
+    actorNickname: text("actor_nickname").notNull(),
+    action: text("action").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    targetUserId: uuid("target_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    details: jsonb("details")
+      .$type<import("@/lib/admin-audit-types").AdminAuditDetails>()
+      .notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("admin_audit_logs_action_created_at_idx").on(
+      table.action,
+      table.createdAt,
+    ),
+    index("admin_audit_logs_actor_user_id_idx").on(table.actorUserId),
+    index("admin_audit_logs_target_user_id_idx").on(table.targetUserId),
   ],
 );
 

@@ -19,11 +19,14 @@ import {
   ADMIN_DISH_COMMENT_LIST_LIMIT,
   type AdminDishComment,
 } from "@/lib/canteen-types";
+import type { AdminAuditLog } from "@/lib/admin-audit-types";
 
 export function DishCommentAdminPanel({
   comments,
+  auditLogs,
 }: {
   comments: AdminDishComment[];
+  auditLogs: AdminAuditLog[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -71,7 +74,13 @@ export function DishCommentAdminPanel({
                 <p className="font-medium">{comment.content}</p>
                 <p className="text-xs text-muted-foreground">
                   {comment.canteenName} · {comment.menuItemName} ·{" "}
-                  {comment.authorNickname} ·{" "}
+                  <Link
+                    href={`/admin/users?q=${encodeURIComponent(comment.authorEmail)}`}
+                    className="underline underline-offset-2"
+                  >
+                    {comment.authorNickname}（{comment.authorEmail}）
+                  </Link>{" "}
+                  ·{" "}
                   {comment.createdAt.toLocaleString("zh-HK", {
                     timeZone: "Asia/Hong_Kong",
                   })}
@@ -112,6 +121,47 @@ export function DishCommentAdminPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <section
+        className="space-y-3 border-t pt-6"
+        aria-labelledby="comment-audit-heading"
+      >
+        <div>
+          <h2 id="comment-audit-heading" className="text-lg font-semibold">
+            最近删除记录
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            保留删除人、原评论及作者账号，供多管理员追溯。
+          </p>
+        </div>
+
+        {auditLogs.length === 0 ? (
+          <p className="text-sm text-muted-foreground">暂无删除记录。</p>
+        ) : (
+          <ul className="space-y-2">
+            {auditLogs.map((log) => (
+              <li key={log.id} className="rounded-lg border bg-muted/20 p-3">
+                <p className="break-words text-sm">{log.details.content}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {log.details.canteenName} · {log.details.menuItemName} · 作者{" "}
+                  <Link
+                    href={`/admin/users?q=${encodeURIComponent(log.details.authorEmail)}`}
+                    className="underline underline-offset-2"
+                  >
+                    {log.details.authorNickname}（{log.details.authorEmail}）
+                  </Link>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  由 {log.actorNickname}（{log.actorEmail}）删除 ·{" "}
+                  {log.createdAt.toLocaleString("zh-HK", {
+                    timeZone: "Asia/Hong_Kong",
+                  })}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
