@@ -141,6 +141,7 @@
   font-weight: 600;
   color: var(--canteen-ink);
   white-space: nowrap;
+  touch-action: manipulation;
   transition:
     background-color 160ms ease,
     border-color 160ms ease,

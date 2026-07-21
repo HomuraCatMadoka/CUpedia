@@ -9,7 +9,7 @@ export default function CanteenLayout({
   return (
     <CanteenTheme>
       <CanteenAnonSessionInit />
-      <div className="min-h-[calc(100vh-3.5rem)]">{children}</div>
+      <div className="min-h-[calc(100vh-3.5rem)] min-w-0">{children}</div>
     </CanteenTheme>
   );
 }

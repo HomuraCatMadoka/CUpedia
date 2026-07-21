@@ -17,7 +17,7 @@ export default async function MainLayout({
     <ContributorSetupProvider>
       <SidebarProvider initialCollapsed={collapsed}>
         <Navbar leading={<SidebarMobileToggle />} />
-        <main className="flex min-h-[calc(100dvh-var(--navbar-height))]">
+        <main className="flex min-h-[calc(100dvh-var(--navbar-height))] min-w-0">
           {children}
         </main>
       </SidebarProvider>

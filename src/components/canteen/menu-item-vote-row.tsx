@@ -75,7 +75,7 @@ export function MenuItemVoteRow({
       <DishSvgIcon svgKey={item.svgKey} className="size-11 rounded-md" />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 font-medium text-[var(--canteen-ink)]">
+          <p className="min-w-0 break-words font-medium text-[var(--canteen-ink)]">
             {item.name}
           </p>
           <MenuItemPrice

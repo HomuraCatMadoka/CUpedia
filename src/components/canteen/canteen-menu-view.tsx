@@ -139,50 +139,62 @@ export function CanteenMenuView({
   }
 
   return (
-    <div className="space-y-6">
-      <div className="sticky top-0 z-10 -mx-4 space-y-3 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+    <div className="min-w-0 space-y-6">
+      <div className="sticky top-0 z-10 -mx-4 min-w-0 space-y-3 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
         <CanteenPeriodTabs value={period} onChange={handlePeriodChange} />
         <CanteenViewTabs value={view} onChange={setView} />
-        {view === "menu" && menuSections.length > 1 ? (
+        {view === "menu" ? (
           <div
-            role="toolbar"
-            aria-label="菜品分类"
-            className="flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="min-h-9 min-w-0"
+            aria-hidden={menuSections.length <= 1}
           >
-            <button
-              type="button"
-              aria-pressed={sectionFilter === "all"}
-              onClick={() => setSectionFilter("all")}
-              className={cn(
-                "canteen-section-chip shrink-0",
-                sectionFilter === "all" && "canteen-section-chip-on",
-              )}
-            >
-              全部
-            </button>
-            {menuSections.map((section) => (
-              <button
-                key={section.svgKey}
-                type="button"
-                aria-pressed={sectionFilter === section.svgKey}
-                onClick={() => setSectionFilter(section.svgKey)}
-                className={cn(
-                  "canteen-section-chip shrink-0",
-                  sectionFilter === section.svgKey && "canteen-section-chip-on",
-                )}
+            {menuSections.length > 1 ? (
+              <div
+                role="toolbar"
+                aria-label="菜品分类"
+                className="flex min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                {section.label}
-                <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
-                  {section.items.length}
-                </span>
-              </button>
-            ))}
+                <button
+                  type="button"
+                  aria-pressed={sectionFilter === "all"}
+                  onClick={() => setSectionFilter("all")}
+                  className={cn(
+                    "canteen-section-chip shrink-0",
+                    sectionFilter === "all" && "canteen-section-chip-on",
+                  )}
+                >
+                  全部
+                </button>
+                {menuSections.map((section) => (
+                  <button
+                    key={section.svgKey}
+                    type="button"
+                    aria-pressed={sectionFilter === section.svgKey}
+                    onClick={() => setSectionFilter(section.svgKey)}
+                    className={cn(
+                      "canteen-section-chip shrink-0",
+                      sectionFilter === section.svgKey &&
+                        "canteen-section-chip-on",
+                    )}
+                  >
+                    {section.label}
+                    <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
+                      {section.items.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
-        {showAfternoonHint && period === "lunch" ? (
+        {showAfternoonHint ? (
           <p
             role="status"
-            className="border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-3 py-2 text-sm text-[var(--canteen-ink)]"
+            aria-hidden={period !== "lunch"}
+            className={cn(
+              "border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-3 py-2 text-sm text-[var(--canteen-ink)]",
+              period !== "lunch" && "invisible",
+            )}
           >
             {AFTERNOON_HINT_TEXT}
           </p>
