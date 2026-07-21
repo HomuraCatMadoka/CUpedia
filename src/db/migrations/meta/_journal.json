@@ -309,6 +309,20 @@
       "when": 1784475468032,
       "tag": "0043_official_course_subjects",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784520620151,
+      "tag": "0044_staff-person-sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1784522181823,
+      "tag": "0045_backfill_all_staff_person_sources",
+      "breakpoints": true
     }
   ]
 }

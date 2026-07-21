@@ -24,6 +24,17 @@ class TimetableScraperTest(unittest.TestCase):
             {"name": "Dr. CHEONG Chi Hong", "courses": ["CSCI1020"]}
         ])
 
+    def test_rejects_truncated_or_title_only_instructors(self):
+        value = "\n".join([
+            "Pr", "Pro", "Prof", "Profes", "Profess", "Professor", "Dr.",
+            "Professor CHAN Wing Kai",
+        ])
+
+        self.assertEqual(
+            subject.instructor_names(value),
+            ["Professor CHAN Wing Kai"],
+        )
+
     def test_builds_numeric_enrollment_snapshots(self):
         rows = [{
             "academic_year": "2025-26", "term": "Term 1", "course": "CSCI1020",

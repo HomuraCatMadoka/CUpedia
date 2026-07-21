@@ -13,6 +13,7 @@ tools/scraper/scrape_staff.py     →  scripts/data/staff-directory.json
 tools/scraper/resolve_staff_pilot.py → scripts/data/staff-engineering-report.json
 tools/scraper/compare_staff_production.py → scripts/data/staff-production-validation.json
 tools/scraper/render_staff_directory_import.py → scripts/data/staff-directory-import.sql
+tools/scraper/build_staff_source_queue.py → scripts/data/staff-source-queue.json
 ```
 
 ## Setup
@@ -42,7 +43,8 @@ pnpm ingest:professors
 python export_production_professor_snapshot.py
 # Resume is automatic; use --fresh only to discard the existing manifest.
 
-# Official Research Portal faculty / department / staff directory
+# Official Research Portal organisation / staff directory. With no filter this
+# includes faculty trees and standalone institutes, centres, offices and units.
 python scrape_staff.py
 python scrape_staff.py --faculties Engineering,Science
 # Fast partial smoke test against a couple of department overview pages:
@@ -54,8 +56,14 @@ python scrape_staff.py --departments department-of-biomedical-engineering,depart
 python resolve_staff_pilot.py
 # Read-only all-faculty validation against production professor rows:
 python compare_staff_production.py
-# Render the complete organisation/person snapshot as convergent SQL:
+# Group reviewed missing people by official source. A refreshed Pure directory
+# removes newly resolved identities before prioritizing roster adapters:
+python build_staff_source_queue.py --directory ../../scripts/data/staff-directory.json
+# Render a newly observed, complete organisation/person snapshot as SQL:
 python render_staff_directory_import.py
+# Reconcile every production automatic identity from live database aliases;
+# this is the only workflow that intentionally performs a global replacement:
+python reconcile_professor_staff_identities.py
 # Render the reviewed report as a transactional, idempotent SQL import:
 python render_staff_import.py
 # The first full run takes roughly three hours because robots.txt requires a
@@ -92,13 +100,21 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   URL as the source identity, never the display name. It emits exact normalized
   same-name and high-similarity candidates within each department for manual
   review instead of merging them.
-  Full output also contains the complete faculty → organisation hierarchy,
-  including schools, centres, programmes and units, plus every current title on
-  each person-organisation affiliation. `sourceFetchedAtRange` records when the
+  A full unfiltered run contains every organisation exposed by the portal,
+  including complete faculty trees and standalone schools, centres, programmes,
+  institutes, offices and units. Standalone organisations deliberately have a
+  null `facultyUrl`; they and their staff are retained rather than forced into a
+  faculty. Person discovery combines the person sitemap with profiles exposed
+  only on organisation cards. Every current title is retained on its
+  person-organisation affiliation, and `sourceFetchedAtRange` records when the
   cached source pages were actually fetched.
   `--preview` deliberately returns only the staff cards exposed on each
   department overview and marks `staffCoverage.complete` false; it is for
-  validating new departments before a full sitemap-backed run.
+  validating new departments before a full sitemap-backed run. The scraper
+  publishes `scope.complete` only when the run is full and every organisation
+  coverage check passes. Import, comparison and source-queue tools reject any
+  directory without that explicit completeness guarantee, as well as otherwise
+  complete runs filtered with `--faculties` or `--departments`.
 - **Staff resolution pilot** — `resolve_staff_pilot.py` reads the linked Supabase
   project but never writes to it. It resolves the six Engineering department
   course prefixes against
@@ -108,18 +124,42 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   Every department also records `staffCoverage`; a Research Portal count larger
   than the profile-affiliation join is reported as incomplete, so the captured
   “official staff without courses” list is not treated as a complete conclusion.
+  Global directory workflows additionally require coverage for every managed
+  organisation, including standalone institutes, centres and offices. Consumers
+  recompute affiliation counts from the people payload and reject inconsistent,
+  scoped or empty snapshots before generating SQL.
   `render_staff_import.py` refuses unresolved or incomplete input, preserves
   timetable aliases, renders reviewed duplicate merges, and only assigns a
   timetable name when that exact alias belongs to one staff identity.
   Known external and uncertain timetable-only identities remain explicitly
   classified as `external` and `unverified`; neither is assigned a fabricated
   department. Reviewed name variants live in `staff-alias-overrides.json` and
-  retain their official evidence URL.
+  retain their official evidence URL. Current CUHK teachers who have an
+  official department profile but no Research Portal record live in
+  `staff-person-overrides.json`; each entry must use an explicit stable ID,
+  official evidence URL and an existing Research Portal organisation. This
+  keeps the reviewed person, affiliation, title and timetable aliases
+  reproducible without treating a normalized name as an identity key.
+  `staff_person_sources` stores each upstream identity separately, keyed by
+  `(source, source_key)`. Source freshness and the two-run missing rule are
+  maintained there; `staff_people.is_current` remains true while any source is
+  current. Directory imports only clear aliases and automatic timetable links
+  owned by the sources declared in that import, so adding a department roster
+  cannot reset identities maintained by another adapter. Automatic professor
+  identities are reconciled only for professor IDs declared in the local
+  professor snapshot; production IDs absent from that snapshot are preserved.
+  Imports take a transaction-scoped advisory lock and require `observed_at` to
+  be newer than all managed rows. Retrying the same generated SQL is rejected
+  safely instead of counting a replay as another missing-source observation.
 - **All-faculty production validation** — `compare_staff_production.py` performs
   no writes. It accepts only a normalized exact name that identifies one official
   profile or a reviewed evidence-backed alias, keeps homonyms ambiguous, and
   reports faculty coverage, unmatched production rows, and duplicate production
   identities for review.
+- **Manual source queue** — `build_staff_source_queue.py --directory ...`
+  removes only unique exact-name matches from the reviewed missing-person queue.
+  Homonyms remain queued for evidence-backed review; the output records removed
+  professor/person pairs in `directoryResolved` so the reduction is auditable.
 - **Course instructor homonyms** — `scripts/course-instructor-overrides.json`
   resolves only reviewed combinations of course prefix and raw timetable name.
   Ingestion stores every section instructor first, keeps unmatched rows as

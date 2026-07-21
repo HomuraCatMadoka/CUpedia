@@ -6,14 +6,29 @@ test("#266 public browse, search, credits filter, and detail", async ({
   await page.goto("/courses");
   await expect(page.getByRole("heading", { name: "课程测评" })).toBeVisible();
 
-  // Credits is a segmented control ("全部学分" / 0 / 1 / 2 / 3); exact match so
-  // "3" doesn't also hit the level control's "3000".
-  await page.getByRole("button", { name: "3", exact: true }).click();
+  await page.getByRole("button", { name: "筛选" }).click();
+  await page
+    .getByRole("group", { name: "学分" })
+    .getByRole("button", { name: "3", exact: true })
+    .click();
+  await page.getByRole("button", { name: "查看课程" }).click();
   await expect(page).toHaveURL(/credits=3/);
   await expect(page.getByRole("link", { name: /CSCI 1130/ })).toBeVisible();
-  await page.getByRole("button", { name: "2", exact: true }).click();
+
+  await page.getByRole("button", { name: "筛选" }).click();
+  await page
+    .getByRole("group", { name: "学分" })
+    .getByRole("button", { name: "2", exact: true })
+    .click();
+  await page.getByRole("button", { name: "查看课程" }).click();
   await expect(page.getByText("没有符合条件的课程")).toBeVisible();
-  await page.getByRole("button", { name: "2", exact: true }).click();
+
+  await page.getByRole("button", { name: "筛选" }).click();
+  await page
+    .getByRole("group", { name: "学分" })
+    .getByRole("button", { name: "全部", exact: true })
+    .click();
+  await page.getByRole("button", { name: "查看课程" }).click();
   await expect(page).not.toHaveURL(/credits=/);
 
   const search = page.getByPlaceholder("搜索课程代码或名称...");

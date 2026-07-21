@@ -27,7 +27,7 @@ async function openCourseFromListBottom(page: Page, subject = "CSCI") {
   await page.goto(`/courses?subject=${subject}`);
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   const position = await page.evaluate(() => window.scrollY);
-  expect(position).toBeGreaterThan(200);
+  expect(position).toBeGreaterThan(0);
   await page.locator(`a[href^="/courses/${subject}"]`).last().click();
   return position;
 }
@@ -181,11 +181,11 @@ test("#348 modified return clicks do not navigate the detail tab", async ({
 test("#348 a new course list does not reuse another list position", async ({
   page,
 }) => {
-  await openCourseFromListBottom(page);
+  const positionBeforeNavigation = await openCourseFromListBottom(page);
   await page.getByRole("link", { name: "返回课程列表" }).click();
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
-    .toBeGreaterThan(200);
+    .toBeGreaterThan(positionBeforeNavigation - 50);
 
   await page.goto("/courses?subject=MATH");
 

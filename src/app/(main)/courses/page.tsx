@@ -4,7 +4,10 @@ import Link from "next/link";
 import { getCourses, getSubjects } from "@/lib/course-review-actions";
 import type { CourseView } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
-import { CourseFilters } from "@/components/courses/course-filters";
+import {
+  CourseFilters,
+  MobileCourseSort,
+} from "@/components/courses/course-filters";
 import { CourseSearch } from "@/components/courses/course-search";
 import {
   CourseCardLink,
@@ -12,6 +15,11 @@ import {
 } from "@/components/courses/course-card-link";
 import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
 import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
+
+const COURSE_UPDATE_DATE_FORMATTER = new Intl.DateTimeFormat("zh-HK", {
+  month: "numeric",
+  day: "numeric",
+});
 
 export default async function CoursesPage({
   searchParams,
@@ -21,14 +29,24 @@ export default async function CoursesPage({
     q?: string;
     subject?: string;
     level?: string;
+    sort?: string;
     page?: string;
   }>;
 }) {
-  const { credits, q, subject, level, page: pageParam } = await searchParams;
+  const {
+    credits,
+    q,
+    subject,
+    level,
+    sort: sortParam,
+    page: pageParam,
+  } = await searchParams;
+  const sort = sortParam === "latest" ? "latest" : "rating-count";
+  const sortQuery = sort === "latest" ? sort : undefined;
   const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
   const [result, subjects, achievementNoticeCount] = await Promise.all([
-    getCourses({ credits, query: q, subject, level, page }),
+    getCourses({ credits, query: q, subject, level, sort, page }),
     getSubjects(),
     getAchievementNoticeCount(),
   ]);
@@ -36,7 +54,10 @@ export default async function CoursesPage({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const filtering = Boolean(q || subject || credits || level);
-  const currentListHref = pageHref({ credits, q, subject, level }, page);
+  const currentListHref = pageHref(
+    { credits, q, subject, level, sort: sortQuery },
+    page,
+  );
 
   return (
     <div className="flex-1 overflow-y-auto">
@@ -45,9 +66,6 @@ export default async function CoursesPage({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold">课程测评</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              搜索课程、查看同学评价，登录后即可匿名评论与点赞
-            </p>
           </div>
           <div className="flex gap-2">
             <Link
@@ -79,6 +97,7 @@ export default async function CoursesPage({
             credits={credits}
             subject={subject}
             level={level}
+            sort={sort}
             subjects={subjects}
           />
 
@@ -87,12 +106,13 @@ export default async function CoursesPage({
               {filtering ? `找到 ${total} 门课程` : `全部 ${total} 门课程`}
               {totalPages > 1 && ` · 第 ${page} / ${totalPages} 页`}
             </p>
+            <MobileCourseSort sort={sort} />
             {totalPages > 1 && (
               <Pagination
                 ariaLabel="课程顶部分页"
                 page={page}
                 totalPages={totalPages}
-                filters={{ credits, q, subject, level }}
+                filters={{ credits, q, subject, level, sort: sortQuery }}
               />
             )}
           </div>
@@ -118,7 +138,7 @@ export default async function CoursesPage({
               ariaLabel="课程底部分页"
               page={page}
               totalPages={totalPages}
-              filters={{ credits, q, subject, level }}
+              filters={{ credits, q, subject, level, sort: sortQuery }}
               className="justify-center pt-3"
             />
           )}
@@ -203,6 +223,7 @@ function CourseCard({
   returnTo: string;
 }) {
   const detailHref = `/courses/${c.code}?from=${encodeURIComponent(returnTo)}`;
+  const updateLabel = formatUpdateLabel(c.latestCommentAt);
 
   return (
     <CourseCardLink
@@ -234,11 +255,16 @@ function CourseCard({
       <div className="mt-5">
         {c.rating !== null ? (
           <>
-            <div className="flex items-end justify-between">
-              <span className="font-mono text-xs text-muted-foreground">
+            <div className="flex items-end justify-between gap-3">
+              <span className="min-w-0 font-mono text-xs text-muted-foreground">
                 {c.ratingCount} 次评分 · {c.reviewCount} 条评论
+                {updateLabel && (
+                  <span className="block truncate pt-1 md:hidden">
+                    最后评论：{updateLabel}
+                  </span>
+                )}
               </span>
-              <span className="text-2xl leading-none font-semibold tabular-nums">
+              <span className="shrink-0 text-2xl leading-none font-semibold tabular-nums">
                 {c.rating.toFixed(1)}
                 <span className="ml-0.5 text-xs font-normal text-muted-foreground">
                   /5
@@ -256,6 +282,11 @@ function CourseCard({
           <div className="flex items-center justify-between">
             <span className="font-mono text-xs text-muted-foreground">
               暂无评分
+              {updateLabel && (
+                <span className="block pt-1 md:hidden">
+                  最后评论：{updateLabel}
+                </span>
+              )}
             </span>
             <span className="text-sm text-muted-foreground transition-colors group-hover:text-foreground">
               成为第一个 →
@@ -265,4 +296,17 @@ function CourseCard({
       </div>
     </CourseCardLink>
   );
+}
+
+function formatUpdateLabel(value: string | null): string | null {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  const elapsedHours = Math.max(0, (Date.now() - timestamp) / 3_600_000);
+  if (elapsedHours < 1) return "刚刚";
+  if (elapsedHours < 24) return `${Math.floor(elapsedHours)} 小时前`;
+  if (elapsedHours < 48) return "昨天";
+  const elapsedDays = Math.floor(elapsedHours / 24);
+  if (elapsedDays < 7) return `${elapsedDays} 天前`;
+  return COURSE_UPDATE_DATE_FORMATTER.format(new Date(timestamp));
 }

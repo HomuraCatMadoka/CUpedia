@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildProfessorCatalog,
+  isValidProfessorName,
   normalizeProfessorName,
   professorId,
 } from "../../scripts/professor-catalog";
@@ -28,6 +29,24 @@ describe("professor catalog", () => {
       name: "Professor SHAO Baihao",
       courses: ["BMEG3100", "BMEG4450"],
     });
+  });
+
+  it("rejects truncated and title-only timetable instructors", () => {
+    for (const value of [
+      "Pr",
+      "Pro",
+      "Prof",
+      "Profes",
+      "Profess",
+      "Professor",
+      "Dr.",
+    ]) {
+      expect(isValidProfessorName(value)).toBe(false);
+    }
+    expect(isValidProfessorName("Professor CHAN Wing Kai")).toBe(true);
+    expect(
+      buildProfessorCatalog([{ name: "Professor", courses: ["BCHE4902"] }]),
+    ).toEqual([]);
   });
 
   it("splits same-name instructors only for reviewed course identity overrides", () => {

@@ -17,6 +17,11 @@ TIMETABLE = "https://rgsntl.rgs.cuhk.edu.hk/rws_prd_applx2/Public/tt_dsp_timetab
 SUBJECT_PAUSE = 1.5
 TERM_PAUSE = 0.5
 _ocr = None
+INVALID_INSTRUCTOR_NAMES = {
+    "", "-", "staff", "tba", "to be announced",
+    "pr", "pro", "prof", "profes", "profess", "professor", "prof.",
+    "doctor", "dr", "dr.", "mr", "mr.", "ms", "ms.", "miss",
+}
 
 
 def _hidden(soup) -> dict[str, str]:
@@ -136,12 +141,11 @@ def parse_listing(html: str) -> list[dict[str, str]]:
 
 
 def instructor_names(value: str) -> list[str]:
-    invalid = {"", "-", "staff", "tba", "to be announced"}
     return [
         name
         for raw in re.split(r",\s*\n|\n", value)
         if (name := re.sub(r"^-+\s*|,\s*$", "", raw).strip()).lower()
-        not in invalid
+        not in INVALID_INSTRUCTOR_NAMES
     ]
 
 

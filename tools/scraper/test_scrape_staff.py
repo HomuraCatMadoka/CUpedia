@@ -65,6 +65,23 @@ class StaffScraperTest(unittest.TestCase):
             (["https://research.cuhk.edu.hk/en/persons/baihao-shao/"], 22),
         )
 
+    def test_full_discovery_unions_sitemap_and_organisation_previews(self):
+        xml = """<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+          <url><loc>https://research.cuhk.edu.hk/en/persons/from-sitemap/</loc></url>
+        </urlset>"""
+        preview_url = "https://research.cuhk.edu.hk/en/persons/preview-only/"
+        self.assertEqual(
+            subject.discover_person_urls(xml, [preview_url], False),
+            [
+                "https://research.cuhk.edu.hk/en/persons/from-sitemap/",
+                preview_url,
+            ],
+        )
+        self.assertEqual(
+            subject.discover_person_urls(xml, [preview_url], True),
+            [preview_url],
+        )
+
     def test_full_directory_exposes_incomplete_coverage(self):
         department_url = "https://research.cuhk.edu.hk/en/organisations/department-of-biomedical-engineering/"
         result = subject.build_directory(
@@ -85,6 +102,100 @@ class StaffScraperTest(unittest.TestCase):
             result["faculties"][0]["departments"][0]["staffCoverage"],
             {"complete": False, "expected": 22, "scraped": 0},
         )
+        department = next(
+            item for item in result["organisations"]
+            if item["sourceUrl"] == department_url
+        )
+        self.assertEqual(
+            department["staffCoverage"],
+            {"complete": False, "expected": 22, "scraped": 0},
+        )
+        self.assertFalse(subject.staff_coverage_complete(result, "full"))
+
+    def test_full_directory_checks_standalone_organisation_coverage(self):
+        office_url = "https://research.cuhk.edu.hk/en/organisations/example-office/"
+        person_url = "https://research.cuhk.edu.hk/en/persons/example-officer/"
+        person = subject.parse_person(
+            person_html("Dr Example Officer", "example-officer"), person_url
+        )
+        person["affiliations"] = [{
+            "organisation": "Example Office",
+            "organisationUrl": office_url,
+            "title": "Director",
+        }]
+        result = subject.build_directory(
+            [subject.Organisation("Example Office", office_url, ())],
+            [person],
+        )
+
+        subject.add_staff_coverage(result, {office_url: 2}, "full")
+
+        self.assertEqual(
+            result["organisations"][0]["staffCoverage"],
+            {"complete": False, "expected": 2, "scraped": 1},
+        )
+        self.assertFalse(subject.staff_coverage_complete(result, "full"))
+
+    def test_empty_full_directory_is_not_complete(self):
+        self.assertFalse(
+            subject.staff_coverage_complete({"organisations": []}, "full")
+        )
+
+    def test_rejects_scoped_directory_for_global_identity_workflows(self):
+        for scope in [
+            {
+                "mode": "full",
+                "complete": True,
+                "selectedDepartments": ["https://example.test/department/"],
+            },
+            {
+                "mode": "full",
+                "complete": True,
+                "selectedFaculties": ["faculty of engineering"],
+            },
+        ]:
+            with self.subTest(scope=scope):
+                with self.assertRaisesRegex(ValueError, "scoped"):
+                    subject.require_complete_directory({"scope": scope})
+
+    def test_rejects_directory_without_complete_organisation_coverage(self):
+        directory = {
+            "scope": {"mode": "full", "complete": True},
+            "organisations": [{
+                "name": "Example Office",
+                "sourceUrl": "https://example.test/office/",
+                "staffCoverage": {"complete": False},
+            }],
+        }
+        with self.assertRaisesRegex(ValueError, "organisation coverage"):
+            subject.require_complete_directory(directory)
+
+    def test_rejects_coverage_that_disagrees_with_people(self):
+        directory = {
+            "scope": {"mode": "full", "complete": True},
+            "organisations": [{
+                "name": "Example Office",
+                "sourceUrl": "https://example.test/office/",
+                "staffCoverage": {"complete": True, "expected": 1, "scraped": 1},
+            }],
+            "people": [],
+        }
+        with self.assertRaisesRegex(ValueError, "organisation coverage"):
+            subject.require_complete_directory(directory)
+
+    def test_rejects_duplicate_organisation_urls(self):
+        organisation = {
+            "name": "Example Office",
+            "sourceUrl": "https://example.test/office/",
+            "staffCoverage": {"complete": True, "expected": None, "scraped": 0},
+        }
+        directory = {
+            "scope": {"mode": "full", "complete": True},
+            "organisations": [organisation, organisation.copy()],
+            "people": [],
+        }
+        with self.assertRaisesRegex(ValueError, "duplicate URLs"):
+            subject.require_complete_directory(directory)
 
     def test_uses_json_ld_affiliation_when_visible_list_is_empty(self):
         html = """
@@ -208,6 +319,33 @@ class StaffScraperTest(unittest.TestCase):
         self.assertEqual(centre["organisationType"], "centre")
         self.assertEqual(centre["parentUrl"], faculty_url)
         self.assertEqual(centre["facultyUrl"], faculty_url)
+
+    def test_keeps_non_faculty_organisations_and_people(self):
+        office_url = "https://research.cuhk.edu.hk/en/organisations/office-of-university-general-education/"
+        person_url = "https://research.cuhk.edu.hk/en/persons/general-education-lecturer/"
+        staff = subject.parse_person(
+            person_html("Dr. General Education Lecturer", "general-education-lecturer"),
+            person_url,
+        )
+        staff["affiliations"] = [{
+            "organisation": "Office of University General Education",
+            "organisationUrl": office_url,
+            "title": "Lecturer",
+        }]
+        result = subject.build_directory(
+            [subject.Organisation("Office of University General Education", office_url, ())],
+            [staff],
+        )
+        self.assertEqual(result["stats"]["staff"], 1)
+        self.assertEqual(result["people"][0]["profileUrl"], person_url)
+        self.assertEqual(result["organisations"], [{
+            "id": subject.organisation_id(office_url),
+            "name": "Office of University General Education",
+            "sourceUrl": office_url,
+            "organisationType": "office",
+            "parentUrl": None,
+            "facultyUrl": None,
+        }])
 
     def test_preserves_multiple_titles_for_one_department_membership(self):
         faculty_url = "https://research.cuhk.edu.hk/en/organisations/faculty-of-engineering/"

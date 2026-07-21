@@ -730,6 +730,32 @@ export const staffPeople = pgTable(
   ],
 );
 
+export const staffPersonSources = pgTable(
+  "staff_person_sources",
+  {
+    personId: text("person_id")
+      .notNull()
+      .references(() => staffPeople.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    sourceKey: text("source_key").notNull(),
+    profileUrl: text("profile_url"),
+    sourceUrl: text("source_url").notNull(),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    isCurrent: boolean("is_current").notNull().default(true),
+    missingRuns: integer("missing_runs").notNull().default(0),
+  },
+  (table) => [
+    primaryKey({ columns: [table.source, table.sourceKey] }),
+    index("staff_person_sources_person_id_idx").on(table.personId),
+    index("staff_person_sources_profile_url_idx").on(table.profileUrl),
+  ],
+);
+
 export const staffDepartments = pgTable("staff_departments", {
   id: text("id").primaryKey(),
   faculty: text("faculty").notNull(),
