@@ -32,11 +32,17 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
+  const input = body as {
+    name?: unknown;
+    location?: unknown;
+    announcement?: unknown;
+  };
   try {
-    const canteen = await updateCanteen(
-      id,
-      body as { name?: unknown; location?: unknown; announcement?: unknown },
-    );
+    const canteen = await updateCanteen(id, {
+      name: input.name,
+      location: input.location,
+      announcement: input.announcement,
+    });
     return NextResponse.json({ canteen });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Bad request";
