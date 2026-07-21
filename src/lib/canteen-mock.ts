@@ -1,4 +1,5 @@
 import type {
+  AdminDishComment,
   Canteen,
   CanteenDishComment,
   CanteenMenuItem,
@@ -8,6 +9,7 @@ import type {
   VoteChoice,
 } from "@/lib/canteen-types";
 import {
+  ADMIN_DISH_COMMENT_LIST_LIMIT,
   parseMealPeriod,
   validateAnnouncement,
   validateCanteenName,
@@ -346,6 +348,37 @@ export function mockGetCommentsForMenuItem(
     .comments.filter((c) => c.menuItemId === menuItemId)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     .map((c) => ({ ...c }));
+}
+
+export function mockAdminListRecentDishComments(
+  limit = ADMIN_DISH_COMMENT_LIST_LIMIT,
+): AdminDishComment[] {
+  const s = getState();
+  const itemsById = new Map(s.items.map((item) => [item.id, item]));
+  const canteensById = new Map(s.canteens.map((c) => [c.id, c]));
+
+  return [...s.comments]
+    .map((c, index) => ({ c, index }))
+    .sort((a, b) => {
+      const byTime = b.c.createdAt.getTime() - a.c.createdAt.getTime();
+      if (byTime !== 0) return byTime;
+      return b.index - a.index;
+    })
+    .flatMap(({ c }) => {
+      const item = itemsById.get(c.menuItemId);
+      if (!item) return [];
+      const canteen = canteensById.get(item.canteenId);
+      if (!canteen) return [];
+      return [
+        {
+          ...c,
+          canteenId: canteen.id,
+          canteenName: canteen.name,
+          menuItemName: item.name,
+        },
+      ];
+    })
+    .slice(0, limit);
 }
 
 export function mockCreateDishComment(

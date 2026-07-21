@@ -158,18 +158,33 @@ export function PreviewBanner() {
       role="status"
       className="mb-6 border border-[var(--canteen-morning)]/35 bg-[var(--canteen-morning)]/10 px-4 py-3 text-sm text-[var(--canteen-ink)]"
     >
-      <span className="font-medium">演示模式</span>
-      <span className="text-[var(--canteen-muted)]">
-        {" "}
-        — 数据保存在内存中，无需数据库。正式管理请使用{" "}
+      <p>
+        <span className="font-medium">演示模式</span>
+        <span className="text-[var(--canteen-muted)]">
+          {" "}
+          — 数据在内存中。完整管理（含评论审核）请用管理后台：
+        </span>
+      </p>
+      <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
         <Link
           href="/admin/canteens"
           className="text-[var(--canteen-purple)] underline underline-offset-2"
         >
-          管理后台
+          食堂 / 公告
         </Link>
-        。
-      </span>
+        <Link
+          href="/admin/comments"
+          className="text-[var(--canteen-purple)] underline underline-offset-2"
+        >
+          评论管理
+        </Link>
+        <Link
+          href="/admin/danmaku"
+          className="text-[var(--canteen-purple)] underline underline-offset-2"
+        >
+          弹幕管理
+        </Link>
+      </p>
     </div>
   );
 }

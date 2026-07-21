@@ -4,9 +4,11 @@ import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { canteenDishComments, canteenMenuItems, users } from "@/db/schema";
 import { requireAdmin, requireCommentAuth } from "@/lib/auth-guard";
+import { revalidatePath } from "next/cache";
 import {
   isCanteenMockMode,
   mockAdminDeleteDishComment,
+  mockAdminListRecentDishComments,
   mockCreateDishComment,
   mockDeleteDishComment,
   mockGetCommentCountsForCanteen,
@@ -14,8 +16,11 @@ import {
   mockMenuItemExists,
   mockUpdateDishComment,
 } from "@/lib/canteen-mock";
-import { countCommentsByMenuItemForCanteen } from "@/lib/canteen-comment-queries";
-import type { CanteenDishComment } from "@/lib/canteen-types";
+import {
+  adminListRecentDishComments,
+  countCommentsByMenuItemForCanteen,
+} from "@/lib/canteen-comment-queries";
+import type { AdminDishComment, CanteenDishComment } from "@/lib/canteen-types";
 import { validateCommentContent } from "@/lib/canteen-types";
 import { assertNoSensitiveContent } from "@/lib/sensitive-content";
 import { assertContributorComplete } from "@/lib/contributor-account";
@@ -172,11 +177,18 @@ export async function deleteDishComment(commentId: string): Promise<void> {
   if (!result[0]) throw new Error("COMMENT_NOT_FOUND");
 }
 
+export async function adminListDishComments(): Promise<AdminDishComment[]> {
+  await requireAdmin();
+  if (isCanteenMockMode()) return mockAdminListRecentDishComments();
+  return adminListRecentDishComments();
+}
+
 export async function adminDeleteDishComment(commentId: string): Promise<void> {
   await requireAdmin();
 
   if (isCanteenMockMode()) {
     mockAdminDeleteDishComment(commentId);
+    revalidatePath("/admin/comments");
     return;
   }
 
@@ -186,4 +198,5 @@ export async function adminDeleteDishComment(commentId: string): Promise<void> {
     .returning({ id: canteenDishComments.id });
 
   if (!result[0]) throw new Error("COMMENT_NOT_FOUND");
+  revalidatePath("/admin/comments");
 }

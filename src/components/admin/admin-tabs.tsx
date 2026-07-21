@@ -8,6 +8,7 @@ const tabs = [
   { href: "/admin/users", label: "用户管理" },
   { href: "/admin/canteens", label: "食堂管理" },
   { href: "/admin/danmaku", label: "弹幕管理" },
+  { href: "/admin/comments", label: "评论管理" },
   { href: "/admin/achievement-rules", label: "成就规则" },
   { href: "/admin/settings", label: "站点设置" },
 ];

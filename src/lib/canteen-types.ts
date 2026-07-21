@@ -86,6 +86,15 @@ export type CanteenDishComment = {
   authorNickname: string;
 };
 
+/** Admin timeline row: dish comment plus canteen / menu context. */
+export type AdminDishComment = CanteenDishComment & {
+  canteenId: string;
+  canteenName: string;
+  menuItemName: string;
+};
+
+export const ADMIN_DISH_COMMENT_LIST_LIMIT = 200;
+
 export const MENU_IMPORT_DRAFT_STATUSES = [
   "ready",
   "failed",

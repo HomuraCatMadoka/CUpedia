@@ -19,6 +19,10 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
 vi.mock("next/headers", () => ({
   headers: vi.fn().mockResolvedValue(new Headers()),
 }));
@@ -47,6 +51,7 @@ vi.mock("@/db", () => ({
 
 import {
   adminDeleteDishComment,
+  adminListDishComments,
   createDishComment,
   deleteDishComment,
   getCommentCountsForCanteen,
@@ -57,6 +62,7 @@ import {
   getCanteenDeleteImpact,
   getMenuItemDeleteImpact,
 } from "@/lib/canteen-admin-actions";
+import { ADMIN_DISH_COMMENT_LIST_LIMIT } from "@/lib/canteen-types";
 import { resetCanteenMockState } from "@/lib/canteen-mock";
 
 const ITEM_ID = "mock-item-demo";
@@ -211,6 +217,26 @@ describe("canteen-comment-actions (mock mode)", () => {
     await adminDeleteDishComment(created.id);
     const comments = await getCommentsForMenuItem(ITEM_ID);
     expect(comments).toHaveLength(0);
+  });
+
+  it("lists recent dish comments for admin newest-first with context", async () => {
+    mockLoggedInUser("user-a", "作者A");
+    await createDishComment(ITEM_ID, "第一条");
+    mockLoggedInUser("user-b", "作者B");
+    await createDishComment(ITEM_ID, "第二条");
+    mockAdminUser();
+    const listed = await adminListDishComments();
+    expect(listed.length).toBeGreaterThanOrEqual(2);
+    expect(listed[0].content).toBe("第二条");
+    expect(listed[0].canteenName).toBe("演示食堂");
+    expect(listed[0].menuItemName).toBe("演示菜品");
+    expect(listed[0].authorNickname).toBe("作者B");
+    expect(listed.length).toBeLessThanOrEqual(ADMIN_DISH_COMMENT_LIST_LIMIT);
+  });
+
+  it("rejects non-admin listing comments", async () => {
+    mockLoggedInUser();
+    await expect(adminListDishComments()).rejects.toThrow("NEXT_REDIRECT");
   });
 
   it("includes comment count in menu item delete impact", async () => {
