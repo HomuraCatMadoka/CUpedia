@@ -12,6 +12,16 @@ import { canViewerEdit } from "@/lib/edit-permission";
 import { normalizeEmail } from "@/lib/email";
 import { headers } from "next/headers";
 
+/** Session lookup that never throws — DB/auth outages return null so public
+ * pages (canteen mock, browse) stay up instead of hard-crashing navigation. */
+async function safeGetSession() {
+  try {
+    return await auth.api.getSession({ headers: await headers() });
+  } catch {
+    return null;
+  }
+}
+
 /** True if the email already has a password (credential) account — i.e. it
  * completed registration. OTP-only sign-ins create a user row but no
  * credential account, so they are not "registered" for this purpose. */
@@ -31,9 +41,7 @@ export async function isEmailRegistered(email: string): Promise<boolean> {
 }
 
 export async function requireAuth() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await safeGetSession();
   if (!session?.user?.id) redirect("/login");
 
   const dbUser = await db.query.users.findFirst({
@@ -95,9 +103,7 @@ export async function requireEditorOrRedirect() {
 }
 
 export async function getOptionalUser() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const session = await safeGetSession();
   return session?.user ?? null;
 }
 
@@ -118,7 +124,7 @@ export async function getSessionVoterUser(): Promise<{
   id: string;
   banned: boolean;
 } | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await safeGetSession();
   if (!session?.user?.id) return null;
 
   if (process.env.CANTEEN_MOCK_DATA === "true") {
@@ -138,7 +144,7 @@ export async function requireCommentAuth(): Promise<{
   nickname: string;
   email: string;
 }> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await safeGetSession();
   if (!session?.user?.id) redirect("/login");
 
   if (process.env.CANTEEN_MOCK_DATA === "true") {
@@ -177,7 +183,7 @@ export async function isBannedSessionUser(): Promise<boolean> {
 
 /** For API routes: returns null when caller is not an admin (no redirect). */
 export async function getAdminUserForApi() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await safeGetSession();
   if (!session?.user?.id) return null;
 
   const dbUser = await db.query.users.findFirst({
@@ -205,7 +211,7 @@ export async function getDanmakuAuthorForApi(): Promise<{
   nickname: string;
   banned: boolean;
 } | null> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await safeGetSession();
   if (!session?.user?.id) return null;
 
   const dbUser = await db.query.users.findFirst({

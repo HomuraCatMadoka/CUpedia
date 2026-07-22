@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Canteen } from "@/lib/canteen-types";
+
+export { CanteenCard } from "@/components/canteen/canteen-card";
 
 export function CanteenShell({
   eyebrow,
@@ -32,28 +33,24 @@ export function CanteenShell({
   return (
     <div
       className={cn(
-        "mx-auto w-full min-w-0 max-w-5xl px-3 py-3 sm:px-6 sm:py-10",
+        "mx-auto w-full min-w-0 max-w-5xl px-4 py-8 sm:px-6 sm:py-10",
         className,
       )}
     >
       {backHref ? (
-        <div className="canteen-fade-in mb-4 hidden sm:block">
+        <div className="canteen-fade-in mb-4">
           <Link
             href={backHref}
             className="canteen-back-link"
             aria-label={backLabel}
           >
-            <ArrowLeft
-              className="size-5 shrink-0"
-              strokeWidth={2.25}
-              aria-hidden
-            />
-            <span>{backLabel}</span>
+            <ArrowLeft className="size-5 shrink-0" strokeWidth={2.25} aria-hidden />
+            <span className="sr-only sm:not-sr-only">{backLabel}</span>
           </Link>
         </div>
       ) : null}
-      <header className="canteen-fade-in mb-3 flex flex-col gap-1.5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
-        <div className="min-w-0 space-y-0.5 sm:space-y-3">
+      <header className="canteen-fade-in mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-3">
           {eyebrow ? (
             typeof eyebrow === "string" ? (
               <p className="text-xs font-medium tracking-[0.18em] text-[var(--canteen-muted)]">
@@ -63,40 +60,21 @@ export function CanteenShell({
               <div className="text-sm text-[var(--canteen-muted)]">{eyebrow}</div>
             )
           ) : null}
-          <div className="flex min-w-0 items-center gap-1 sm:block">
-            {backHref ? (
-              <div className="shrink-0 sm:hidden">
-                <Link
-                  href={backHref}
-                  className="canteen-back-link"
-                  aria-label={backLabel}
-                >
-                  <ArrowLeft
-                    className="size-5 shrink-0"
-                    strokeWidth={2.25}
-                    aria-hidden
-                  />
-                  <span className="sr-only">{backLabel}</span>
-                </Link>
-              </div>
-            ) : null}
-            <h1
-              className={cn(
-                "min-w-0 truncate text-[var(--canteen-ink)] sm:overflow-visible sm:whitespace-normal",
-                brandTitle
-                  ? "canteen-brand text-2xl sm:text-5xl"
-                  : "canteen-display text-xl font-semibold tracking-tight sm:text-4xl",
-              )}
-            >
-              {title}
-            </h1>
-          </div>
+          <h1
+            className={cn(
+              "text-[var(--canteen-ink)]",
+              brandTitle
+                ? "canteen-brand text-4xl sm:text-5xl"
+                : "canteen-display text-3xl font-semibold tracking-tight sm:text-4xl",
+            )}
+          >
+            {title}
+          </h1>
           {subtitle ? (
             <p
               className={cn(
-                "max-w-xl leading-snug text-[var(--canteen-muted)] sm:leading-relaxed",
-                backHref ? "max-sm:pl-10" : null,
-                brandTitle ? "text-xs sm:text-lg" : "text-xs sm:text-base",
+                "max-w-xl leading-relaxed text-[var(--canteen-muted)]",
+                brandTitle ? "text-base sm:text-lg" : "text-sm sm:text-base",
               )}
             >
               {subtitle}
@@ -105,10 +83,7 @@ export function CanteenShell({
           {announcement ? (
             <p
               role="status"
-              className={cn(
-                "max-w-xl whitespace-pre-wrap text-xs leading-snug text-[var(--canteen-ink)]/80 sm:text-base sm:leading-relaxed",
-                backHref ? "max-sm:pl-10" : null,
-              )}
+              className="max-w-xl whitespace-pre-wrap text-sm leading-relaxed text-[var(--canteen-ink)]/80 sm:text-base"
             >
               {announcement}
             </p>
@@ -118,63 +93,6 @@ export function CanteenShell({
       </header>
       {children}
     </div>
-  );
-}
-
-export function CanteenCard({
-  canteen,
-  itemCount,
-  href,
-  className,
-}: {
-  canteen: Canteen;
-  itemCount?: number;
-  href: string;
-  className?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "canteen-ledger-row group flex items-center gap-3 px-1 py-2.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--canteen-purple)] sm:gap-6 sm:py-4",
-        className,
-      )}
-    >
-      <span
-        className="h-8 w-0.5 shrink-0 bg-[var(--canteen-purple)] opacity-70 transition-opacity group-hover:opacity-100 sm:h-10"
-        aria-hidden
-      />
-      <div className="min-w-0 flex-1">
-        <h2 className="canteen-display text-base font-semibold text-[var(--canteen-ink)] group-hover:text-[var(--canteen-purple)] sm:text-xl">
-          {canteen.name}
-        </h2>
-        {canteen.location ? (
-          <p className="mt-0.5 text-xs text-[var(--canteen-muted)] sm:mt-1 sm:text-sm">
-            {canteen.location}
-          </p>
-        ) : null}
-      </div>
-      {itemCount !== undefined ? (
-        <p className="shrink-0 font-mono text-xs tabular-nums tracking-wide text-[var(--canteen-muted)] sm:text-sm">
-          {itemCount > 0 ? (
-            <>
-              <span className="text-[var(--canteen-ink)]">
-                {String(itemCount).padStart(2, "0")}
-              </span>{" "}
-              道菜
-            </>
-          ) : (
-            "暂无菜单"
-          )}
-        </p>
-      ) : null}
-      <span
-        className="shrink-0 text-[var(--canteen-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--canteen-purple)]"
-        aria-hidden
-      >
-        →
-      </span>
-    </Link>
   );
 }
 

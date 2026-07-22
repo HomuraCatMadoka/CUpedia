@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import type {
   CanteenMenuItem,
   MealPeriod,
@@ -52,6 +58,14 @@ export function CanteenMenuView({
   const [sectionFilter, setSectionFilter] = useState<DishSvgKey | "all">(
     "all",
   );
+  // Chip / tab chrome updates urgently; list filtering is deferred so a large
+  // menu does not block the selected-state paint (desktop + mobile).
+  const [uiSectionFilter, setUiSectionFilter] = useState<DishSvgKey | "all">(
+    "all",
+  );
+  const [uiPeriod, setUiPeriod] = useState<MealPeriod>("lunch");
+  const [uiView, setUiView] = useState<CanteenViewMode>("menu");
+  const [, startTransition] = useTransition();
 
   // Client-only meal-period init. defaultMealPeriodForHkt / shouldShowAfternoonHint
   // read the viewer's *current* Asia/Hong_Kong wall clock, which the server does
@@ -63,7 +77,9 @@ export function CanteenMenuView({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const now = new Date();
-    setPeriod(defaultMealPeriodForHkt(now));
+    const next = defaultMealPeriodForHkt(now);
+    setPeriod(next);
+    setUiPeriod(next);
     setShowAfternoonHint(shouldShowAfternoonHint(now));
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -126,64 +142,93 @@ export function CanteenMenuView({
   );
 
   function handlePeriodChange(next: MealPeriod) {
-    setPeriod(next);
-    setSectionFilter("all");
+    setUiPeriod(next);
+    setUiSectionFilter("all");
+    startTransition(() => {
+      setPeriod(next);
+      setSectionFilter("all");
+    });
+  }
+
+  function handleViewChange(next: CanteenViewMode) {
+    setUiView(next);
+    startTransition(() => {
+      setView(next);
+    });
+  }
+
+  function handleSectionChange(next: DishSvgKey | "all") {
+    setUiSectionFilter(next);
+    startTransition(() => {
+      setSectionFilter(next);
+    });
   }
 
   if (items.length === 0) {
     return (
-      <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-10 text-center sm:py-16">
+      <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
         <p className="text-[var(--canteen-muted)]">该食堂暂无菜品</p>
       </div>
     );
   }
 
   return (
-    <div className="min-w-0 space-y-4 sm:space-y-6">
-      <div className="sticky top-0 z-10 -mx-3 min-w-0 space-y-2 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-3 py-2 backdrop-blur-md sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
-        <CanteenPeriodTabs value={period} onChange={handlePeriodChange} />
-        <CanteenViewTabs value={view} onChange={setView} />
-        {view === "menu" && menuSections.length > 1 ? (
+    <div className="min-w-0 space-y-6">
+      <div className="sticky top-0 z-10 -mx-4 min-w-0 space-y-3 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+        <CanteenPeriodTabs value={uiPeriod} onChange={handlePeriodChange} />
+        <CanteenViewTabs value={uiView} onChange={handleViewChange} />
+        {uiView === "menu" ? (
           <div
-            role="toolbar"
-            aria-label="菜品分类"
-            className="flex min-w-0 max-w-full gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2"
+            className="min-h-9 min-w-0"
+            aria-hidden={menuSections.length <= 1}
           >
-            <button
-              type="button"
-              aria-pressed={sectionFilter === "all"}
-              onClick={() => setSectionFilter("all")}
-              className={cn(
-                "canteen-section-chip shrink-0",
-                sectionFilter === "all" && "canteen-section-chip-on",
-              )}
-            >
-              全部
-            </button>
-            {menuSections.map((section) => (
-              <button
-                key={section.svgKey}
-                type="button"
-                aria-pressed={sectionFilter === section.svgKey}
-                onClick={() => setSectionFilter(section.svgKey)}
-                className={cn(
-                  "canteen-section-chip shrink-0",
-                  sectionFilter === section.svgKey &&
-                    "canteen-section-chip-on",
-                )}
+            {menuSections.length > 1 ? (
+              <div
+                role="toolbar"
+                aria-label="菜品分类"
+                className="flex min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                {section.label}
-                <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
-                  {section.items.length}
-                </span>
-              </button>
-            ))}
+                <button
+                  type="button"
+                  aria-pressed={uiSectionFilter === "all"}
+                  onClick={() => handleSectionChange("all")}
+                  className={cn(
+                    "canteen-section-chip shrink-0",
+                    uiSectionFilter === "all" && "canteen-section-chip-on",
+                  )}
+                >
+                  全部
+                </button>
+                {menuSections.map((section) => (
+                  <button
+                    key={section.svgKey}
+                    type="button"
+                    aria-pressed={uiSectionFilter === section.svgKey}
+                    onClick={() => handleSectionChange(section.svgKey)}
+                    className={cn(
+                      "canteen-section-chip shrink-0",
+                      uiSectionFilter === section.svgKey &&
+                        "canteen-section-chip-on",
+                    )}
+                  >
+                    {section.label}
+                    <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
+                      {section.items.length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
-        {showAfternoonHint && period === "lunch" ? (
+        {showAfternoonHint ? (
           <p
             role="status"
-            className="border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-2.5 py-1.5 text-xs text-[var(--canteen-ink)] sm:px-3 sm:py-2 sm:text-sm"
+            aria-hidden={uiPeriod !== "lunch"}
+            className={cn(
+              "border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-3 py-2 text-sm text-[var(--canteen-ink)]",
+              uiPeriod !== "lunch" && "invisible",
+            )}
           >
             {AFTERNOON_HINT_TEXT}
           </p>
@@ -191,11 +236,11 @@ export function CanteenMenuView({
       </div>
 
       {periodItems.length === 0 ? (
-        <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-10 text-center sm:py-16">
+        <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
           <p className="text-[var(--canteen-muted)]">该餐段暂无菜品</p>
         </div>
       ) : view === "menu" ? (
-        <div className="space-y-5 sm:space-y-8">
+        <div className="space-y-8">
           {visibleSections.map((section) => (
             <section
               key={section.svgKey}
@@ -203,7 +248,7 @@ export function CanteenMenuView({
             >
               <h2
                 id={`canteen-section-${section.svgKey}`}
-                className="canteen-display mb-0.5 border-b border-[var(--canteen-line)] pb-1.5 text-base font-semibold text-[var(--canteen-ink)] sm:mb-1 sm:pb-2 sm:text-lg"
+                className="canteen-display mb-1 border-b border-[var(--canteen-line)] pb-2 text-lg font-semibold text-[var(--canteen-ink)]"
               >
                 {section.label}
                 <span className="ml-2 font-mono text-sm font-normal tabular-nums text-[var(--canteen-muted)]">

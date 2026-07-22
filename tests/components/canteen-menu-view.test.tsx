@@ -83,7 +83,9 @@ describe("CanteenMenuView", () => {
     expect(screen.queryByText("演示早餐")).toBeNull();
 
     fireEvent.click(screen.getByRole("tab", { name: "早餐" }));
-    expect(screen.getByText("演示早餐")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("演示早餐")).toBeTruthy();
+    });
     expect(screen.queryByText("演示午餐")).toBeNull();
   });
 
@@ -135,9 +137,11 @@ describe("CanteenMenuView", () => {
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
-    expect(screen.getByText("演示午餐")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("演示午餐")).toBeTruthy();
+      expect(screen.getByText(/赞 5/)).toBeTruthy();
+    });
     expect(screen.queryByText("演示早餐")).toBeNull();
-    expect(screen.getByText(/赞 5/)).toBeTruthy();
     expect(screen.queryByText(/赞 99/)).toBeNull();
   });
 
@@ -156,10 +160,14 @@ describe("CanteenMenuView", () => {
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
-    expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
+    });
 
     fireEvent.click(screen.getByRole("tab", { name: "大众避雷" }));
-    expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
+    });
   });
 
   it("shows empty state when period has no dishes", async () => {
@@ -176,7 +184,9 @@ describe("CanteenMenuView", () => {
     });
 
     fireEvent.click(screen.getByRole("tab", { name: "早餐" }));
-    expect(screen.getByText("该餐段暂无菜品")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("该餐段暂无菜品")).toBeTruthy();
+    });
   });
 
   it("keeps vote state when switching view tabs", async () => {
@@ -194,9 +204,11 @@ describe("CanteenMenuView", () => {
     fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
     fireEvent.click(screen.getByRole("tab", { name: "菜单" }));
 
-    expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain(
-      "1",
-    );
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "点赞" }).textContent,
+      ).toContain("1");
+    });
     expect(
       screen.getByRole("button", { name: "点赞" }).getAttribute("aria-pressed"),
     ).toBe("true");
@@ -217,12 +229,19 @@ describe("CanteenMenuView", () => {
     expect(screen.getByRole("heading", { name: /饮品/ })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /饮品/ }));
-    expect(screen.getByText("奶茶")).toBeTruthy();
-    expect(screen.queryByText("叉烧饭")).toBeNull();
-    expect(screen.queryByText("牛肉面")).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByText("奶茶")).toBeTruthy();
+      expect(screen.queryByText("叉烧饭")).toBeNull();
+      expect(screen.queryByText("牛肉面")).toBeNull();
+    });
+    expect(
+      screen.getByRole("button", { name: /饮品/ }).getAttribute("aria-pressed"),
+    ).toBe("true");
 
     fireEvent.click(screen.getByRole("button", { name: "全部" }));
-    expect(screen.getByText("叉烧饭")).toBeTruthy();
-    expect(screen.getByText("牛肉面")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText("叉烧饭")).toBeTruthy();
+      expect(screen.getByText("牛肉面")).toBeTruthy();
+    });
   });
 });

@@ -51,11 +51,17 @@
 .canteen-zone .canteen-ledger-row {
   border-bottom: 1px solid var(--canteen-line);
   background: transparent;
+  touch-action: manipulation;
   transition: background-color 160ms ease;
 }
 
 .canteen-zone .canteen-ledger-row:hover {
   background: rgba(255, 255, 255, 0.45);
+}
+
+.canteen-zone a:active .canteen-ledger-row,
+.canteen-zone .canteen-ledger-row:active {
+  background: rgba(255, 255, 255, 0.6);
 }
 
 /* Vote chips: bordered controls so “赞 / 踩” read as tappable, not plain text */
@@ -142,16 +148,19 @@
   color: var(--canteen-ink);
   white-space: nowrap;
   touch-action: manipulation;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
+  /* No color transition — selected state must snap on click, not lag behind list work. */
   cursor: pointer;
 }
 
-.canteen-zone .canteen-section-chip:hover {
+.canteen-zone .canteen-section-chip:hover:not(.canteen-section-chip-on) {
   border-color: rgba(42, 107, 120, 0.4);
   background: #fff;
+}
+
+.canteen-zone .canteen-section-chip:active:not(.canteen-section-chip-on) {
+  border-color: var(--canteen-purple);
+  background: rgba(42, 107, 120, 0.16);
+  color: var(--canteen-purple);
 }
 
 .canteen-zone .canteen-section-chip:focus-visible {
@@ -161,12 +170,14 @@
 
 .canteen-zone .canteen-section-chip-on {
   border-color: var(--canteen-purple);
-  background: rgba(42, 107, 120, 0.12);
-  color: var(--canteen-ink);
+  background: rgba(42, 107, 120, 0.28);
+  color: var(--canteen-purple);
+  font-weight: 700;
 }
 
 .canteen-zone .canteen-section-chip-on .font-mono {
   color: var(--canteen-purple);
+  opacity: 0.85;
 }
 
 .canteen-zone .canteen-price-option {
@@ -196,30 +207,8 @@
   font-size: 0.875rem;
   font-weight: 500;
   box-shadow: none;
+  touch-action: manipulation;
   transition: color 160ms ease;
-}
-
-@media (max-width: 639px) {
-  .canteen-zone .canteen-back-link {
-    min-height: 2.5rem;
-    min-width: 2.5rem;
-    padding: 0.2rem;
-  }
-
-  .canteen-zone .canteen-section-chip {
-    min-height: 2rem;
-    padding: 0.15rem 0.55rem;
-    font-size: 0.75rem;
-    gap: 0.25rem;
-  }
-
-  .canteen-zone .canteen-vote-btn {
-    min-height: 2.25rem;
-    min-width: 3.75rem;
-    padding: 0.25rem 0.55rem;
-    font-size: 0.8125rem;
-    gap: 0.25rem;
-  }
 }
 
 .canteen-zone .canteen-back-link:hover {
