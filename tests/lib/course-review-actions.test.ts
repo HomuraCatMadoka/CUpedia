@@ -1071,7 +1071,11 @@ describe("getCourseRatingState", () => {
           academicYear: "2025-26",
           term: "Term 2",
           professorId: "p1",
-          professorName: "Professor CHAN",
+          professorName: "Professor WONG",
+          professors: [
+            { id: "p2", name: "Professor CHAN" },
+            { id: "p1", name: "Professor WONG" },
+          ],
           storedTags: {
             workload: "light",
             grade: "good",
@@ -1092,8 +1096,12 @@ describe("getCourseRatingState", () => {
     expect(state?.lastTerm).toBe("Term 2");
     expect(state?.lastProfessor).toEqual({
       id: "p1",
-      name: "Professor CHAN",
+      name: "Professor WONG",
     });
+    expect(state?.lastProfessors).toEqual([
+      { id: "p1", name: "Professor WONG" },
+      { id: "p2", name: "Professor CHAN" },
+    ]);
     expect(state?.lastContent).toBe("很清楚");
     expect(state?.lastTags).toEqual(["hea", "靓 grade", "讲解清晰"]);
     expect(state?.lastIsAnonymous).toBe(true);

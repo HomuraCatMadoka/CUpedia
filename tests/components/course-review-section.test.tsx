@@ -10,8 +10,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { refresh, submit, toastSuccess } = vi.hoisted(() => ({
+const { refresh, search, submit, toastSuccess } = vi.hoisted(() => ({
   refresh: vi.fn(),
+  search: vi.fn(),
   submit: vi.fn(),
   toastSuccess: vi.fn(),
 }));
@@ -23,7 +24,7 @@ vi.mock("sonner", () => ({ toast: { success: toastSuccess } }));
 
 vi.mock("@/lib/course-review-actions", () => ({
   deleteCourseReviewSubmission: vi.fn(),
-  searchProfessors: vi.fn(),
+  searchProfessors: (...args: unknown[]) => search(...args),
   submitCourseReview: (...args: unknown[]) => submit(...args),
   toggleLike: vi.fn(),
 }));
@@ -111,6 +112,10 @@ describe("CourseReviewSection", () => {
 
   it("按历史任教学期推荐并提交多位教授", async () => {
     submit.mockResolvedValue({ newAchievementNotices: [] });
+    search.mockResolvedValue([
+      { id: "p1", name: "Professor CHAN" },
+      { id: "p3", name: "Professor LEE" },
+    ]);
     const professorStats = ["Professor CHAN", "Professor WONG"].map(
       (name, index) => ({
         id: `p${index + 1}`,
@@ -156,6 +161,15 @@ describe("CourseReviewSection", () => {
     expect(
       screen.getByRole("button", { name: "移除 Professor WONG" }),
     ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("搜索任课教授"), {
+      target: { value: "Professor" },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Professor LEE" }),
+      ).toBeTruthy(),
+    );
+    expect(screen.queryByRole("button", { name: "Professor CHAN" })).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
     fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
 

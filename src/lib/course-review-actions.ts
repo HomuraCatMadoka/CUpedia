@@ -240,7 +240,13 @@ function selectedProfessors(
   legacyId: string | null | undefined,
   legacyName: string | null | undefined,
 ): ProfessorOption[] {
-  if (stored?.length) return stored;
+  if (stored?.length) {
+    if (!legacyId) return stored;
+    const primary = stored.find((professor) => professor.id === legacyId);
+    return primary
+      ? [primary, ...stored.filter((professor) => professor.id !== legacyId)]
+      : stored;
+  }
   return legacyId && legacyName ? [{ id: legacyId, name: legacyName }] : [];
 }
 

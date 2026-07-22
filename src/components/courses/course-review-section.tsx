@@ -345,6 +345,10 @@ export function CourseReviewSection({
   const hiddenTermCount = professorTermsByYear
     .slice(4)
     .reduce((total, year) => total + year.terms.size, 0);
+  const availableProfessorOptions = professorOptions.filter(
+    (option) =>
+      !selectedProfessors.some((selected) => selected.id === option.id),
+  );
   const suggestedProfessors = professorStats.filter(
     (professor) =>
       professor.terms.some(
@@ -616,9 +620,9 @@ export function CourseReviewSection({
                     autoComplete="off"
                     className="h-11 w-full rounded-lg border bg-background pl-9 pr-3 text-sm font-normal outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
                   />
-                  {professorQuery && professorOptions.length > 0 && (
+                  {professorQuery && availableProfessorOptions.length > 0 && (
                     <ul className="absolute inset-x-0 top-[calc(100%+0.25rem)] z-20 max-h-48 overflow-auto rounded-md border bg-popover p-1 shadow-md">
-                      {professorOptions.map((option) => (
+                      {availableProfessorOptions.map((option) => (
                         <li key={option.id}>
                           <button
                             type="button"

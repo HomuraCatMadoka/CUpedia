@@ -112,12 +112,17 @@ export function MyCourseReviewHistory({
               {item.academicYear && <span>{item.academicYear}</span>}
               {item.term && <span>· {item.term}</span>}
               {(item.professors?.length
-                ? item.professors.map((professor) => professor.name)
+                ? item.professors
                 : item.professorName
-                  ? [item.professorName]
+                  ? [
+                      {
+                        id: `legacy:${item.ratingId}`,
+                        name: item.professorName,
+                      },
+                    ]
                   : []
-              ).map((name) => (
-                <span key={name}>· {name}</span>
+              ).map((professor) => (
+                <span key={professor.id}>· {professor.name}</span>
               ))}
               <span>· {item.isAnonymous ? "匿名" : "署名"}</span>
             </div>
