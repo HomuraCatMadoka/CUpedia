@@ -63,12 +63,12 @@ export default async function CanteenBrowsePage() {
         ) : undefined
       }
     >
-      <div className="mb-10">
+      <div className="mb-3 sm:mb-8">
         <DanmakuBanner initialMessages={danmaku} viewer={danmakuViewer} />
       </div>
 
       {canteens.length === 0 ? (
-        <div className="canteen-fade-in canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
+        <div className="canteen-fade-in canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-10 text-center sm:py-16">
           <p className="canteen-display text-lg text-[var(--canteen-muted)]">
             暂无食堂
           </p>

@@ -19,8 +19,7 @@ export default async function CourseTreePage() {
       <header className="space-y-2">
         <h1 className="text-2xl font-bold">选课技能树</h1>
         <p className="text-muted-foreground">
-          选一个主修,把课程按类目铺成技能树;点亮想修的课,实时看总学分与每类「还差多少」。
-          自由探索、随点随算,不保存。
+          按主修要求规划课程，实时查看学分进度。
         </p>
       </header>
 

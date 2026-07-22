@@ -132,69 +132,58 @@ export function CanteenMenuView({
 
   if (items.length === 0) {
     return (
-      <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
+      <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-10 text-center sm:py-16">
         <p className="text-[var(--canteen-muted)]">该食堂暂无菜品</p>
       </div>
     );
   }
 
   return (
-    <div className="min-w-0 space-y-6">
-      <div className="sticky top-0 z-10 -mx-4 min-w-0 space-y-3 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
+      <div className="sticky top-0 z-10 -mx-3 min-w-0 space-y-2 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-3 py-2 backdrop-blur-md sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
         <CanteenPeriodTabs value={period} onChange={handlePeriodChange} />
         <CanteenViewTabs value={view} onChange={setView} />
-        {view === "menu" ? (
+        {view === "menu" && menuSections.length > 1 ? (
           <div
-            className="min-h-9 min-w-0"
-            aria-hidden={menuSections.length <= 1}
+            role="toolbar"
+            aria-label="菜品分类"
+            className="flex min-w-0 max-w-full gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2"
           >
-            {menuSections.length > 1 ? (
-              <div
-                role="toolbar"
-                aria-label="菜品分类"
-                className="flex min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            <button
+              type="button"
+              aria-pressed={sectionFilter === "all"}
+              onClick={() => setSectionFilter("all")}
+              className={cn(
+                "canteen-section-chip shrink-0",
+                sectionFilter === "all" && "canteen-section-chip-on",
+              )}
+            >
+              全部
+            </button>
+            {menuSections.map((section) => (
+              <button
+                key={section.svgKey}
+                type="button"
+                aria-pressed={sectionFilter === section.svgKey}
+                onClick={() => setSectionFilter(section.svgKey)}
+                className={cn(
+                  "canteen-section-chip shrink-0",
+                  sectionFilter === section.svgKey &&
+                    "canteen-section-chip-on",
+                )}
               >
-                <button
-                  type="button"
-                  aria-pressed={sectionFilter === "all"}
-                  onClick={() => setSectionFilter("all")}
-                  className={cn(
-                    "canteen-section-chip shrink-0",
-                    sectionFilter === "all" && "canteen-section-chip-on",
-                  )}
-                >
-                  全部
-                </button>
-                {menuSections.map((section) => (
-                  <button
-                    key={section.svgKey}
-                    type="button"
-                    aria-pressed={sectionFilter === section.svgKey}
-                    onClick={() => setSectionFilter(section.svgKey)}
-                    className={cn(
-                      "canteen-section-chip shrink-0",
-                      sectionFilter === section.svgKey &&
-                        "canteen-section-chip-on",
-                    )}
-                  >
-                    {section.label}
-                    <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
-                      {section.items.length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+                {section.label}
+                <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
+                  {section.items.length}
+                </span>
+              </button>
+            ))}
           </div>
         ) : null}
-        {showAfternoonHint ? (
+        {showAfternoonHint && period === "lunch" ? (
           <p
             role="status"
-            aria-hidden={period !== "lunch"}
-            className={cn(
-              "border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-3 py-2 text-sm text-[var(--canteen-ink)]",
-              period !== "lunch" && "invisible",
-            )}
+            className="border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-2.5 py-1.5 text-xs text-[var(--canteen-ink)] sm:px-3 sm:py-2 sm:text-sm"
           >
             {AFTERNOON_HINT_TEXT}
           </p>
@@ -202,11 +191,11 @@ export function CanteenMenuView({
       </div>
 
       {periodItems.length === 0 ? (
-        <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
+        <div className="canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-10 text-center sm:py-16">
           <p className="text-[var(--canteen-muted)]">该餐段暂无菜品</p>
         </div>
       ) : view === "menu" ? (
-        <div className="space-y-8">
+        <div className="space-y-5 sm:space-y-8">
           {visibleSections.map((section) => (
             <section
               key={section.svgKey}
@@ -214,7 +203,7 @@ export function CanteenMenuView({
             >
               <h2
                 id={`canteen-section-${section.svgKey}`}
-                className="canteen-display mb-1 border-b border-[var(--canteen-line)] pb-2 text-lg font-semibold text-[var(--canteen-ink)]"
+                className="canteen-display mb-0.5 border-b border-[var(--canteen-line)] pb-1.5 text-base font-semibold text-[var(--canteen-ink)] sm:mb-1 sm:pb-2 sm:text-lg"
               >
                 {section.label}
                 <span className="ml-2 font-mono text-sm font-normal tabular-nums text-[var(--canteen-muted)]">

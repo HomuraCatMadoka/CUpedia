@@ -11,7 +11,7 @@
  */
 
 export const DANMAKU_SCROLL_DURATION_SEC = 12;
-export const DANMAKU_TRACK_COUNT = 4;
+export const DANMAKU_TRACK_COUNT = 5;
 export const DANMAKU_NEXT_GAP_SEC = 0.05;
 /** Beyond this horizon, skip flyover (still OK in the static list). */
 export const DANMAKU_MAX_SCHEDULE_SEC = 90;

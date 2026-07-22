@@ -26,7 +26,7 @@ export function CanteenRankingRow({
   const secondaryLabel = emphasis === "recommend" ? "踩" : "赞";
 
   return (
-    <li className="canteen-ledger-row flex flex-wrap items-center gap-3 px-1 py-3 sm:flex-nowrap sm:gap-4">
+    <li className="canteen-ledger-row flex flex-wrap items-center gap-2 px-1 py-2 sm:flex-nowrap sm:gap-4 sm:py-3">
       <span
         className={cn(
           "canteen-display flex size-8 shrink-0 items-center justify-center font-mono text-sm font-semibold tabular-nums",
@@ -38,17 +38,11 @@ export function CanteenRankingRow({
       >
         {String(rank).padStart(2, "0")}
       </span>
-      <DishSvgIcon svgKey={item.svgKey} className="size-10 rounded-md" />
+      <DishSvgIcon svgKey={item.svgKey} className="size-8 rounded-md sm:size-10" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 font-medium text-[var(--canteen-ink)]">
-            {item.name}
-          </p>
-          <MenuItemPrice
-            pricing={item.pricing}
-            className="max-w-[50%] shrink-0 justify-end font-mono text-sm tabular-nums text-[var(--canteen-ink)] sm:max-w-52"
-          />
-        </div>
+        <p className="min-w-0 text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
+          {item.name}
+        </p>
         <p className="mt-0.5 text-xs text-[var(--canteen-muted)]">
           {primaryLabel} {primary} · {secondaryLabel} {secondary}
         </p>
@@ -59,6 +53,10 @@ export function CanteenRankingRow({
           initialCommentCount={initialCommentCount}
         />
       </div>
+      <MenuItemPrice
+        pricing={item.pricing}
+        className="shrink-0 self-center justify-end font-mono text-xs tabular-nums text-[var(--canteen-ink)] sm:max-w-52 sm:text-sm"
+      />
     </li>
   );
 }

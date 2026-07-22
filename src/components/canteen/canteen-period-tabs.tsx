@@ -33,7 +33,7 @@ export function CanteenPeriodTabs({
           data-active={value === period}
           onClick={() => onChange(period)}
           className={cn(
-            "min-h-11 flex-1 touch-manipulation border-b-2 px-3 text-base font-medium transition-colors sm:px-4 sm:text-sm",
+            "min-h-10 flex-1 touch-manipulation border-b-2 px-2 text-sm font-medium transition-colors sm:min-h-11 sm:px-4",
             value === period
               ? "border-[var(--canteen-purple)] text-[var(--canteen-ink)]"
               : "border-transparent text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]",
@@ -63,7 +63,7 @@ export function CanteenViewTabs({
 }) {
   const modes: CanteenViewMode[] = ["menu", "recommend", "avoid"];
   return (
-    <div role="tablist" aria-label="视图" className="flex flex-wrap gap-x-4 gap-y-2">
+    <div role="tablist" aria-label="视图" className="flex flex-wrap gap-x-3 gap-y-1 sm:gap-x-4 sm:gap-y-2">
       {modes.map((mode) => (
         <button
           key={mode}
@@ -72,7 +72,7 @@ export function CanteenViewTabs({
           aria-selected={value === mode}
           onClick={() => onChange(mode)}
           className={cn(
-            "min-h-11 touch-manipulation text-base font-medium underline-offset-4 transition-colors sm:text-sm",
+            "min-h-10 touch-manipulation text-sm font-medium underline-offset-4 transition-colors sm:min-h-11",
             value === mode
               ? "text-[var(--canteen-purple)] underline"
               : "text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]",
