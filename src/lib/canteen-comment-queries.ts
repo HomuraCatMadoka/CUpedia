@@ -1,6 +1,15 @@
-import { and, count, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { canteenDishComments, canteenMenuItems } from "@/db/schema";
+import {
+  canteenDishComments,
+  canteenMenuItems,
+  canteens,
+  users,
+} from "@/db/schema";
+import {
+  ADMIN_DISH_COMMENT_LIST_LIMIT,
+  type AdminDishComment,
+} from "@/lib/canteen-types";
 
 export async function countCommentsForCanteen(
   canteenId: string,
@@ -49,4 +58,35 @@ export async function countCommentsByMenuItemForCanteen(
     .groupBy(canteenDishComments.menuItemId);
 
   return Object.fromEntries(rows.map((row) => [row.menuItemId, row.value]));
+}
+
+/** Newest-first site-wide dish comments for admin moderation. */
+export async function adminListRecentDishComments(
+  limit = ADMIN_DISH_COMMENT_LIST_LIMIT,
+): Promise<AdminDishComment[]> {
+  const rows = await db
+    .select({
+      id: canteenDishComments.id,
+      menuItemId: canteenDishComments.menuItemId,
+      userId: canteenDishComments.userId,
+      content: canteenDishComments.content,
+      createdAt: canteenDishComments.createdAt,
+      updatedAt: canteenDishComments.updatedAt,
+      authorNickname: users.nickname,
+      authorEmail: users.email,
+      canteenId: canteens.id,
+      canteenName: canteens.name,
+      menuItemName: canteenMenuItems.name,
+    })
+    .from(canteenDishComments)
+    .innerJoin(users, eq(canteenDishComments.userId, users.id))
+    .innerJoin(
+      canteenMenuItems,
+      eq(canteenDishComments.menuItemId, canteenMenuItems.id),
+    )
+    .innerJoin(canteens, eq(canteenMenuItems.canteenId, canteens.id))
+    .orderBy(desc(canteenDishComments.createdAt), desc(canteenDishComments.id))
+    .limit(limit);
+
+  return rows;
 }

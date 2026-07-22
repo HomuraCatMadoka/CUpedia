@@ -4,11 +4,13 @@ const {
   mockGetSession,
   mockRedirect,
   mockDbQueryUsers,
+  mockDbTransaction,
   mockAssertContributorComplete,
 } = vi.hoisted(() => ({
   mockGetSession: vi.fn(),
   mockRedirect: vi.fn(),
   mockDbQueryUsers: { findFirst: vi.fn() },
+  mockDbTransaction: vi.fn(),
   mockAssertContributorComplete: vi.fn(async (user) => user),
 }));
 
@@ -17,6 +19,10 @@ vi.mock("next/navigation", () => ({
     mockRedirect(...args);
     throw new Error("NEXT_REDIRECT");
   },
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
 }));
 
 vi.mock("next/headers", () => ({
@@ -42,11 +48,15 @@ vi.mock("@/db", () => ({
     insert: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    transaction: (fn: (tx: unknown) => Promise<unknown>) =>
+      mockDbTransaction(fn),
   },
 }));
 
 import {
   adminDeleteDishComment,
+  adminListDishCommentAuditLogs,
+  adminListDishComments,
   createDishComment,
   deleteDishComment,
   getCommentCountsForCanteen,
@@ -57,15 +67,20 @@ import {
   getCanteenDeleteImpact,
   getMenuItemDeleteImpact,
 } from "@/lib/canteen-admin-actions";
+import { ADMIN_DISH_COMMENT_LIST_LIMIT } from "@/lib/canteen-types";
 import { resetCanteenMockState } from "@/lib/canteen-mock";
 
 const ITEM_ID = "mock-item-demo";
 
-function mockLoggedInUser(id = "user-1", nickname = "测试用户") {
-  mockGetSession.mockResolvedValue({ user: { id, name: nickname } });
+function mockLoggedInUser(
+  id = "user-1",
+  nickname = "测试用户",
+  email = `${id}@test.com`,
+) {
+  mockGetSession.mockResolvedValue({ user: { id, name: nickname, email } });
   mockDbQueryUsers.findFirst.mockResolvedValue({
     id,
-    email: "user@test.com",
+    email,
     nickname,
     role: "user",
     banned: false,
@@ -73,7 +88,9 @@ function mockLoggedInUser(id = "user-1", nickname = "测试用户") {
 }
 
 function mockAdminUser() {
-  mockGetSession.mockResolvedValue({ user: { id: "admin-1" } });
+  mockGetSession.mockResolvedValue({
+    user: { id: "admin-1", email: "admin@test.com", name: "Admin" },
+  });
   mockDbQueryUsers.findFirst.mockResolvedValue({
     id: "admin-1",
     email: "admin@test.com",
@@ -205,12 +222,116 @@ describe("canteen-comment-actions (mock mode)", () => {
   });
 
   it("lets admin delete any comment", async () => {
-    mockLoggedInUser("user-2", "作者");
+    mockLoggedInUser("user-2", "作者", "author@test.com");
     const created = await createDishComment(ITEM_ID, "管理员可删");
     mockAdminUser();
     await adminDeleteDishComment(created.id);
     const comments = await getCommentsForMenuItem(ITEM_ID);
     expect(comments).toHaveLength(0);
+
+    const logs = await adminListDishCommentAuditLogs();
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      actorUserId: "admin-1",
+      actorEmail: "admin@test.com",
+      action: "dish_comment.delete",
+      targetId: created.id,
+      targetUserId: "user-2",
+      details: {
+        authorEmail: "author@test.com",
+        authorNickname: "作者",
+        content: "管理员可删",
+        canteenName: "演示食堂",
+        menuItemName: "演示菜品",
+      },
+    });
+  });
+
+  it("deletes and audits a comment in one database transaction", async () => {
+    process.env.CANTEEN_MOCK_DATA = "false";
+    mockAdminUser();
+
+    const selectChain = {
+      from: vi.fn(),
+      innerJoin: vi.fn(),
+      where: vi.fn(),
+      limit: vi.fn().mockResolvedValue([
+        {
+          id: "comment-1",
+          userId: "user-2",
+          content: "违规内容",
+          createdAt: new Date("2026-07-21T00:00:00Z"),
+          authorEmail: "author@test.com",
+          authorNickname: "作者",
+          menuItemId: "item-1",
+          menuItemName: "咖喱饭",
+          canteenId: "canteen-1",
+          canteenName: "演示食堂",
+        },
+      ]),
+    };
+    selectChain.from.mockReturnValue(selectChain);
+    selectChain.innerJoin.mockReturnValue(selectChain);
+    selectChain.where.mockReturnValue(selectChain);
+
+    const deleteChain = {
+      where: vi.fn(),
+      returning: vi.fn().mockResolvedValue([{ id: "comment-1" }]),
+    };
+    deleteChain.where.mockReturnValue(deleteChain);
+    const auditValues = vi.fn().mockResolvedValue(undefined);
+    const tx = {
+      select: vi.fn().mockReturnValue(selectChain),
+      delete: vi.fn().mockReturnValue(deleteChain),
+      insert: vi.fn().mockReturnValue({ values: auditValues }),
+    };
+    mockDbTransaction.mockImplementation(async (fn) => fn(tx));
+
+    await adminDeleteDishComment("comment-1");
+
+    expect(tx.delete).toHaveBeenCalledOnce();
+    expect(tx.insert).toHaveBeenCalledOnce();
+    expect(auditValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorUserId: "admin-1",
+        actorEmail: "admin@test.com",
+        action: "dish_comment.delete",
+        targetId: "comment-1",
+        targetUserId: "user-2",
+        details: expect.objectContaining({
+          authorEmail: "author@test.com",
+          content: "违规内容",
+        }),
+      }),
+    );
+  });
+
+  it("lists recent dish comments for admin newest-first with context", async () => {
+    mockLoggedInUser("user-a", "作者A");
+    await createDishComment(ITEM_ID, "第一条");
+    mockLoggedInUser("user-b", "作者B", "author-b@test.com");
+    await createDishComment(ITEM_ID, "第二条");
+    mockAdminUser();
+    const listed = await adminListDishComments();
+    expect(listed.length).toBeGreaterThanOrEqual(2);
+    expect(listed[0].content).toBe("第二条");
+    expect(listed[0].canteenName).toBe("演示食堂");
+    expect(listed[0].menuItemName).toBe("演示菜品");
+    expect(listed[0].authorNickname).toBe("作者B");
+    expect(listed[0].authorEmail).toBe("author-b@test.com");
+    expect(listed.length).toBeLessThanOrEqual(ADMIN_DISH_COMMENT_LIST_LIMIT);
+  });
+
+  it("rejects non-admin listing comments", async () => {
+    mockLoggedInUser();
+    await expect(adminListDishComments()).rejects.toThrow("NEXT_REDIRECT");
+  });
+
+  it("rejects non-admin listing comment audit logs", async () => {
+    mockLoggedInUser();
+    await expect(adminListDishCommentAuditLogs()).rejects.toThrow(
+      "NEXT_REDIRECT",
+    );
   });
 
   it("includes comment count in menu item delete impact", async () => {

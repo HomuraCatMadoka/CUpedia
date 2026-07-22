@@ -11,6 +11,7 @@ import {
   canteenMenuItemPrices,
   canteenDishVotes,
   canteenDishComments,
+  adminAuditLogs,
   menuImportDrafts,
   danmakuMessages,
   courseRatings,
@@ -103,6 +104,19 @@ describe("schema", () => {
     expect(cols.userId).toBeDefined();
     expect(cols.content).toBeDefined();
     expect("moderationStatus" in cols).toBe(false);
+  });
+
+  it("adminAuditLogs preserves actor and target snapshots", () => {
+    const cols = getTableColumns(adminAuditLogs);
+    expect(cols.actorUserId).toBeDefined();
+    expect(cols.actorEmail).toBeDefined();
+    expect(cols.actorNickname).toBeDefined();
+    expect(cols.action).toBeDefined();
+    expect(cols.targetType).toBeDefined();
+    expect(cols.targetId).toBeDefined();
+    expect(cols.targetUserId).toBeDefined();
+    expect(cols.details).toBeDefined();
+    expect(cols.createdAt).toBeDefined();
   });
 
   it("menuImportDrafts table has required fields", () => {

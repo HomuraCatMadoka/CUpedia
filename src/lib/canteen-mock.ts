@@ -1,4 +1,5 @@
 import type {
+  AdminDishComment,
   Canteen,
   CanteenDishComment,
   CanteenMenuItem,
@@ -8,6 +9,7 @@ import type {
   VoteChoice,
 } from "@/lib/canteen-types";
 import {
+  ADMIN_DISH_COMMENT_LIST_LIMIT,
   parseMealPeriod,
   validateAnnouncement,
   validateCanteenName,
@@ -18,6 +20,11 @@ import {
   validateSvgKey,
   compareMealPeriods,
 } from "@/lib/canteen-types";
+import type {
+  AdminAuditLog,
+  DishCommentDeleteAuditDetails,
+} from "@/lib/admin-audit-types";
+import { DISH_COMMENT_DELETE_AUDIT_ACTION } from "@/lib/admin-audit-types";
 
 /** Dev/demo mode: in-memory canteen data, no PostgreSQL required. */
 export function isCanteenMockMode(): boolean {
@@ -38,6 +45,7 @@ type MockComment = {
   userId: string;
   content: string;
   authorNickname: string;
+  authorEmail: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -47,10 +55,23 @@ type MockState = {
   items: CanteenMenuItem[];
   votes: MockVote[];
   comments: MockComment[];
+  auditLogs: AdminAuditLog[];
   importDrafts: MenuImportDraft[];
   anonSessionId: string | null;
   mockUserId: string | null;
 };
+
+function toPublicComment(comment: MockComment): CanteenDishComment {
+  return {
+    id: comment.id,
+    menuItemId: comment.menuItemId,
+    userId: comment.userId,
+    content: comment.content,
+    authorNickname: comment.authorNickname,
+    createdAt: comment.createdAt,
+    updatedAt: comment.updatedAt,
+  };
+}
 
 function now() {
   return new Date();
@@ -136,6 +157,7 @@ function seedState(): MockState {
     items,
     votes: [],
     comments: [],
+    auditLogs: [],
     importDrafts: [],
     anonSessionId: null,
     mockUserId: null,
@@ -345,13 +367,45 @@ export function mockGetCommentsForMenuItem(
   return getState()
     .comments.filter((c) => c.menuItemId === menuItemId)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    .map((c) => ({ ...c }));
+    .map(toPublicComment);
+}
+
+export function mockAdminListRecentDishComments(
+  limit = ADMIN_DISH_COMMENT_LIST_LIMIT,
+): AdminDishComment[] {
+  const s = getState();
+  const itemsById = new Map(s.items.map((item) => [item.id, item]));
+  const canteensById = new Map(s.canteens.map((c) => [c.id, c]));
+
+  return [...s.comments]
+    .map((c, index) => ({ c, index }))
+    .sort((a, b) => {
+      const byTime = b.c.createdAt.getTime() - a.c.createdAt.getTime();
+      if (byTime !== 0) return byTime;
+      return b.index - a.index;
+    })
+    .flatMap(({ c }) => {
+      const item = itemsById.get(c.menuItemId);
+      if (!item) return [];
+      const canteen = canteensById.get(item.canteenId);
+      if (!canteen) return [];
+      return [
+        {
+          ...c,
+          canteenId: canteen.id,
+          canteenName: canteen.name,
+          menuItemName: item.name,
+        },
+      ];
+    })
+    .slice(0, limit);
 }
 
 export function mockCreateDishComment(
   menuItemId: string,
   userId: string,
   authorNickname: string,
+  authorEmail: string,
   content: string,
 ): CanteenDishComment {
   if (!mockMenuItemExists(menuItemId)) throw new Error("MENU_ITEM_NOT_FOUND");
@@ -362,11 +416,12 @@ export function mockCreateDishComment(
     userId,
     content,
     authorNickname,
+    authorEmail,
     createdAt: t,
     updatedAt: t,
   };
   getState().comments.push(row);
-  return { ...row };
+  return toPublicComment(row);
 }
 
 export function mockUpdateDishComment(
@@ -382,7 +437,7 @@ export function mockUpdateDishComment(
   const row = s.comments[idx];
   row.content = content;
   row.updatedAt = now();
-  return { ...row };
+  return toPublicComment(row);
 }
 
 export function mockDeleteDishComment(commentId: string, userId: string): void {
@@ -394,11 +449,52 @@ export function mockDeleteDishComment(commentId: string, userId: string): void {
   s.comments.splice(idx, 1);
 }
 
-export function mockAdminDeleteDishComment(commentId: string): void {
+export function mockAdminDeleteDishComment(
+  commentId: string,
+  actor: { id: string; email: string; nickname: string },
+): void {
   const s = getState();
   const idx = s.comments.findIndex((c) => c.id === commentId);
   if (idx < 0) throw new Error("COMMENT_NOT_FOUND");
+  const comment = s.comments[idx];
+  const item = s.items.find((row) => row.id === comment.menuItemId);
+  const canteen = item
+    ? s.canteens.find((row) => row.id === item.canteenId)
+    : null;
+  if (!item || !canteen) throw new Error("COMMENT_CONTEXT_NOT_FOUND");
+
+  const details: DishCommentDeleteAuditDetails = {
+    content: comment.content,
+    authorEmail: comment.authorEmail,
+    authorNickname: comment.authorNickname,
+    canteenId: canteen.id,
+    canteenName: canteen.name,
+    menuItemId: item.id,
+    menuItemName: item.name,
+    commentCreatedAt: comment.createdAt.toISOString(),
+  };
+  s.auditLogs.push({
+    id: crypto.randomUUID(),
+    actorUserId: actor.id,
+    actorEmail: actor.email,
+    actorNickname: actor.nickname,
+    action: DISH_COMMENT_DELETE_AUDIT_ACTION,
+    targetType: "canteen_dish_comment",
+    targetId: comment.id,
+    targetUserId: comment.userId,
+    details,
+    createdAt: now(),
+  });
   s.comments.splice(idx, 1);
+}
+
+export function mockAdminListDishCommentAuditLogs(
+  limit: number,
+): AdminAuditLog[] {
+  return [...getState().auditLogs]
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    .slice(0, limit)
+    .map((log) => ({ ...log, details: { ...log.details } }));
 }
 
 function mockCountVotesForCanteen(canteenId: string): number {

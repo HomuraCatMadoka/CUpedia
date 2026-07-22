@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockGetAdminUserForApi, mockGetCanteens } = vi.hoisted(() => ({
-  mockGetAdminUserForApi: vi.fn(),
-  mockGetCanteens: vi.fn(),
-}));
+const { mockGetAdminUserForApi, mockGetCanteens, mockCreateCanteen } =
+  vi.hoisted(() => ({
+    mockGetAdminUserForApi: vi.fn(),
+    mockGetCanteens: vi.fn(),
+    mockCreateCanteen: vi.fn(),
+  }));
 
 vi.mock("@/lib/auth-guard", () => ({
   getAdminUserForApi: () => mockGetAdminUserForApi(),
@@ -11,6 +13,10 @@ vi.mock("@/lib/auth-guard", () => ({
 
 vi.mock("@/lib/canteen-actions", () => ({
   getCanteens: (...args: unknown[]) => mockGetCanteens(...args),
+}));
+
+vi.mock("@/lib/canteen-admin-actions", () => ({
+  createCanteen: (...args: unknown[]) => mockCreateCanteen(...args),
 }));
 
 import { GET, POST } from "@/app/api/admin/canteens/route";
@@ -45,5 +51,18 @@ describe("admin /api/admin/canteens", () => {
     });
     const res = await POST(req);
     expect(res.status).toBe(403);
+  });
+
+  it("POST returns 400 for non-object body", async () => {
+    mockGetAdminUserForApi.mockResolvedValue({ id: "admin-1", role: "admin" });
+
+    const req = new NextRequest("http://localhost/api/admin/canteens", {
+      method: "POST",
+      body: "null",
+      headers: { "content-type": "application/json" },
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(400);
+    expect(mockCreateCanteen).not.toHaveBeenCalled();
   });
 });

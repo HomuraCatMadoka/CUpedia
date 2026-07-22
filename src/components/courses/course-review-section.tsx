@@ -378,16 +378,9 @@ export function CourseReviewSection({
     <section id="course-review" className="scroll-mt-20 space-y-8">
       <div className="overflow-hidden rounded-2xl border bg-card">
         <div className="border-b bg-secondary/25 px-6 py-5">
-          <div>
-            <h2 className="text-lg font-semibold">
-              {isPublished ? "我的课程测评" : "提交课程测评"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isPublished
-                ? "你可以随时修改署名方式，或删除这条投稿。"
-                : "记录你实际修读的学期；评论选填，默认展示你的昵称。"}
-            </p>
-          </div>
+          <h2 className="text-lg font-semibold">
+            {isPublished ? "我的课程测评" : "提交课程测评"}
+          </h2>
         </div>
 
         {!isAuthenticated ? (
@@ -464,17 +457,8 @@ export function CourseReviewSection({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium">分享你的实际修读体验</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  评分必填，文字评论和课程体验标签均为选填。
-                </p>
-              </div>
-              <Button
-                className="self-start sm:self-auto"
-                onClick={() => setEditing(true)}
-              >
+            <div className="flex justify-end p-6">
+              <Button onClick={() => setEditing(true)}>
                 <PencilIcon className="size-4" />
                 开始填写
               </Button>
@@ -579,11 +563,6 @@ export function CourseReviewSection({
                 onChange={setScore}
                 disabled={submitting}
               />
-              {isPublished && (
-                <p className="text-xs text-muted-foreground">
-                  已保留你上次的选择，可直接修改后更新。
-                </p>
-              )}
             </fieldset>
 
             <fieldset className="space-y-4">

@@ -176,13 +176,6 @@ export function CanteenAdminPanel({
               className="border-[var(--canteen-bamboo)]/30 bg-white/90"
             />
           </div>
-          <Button
-            type="submit"
-            disabled={isPending}
-            className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
-          >
-            添加食堂
-          </Button>
         </div>
         <div className="mt-3 space-y-1">
           <label
@@ -199,6 +192,15 @@ export function CanteenAdminPanel({
             placeholder="例如：外带加一块钱 · 随餐饮品加三块钱"
             className="min-h-16 border-[var(--canteen-bamboo)]/30 bg-white/90"
           />
+        </div>
+        <div className="mt-4">
+          <Button
+            type="submit"
+            disabled={isPending}
+            className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
+          >
+            添加食堂
+          </Button>
         </div>
       </form>
 
