@@ -26,7 +26,8 @@ type AigensCategory = {
   groupIds?: string[];
 };
 
-const EXCLUDED_CATEGORIES = new Set(["飲品", "零食", "外賣包裝"]);
+const EXCLUDED_CATEGORIES = new Set(["零食", "外賣包裝"]);
+const DEFAULT_PERIODS_WHEN_MISSING: MealPeriod[] = ["lunch", "dinner"];
 
 const PERIOD_MAP: Record<string, MealPeriod | undefined> = {
   B: "breakfast",
@@ -55,13 +56,17 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
       ? groupsById.get(category.groupIds[0])
       : undefined;
     if (!primaryGroup?.items) continue;
-    const periods = [
+    const mappedPeriods = [
       ...new Set(
         (category.periods ?? [])
           .map((period) => PERIOD_MAP[period])
           .filter((period): period is MealPeriod => period !== undefined),
       ),
     ];
+    const periods =
+      mappedPeriods.length > 0 ? mappedPeriods : DEFAULT_PERIODS_WHEN_MISSING;
+    const categorySvgKey =
+      category.name === "飲品" ? ("drink" as const) : null;
     for (const item of primaryGroup.items) {
       if (
         item.published === false ||
@@ -75,6 +80,7 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
       if (!backendId) continue;
       const name = item.name.trim().replace(/\s+/g, " ");
       const amountMinor = parseAigensPrice(item.price);
+      const svgKey = categorySvgKey ?? inferDishSvgKeyFromName(name);
       for (const mealPeriod of periods) {
         const externalKey = `${backendId}:${mealPeriod}`;
         if (items.has(externalKey)) continue;
@@ -86,7 +92,7 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
           ],
           mealPeriod,
           sortOrder: 0,
-          svgKey: inferDishSvgKeyFromName(name),
+          svgKey,
         });
       }
     }
