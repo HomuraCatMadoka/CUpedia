@@ -41,7 +41,15 @@ export async function isEmailRegistered(email: string): Promise<boolean> {
 }
 
 export async function requireAuth() {
-  const session = await safeGetSession();
+  // Call headers() in this function body so Next.js static analysis marks
+  // admin/auth routes dynamic (wrapping only inside a helper can get missed).
+  const requestHeaders = await headers();
+  let session: Awaited<ReturnType<typeof auth.api.getSession>>;
+  try {
+    session = await auth.api.getSession({ headers: requestHeaders });
+  } catch {
+    redirect("/login");
+  }
   if (!session?.user?.id) redirect("/login");
 
   const dbUser = await db.query.users.findFirst({
@@ -144,7 +152,13 @@ export async function requireCommentAuth(): Promise<{
   nickname: string;
   email: string;
 }> {
-  const session = await safeGetSession();
+  const requestHeaders = await headers();
+  let session: Awaited<ReturnType<typeof auth.api.getSession>>;
+  try {
+    session = await auth.api.getSession({ headers: requestHeaders });
+  } catch {
+    redirect("/login");
+  }
   if (!session?.user?.id) redirect("/login");
 
   if (process.env.CANTEEN_MOCK_DATA === "true") {
