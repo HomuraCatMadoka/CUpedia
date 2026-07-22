@@ -159,6 +159,14 @@ function sqlText(value: unknown): string {
   return "";
 }
 
+function sqlParameterValues(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value.flatMap(sqlParameterValues);
+  if (!value || typeof value !== "object") return [value];
+  const chunk = value as { queryChunks?: unknown[]; value?: unknown };
+  if (chunk.queryChunks) return sqlParameterValues(chunk.queryChunks);
+  return Object.hasOwn(chunk, "value") ? sqlParameterValues(chunk.value) : [];
+}
+
 const values = () => dbChain.values as Mock;
 
 beforeEach(() => {
@@ -303,6 +311,12 @@ describe("submitCourseReview", () => {
       }),
     );
     expect(dbExecute).toHaveBeenCalledTimes(3);
+    expect(sqlParameterValues(dbExecute.mock.calls[2]?.[0])).toContain(
+      JSON.stringify([
+        { id: "p1", name: "Professor CHAN" },
+        { id: "p2", name: "Professor WONG" },
+      ]),
+    );
   });
 
   it("确认无任课教授的课程允许教授留空", async () => {
