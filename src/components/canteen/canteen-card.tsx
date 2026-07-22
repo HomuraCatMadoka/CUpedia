@@ -33,20 +33,20 @@ function CanteenCardSurface({
         aria-hidden
       />
       <span className="min-w-0 flex-1">
-        <span
+        <h2
           className={cn(
-            "canteen-display block text-lg font-semibold text-[var(--canteen-ink)] sm:text-xl",
+            "canteen-display text-lg font-semibold text-[var(--canteen-ink)] sm:text-xl",
             pending
               ? "text-[var(--canteen-purple)]"
               : "group-hover:text-[var(--canteen-purple)]",
           )}
         >
           {canteen.name}
-        </span>
+        </h2>
         {canteen.location ? (
-          <span className="mt-1 block text-sm text-[var(--canteen-muted)]">
+          <p className="mt-1 text-sm text-[var(--canteen-muted)]">
             {canteen.location}
-          </span>
+          </p>
         ) : null}
       </span>
       {itemCount !== undefined ? (
