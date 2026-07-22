@@ -15,12 +15,9 @@ function isGetSessionPath(pathname: string): boolean {
  * otherwise work in CANTEEN_MOCK_DATA mode. Treat session lookup failures as
  * "logged out" so public browsing stays usable offline.
  */
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ nextauth: string[] }> },
-) {
+export async function GET(request: Request) {
   try {
-    const response = await authGet(request, context);
+    const response = await authGet(request);
     if (
       response.status >= 500 &&
       isGetSessionPath(new URL(request.url).pathname)
