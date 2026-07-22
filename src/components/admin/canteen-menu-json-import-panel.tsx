@@ -45,7 +45,9 @@ function jsonImportErrorMessage(code: string): string {
     return "同步存在匹配冲突，请先处理冲突后再应用。";
   if (code === "MENU_SYNC_STALE") return "菜单已发生变化，请重新预览后再应用。";
   if (code === "EMPTY_MENU_JSON") return "JSON 不能为空。";
-  if (code === "MENU_JSON_TOO_LARGE") return "单次最多导入 200 道菜品。";
+  if (code === "MENU_JSON_TOO_LARGE") return "单次最多导入 500 道菜品。";
+  if (code === "MENU_SYNC_UNAVAILABLE")
+    return "当前为 Mock 模式，外部菜单同步不可用。请关闭 CANTEEN_MOCK_DATA 后使用真实数据库。";
   if (code === "INVALID_NAME") return "菜品名称无效。";
   if (code === "INVALID_PRICE") return "价格须为 0–9999 的整数。";
   if (code === "INVALID_PRICING") return "pricing.options 须为价格选项数组。";

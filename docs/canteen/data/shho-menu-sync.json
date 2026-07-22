@@ -1,12 +1,1134 @@
 {
   "source": "aigens:102830",
-  "takeOverLegacyItems": true,
+  "takeOverLegacyItems": false,
   "items": [
+    {
+      "externalKey": "1100040166:breakfast",
+      "name": "火腿 ‧ 炒滑蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 0,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040161:breakfast",
+      "name": "火腿 ‧ 煎雙蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 1,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100056474:breakfast",
+      "name": "火腿 ‧ 雙烚蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 2,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040100:breakfast",
+      "name": "火腿湯通粉",
+      "mealPeriod": "breakfast",
+      "sortOrder": 3,
+      "svgKey": "bowl",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100045611:breakfast",
+      "name": "皮蛋瘦肉粥",
+      "mealPeriod": "breakfast",
+      "sortOrder": 4,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100058931:breakfast",
+      "name": "皮蛋瘦肉粥 ‧ 魚肉燒賣(5粒)",
+      "mealPeriod": "breakfast",
+      "sortOrder": 5,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2400,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100058928:breakfast",
+      "name": "皮蛋瘦肉粥 ‧ 蘿蔔糕(3件)",
+      "mealPeriod": "breakfast",
+      "sortOrder": 6,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2400,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100043865:breakfast",
+      "name": "炒米",
+      "mealPeriod": "breakfast",
+      "sortOrder": 7,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100049682:breakfast",
+      "name": "炒米粉",
+      "mealPeriod": "breakfast",
+      "sortOrder": 8,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040782:breakfast",
+      "name": "香炸薯餅",
+      "mealPeriod": "breakfast",
+      "sortOrder": 9,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040159:breakfast",
+      "name": "香煎雞扒 ‧ 火腿．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 10,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040170:breakfast",
+      "name": "香煎雞扒 ‧ 炒滑蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 11,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100056470:breakfast",
+      "name": "香煎雞扒 ‧ 烚蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 12,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040165:breakfast",
+      "name": "香煎雞扒 ‧ 煎雙蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 13,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100048169:breakfast",
+      "name": "香煎雞扒 ‧ 餐肉．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 14,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040158:breakfast",
+      "name": "香煎雞扒 ‧脆皮雞肉 腸．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 15,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100059327:breakfast",
+      "name": "特濃沙嗲牛肉麵 ‧ 火腿烚蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 16,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100052679:breakfast",
+      "name": "特濃沙嗲牛肉麵 ‧ 火腿煎蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 17,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100057763:breakfast",
+      "name": "特濃沙嗲牛肉麵 ‧ 脆皮雞肉腸煎蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 18,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100059328:breakfast",
+      "name": "特濃沙嗲牛肉麵 ‧ 餐肉烚蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 19,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100057764:breakfast",
+      "name": "特濃沙嗲牛肉麵 ‧ 餐肉煎蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 20,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100059326:breakfast",
+      "name": "特濃沙嗲牛肉麵 ‧脆皮雞肉 腸烚蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 21,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100059325:breakfast",
+      "name": "特濃沙嗲牛肉麵餐",
+      "mealPeriod": "breakfast",
+      "sortOrder": 22,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040179:breakfast",
+      "name": "脆嫩魚柳 ‧ 火腿．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 23,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100051945:breakfast",
+      "name": "脆嫩魚柳 ‧ 炒蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 24,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040178:breakfast",
+      "name": "脆嫩魚柳 ‧ 脆皮雞肉腸．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 25,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100051944:breakfast",
+      "name": "脆嫩魚柳 ‧ 煎雙蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 26,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100056471:breakfast",
+      "name": "脆嫩魚柳．烚蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 27,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100051947:breakfast",
+      "name": "脆嫩魚柳．餐肉．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 28,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070180:breakfast",
+      "name": "乾果杏片麥皮 ‧ 火腿煎蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 29,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070179:breakfast",
+      "name": "乾果杏片麥皮 ‧ 炒蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 30,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070178:breakfast",
+      "name": "乾果杏片麥皮 ‧ 烚蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 31,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070177:breakfast",
+      "name": "乾果杏片麥皮 ‧ 煎雙蛋 ‧ 餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 32,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070174:breakfast",
+      "name": "乾果桂格麥皮",
+      "mealPeriod": "breakfast",
+      "sortOrder": 33,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040007:breakfast",
+      "name": "豉油皇炒麵",
+      "mealPeriod": "breakfast",
+      "sortOrder": 34,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040101:breakfast",
+      "name": "雪菜肉絲湯米粉",
+      "mealPeriod": "breakfast",
+      "sortOrder": 35,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040659:breakfast",
+      "name": "魚肉燒賣(8粒)",
+      "mealPeriod": "breakfast",
+      "sortOrder": 36,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100044163:breakfast",
+      "name": "菜乾肉碎粥",
+      "mealPeriod": "breakfast",
+      "sortOrder": 37,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040151:breakfast",
+      "name": "腸仔 ‧ 火腿．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 38,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040167:breakfast",
+      "name": "腸仔 ‧ 炒滑蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 39,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040162:breakfast",
+      "name": "腸仔 ‧ 煎雙蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 40,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100056472:breakfast",
+      "name": "腸仔 ‧ 雙烚蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 41,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "0200034756:breakfast",
+      "name": "榨菜肉絲湯米粉",
+      "mealPeriod": "breakfast",
+      "sortOrder": 42,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100043946:breakfast",
+      "name": "銀芽炒麵．火腿煎蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 43,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070312:breakfast",
+      "name": "銀芽炒麵．魚柳火腿",
+      "mealPeriod": "breakfast",
+      "sortOrder": 44,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070311:breakfast",
+      "name": "銀芽炒麵．魚柳炒蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 45,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070310:breakfast",
+      "name": "銀芽炒麵．魚柳烚蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 46,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100058012:breakfast",
+      "name": "銀芽炒麵．魚柳煎蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 47,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070314:breakfast",
+      "name": "銀芽炒麵．魚柳餐肉",
+      "mealPeriod": "breakfast",
+      "sortOrder": 48,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100043945:breakfast",
+      "name": "銀芽炒麵．腸仔煎蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 49,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070307:breakfast",
+      "name": "銀芽炒麵．雞扒火腿",
+      "mealPeriod": "breakfast",
+      "sortOrder": 50,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070306:breakfast",
+      "name": "銀芽炒麵．雞扒炒蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 51,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070305:breakfast",
+      "name": "銀芽炒麵．雞扒烚蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 52,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070308:breakfast",
+      "name": "銀芽炒麵．雞扒脆皮雞肉腸",
+      "mealPeriod": "breakfast",
+      "sortOrder": 53,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100058029:breakfast",
+      "name": "銀芽炒麵．雞扒煎蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 54,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070309:breakfast",
+      "name": "銀芽炒麵．雞扒餐肉",
+      "mealPeriod": "breakfast",
+      "sortOrder": 55,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100070313:breakfast",
+      "name": "銀芽炒麵粉．魚柳脆皮雞肉腸",
+      "mealPeriod": "breakfast",
+      "sortOrder": 56,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100050620:breakfast",
+      "name": "銀芽芽炒麵．餐肉煎蛋",
+      "mealPeriod": "breakfast",
+      "sortOrder": 57,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100042003:breakfast",
+      "name": "蔥油雞扒撈麵",
+      "mealPeriod": "breakfast",
+      "sortOrder": 58,
+      "svgKey": "noodle",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040738:breakfast",
+      "name": "餐肉 ‧ 火腿．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 59,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040563:breakfast",
+      "name": "餐肉 ‧ 炒滑蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 60,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040562:breakfast",
+      "name": "餐肉 ‧ 煎雙蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 61,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040739:breakfast",
+      "name": "餐肉 ‧ 腸仔．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 62,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100056473:breakfast",
+      "name": "餐肉 ‧ 雙烚蛋．餐包",
+      "mealPeriod": "breakfast",
+      "sortOrder": 63,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 2300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100074511:breakfast",
+      "name": "龍蝦濃湯牛仔腸螺絲粉",
+      "mealPeriod": "breakfast",
+      "sortOrder": 64,
+      "svgKey": "bowl",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 3400,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040144:breakfast",
+      "name": "蘿蔔糕(3件)",
+      "mealPeriod": "breakfast",
+      "sortOrder": 65,
+      "svgKey": "dessert",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
     {
       "externalKey": "1100030035:lunch",
       "name": "叉燒 ‧ 切雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 0,
+      "sortOrder": 66,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -23,7 +1145,7 @@
       "externalKey": "1100030036:lunch",
       "name": "叉燒 ‧ 油雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 1,
+      "sortOrder": 67,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -40,7 +1162,7 @@
       "externalKey": "1100030038:lunch",
       "name": "叉燒 ‧ 紅腸飯",
       "mealPeriod": "lunch",
-      "sortOrder": 2,
+      "sortOrder": 68,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -57,7 +1179,7 @@
       "externalKey": "1100030037:lunch",
       "name": "叉燒 ‧ 燒鴨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 3,
+      "sortOrder": 69,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -74,7 +1196,7 @@
       "externalKey": "1100031177:lunch",
       "name": "叉燒．肉燥飯",
       "mealPeriod": "lunch",
-      "sortOrder": 4,
+      "sortOrder": 70,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -91,7 +1213,7 @@
       "externalKey": "1100030413:lunch",
       "name": "叉燒湯米粉",
       "mealPeriod": "lunch",
-      "sortOrder": 5,
+      "sortOrder": 71,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -105,10 +1227,27 @@
       }
     },
     {
+      "externalKey": "0200022041:lunch",
+      "name": "叉燒餐包.",
+      "mealPeriod": "lunch",
+      "sortOrder": 72,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100054322:lunch",
       "name": "川味雞中翼(3隻)．肉絲碗仔素翅",
       "mealPeriod": "lunch",
-      "sortOrder": 6,
+      "sortOrder": 73,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -125,7 +1264,7 @@
       "externalKey": "1100054253:lunch",
       "name": "川味雞中翼(3隻)．魚蛋",
       "mealPeriod": "lunch",
-      "sortOrder": 7,
+      "sortOrder": 74,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -142,7 +1281,7 @@
       "externalKey": "1100045651:lunch",
       "name": "川味雞中翼(3隻)．燒賣",
       "mealPeriod": "lunch",
-      "sortOrder": 8,
+      "sortOrder": 75,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -156,10 +1295,27 @@
       }
     },
     {
+      "externalKey": "1100020013:lunch",
+      "name": "中國名茶",
+      "mealPeriod": "lunch",
+      "sortOrder": 76,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100040015:lunch",
       "name": "中湯",
       "mealPeriod": "lunch",
-      "sortOrder": 9,
+      "sortOrder": 77,
       "svgKey": "bowl",
       "pricing": {
         "options": [
@@ -176,7 +1332,7 @@
       "externalKey": "1100030039:lunch",
       "name": "切雞 ‧ 油雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 10,
+      "sortOrder": 78,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -193,7 +1349,7 @@
       "externalKey": "1100030040:lunch",
       "name": "切雞 ‧ 燒鴨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 11,
+      "sortOrder": 79,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -210,7 +1366,7 @@
       "externalKey": "1100031175:lunch",
       "name": "切雞．肉燥飯",
       "mealPeriod": "lunch",
-      "sortOrder": 12,
+      "sortOrder": 80,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -224,10 +1380,61 @@
       }
     },
     {
+      "externalKey": "1100042329:lunch",
+      "name": "火腿蛋包",
+      "mealPeriod": "lunch",
+      "sortOrder": 81,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100074994:lunch",
+      "name": "牛肉麻辣燙．白飯",
+      "mealPeriod": "lunch",
+      "sortOrder": 82,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 5200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100054834:lunch",
+      "name": "牛油軟包",
+      "mealPeriod": "lunch",
+      "sortOrder": 83,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100040219:lunch",
       "name": "奶油多士餐",
       "mealPeriod": "lunch",
-      "sortOrder": 13,
+      "sortOrder": 84,
       "svgKey": "dessert",
       "pricing": {
         "options": [
@@ -244,7 +1451,7 @@
       "externalKey": "1100053083:lunch",
       "name": "奶油脆脆豬仔包 ‧ 薯仔沙律",
       "mealPeriod": "lunch",
-      "sortOrder": 14,
+      "sortOrder": 85,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -261,7 +1468,7 @@
       "externalKey": "1100053082:lunch",
       "name": "奶油脆脆豬仔包．薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 15,
+      "sortOrder": 86,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -278,7 +1485,7 @@
       "externalKey": "1100040220:lunch",
       "name": "奶醬多士餐",
       "mealPeriod": "lunch",
-      "sortOrder": 16,
+      "sortOrder": 87,
       "svgKey": "dessert",
       "pricing": {
         "options": [
@@ -295,7 +1502,7 @@
       "externalKey": "1100053085:lunch",
       "name": "奶醬脆脆豬仔包 ‧ 薯仔沙律",
       "mealPeriod": "lunch",
-      "sortOrder": 17,
+      "sortOrder": 88,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -312,7 +1519,7 @@
       "externalKey": "1100053084:lunch",
       "name": "奶醬脆脆豬仔包 ‧ 薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 18,
+      "sortOrder": 89,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -329,7 +1536,7 @@
       "externalKey": "1100030031:lunch",
       "name": "白切龍崗雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 19,
+      "sortOrder": 90,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -346,7 +1553,7 @@
       "externalKey": "1100040058:lunch",
       "name": "白飯",
       "mealPeriod": "lunch",
-      "sortOrder": 20,
+      "sortOrder": 91,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -360,10 +1567,27 @@
       }
     },
     {
+      "externalKey": "1100020111:lunch",
+      "name": "百事",
+      "mealPeriod": "lunch",
+      "sortOrder": 92,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100041216:lunch",
       "name": "西多士",
       "mealPeriod": "lunch",
-      "sortOrder": 21,
+      "sortOrder": 93,
       "svgKey": "dessert",
       "pricing": {
         "options": [
@@ -377,10 +1601,27 @@
       }
     },
     {
+      "externalKey": "1100040529:lunch",
+      "name": "吞拿魚包",
+      "mealPeriod": "lunch",
+      "sortOrder": 94,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100040695:lunch",
       "name": "沙律",
       "mealPeriod": "lunch",
-      "sortOrder": 22,
+      "sortOrder": 95,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -397,7 +1638,7 @@
       "externalKey": "1100042566:lunch",
       "name": "咖喱魚蛋",
       "mealPeriod": "lunch",
-      "sortOrder": 23,
+      "sortOrder": 96,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -414,7 +1655,7 @@
       "externalKey": "1100030033:lunch",
       "name": "明爐燒鴨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 24,
+      "sortOrder": 97,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -431,7 +1672,7 @@
       "externalKey": "1100030041:lunch",
       "name": "油雞 ‧ 燒鴨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 25,
+      "sortOrder": 98,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -448,7 +1689,7 @@
       "externalKey": "1100031176:lunch",
       "name": "油雞．肉燥飯",
       "mealPeriod": "lunch",
-      "sortOrder": 26,
+      "sortOrder": 99,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -465,7 +1706,7 @@
       "externalKey": "1100030414:lunch",
       "name": "油雞湯米粉",
       "mealPeriod": "lunch",
-      "sortOrder": 27,
+      "sortOrder": 100,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -479,10 +1720,27 @@
       }
     },
     {
+      "externalKey": "1100080261:lunch",
+      "name": "芝士粟米包",
+      "mealPeriod": "lunch",
+      "sortOrder": 101,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100073460:lunch",
       "name": "炸魚柳炒蛋菠蘿包 ‧ 薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 28,
+      "sortOrder": 102,
       "svgKey": "dessert",
       "pricing": {
         "options": [
@@ -499,7 +1757,7 @@
       "externalKey": "1100042830:lunch",
       "name": "炸薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 29,
+      "sortOrder": 103,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -516,7 +1774,7 @@
       "externalKey": "1100040263:lunch",
       "name": "炸雞髀 ‧ 沙律",
       "mealPeriod": "lunch",
-      "sortOrder": 30,
+      "sortOrder": 104,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -533,7 +1791,7 @@
       "externalKey": "1100045752:lunch",
       "name": "炸雞髀 ‧ 薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 31,
+      "sortOrder": 105,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -547,10 +1805,27 @@
       }
     },
     {
+      "externalKey": "1100042579:lunch",
+      "name": "紅豆包",
+      "mealPeriod": "lunch",
+      "sortOrder": 106,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100030548:lunch",
       "name": "紅腸 ‧ 切雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 32,
+      "sortOrder": 107,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -567,7 +1842,7 @@
       "externalKey": "1100030547:lunch",
       "name": "紅腸 ‧ 油雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 33,
+      "sortOrder": 108,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -584,7 +1859,7 @@
       "externalKey": "1100030546:lunch",
       "name": "紅腸 ‧ 燒鴨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 34,
+      "sortOrder": 109,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -601,7 +1876,7 @@
       "externalKey": "1100031195:lunch",
       "name": "紅腸．肉燥飯",
       "mealPeriod": "lunch",
-      "sortOrder": 35,
+      "sortOrder": 110,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -618,7 +1893,7 @@
       "externalKey": "1100030005:lunch",
       "name": "郊外油菜",
       "mealPeriod": "lunch",
-      "sortOrder": 36,
+      "sortOrder": 111,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -632,16 +1907,186 @@
       }
     },
     {
-      "externalKey": "1100073605:lunch",
-      "name": "泰式黃咖喱吉列豬扒．煎蛋飯",
+      "externalKey": "1100020017:lunch",
+      "name": "凍奶茶",
       "mealPeriod": "lunch",
-      "sortOrder": 37,
-      "svgKey": "rice",
+      "sortOrder": 112,
+      "svgKey": "drink",
       "pricing": {
         "options": [
           {
             "label": null,
-            "amountMinor": 5000,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020022:lunch",
+      "name": "凍好立克",
+      "mealPeriod": "lunch",
+      "sortOrder": 113,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020016:lunch",
+      "name": "凍咖啡",
+      "mealPeriod": "lunch",
+      "sortOrder": 114,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020023:lunch",
+      "name": "凍阿華田",
+      "mealPeriod": "lunch",
+      "sortOrder": 115,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020018:lunch",
+      "name": "凍鴛鴦",
+      "mealPeriod": "lunch",
+      "sortOrder": 116,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020019:lunch",
+      "name": "凍齋咖啡",
+      "mealPeriod": "lunch",
+      "sortOrder": 117,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020133:lunch",
+      "name": "凍檸檬七喜",
+      "mealPeriod": "lunch",
+      "sortOrder": 118,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020021:lunch",
+      "name": "凍檸檬水",
+      "mealPeriod": "lunch",
+      "sortOrder": 119,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020024:lunch",
+      "name": "凍檸檬可樂",
+      "mealPeriod": "lunch",
+      "sortOrder": 120,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020020:lunch",
+      "name": "凍檸檬茶",
+      "mealPeriod": "lunch",
+      "sortOrder": 121,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020988:lunch",
+      "name": "凍蘋果綠茶",
+      "mealPeriod": "lunch",
+      "sortOrder": 122,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -652,7 +2097,7 @@
       "externalKey": "1100059327:lunch",
       "name": "特濃沙嗲牛肉麵 ‧ 火腿烚蛋 ‧ 餐包",
       "mealPeriod": "lunch",
-      "sortOrder": 38,
+      "sortOrder": 123,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -669,7 +2114,7 @@
       "externalKey": "1100052679:lunch",
       "name": "特濃沙嗲牛肉麵 ‧ 火腿煎蛋 ‧ 餐包",
       "mealPeriod": "lunch",
-      "sortOrder": 39,
+      "sortOrder": 124,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -686,7 +2131,7 @@
       "externalKey": "1100057763:lunch",
       "name": "特濃沙嗲牛肉麵 ‧ 脆皮雞肉腸煎蛋 ‧ 餐包",
       "mealPeriod": "lunch",
-      "sortOrder": 40,
+      "sortOrder": 125,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -703,7 +2148,7 @@
       "externalKey": "1100059328:lunch",
       "name": "特濃沙嗲牛肉麵 ‧ 餐肉烚蛋 ‧ 餐包",
       "mealPeriod": "lunch",
-      "sortOrder": 41,
+      "sortOrder": 126,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -720,7 +2165,7 @@
       "externalKey": "1100057764:lunch",
       "name": "特濃沙嗲牛肉麵 ‧ 餐肉煎蛋 ‧ 餐包",
       "mealPeriod": "lunch",
-      "sortOrder": 42,
+      "sortOrder": 127,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -737,7 +2182,7 @@
       "externalKey": "1100059326:lunch",
       "name": "特濃沙嗲牛肉麵 ‧脆皮雞肉 腸烚蛋 ‧ 餐包",
       "mealPeriod": "lunch",
-      "sortOrder": 43,
+      "sortOrder": 128,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -754,7 +2199,7 @@
       "externalKey": "1100059325:lunch",
       "name": "特濃沙嗲牛肉麵餐",
       "mealPeriod": "lunch",
-      "sortOrder": 44,
+      "sortOrder": 129,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -771,7 +2216,7 @@
       "externalKey": "1100075042:lunch",
       "name": "脆皮腸．雞扒飯(黑椒汁)",
       "mealPeriod": "lunch",
-      "sortOrder": 45,
+      "sortOrder": 130,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -788,7 +2233,7 @@
       "externalKey": "1100031695:lunch",
       "name": "脆腩紅燒豆腐飯",
       "mealPeriod": "lunch",
-      "sortOrder": 46,
+      "sortOrder": 131,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -805,7 +2250,7 @@
       "externalKey": "1100030783:lunch",
       "name": "迷你切雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 47,
+      "sortOrder": 132,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -819,10 +2264,61 @@
       }
     },
     {
+      "externalKey": "1100020561:lunch",
+      "name": "梳打水",
+      "mealPeriod": "lunch",
+      "sortOrder": 133,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100080256:lunch",
+      "name": "甜心花包",
+      "mealPeriod": "lunch",
+      "sortOrder": 134,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040513:lunch",
+      "name": "蛋撻",
+      "mealPeriod": "lunch",
+      "sortOrder": 135,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100030032:lunch",
       "name": "豉油皇雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 48,
+      "sortOrder": 136,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -839,7 +2335,7 @@
       "externalKey": "1100030949:lunch",
       "name": "豉油皇雞髀 ‧ 沙律",
       "mealPeriod": "lunch",
-      "sortOrder": 49,
+      "sortOrder": 137,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -856,7 +2352,7 @@
       "externalKey": "1100030631:lunch",
       "name": "豉油皇雞髀 ‧ 薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 50,
+      "sortOrder": 138,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -870,10 +2366,27 @@
       }
     },
     {
+      "externalKey": "1100075601:lunch",
+      "name": "豚肉麻辣燙．白飯",
+      "mealPeriod": "lunch",
+      "sortOrder": 139,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100040659:lunch",
       "name": "魚肉燒賣(8粒)",
       "mealPeriod": "lunch",
-      "sortOrder": 51,
+      "sortOrder": 140,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -890,7 +2403,7 @@
       "externalKey": "1100031344:lunch",
       "name": "麻辣皮蛋口水雞 ‧ 白飯",
       "mealPeriod": "lunch",
-      "sortOrder": 52,
+      "sortOrder": 141,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -907,7 +2420,7 @@
       "externalKey": "1100031651:lunch",
       "name": "麻辣肉丁．切雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 53,
+      "sortOrder": 142,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -924,7 +2437,7 @@
       "externalKey": "1100031649:lunch",
       "name": "麻辣肉丁．明爐燒鴨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 54,
+      "sortOrder": 143,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -941,7 +2454,7 @@
       "externalKey": "1100031650:lunch",
       "name": "麻辣肉丁．油雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 55,
+      "sortOrder": 144,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -958,7 +2471,7 @@
       "externalKey": "1100031648:lunch",
       "name": "麻辣肉丁．蜜汁叉燒飯",
       "mealPeriod": "lunch",
-      "sortOrder": 56,
+      "sortOrder": 145,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -975,7 +2488,7 @@
       "externalKey": "1100031647:lunch",
       "name": "麻辣肉丁．醬油雞髀飯",
       "mealPeriod": "lunch",
-      "sortOrder": 57,
+      "sortOrder": 146,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -989,10 +2502,44 @@
       }
     },
     {
+      "externalKey": "1100074077:lunch",
+      "name": "紫菜肉鬆包",
+      "mealPeriod": "lunch",
+      "sortOrder": 147,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040316:lunch",
+      "name": "菠蘿包",
+      "mealPeriod": "lunch",
+      "sortOrder": 148,
+      "svgKey": "dessert",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "0200041378:lunch",
       "name": "貴妃切雞米粉",
       "mealPeriod": "lunch",
-      "sortOrder": 58,
+      "sortOrder": 149,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -1009,7 +2556,7 @@
       "externalKey": "1100031676:lunch",
       "name": "惹味雞扒飯",
       "mealPeriod": "lunch",
-      "sortOrder": 59,
+      "sortOrder": 150,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1023,16 +2570,16 @@
       }
     },
     {
-      "externalKey": "1100044042:lunch",
-      "name": "滑蛋蝦仁鑊仔炒飯",
+      "externalKey": "1100046220:lunch",
+      "name": "椰撻",
       "mealPeriod": "lunch",
-      "sortOrder": 60,
-      "svgKey": "rice",
+      "sortOrder": 151,
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
             "label": null,
-            "amountMinor": 4600,
+            "amountMinor": 800,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1043,7 +2590,7 @@
       "externalKey": "1100073459:lunch",
       "name": "煙肉炒蛋菠蘿包 ‧ 薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 61,
+      "sortOrder": 152,
       "svgKey": "dessert",
       "pricing": {
         "options": [
@@ -1060,7 +2607,7 @@
       "externalKey": "1100074066:lunch",
       "name": "經典洋蔥豬扒包 ‧ 薯仔沙律",
       "mealPeriod": "lunch",
-      "sortOrder": 62,
+      "sortOrder": 153,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -1077,7 +2624,7 @@
       "externalKey": "1100045323:lunch",
       "name": "經典洋蔥豬扒包 ‧ 薯條",
       "mealPeriod": "lunch",
-      "sortOrder": 63,
+      "sortOrder": 154,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -1091,16 +2638,33 @@
       }
     },
     {
-      "externalKey": "1100041633:lunch",
-      "name": "福建鑊仔炒飯",
+      "externalKey": "1100040527:lunch",
+      "name": "腸仔包",
       "mealPeriod": "lunch",
-      "sortOrder": 64,
-      "svgKey": "rice",
+      "sortOrder": 155,
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
             "label": null,
-            "amountMinor": 4800,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100045044:lunch",
+      "name": "蒜茸包",
+      "mealPeriod": "lunch",
+      "sortOrder": 156,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 900,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1111,7 +2675,7 @@
       "externalKey": "1100030029:lunch",
       "name": "蜜汁叉燒飯",
       "mealPeriod": "lunch",
-      "sortOrder": 65,
+      "sortOrder": 157,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1125,10 +2689,163 @@
       }
     },
     {
+      "externalKey": "1100020112:lunch",
+      "name": "輕怡百事",
+      "mealPeriod": "lunch",
+      "sortOrder": 158,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020004:lunch",
+      "name": "熱奶茶",
+      "mealPeriod": "lunch",
+      "sortOrder": 159,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020009:lunch",
+      "name": "熱好立克",
+      "mealPeriod": "lunch",
+      "sortOrder": 160,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020003:lunch",
+      "name": "熱咖啡",
+      "mealPeriod": "lunch",
+      "sortOrder": 161,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020010:lunch",
+      "name": "熱阿華田",
+      "mealPeriod": "lunch",
+      "sortOrder": 162,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020005:lunch",
+      "name": "熱鴛鴦",
+      "mealPeriod": "lunch",
+      "sortOrder": 163,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020006:lunch",
+      "name": "熱齋咖啡",
+      "mealPeriod": "lunch",
+      "sortOrder": 164,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020008:lunch",
+      "name": "熱檸檬水",
+      "mealPeriod": "lunch",
+      "sortOrder": 165,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020007:lunch",
+      "name": "熱檸檬茶",
+      "mealPeriod": "lunch",
+      "sortOrder": 166,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031178:lunch",
       "name": "燒鴨．肉燥飯",
       "mealPeriod": "lunch",
-      "sortOrder": 66,
+      "sortOrder": 167,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1145,7 +2862,7 @@
       "externalKey": "1100030166:lunch",
       "name": "燒鴨湯米粉",
       "mealPeriod": "lunch",
-      "sortOrder": 67,
+      "sortOrder": 168,
       "svgKey": "noodle",
       "pricing": {
         "options": [
@@ -1159,10 +2876,27 @@
       }
     },
     {
+      "externalKey": "1100040315:lunch",
+      "name": "雞尾包",
+      "mealPeriod": "lunch",
+      "sortOrder": 169,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031557:lunch",
       "name": "鹹蛋 ‧ 肉燥叉燒飯",
       "mealPeriod": "lunch",
-      "sortOrder": 68,
+      "sortOrder": 170,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1179,7 +2913,7 @@
       "externalKey": "1100031558:lunch",
       "name": "鹹蛋 ‧ 肉燥切雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 69,
+      "sortOrder": 171,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1196,7 +2930,7 @@
       "externalKey": "1100031559:lunch",
       "name": "鹹蛋 ‧ 肉燥油雞飯",
       "mealPeriod": "lunch",
-      "sortOrder": 70,
+      "sortOrder": 172,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1213,7 +2947,7 @@
       "externalKey": "1100031560:lunch",
       "name": "鹹蛋 ‧ 肉燥燒鴨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 71,
+      "sortOrder": 173,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1230,7 +2964,7 @@
       "externalKey": "1100031675:lunch",
       "name": "鹹蛋．肉燥燒排骨飯",
       "mealPeriod": "lunch",
-      "sortOrder": 72,
+      "sortOrder": 174,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1247,7 +2981,7 @@
       "externalKey": "1100030009:lunch",
       "name": "鹹蛋1隻",
       "mealPeriod": "lunch",
-      "sortOrder": 73,
+      "sortOrder": 175,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -1264,7 +2998,7 @@
       "externalKey": "1100030010:lunch",
       "name": "鹹蛋半隻",
       "mealPeriod": "lunch",
-      "sortOrder": 74,
+      "sortOrder": 176,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -1281,7 +3015,7 @@
       "externalKey": "1100030026:lunch",
       "name": "黯然銷魂飯(叉燒 ‧ 煎蛋飯)",
       "mealPeriod": "lunch",
-      "sortOrder": 75,
+      "sortOrder": 177,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1295,10 +3029,27 @@
       }
     },
     {
+      "externalKey": "1100020153:lunch",
+      "name": "RED BULL 奧地利紅牛能量飲品",
+      "mealPeriod": "lunch",
+      "sortOrder": 178,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031177:dinner",
       "name": "叉燒．肉燥飯",
       "mealPeriod": "dinner",
-      "sortOrder": 76,
+      "sortOrder": 179,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1312,10 +3063,44 @@
       }
     },
     {
+      "externalKey": "0200022041:dinner",
+      "name": "叉燒餐包.",
+      "mealPeriod": "dinner",
+      "sortOrder": 180,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020013:dinner",
+      "name": "中國名茶",
+      "mealPeriod": "dinner",
+      "sortOrder": 181,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100040015:dinner",
       "name": "中湯",
       "mealPeriod": "dinner",
-      "sortOrder": 77,
+      "sortOrder": 182,
       "svgKey": "bowl",
       "pricing": {
         "options": [
@@ -1332,7 +3117,7 @@
       "externalKey": "1100031175:dinner",
       "name": "切雞．肉燥飯",
       "mealPeriod": "dinner",
-      "sortOrder": 78,
+      "sortOrder": 183,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1346,10 +3131,61 @@
       }
     },
     {
+      "externalKey": "1100042329:dinner",
+      "name": "火腿蛋包",
+      "mealPeriod": "dinner",
+      "sortOrder": 184,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100074994:dinner",
+      "name": "牛肉麻辣燙．白飯",
+      "mealPeriod": "dinner",
+      "sortOrder": 185,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 5200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100054834:dinner",
+      "name": "牛油軟包",
+      "mealPeriod": "dinner",
+      "sortOrder": 186,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100040058:dinner",
       "name": "白飯",
       "mealPeriod": "dinner",
-      "sortOrder": 79,
+      "sortOrder": 187,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1363,10 +3199,44 @@
       }
     },
     {
+      "externalKey": "1100020111:dinner",
+      "name": "百事",
+      "mealPeriod": "dinner",
+      "sortOrder": 188,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040529:dinner",
+      "name": "吞拿魚包",
+      "mealPeriod": "dinner",
+      "sortOrder": 189,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031176:dinner",
       "name": "油雞．肉燥飯",
       "mealPeriod": "dinner",
-      "sortOrder": 80,
+      "sortOrder": 190,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1380,10 +3250,27 @@
       }
     },
     {
+      "externalKey": "1100080261:dinner",
+      "name": "芝士粟米包",
+      "mealPeriod": "dinner",
+      "sortOrder": 191,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100041772:dinner",
       "name": "金針雲耳蒸雞‧白飯",
       "mealPeriod": "dinner",
-      "sortOrder": 81,
+      "sortOrder": 192,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1397,10 +3284,27 @@
       }
     },
     {
+      "externalKey": "1100042579:dinner",
+      "name": "紅豆包",
+      "mealPeriod": "dinner",
+      "sortOrder": 193,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031195:dinner",
       "name": "紅腸．肉燥飯",
       "mealPeriod": "dinner",
-      "sortOrder": 82,
+      "sortOrder": 194,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1417,7 +3321,7 @@
       "externalKey": "1100030005:dinner",
       "name": "郊外油菜",
       "mealPeriod": "dinner",
-      "sortOrder": 83,
+      "sortOrder": 195,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -1431,16 +3335,186 @@
       }
     },
     {
-      "externalKey": "1100073605:dinner",
-      "name": "泰式黃咖喱吉列豬扒．煎蛋飯",
+      "externalKey": "1100020017:dinner",
+      "name": "凍奶茶",
       "mealPeriod": "dinner",
-      "sortOrder": 84,
-      "svgKey": "rice",
+      "sortOrder": 196,
+      "svgKey": "drink",
       "pricing": {
         "options": [
           {
             "label": null,
-            "amountMinor": 5000,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020022:dinner",
+      "name": "凍好立克",
+      "mealPeriod": "dinner",
+      "sortOrder": 197,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020016:dinner",
+      "name": "凍咖啡",
+      "mealPeriod": "dinner",
+      "sortOrder": 198,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020023:dinner",
+      "name": "凍阿華田",
+      "mealPeriod": "dinner",
+      "sortOrder": 199,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020018:dinner",
+      "name": "凍鴛鴦",
+      "mealPeriod": "dinner",
+      "sortOrder": 200,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020019:dinner",
+      "name": "凍齋咖啡",
+      "mealPeriod": "dinner",
+      "sortOrder": 201,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020133:dinner",
+      "name": "凍檸檬七喜",
+      "mealPeriod": "dinner",
+      "sortOrder": 202,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020021:dinner",
+      "name": "凍檸檬水",
+      "mealPeriod": "dinner",
+      "sortOrder": 203,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020024:dinner",
+      "name": "凍檸檬可樂",
+      "mealPeriod": "dinner",
+      "sortOrder": 204,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020020:dinner",
+      "name": "凍檸檬茶",
+      "mealPeriod": "dinner",
+      "sortOrder": 205,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020988:dinner",
+      "name": "凍蘋果綠茶",
+      "mealPeriod": "dinner",
+      "sortOrder": 206,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1451,7 +3525,7 @@
       "externalKey": "1100075042:dinner",
       "name": "脆皮腸．雞扒飯(黑椒汁)",
       "mealPeriod": "dinner",
-      "sortOrder": 85,
+      "sortOrder": 207,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1468,7 +3542,7 @@
       "externalKey": "1100031695:dinner",
       "name": "脆腩紅燒豆腐飯",
       "mealPeriod": "dinner",
-      "sortOrder": 86,
+      "sortOrder": 208,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1485,7 +3559,7 @@
       "externalKey": "1100041811:dinner",
       "name": "梅菜扣肉煲 ‧ 白飯",
       "mealPeriod": "dinner",
-      "sortOrder": 87,
+      "sortOrder": 209,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1499,10 +3573,78 @@
       }
     },
     {
+      "externalKey": "1100020561:dinner",
+      "name": "梳打水",
+      "mealPeriod": "dinner",
+      "sortOrder": 210,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100080256:dinner",
+      "name": "甜心花包",
+      "mealPeriod": "dinner",
+      "sortOrder": 211,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040513:dinner",
+      "name": "蛋撻",
+      "mealPeriod": "dinner",
+      "sortOrder": 212,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100075601:dinner",
+      "name": "豚肉麻辣燙．白飯",
+      "mealPeriod": "dinner",
+      "sortOrder": 213,
+      "svgKey": "rice",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031344:dinner",
       "name": "麻辣皮蛋口水雞 ‧ 白飯",
       "mealPeriod": "dinner",
-      "sortOrder": 88,
+      "sortOrder": 214,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1519,7 +3661,7 @@
       "externalKey": "1100031651:dinner",
       "name": "麻辣肉丁．切雞飯",
       "mealPeriod": "dinner",
-      "sortOrder": 89,
+      "sortOrder": 215,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1536,7 +3678,7 @@
       "externalKey": "1100031649:dinner",
       "name": "麻辣肉丁．明爐燒鴨飯",
       "mealPeriod": "dinner",
-      "sortOrder": 90,
+      "sortOrder": 216,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1553,7 +3695,7 @@
       "externalKey": "1100031650:dinner",
       "name": "麻辣肉丁．油雞飯",
       "mealPeriod": "dinner",
-      "sortOrder": 91,
+      "sortOrder": 217,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1570,7 +3712,7 @@
       "externalKey": "1100031648:dinner",
       "name": "麻辣肉丁．蜜汁叉燒飯",
       "mealPeriod": "dinner",
-      "sortOrder": 92,
+      "sortOrder": 218,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1587,13 +3729,47 @@
       "externalKey": "1100031647:dinner",
       "name": "麻辣肉丁．醬油雞髀飯",
       "mealPeriod": "dinner",
-      "sortOrder": 93,
+      "sortOrder": 219,
       "svgKey": "rice",
       "pricing": {
         "options": [
           {
             "label": null,
             "amountMinor": 4400,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100074077:dinner",
+      "name": "紫菜肉鬆包",
+      "mealPeriod": "dinner",
+      "sortOrder": 220,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100040316:dinner",
+      "name": "菠蘿包",
+      "mealPeriod": "dinner",
+      "sortOrder": 221,
+      "svgKey": "dessert",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1604,7 +3780,7 @@
       "externalKey": "1100031676:dinner",
       "name": "惹味雞扒飯",
       "mealPeriod": "dinner",
-      "sortOrder": 94,
+      "sortOrder": 222,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1618,16 +3794,16 @@
       }
     },
     {
-      "externalKey": "1100044042:dinner",
-      "name": "滑蛋蝦仁鑊仔炒飯",
+      "externalKey": "1100046220:dinner",
+      "name": "椰撻",
       "mealPeriod": "dinner",
-      "sortOrder": 95,
-      "svgKey": "rice",
+      "sortOrder": 223,
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
             "label": null,
-            "amountMinor": 4600,
+            "amountMinor": 800,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1635,16 +3811,16 @@
       }
     },
     {
-      "externalKey": "1100041633:dinner",
-      "name": "福建鑊仔炒飯",
+      "externalKey": "1100040527:dinner",
+      "name": "腸仔包",
       "mealPeriod": "dinner",
-      "sortOrder": 96,
-      "svgKey": "rice",
+      "sortOrder": 224,
+      "svgKey": "default",
       "pricing": {
         "options": [
           {
             "label": null,
-            "amountMinor": 4800,
+            "amountMinor": 1000,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1655,13 +3831,47 @@
       "externalKey": "1100051257:dinner",
       "name": "蒜香一字骨‧白飯",
       "mealPeriod": "dinner",
-      "sortOrder": 97,
+      "sortOrder": 225,
       "svgKey": "rice",
       "pricing": {
         "options": [
           {
             "label": null,
             "amountMinor": 4800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100045044:dinner",
+      "name": "蒜茸包",
+      "mealPeriod": "dinner",
+      "sortOrder": 226,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 900,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020112:dinner",
+      "name": "輕怡百事",
+      "mealPeriod": "dinner",
+      "sortOrder": 227,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1672,7 +3882,7 @@
       "externalKey": "0200023209:dinner",
       "name": "鳳爪蒸排骨‧白飯",
       "mealPeriod": "dinner",
-      "sortOrder": 98,
+      "sortOrder": 228,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1686,10 +3896,146 @@
       }
     },
     {
+      "externalKey": "1100020004:dinner",
+      "name": "熱奶茶",
+      "mealPeriod": "dinner",
+      "sortOrder": 229,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020009:dinner",
+      "name": "熱好立克",
+      "mealPeriod": "dinner",
+      "sortOrder": 230,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020003:dinner",
+      "name": "熱咖啡",
+      "mealPeriod": "dinner",
+      "sortOrder": 231,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020010:dinner",
+      "name": "熱阿華田",
+      "mealPeriod": "dinner",
+      "sortOrder": 232,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020005:dinner",
+      "name": "熱鴛鴦",
+      "mealPeriod": "dinner",
+      "sortOrder": 233,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020006:dinner",
+      "name": "熱齋咖啡",
+      "mealPeriod": "dinner",
+      "sortOrder": 234,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020008:dinner",
+      "name": "熱檸檬水",
+      "mealPeriod": "dinner",
+      "sortOrder": 235,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
+      "externalKey": "1100020007:dinner",
+      "name": "熱檸檬茶",
+      "mealPeriod": "dinner",
+      "sortOrder": 236,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1100,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031178:dinner",
       "name": "燒鴨．肉燥飯",
       "mealPeriod": "dinner",
-      "sortOrder": 99,
+      "sortOrder": 237,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1703,10 +4049,27 @@
       }
     },
     {
+      "externalKey": "1100040315:dinner",
+      "name": "雞尾包",
+      "mealPeriod": "dinner",
+      "sortOrder": 238,
+      "svgKey": "default",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100031557:dinner",
       "name": "鹹蛋 ‧ 肉燥叉燒飯",
       "mealPeriod": "dinner",
-      "sortOrder": 100,
+      "sortOrder": 239,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1723,7 +4086,7 @@
       "externalKey": "1100031558:dinner",
       "name": "鹹蛋 ‧ 肉燥切雞飯",
       "mealPeriod": "dinner",
-      "sortOrder": 101,
+      "sortOrder": 240,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1740,7 +4103,7 @@
       "externalKey": "1100031559:dinner",
       "name": "鹹蛋 ‧ 肉燥油雞飯",
       "mealPeriod": "dinner",
-      "sortOrder": 102,
+      "sortOrder": 241,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1757,7 +4120,7 @@
       "externalKey": "1100031560:dinner",
       "name": "鹹蛋 ‧ 肉燥燒鴨飯",
       "mealPeriod": "dinner",
-      "sortOrder": 103,
+      "sortOrder": 242,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1774,7 +4137,7 @@
       "externalKey": "1100031675:dinner",
       "name": "鹹蛋．肉燥燒排骨飯",
       "mealPeriod": "dinner",
-      "sortOrder": 104,
+      "sortOrder": 243,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1791,7 +4154,7 @@
       "externalKey": "1100030009:dinner",
       "name": "鹹蛋1隻",
       "mealPeriod": "dinner",
-      "sortOrder": 105,
+      "sortOrder": 244,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -1808,7 +4171,7 @@
       "externalKey": "1100030010:dinner",
       "name": "鹹蛋半隻",
       "mealPeriod": "dinner",
-      "sortOrder": 106,
+      "sortOrder": 245,
       "svgKey": "default",
       "pricing": {
         "options": [
@@ -1825,7 +4188,7 @@
       "externalKey": "1100030026:dinner",
       "name": "黯然銷魂飯(叉燒 ‧ 煎蛋飯)",
       "mealPeriod": "dinner",
-      "sortOrder": 107,
+      "sortOrder": 246,
       "svgKey": "rice",
       "pricing": {
         "options": [
@@ -1839,10 +4202,27 @@
       }
     },
     {
+      "externalKey": "1100020153:dinner",
+      "name": "RED BULL 奧地利紅牛能量飲品",
+      "mealPeriod": "dinner",
+      "sortOrder": 247,
+      "svgKey": "drink",
+      "pricing": {
+        "options": [
+          {
+            "label": null,
+            "amountMinor": 1800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    },
+    {
       "externalKey": "1100051507:dinner",
       "name": "XO醬茄子炆倉魚‧白飯",
       "mealPeriod": "dinner",
-      "sortOrder": 108,
+      "sortOrder": 248,
       "svgKey": "rice",
       "pricing": {
         "options": [
