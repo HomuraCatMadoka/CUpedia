@@ -15,6 +15,7 @@ import {
   messagesForFlyover,
   type PublicDanmakuMessage,
 } from "@/lib/danmaku-types";
+import { cn } from "@/lib/utils";
 import "./danmaku.css";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 
@@ -41,12 +42,15 @@ export function DanmakuBanner({
   viewer,
   title = "本月弹幕",
   apiPath = "/api/danmaku",
+  trackCount = DANMAKU_TRACK_COUNT,
 }: {
   initialMessages: PublicDanmakuMessage[];
   viewer: ViewerState;
   title?: string;
   /** POST endpoint for this banner's danmaku store (hub vs per-canteen). */
   apiPath?: string;
+  /** Parallel flyover lanes (hub default 5; canteen detail often fewer). */
+  trackCount?: number;
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [content, setContent] = useState("");
@@ -74,24 +78,33 @@ export function DanmakuBanner({
       scheduleScrollingDanmaku(
         flyItems.map((m) => ({ id: m.id, content: m.content })),
         {
-          trackCount: DANMAKU_TRACK_COUNT,
+          trackCount,
           screenWidth,
           duration: DANMAKU_SCROLL_DURATION_SEC,
         },
       ),
-    [flyItems, screenWidth],
+    [flyItems, screenWidth, trackCount],
   );
 
   const byTrack = useMemo(() => {
     const tracks: ScheduledDanmaku[][] = Array.from(
-      { length: DANMAKU_TRACK_COUNT },
+      { length: trackCount },
       () => [],
     );
     for (const item of scheduled) {
       tracks[item.track]?.push(item);
     }
     return tracks;
-  }, [scheduled]);
+  }, [scheduled, trackCount]);
+
+  /** Wider flyover on desktop → taller layer and more vertical track spacing. */
+  const compact = trackCount <= 3;
+  const trackStepRem = screenWidth >= 640
+    ? compact ? 2.6 : 3.0
+    : compact ? 2.0 : 2.2;
+  const trackOffsetRem = screenWidth >= 640
+    ? compact ? 0.4 : 0.5
+    : compact ? 0.3 : 0.35;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,21 +141,26 @@ export function DanmakuBanner({
   }
 
   return (
-    <section className="relative space-y-4" aria-label={title}>
+    <section className="relative space-y-2 sm:space-y-4" aria-label={title}>
       <div className="text-center">
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <h2 className="text-sm font-semibold sm:text-lg">{title}</h2>
       </div>
 
       <div
         ref={layerRef}
-        className="danmaku-track-layer relative h-32 overflow-hidden rounded-xl border bg-muted/30"
+        className={cn(
+          "danmaku-track-layer relative overflow-hidden rounded-lg border bg-muted/30 sm:rounded-xl",
+          compact ? "h-32 sm:h-40" : "h-48 sm:h-60",
+        )}
         data-ready={mounted ? "true" : undefined}
       >
         {byTrack.map((track, trackIndex) => (
           <div
             key={trackIndex}
             className="danmaku-track"
-            style={{ top: `${trackIndex * 1.85 + 0.35}rem` }}
+            style={{
+              top: `${trackIndex * trackStepRem + trackOffsetRem}rem`,
+            }}
           >
             {track.map((item) => (
               <span
@@ -173,18 +191,18 @@ export function DanmakuBanner({
 
       <div className="relative z-10 mx-auto max-w-md">
         {viewer.kind === "guest" ? (
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-xs text-muted-foreground sm:text-sm">
             <Link href="/login" className="underline underline-offset-2">
               登录
             </Link>
             后即可发送弹幕
           </p>
         ) : viewer.kind === "banned" ? (
-          <p className="text-center text-sm text-destructive" role="alert">
+          <p className="text-center text-xs text-destructive sm:text-sm" role="alert">
             账号已封禁，无法发送弹幕
           </p>
         ) : (
-          <form onSubmit={handleSubmit} className="flex gap-2">
+          <form onSubmit={handleSubmit} className="flex gap-1.5 sm:gap-2">
             <Input
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -192,15 +210,19 @@ export function DanmakuBanner({
               maxLength={100}
               disabled={pending}
               aria-label="弹幕内容"
-              className="border-[rgba(26,35,50,0.32)] bg-[var(--canteen-surface)] placeholder:text-[var(--canteen-muted)] focus-visible:border-[var(--canteen-purple)]"
+              className="h-9 border-[rgba(26,35,50,0.32)] bg-[var(--canteen-surface)] placeholder:text-[var(--canteen-muted)] focus-visible:border-[var(--canteen-purple)] sm:h-10"
             />
-            <Button type="submit" disabled={pending || !content.trim()}>
+            <Button
+              type="submit"
+              disabled={pending || !content.trim()}
+              className="h-9 px-3 sm:h-10 sm:px-4"
+            >
               {pending ? "发送中…" : "发送"}
             </Button>
           </form>
         )}
         {error ? (
-          <p className="mt-2 text-center text-sm text-destructive" role="alert">
+          <p className="mt-1.5 text-center text-xs text-destructive sm:mt-2 sm:text-sm" role="alert">
             {error}
           </p>
         ) : null}

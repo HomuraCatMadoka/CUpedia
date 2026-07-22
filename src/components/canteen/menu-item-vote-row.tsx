@@ -68,22 +68,16 @@ export function MenuItemVoteRow({
   return (
     <li
       className={cn(
-        "canteen-ledger-row flex flex-wrap items-center gap-3 px-1 py-3 sm:flex-nowrap sm:gap-4",
+        "canteen-ledger-row flex flex-wrap items-center gap-2 px-1 py-2 sm:flex-nowrap sm:gap-4 sm:py-3",
         pending && "opacity-80",
       )}
     >
-      <DishSvgIcon svgKey={item.svgKey} className="size-11 rounded-md" />
+      <DishSvgIcon svgKey={item.svgKey} className="size-9 rounded-md sm:size-11" />
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3">
-          <p className="min-w-0 break-words font-medium text-[var(--canteen-ink)]">
-            {item.name}
-          </p>
-          <MenuItemPrice
-            pricing={item.pricing}
-            className="max-w-[50%] shrink-0 justify-end font-mono text-sm font-medium tabular-nums text-[var(--canteen-ink)] sm:max-w-52"
-          />
-        </div>
-        <MealPeriodBadge period={item.mealPeriod} className="mt-1" />
+        <p className="min-w-0 break-words text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
+          {item.name}
+        </p>
+        <MealPeriodBadge period={item.mealPeriod} className="mt-0.5 sm:mt-1" />
         {error ? (
           <p className="mt-1 text-xs text-red-700" role="alert">
             {error}
@@ -96,8 +90,12 @@ export function MenuItemVoteRow({
           initialCommentCount={initialCommentCount}
         />
       </div>
+      <MenuItemPrice
+        pricing={item.pricing}
+        className="shrink-0 self-center justify-end font-mono text-xs font-medium tabular-nums text-[var(--canteen-ink)] sm:max-w-52 sm:text-sm"
+      />
       <div
-        className="flex w-full shrink-0 items-center justify-end gap-2 sm:ml-auto sm:w-auto"
+        className="flex w-full shrink-0 items-center justify-end gap-1.5 sm:ml-0 sm:w-auto sm:gap-2"
         role="group"
         aria-label="投票"
       >
