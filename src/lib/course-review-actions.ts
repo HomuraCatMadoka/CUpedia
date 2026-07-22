@@ -981,6 +981,14 @@ export async function getCourseProfessorStats(
             where rating.professor_id = ${professors.id}
               and rating.course_code = ${courseCode}
           )`,
+            sql`exists (
+            select 1
+            from ${courseRatingProfessors} selected_professor
+            inner join ${courseRatings} selected_rating
+              on selected_rating.id = selected_professor.rating_id
+            where selected_professor.professor_id = ${professors.id}
+              and selected_rating.course_code = ${courseCode}
+          )`,
           ),
         )
         .orderBy(professors.name),

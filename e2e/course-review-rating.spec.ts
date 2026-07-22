@@ -124,8 +124,13 @@ test("#293 unified submission validates required experience and supports half-st
   await page.getByRole("button", { name: "编辑" }).click();
   await expect(page.getByLabel("学年")).toHaveValue("2025-26");
   await expect(page.getByLabel("学期")).toHaveValue("Term 2");
-  await expect(page.getByPlaceholder("搜索任课教授姓名")).toHaveValue(
-    "测试教授 Chan",
+  await expect(
+    page.getByRole("button", { name: "移除 测试教授 Chan" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("搜索任课教授")).toHaveValue("");
+  await expect(page.getByLabel("搜索任课教授")).toHaveAttribute(
+    "placeholder",
+    "继续搜索其他教授",
   );
   await expect(page.getByRole("radio", { name: "0.5 星" })).toBeChecked();
 
