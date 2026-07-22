@@ -31,6 +31,7 @@ const {
   dbInsert,
   dbUpdate,
   dbDelete,
+  dbExecute,
   dbTransaction,
   dbChain,
   professorSearchCache,
@@ -64,6 +65,9 @@ const {
     dbInsert: vi.fn(() => chain),
     dbUpdate: vi.fn(() => chain),
     dbDelete: vi.fn(() => chain),
+    dbExecute: vi.fn(async (...args: unknown[]) => {
+      void args;
+    }),
     dbTransaction: vi.fn(),
     dbChain: chain,
     professorSearchCache: searchCache,
@@ -176,7 +180,7 @@ beforeEach(() => {
         insert: () => typeof dbChain;
         update: () => typeof dbChain;
         delete: () => typeof dbChain;
-        execute: () => Promise<void>;
+        execute: (...args: unknown[]) => Promise<unknown>;
       }) => unknown,
     ) =>
       callback({
@@ -184,7 +188,7 @@ beforeEach(() => {
         insert: () => dbInsert(),
         update: () => dbUpdate(),
         delete: () => dbDelete(),
-        execute: async () => undefined,
+        execute: (...args: unknown[]) => dbExecute(...args),
       }),
   );
 });
@@ -273,6 +277,32 @@ describe("submitCourseReview", () => {
       expect.anything(),
       "u1",
     );
+  });
+
+  it("一条课程经历可关联多位任课教授", async () => {
+    queueRows(
+      [COURSE],
+      [
+        { id: "p1", name: "Professor CHAN" },
+        { id: "p2", name: "Professor WONG" },
+      ],
+      [],
+      [{ id: "rating-1" }],
+    );
+
+    await submitCourseReview("CSCI3150", {
+      ...SUBMISSION,
+      professorIds: ["p1", "p2"],
+      professorId: undefined,
+    });
+
+    expect(values()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        professorId: "p1",
+        professorNameSnapshot: "Professor CHAN",
+      }),
+    );
+    expect(dbExecute).toHaveBeenCalledTimes(3);
   });
 
   it("确认无任课教授的课程允许教授留空", async () => {
@@ -584,6 +614,7 @@ describe("getMyCourseReviewHistory", () => {
         score: 4.5,
         academicYear: "2025-26",
         term: "Term 2",
+        professorId: "p1",
         professorName: "Ada Lovelace",
         storedTags: {
           workload: "heavy",
@@ -607,6 +638,7 @@ describe("getMyCourseReviewHistory", () => {
         academicYear: "2025-26",
         term: "Term 2",
         professorName: "Ada Lovelace",
+        professors: [{ id: "p1", name: "Ada Lovelace" }],
         tags: ["chur", "讲解清晰"],
         isAnonymous: false,
         content: "很清楚",

@@ -111,7 +111,14 @@ export function MyCourseReviewHistory({
             <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {item.academicYear && <span>{item.academicYear}</span>}
               {item.term && <span>· {item.term}</span>}
-              {item.professorName && <span>· {item.professorName}</span>}
+              {(item.professors?.length
+                ? item.professors.map((professor) => professor.name)
+                : item.professorName
+                  ? [item.professorName]
+                  : []
+              ).map((name) => (
+                <span key={name}>· {name}</span>
+              ))}
               <span>· {item.isAnonymous ? "匿名" : "署名"}</span>
             </div>
             {item.tags.length > 0 && (
