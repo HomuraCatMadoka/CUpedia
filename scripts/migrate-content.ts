@@ -7,7 +7,7 @@ dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { wikiPages, wikiRevisions } from "../src/db/schema";
 import { fromMarkdown } from "../src/lib/plate-utils";
 
@@ -63,7 +63,10 @@ async function main() {
       if (!dryRun) {
         await db
           .update(wikiPages)
-          .set({ content: json })
+          .set({
+            content: json,
+            version: sql`${wikiPages.version} + 1`,
+          })
           .where(eq(wikiPages.id, page.id));
       }
       converted++;

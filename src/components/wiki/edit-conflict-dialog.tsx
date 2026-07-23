@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 export interface EditConflict {
   theirContent: string;
   theirTitle: string;
+  theirVersion: number;
   theirUpdatedAt: string;
 }
 
