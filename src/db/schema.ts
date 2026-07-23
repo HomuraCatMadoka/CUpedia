@@ -97,6 +97,7 @@ export const wikiPages = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    version: integer("version").default(1).notNull(),
   },
   (table) => [
     index("wiki_pages_parent_id_idx").on(table.parentId),

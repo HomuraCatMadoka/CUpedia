@@ -29,6 +29,7 @@ export default async function EditWikiPage({
     title: string;
     content: string;
     editSummary?: string;
+    expectedVersion?: number;
     expectedUpdatedAt?: string;
     baseContent?: string;
   }) {
@@ -39,6 +40,7 @@ export default async function EditWikiPage({
         title: data.title,
         content: data.content,
         editSummary: data.editSummary,
+        expectedVersion: data.expectedVersion!,
         expectedUpdatedAt: data.expectedUpdatedAt!,
         baseContent: data.baseContent,
       });
@@ -47,12 +49,14 @@ export default async function EditWikiPage({
           conflict: true as const,
           theirContent: updated.theirContent,
           theirTitle: updated.theirTitle,
+          theirVersion: updated.theirVersion,
           theirUpdatedAt: updated.theirUpdatedAt,
         };
       }
       return {
         slug: updated.slug,
-        updatedAt: new Date(updated.updatedAt).toISOString(),
+        version: updated.version,
+        updatedAt: updated.updatedAt.toISOString(),
       };
     } catch (e: unknown) {
       return { error: e instanceof Error ? e.message : String(e) };
@@ -69,7 +73,8 @@ export default async function EditWikiPage({
           initialTitle={page.title}
           initialValue={parseContent(page.content)}
           initialSlug={page.slug}
-          expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
+          expectedVersion={page.version}
+          expectedUpdatedAt={page.updatedAt.toISOString()}
           linkablePages={pages
             .filter((p) => p.id !== page.id)
             .map((p) => ({ id: p.id, slug: p.slug, title: p.title }))}

@@ -1,0 +1,1 @@
+ALTER TABLE "wiki_pages" ADD COLUMN "version" integer DEFAULT 1 NOT NULL;

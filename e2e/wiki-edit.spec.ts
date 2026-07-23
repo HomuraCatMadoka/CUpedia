@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 
 /**
@@ -19,6 +20,73 @@ import { loginAsAdmin } from "./helpers/auth";
  */
 
 const CONFLICT_SLUG = "campus-life";
+
+async function insertPageWithMicrosecondTimestamp(slug: string) {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is required");
+
+  const client = new Client({ connectionString });
+  await client.connect();
+  try {
+    const { rows: users } = await client.query<{ id: string }>(
+      "select id from users where email = $1",
+      ["admin@test.com"],
+    );
+    const admin = users[0];
+    if (!admin) throw new Error("Seed admin is missing");
+
+    const content = JSON.stringify([
+      { type: "p", children: [{ text: "Imported baseline" }] },
+    ]);
+    const { rows: pages } = await client.query<{ id: string; version: number }>(
+      `insert into wiki_pages (
+        slug, title, content, created_by, updated_by, updated_at
+      ) values (
+        $1, $2, $3, $4, $4,
+        date_trunc('milliseconds', clock_timestamp()) + interval '456 microseconds'
+      )
+      returning id, version`,
+      [slug, "Imported timestamp page", content, admin.id],
+    );
+    const inserted = pages[0];
+    if (!inserted) throw new Error("Page insert failed");
+    expect(inserted.version).toBe(1);
+
+    await client.query(
+      `insert into wiki_revisions (page_id, title, content, edited_by)
+       values ($1, $2, $3, $4)`,
+      [inserted.id, "Imported timestamp page", content, admin.id],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
+async function updatePageAsLegacyDeployment(slug: string) {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) throw new Error("DATABASE_URL is required");
+
+  const client = new Client({ connectionString });
+  await client.connect();
+  try {
+    const content = JSON.stringify([
+      { type: "p", children: [{ text: "Legacy deployment edit" }] },
+    ]);
+    const { rows } = await client.query<{ version: number }>(
+      `update wiki_pages
+       set content = $2, updated_at = updated_at + interval '1 second'
+       where slug = $1
+       returning version`,
+      [slug, content],
+    );
+    const updated = rows[0];
+    if (!updated) throw new Error("Legacy page update failed");
+    // Pre-version application code moves updated_at but leaves version intact.
+    expect(updated.version).toBe(1);
+  } finally {
+    await client.end();
+  }
+}
 
 /** Focus the editor and type a marker into the first block, then confirm dirty. */
 async function typeMarker(page: Page, marker: string) {
@@ -47,11 +115,45 @@ test.describe("#94 editor reliability", () => {
     await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
 
     // Reloading the edit route must read the authoritative post-save baseline,
-    // not stale-while-revalidate content with an obsolete updatedAt.
+    // not stale-while-revalidate content with an obsolete version.
     await page.reload();
     await expect(page.locator('[role="textbox"]').first()).toContainText(
       marker,
     );
+  });
+
+  test("page with a database microsecond timestamp saves without a false conflict", async ({
+    page,
+  }) => {
+    const slug = `db-timestamp-${Date.now()}`;
+    await insertPageWithMicrosecondTimestamp(slug);
+
+    await page.goto(`/wiki/edit/${slug}`);
+    const marker = `first-save-${Date.now()}`;
+    await typeMarker(page, marker);
+    await page.getByRole("button", { name: "保存" }).click();
+
+    await expect(page).toHaveURL(new RegExp(`/wiki/${slug}$`), {
+      timeout: 15_000,
+    });
+    await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
+  });
+
+  test("a legacy deployment write invalidates the new editor baseline", async ({
+    page,
+  }) => {
+    const slug = `legacy-writer-${Date.now()}`;
+    await insertPageWithMicrosecondTimestamp(slug);
+    await page.goto(`/wiki/edit/${slug}`);
+    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+
+    await updatePageAsLegacyDeployment(slug);
+    await typeMarker(page, `new-client-${Date.now()}`);
+    await page.getByRole("button", { name: "保存" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "编辑冲突" });
+    await expect(dialog).toBeVisible({ timeout: 15_000 });
+    await expect(dialog).toContainText("Legacy deployment edit");
   });
 
   test("in-app navigation is guarded while dirty", async ({ page }) => {

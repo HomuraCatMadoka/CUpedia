@@ -14,6 +14,11 @@ const {
   mockDbQueryWikiPages,
   mockDbQueryWikiRevisions,
   mockAssertContributorComplete,
+  mockEq,
+  mockIsNull,
+  mockIsNotNull,
+  mockGte,
+  mockLt,
 } = vi.hoisted(() => {
   const unstableCacheCalls: unknown[][] = [];
   const cacheStore = new Map<string, unknown>();
@@ -45,6 +50,11 @@ const {
     mockDbQueryWikiPages: { findFirst: vi.fn() },
     mockDbQueryWikiRevisions: { findFirst: vi.fn(), findMany: vi.fn() },
     mockAssertContributorComplete: vi.fn(async (user) => user),
+    mockEq: vi.fn(),
+    mockIsNull: vi.fn(),
+    mockIsNotNull: vi.fn(),
+    mockGte: vi.fn(),
+    mockLt: vi.fn(),
   };
 });
 
@@ -71,6 +81,7 @@ vi.mock("@/db/schema", () => ({
     parentId: "parentId",
     sortOrder: "sortOrder",
     updatedAt: "updatedAt",
+    version: "version",
   },
   wikiRevisions: {
     id: "id",
@@ -84,12 +95,15 @@ vi.mock("@/db/schema", () => ({
 }));
 
 vi.mock("drizzle-orm", () => ({
-  eq: vi.fn(),
-  isNull: vi.fn(),
+  eq: (...args: unknown[]) => mockEq(...args),
+  isNull: (...args: unknown[]) => mockIsNull(...args),
+  isNotNull: (...args: unknown[]) => mockIsNotNull(...args),
   and: vi.fn(),
   sql: (...args: unknown[]) => args,
   desc: vi.fn(),
   inArray: vi.fn(),
+  gte: (...args: unknown[]) => mockGte(...args),
+  lt: (...args: unknown[]) => mockLt(...args),
 }));
 
 vi.mock("next/cache", () => ({
@@ -236,6 +250,7 @@ describe("cache invalidation — revalidateTag called", () => {
         slug: "test",
         title: "Test",
         content: "content",
+        expectedVersion: 1,
         expectedUpdatedAt: "2026-01-01T00:00:00.000Z",
       }),
     ).rejects.toThrow("ACCOUNT_SETUP_REQUIRED");
@@ -281,16 +296,19 @@ describe("cache invalidation — revalidateTag called", () => {
   // assert whether the write coalesced (updates the revision) or inserted a new
   // one. See ADR 0009.
   function makeWriteTx(latestRevision: unknown) {
-    const update = vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi
-            .fn()
-            .mockResolvedValue([
-              { id: "1", updatedAt: new Date("2024-01-02") },
-            ]),
-        }),
+    const set = vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([
+          {
+            id: "1",
+            updatedAt: new Date("2024-01-02"),
+            version: 2,
+          },
+        ]),
       }),
+    });
+    const update = vi.fn().mockReturnValue({
+      set,
     });
     const insert = vi.fn().mockReturnValue({
       values: vi.fn().mockResolvedValue(undefined),
@@ -313,7 +331,7 @@ describe("cache invalidation — revalidateTag called", () => {
         }),
       }),
     };
-    return { tx, update, insert };
+    return { tx, update, insert, set };
   }
 
   it("updateWikiPage calls revalidateTag", async () => {
@@ -321,6 +339,7 @@ describe("cache invalidation — revalidateTag called", () => {
       id: "1",
       slug: "test",
       updatedAt: new Date("2024-01-01"),
+      version: 1,
     });
     mockDbTransaction.mockImplementation(
       async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx(null).tx),
@@ -330,9 +349,50 @@ describe("cache invalidation — revalidateTag called", () => {
       slug: "test",
       title: "Updated",
       content: "new",
+      expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
+  });
+
+  it("uses the integer version for CAS and advances it atomically", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValue({
+      id: "1",
+      slug: "test",
+      title: "Test",
+      updatedAt: new Date("2024-01-01T00:00:00.123456Z"),
+      version: 7,
+    });
+    let spies!: ReturnType<typeof makeWriteTx>;
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => {
+        spies = makeWriteTx(null);
+        return fn(spies.tx);
+      },
+    );
+
+    await updateWikiPage({
+      slug: "test",
+      title: "Test",
+      content: "new",
+      expectedVersion: 7,
+      expectedUpdatedAt: "2024-01-01T00:00:00.123Z",
+    });
+
+    expect(mockEq).toHaveBeenCalledWith("version", 7);
+    expect(mockEq).not.toHaveBeenCalledWith("updatedAt", expect.anything());
+    expect(mockGte).toHaveBeenCalledWith(
+      "updatedAt",
+      new Date("2024-01-01T00:00:00.123Z"),
+    );
+    expect(mockLt).toHaveBeenCalledWith(
+      "updatedAt",
+      new Date("2024-01-01T00:00:00.124Z"),
+    );
+    expect(spies.set).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ version: expect.anything() }),
+    );
   });
 
   it("updateWikiPage coalesces a same-author edit within the window (updates the latest revision, no insert)", async () => {
@@ -340,6 +400,7 @@ describe("cache invalidation — revalidateTag called", () => {
       id: "1",
       slug: "test",
       updatedAt: new Date("2024-01-01"),
+      version: 1,
     });
     let spies!: ReturnType<typeof makeWriteTx>;
     mockDbTransaction.mockImplementation(
@@ -358,6 +419,7 @@ describe("cache invalidation — revalidateTag called", () => {
       slug: "test",
       title: "Updated",
       content: "new",
+      expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
 
@@ -371,6 +433,7 @@ describe("cache invalidation — revalidateTag called", () => {
       id: "1",
       slug: "test",
       updatedAt: new Date("2024-01-01"),
+      version: 1,
     });
     let spies!: ReturnType<typeof makeWriteTx>;
     mockDbTransaction.mockImplementation(
@@ -389,6 +452,7 @@ describe("cache invalidation — revalidateTag called", () => {
       slug: "test",
       title: "Updated",
       content: "new",
+      expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
 
@@ -399,13 +463,21 @@ describe("cache invalidation — revalidateTag called", () => {
 
   it("deleteWikiPage expires page data and route caches", async () => {
     mockDbExecute.mockResolvedValue({ rows: [{ id: "1" }] });
+    const set = vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined),
+    });
     mockDbUpdate.mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
-      }),
+      set,
     });
 
     await deleteWikiPage("1");
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deletedAt: expect.any(Date),
+        version: expect.anything(),
+      }),
+    );
+    expect(mockIsNull).toHaveBeenCalledWith("deletedAt");
     expect(mockUpdateTag).toHaveBeenCalledWith("wiki-pages");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/wiki", "layout");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/admin/deleted");
@@ -413,13 +485,21 @@ describe("cache invalidation — revalidateTag called", () => {
 
   it("restoreWikiPage expires page data and route caches", async () => {
     mockDbExecute.mockResolvedValue({ rows: [{ id: "1" }] });
+    const set = vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined),
+    });
     mockDbUpdate.mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
-      }),
+      set,
     });
 
     await restoreWikiPage("1");
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deletedAt: null,
+        version: expect.anything(),
+      }),
+    );
+    expect(mockIsNotNull).toHaveBeenCalledWith("deletedAt");
     expect(mockUpdateTag).toHaveBeenCalledWith("wiki-pages");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/wiki", "layout");
     expect(mockRevalidatePath).toHaveBeenCalledWith("/admin/deleted");
@@ -467,11 +547,13 @@ describe("search corpus refresh — structural vs content", () => {
       update: vi.fn().mockReturnValue({
         set: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            returning: vi
-              .fn()
-              .mockResolvedValue([
-                { id: "1", updatedAt: new Date("2024-01-02") },
-              ]),
+            returning: vi.fn().mockResolvedValue([
+              {
+                id: "1",
+                updatedAt: new Date("2024-01-02"),
+                version: 2,
+              },
+            ]),
           }),
         }),
       }),
@@ -543,6 +625,7 @@ describe("search corpus refresh — structural vs content", () => {
       slug: "test",
       title: "Old title",
       updatedAt: new Date("2024-01-01"),
+      version: 1,
     });
     mockDbTransaction.mockImplementation(
       async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx()),
@@ -551,6 +634,7 @@ describe("search corpus refresh — structural vs content", () => {
       slug: "test",
       title: "New title",
       content: "new",
+      expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith(CORPUS, "max");
@@ -562,6 +646,7 @@ describe("search corpus refresh — structural vs content", () => {
       slug: "test",
       title: "Same title",
       updatedAt: new Date("2024-01-01"),
+      version: 1,
     });
     mockDbTransaction.mockImplementation(
       async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx()),
@@ -570,6 +655,7 @@ describe("search corpus refresh — structural vs content", () => {
       slug: "test",
       title: "Same title",
       content: "different body",
+      expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
@@ -638,13 +724,20 @@ describe("search corpus refresh — structural vs content", () => {
     mockDbQueryWikiPages.findFirst.mockImplementation(async () => {
       call += 1;
       return call === 1
-        ? { id: "1", slug: "test", title: "A", content: PLATE("shared") }
+        ? {
+            id: "1",
+            slug: "test",
+            title: "A",
+            content: PLATE("shared"),
+            version: 1,
+          }
         : {
             id: "1",
             slug: "test",
             title: "B", // Y renamed A→B after X loaded the page
             content: PLATE("shared"),
             updatedAt: new Date("2024-01-02"),
+            version: 2,
           };
     });
     let firstWrite = true;
@@ -660,6 +753,7 @@ describe("search corpus refresh — structural vs content", () => {
       title: "A", // unchanged vs pre-conflict baseline, but differs from latest "B"
       content: PLATE("X body edit"),
       baseContent: PLATE("shared"),
+      expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith(CORPUS, "max");
@@ -670,13 +764,20 @@ describe("search corpus refresh — structural vs content", () => {
     mockDbQueryWikiPages.findFirst.mockImplementation(async () => {
       call += 1;
       return call === 1
-        ? { id: "1", slug: "test", title: "A", content: PLATE("shared") }
+        ? {
+            id: "1",
+            slug: "test",
+            title: "A",
+            content: PLATE("shared"),
+            version: 1,
+          }
         : {
             id: "1",
             slug: "test",
             title: "A", // concurrent write was content-only
             content: PLATE("shared"),
             updatedAt: new Date("2024-01-02"),
+            version: 2,
           };
     });
     let firstWrite = true;
@@ -692,6 +793,7 @@ describe("search corpus refresh — structural vs content", () => {
       title: "A",
       content: PLATE("X body edit"),
       baseContent: PLATE("shared"),
+      expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
