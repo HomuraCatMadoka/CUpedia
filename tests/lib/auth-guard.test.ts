@@ -33,7 +33,11 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { requireAuth, getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
+import {
+  requireAuth,
+  getOptionalUser,
+  getSessionVoterUser,
+} from "@/lib/auth-guard";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -46,10 +50,10 @@ describe("requireAuth", () => {
     expect(mockRedirect).toHaveBeenCalledWith("/login");
   });
 
-  it("redirects to /login when session lookup throws", async () => {
+  it("propagates session lookup failures instead of treating them as logout", async () => {
     mockGetSession.mockRejectedValue(new Error("FAILED_TO_GET_SESSION"));
-    await expect(requireAuth()).rejects.toThrow("NEXT_REDIRECT");
-    expect(mockRedirect).toHaveBeenCalledWith("/login");
+    await expect(requireAuth()).rejects.toThrow("FAILED_TO_GET_SESSION");
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it("redirects to /login when no user in session", async () => {
@@ -116,9 +120,11 @@ describe("requireAuth", () => {
 });
 
 describe("getOptionalUser / getSessionVoterUser", () => {
-  it("returns null when session lookup throws", async () => {
+  it("propagates session lookup failures instead of returning anonymous", async () => {
     mockGetSession.mockRejectedValue(new Error("FAILED_TO_GET_SESSION"));
-    expect(await getOptionalUser()).toBeNull();
-    expect(await getSessionVoterUser()).toBeNull();
+    await expect(getOptionalUser()).rejects.toThrow("FAILED_TO_GET_SESSION");
+    await expect(getSessionVoterUser()).rejects.toThrow(
+      "FAILED_TO_GET_SESSION",
+    );
   });
 });

@@ -5,10 +5,6 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { CanteenCard } from "@/components/canteen/canteen-card";
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ prefetch: vi.fn() }),
-}));
-
 vi.mock("next/link", async () => {
   const React = await import("react");
   const MockLink = ({
@@ -44,7 +40,9 @@ describe("CanteenCard", () => {
       />,
     );
 
-    const link = screen.getByRole("link", { name: /进入联合书院食堂/ });
+    const link = screen.getByRole("link", {
+      name: /联合书院食堂.*联合书院.*12 道菜/,
+    });
     expect(link.getAttribute("href")).toBe("/canteen/c1");
     expect(screen.getByText("12")).toBeTruthy();
     expect(screen.getByText("道菜")).toBeTruthy();

@@ -1,8 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import { useRouter } from "next/navigation";
-import { useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type { Canteen } from "@/lib/canteen-types";
 import { cn } from "@/lib/utils";
 
@@ -20,22 +19,22 @@ function CanteenCardSurface({
   return (
     <span
       className={cn(
-        "canteen-ledger-row group flex w-full touch-manipulation items-center gap-4 px-1 py-4 sm:gap-6",
+        "canteen-ledger-row group flex w-full touch-manipulation items-center gap-3 px-1 py-2.5 sm:gap-6 sm:py-4",
         pending && "bg-white/60",
       )}
       aria-busy={pending || undefined}
     >
       <span
         className={cn(
-          "h-10 w-0.5 shrink-0 bg-[var(--canteen-purple)] opacity-70",
-          pending && "opacity-100",
+          "h-8 w-0.5 shrink-0 bg-[var(--canteen-purple)] opacity-70 transition-opacity group-hover:opacity-100 sm:h-10",
+          pending && "opacity-100 group-hover:opacity-100",
         )}
         aria-hidden
       />
       <span className="min-w-0 flex-1">
         <h2
           className={cn(
-            "canteen-display text-lg font-semibold text-[var(--canteen-ink)] sm:text-xl",
+            "canteen-display text-base font-semibold text-[var(--canteen-ink)] sm:text-xl",
             pending
               ? "text-[var(--canteen-purple)]"
               : "group-hover:text-[var(--canteen-purple)]",
@@ -44,7 +43,7 @@ function CanteenCardSurface({
           {canteen.name}
         </h2>
         {canteen.location ? (
-          <p className="mt-1 text-sm text-[var(--canteen-muted)]">
+          <p className="mt-0.5 text-xs text-[var(--canteen-muted)] sm:mt-1 sm:text-sm">
             {canteen.location}
           </p>
         ) : null}
@@ -86,27 +85,13 @@ export function CanteenCard({
   href: string;
   className?: string;
 }) {
-  const router = useRouter();
-  const prefetched = useRef(false);
-
-  const prefetchOnce = () => {
-    if (prefetched.current) return;
-    prefetched.current = true;
-    router.prefetch(href);
-  };
-
   return (
     <Link
       href={href}
-      onMouseEnter={prefetchOnce}
-      onFocus={prefetchOnce}
-      // Desktop + mobile: start partial prefetch on press, before click navigates.
-      onPointerDown={prefetchOnce}
       className={cn(
         "block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--canteen-purple)]",
         className,
       )}
-      aria-label={`进入${canteen.name}`}
     >
       <CanteenCardSurface canteen={canteen} itemCount={itemCount}>
         <span

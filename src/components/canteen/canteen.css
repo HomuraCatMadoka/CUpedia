@@ -32,14 +32,14 @@
 .canteen-zone h1,
 .canteen-zone h2,
 .canteen-zone .canteen-display {
-  font-family: var(--font-canteen-display), var(--font-canteen-body), system-ui,
-    sans-serif;
+  font-family:
+    var(--font-canteen-display), var(--font-canteen-body), system-ui, sans-serif;
   letter-spacing: -0.02em;
 }
 
 .canteen-zone .canteen-brand {
-  font-family: var(--font-canteen-display), var(--font-canteen-body), system-ui,
-    sans-serif;
+  font-family:
+    var(--font-canteen-display), var(--font-canteen-body), system-ui, sans-serif;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
@@ -51,7 +51,6 @@
 .canteen-zone .canteen-ledger-row {
   border-bottom: 1px solid var(--canteen-line);
   background: transparent;
-  touch-action: manipulation;
   transition: background-color 160ms ease;
 }
 
@@ -207,8 +206,30 @@
   font-size: 0.875rem;
   font-weight: 500;
   box-shadow: none;
-  touch-action: manipulation;
   transition: color 160ms ease;
+}
+
+@media (max-width: 639px) {
+  .canteen-zone .canteen-back-link {
+    min-height: 2.5rem;
+    min-width: 2.5rem;
+    padding: 0.2rem;
+  }
+
+  .canteen-zone .canteen-section-chip {
+    min-height: 2rem;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    gap: 0.25rem;
+  }
+
+  .canteen-zone .canteen-vote-btn {
+    min-height: 2.25rem;
+    min-width: 3.75rem;
+    padding: 0.25rem 0.55rem;
+    font-size: 0.8125rem;
+    gap: 0.25rem;
+  }
 }
 
 .canteen-zone .canteen-back-link:hover {

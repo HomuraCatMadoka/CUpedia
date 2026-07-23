@@ -109,6 +109,27 @@ describe("CanteenMenuView", () => {
     expect(screen.queryByText("演示午餐")).toBeNull();
   });
 
+  it("settles on the latest period after rapid tab changes", async () => {
+    render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("演示午餐")).toBeTruthy();
+    });
+
+    const breakfast = screen.getByRole("tab", { name: "早餐" });
+    const dinner = screen.getByRole("tab", { name: "晚餐" });
+    fireEvent.click(breakfast);
+    expect(breakfast.getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(dinner);
+    expect(dinner.getAttribute("aria-selected")).toBe("true");
+
+    await waitFor(() => {
+      expect(screen.getByText("演示晚餐")).toBeTruthy();
+    });
+    expect(screen.queryByText("演示早餐")).toBeNull();
+    expect(screen.queryByText("演示午餐")).toBeNull();
+  });
+
   it("shows afternoon hint on lunch tab between 14:30 and 17:29 HKT", async () => {
     setHktClock(15, 0);
     render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
@@ -243,5 +264,41 @@ describe("CanteenMenuView", () => {
       expect(screen.getByText("叉烧饭")).toBeTruthy();
       expect(screen.getByText("牛肉面")).toBeTruthy();
     });
+  });
+
+  it("atomically resets category when periods have different sections", async () => {
+    const mixedPeriods = [
+      item("lunch-rice", "lunch", "午餐饭", "rice"),
+      item("lunch-drink", "lunch", "午餐茶", "drink"),
+      item("breakfast-noodle", "breakfast", "早餐面", "noodle"),
+      item("breakfast-dessert", "breakfast", "早餐包", "dessert"),
+    ];
+    render(
+      <CanteenMenuView items={mixedPeriods} voteCounts={{}} myVotes={{}} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("午餐饭")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /饮品/ }));
+    await waitFor(() => {
+      expect(screen.getByText("午餐茶")).toBeTruthy();
+      expect(screen.queryByText("午餐饭")).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "早餐" }));
+    expect(
+      screen.getByRole("button", { name: "全部" }).getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByRole("button", { name: /粉面/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /甜品/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /饮品/ })).toBeNull();
+
+    await waitFor(() => {
+      expect(screen.getByText("早餐面")).toBeTruthy();
+      expect(screen.getByText("早餐包")).toBeTruthy();
+    });
+    expect(screen.queryByText("该餐段暂无菜品")).toBeNull();
   });
 });

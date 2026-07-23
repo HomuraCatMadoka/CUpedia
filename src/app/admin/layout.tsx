@@ -5,8 +5,6 @@ import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { AdminTabs } from "@/components/admin/admin-tabs";
 import { SIDEBAR_COOKIE } from "@/lib/sidebar-cookie";
 
-export const dynamic = "force-dynamic";
-
 export default async function AdminLayout({
   children,
 }: {

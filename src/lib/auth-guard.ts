@@ -12,16 +12,6 @@ import { canViewerEdit } from "@/lib/edit-permission";
 import { normalizeEmail } from "@/lib/email";
 import { headers } from "next/headers";
 
-/** Session lookup that never throws — DB/auth outages return null so public
- * pages (canteen mock, browse) stay up instead of hard-crashing navigation. */
-async function safeGetSession() {
-  try {
-    return await auth.api.getSession({ headers: await headers() });
-  } catch {
-    return null;
-  }
-}
-
 /** True if the email already has a password (credential) account — i.e. it
  * completed registration. OTP-only sign-ins create a user row but no
  * credential account, so they are not "registered" for this purpose. */
@@ -41,15 +31,9 @@ export async function isEmailRegistered(email: string): Promise<boolean> {
 }
 
 export async function requireAuth() {
-  // Call headers() in this function body so Next.js static analysis marks
-  // admin/auth routes dynamic (wrapping only inside a helper can get missed).
-  const requestHeaders = await headers();
-  let session: Awaited<ReturnType<typeof auth.api.getSession>>;
-  try {
-    session = await auth.api.getSession({ headers: requestHeaders });
-  } catch {
-    redirect("/login");
-  }
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   if (!session?.user?.id) redirect("/login");
 
   const dbUser = await db.query.users.findFirst({
@@ -111,7 +95,9 @@ export async function requireEditorOrRedirect() {
 }
 
 export async function getOptionalUser() {
-  const session = await safeGetSession();
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
   return session?.user ?? null;
 }
 
@@ -132,7 +118,7 @@ export async function getSessionVoterUser(): Promise<{
   id: string;
   banned: boolean;
 } | null> {
-  const session = await safeGetSession();
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
   if (process.env.CANTEEN_MOCK_DATA === "true") {
@@ -152,13 +138,7 @@ export async function requireCommentAuth(): Promise<{
   nickname: string;
   email: string;
 }> {
-  const requestHeaders = await headers();
-  let session: Awaited<ReturnType<typeof auth.api.getSession>>;
-  try {
-    session = await auth.api.getSession({ headers: requestHeaders });
-  } catch {
-    redirect("/login");
-  }
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) redirect("/login");
 
   if (process.env.CANTEEN_MOCK_DATA === "true") {
@@ -197,7 +177,7 @@ export async function isBannedSessionUser(): Promise<boolean> {
 
 /** For API routes: returns null when caller is not an admin (no redirect). */
 export async function getAdminUserForApi() {
-  const session = await safeGetSession();
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
   const dbUser = await db.query.users.findFirst({
@@ -225,7 +205,7 @@ export async function getDanmakuAuthorForApi(): Promise<{
   nickname: string;
   banned: boolean;
 } | null> {
-  const session = await safeGetSession();
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
 
   const dbUser = await db.query.users.findFirst({
