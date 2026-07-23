@@ -359,9 +359,10 @@ export function CanteenMenuView({
 
       <div
         aria-busy={isStale || undefined}
+        inert={isStale}
         className={cn(
           "transition-opacity duration-150",
-          isStale && "opacity-60",
+          isStale && "pointer-events-none select-none opacity-60",
         )}
       >
         <CanteenMenuContent

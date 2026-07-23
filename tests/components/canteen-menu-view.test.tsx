@@ -14,9 +14,18 @@ import type { CanteenMenuItem } from "@/lib/canteen-types";
 import { AFTERNOON_HINT_TEXT } from "@/lib/canteen-meal-period";
 import { hktDate } from "../helpers/hkt-date";
 
-const { mockUpsertDishVote } = vi.hoisted(() => ({
+const { mockUpsertDishVote, mockUseDeferredValue } = vi.hoisted(() => ({
   mockUpsertDishVote: vi.fn(),
+  mockUseDeferredValue: vi.fn((value: unknown) => value),
 }));
+
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  return {
+    ...actual,
+    useDeferredValue: <T,>(value: T) => mockUseDeferredValue(value) as T,
+  };
+});
 
 vi.mock("@/lib/canteen-vote-actions", () => ({
   upsertDishVote: (...args: unknown[]) => mockUpsertDishVote(...args),
@@ -65,6 +74,8 @@ beforeEach(() => {
   setHktClock(12, 0);
   mockUpsertDishVote.mockReset();
   mockUpsertDishVote.mockResolvedValue({ menuItemId: "ln-1", vote: "like" });
+  mockUseDeferredValue.mockReset();
+  mockUseDeferredValue.mockImplementation((value) => value);
   cleanup();
 });
 
@@ -128,6 +139,36 @@ describe("CanteenMenuView", () => {
     });
     expect(screen.queryByText("演示早餐")).toBeNull();
     expect(screen.queryByText("演示午餐")).toBeNull();
+  });
+
+  it("makes stale menu content inert while a period switch settles", async () => {
+    let deferSelection = false;
+    let settledSelection: unknown;
+    mockUseDeferredValue.mockImplementation((selection) => {
+      if (!deferSelection) {
+        settledSelection = selection;
+        return selection;
+      }
+      return settledSelection;
+    });
+
+    render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("演示午餐")).toBeTruthy();
+    });
+
+    deferSelection = true;
+    fireEvent.click(screen.getByRole("tab", { name: "晚餐" }));
+
+    const staleContent = screen
+      .getByText("演示午餐")
+      .closest('[aria-busy="true"]');
+    expect(staleContent?.hasAttribute("inert")).toBe(true);
+    expect(staleContent?.classList.contains("pointer-events-none")).toBe(true);
+    expect(
+      screen.getByRole("tab", { name: "晚餐" }).getAttribute("aria-selected"),
+    ).toBe("true");
   });
 
   it("shows afternoon hint on lunch tab between 14:30 and 17:29 HKT", async () => {
