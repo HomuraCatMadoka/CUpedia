@@ -914,6 +914,26 @@ export const professorCourses = pgTable(
   (table) => [primaryKey({ columns: [table.professorId, table.courseCode] })],
 );
 
+/** Professors attached to one student's course experience. The legacy
+ * course_ratings.professor_id column remains as the first selected professor
+ * for backwards compatibility; this table is the complete multi-select. */
+export const courseRatingProfessors = pgTable(
+  "course_rating_professors",
+  {
+    ratingId: uuid("rating_id")
+      .notNull()
+      .references(() => courseRatings.id, { onDelete: "cascade" }),
+    professorId: text("professor_id")
+      .notNull()
+      .references(() => professors.id),
+    professorNameSnapshot: text("professor_name_snapshot").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ratingId, table.professorId] }),
+    index("course_rating_professors_professor_id_idx").on(table.professorId),
+  ],
+).enableRLS();
+
 export const professorStaffIdentities = pgTable(
   "professor_staff_identities",
   {
