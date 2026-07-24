@@ -6,6 +6,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -248,6 +249,8 @@ export function CanteenMenuView({
   commentBlocked = null,
 }: CanteenMenuViewProps) {
   const servedPeriods = useMemo(() => availableMealPeriods(items), [items]);
+  // Stabilize effect deps: items identity can churn without period set changing.
+  const servedPeriodsKey = servedPeriods.join(",");
   const showPeriodTabs = servedPeriods.length > 1;
 
   const [selection, setSelection] = useState<MenuSelection>(INITIAL_SELECTION);
@@ -258,6 +261,7 @@ export function CanteenMenuView({
     useState<Record<string, MenuItemVoteCounts>>(voteCounts);
   const [liveMyVotes, setLiveMyVotes] =
     useState<Record<string, VoteChoice>>(myVotes);
+  const periodInitializedRef = useRef(false);
 
   const menuDataByPeriod = useMemo(() => buildMenuDataByPeriod(items), [items]);
   const selectedSections = useMemo(() => {
@@ -272,17 +276,38 @@ export function CanteenMenuView({
   // not know at render time. Deriving these during render (e.g. a useState
   // initializer) would make the server and client markup disagree and trigger a
   // hydration mismatch, so we deliberately set them once on the client after
-  // mount.
+  // mount. Re-runs only when the *set* of served periods changes — not when the
+  // items array is merely a new reference with the same periods.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    const periods = (
+      servedPeriodsKey.length > 0 ? servedPeriodsKey.split(",") : []
+    ) as MealPeriod[];
     const now = new Date();
-    const preferred = defaultMealPeriodForHkt(now);
-    const period = pickInitialPeriod(servedPeriods, preferred);
-    setSelection((current) => ({ ...current, period, section: "all" }));
     const canHintDinner =
-      servedPeriods.includes("lunch") && servedPeriods.includes("dinner");
+      periods.includes("lunch") && periods.includes("dinner");
     setShowAfternoonHint(canHintDinner && shouldShowAfternoonHint(now));
-  }, [servedPeriods]);
+
+    setSelection((current) => {
+      if (!periodInitializedRef.current) {
+        periodInitializedRef.current = true;
+        const preferred = defaultMealPeriodForHkt(now);
+        return {
+          ...current,
+          period: pickInitialPeriod(periods, preferred),
+          section: "all",
+        };
+      }
+      if (periods.length > 0 && !periods.includes(current.period)) {
+        return {
+          ...current,
+          period: pickInitialPeriod(periods, current.period),
+          section: "all",
+        };
+      }
+      return current;
+    });
+  }, [servedPeriodsKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleVoteChange = useCallback(

@@ -180,6 +180,7 @@ export function MenuItemCommentPanel({
                         onChange={(e) => setEditDraft(e.target.value)}
                         maxLength={500}
                         rows={2}
+                        aria-label="编辑评论内容"
                         className="canteen-comment-input w-full"
                       />
                       <div className="flex gap-3">

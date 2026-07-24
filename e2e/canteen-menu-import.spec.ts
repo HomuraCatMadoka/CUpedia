@@ -49,7 +49,12 @@ test.describe("canteen menu OCR import", () => {
     const menuUrl = page.url();
     const canteenId = menuUrl.split("/").pop()!;
     await page.goto(`/canteen/${canteenId}`);
-    await page.getByRole("tab", { name: "午餐" }).click();
+    // Single-period menus hide 早/午/晚 tabs; only click when present.
+    const lunchTab = page.getByRole("tab", { name: "午餐" });
+    if (await lunchTab.count()) {
+      await lunchTab.click();
+    }
+    await page.getByRole("tab", { name: "菜单" }).click();
     await expect(
       page.getByRole("list").getByText("演示菜品A", { exact: true }),
     ).toBeVisible();

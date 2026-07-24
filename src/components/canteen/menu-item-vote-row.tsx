@@ -1,25 +1,17 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import type {
   CanteenMenuItem,
   MenuItemVoteCounts,
   VoteChoice,
 } from "@/lib/canteen-types";
-import { upsertDishVote } from "@/lib/canteen-vote-actions";
-import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
-import { DishVoteButtons } from "@/components/canteen/dish-vote-buttons";
-import { MealPeriodBadge } from "@/components/canteen/meal-period-badge";
-import { MenuItemCommentPanel } from "@/components/canteen/menu-item-comment-panel";
-import { MenuItemPrice } from "@/components/canteen/menu-item-price";
+import { DishSvgIcon } from "./dish-svg-icon";
+import { DishVoteButtons } from "./dish-vote-buttons";
+import { MealPeriodBadge } from "./meal-period-badge";
+import { MenuItemCommentPanel } from "./menu-item-comment-panel";
+import { MenuItemPrice } from "./menu-item-price";
+import { useDishVote } from "./use-dish-vote";
 import { cn } from "@/lib/utils";
-
-function voteErrorMessage(code: string): string {
-  if (code === "ANON_SESSION_REQUIRED") return "投票需允许 Cookie";
-  if (code === "USER_BANNED") return "账号已封禁，无法投票";
-  if (code === "RATE_LIMIT_EXCEEDED") return "操作太频繁，请稍后再试";
-  return "投票失败，请重试";
-}
 
 type MenuItemVoteRowProps = {
   item: CanteenMenuItem;
@@ -46,26 +38,11 @@ export function MenuItemVoteRow({
   initialCommentCount = 0,
   showPeriodBadge = true,
 }: MenuItemVoteRowProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  function handleVote(choice: "like" | "dislike") {
-    const nextVote: VoteChoice = myVote === choice ? null : choice;
-    const prevVote = myVote;
-
-    onVoteChange(item.id, prevVote, nextVote);
-    setError(null);
-
-    startTransition(async () => {
-      try {
-        await upsertDishVote(item.id, nextVote);
-      } catch (err) {
-        onVoteChange(item.id, nextVote, prevVote);
-        const code = err instanceof Error ? err.message : "VOTE_FAILED";
-        setError(voteErrorMessage(code));
-      }
-    });
-  }
+  const { error, pending, handleVote } = useDishVote(
+    item.id,
+    myVote,
+    onVoteChange,
+  );
 
   return (
     <li

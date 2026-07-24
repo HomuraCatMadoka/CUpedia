@@ -10,8 +10,16 @@ const DEMO_CANTEEN_URL = `/canteen/${CANTEEN_IDS.demo}`;
 
 async function selectLunch(page: Page) {
   const lunchTab = page.getByRole("tab", { name: "午餐" });
-  await lunchTab.click();
-  await expect(lunchTab).toHaveAttribute("aria-selected", "true");
+  if (await lunchTab.count()) {
+    await lunchTab.click();
+    await expect(lunchTab).toHaveAttribute("aria-selected", "true");
+  }
+  // Default view is 红榜; menu votes / svg icons live under 菜单.
+  await page.getByRole("tab", { name: "菜单" }).click();
+  await expect(page.getByRole("tab", { name: "菜单" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 }
 
 test.describe("canteen menu votes", () => {
