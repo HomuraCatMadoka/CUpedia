@@ -214,7 +214,7 @@ describe("canteen-import-actions (mock mode)", () => {
         tempId: "manual-1",
         name: "手工补录菜品",
         price: 16,
-        mealPeriod: "breakfast",
+        mealPeriods: ["breakfast"],
         sortOrder: 0,
       },
     ]);
@@ -223,8 +223,8 @@ describe("canteen-import-actions (mock mode)", () => {
     const menu = mockListMenuItems(CANTEEN_ID);
     expect(menu.some((item) => item.name === "手工补录菜品")).toBe(true);
     expect(
-      menu.find((item) => item.name === "手工补录菜品")?.mealPeriod,
-    ).toBe("breakfast");
+      menu.find((item) => item.name === "手工补录菜品")?.mealPeriods,
+    ).toEqual(["breakfast"]);
   });
 
   it("updates draft items and publishes to menu", async () => {
@@ -240,16 +240,16 @@ describe("canteen-import-actions (mock mode)", () => {
         tempId: "row-1",
         name: "校对后菜品",
         price: 30,
-        mealPeriod: "dinner",
+        mealPeriods: ["dinner"],
         sortOrder: 0,
       },
     ]);
-    expect(updated.items[0].mealPeriod).toBe("dinner");
+    expect(updated.items[0].mealPeriods).toEqual(["dinner"]);
 
     const created = await publishMenuImportDraft(CANTEEN_ID, draft.id);
     expect(created).toHaveLength(1);
     expect(created[0].name).toBe("校对后菜品");
-    expect(created[0].mealPeriod).toBe("dinner");
+    expect(created[0].mealPeriods).toEqual(["dinner"]);
 
     const menu = mockListMenuItems(CANTEEN_ID);
     expect(menu.some((item) => item.id === created[0].id)).toBe(true);
@@ -312,7 +312,7 @@ describe("canteen-import-actions (database mode)", () => {
             tempId: "row-0",
             name: "导入菜品甲",
             price: 15,
-            mealPeriod: "lunch",
+            mealPeriods: ["lunch"],
             sortOrder: 0,
           },
         ],

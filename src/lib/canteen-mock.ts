@@ -10,7 +10,8 @@ import type {
 } from "@/lib/canteen-types";
 import {
   ADMIN_DISH_COMMENT_LIST_LIMIT,
-  parseMealPeriod,
+  mealPeriodsFromRow,
+  primaryMealPeriodSortKey,
   validateAnnouncement,
   validateCanteenName,
   validateLocation,
@@ -18,7 +19,6 @@ import {
   validatePricingInput,
   validateSortOrder,
   validateSvgKey,
-  compareMealPeriods,
 } from "@/lib/canteen-types";
 import type {
   AdminAuditLog,
@@ -103,7 +103,7 @@ function seedState(): MockState {
           },
         ],
       },
-      mealPeriod: "breakfast",
+      mealPeriods: ["breakfast"],
       sortOrder: 0,
       svgKey: "default",
       createdAt: t,
@@ -124,7 +124,7 @@ function seedState(): MockState {
           },
         ],
       },
-      mealPeriod: "lunch",
+      mealPeriods: ["lunch"],
       sortOrder: 0,
       svgKey: "default",
       createdAt: t,
@@ -145,7 +145,7 @@ function seedState(): MockState {
           },
         ],
       },
-      mealPeriod: "dinner",
+      mealPeriods: ["dinner"],
       sortOrder: 0,
       svgKey: "default",
       createdAt: t,
@@ -183,7 +183,9 @@ export function mockListMenuItems(canteenId: string): CanteenMenuItem[] {
   return getState()
     .items.filter((i) => i.canteenId === canteenId)
     .sort((a, b) => {
-      const periodCmp = compareMealPeriods(a.mealPeriod, b.mealPeriod);
+      const periodCmp =
+        primaryMealPeriodSortKey(a.mealPeriods) -
+        primaryMealPeriodSortKey(b.mealPeriods);
       if (periodCmp !== 0) return periodCmp;
       if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
       return a.name.localeCompare(b.name);
@@ -245,14 +247,15 @@ export function mockCreateMenuItem(
     name: unknown;
     pricing?: unknown;
     price?: unknown;
+    mealPeriods?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
     svgKey?: unknown;
   },
 ): CanteenMenuItem {
   if (!mockGetCanteen(canteenId)) throw new Error("CANTEEN_NOT_FOUND");
-  const mealPeriod = parseMealPeriod(String(input.mealPeriod ?? "lunch"));
-  if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+  const mealPeriods = mealPeriodsFromRow(input as Record<string, unknown>);
+  if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
   const t = now();
   const priceOptions = validatePricingInput(input.pricing, input.price) ?? [];
   const row: CanteenMenuItem = {
@@ -268,7 +271,7 @@ export function mockCreateMenuItem(
               ...option,
             })),
           },
-    mealPeriod,
+    mealPeriods,
     sortOrder: validateSortOrder(input.sortOrder),
     svgKey: validateSvgKey(input.svgKey),
     createdAt: t,
@@ -285,6 +288,7 @@ export function mockUpdateMenuItem(
     name?: unknown;
     pricing?: unknown;
     price?: unknown;
+    mealPeriods?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
     svgKey?: unknown;
@@ -309,10 +313,10 @@ export function mockUpdateMenuItem(
             })),
           };
   }
-  if (input.mealPeriod !== undefined) {
-    const mp = parseMealPeriod(String(input.mealPeriod));
-    if (!mp) throw new Error("INVALID_MEAL_PERIOD");
-    row.mealPeriod = mp;
+  if (input.mealPeriods !== undefined || input.mealPeriod !== undefined) {
+    const mealPeriods = mealPeriodsFromRow(input as Record<string, unknown>);
+    if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
+    row.mealPeriods = mealPeriods;
   }
   if (input.sortOrder !== undefined)
     row.sortOrder = validateSortOrder(input.sortOrder);
@@ -719,7 +723,7 @@ export function mockPublishMenuImportDraft(
     mockCreateMenuItem(canteenId, {
       name: item.name,
       price: item.price,
-      mealPeriod: item.mealPeriod,
+      mealPeriods: item.mealPeriods,
       sortOrder: item.sortOrder,
     }),
   );

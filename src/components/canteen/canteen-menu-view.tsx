@@ -31,6 +31,8 @@ import {
   rankAvoidDishes,
   rankRecommendDishes,
 } from "@/lib/canteen-rankings";
+import { itemHasAllDay } from "@/lib/canteen-meal-periods";
+import { MEAL_PERIODS } from "@/lib/canteen-types";
 import {
   CanteenPeriodTabs,
   CanteenViewTabs,
@@ -87,7 +89,17 @@ function buildMenuDataByPeriod(items: CanteenMenuItem[]): MenuDataByPeriod {
   };
 
   for (const item of items) {
-    itemsByPeriod[item.mealPeriod].push(item);
+    if (itemHasAllDay(item.mealPeriods)) {
+      for (const period of MEAL_PERIODS) {
+        itemsByPeriod[period].push(item);
+      }
+      continue;
+    }
+    for (const period of MEAL_PERIODS) {
+      if (item.mealPeriods.includes(period)) {
+        itemsByPeriod[period].push(item);
+      }
+    }
   }
 
   return {

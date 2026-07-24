@@ -1,6 +1,6 @@
 import { inferDishSvgKeyFromName } from "@/lib/canteen-svg-keys";
 import {
-  compareMealPeriods,
+  primaryMealPeriodSortKey,
   type MealPeriod,
   type MenuSyncInput,
 } from "./canteen-types";
@@ -84,7 +84,7 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
           priceOptions: [
             { label: null, amountMinor, currency: "HKD", sortOrder: 0 },
           ],
-          mealPeriod,
+          mealPeriods: [mealPeriod],
           sortOrder: 0,
           svgKey: inferDishSvgKeyFromName(name),
         });
@@ -94,7 +94,8 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
 
   const sortedItems = [...items.values()].sort(
     (a, b) =>
-      compareMealPeriods(a.mealPeriod, b.mealPeriod) ||
+      primaryMealPeriodSortKey(a.mealPeriods) -
+        primaryMealPeriodSortKey(b.mealPeriods) ||
       a.name.localeCompare(b.name, "zh-HK"),
   );
   sortedItems.forEach((item, index) => {

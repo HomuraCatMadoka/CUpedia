@@ -52,7 +52,7 @@ const ITEM: CanteenMenuItem = {
       },
     ],
   },
-  mealPeriod: "lunch",
+  mealPeriods: ["lunch"],
   sortOrder: 0,
   svgKey: "default",
   createdAt: new Date(),

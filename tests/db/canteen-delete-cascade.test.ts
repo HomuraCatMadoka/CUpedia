@@ -39,7 +39,7 @@ describe.skipIf(!hasDb)("canteen menu item hard delete cascade", () => {
         canteenId,
         name: "级联测试菜品",
         price: 10,
-        mealPeriod: "lunch",
+        mealPeriods: ["lunch"],
         sortOrder: 0,
         svgKey: "default",
         createdAt: now,

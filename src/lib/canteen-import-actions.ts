@@ -211,7 +211,7 @@ export async function publishMenuImportDraft(
     const row = await createMenuItem(canteenId, {
       name: item.name,
       price: item.price,
-      mealPeriod: item.mealPeriod,
+      mealPeriods: item.mealPeriods,
       sortOrder: item.sortOrder,
     });
     created.push(row);

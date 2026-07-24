@@ -37,6 +37,7 @@ export async function POST(
     name?: unknown;
     pricing?: unknown;
     price?: unknown;
+    mealPeriods?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
     svgKey?: unknown;
@@ -49,6 +50,7 @@ export async function POST(
       name: input.name,
       pricing: input.pricing,
       price: input.price,
+      mealPeriods: input.mealPeriods,
       mealPeriod: input.mealPeriod,
       sortOrder: input.sortOrder,
       svgKey: input.svgKey,

@@ -23,7 +23,7 @@ const SAMPLE_JSON = `{
           { "label": "冻", "amountMinor": 1300, "currency": "HKD" }
         ]
       },
-      "mealPeriod": "lunch",
+      "mealPeriods": ["lunch"],
       "sortOrder": 0,
       "svgKey": "drink"
     }

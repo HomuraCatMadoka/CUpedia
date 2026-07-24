@@ -1122,8 +1122,17 @@ export const courseReviewLikes = pgTable(
 
 // ── Canteen subsystem (hard delete; no deletedAt — unlike wiki soft delete) ──
 
+/** Visible meal-period tabs (never includes allday). */
 export const MEAL_PERIODS = ["breakfast", "lunch", "dinner"] as const;
 export type MealPeriod = (typeof MEAL_PERIODS)[number];
+
+export const ALLDAY_MEAL_PERIOD = "allday" as const;
+/** Stored assignment values: specific periods and/or exclusive allday. */
+export const MEAL_PERIOD_VALUES = [
+  ...MEAL_PERIODS,
+  ALLDAY_MEAL_PERIOD,
+] as const;
+export type MealPeriodAssignment = (typeof MEAL_PERIOD_VALUES)[number];
 
 export const canteens = pgTable("canteens", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1144,7 +1153,10 @@ export const canteenMenuItems = pgTable(
       .references(() => canteens.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     price: integer("price"),
-    mealPeriod: text("meal_period").notNull().default("lunch"),
+    mealPeriods: text("meal_periods")
+      .array()
+      .notNull()
+      .default(sql`'{allday}'`),
     sortOrder: integer("sort_order").notNull().default(0),
     svgKey: text("svg_key").notNull().default("default"),
     externalSource: text("external_source"),
@@ -1156,10 +1168,6 @@ export const canteenMenuItems = pgTable(
   },
   (table) => [
     index("canteen_menu_items_canteen_id_idx").on(table.canteenId),
-    index("canteen_menu_items_canteen_meal_idx").on(
-      table.canteenId,
-      table.mealPeriod,
-    ),
     uniqueIndex("canteen_menu_items_external_identity_uidx")
       .on(table.canteenId, table.externalSource, table.externalKey)
       .where(

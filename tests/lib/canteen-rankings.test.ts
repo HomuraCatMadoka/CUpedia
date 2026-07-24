@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import type { CanteenMenuItem, MenuItemVoteCounts } from "@/lib/canteen-types";
+import type {
+  CanteenMenuItem,
+  MealPeriodAssignment,
+  MenuItemVoteCounts,
+} from "@/lib/canteen-types";
 import {
   availableMealPeriods,
   filterItemsByMealPeriod,
@@ -9,7 +13,7 @@ import {
 
 function item(
   id: string,
-  mealPeriod: CanteenMenuItem["mealPeriod"],
+  mealPeriods: MealPeriodAssignment | MealPeriodAssignment[],
   name = id,
 ): CanteenMenuItem {
   const t = new Date();
@@ -18,7 +22,7 @@ function item(
     canteenId: "c1",
     name,
     pricing: null,
-    mealPeriod,
+    mealPeriods: Array.isArray(mealPeriods) ? mealPeriods : [mealPeriods],
     sortOrder: 0,
     svgKey: "default",
     createdAt: t,
@@ -37,9 +41,31 @@ describe("availableMealPeriods", () => {
     ).toEqual(["lunch", "dinner"]);
   });
 
-  it("returns a single period for all-day / single-shift menus", () => {
+  it("returns a single period for single-shift menus", () => {
     expect(availableMealPeriods([item("a", "lunch"), item("b", "lunch")])).toEqual([
       "lunch",
+    ]);
+  });
+
+  it("ignores allday when deciding which tabs to show", () => {
+    expect(
+      availableMealPeriods([
+        item("dessert", "allday"),
+        item("rice", "lunch"),
+      ]),
+    ).toEqual(["lunch"]);
+  });
+
+  it("returns empty when every item is allday-only", () => {
+    expect(
+      availableMealPeriods([item("a", "allday"), item("b", "allday")]),
+    ).toEqual([]);
+  });
+
+  it("treats multi-period items as covering each specific period", () => {
+    expect(availableMealPeriods([item("x", ["lunch", "dinner"])])).toEqual([
+      "lunch",
+      "dinner",
     ]);
   });
 });
@@ -50,12 +76,16 @@ describe("filterItemsByMealPeriod", () => {
     item("b", "lunch"),
     item("c", "dinner"),
     item("d", "lunch"),
+    item("e", "allday"),
+    item("f", ["lunch", "dinner"]),
   ];
 
-  it("returns only items matching the selected period", () => {
+  it("returns items matching the selected period or allday", () => {
     expect(filterItemsByMealPeriod(items, "lunch").map((i) => i.id)).toEqual([
       "b",
       "d",
+      "e",
+      "f",
     ]);
   });
 });
