@@ -214,7 +214,7 @@ describe("CanteenMenuView", () => {
     });
   });
 
-  it("hides meal-period tabs when the store only serves one period", async () => {
+  it("shows only meal periods the store actually serves", async () => {
     render(
       <CanteenMenuView
         items={[item("ln-1", "lunch", "仅午餐")]}
@@ -226,11 +226,12 @@ describe("CanteenMenuView", () => {
     await waitFor(() => {
       expect(screen.getByText("仅午餐")).toBeTruthy();
     });
-    expect(screen.queryByRole("tablist", { name: "餐段" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "午餐" })).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "早餐" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "晚餐" })).toBeNull();
   });
 
-  it("only shows meal periods the store actually serves", async () => {
+  it("only shows meal periods the store actually serves when multiple", async () => {
     render(
       <CanteenMenuView
         items={[

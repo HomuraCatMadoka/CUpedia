@@ -12,11 +12,11 @@ export function CanteenPeriodTabs({
 }: {
   value: MealPeriod;
   onChange: (period: MealPeriod) => void;
-  /** Only periods this canteen actually serves. Empty / single → hide tablist. */
+  /** Only periods this canteen actually serves (hide breakfast/dinner if absent). */
   periods: MealPeriod[];
   className?: string;
 }) {
-  if (periods.length <= 1) return null;
+  if (periods.length === 0) return null;
 
   return (
     <div

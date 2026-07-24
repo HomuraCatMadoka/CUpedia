@@ -109,7 +109,7 @@ function buildMenuDataByPeriod(items: CanteenMenuItem[]): MenuDataByPeriod {
 const CanteenMenuContent = memo(function CanteenMenuContent({
   selection,
   menuDataByPeriod,
-  showPeriodTabs,
+  showPeriodBadge,
   liveVoteCounts,
   liveMyVotes,
   commentCounts,
@@ -119,7 +119,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
 }: {
   selection: MenuSelection;
   menuDataByPeriod: MenuDataByPeriod;
-  showPeriodTabs: boolean;
+  showPeriodBadge: boolean;
   liveVoteCounts: Record<string, MenuItemVoteCounts>;
   liveMyVotes: Record<string, VoteChoice>;
   commentCounts: Record<string, number>;
@@ -131,21 +131,8 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
     nextVote: VoteChoice,
   ) => void;
 }) {
-  const periodItems = useMemo(() => {
-    if (!showPeriodTabs) {
-      return [
-        ...menuDataByPeriod.breakfast.items,
-        ...menuDataByPeriod.lunch.items,
-        ...menuDataByPeriod.dinner.items,
-      ];
-    }
-    return menuDataByPeriod[selection.period].items;
-  }, [menuDataByPeriod, selection.period, showPeriodTabs]);
-
-  const menuSections = useMemo(() => {
-    if (!showPeriodTabs) return groupMenuItemsBySvgKey(periodItems);
-    return menuDataByPeriod[selection.period].sections;
-  }, [menuDataByPeriod, periodItems, selection.period, showPeriodTabs]);
+  const { items: periodItems, sections: menuSections } =
+    menuDataByPeriod[selection.period];
 
   const visibleSections = useMemo(() => {
     if (selection.section === "all") return menuSections;
@@ -208,7 +195,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
                   currentUserId={currentUserId}
                   commentBlocked={commentBlocked}
                   initialCommentCount={commentCounts[item.id] ?? 0}
-                  showPeriodBadge={showPeriodTabs}
+                  showPeriodBadge={showPeriodBadge}
                 />
               ))}
             </ul>
@@ -251,7 +238,7 @@ export function CanteenMenuView({
   const servedPeriods = useMemo(() => availableMealPeriods(items), [items]);
   // Stabilize effect deps: items identity can churn without period set changing.
   const servedPeriodsKey = servedPeriods.join(",");
-  const showPeriodTabs = servedPeriods.length > 1;
+  const showPeriodBadge = servedPeriods.length > 1;
 
   const [selection, setSelection] = useState<MenuSelection>(INITIAL_SELECTION);
   const deferredSelection = useDeferredValue(selection);
@@ -264,12 +251,7 @@ export function CanteenMenuView({
   const periodInitializedRef = useRef(false);
 
   const menuDataByPeriod = useMemo(() => buildMenuDataByPeriod(items), [items]);
-  const selectedSections = useMemo(() => {
-    if (!showPeriodTabs) {
-      return groupMenuItemsBySvgKey(items);
-    }
-    return menuDataByPeriod[selection.period].sections;
-  }, [items, menuDataByPeriod, selection.period, showPeriodTabs]);
+  const selectedSections = menuDataByPeriod[selection.period].sections;
 
   // Client-only meal-period init. defaultMealPeriodForHkt / shouldShowAfternoonHint
   // read the viewer's *current* Asia/Hong_Kong wall clock, which the server does
@@ -340,9 +322,7 @@ export function CanteenMenuView({
 
   function handleSectionChange(section: DishSvgKey | "all") {
     setSelection((current) => {
-      const sections = showPeriodTabs
-        ? menuDataByPeriod[current.period].sections
-        : groupMenuItemsBySvgKey(items);
+      const sections = menuDataByPeriod[current.period].sections;
       const isAvailable =
         section === "all" ||
         sections.some((candidate) => candidate.svgKey === section);
@@ -363,13 +343,11 @@ export function CanteenMenuView({
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
       <div className="sticky top-0 z-10 -mx-3 min-w-0 space-y-2 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-3 py-2 backdrop-blur-md sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
-        {showPeriodTabs ? (
-          <CanteenPeriodTabs
-            value={selection.period}
-            onChange={handlePeriodChange}
-            periods={servedPeriods}
-          />
-        ) : null}
+        <CanteenPeriodTabs
+          value={selection.period}
+          onChange={handlePeriodChange}
+          periods={servedPeriods}
+        />
         <CanteenViewTabs value={selection.view} onChange={handleViewChange} />
         {selection.view === "menu" && selectedSections.length > 1 ? (
           <div
@@ -429,7 +407,7 @@ export function CanteenMenuView({
         <CanteenMenuContent
           selection={deferredSelection}
           menuDataByPeriod={menuDataByPeriod}
-          showPeriodTabs={showPeriodTabs}
+          showPeriodBadge={showPeriodBadge}
           liveVoteCounts={liveVoteCounts}
           liveMyVotes={liveMyVotes}
           commentCounts={commentCounts}
