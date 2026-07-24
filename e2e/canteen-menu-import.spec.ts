@@ -43,16 +43,14 @@ test.describe("canteen menu OCR import", () => {
     await expect(firstDishName).toBeVisible({ timeout: 20_000 });
     await expect(firstDishName).toHaveValue("演示菜品A");
 
-    // OCR drafts default to 全天 (hides period tabs). Assign lunch while proofreading.
-    await ocrSection.locator("select").first().selectOption("lunch");
-
     await ocrSection.getByRole("button", { name: "发布到菜单" }).click();
     await expect(page.getByText("演示菜品A")).toBeVisible({ timeout: 15_000 });
 
     const menuUrl = page.url();
     const canteenId = menuUrl.split("/").pop()!;
     await page.goto(`/canteen/${canteenId}`);
-    await page.getByRole("tab", { name: "午餐" }).click();
+    // OCR drafts default to allday → no meal-period tabs when the canteen is all-day only.
+    await expect(page.getByRole("tab", { name: "午餐" })).toHaveCount(0);
     await page.getByRole("tab", { name: "菜单" }).click();
     await expect(
       page.getByRole("list").getByText("演示菜品A", { exact: true }),
