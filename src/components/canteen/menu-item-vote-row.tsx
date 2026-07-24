@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ThumbsDown, ThumbsUp } from "lucide-react";
 import type {
   CanteenMenuItem,
   MenuItemVoteCounts,
@@ -9,6 +8,7 @@ import type {
 } from "@/lib/canteen-types";
 import { upsertDishVote } from "@/lib/canteen-vote-actions";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
+import { DishVoteButtons } from "@/components/canteen/dish-vote-buttons";
 import { MealPeriodBadge } from "@/components/canteen/meal-period-badge";
 import { MenuItemCommentPanel } from "@/components/canteen/menu-item-comment-panel";
 import { MenuItemPrice } from "@/components/canteen/menu-item-price";
@@ -33,6 +33,7 @@ type MenuItemVoteRowProps = {
   currentUserId?: string | null;
   commentBlocked?: "banned" | null;
   initialCommentCount?: number;
+  showPeriodBadge?: boolean;
 };
 
 export function MenuItemVoteRow({
@@ -43,6 +44,7 @@ export function MenuItemVoteRow({
   currentUserId = null,
   commentBlocked = null,
   initialCommentCount = 0,
+  showPeriodBadge = true,
 }: MenuItemVoteRowProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -77,7 +79,9 @@ export function MenuItemVoteRow({
         <p className="min-w-0 break-words text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
           {item.name}
         </p>
-        <MealPeriodBadge period={item.mealPeriod} className="mt-0.5 sm:mt-1" />
+        {showPeriodBadge ? (
+          <MealPeriodBadge period={item.mealPeriod} className="mt-0.5 sm:mt-1" />
+        ) : null}
         {error ? (
           <p className="mt-1 text-xs text-red-700" role="alert">
             {error}
@@ -94,50 +98,13 @@ export function MenuItemVoteRow({
         pricing={item.pricing}
         className="shrink-0 self-center justify-end font-mono text-xs font-medium tabular-nums text-[var(--canteen-ink)] sm:max-w-52 sm:text-sm"
       />
-      <div
-        className="flex w-full shrink-0 items-center justify-end gap-1.5 sm:ml-0 sm:w-auto sm:gap-2"
-        role="group"
-        aria-label="投票"
-      >
-        <button
-          type="button"
-          aria-label="点赞"
-          aria-pressed={myVote === "like"}
-          disabled={pending}
-          onClick={() => handleVote("like")}
-          className={cn(
-            "canteen-vote-btn",
-            myVote === "like" && "canteen-vote-btn-like-on",
-          )}
-        >
-          <ThumbsUp
-            className="size-4 shrink-0"
-            strokeWidth={myVote === "like" ? 2.4 : 2}
-            aria-hidden
-          />
-          <span>赞</span>
-          <span className="font-mono tabular-nums">{counts.likes}</span>
-        </button>
-        <button
-          type="button"
-          aria-label="点踩"
-          aria-pressed={myVote === "dislike"}
-          disabled={pending}
-          onClick={() => handleVote("dislike")}
-          className={cn(
-            "canteen-vote-btn",
-            myVote === "dislike" && "canteen-vote-btn-dislike-on",
-          )}
-        >
-          <ThumbsDown
-            className="size-4 shrink-0"
-            strokeWidth={myVote === "dislike" ? 2.4 : 2}
-            aria-hidden
-          />
-          <span>踩</span>
-          <span className="font-mono tabular-nums">{counts.dislikes}</span>
-        </button>
-      </div>
+      <DishVoteButtons
+        counts={counts}
+        myVote={myVote}
+        pending={pending}
+        onVote={handleVote}
+        className="gap-1.5 sm:ml-0 sm:gap-2"
+      />
     </li>
   );
 }

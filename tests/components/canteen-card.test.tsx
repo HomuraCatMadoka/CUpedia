@@ -41,24 +41,24 @@ beforeEach(() => {
 });
 
 describe("CanteenCard", () => {
-  it("links to the canteen detail route", () => {
-    render(<CanteenCard canteen={CANTEEN} href="/canteen/c1" itemCount={12} />);
+  it("links to the canteen detail route without dish counts", () => {
+    render(<CanteenCard canteen={CANTEEN} href="/canteen/c1" />);
 
     const link = screen.getByRole("link", {
-      name: /演示食堂.*演示区域.*12 道菜/,
+      name: /演示食堂.*演示区域/,
     });
     expect(link.getAttribute("href")).toBe("/canteen/c1");
-    expect(screen.getByText("12")).toBeTruthy();
-    expect(screen.getByText("道菜")).toBeTruthy();
+    expect(screen.queryByText("道菜")).toBeNull();
+    expect(screen.queryByText("暂无菜单")).toBeNull();
   });
 
   it("shows pending feedback while navigating", () => {
     mockUseLinkStatus.mockReturnValue({ pending: true });
 
-    render(<CanteenCard canteen={CANTEEN} href="/canteen/c1" itemCount={12} />);
+    render(<CanteenCard canteen={CANTEEN} href="/canteen/c1" />);
 
     const link = screen.getByRole("link", {
-      name: /演示食堂.*演示区域.*12 道菜/,
+      name: /演示食堂.*演示区域/,
     });
     expect(link.querySelector('[aria-busy="true"]')).toBeTruthy();
     expect(link.querySelector(".animate-spin")).toBeTruthy();

@@ -3,11 +3,20 @@ import type {
   MealPeriod,
   MenuItemVoteCounts,
 } from "@/lib/canteen-types";
+import { MEAL_PERIODS } from "@/lib/canteen-types";
 
 export type RankedDish = {
   item: CanteenMenuItem;
   counts: MenuItemVoteCounts;
 };
+
+/** Meal periods that actually have dishes, in breakfast → lunch → dinner order. */
+export function availableMealPeriods(
+  items: CanteenMenuItem[],
+): MealPeriod[] {
+  const present = new Set(items.map((item) => item.mealPeriod));
+  return MEAL_PERIODS.filter((period) => present.has(period));
+}
 
 export function filterItemsByMealPeriod(
   items: CanteenMenuItem[],
@@ -23,7 +32,7 @@ function countsFor(
   return voteCounts[itemId] ?? { likes: 0, dislikes: 0 };
 }
 
-/** 大众推荐：likes DESC，同分按 likes − dislikes DESC。 */
+/** 红榜：likes DESC，同分按 likes − dislikes DESC。 */
 export function rankRecommendDishes(
   items: CanteenMenuItem[],
   voteCounts: Record<string, MenuItemVoteCounts>,
@@ -43,7 +52,7 @@ export function rankRecommendDishes(
     });
 }
 
-/** 大众避雷：dislikes DESC，同分按 dislikes − likes DESC。 */
+/** 黑榜：dislikes DESC，同分按 dislikes − likes DESC。 */
 export function rankAvoidDishes(
   items: CanteenMenuItem[],
   voteCounts: Record<string, MenuItemVoteCounts>,

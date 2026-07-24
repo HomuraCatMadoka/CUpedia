@@ -1,20 +1,23 @@
 "use client";
 
 import type { MealPeriod } from "@/lib/canteen-types";
-import { MEAL_PERIODS } from "@/lib/canteen-types";
 import { mealPeriodLabel } from "@/components/canteen/meal-period-badge";
 import { cn } from "@/lib/utils";
 
 export function CanteenPeriodTabs({
   value,
   onChange,
+  periods,
   className,
 }: {
   value: MealPeriod;
   onChange: (period: MealPeriod) => void;
+  /** Only periods this canteen actually serves. Empty / single → hide tablist. */
+  periods: MealPeriod[];
   className?: string;
 }) {
-  const periods: MealPeriod[] = [...MEAL_PERIODS];
+  if (periods.length <= 1) return null;
+
   return (
     <div
       role="tablist"
@@ -49,9 +52,21 @@ export function CanteenPeriodTabs({
 export type CanteenViewMode = "menu" | "recommend" | "avoid";
 
 const VIEW_LABELS: Record<CanteenViewMode, string> = {
+  recommend: "红榜",
+  avoid: "黑榜",
   menu: "菜单",
-  recommend: "大众推荐",
-  avoid: "大众避雷",
+};
+
+const VIEW_TAB_COLOR: Record<CanteenViewMode, string> = {
+  recommend: "text-red-600",
+  avoid: "text-black",
+  menu: "text-[var(--canteen-muted)]",
+};
+
+const VIEW_TAB_ACTIVE: Record<CanteenViewMode, string> = {
+  recommend: "text-red-600 underline",
+  avoid: "text-black underline",
+  menu: "text-[var(--canteen-purple)] underline",
 };
 
 export function CanteenViewTabs({
@@ -61,7 +76,7 @@ export function CanteenViewTabs({
   value: CanteenViewMode;
   onChange: (mode: CanteenViewMode) => void;
 }) {
-  const modes: CanteenViewMode[] = ["menu", "recommend", "avoid"];
+  const modes: CanteenViewMode[] = ["recommend", "avoid", "menu"];
   return (
     <div
       role="tablist"
@@ -77,9 +92,12 @@ export function CanteenViewTabs({
           onClick={() => onChange(mode)}
           className={cn(
             "min-h-11 touch-manipulation text-sm font-medium underline-offset-4 transition-colors",
-            value === mode
-              ? "text-[var(--canteen-purple)] underline"
-              : "text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]",
+            value === mode ? VIEW_TAB_ACTIVE[mode] : VIEW_TAB_COLOR[mode],
+            value !== mode &&
+              mode === "menu" &&
+              "hover:text-[var(--canteen-ink)]",
+            value !== mode && mode === "recommend" && "hover:text-red-700",
+            value !== mode && mode === "avoid" && "hover:text-neutral-800",
           )}
         >
           {VIEW_LABELS[mode]}
