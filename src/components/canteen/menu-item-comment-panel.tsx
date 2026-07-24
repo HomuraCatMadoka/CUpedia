@@ -125,47 +125,70 @@ export function MenuItemCommentPanel({
         type="button"
         aria-expanded={expanded}
         onClick={handleToggle}
-        className="mt-1 text-xs font-medium text-[var(--canteen-purple)] hover:underline"
+        className={cn(
+          "canteen-comment-toggle mt-1.5",
+          expanded && "canteen-comment-toggle-on",
+        )}
       >
-        评论 ({count})
+        评论{" "}
+        <span className="font-mono tabular-nums">{count}</span>
       </button>
 
       {expanded ? (
-        <div
-          className={cn(
-            "mt-2 space-y-3 rounded-lg border border-[var(--canteen-bamboo)]/25 bg-white/70 p-3",
-            pending && "opacity-80",
-          )}
-        >
+        <div className={cn("mt-2 space-y-3", pending && "opacity-80")}>
           {comments === null ? (
             <p className="text-sm text-[var(--canteen-muted)]">加载中…</p>
           ) : comments.length === 0 ? (
             <p className="text-sm text-[var(--canteen-muted)]">暂无评论</p>
           ) : (
-            <ul className="space-y-2" aria-label="菜品评论">
+            <ul
+              className="divide-y divide-[var(--canteen-line)] border-y border-[var(--canteen-line)]"
+              aria-label="菜品评论"
+            >
               {comments.map((comment) => (
-                <li
-                  key={comment.id}
-                  className="rounded-md border border-[var(--canteen-bamboo)]/15 bg-white/80 px-3 py-2 text-sm"
-                >
-                  <p className="font-medium text-[var(--canteen-ink)]">
-                    {comment.authorNickname}
-                  </p>
+                <li key={comment.id} className="py-2.5 text-sm">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="font-medium text-[var(--canteen-ink)]">
+                      {comment.authorNickname}
+                    </p>
+                    {currentUserId === comment.userId &&
+                    editingId !== comment.id ? (
+                      <div className="flex shrink-0 gap-2">
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => startEdit(comment)}
+                          className="text-xs text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]"
+                        >
+                          编辑
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pending}
+                          onClick={() => handleDelete(comment.id)}
+                          className="text-xs text-[var(--canteen-evening)] hover:underline"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
                   {editingId === comment.id ? (
-                    <div className="mt-1 space-y-2">
+                    <div className="mt-1.5 space-y-2">
                       <textarea
                         value={editDraft}
                         onChange={(e) => setEditDraft(e.target.value)}
                         maxLength={500}
                         rows={2}
-                        className="w-full rounded-md border border-[var(--canteen-bamboo)]/30 bg-white px-2 py-1 text-sm"
+                        aria-label="编辑评论内容"
+                        className="canteen-comment-input w-full"
                       />
-                      <div className="flex gap-2">
+                      <div className="flex gap-3">
                         <button
                           type="button"
                           disabled={pending}
                           onClick={() => handleUpdate(comment.id)}
-                          className="text-xs text-[var(--canteen-noon)] hover:underline"
+                          className="text-xs font-medium text-[var(--canteen-purple)] hover:underline"
                         >
                           保存
                         </button>
@@ -183,31 +206,10 @@ export function MenuItemCommentPanel({
                       </div>
                     </div>
                   ) : (
-                    <p className="mt-0.5 whitespace-pre-wrap break-words text-[var(--canteen-ink)]">
+                    <p className="mt-0.5 whitespace-pre-wrap break-words leading-relaxed text-[var(--canteen-ink)]/90">
                       {comment.content}
                     </p>
                   )}
-                  {currentUserId === comment.userId &&
-                  editingId !== comment.id ? (
-                    <div className="mt-1 flex gap-2">
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => startEdit(comment)}
-                        className="text-xs text-[var(--canteen-muted)] hover:underline"
-                      >
-                        编辑
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pending}
-                        onClick={() => handleDelete(comment.id)}
-                        className="text-xs text-red-600 hover:underline"
-                      >
-                        删除
-                      </button>
-                    </div>
-                  ) : null}
                 </li>
               ))}
             </ul>
@@ -218,22 +220,22 @@ export function MenuItemCommentPanel({
               账号已封禁，无法发表评论
             </p>
           ) : currentUserId ? (
-            <div className="space-y-2 border-t border-[var(--canteen-bamboo)]/15 pt-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 placeholder="写下你的短评…"
                 maxLength={500}
                 rows={2}
-                className="w-full rounded-md border border-[var(--canteen-bamboo)]/30 bg-white px-2 py-1 text-sm"
+                className="canteen-comment-input min-w-0 flex-1"
               />
               <button
                 type="button"
                 disabled={pending || !draft.trim()}
                 onClick={handleCreate}
-                className="border border-[var(--canteen-purple)]/35 bg-[var(--canteen-purple)]/10 px-3 py-1 text-xs font-medium text-[var(--canteen-purple)] disabled:opacity-50"
+                className="canteen-comment-submit shrink-0 disabled:opacity-40"
               >
-                发表评论
+                发表
               </button>
             </div>
           ) : (

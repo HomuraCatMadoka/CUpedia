@@ -85,9 +85,26 @@ afterEach(() => {
 });
 
 describe("CanteenMenuView", () => {
-  it("defaults to lunch tab at 12:00 HKT and filters by meal period", async () => {
+  it("defaults to 红榜 for the current meal period", async () => {
     render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
 
+    await waitFor(() => {
+      expect(screen.getByText("演示午餐")).toBeTruthy();
+    });
+    expect(
+      screen.getByRole("tab", { name: "红榜" }).getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(screen.queryByText("演示早餐")).toBeNull();
+  });
+
+  it("defaults to lunch period at 12:00 HKT and filters when opening 菜单", async () => {
+    render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("演示午餐")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "菜单" }));
     await waitFor(() => {
       expect(screen.getByText("演示午餐")).toBeTruthy();
     });
@@ -100,7 +117,7 @@ describe("CanteenMenuView", () => {
     expect(screen.queryByText("演示午餐")).toBeNull();
   });
 
-  it("defaults to breakfast tab before 11:30 HKT", async () => {
+  it("defaults to breakfast period before 11:30 HKT", async () => {
     setHktClock(10, 0);
     render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
 
@@ -110,7 +127,7 @@ describe("CanteenMenuView", () => {
     expect(screen.queryByText("演示午餐")).toBeNull();
   });
 
-  it("defaults to dinner tab from 17:30 HKT", async () => {
+  it("defaults to dinner period from 17:30 HKT", async () => {
     setHktClock(18, 0);
     render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
 
@@ -182,7 +199,59 @@ describe("CanteenMenuView", () => {
     });
   });
 
-  it("shows recommend ranking for current period only", async () => {
+  it("does not reserve blank space for afternoon hint on other tabs", async () => {
+    setHktClock(15, 0);
+    render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("status")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "早餐" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("status")).toBeNull();
+      expect(screen.getByText("演示早餐")).toBeTruthy();
+    });
+  });
+
+  it("shows only meal periods the store actually serves", async () => {
+    render(
+      <CanteenMenuView
+        items={[item("ln-1", "lunch", "仅午餐")]}
+        voteCounts={{}}
+        myVotes={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("仅午餐")).toBeTruthy();
+    });
+    expect(screen.getByRole("tab", { name: "午餐" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "早餐" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "晚餐" })).toBeNull();
+  });
+
+  it("only shows meal periods the store actually serves when multiple", async () => {
+    render(
+      <CanteenMenuView
+        items={[
+          item("ln-1", "lunch", "午市"),
+          item("dn-1", "dinner", "晚市"),
+        ]}
+        voteCounts={{}}
+        myVotes={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("午市")).toBeTruthy();
+    });
+    expect(screen.getByRole("tab", { name: "午餐" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "晚餐" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "早餐" })).toBeNull();
+  });
+
+  it("shows red ranking for current period only", async () => {
     render(
       <CanteenMenuView
         items={ITEMS}
@@ -196,18 +265,14 @@ describe("CanteenMenuView", () => {
 
     await waitFor(() => {
       expect(screen.getByText("演示午餐")).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
-    await waitFor(() => {
-      expect(screen.getByText("演示午餐")).toBeTruthy();
-      expect(screen.getByText(/赞 5/)).toBeTruthy();
+      expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain(
+        "5",
+      );
     });
     expect(screen.queryByText("演示早餐")).toBeNull();
-    expect(screen.queryByText(/赞 99/)).toBeNull();
   });
 
-  it("shows comments on recommend and avoid rankings", async () => {
+  it("shows comments and votes on red and black rankings", async () => {
     render(
       <CanteenMenuView
         items={ITEMS}
@@ -218,37 +283,30 @@ describe("CanteenMenuView", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText("演示午餐")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "点赞" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "点踩" })).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
+    fireEvent.click(screen.getByRole("tab", { name: "黑榜" }));
     await waitFor(() => {
       expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
-    });
-
-    fireEvent.click(screen.getByRole("tab", { name: "大众避雷" }));
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "评论 (4)" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "点赞" })).toBeTruthy();
     });
   });
 
-  it("shows empty state when period has no dishes", async () => {
-    render(
-      <CanteenMenuView
-        items={[item("ln-1", "lunch", "演示午餐")]}
-        voteCounts={{}}
-        myVotes={{}}
-      />,
-    );
+  it("orders view tabs as 红榜 / 黑榜 / 菜单", async () => {
+    render(<CanteenMenuView items={ITEMS} voteCounts={{}} myVotes={{}} />);
 
     await waitFor(() => {
       expect(screen.getByText("演示午餐")).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: "早餐" }));
-    await waitFor(() => {
-      expect(screen.getByText("该餐段暂无菜品")).toBeTruthy();
-    });
+    const viewTabs = screen.getByRole("tablist", { name: "视图" });
+    const labels = Array.from(viewTabs.querySelectorAll('[role="tab"]')).map(
+      (el) => el.textContent,
+    );
+    expect(labels).toEqual(["红榜", "黑榜", "菜单"]);
   });
 
   it("keeps vote state when switching view tabs", async () => {
@@ -263,8 +321,8 @@ describe("CanteenMenuView", () => {
       "1",
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: "大众推荐" }));
     fireEvent.click(screen.getByRole("tab", { name: "菜单" }));
+    fireEvent.click(screen.getByRole("tab", { name: "红榜" }));
 
     await waitFor(() => {
       expect(
@@ -284,6 +342,11 @@ describe("CanteenMenuView", () => {
     ];
     render(<CanteenMenuView items={mixed} voteCounts={{}} myVotes={{}} />);
 
+    await waitFor(() => {
+      expect(screen.getByText("叉烧饭")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "菜单" }));
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /饭类/ })).toBeTruthy();
     });
@@ -318,6 +381,11 @@ describe("CanteenMenuView", () => {
       <CanteenMenuView items={mixedPeriods} voteCounts={{}} myVotes={{}} />,
     );
 
+    await waitFor(() => {
+      expect(screen.getByText("午餐饭")).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "菜单" }));
     await waitFor(() => {
       expect(screen.getByText("午餐饭")).toBeTruthy();
     });

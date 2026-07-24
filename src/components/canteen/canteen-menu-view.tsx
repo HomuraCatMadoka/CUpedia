@@ -6,6 +6,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type {
@@ -25,7 +26,11 @@ import {
   type MenuSection,
 } from "@/lib/canteen-menu-sections";
 import type { DishSvgKey } from "@/lib/canteen-svg-keys";
-import { rankAvoidDishes, rankRecommendDishes } from "@/lib/canteen-rankings";
+import {
+  availableMealPeriods,
+  rankAvoidDishes,
+  rankRecommendDishes,
+} from "@/lib/canteen-rankings";
 import {
   CanteenPeriodTabs,
   CanteenViewTabs,
@@ -59,11 +64,20 @@ type MenuDataByPeriod = Record<MealPeriod, PeriodMenuData>;
 
 const INITIAL_SELECTION: MenuSelection = {
   period: "lunch",
-  view: "menu",
+  view: "recommend",
   section: "all",
 };
 
 const EMPTY_COMMENT_COUNTS: Record<string, number> = {};
+
+function pickInitialPeriod(
+  available: MealPeriod[],
+  preferred: MealPeriod,
+): MealPeriod {
+  if (available.length === 0) return preferred;
+  if (available.includes(preferred)) return preferred;
+  return available[0]!;
+}
 
 function buildMenuDataByPeriod(items: CanteenMenuItem[]): MenuDataByPeriod {
   const itemsByPeriod: Record<MealPeriod, CanteenMenuItem[]> = {
@@ -95,6 +109,7 @@ function buildMenuDataByPeriod(items: CanteenMenuItem[]): MenuDataByPeriod {
 const CanteenMenuContent = memo(function CanteenMenuContent({
   selection,
   menuDataByPeriod,
+  showPeriodBadge,
   liveVoteCounts,
   liveMyVotes,
   commentCounts,
@@ -104,6 +119,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
 }: {
   selection: MenuSelection;
   menuDataByPeriod: MenuDataByPeriod;
+  showPeriodBadge: boolean;
   liveVoteCounts: Record<string, MenuItemVoteCounts>;
   liveMyVotes: Record<string, VoteChoice>;
   commentCounts: Record<string, number>;
@@ -179,6 +195,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
                   currentUserId={currentUserId}
                   commentBlocked={commentBlocked}
                   initialCommentCount={commentCounts[item.id] ?? 0}
+                  showPeriodBadge={showPeriodBadge}
                 />
               ))}
             </ul>
@@ -190,7 +207,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
 
   const recommend = selection.view === "recommend";
   return (
-    <section aria-label={recommend ? "大众推荐榜" : "大众避雷榜"}>
+    <section aria-label={recommend ? "红榜" : "黑榜"}>
       <ul className="canteen-ledger">
         {ranked.map((entry, index) => (
           <CanteenRankingRow
@@ -198,6 +215,8 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
             rank={index + 1}
             entry={entry}
             emphasis={recommend ? "recommend" : "avoid"}
+            myVote={liveMyVotes[entry.item.id] ?? null}
+            onVoteChange={onVoteChange}
             currentUserId={currentUserId}
             commentBlocked={commentBlocked}
             initialCommentCount={commentCounts[entry.item.id] ?? 0}
@@ -216,6 +235,11 @@ export function CanteenMenuView({
   currentUserId = null,
   commentBlocked = null,
 }: CanteenMenuViewProps) {
+  const servedPeriods = useMemo(() => availableMealPeriods(items), [items]);
+  // Stabilize effect deps: items identity can churn without period set changing.
+  const servedPeriodsKey = servedPeriods.join(",");
+  const showPeriodBadge = servedPeriods.length > 1;
+
   const [selection, setSelection] = useState<MenuSelection>(INITIAL_SELECTION);
   const deferredSelection = useDeferredValue(selection);
   const isStale = selection !== deferredSelection;
@@ -224,6 +248,7 @@ export function CanteenMenuView({
     useState<Record<string, MenuItemVoteCounts>>(voteCounts);
   const [liveMyVotes, setLiveMyVotes] =
     useState<Record<string, VoteChoice>>(myVotes);
+  const periodInitializedRef = useRef(false);
 
   const menuDataByPeriod = useMemo(() => buildMenuDataByPeriod(items), [items]);
   const selectedSections = menuDataByPeriod[selection.period].sections;
@@ -233,15 +258,38 @@ export function CanteenMenuView({
   // not know at render time. Deriving these during render (e.g. a useState
   // initializer) would make the server and client markup disagree and trigger a
   // hydration mismatch, so we deliberately set them once on the client after
-  // mount. The empty deps array means this runs exactly once — no cascading
-  // re-render loop despite the set-state-in-effect rule.
+  // mount. Re-runs only when the *set* of served periods changes — not when the
+  // items array is merely a new reference with the same periods.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
+    const periods = (
+      servedPeriodsKey.length > 0 ? servedPeriodsKey.split(",") : []
+    ) as MealPeriod[];
     const now = new Date();
-    const period = defaultMealPeriodForHkt(now);
-    setSelection((current) => ({ ...current, period, section: "all" }));
-    setShowAfternoonHint(shouldShowAfternoonHint(now));
-  }, []);
+    const canHintDinner =
+      periods.includes("lunch") && periods.includes("dinner");
+    setShowAfternoonHint(canHintDinner && shouldShowAfternoonHint(now));
+
+    setSelection((current) => {
+      if (!periodInitializedRef.current) {
+        periodInitializedRef.current = true;
+        const preferred = defaultMealPeriodForHkt(now);
+        return {
+          ...current,
+          period: pickInitialPeriod(periods, preferred),
+          section: "all",
+        };
+      }
+      if (periods.length > 0 && !periods.includes(current.period)) {
+        return {
+          ...current,
+          period: pickInitialPeriod(periods, current.period),
+          section: "all",
+        };
+      }
+      return current;
+    });
+  }, [servedPeriodsKey]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleVoteChange = useCallback(
@@ -274,11 +322,10 @@ export function CanteenMenuView({
 
   function handleSectionChange(section: DishSvgKey | "all") {
     setSelection((current) => {
+      const sections = menuDataByPeriod[current.period].sections;
       const isAvailable =
         section === "all" ||
-        menuDataByPeriod[current.period].sections.some(
-          (candidate) => candidate.svgKey === section,
-        );
+        sections.some((candidate) => candidate.svgKey === section);
       return { ...current, section: isAvailable ? section : "all" };
     });
   }
@@ -291,66 +338,58 @@ export function CanteenMenuView({
     );
   }
 
+  const showHintNow = showAfternoonHint && selection.period === "lunch";
+
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
       <div className="sticky top-0 z-10 -mx-3 min-w-0 space-y-2 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-3 py-2 backdrop-blur-md sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
         <CanteenPeriodTabs
           value={selection.period}
           onChange={handlePeriodChange}
+          periods={servedPeriods}
         />
         <CanteenViewTabs value={selection.view} onChange={handleViewChange} />
-        {selection.view === "menu" ? (
+        {selection.view === "menu" && selectedSections.length > 1 ? (
           <div
-            className="min-h-9 min-w-0"
-            aria-hidden={selectedSections.length <= 1}
+            role="toolbar"
+            aria-label="菜品分类"
+            className="flex min-w-0 max-w-full gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2"
           >
-            {selectedSections.length > 1 ? (
-              <div
-                role="toolbar"
-                aria-label="菜品分类"
-                className="flex min-w-0 max-w-full gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:gap-2"
+            <button
+              type="button"
+              aria-pressed={selection.section === "all"}
+              onClick={() => handleSectionChange("all")}
+              className={cn(
+                "canteen-section-chip shrink-0",
+                selection.section === "all" && "canteen-section-chip-on",
+              )}
+            >
+              全部
+            </button>
+            {selectedSections.map((section) => (
+              <button
+                key={section.svgKey}
+                type="button"
+                aria-pressed={selection.section === section.svgKey}
+                onClick={() => handleSectionChange(section.svgKey)}
+                className={cn(
+                  "canteen-section-chip shrink-0",
+                  selection.section === section.svgKey &&
+                    "canteen-section-chip-on",
+                )}
               >
-                <button
-                  type="button"
-                  aria-pressed={selection.section === "all"}
-                  onClick={() => handleSectionChange("all")}
-                  className={cn(
-                    "canteen-section-chip shrink-0",
-                    selection.section === "all" && "canteen-section-chip-on",
-                  )}
-                >
-                  全部
-                </button>
-                {selectedSections.map((section) => (
-                  <button
-                    key={section.svgKey}
-                    type="button"
-                    aria-pressed={selection.section === section.svgKey}
-                    onClick={() => handleSectionChange(section.svgKey)}
-                    className={cn(
-                      "canteen-section-chip shrink-0",
-                      selection.section === section.svgKey &&
-                        "canteen-section-chip-on",
-                    )}
-                  >
-                    {section.label}
-                    <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
-                      {section.items.length}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            ) : null}
+                {section.label}
+                <span className="font-mono tabular-nums text-[var(--canteen-muted)]">
+                  {section.items.length}
+                </span>
+              </button>
+            ))}
           </div>
         ) : null}
-        {showAfternoonHint ? (
+        {showHintNow ? (
           <p
             role="status"
-            aria-hidden={selection.period !== "lunch"}
-            className={cn(
-              "border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-2.5 py-1.5 text-xs text-[var(--canteen-ink)] sm:px-3 sm:py-2 sm:text-sm",
-              selection.period !== "lunch" && "invisible",
-            )}
+            className="border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-2.5 py-1.5 text-xs text-[var(--canteen-ink)] sm:px-3 sm:py-2 sm:text-sm"
           >
             {AFTERNOON_HINT_TEXT}
           </p>
@@ -368,6 +407,7 @@ export function CanteenMenuView({
         <CanteenMenuContent
           selection={deferredSelection}
           menuDataByPeriod={menuDataByPeriod}
+          showPeriodBadge={showPeriodBadge}
           liveVoteCounts={liveVoteCounts}
           liveMyVotes={liveMyVotes}
           commentCounts={commentCounts}

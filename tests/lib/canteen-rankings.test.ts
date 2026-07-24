@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { CanteenMenuItem, MenuItemVoteCounts } from "@/lib/canteen-types";
 import {
+  availableMealPeriods,
   filterItemsByMealPeriod,
   rankAvoidDishes,
   rankRecommendDishes,
@@ -24,6 +25,24 @@ function item(
     updatedAt: t,
   };
 }
+
+describe("availableMealPeriods", () => {
+  it("returns served periods in breakfast → lunch → dinner order", () => {
+    expect(
+      availableMealPeriods([
+        item("d", "dinner"),
+        item("l", "lunch"),
+        item("l2", "lunch"),
+      ]),
+    ).toEqual(["lunch", "dinner"]);
+  });
+
+  it("returns a single period for all-day / single-shift menus", () => {
+    expect(availableMealPeriods([item("a", "lunch"), item("b", "lunch")])).toEqual([
+      "lunch",
+    ]);
+  });
+});
 
 describe("filterItemsByMealPeriod", () => {
   const items = [

@@ -67,13 +67,13 @@
 .canteen-zone .canteen-vote-btn {
   display: inline-flex;
   min-height: 2.75rem;
-  min-width: 4.5rem;
+  min-width: 3.25rem;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.3rem;
   border: 1px solid var(--canteen-line);
   background: var(--canteen-surface);
-  padding: 0.35rem 0.75rem;
+  padding: 0.35rem 0.65rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--canteen-ink);
@@ -85,6 +85,95 @@
     box-shadow 160ms ease,
     transform 120ms ease;
   cursor: pointer;
+}
+
+.canteen-zone .canteen-comment-toggle {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--canteen-line);
+  background: var(--canteen-surface);
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--canteen-ink);
+  box-shadow: 0 1px 0 rgba(26, 35, 50, 0.06);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.canteen-zone .canteen-comment-toggle:hover {
+  border-color: rgba(42, 107, 120, 0.45);
+  background: #fff;
+  color: var(--canteen-purple);
+  box-shadow: 0 2px 0 rgba(26, 35, 50, 0.08);
+}
+
+.canteen-zone .canteen-comment-toggle:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.canteen-zone .canteen-comment-toggle:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
+}
+
+.canteen-zone .canteen-comment-toggle-on {
+  border-color: rgba(42, 107, 120, 0.4);
+  background: rgba(42, 107, 120, 0.12);
+  color: var(--canteen-purple);
+  box-shadow: none;
+}
+
+.canteen-zone .canteen-comment-input {
+  border: 1px solid var(--canteen-line);
+  background: var(--canteen-surface);
+  padding: 0.5rem 0.65rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--canteen-ink);
+  resize: vertical;
+}
+
+.canteen-zone .canteen-comment-input::placeholder {
+  color: var(--canteen-muted);
+}
+
+.canteen-zone .canteen-comment-input:focus {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 1px;
+}
+
+.canteen-zone .canteen-comment-submit {
+  display: inline-flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(42, 107, 120, 0.35);
+  background: rgba(42, 107, 120, 0.1);
+  padding: 0.35rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--canteen-purple);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.canteen-zone .canteen-comment-submit:hover:not(:disabled) {
+  background: rgba(42, 107, 120, 0.18);
+}
+
+.canteen-zone .canteen-comment-submit:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
 }
 
 .canteen-zone .canteen-vote-btn:hover:not(:disabled) {

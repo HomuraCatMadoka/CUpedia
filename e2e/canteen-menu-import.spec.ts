@@ -50,6 +50,7 @@ test.describe("canteen menu OCR import", () => {
     const canteenId = menuUrl.split("/").pop()!;
     await page.goto(`/canteen/${canteenId}`);
     await page.getByRole("tab", { name: "午餐" }).click();
+    await page.getByRole("tab", { name: "菜单" }).click();
     await expect(
       page.getByRole("list").getByText("演示菜品A", { exact: true }),
     ).toBeVisible();
