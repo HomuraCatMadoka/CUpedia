@@ -43,6 +43,9 @@ test.describe("canteen menu OCR import", () => {
     await expect(firstDishName).toBeVisible({ timeout: 20_000 });
     await expect(firstDishName).toHaveValue("演示菜品A");
 
+    // OCR drafts default to 全天 (hides period tabs). Assign lunch while proofreading.
+    await ocrSection.locator("select").first().selectOption("lunch");
+
     await ocrSection.getByRole("button", { name: "发布到菜单" }).click();
     await expect(page.getByText("演示菜品A")).toBeVisible({ timeout: 15_000 });
 
