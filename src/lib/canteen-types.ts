@@ -143,7 +143,7 @@ export function validateMenuImportDraftItems(
   });
 }
 
-export const MENU_JSON_MAX_ROWS = 200;
+export const MENU_JSON_MAX_ROWS = 500;
 
 export type MenuItemJsonImportRow = {
   name: string;

@@ -11,7 +11,7 @@
  */
 
 export const DANMAKU_SCROLL_DURATION_SEC = 12;
-export const DANMAKU_TRACK_COUNT = 4;
+export const DANMAKU_TRACK_COUNT = 5;
 export const DANMAKU_NEXT_GAP_SEC = 0.05;
 /** Beyond this horizon, skip flyover (still OK in the static list). */
 export const DANMAKU_MAX_SCHEDULE_SEC = 90;
@@ -113,7 +113,9 @@ export function scheduleScrollingDanmaku(
     if (bestTrack < 0 || bestStart > maxScheduleSec) continue;
 
     const visible =
-      bestStart + (duration * width) / (screenWidth + width) + DANMAKU_NEXT_GAP_SEC;
+      bestStart +
+      (duration * width) / (screenWidth + width) +
+      DANMAKU_NEXT_GAP_SEC;
     const end = bestStart + duration;
     lanes[bestTrack] = { width, visible, end };
     scheduled.push({

@@ -111,7 +111,19 @@ export function MyCourseReviewHistory({
             <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
               {item.academicYear && <span>{item.academicYear}</span>}
               {item.term && <span>· {item.term}</span>}
-              {item.professorName && <span>· {item.professorName}</span>}
+              {(item.professors?.length
+                ? item.professors
+                : item.professorName
+                  ? [
+                      {
+                        id: `legacy:${item.ratingId}`,
+                        name: item.professorName,
+                      },
+                    ]
+                  : []
+              ).map((professor) => (
+                <span key={professor.id}>· {professor.name}</span>
+              ))}
               <span>· {item.isAnonymous ? "匿名" : "署名"}</span>
             </div>
             {item.tags.length > 0 && (

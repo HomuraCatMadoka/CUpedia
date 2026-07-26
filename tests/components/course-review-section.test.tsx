@@ -10,8 +10,9 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { refresh, submit, toastSuccess } = vi.hoisted(() => ({
+const { refresh, search, submit, toastSuccess } = vi.hoisted(() => ({
   refresh: vi.fn(),
+  search: vi.fn(),
   submit: vi.fn(),
   toastSuccess: vi.fn(),
 }));
@@ -23,7 +24,7 @@ vi.mock("sonner", () => ({ toast: { success: toastSuccess } }));
 
 vi.mock("@/lib/course-review-actions", () => ({
   deleteCourseReviewSubmission: vi.fn(),
-  searchProfessors: vi.fn(),
+  searchProfessors: (...args: unknown[]) => search(...args),
   submitCourseReview: (...args: unknown[]) => submit(...args),
   toggleLike: vi.fn(),
 }));
@@ -107,6 +108,77 @@ describe("CourseReviewSection", () => {
       (screen.getByRole("button", { name: "提交测评" }) as HTMLButtonElement)
         .disabled,
     ).toBe(false);
+  });
+
+  it("按历史任教学期推荐并提交多位教授", async () => {
+    submit.mockResolvedValue({ newAchievementNotices: [] });
+    search.mockResolvedValue([
+      { id: "p1", name: "Professor CHAN" },
+      { id: "p3", name: "Professor LEE" },
+    ]);
+    const professorStats = ["Professor CHAN", "Professor WONG"].map(
+      (name, index) => ({
+        id: `p${index + 1}`,
+        name,
+        rating: null,
+        ratingCount: 0,
+        terms: [
+          {
+            academicYear: "2025-26",
+            term: "Term 1" as const,
+            rating: null,
+            ratingCount: 0,
+          },
+        ],
+        tags: [],
+      }),
+    );
+    render(
+      <CourseReviewSection
+        code="BIOL4310"
+        reviews={[]}
+        ratingState={RATING_STATE}
+        professorStats={professorStats}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    fireEvent.change(screen.getByLabelText("学年"), {
+      target: { value: "2025-26" },
+    });
+    fireEvent.change(screen.getByLabelText("学期"), {
+      target: { value: "Term 1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "+ Professor CHAN" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Professor WONG" }));
+    expect(screen.getByText("已选择 2 位教授")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "移除 Professor CHAN" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "移除 Professor WONG" }),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("搜索任课教授"), {
+      target: { value: "Professor" },
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Professor LEE" }),
+      ).toBeTruthy(),
+    );
+    expect(screen.queryByRole("button", { name: "Professor CHAN" })).toBeNull();
+    fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
+
+    await waitFor(() =>
+      expect(submit).toHaveBeenCalledWith(
+        "BIOL4310",
+        expect.objectContaining({ professorIds: ["p1", "p2"] }),
+      ),
+    );
   });
 
   it("首次满足成就条件时立即提示可以领取", async () => {

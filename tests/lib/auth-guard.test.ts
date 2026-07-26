@@ -33,7 +33,11 @@ vi.mock("@/db", () => ({
   },
 }));
 
-import { requireAuth } from "@/lib/auth-guard";
+import {
+  requireAuth,
+  getOptionalUser,
+  getSessionVoterUser,
+} from "@/lib/auth-guard";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -44,6 +48,12 @@ describe("requireAuth", () => {
     mockGetSession.mockResolvedValue(null);
     await expect(requireAuth()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/login");
+  });
+
+  it("propagates session lookup failures instead of treating them as logout", async () => {
+    mockGetSession.mockRejectedValue(new Error("FAILED_TO_GET_SESSION"));
+    await expect(requireAuth()).rejects.toThrow("FAILED_TO_GET_SESSION");
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
   it("redirects to /login when no user in session", async () => {
@@ -106,5 +116,15 @@ describe("requireAuth", () => {
     mockDbQueryUsers.findFirst.mockResolvedValue(undefined);
     await expect(requireAuth()).rejects.toThrow("NEXT_REDIRECT");
     expect(mockRedirect).toHaveBeenCalledWith("/login?error=banned");
+  });
+});
+
+describe("getOptionalUser / getSessionVoterUser", () => {
+  it("propagates session lookup failures instead of returning anonymous", async () => {
+    mockGetSession.mockRejectedValue(new Error("FAILED_TO_GET_SESSION"));
+    await expect(getOptionalUser()).rejects.toThrow("FAILED_TO_GET_SESSION");
+    await expect(getSessionVoterUser()).rejects.toThrow(
+      "FAILED_TO_GET_SESSION",
+    );
   });
 });

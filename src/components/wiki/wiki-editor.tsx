@@ -52,6 +52,7 @@ interface WikiEditorProps {
   initialTitle?: string;
   initialValue?: PlateValue;
   initialSlug?: string;
+  expectedVersion?: number;
   expectedUpdatedAt?: string;
   parentId?: string | null;
   linkablePages?: WikiLinkPage[];
@@ -62,6 +63,7 @@ interface WikiEditorProps {
     content: string;
     editSummary?: string;
     parentId?: string | null;
+    expectedVersion?: number;
     expectedUpdatedAt?: string;
     baseContent?: string;
   }) => Promise<{
@@ -69,10 +71,12 @@ interface WikiEditorProps {
     slug?: string;
     title?: string;
     content?: string;
+    version?: number;
     updatedAt?: string;
     conflict?: boolean;
     theirContent?: string;
     theirTitle?: string;
+    theirVersion?: number;
     theirUpdatedAt?: string;
   }>;
 }
@@ -90,6 +94,7 @@ export function WikiEditor({
   initialTitle = "",
   initialValue,
   initialSlug = "",
+  expectedVersion,
   expectedUpdatedAt,
   parentId,
   linkablePages = [],
@@ -122,7 +127,8 @@ export function WikiEditor({
   const router = useRouter();
   const { ensureContributorSetup } = useContributorSetup();
 
-  const baselineRef = useRef(expectedUpdatedAt);
+  const baselineRef = useRef(expectedVersion);
+  const updatedAtBaselineRef = useRef(expectedUpdatedAt);
   const baseContentRef = useRef(initialContent);
   const titleRef = useRef(initialTitle);
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
@@ -158,14 +164,15 @@ export function WikiEditor({
         content: next,
         editSummary: editSummary || undefined,
         parentId,
-        expectedUpdatedAt: baselineRef.current,
+        expectedVersion: baselineRef.current,
+        expectedUpdatedAt: updatedAtBaselineRef.current,
         baseContent: baseContentRef.current,
       });
       // Adopt the document the server actually persisted. A clean three-way
       // merge can contain blocks from another editor that were absent from
       // this request; using `next` here would leave both the visible editor and
       // the next merge ancestor stale.
-      if (result.updatedAt) {
+      if (result.version !== undefined && result.updatedAt) {
         const authoritativeContent = result.content ?? next;
         const authoritativeTitle = result.title ?? requestedTitle;
         const currentContent = JSON.stringify(editor.children);
@@ -176,7 +183,8 @@ export function WikiEditor({
         // Keeping the old optimistic-lock baseline in that case makes the
         // trailing autosave merge from the original common ancestor.
         if (!contentDrifted && !titleDrifted) {
-          baselineRef.current = result.updatedAt;
+          baselineRef.current = result.version;
+          updatedAtBaselineRef.current = result.updatedAt;
         }
         if (!contentDrifted) {
           baseContentRef.current = authoritativeContent;
@@ -197,7 +205,9 @@ export function WikiEditor({
         setConflict({
           theirContent: result.theirContent,
           theirTitle: result.theirTitle ?? title,
-          theirUpdatedAt: result.theirUpdatedAt ?? baselineRef.current ?? "",
+          theirVersion: result.theirVersion ?? baselineRef.current ?? 0,
+          theirUpdatedAt:
+            result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
         });
         // Surface as an error so autosave halts rather than dropping the edit.
         return { ...result, error: "EDIT_CONFLICT" };
@@ -234,7 +244,9 @@ export function WikiEditor({
       setConflict({
         theirContent: result.theirContent,
         theirTitle: result.theirTitle ?? title,
-        theirUpdatedAt: result.theirUpdatedAt ?? baselineRef.current ?? "",
+        theirVersion: result.theirVersion ?? baselineRef.current ?? 0,
+        theirUpdatedAt:
+          result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
       });
       setSubmitting(false);
       return;
@@ -257,7 +269,8 @@ export function WikiEditor({
     if (!conflict) return;
     if (!(await ensureContributorSetup())) return;
     setSubmitting(true);
-    baselineRef.current = conflict.theirUpdatedAt;
+    baselineRef.current = conflict.theirVersion;
+    updatedAtBaselineRef.current = conflict.theirUpdatedAt;
     const result = await save(JSON.stringify(editor.children));
     if (result.error) {
       setError(result.error);
@@ -271,7 +284,8 @@ export function WikiEditor({
   const discardMine = useCallback(() => {
     if (!conflict) return;
     editor.tf.setValue(parseContent(conflict.theirContent));
-    baselineRef.current = conflict.theirUpdatedAt;
+    baselineRef.current = conflict.theirVersion;
+    updatedAtBaselineRef.current = conflict.theirUpdatedAt;
     baseContentRef.current = conflict.theirContent;
     resetAutosaveBaseline(conflict.theirContent);
     setConflict(null);

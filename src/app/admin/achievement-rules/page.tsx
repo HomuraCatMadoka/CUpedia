@@ -17,12 +17,7 @@ export default async function AdminAchievementRulesPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-lg font-medium">专业成就规则</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          规则保存在数据库中；支持学科组组合、等级和前置称号。
-        </p>
-      </div>
+      <h1 className="text-lg font-medium">专业成就规则</h1>
       <AchievementCatalogImport />
       <section aria-labelledby="achievement-catalog-list">
         <h2 className="text-sm font-medium" id="achievement-catalog-list">
