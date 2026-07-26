@@ -159,6 +159,12 @@ test.describe("#94 editor reliability", () => {
   test("in-app navigation flushes a dirty draft before leaving", async ({
     page,
   }) => {
+    // Warm the reader cache before editing so this covers the real prefetch
+    // path: leaving the editor must not render the pre-save cached document.
+    await page.goto("/wiki/campus-life");
+    await expect(
+      page.getByRole("heading", { name: "Campus Life" }),
+    ).toBeVisible();
     await page.goto("/wiki/edit/campus-life");
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();

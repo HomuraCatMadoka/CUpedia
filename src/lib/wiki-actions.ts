@@ -410,6 +410,7 @@ export async function updateWikiPage(data: {
   try {
     const result = await writeWikiPage(normalizedData, user.id, existing.id);
     revalidateTag("wiki-pages", "max");
+    revalidatePath(`/wiki/${result.slug}`);
     if (titleChanged || slugChanged || parentChanged || iconChanged) {
       updateTag("wiki-pages");
     }
@@ -526,6 +527,7 @@ export async function updateWikiPage(data: {
         existing.id,
       );
       revalidateTag("wiki-pages", "max");
+      revalidatePath(`/wiki/${result.slug}`);
       if (
         mergedTitle !== latest.title ||
         slugMerge.value !== latest.slug ||

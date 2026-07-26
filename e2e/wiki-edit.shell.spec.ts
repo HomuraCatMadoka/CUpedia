@@ -450,7 +450,8 @@ test.describe("focused wiki editor shell", () => {
     );
 
     await editor.click();
-    await page.keyboard.press("Meta+z");
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+z`);
     await expect(editor).not.toContainText("beta");
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       "Responsive draft",

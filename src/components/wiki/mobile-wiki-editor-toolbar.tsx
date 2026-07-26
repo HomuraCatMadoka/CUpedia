@@ -597,7 +597,7 @@ export function MobileWikiEditorToolbar({
                     onClick={openBlock}
                     className="flex min-w-0 touch-manipulation items-center justify-center gap-0.5 px-0.5 text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 min-[376px]:gap-1 min-[376px]:px-1 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
-                    <span className="truncate text-[12px] font-medium min-[376px]:text-[13px] min-[393px]:text-[14px]">
+                    <span className="truncate text-[11px] font-medium min-[361px]:text-[12px] min-[376px]:text-[13px] min-[393px]:text-[14px]">
                       Turn into
                     </span>
                     <ChevronDownIcon

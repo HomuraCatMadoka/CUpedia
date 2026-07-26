@@ -211,7 +211,8 @@ test.describe("#203 contextual desktop toolbar", () => {
       .filter({ hasText: "New to CUHK?" });
     await selectText(page, "New to CUHK?");
     await page.keyboard.press("Escape");
-    await page.keyboard.press("Meta+d");
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+d`);
 
     await expect(matchingBlocks).toHaveCount(2);
     await expect(matchingBlocks.nth(1)).toHaveAttribute(
