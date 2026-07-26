@@ -73,12 +73,13 @@ export default async function CanteenMenuPage({
       subtitle={canteen.location ?? undefined}
       announcement={canteen.announcement}
     >
-      <div className="mb-10">
+      <div className="mb-3 sm:mb-8">
         <DanmakuBanner
           initialMessages={danmaku}
           viewer={danmakuViewer}
           title={`${canteen.name}本月弹幕`}
           apiPath={`/api/canteen/${id}/danmaku`}
+          trackCount={3}
         />
       </div>
       <CanteenMenuView

@@ -11,13 +11,15 @@ import {
   type Mock,
 } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useAutosave, type AutosaveSaveReason } from "@/hooks/use-autosave";
+import { useAutosave } from "@/hooks/use-autosave";
 
-type SaveResult = { error?: string; haltAutosave?: boolean };
-type SaveFn = (
-  content: string,
-  reason: AutosaveSaveReason,
-) => Promise<SaveResult>;
+type SaveResult = {
+  error?: string;
+  content?: string;
+  haltAutosave?: boolean;
+};
+type SaveReason = "autosave" | "explicit";
+type SaveFn = (content: string, reason?: SaveReason) => Promise<SaveResult>;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -69,11 +71,12 @@ describe("useAutosave", () => {
     expect(h.onSave).toHaveBeenCalledWith("abcd", "autosave");
   });
 
-  it("does not save when disabled (create mode)", async () => {
+  it("tracks a dirty draft without background saving when disabled (create mode)", async () => {
     const h = setup({ initial: "a", enabled: false });
 
     h.type("b");
     expect(h.result.current.isDirty).toBe(true);
+    expect(h.result.current.status).toBe("unsaved");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
@@ -106,7 +109,7 @@ describe("useAutosave", () => {
     expect(h.result.current.isDirty).toBe(true);
   });
 
-  it("reports a rejected save without resolving the explicit flush as saved", async () => {
+  it("reports a rejected save to an explicit flush caller", async () => {
     const onSave = vi
       .fn<SaveFn>()
       .mockRejectedValue(new Error("network offline"));
@@ -144,22 +147,16 @@ describe("useAutosave", () => {
     expect(onSave).toHaveBeenLastCalledWith("b", "autosave");
     expect(h.result.current.status).toBe("error");
 
-    // More typing must not produce a conflict request on every debounce tick.
     h.type("c");
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(onSave).toHaveBeenCalledTimes(1);
 
-    let outcome!: Awaited<ReturnType<typeof h.result.current.flush>>;
     await act(async () => {
-      outcome = await h.result.current.flush();
+      await h.result.current.flush();
     });
     expect(onSave).toHaveBeenNthCalledWith(2, "c", "explicit");
-    expect(outcome).toEqual({
-      status: "error",
-      error: "EDIT_CONFLICT",
-    });
   });
 
   it("does not save again when content reverts to the saved baseline", async () => {
@@ -180,16 +177,43 @@ describe("useAutosave", () => {
     expect(h.result.current.isDirty).toBe(false);
   });
 
-  it("an explicit save waits for the in-flight write and flushes the trailing edit", async () => {
+  it("adopts server-authoritative merged content as the saved baseline", async () => {
+    const adoptServerContent = vi.fn<(next: string) => void>();
+    const onSave = vi.fn<SaveFn>().mockImplementation(async () => {
+      adoptServerContent("merged-with-theirs");
+      return { content: "merged-with-theirs" };
+    });
+    const h = setup({ initial: "base", onSave });
+    adoptServerContent.mockImplementation(h.setContent);
+
+    h.type("mine");
+    await act(async () => {
+      await h.result.current.save();
+    });
+
+    expect(h.result.current.status).toBe("saved");
+    expect(h.result.current.isDirty).toBe(false);
+
+    // Re-notifying without a content change must compare against the server
+    // result, not the stale request body, and therefore issue no second write.
+    h.type("merged-with-theirs");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(h.result.current.isDirty).toBe(false);
+  });
+
+  it("waits for an in-flight write and flushes the trailing edit before explicit saves resolve", async () => {
     let resolveFirst!: (v: SaveResult) => void;
     let resolveSecond!: (v: SaveResult) => void;
     const onSave = vi
       .fn<SaveFn>()
       .mockImplementationOnce(
-        () => new Promise<SaveResult>((r) => (resolveFirst = r)),
+        () => new Promise<SaveResult>((resolve) => (resolveFirst = resolve)),
       )
       .mockImplementationOnce(
-        () => new Promise<SaveResult>((r) => (resolveSecond = r)),
+        () => new Promise<SaveResult>((resolve) => (resolveSecond = resolve)),
       );
     const h = setup({ initial: "a", onSave });
 
@@ -203,20 +227,20 @@ describe("useAutosave", () => {
     });
     expect(h.result.current.status).toBe("saving");
 
-    // The user keeps typing and explicitly saves while "b" is still in flight.
     h.type("c");
-    let explicitSave!: Promise<void>;
-    let explicitSaveResolved = false;
+    let second!: Promise<void>;
+    let secondResolved = false;
     act(() => {
-      explicitSave = h.result.current.save().then(() => {
-        explicitSaveResolved = true;
+      second = h.result.current.save().then(() => {
+        secondResolved = true;
       });
     });
     await act(async () => {
       await Promise.resolve();
     });
     expect(onSave).toHaveBeenCalledTimes(1);
-    expect(explicitSaveResolved).toBe(false);
+    expect(firstResolved).toBe(false);
+    expect(secondResolved).toBe(false);
 
     await act(async () => {
       resolveFirst({});
@@ -224,16 +248,15 @@ describe("useAutosave", () => {
       await Promise.resolve();
     });
 
-    // No overlap: "c" starts only after "b" completes, and the explicit save
-    // calls remain pending until that latest snapshot is persisted.
     expect(onSave).toHaveBeenNthCalledWith(2, "c", "explicit");
     expect(firstResolved).toBe(false);
-    expect(explicitSaveResolved).toBe(false);
+    expect(secondResolved).toBe(false);
 
     await act(async () => {
       resolveSecond({});
-      await Promise.all([first, explicitSave]);
+      await Promise.all([first, second]);
     });
+
     expect(h.result.current.status).toBe("saved");
     expect(h.result.current.isDirty).toBe(false);
   });

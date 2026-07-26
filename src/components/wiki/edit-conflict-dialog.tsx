@@ -9,6 +9,7 @@ export interface EditConflict {
   theirIcon: string | null;
   theirSlug: string;
   theirParentId: string | null;
+  theirVersion: number;
   theirUpdatedAt: string;
 }
 
@@ -56,7 +57,7 @@ export function EditConflictDialog({
             放弃我的改动，加载最新
           </Button>
           <Button onClick={onKeepMine} disabled={saving}>
-            {saving ? "保存中..." : "保留我的版本另存"}
+            {saving ? "保存中…" : "保留我的版本另存"}
           </Button>
         </div>
       </div>

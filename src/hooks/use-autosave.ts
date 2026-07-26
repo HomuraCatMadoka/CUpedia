@@ -123,8 +123,8 @@ export function useAutosave({
             setStatus("saved");
           } else {
             // Content drifted while this save was in flight; re-arm so a
-            // background autosave retries it. Explicit saves additionally
-            // drain this trailing snapshot before resolving.
+            // background save retries it. Explicit saves additionally drain
+            // the latest snapshot before resolving.
             armRef.current();
           }
           return null;
@@ -140,6 +140,7 @@ export function useAutosave({
             inFlightRef.current = null;
           }
         });
+
       inFlightRef.current = request;
       return request;
     },

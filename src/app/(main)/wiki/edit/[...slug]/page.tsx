@@ -58,6 +58,7 @@ export default async function EditWikiPage({
     content: string;
     editSummary?: string;
     parentId?: string | null;
+    expectedVersion?: number;
     expectedUpdatedAt?: string;
     baseTitle?: string;
     baseIcon?: string | null;
@@ -76,6 +77,7 @@ export default async function EditWikiPage({
         content: data.content,
         editSummary: data.editSummary,
         parentId: data.parentId,
+        expectedVersion: data.expectedVersion!,
         expectedUpdatedAt: data.expectedUpdatedAt!,
         baseTitle: data.baseTitle,
         baseIcon: data.baseIcon,
@@ -91,6 +93,7 @@ export default async function EditWikiPage({
           theirIcon: updated.theirIcon,
           theirSlug: updated.theirSlug,
           theirParentId: updated.theirParentId,
+          theirVersion: updated.theirVersion,
           theirUpdatedAt: updated.theirUpdatedAt,
         };
       }
@@ -100,6 +103,7 @@ export default async function EditWikiPage({
         title: updated.title,
         icon: updated.icon,
         content: updated.content,
+        version: updated.version,
         updatedAt: new Date(updated.updatedAt).toISOString(),
       };
     } catch (e: unknown) {
@@ -116,6 +120,7 @@ export default async function EditWikiPage({
       initialValue={stripTitleHeading(parseContent(page.content), page.title)}
       initialSlug={page.slug}
       parentId={page.parentId}
+      expectedVersion={page.version}
       expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
       linkablePages={pages
         .filter((p) => !excludedParentIds.has(p.id))

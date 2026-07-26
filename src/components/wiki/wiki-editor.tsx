@@ -81,6 +81,7 @@ interface WikiEditorProps {
   initialIcon?: string | null;
   initialValue?: PlateValue;
   initialSlug?: string;
+  expectedVersion?: number;
   expectedUpdatedAt?: string;
   parentId?: string | null;
   linkablePages?: WikiLinkPage[];
@@ -92,6 +93,7 @@ interface WikiEditorProps {
     content: string;
     editSummary?: string;
     parentId?: string | null;
+    expectedVersion?: number;
     expectedUpdatedAt?: string;
     baseTitle?: string;
     baseIcon?: string | null;
@@ -105,6 +107,7 @@ interface WikiEditorProps {
     title?: string;
     icon?: string | null;
     content?: string;
+    version?: number;
     updatedAt?: string;
     conflict?: boolean;
     theirContent?: string;
@@ -112,6 +115,7 @@ interface WikiEditorProps {
     theirIcon?: string | null;
     theirSlug?: string;
     theirParentId?: string | null;
+    theirVersion?: number;
     theirUpdatedAt?: string;
   }>;
 }
@@ -160,6 +164,7 @@ export function WikiEditor({
   initialIcon = null,
   initialValue,
   initialSlug = "",
+  expectedVersion,
   expectedUpdatedAt,
   parentId,
   linkablePages = [],
@@ -261,7 +266,8 @@ export function WikiEditor({
     }
   }, [initialSlug, mode, title]);
 
-  const baselineRef = useRef(expectedUpdatedAt);
+  const versionBaselineRef = useRef(expectedVersion);
+  const updatedAtBaselineRef = useRef(expectedUpdatedAt);
   const baseTitleRef = useRef(initialTitle);
   const baseIconRef = useRef(initialIcon);
   const baseContentRef = useRef(initialContent);
@@ -314,7 +320,8 @@ export function WikiEditor({
         content: next.content,
         editSummary: next.editSummary || undefined,
         parentId: next.parentId,
-        expectedUpdatedAt: baselineRef.current,
+        expectedVersion: versionBaselineRef.current,
+        expectedUpdatedAt: updatedAtBaselineRef.current,
         baseTitle: baseTitleRef.current,
         baseIcon: baseIconRef.current,
         baseContent: baseContentRef.current,
@@ -322,7 +329,7 @@ export function WikiEditor({
         baseParentId: baseParentIdRef.current,
       });
       // A clean three-way merge advances the baseline to the new revision.
-      if (result.updatedAt) {
+      if (result.version !== undefined && result.updatedAt) {
         const authoritativeTitle = result.title ?? next.title;
         const authoritativeIcon =
           result.icon !== undefined ? result.icon : next.icon;
@@ -358,7 +365,8 @@ export function WikiEditor({
           !parentDrifted &&
           !summaryDrifted
         ) {
-          baselineRef.current = result.updatedAt;
+          versionBaselineRef.current = result.version;
+          updatedAtBaselineRef.current = result.updatedAt;
         }
 
         if (!titleDrifted) {
@@ -381,7 +389,9 @@ export function WikiEditor({
 
         if (!contentDrifted) {
           baseContentRef.current = authoritativeContent;
-          editor.tf.setValue(parseContent(authoritativeContent));
+          if (authoritativeContent !== next.content) {
+            editor.tf.setValue(parseContent(authoritativeContent));
+          }
         } else if (authoritativeContent === next.content) {
           baseContentRef.current = authoritativeContent;
         }
@@ -428,7 +438,10 @@ export function WikiEditor({
             result.theirParentId !== undefined
               ? result.theirParentId
               : next.parentId,
-          theirUpdatedAt: result.theirUpdatedAt ?? baselineRef.current ?? "",
+          theirVersion:
+            result.theirVersion ?? versionBaselineRef.current ?? 0,
+          theirUpdatedAt:
+            result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
         };
         pendingConflictRef.current = nextConflict;
         if (reason === "explicit") {
@@ -568,7 +581,10 @@ export function WikiEditor({
           result.theirParentId !== undefined
             ? result.theirParentId
             : parentIdRef.current || null,
-        theirUpdatedAt: result.theirUpdatedAt ?? baselineRef.current ?? "",
+        theirVersion:
+          result.theirVersion ?? versionBaselineRef.current ?? 0,
+        theirUpdatedAt:
+          result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
       });
       setSubmitting(false);
       return;
@@ -612,7 +628,8 @@ export function WikiEditor({
     if (!conflict) return;
     if (!(await ensureContributorSetup())) return;
     setSubmitting(true);
-    baselineRef.current = conflict.theirUpdatedAt;
+    versionBaselineRef.current = conflict.theirVersion;
+    updatedAtBaselineRef.current = conflict.theirUpdatedAt;
     baseTitleRef.current = conflict.theirTitle;
     baseIconRef.current = conflict.theirIcon;
     baseSlugRef.current = conflict.theirSlug;
@@ -643,7 +660,8 @@ export function WikiEditor({
     iconRef.current = conflict.theirIcon;
     setTitle(conflict.theirTitle);
     setIcon(conflict.theirIcon);
-    baselineRef.current = conflict.theirUpdatedAt;
+    versionBaselineRef.current = conflict.theirVersion;
+    updatedAtBaselineRef.current = conflict.theirUpdatedAt;
     baseTitleRef.current = conflict.theirTitle;
     baseIconRef.current = conflict.theirIcon;
     baseContentRef.current = conflict.theirContent;

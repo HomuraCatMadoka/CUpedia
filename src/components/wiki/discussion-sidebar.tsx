@@ -36,7 +36,6 @@ export function DiscussionSidebar({
   const mobileLayout = useMediaQuery("(max-width: 767px)");
 
   const commentApi = editor.getApi(BaseCommentPlugin);
-  const commentTf = editor.getTransforms(BaseCommentPlugin);
 
   const activeDiscussion = activeCommentId
     ? discussions.find((d) => d.commentMarkId === activeCommentId)
@@ -69,7 +68,7 @@ export function DiscussionSidebar({
           refresh();
         }
       } catch {
-        commentTf.comment.removeMark();
+        clearDraftCommentMarks(editor);
         setActiveCommentId(null);
       } finally {
         submittingRef.current = false;
@@ -104,6 +103,7 @@ export function DiscussionSidebar({
           .map((d) => (
             <button
               key={d.id}
+              type="button"
               onClick={() => setActiveCommentId(d.commentMarkId)}
               className="min-h-11 rounded-lg border p-2 text-left text-sm hover:bg-muted/50"
             >

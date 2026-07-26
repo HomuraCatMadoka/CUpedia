@@ -8,10 +8,18 @@ const USER_EMAIL = "user@test.com";
 const USER_PASSWORD = "password123";
 const DEMO_CANTEEN_URL = `/canteen/${CANTEEN_IDS.demo}`;
 
-async function selectLunch(page: Page) {
-  const lunchTab = page.getByRole("tab", { name: "午餐" });
-  await lunchTab.click();
-  await expect(lunchTab).toHaveAttribute("aria-selected", "true");
+async function selectLunchMenu(page: Page) {
+  await page.getByRole("tab", { name: "午餐" }).click();
+  await expect(page.getByRole("tab", { name: "午餐" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  // Default view is 红榜; menu list / category icons live under 菜单.
+  await page.getByRole("tab", { name: "菜单" }).click();
+  await expect(page.getByRole("tab", { name: "菜单" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
 }
 
 test.describe("canteen menu votes", () => {
@@ -29,7 +37,7 @@ test.describe("canteen menu votes", () => {
     // Layout issues anon session cookie; warm it before voting.
     await page.goto("/canteen");
     await page.goto(DEMO_CANTEEN_URL);
-    await selectLunch(page);
+    await selectLunchMenu(page);
 
     const row = page.getByRole("listitem").filter({ hasText: "演示米饭" });
     const likeBtn = row.getByRole("button", { name: "点赞" });
@@ -38,7 +46,7 @@ test.describe("canteen menu votes", () => {
     await expect(likeBtn.getByText("1", { exact: true })).toBeVisible();
 
     await page.reload();
-    await selectLunch(page);
+    await selectLunchMenu(page);
     const likeAfterReload = page
       .getByRole("listitem")
       .filter({ hasText: "演示米饭" })
@@ -48,7 +56,7 @@ test.describe("canteen menu votes", () => {
 
   test("menu list renders category svg icons", async ({ page }) => {
     await page.goto(DEMO_CANTEEN_URL);
-    await selectLunch(page);
+    await selectLunchMenu(page);
     await expect(page.locator('[data-svg-key="rice"]').first()).toBeVisible();
     await expect(page.locator('[data-svg-key="bowl"]').first()).toBeVisible();
   });
@@ -58,7 +66,7 @@ test.describe("canteen menu votes", () => {
   }) => {
     await loginWithPassword(page, USER_EMAIL, USER_PASSWORD);
     await page.goto(DEMO_CANTEEN_URL);
-    await selectLunch(page);
+    await selectLunchMenu(page);
 
     const row = page.getByRole("listitem").filter({ hasText: "演示煲汤" });
     const likeBtn = row.getByRole("button", { name: "点赞" });
@@ -76,7 +84,7 @@ test.describe("canteen menu votes", () => {
 
     test("lunch menu vote controls are tappable", async ({ page }) => {
       await page.goto(DEMO_CANTEEN_URL);
-      await selectLunch(page);
+      await selectLunchMenu(page);
 
       const row = page.getByRole("listitem").filter({ hasText: "演示米饭" });
       const likeBtn = row.getByRole("button", { name: "点赞" });
