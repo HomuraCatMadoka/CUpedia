@@ -67,6 +67,8 @@ interface WikiEditorProps {
   }) => Promise<{
     error?: string;
     slug?: string;
+    title?: string;
+    content?: string;
     updatedAt?: string;
     conflict?: boolean;
     theirContent?: string;
@@ -122,6 +124,7 @@ export function WikiEditor({
 
   const baselineRef = useRef(expectedUpdatedAt);
   const baseContentRef = useRef(initialContent);
+  const titleRef = useRef(initialTitle);
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
 
   const editor = usePlateEditor({
@@ -148,19 +151,47 @@ export function WikiEditor({
 
   const save = useCallback(
     async (next: string) => {
+      const requestedTitle = title;
       const result = await onSubmit({
         slug,
-        title,
+        title: requestedTitle,
         content: next,
         editSummary: editSummary || undefined,
         parentId,
         expectedUpdatedAt: baselineRef.current,
         baseContent: baseContentRef.current,
       });
-      // A clean three-way merge advances the baseline to the new revision.
+      // Adopt the document the server actually persisted. A clean three-way
+      // merge can contain blocks from another editor that were absent from
+      // this request; using `next` here would leave both the visible editor and
+      // the next merge ancestor stale.
       if (result.updatedAt) {
-        baselineRef.current = result.updatedAt;
-        baseContentRef.current = next;
+        const authoritativeContent = result.content ?? next;
+        const authoritativeTitle = result.title ?? requestedTitle;
+        const currentContent = JSON.stringify(editor.children);
+        const contentDrifted = currentContent !== next;
+        const titleDrifted = titleRef.current !== requestedTitle;
+
+        // A response must not overwrite input made while it was in flight.
+        // Keeping the old optimistic-lock baseline in that case makes the
+        // trailing autosave merge from the original common ancestor.
+        if (!contentDrifted && !titleDrifted) {
+          baselineRef.current = result.updatedAt;
+        }
+        if (!contentDrifted) {
+          baseContentRef.current = authoritativeContent;
+          if (authoritativeContent !== next) {
+            editor.tf.setValue(parseContent(authoritativeContent));
+          }
+        } else if (authoritativeContent === next) {
+          baseContentRef.current = authoritativeContent;
+        }
+        if (!titleDrifted) {
+          titleRef.current = authoritativeTitle;
+          setTitle(authoritativeTitle);
+        }
+
+        return { ...result, content: authoritativeContent };
       }
       if (result.conflict && result.theirContent) {
         setConflict({
@@ -173,7 +204,7 @@ export function WikiEditor({
       }
       return result;
     },
-    [slug, title, editSummary, parentId, onSubmit],
+    [slug, title, editSummary, parentId, onSubmit, editor],
   );
 
   // Serialize the document only when a save fires, never per keystroke — the
@@ -276,7 +307,10 @@ export function WikiEditor({
         <Input
           id="title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => {
+            titleRef.current = e.target.value;
+            setTitle(e.target.value);
+          }}
           placeholder="页面标题"
         />
       </div>

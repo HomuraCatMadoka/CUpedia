@@ -13,7 +13,7 @@ import {
 import { renderHook, act } from "@testing-library/react";
 import { useAutosave } from "@/hooks/use-autosave";
 
-type SaveResult = { error?: string };
+type SaveResult = { error?: string; content?: string };
 type SaveFn = (content: string) => Promise<SaveResult>;
 
 beforeEach(() => {
@@ -118,6 +118,33 @@ describe("useAutosave", () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(h.onSave).toHaveBeenCalledTimes(1);
+    expect(h.result.current.isDirty).toBe(false);
+  });
+
+  it("adopts server-authoritative merged content as the saved baseline", async () => {
+    const adoptServerContent = vi.fn<(next: string) => void>();
+    const onSave = vi.fn<SaveFn>().mockImplementation(async () => {
+      adoptServerContent("merged-with-theirs");
+      return { content: "merged-with-theirs" };
+    });
+    const h = setup({ initial: "base", onSave });
+    adoptServerContent.mockImplementation(h.setContent);
+
+    h.type("mine");
+    await act(async () => {
+      await h.result.current.save();
+    });
+
+    expect(h.result.current.status).toBe("saved");
+    expect(h.result.current.isDirty).toBe(false);
+
+    // Re-notifying without a content change must compare against the server
+    // result, not the stale request body, and therefore issue no second write.
+    h.type("merged-with-theirs");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
     expect(h.result.current.isDirty).toBe(false);
   });
 

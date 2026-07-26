@@ -9,7 +9,11 @@ interface UseAutosaveOptions {
    * of stringifying the whole document.
    */
   getContent: () => string;
-  onSave: (content: string) => Promise<{ error?: string }>;
+  onSave: (content: string) => Promise<{
+    error?: string;
+    /** Server-authoritative content when a save performed a clean merge. */
+    content?: string;
+  }>;
   /** Content already persisted at mount; edits back to this are not dirty. */
   initialContent: string;
   enabled?: boolean;
@@ -89,8 +93,9 @@ export function useAutosave({
         setStatus("error");
         return;
       }
-      savedRef.current = next;
-      if (getContentRef.current() === next) {
+      const savedContent = result.content ?? next;
+      savedRef.current = savedContent;
+      if (getContentRef.current() === savedContent) {
         setStatus("saved");
       } else {
         // Content drifted while this save was in flight; re-arm so the trailing
