@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useRef,
   useState,
   useTransition,
 } from "react";
@@ -14,6 +15,9 @@ type DiscussionContextValue = {
   discussions: Discussion[];
   activeCommentId: string | null;
   setActiveCommentId: (id: string | null) => void;
+  panelOpen: boolean;
+  setPanelOpen: (open: boolean) => void;
+  panelTriggerRef: React.RefObject<HTMLButtonElement | null>;
   refresh: () => void;
   pending: boolean;
 };
@@ -31,8 +35,17 @@ export function DiscussionProvider({
 }) {
   const [discussions, setDiscussions] =
     useState<Discussion[]>(initialDiscussions);
-  const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
+  const [activeCommentId, setActiveCommentIdState] = useState<string | null>(
+    null,
+  );
+  const [panelOpen, setPanelOpen] = useState(false);
+  const panelTriggerRef = useRef<HTMLButtonElement>(null);
   const [pending, startTransition] = useTransition();
+
+  const setActiveCommentId = useCallback((id: string | null) => {
+    setActiveCommentIdState(id);
+    if (id) setPanelOpen(true);
+  }, []);
 
   const refresh = useCallback(() => {
     startTransition(async () => {
@@ -47,6 +60,9 @@ export function DiscussionProvider({
         discussions,
         activeCommentId,
         setActiveCommentId,
+        panelOpen,
+        setPanelOpen,
+        panelTriggerRef,
         refresh,
         pending,
       }}

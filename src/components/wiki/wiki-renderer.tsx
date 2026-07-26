@@ -3,6 +3,10 @@
 import { CommentInteractionLayer } from "@/components/wiki/comment-interaction-layer";
 import { DiscussionProvider } from "@/components/wiki/discussion-context";
 import { ReadOnlyDiscussionSidebar } from "@/components/wiki/read-only-discussion-sidebar";
+import {
+  DiscussionPanelTrigger,
+  ResponsiveDiscussionPanel,
+} from "@/components/wiki/responsive-discussion-panel";
 import type { Discussion } from "@/lib/discussion-actions";
 
 export function WikiRenderer({
@@ -19,9 +23,14 @@ export function WikiRenderer({
   return (
     <DiscussionProvider pageId={pageId ?? ""} initialDiscussions={discussions}>
       <CommentInteractionLayer />
+      <div className="mb-2 flex justify-end">
+        <DiscussionPanelTrigger hideWhenEmpty />
+      </div>
       <div className="flex gap-4">
         <div className="min-w-0 flex-1">{children}</div>
-        <ReadOnlyDiscussionSidebar canComment={canComment} />
+        <ResponsiveDiscussionPanel>
+          <ReadOnlyDiscussionSidebar canComment={canComment} />
+        </ResponsiveDiscussionPanel>
       </div>
     </DiscussionProvider>
   );

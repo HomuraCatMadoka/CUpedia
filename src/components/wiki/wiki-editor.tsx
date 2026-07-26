@@ -34,6 +34,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { DiscussionProvider } from "@/components/wiki/discussion-context";
 import { DiscussionSidebar } from "@/components/wiki/discussion-sidebar";
 import {
+  clearDraftCommentMarks,
+  serializeContentWithoutDraftComments,
+} from "@/components/wiki/discussion-draft";
+import {
+  DiscussionPanelTrigger,
+  ResponsiveDiscussionPanel,
+} from "@/components/wiki/responsive-discussion-panel";
+import {
   EditConflictDialog,
   type EditConflict,
 } from "@/components/wiki/edit-conflict-dialog";
@@ -181,6 +189,9 @@ export function WikiEditor({
     ],
     value: normalizedInitialValue,
   });
+  const cancelCommentDraft = useCallback(() => {
+    clearDraftCommentMarks(editor);
+  }, [editor]);
 
   const save = useCallback(
     async (nextSnapshot: string, reason: AutosaveSaveReason = "explicit") => {
@@ -203,7 +214,9 @@ export function WikiEditor({
       if (result.version !== undefined && result.updatedAt) {
         const authoritativeContent = result.content ?? next.content;
         const authoritativeTitle = result.title ?? next.title;
-        const currentContent = JSON.stringify(editor.children);
+        const currentContent = serializeContentWithoutDraftComments(
+          editor.children,
+        );
         const contentDrifted = currentContent !== next.content;
         const titleDrifted = titleRef.current !== next.title;
 
@@ -279,7 +292,7 @@ export function WikiEditor({
     getContent: () =>
       serializeDraftSnapshot({
         title: titleRef.current,
-        content: JSON.stringify(editor.children),
+        content: serializeContentWithoutDraftComments(editor.children),
       }),
     onSave: save,
     initialContent: initialDraftSnapshot,
@@ -327,7 +340,7 @@ export function WikiEditor({
     const result = await save(
       serializeDraftSnapshot({
         title: titleRef.current,
-        content: JSON.stringify(editor.children),
+        content: serializeContentWithoutDraftComments(editor.children),
       }),
     );
 
@@ -376,7 +389,7 @@ export function WikiEditor({
     const result = await save(
       serializeDraftSnapshot({
         title: titleRef.current,
-        content: JSON.stringify(editor.children),
+        content: serializeContentWithoutDraftComments(editor.children),
       }),
     );
     if (result.error) {
@@ -463,6 +476,11 @@ export function WikiEditor({
             pageId={pageId ?? ""}
             initialDiscussions={initialDiscussions}
           >
+            {mode === "edit" && pageId && (
+              <div className="mb-2 flex justify-end">
+                <DiscussionPanelTrigger />
+              </div>
+            )}
             <div className="flex gap-4">
               <div className="min-w-0 flex-1 rounded-lg border">
                 <EditorContainer>
@@ -470,9 +488,9 @@ export function WikiEditor({
                 </EditorContainer>
               </div>
               {mode === "edit" && pageId && (
-                <div className="w-72 shrink-0">
+                <ResponsiveDiscussionPanel onCancelDraft={cancelCommentDraft}>
                   <DiscussionSidebar pageId={pageId} />
-                </div>
+                </ResponsiveDiscussionPanel>
               )}
             </div>
           </DiscussionProvider>
@@ -526,7 +544,9 @@ export function WikiEditor({
       </div>
       {conflict && (
         <EditConflictDialog
-          mineText={extractText(JSON.stringify(editor.children))}
+          mineText={extractText(
+            serializeContentWithoutDraftComments(editor.children),
+          )}
           theirText={extractText(conflict.theirContent)}
           saving={submitting}
           onKeepMine={() => void keepMine()}
