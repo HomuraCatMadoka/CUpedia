@@ -122,7 +122,7 @@ test("editor uploads an image and saves it on a wiki page", async ({
   expect(url).toBeTruthy();
   remember(url!);
 
-  await page.getByRole("button", { name: "保存" }).click();
+  await page.getByRole("button", { name: "完成" }).click();
   await expect(page).toHaveURL(new RegExp(`/wiki/${slug}$`));
   await expect(
     page.getByRole("heading", { name: title, level: 1 }),

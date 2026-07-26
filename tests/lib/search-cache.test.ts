@@ -699,9 +699,8 @@ describe("search corpus refresh — structural vs content", () => {
     expect(mockRevalidateTag).not.toHaveBeenCalledWith(CORPUS, "max");
   });
 
-  // The merged (edit-conflict) branch gates on the *post-conflict* title, not
-  // the pre-conflict baseline: a body-only edit that survives a clean merge can
-  // still overwrite a concurrent rename, which the corpus must reflect.
+  // The merged (edit-conflict) branch performs a scalar three-way merge for the
+  // title alongside the Plate document merge.
   const PLATE = (t: string) =>
     JSON.stringify([{ type: "p", children: [{ text: t }] }]);
 
@@ -717,9 +716,7 @@ describe("search corpus refresh — structural vs content", () => {
     };
   }
 
-  it("merged branch refreshes the corpus when the clean-merge write reverts a concurrent rename", async () => {
-    // X edits body only (data.title unchanged), but Y renamed the page in the
-    // meantime; X's clean merge writes data.title, reverting Y's rename.
+  it("merged branch preserves a concurrent rename when the local title is unchanged", async () => {
     let call = 0;
     mockDbQueryWikiPages.findFirst.mockImplementation(async () => {
       call += 1;
@@ -741,22 +738,33 @@ describe("search corpus refresh — structural vs content", () => {
           };
     });
     let firstWrite = true;
+    let mergedWrite!: ReturnType<typeof makeWriteTx>;
     mockDbTransaction.mockImplementation(
       async (fn: (...a: unknown[]) => unknown) => {
-        const tx = firstWrite ? makeConflictTx() : makeWriteTx();
+        if (firstWrite) {
+          firstWrite = false;
+          return fn(makeConflictTx());
+        }
+        mergedWrite = makeWriteTx();
         firstWrite = false;
-        return fn(tx);
+        return fn(mergedWrite);
       },
     );
     await updateWikiPage({
       slug: "test",
       title: "A", // unchanged vs pre-conflict baseline, but differs from latest "B"
+      baseTitle: "A",
       content: PLATE("X body edit"),
       baseContent: PLATE("shared"),
       expectedVersion: 1,
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
-    expect(mockRevalidateTag).toHaveBeenCalledWith(CORPUS, "max");
+    const pageUpdate = mergedWrite.update.mock.results[0].value;
+    expect(pageUpdate.set).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ title: "B" }),
+    );
+    expect(mockRevalidateTag).not.toHaveBeenCalledWith(CORPUS, "max");
   });
 
   it("merged branch does NOT refresh the corpus when the concurrent edit left the title unchanged", async () => {
