@@ -45,6 +45,13 @@ async function selectText(page: Page, text: string) {
 }
 
 async function openDiscussion(page: Page) {
+  const panelTrigger = page.locator(
+    'button[aria-controls="wiki-discussion-panel"]',
+  );
+  await expect(panelTrigger).toBeVisible();
+  if ((await panelTrigger.getAttribute("aria-expanded")) === "false") {
+    await panelTrigger.click();
+  }
   await page.getByRole("button", { name: new RegExp(rootComment) }).click();
   await expect(page.getByText(rootComment, { exact: true })).toBeVisible();
 }
