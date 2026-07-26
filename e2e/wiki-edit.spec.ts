@@ -131,7 +131,7 @@ test.describe("#94 editor reliability", () => {
     await page.goto(`/wiki/edit/${slug}`);
     const marker = `first-save-${Date.now()}`;
     await typeMarker(page, marker);
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
 
     await expect(page).toHaveURL(new RegExp(`/wiki/${slug}$`), {
       timeout: 15_000,
@@ -149,7 +149,7 @@ test.describe("#94 editor reliability", () => {
 
     await updatePageAsLegacyDeployment(slug);
     await typeMarker(page, `new-client-${Date.now()}`);
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
 
     const dialog = page.getByRole("dialog", { name: "编辑冲突" });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
@@ -242,14 +242,14 @@ test.describe("#96 edit conflict merge flow", () => {
     // Session B commits an overlapping change, advancing the server copy past
     // A's baseline.
     await typeMarker(pageB, "BBB");
-    await pageB.getByRole("button", { name: "保存" }).click();
+    await pageB.getByRole("button", { name: "完成" }).click();
     await expect(pageB).toHaveURL(new RegExp(`/wiki/${CONFLICT_SLUG}$`), {
       timeout: 15_000,
     });
 
     // Session A edits the same region on its now-stale baseline and saves.
     await typeMarker(pageA, "ZZZ");
-    await pageA.getByRole("button", { name: "保存" }).click();
+    await pageA.getByRole("button", { name: "完成" }).click();
 
     // No silent loss + no bare "refresh" dead-end: the merge dialog shows.
     const dialog = pageA.getByRole("dialog", { name: "编辑冲突" });
