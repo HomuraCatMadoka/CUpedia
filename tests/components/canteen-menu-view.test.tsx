@@ -234,7 +234,10 @@ describe("CanteenMenuView", () => {
   it("only shows meal periods the store actually serves when multiple", async () => {
     render(
       <CanteenMenuView
-        items={[item("ln-1", "lunch", "午市"), item("dn-1", "dinner", "晚市")]}
+        items={[
+          item("ln-1", "lunch", "午市"),
+          item("dn-1", "dinner", "晚市"),
+        ]}
         voteCounts={{}}
         myVotes={{}}
       />,
@@ -262,9 +265,9 @@ describe("CanteenMenuView", () => {
 
     await waitFor(() => {
       expect(screen.getByText("演示午餐")).toBeTruthy();
-      expect(
-        screen.getByRole("button", { name: "点赞" }).textContent,
-      ).toContain("5");
+      expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain(
+        "5",
+      );
     });
     expect(screen.queryByText("演示早餐")).toBeNull();
   });

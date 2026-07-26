@@ -38,9 +38,9 @@ describe("availableMealPeriods", () => {
   });
 
   it("returns a single period for all-day / single-shift menus", () => {
-    expect(
-      availableMealPeriods([item("a", "lunch"), item("b", "lunch")]),
-    ).toEqual(["lunch"]);
+    expect(availableMealPeriods([item("a", "lunch"), item("b", "lunch")])).toEqual([
+      "lunch",
+    ]);
   });
 });
 

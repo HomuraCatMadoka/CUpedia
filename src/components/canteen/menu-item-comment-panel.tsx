@@ -130,7 +130,8 @@ export function MenuItemCommentPanel({
           expanded && "canteen-comment-toggle-on",
         )}
       >
-        评论 <span className="font-mono tabular-nums">{count}</span>
+        评论{" "}
+        <span className="font-mono tabular-nums">{count}</span>
       </button>
 
       {expanded ? (

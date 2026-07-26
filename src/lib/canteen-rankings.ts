@@ -11,7 +11,9 @@ export type RankedDish = {
 };
 
 /** Meal periods that actually have dishes, in breakfast → lunch → dinner order. */
-export function availableMealPeriods(items: CanteenMenuItem[]): MealPeriod[] {
+export function availableMealPeriods(
+  items: CanteenMenuItem[],
+): MealPeriod[] {
   const present = new Set(items.map((item) => item.mealPeriod));
   return MEAL_PERIODS.filter((period) => present.has(period));
 }

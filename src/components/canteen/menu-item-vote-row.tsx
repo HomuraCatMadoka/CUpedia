@@ -51,19 +51,13 @@ export function MenuItemVoteRow({
         pending && "opacity-80",
       )}
     >
-      <DishSvgIcon
-        svgKey={item.svgKey}
-        className="size-9 rounded-md sm:size-11"
-      />
+      <DishSvgIcon svgKey={item.svgKey} className="size-9 rounded-md sm:size-11" />
       <div className="min-w-0 flex-1">
         <p className="min-w-0 break-words text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
           {item.name}
         </p>
         {showPeriodBadge ? (
-          <MealPeriodBadge
-            period={item.mealPeriod}
-            className="mt-0.5 sm:mt-1"
-          />
+          <MealPeriodBadge period={item.mealPeriod} className="mt-0.5 sm:mt-1" />
         ) : null}
         {error ? (
           <p className="mt-1 text-xs text-red-700" role="alert">

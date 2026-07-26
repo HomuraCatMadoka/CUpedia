@@ -99,10 +99,12 @@ export function DanmakuBanner({
 
   /** Wider flyover on desktop → taller layer and more vertical track spacing. */
   const compact = trackCount <= 3;
-  const trackStepRem =
-    screenWidth >= 640 ? (compact ? 2.6 : 3.0) : compact ? 2.0 : 2.2;
-  const trackOffsetRem =
-    screenWidth >= 640 ? (compact ? 0.4 : 0.5) : compact ? 0.3 : 0.35;
+  const trackStepRem = screenWidth >= 640
+    ? compact ? 2.6 : 3.0
+    : compact ? 2.0 : 2.2;
+  const trackOffsetRem = screenWidth >= 640
+    ? compact ? 0.4 : 0.5
+    : compact ? 0.3 : 0.35;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -196,10 +198,7 @@ export function DanmakuBanner({
             后即可发送弹幕
           </p>
         ) : viewer.kind === "banned" ? (
-          <p
-            className="text-center text-xs text-destructive sm:text-sm"
-            role="alert"
-          >
+          <p className="text-center text-xs text-destructive sm:text-sm" role="alert">
             账号已封禁，无法发送弹幕
           </p>
         ) : (
@@ -223,10 +222,7 @@ export function DanmakuBanner({
           </form>
         )}
         {error ? (
-          <p
-            className="mt-1.5 text-center text-xs text-destructive sm:mt-2 sm:text-sm"
-            role="alert"
-          >
+          <p className="mt-1.5 text-center text-xs text-destructive sm:mt-2 sm:text-sm" role="alert">
             {error}
           </p>
         ) : null}
