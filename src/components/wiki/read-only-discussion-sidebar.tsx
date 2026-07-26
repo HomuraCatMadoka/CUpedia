@@ -17,7 +17,7 @@ export function ReadOnlyDiscussionSidebar({
 
   if (active) {
     return (
-      <div className="w-72 shrink-0">
+      <div>
         <DiscussionThread
           discussion={active}
           onUpdate={refresh}
@@ -31,7 +31,7 @@ export function ReadOnlyDiscussionSidebar({
   if (unresolved.length === 0) return null;
 
   return (
-    <div className="w-72 shrink-0">
+    <div>
       <div className="flex flex-col gap-2">
         <h3 className="text-xs font-medium text-muted-foreground">
           批注 ({unresolved.length})

@@ -26,30 +26,47 @@ export function FloatingToolbarButtons() {
       <ToolbarGroup>
         <TurnIntoToolbarButton />
 
-        <MarkToolbarButton nodeType={KEYS.bold} tooltip="Bold (⌘+B)">
+        <MarkToolbarButton
+          aria-label="粗体"
+          nodeType={KEYS.bold}
+          tooltip="粗体 (⌘+B)"
+        >
           <BoldIcon />
         </MarkToolbarButton>
 
-        <MarkToolbarButton nodeType={KEYS.italic} tooltip="Italic (⌘+I)">
+        <MarkToolbarButton
+          aria-label="斜体"
+          nodeType={KEYS.italic}
+          tooltip="斜体 (⌘+I)"
+        >
           <ItalicIcon />
         </MarkToolbarButton>
 
-        <MarkToolbarButton nodeType={KEYS.underline} tooltip="Underline (⌘+U)">
+        <MarkToolbarButton
+          aria-label="下划线"
+          nodeType={KEYS.underline}
+          tooltip="下划线 (⌘+U)"
+        >
           <UnderlineIcon />
         </MarkToolbarButton>
 
         <MarkToolbarButton
+          aria-label="删除线"
           nodeType={KEYS.strikethrough}
-          tooltip="Strikethrough (⌘+⇧+X)"
+          tooltip="删除线 (⌘+⇧+X)"
         >
           <StrikethroughIcon />
         </MarkToolbarButton>
 
-        <MarkToolbarButton nodeType={KEYS.code} tooltip="Code (⌘+E)">
+        <MarkToolbarButton
+          aria-label="行内代码"
+          nodeType={KEYS.code}
+          tooltip="行内代码 (⌘+E)"
+        >
           <Code2Icon />
         </MarkToolbarButton>
 
-        <LinkToolbarButton />
+        <LinkToolbarButton aria-label="链接" />
       </ToolbarGroup>
 
       <ToolbarSeparator />

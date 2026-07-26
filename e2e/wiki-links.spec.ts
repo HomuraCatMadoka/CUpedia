@@ -52,7 +52,12 @@ test.describe("#95 wiki links", () => {
     await page.goto("/wiki/new");
 
     await page.getByLabel("标题").fill(SOURCE_TITLE);
-    await page.getByLabel("URL 路径").fill(SOURCE_SLUG);
+    await page.getByRole("button", { name: "页面设置" }).click();
+    await page
+      .getByRole("dialog", { name: "页面设置" })
+      .getByLabel("URL 路径")
+      .fill(SOURCE_SLUG);
+    await page.keyboard.press("Escape");
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();

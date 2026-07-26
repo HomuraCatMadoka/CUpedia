@@ -8,6 +8,8 @@ const title = `Lifecycle ${slug}`;
 const first = `first-${randomUUID()}`;
 const second = `second-${randomUUID()}`;
 
+test.setTimeout(90_000);
+
 async function query<T extends Record<string, unknown>>(
   text: string,
   values: unknown[] = [],
@@ -52,16 +54,26 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
 
   await page.goto("/wiki/new");
   await page.getByLabel("标题").fill(title);
-  await page.getByLabel("URL 路径").fill(slug);
+  await page.getByRole("button", { name: "页面设置" }).click();
+  const createSettings = page.getByRole("dialog", { name: "页面设置" });
+  await createSettings.getByLabel("URL 路径").fill(slug);
+  await createSettings
+    .getByLabel("编辑摘要（可选）")
+    .fill("create lifecycle page");
+  await page.keyboard.press("Escape");
   await page.locator('[role="textbox"]').first().fill(first);
-  await page.getByLabel("编辑摘要（可选）").fill("create lifecycle page");
   await page.getByRole("button", { name: "保存" }).click();
   await page.waitForURL(`**/wiki/${slug}`);
   await expect(page.getByText(first)).toBeVisible();
   expect(await revisionCount()).toBe(1);
 
   await page.getByText("编辑", { exact: true }).click();
-  await page.getByLabel("编辑摘要（可选）").fill("edit lifecycle page");
+  await page.getByRole("button", { name: "页面设置" }).click();
+  await page
+    .getByRole("dialog", { name: "页面设置" })
+    .getByLabel("编辑摘要（可选）")
+    .fill("edit lifecycle page");
+  await page.keyboard.press("Escape");
   const editor = page.locator('[role="textbox"]').first();
   await editor.fill(`${first} ${second}`);
   await expect(page.getByText("未保存")).toBeVisible();

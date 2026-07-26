@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useRef, useTransition } from "react";
 import { nanoid } from "nanoid";
 import { useEditorRef } from "platejs/react";
 import {
@@ -12,13 +12,28 @@ import { useDiscussions } from "./discussion-context";
 import { DiscussionThread, NewCommentForm } from "./discussion-popover";
 import { createDiscussion } from "@/lib/discussion-actions";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
+import { clearDraftCommentMarks } from "@/components/wiki/discussion-draft";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
-export function DiscussionSidebar({ pageId }: { pageId: string }) {
-  const { discussions, activeCommentId, setActiveCommentId, refresh } =
-    useDiscussions();
+export function DiscussionSidebar({
+  compactComposer = false,
+  pageId,
+}: {
+  compactComposer?: boolean;
+  pageId: string;
+}) {
+  const {
+    discussions,
+    activeCommentId,
+    setActiveCommentId,
+    setPanelOpen,
+    refresh,
+  } = useDiscussions();
   const editor = useEditorRef();
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
+  const submittingRef = useRef(false);
   const { ensureContributorSetup } = useContributorSetup();
+  const mobileLayout = useMediaQuery("(max-width: 767px)");
 
   const commentApi = editor.getApi(BaseCommentPlugin);
   const commentTf = editor.getTransforms(BaseCommentPlugin);
@@ -30,10 +45,12 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
   const isDraft = activeCommentId === "draft";
 
   const handleNewComment = (content: string) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     startTransition(async () => {
-      if (!(await ensureContributorSetup())) return;
-      const commentId = nanoid(10);
       try {
+        if (!(await ensureContributorSetup())) return;
+        const commentId = nanoid(10);
         const id = await createDiscussion(pageId, commentId, content);
         if (id) {
           editor.tf.withoutNormalizing(() => {
@@ -54,18 +71,28 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
       } catch {
         commentTf.comment.removeMark();
         setActiveCommentId(null);
+      } finally {
+        submittingRef.current = false;
       }
     });
   };
 
   const handleCancelDraft = () => {
-    commentTf.comment.removeMark();
+    clearDraftCommentMarks(editor);
     setActiveCommentId(null);
+    setPanelOpen(false);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        editor.tf.focus({ retries: 5 });
+      });
+    });
   };
 
   if (!activeCommentId) {
     const unresolvedCount = discussions.filter((d) => !d.resolved).length;
-    if (unresolvedCount === 0) return null;
+    if (unresolvedCount === 0) {
+      return <p className="text-sm text-muted-foreground">暂无批注</p>;
+    }
 
     return (
       <div className="flex flex-col gap-2">
@@ -78,7 +105,7 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
             <button
               key={d.id}
               onClick={() => setActiveCommentId(d.commentMarkId)}
-              className="rounded-lg border p-2 text-left text-sm hover:bg-muted/50"
+              className="min-h-11 rounded-lg border p-2 text-left text-sm hover:bg-muted/50"
             >
               <span className="font-medium">{d.user.nickname}</span>
               <span className="text-muted-foreground">: {d.content}</span>
@@ -91,6 +118,8 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
   if (isDraft) {
     return (
       <NewCommentForm
+        compact={compactComposer && mobileLayout}
+        submitting={isPending}
         onSubmit={handleNewComment}
         onCancel={handleCancelDraft}
       />

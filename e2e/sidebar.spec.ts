@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 
 /**
@@ -28,6 +28,25 @@ function collectConsoleErrors(page: Page): string[] {
   });
   page.on("pageerror", (err) => errors.push(err.message));
   return errors;
+}
+
+async function longPress(locator: Locator) {
+  const bounds = await locator.boundingBox();
+  expect(bounds).not.toBeNull();
+  const point = {
+    clientX: bounds!.x + bounds!.width / 2,
+    clientY: bounds!.y + bounds!.height / 2,
+  };
+  const pointer = {
+    ...point,
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+    button: 0,
+    buttons: 1,
+  };
+
+  await locator.dispatchEvent("pointerdown", pointer);
 }
 
 test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
@@ -225,7 +244,7 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     await expect(trigger).toBeFocused();
   });
 
-  test("keeps tree state and closes after page navigation", async ({
+  test("uses a long-press page menu for subpages, then closes after navigation", async ({
     page,
   }) => {
     await page.goto("/wiki");
@@ -233,14 +252,25 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
 
     const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
     const campusRow = drawer
-      .getByRole("link", { name: "Campus Life" })
-      .locator("..");
-    const collapse = campusRow.getByRole("button", { name: "折叠" });
-    await collapse.click();
+      .getByRole("treeitem", { name: "Campus Life" })
+      .locator(":scope > .wiki-tree-row");
+
+    await expect(campusRow.getByRole("button")).toHaveCount(0);
+    await longPress(campusRow);
+    const pageActions = page.getByRole("dialog", {
+      name: "Campus Life 页面操作",
+    });
+    await expect(pageActions).toBeVisible();
+    await pageActions.getByRole("button", { name: "隐藏子页面" }).click();
     await expect(
       drawer.getByRole("link", { name: "Dining on Campus" }),
     ).toBeHidden();
-    await campusRow.getByRole("button", { name: "展开" }).click();
+
+    await longPress(campusRow);
+    await page
+      .getByRole("dialog", { name: "Campus Life 页面操作" })
+      .getByRole("button", { name: "显示子页面" })
+      .click();
     await expect(
       drawer.getByRole("link", { name: "Dining on Campus" }),
     ).toBeVisible();
@@ -295,9 +325,16 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
     await pendingTarget.click({ force: true, noWaitAfter: true });
     await expect(page).toHaveURL(/\/wiki\/getting-started$/);
     await expect(drawer).toBeHidden();
-    expect(
-      targetRequests.filter((request) => request.segmentPrefetch === "/_tree"),
-    ).toHaveLength(1);
+    // Next.js intentionally disables router prefetching in development. Keep
+    // the request-level assertion for the production E2E path; the dev-server
+    // path still verifies delayed feedback, click blocking, and route commit.
+    if (process.env.E2E_SERVER_MODE !== "dev") {
+      expect(
+        targetRequests.filter(
+          (request) => request.segmentPrefetch === "/_tree",
+        ),
+      ).toHaveLength(1);
+    }
     expect(
       targetRequests.filter((request) => !request.isPrefetch),
     ).toHaveLength(1);
@@ -325,13 +362,18 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
       .getByRole("link", { name: "Getting Started" })
       .click({ noWaitAfter: true });
     await expect(page).toHaveURL(/\/wiki\/getting-started$/);
-    expect(
-      await page.evaluate(
-        () =>
-          (window as typeof window & { __wikiPendingSeen?: boolean })
-            .__wikiPendingSeen,
-      ),
-    ).toBe(false);
+    // Development compilation can make an otherwise-fast route cross the
+    // 180ms production feedback threshold. Keep the timing assertion on the
+    // production E2E path while still verifying the completed navigation here.
+    if (process.env.E2E_SERVER_MODE !== "dev") {
+      expect(
+        await page.evaluate(
+          () =>
+            (window as typeof window & { __wikiPendingSeen?: boolean })
+              .__wikiPendingSeen,
+        ),
+      ).toBe(false);
+    }
   });
 });
 
@@ -358,6 +400,221 @@ test.describe("#98 desktop collapsed rail is unchanged", () => {
     const newPage = page.getByRole("link", NEW_PAGE);
     await expect(newPage).toHaveCount(1);
     await expect(newPage).toBeVisible();
+  });
+});
+
+test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test("indents each parent-child level by the same step", async ({ page }) => {
+    await page.goto("/wiki/campus-life/dining");
+
+    const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
+    const labelX = (name: string) =>
+      tree
+        .getByRole("link", { name, exact: true })
+        .getByText(name, { exact: true })
+        .evaluate((element) => element.getBoundingClientRect().x);
+
+    const rootX = await labelX("Campus Life");
+    const childX = await labelX("Dining on Campus");
+    const grandchildX = await labelX("United College Canteen");
+
+    expect(childX - rootX).toBeGreaterThanOrEqual(7);
+    expect(childX - rootX).toBeLessThanOrEqual(9);
+    expect(grandchildX - childX).toBeGreaterThanOrEqual(7);
+    expect(grandchildX - childX).toBeLessThanOrEqual(9);
+  });
+
+  test("matches Notion page-row geometry, palette, and disclosure treatment", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await page.goto("/wiki/edit/campus-life/dining");
+
+    const nav = page.getByRole("navigation", { name: "Wiki 页面树" });
+    const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
+    const campusRow = tree
+      .getByRole("treeitem", { name: "Campus Life" })
+      .locator(":scope > .wiki-tree-row");
+    const diningRow = tree
+      .getByRole("treeitem", { name: "Dining on Campus" })
+      .locator(":scope > .wiki-tree-row");
+    const campusLink = campusRow.getByRole("link", {
+      name: "Campus Life",
+      exact: true,
+    });
+    const diningLink = diningRow.getByRole("link", {
+      name: "Dining on Campus",
+      exact: true,
+    });
+
+    await expect(nav).toHaveCSS("background-color", "rgb(249, 248, 247)");
+    await expect(page.getByTestId("wiki-tree-section-label")).toHaveCSS(
+      "color",
+      "rgb(160, 158, 154)",
+    );
+    await expect(campusLink).toHaveCSS("color", "rgb(95, 94, 90)");
+    await expect(campusLink).toHaveCSS("font-weight", "500");
+    await expect(diningLink).toHaveCSS("color", "rgb(44, 44, 43)");
+    await expect(diningLink).toHaveCSS("font-weight", "600");
+    await expect(diningRow).toHaveCSS("background-color", "rgb(238, 236, 235)");
+
+    const activeBounds = await diningRow.boundingBox();
+    expect(activeBounds?.x).toBe(4);
+    expect(activeBounds?.width).toBe(251);
+    expect(activeBounds?.height).toBe(30);
+
+    const pageIcon = campusRow.getByTestId("wiki-page-icon");
+    const disclosure = campusRow.getByTestId("wiki-disclosure-icon");
+    await expect(pageIcon).toBeVisible();
+    await expect(disclosure).toHaveCSS("opacity", "0");
+    await expect(disclosure).toHaveClass(/lucide-chevron-down/);
+    await expect(disclosure).toHaveCSS("width", "16px");
+    await expect(disclosure).toHaveCSS("height", "16px");
+    await expect(disclosure).toHaveCSS("color", "rgb(95, 94, 90)");
+    await expect(disclosure).toHaveCSS("transition-duration", "0s");
+
+    const iconBounds = await pageIcon.boundingBox();
+    expect(iconBounds?.width).toBe(18);
+    expect(iconBounds?.height).toBe(18);
+
+    await campusRow.hover();
+    await expect(disclosure).toHaveCSS("opacity", "1");
+    await expect(pageIcon).toHaveCSS("opacity", "0");
+    await expect(campusRow.getByTestId("wiki-tree-row-actions")).toHaveCSS(
+      "opacity",
+      "1",
+    );
+
+    await campusRow
+      .getByRole("button", { name: "折叠 Campus Life", exact: true })
+      .click();
+    await expect(campusRow.getByTestId("wiki-disclosure-icon")).toHaveClass(
+      /lucide-chevron-right/,
+    );
+    await campusRow
+      .getByRole("button", { name: "展开 Campus Life", exact: true })
+      .click();
+    await expect(campusRow.getByTestId("wiki-disclosure-icon")).toHaveClass(
+      /lucide-chevron-down/,
+    );
+  });
+
+  test("offers real hover actions and carries the parent into a new child page", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await page.goto("/wiki/edit/campus-life/dining");
+
+    const campusRow = page
+      .getByRole("tree", { name: "Wiki 页面层级" })
+      .getByRole("treeitem", { name: "Campus Life" })
+      .locator(":scope > .wiki-tree-row");
+    await campusRow.hover();
+
+    const addChild = campusRow.getByRole("link", {
+      name: "在 Campus Life 下新建页面",
+    });
+    const pageMenu = campusRow.getByRole("button", {
+      name: "打开 Campus Life 的页面菜单",
+    });
+    await expect(addChild).toBeVisible();
+    await expect(pageMenu).toBeVisible();
+
+    await pageMenu.click();
+    await expect(
+      page.getByRole("menuitem", { name: "新建子页面" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "编辑页面" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    const childHref = await addChild.getAttribute("href");
+    expect(childHref).toMatch(/^\/wiki\/new\?parent=.+/);
+    await addChild.click();
+    await expect(page).toHaveURL(/\/wiki\/new\?parent=.+$/);
+
+    await page.getByRole("button", { name: "页面设置" }).click();
+    await expect(
+      page
+        .getByRole("dialog", { name: "页面设置" })
+        .getByRole("combobox", { name: "父页面" })
+        .locator("option:checked"),
+    ).toHaveText("Campus Life");
+  });
+
+  test("reveals the current page through collapsed ancestors without overwriting the preference", async ({
+    page,
+  }) => {
+    const errors = collectConsoleErrors(page);
+    await page.goto("/wiki/campus-life");
+
+    const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
+    const campus = tree.getByRole("treeitem", { name: "Campus Life" });
+    await campus
+      .getByRole("button", { name: "折叠 Campus Life", exact: true })
+      .click();
+    await expect(
+      tree.getByRole("link", { name: "Dining on Campus", exact: true }),
+    ).toBeHidden();
+
+    const storedPreference = await page.evaluate(() =>
+      localStorage.getItem("wiki-sidebar-collapsed"),
+    );
+    expect(storedPreference).not.toBeNull();
+
+    await page.goto("/wiki/campus-life/dining");
+
+    const reopenedTree = page.getByRole("tree", { name: "Wiki 页面层级" });
+    await expect(
+      reopenedTree.getByRole("link", {
+        name: "Dining on Campus",
+        exact: true,
+      }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      reopenedTree.getByRole("treeitem", { name: "Campus Life" }),
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      await page.evaluate(() => localStorage.getItem("wiki-sidebar-collapsed")),
+    ).toBe(storedPreference);
+    expect(errors.filter((error) => HYDRATION_RE.test(error))).toHaveLength(0);
+  });
+
+  test("exposes hierarchy semantics and supports standard tree arrow keys", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/campus-life/dining");
+
+    const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
+    const campus = tree.getByRole("treeitem", { name: "Campus Life" });
+    const dining = tree.getByRole("treeitem", { name: "Dining on Campus" });
+    const canteen = tree.getByRole("treeitem", {
+      name: "United College Canteen",
+    });
+
+    await expect(campus).toHaveAttribute("aria-level", "1");
+    await expect(dining).toHaveAttribute("aria-level", "2");
+    await expect(canteen).toHaveAttribute("aria-level", "3");
+
+    await campus.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(dining).toBeFocused();
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(dining).toBeFocused();
+    await expect(dining).toHaveAttribute("aria-expanded", "false");
+    await expect(canteen).toBeHidden();
+
+    await page.keyboard.press("ArrowRight");
+    await expect(dining).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("ArrowRight");
+    await expect(canteen).toBeFocused();
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(dining).toBeFocused();
   });
 });
 

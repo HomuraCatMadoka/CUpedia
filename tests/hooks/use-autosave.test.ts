@@ -11,10 +11,13 @@ import {
   type Mock,
 } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { useAutosave } from "@/hooks/use-autosave";
+import { useAutosave, type AutosaveSaveReason } from "@/hooks/use-autosave";
 
-type SaveResult = { error?: string };
-type SaveFn = (content: string) => Promise<SaveResult>;
+type SaveResult = { error?: string; haltAutosave?: boolean };
+type SaveFn = (
+  content: string,
+  reason: AutosaveSaveReason,
+) => Promise<SaveResult>;
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -44,7 +47,7 @@ describe("useAutosave", () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
 
-    expect(h.onSave).toHaveBeenCalledWith("b");
+    expect(h.onSave).toHaveBeenCalledWith("b", "autosave");
     expect(h.result.current.status).toBe("saved");
     expect(h.result.current.isDirty).toBe(false);
   });
@@ -63,14 +66,14 @@ describe("useAutosave", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
-    expect(h.onSave).toHaveBeenCalledWith("abcd");
+    expect(h.onSave).toHaveBeenCalledWith("abcd", "autosave");
   });
 
   it("does not save when disabled (create mode)", async () => {
     const h = setup({ initial: "a", enabled: false });
 
     h.type("b");
-    expect(h.result.current.isDirty).toBe(false);
+    expect(h.result.current.isDirty).toBe(true);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
@@ -85,7 +88,7 @@ describe("useAutosave", () => {
       await h.result.current.save();
     });
     expect(h.onSave).toHaveBeenCalledTimes(1);
-    expect(h.onSave).toHaveBeenCalledWith("b");
+    expect(h.onSave).toHaveBeenCalledWith("b", "explicit");
     expect(h.result.current.status).toBe("saved");
   });
 
@@ -101,6 +104,62 @@ describe("useAutosave", () => {
     });
     expect(h.result.current.status).toBe("error");
     expect(h.result.current.isDirty).toBe(true);
+  });
+
+  it("reports a rejected save without resolving the explicit flush as saved", async () => {
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockRejectedValue(new Error("network offline"));
+    const h = setup({ initial: "a", onSave });
+
+    h.type("b");
+    let outcome!: Awaited<ReturnType<typeof h.result.current.flush>>;
+    await act(async () => {
+      outcome = await h.result.current.flush();
+    });
+
+    expect(outcome).toEqual({
+      status: "error",
+      error: "network offline",
+    });
+    expect(h.result.current.status).toBe("error");
+    expect(h.result.current.isDirty).toBe(true);
+  });
+
+  it("halts background retries after a conflict until the user explicitly saves", async () => {
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockResolvedValueOnce({
+        error: "EDIT_CONFLICT",
+        haltAutosave: true,
+      })
+      .mockResolvedValueOnce({ error: "EDIT_CONFLICT" });
+    const h = setup({ initial: "a", onSave });
+
+    h.type("b");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenLastCalledWith("b", "autosave");
+    expect(h.result.current.status).toBe("error");
+
+    // More typing must not produce a conflict request on every debounce tick.
+    h.type("c");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(onSave).toHaveBeenCalledTimes(1);
+
+    let outcome!: Awaited<ReturnType<typeof h.result.current.flush>>;
+    await act(async () => {
+      outcome = await h.result.current.flush();
+    });
+    expect(onSave).toHaveBeenNthCalledWith(2, "c", "explicit");
+    expect(outcome).toEqual({
+      status: "error",
+      error: "EDIT_CONFLICT",
+    });
   });
 
   it("does not save again when content reverts to the saved baseline", async () => {
@@ -121,32 +180,62 @@ describe("useAutosave", () => {
     expect(h.result.current.isDirty).toBe(false);
   });
 
-  it("serializes overlapping saves instead of issuing concurrent requests", async () => {
-    let resolve!: (v: SaveResult) => void;
-    const onSave = vi.fn<SaveFn>(
-      () => new Promise<SaveResult>((r) => (resolve = r)),
-    );
+  it("an explicit save waits for the in-flight write and flushes the trailing edit", async () => {
+    let resolveFirst!: (v: SaveResult) => void;
+    let resolveSecond!: (v: SaveResult) => void;
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockImplementationOnce(
+        () => new Promise<SaveResult>((r) => (resolveFirst = r)),
+      )
+      .mockImplementationOnce(
+        () => new Promise<SaveResult>((r) => (resolveSecond = r)),
+      );
     const h = setup({ initial: "a", onSave });
 
     h.type("b");
-    // First flush starts and stays in flight.
     let first!: Promise<void>;
+    let firstResolved = false;
     act(() => {
-      first = h.result.current.save();
+      first = h.result.current.save().then(() => {
+        firstResolved = true;
+      });
     });
     expect(h.result.current.status).toBe("saving");
-    // A second trigger while in flight must be dropped, not run concurrently.
+
+    // The user keeps typing and explicitly saves while "b" is still in flight.
+    h.type("c");
+    let explicitSave!: Promise<void>;
+    let explicitSaveResolved = false;
+    act(() => {
+      explicitSave = h.result.current.save().then(() => {
+        explicitSaveResolved = true;
+      });
+    });
     await act(async () => {
-      await h.result.current.save();
+      await Promise.resolve();
     });
     expect(onSave).toHaveBeenCalledTimes(1);
+    expect(explicitSaveResolved).toBe(false);
 
     await act(async () => {
-      resolve({});
-      await first;
+      resolveFirst({});
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    // No overlap: "c" starts only after "b" completes, and the explicit save
+    // calls remain pending until that latest snapshot is persisted.
+    expect(onSave).toHaveBeenNthCalledWith(2, "c", "explicit");
+    expect(firstResolved).toBe(false);
+    expect(explicitSaveResolved).toBe(false);
+
+    await act(async () => {
+      resolveSecond({});
+      await Promise.all([first, explicitSave]);
     });
     expect(h.result.current.status).toBe("saved");
-    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(h.result.current.isDirty).toBe(false);
   });
 
   it("saves the trailing edit made while a save is in flight", async () => {
@@ -164,7 +253,7 @@ describe("useAutosave", () => {
     act(() => {
       first = h.result.current.save();
     });
-    expect(onSave).toHaveBeenNthCalledWith(1, "b");
+    expect(onSave).toHaveBeenNthCalledWith(1, "b", "explicit");
 
     // User keeps typing while "b" is still saving.
     h.type("c");
@@ -172,13 +261,9 @@ describe("useAutosave", () => {
       resolveFirst({});
       await first;
     });
-    // Trailing edit must not be silently lost.
-    expect(h.result.current.isDirty).toBe(true);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-    expect(onSave).toHaveBeenLastCalledWith("c");
+    // The explicit save itself drains the trailing edit; callers such as
+    // "完成" do not resolve while a newer snapshot is still pending.
+    expect(onSave).toHaveBeenLastCalledWith("c", "explicit");
     expect(h.result.current.status).toBe("saved");
     expect(h.result.current.isDirty).toBe(false);
   });
@@ -225,22 +310,16 @@ describe("useAutosave", () => {
     });
     expect(h.result.current.status).toBe("saving");
 
-    // Keep typing while "b" saves — content drifts to "c".
+    // Keep typing while "b" saves, then revert back to the in-flight snapshot
+    // before its request completes.
     h.type("c");
+    h.type("b");
     await act(async () => {
       resolveFirst({});
       await first;
     });
-    // "b" is saved; content is "c" so the hook re-armed and still reads saving.
-    expect(h.result.current.status).toBe("saving");
 
-    // User reverts the trailing edit back to the saved baseline "b".
-    h.type("b");
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
-    });
-
-    // Nothing left to save, and the status must converge instead of hanging.
+    // Nothing else is written, and the status converges instead of hanging.
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(h.result.current.status).toBe("saved");
     expect(h.result.current.isDirty).toBe(false);

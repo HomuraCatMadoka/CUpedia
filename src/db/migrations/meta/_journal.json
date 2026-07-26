@@ -344,6 +344,13 @@
       "when": 1784644477839,
       "tag": "0048_lazy_puppet_master",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1784959505606,
+      "tag": "0049_pale_ogun",
+      "breakpoints": true
     }
   ]
 }

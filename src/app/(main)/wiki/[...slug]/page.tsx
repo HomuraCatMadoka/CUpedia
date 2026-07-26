@@ -47,6 +47,15 @@ export default async function WikiReadPage({
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-6">
           <Breadcrumb pages={pages} currentSlug={slug} />
+          {page.icon && (
+            <div
+              data-testid="wiki-page-hero-icon"
+              aria-hidden="true"
+              className="mt-4 mb-2 text-[56px] leading-none md:text-[64px]"
+            >
+              {page.icon}
+            </div>
+          )}
           <div className="mt-2 flex items-start justify-between gap-4">
             <h1 className="text-2xl font-bold">{page.title}</h1>
             <div className="flex shrink-0 gap-2">

@@ -85,6 +85,7 @@ export const wikiPages = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     slug: text("slug").notNull().unique(),
     title: text("title").notNull(),
+    icon: text("icon"),
     content: text("content").notNull().default(""),
     parentId: uuid("parent_id").references((): AnyPgColumn => wikiPages.id),
     sortOrder: integer("sort_order").notNull().default(0),

@@ -111,6 +111,17 @@ export const insertBlock = (
   });
 };
 
+export const insertSlashCommandAfterBlock = (
+  editor: PlateEditor,
+  path: Path,
+) => {
+  editor.tf.insertNodes(editor.api.create.block({ type: KEYS.p }), {
+    at: PathApi.next(path),
+    select: true,
+  });
+  editor.tf.insertText("/");
+};
+
 export const insertInlineElement = (editor: PlateEditor, type: string) => {
   if (insertInlineMap[type]) {
     insertInlineMap[type](editor, type);

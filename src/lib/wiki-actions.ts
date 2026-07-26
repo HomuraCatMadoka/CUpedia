@@ -16,6 +16,7 @@ import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
 import { extractWikiLinkTargets } from "@/lib/wiki-links";
 import { threeWayMergeContent } from "@/lib/merge-content";
+import { normalizeWikiIcon } from "@/lib/wiki-icon";
 import {
   shouldCoalesceRevision,
   CREATE_REVISION_SUMMARY,
@@ -23,6 +24,42 @@ import {
 } from "@/lib/revision-coalescing";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+async function assertValidWikiParent(pageId: string, parentId: string) {
+  const result = await db.execute(sql`
+    WITH RECURSIVE descendants AS (
+      SELECT id
+      FROM wiki_pages
+      WHERE id = ${pageId} AND deleted_at IS NULL
+
+      UNION ALL
+
+      SELECT child.id
+      FROM wiki_pages child
+      JOIN descendants parent ON child.parent_id = parent.id
+      WHERE child.deleted_at IS NULL
+    )
+    SELECT
+      EXISTS (
+        SELECT 1
+        FROM wiki_pages
+        WHERE id = ${parentId} AND deleted_at IS NULL
+      ) AS "parentExists",
+      EXISTS (
+        SELECT 1
+        FROM descendants
+        WHERE id = ${parentId}
+      ) AS "createsCycle"
+  `);
+  const [status] = (result.rows ?? result) as {
+    parentExists: boolean;
+    createsCycle: boolean;
+  }[];
+
+  if (!status?.parentExists || status.createsCycle) {
+    throw new Error("Invalid parent page");
+  }
+}
 
 // The search corpus is its own cache bucket (ADR 0011). It is NOT tagged
 // `wiki-pages`, so a content-only edit no longer rebuilds the whole corpus on
@@ -114,6 +151,7 @@ const getCachedWikiTree = unstable_cache(
         id: wikiPages.id,
         slug: wikiPages.slug,
         title: wikiPages.title,
+        icon: wikiPages.icon,
         parentId: wikiPages.parentId,
         sortOrder: wikiPages.sortOrder,
       })
@@ -133,11 +171,13 @@ export async function getWikiTree() {
 export async function createWikiPage(data: {
   slug: string;
   title: string;
+  icon?: string | null;
   content: string;
   parentId?: string | null;
 }) {
   const user = await assertContributorComplete(await requireEditor());
   if (!validateSlug(data.slug)) throw new Error("Invalid slug");
+  const icon = normalizeWikiIcon(data.icon);
 
   const page = await db.transaction(async (tx) => {
     const now = new Date();
@@ -146,6 +186,7 @@ export async function createWikiPage(data: {
       .values({
         slug: data.slug,
         title: data.title,
+        icon,
         content: data.content,
         parentId: data.parentId ?? null,
         createdBy: user.id,
@@ -168,6 +209,7 @@ export async function createWikiPage(data: {
   });
 
   revalidateTag("wiki-pages", "max");
+  updateTag("wiki-pages");
   revalidateSearchCorpus();
   return page;
 }
@@ -177,18 +219,40 @@ export interface UpdateConflict {
   /** Server's current content, for manual resolution. */
   theirContent: string;
   theirTitle: string;
+  theirIcon: string | null;
+  theirSlug: string;
+  theirParentId: string | null;
   theirUpdatedAt: string;
 }
 
 type WikiPageRow = typeof wikiPages.$inferSelect;
 
+function mergeScalarField<T>(
+  base: T | undefined,
+  mine: T,
+  theirs: T,
+): { clean: true; value: T } | { clean: false } {
+  if (base === undefined) return { clean: true, value: mine };
+
+  const mineChanged = mine !== base;
+  const theirsChanged = theirs !== base;
+  if (!mineChanged && theirsChanged) return { clean: true, value: theirs };
+  if (mineChanged && theirsChanged && mine !== theirs) {
+    return { clean: false };
+  }
+  return { clean: true, value: mine };
+}
+
 /** Optimistically-locked write; throws EDIT_CONFLICT if updatedAt moved. */
 async function writeWikiPage(
   data: {
     slug: string;
+    nextSlug?: string;
     title: string;
+    icon?: string | null;
     content: string;
     editSummary?: string;
+    parentId?: string | null;
     expectedUpdatedAt: string;
   },
   userId: string,
@@ -198,6 +262,9 @@ async function writeWikiPage(
     const updated = await tx
       .update(wikiPages)
       .set({
+        ...(data.nextSlug !== undefined ? { slug: data.nextSlug } : {}),
+        ...(data.parentId !== undefined ? { parentId: data.parentId } : {}),
+        ...(data.icon !== undefined ? { icon: data.icon } : {}),
         title: data.title,
         content: data.content,
         updatedBy: userId,
@@ -254,29 +321,65 @@ async function writeWikiPage(
 }
 
 export async function updateWikiPage(data: {
+  pageId?: string;
   slug: string;
+  nextSlug?: string;
   title: string;
+  icon?: string | null;
   content: string;
   editSummary?: string;
+  parentId?: string | null;
   expectedUpdatedAt: string;
+  /** Ancestor title for scalar three-way merge. */
+  baseTitle?: string;
+  /** Ancestor page icon for scalar three-way merge. */
+  baseIcon?: string | null;
   /** Ancestor content (editor's initialValue) for three-way merge. */
   baseContent?: string;
+  /** Ancestor URL path for scalar three-way merge. */
+  baseSlug?: string;
+  /** Ancestor parent for scalar three-way merge. */
+  baseParentId?: string | null;
 }): Promise<WikiPageRow | UpdateConflict> {
   const user = await assertContributorComplete(await requireEditor());
+  const nextSlug = data.nextSlug ?? data.slug;
+  if (!validateSlug(nextSlug)) throw new Error("Invalid slug");
+  const normalizedIcon =
+    data.icon === undefined ? undefined : normalizeWikiIcon(data.icon);
+  const normalizedData =
+    data.icon === undefined ? data : { ...data, icon: normalizedIcon };
 
   const existing = await db.query.wikiPages.findFirst({
-    where: eq(wikiPages.slug, data.slug),
+    where: data.pageId
+      ? eq(wikiPages.id, data.pageId)
+      : eq(wikiPages.slug, data.slug),
   });
   if (!existing) throw new Error("Page not found");
+  if (data.parentId === existing.id) throw new Error("Invalid parent page");
+  if (
+    data.parentId !== undefined &&
+    data.parentId !== null &&
+    data.parentId !== existing.parentId
+  ) {
+    await assertValidWikiParent(existing.id, data.parentId);
+  }
 
   // A title change is structural (title carries search weight 2); a body-only
   // edit is not, so it rides the corpus's time-based refresh. See ADR 0011.
   const titleChanged = data.title !== existing.title;
+  const slugChanged = nextSlug !== existing.slug;
+  const parentChanged =
+    data.parentId !== undefined && data.parentId !== existing.parentId;
+  const iconChanged =
+    normalizedIcon !== undefined && normalizedIcon !== existing.icon;
 
   try {
-    const result = await writeWikiPage(data, user.id, existing.id);
+    const result = await writeWikiPage(normalizedData, user.id, existing.id);
     revalidateTag("wiki-pages", "max");
-    if (titleChanged) revalidateSearchCorpus();
+    if (titleChanged || slugChanged || parentChanged || iconChanged) {
+      updateTag("wiki-pages");
+    }
+    if (titleChanged || slugChanged) revalidateSearchCorpus();
     return result;
   } catch (e) {
     if (!(e instanceof Error && e.message === "EDIT_CONFLICT")) throw e;
@@ -289,6 +392,81 @@ export async function updateWikiPage(data: {
   const theirUpdatedAt = new Date(latest.updatedAt).toISOString();
 
   if (data.baseContent !== undefined) {
+    let mergedTitle = data.title;
+    if (data.baseTitle !== undefined) {
+      const mineChanged = data.title !== data.baseTitle;
+      const theirsChanged = latest.title !== data.baseTitle;
+
+      if (!mineChanged && theirsChanged) {
+        mergedTitle = latest.title;
+      } else if (mineChanged && theirsChanged && data.title !== latest.title) {
+        return {
+          conflict: true,
+          theirContent: latest.content,
+          theirTitle: latest.title,
+          theirIcon: latest.icon,
+          theirSlug: latest.slug,
+          theirParentId: latest.parentId,
+          theirUpdatedAt,
+        };
+      }
+    }
+
+    const slugMerge = mergeScalarField(data.baseSlug, nextSlug, latest.slug);
+    if (!slugMerge.clean) {
+      return {
+        conflict: true,
+        theirContent: latest.content,
+        theirTitle: latest.title,
+        theirIcon: latest.icon,
+        theirSlug: latest.slug,
+        theirParentId: latest.parentId,
+        theirUpdatedAt,
+      };
+    }
+
+    let mergedParentId = data.parentId;
+    if (data.parentId !== undefined) {
+      const parentMerge = mergeScalarField(
+        data.baseParentId,
+        data.parentId,
+        latest.parentId,
+      );
+      if (!parentMerge.clean) {
+        return {
+          conflict: true,
+          theirContent: latest.content,
+          theirTitle: latest.title,
+          theirIcon: latest.icon,
+          theirSlug: latest.slug,
+          theirParentId: latest.parentId,
+          theirUpdatedAt,
+        };
+      }
+      mergedParentId = parentMerge.value;
+    }
+
+    let mergedIcon = normalizedIcon;
+    if (normalizedIcon !== undefined) {
+      const iconMerge = mergeScalarField(
+        data.baseIcon,
+        normalizedIcon,
+        latest.icon,
+      );
+      if (!iconMerge.clean) {
+        return {
+          conflict: true,
+          theirContent: latest.content,
+          theirTitle: latest.title,
+          theirIcon: latest.icon,
+          theirSlug: latest.slug,
+          theirParentId: latest.parentId,
+          theirUpdatedAt,
+        };
+      }
+      mergedIcon = iconMerge.value;
+    }
+
     const merged = await threeWayMergeContent({
       base: data.baseContent,
       mine: data.content,
@@ -296,16 +474,30 @@ export async function updateWikiPage(data: {
     });
     if (merged.clean && merged.content) {
       const result = await writeWikiPage(
-        { ...data, content: merged.content, expectedUpdatedAt: theirUpdatedAt },
+        {
+          ...normalizedData,
+          nextSlug: slugMerge.value,
+          parentId: mergedParentId,
+          icon: mergedIcon,
+          title: mergedTitle,
+          content: merged.content,
+          expectedUpdatedAt: theirUpdatedAt,
+        },
         user.id,
         existing.id,
       );
       revalidateTag("wiki-pages", "max");
-      // Gate on `latest.title` (the post-conflict state this write overwrites),
-      // not `existing.title` (the stale pre-conflict baseline): a concurrent
-      // rename may have already moved the title, so `data.title` could revert
-      // it — still a structural change the corpus must reflect. See ADR 0011.
-      if (data.title !== latest.title) revalidateSearchCorpus();
+      if (
+        mergedTitle !== latest.title ||
+        slugMerge.value !== latest.slug ||
+        (mergedParentId !== undefined && mergedParentId !== latest.parentId) ||
+        (mergedIcon !== undefined && mergedIcon !== latest.icon)
+      ) {
+        updateTag("wiki-pages");
+      }
+      if (mergedTitle !== latest.title || slugMerge.value !== latest.slug) {
+        revalidateSearchCorpus();
+      }
       return result;
     }
   }
@@ -314,6 +506,9 @@ export async function updateWikiPage(data: {
     conflict: true,
     theirContent: latest.content,
     theirTitle: latest.title,
+    theirIcon: latest.icon,
+    theirSlug: latest.slug,
+    theirParentId: latest.parentId,
     theirUpdatedAt,
   };
 }

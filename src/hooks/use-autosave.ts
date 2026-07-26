@@ -1,6 +1,10 @@
 import * as React from "react";
 
 export type AutosaveStatus = "idle" | "unsaved" | "saving" | "saved" | "error";
+export type AutosaveSaveReason = "autosave" | "explicit";
+export type AutosaveFlushResult =
+  | { status: "saved" }
+  | { status: "error"; error: string };
 
 interface UseAutosaveOptions {
   /**
@@ -9,7 +13,16 @@ interface UseAutosaveOptions {
    * of stringifying the whole document.
    */
   getContent: () => string;
-  onSave: (content: string) => Promise<{ error?: string }>;
+  onSave: (
+    content: string,
+    reason: AutosaveSaveReason,
+  ) => Promise<{
+    error?: string;
+    /** Server-authoritative content when a save performed a clean merge. */
+    content?: string;
+    /** Stop background retries until the user explicitly saves or resets. */
+    haltAutosave?: boolean;
+  }>;
   /** Content already persisted at mount; edits back to this are not dirty. */
   initialContent: string;
   enabled?: boolean;
@@ -21,6 +34,8 @@ interface UseAutosaveResult {
   isDirty: boolean;
   /** Flush any pending debounce and save immediately (e.g. Cmd/Ctrl+S). */
   save: () => Promise<void>;
+  /** Drain through the latest snapshot and report whether it persisted. */
+  flush: () => Promise<AutosaveFlushResult>;
   /** Pulse on each editor change; cheap — arms the debounce, no serialization. */
   notifyChange: () => void;
   /** Adopt externally-set content as the clean baseline (e.g. conflict discard). */
@@ -45,7 +60,8 @@ export function useAutosave({
   const [status, setStatus] = React.useState<AutosaveStatus>("idle");
   // Last content known to be persisted; a save is a no-op while content matches.
   const savedRef = React.useRef(initialContent);
-  const inFlightRef = React.useRef(false);
+  const inFlightRef = React.useRef<Promise<string | null> | null>(null);
+  const haltedRef = React.useRef(false);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Mirror the latest props/status into refs so the imperative callbacks stay
   // stable (never re-created) yet always see current values.
@@ -79,31 +95,60 @@ export function useAutosave({
 
   // Serialize saves: an overlapping request would carry a stale optimistic-lock
   // baseline and self-trigger EDIT_CONFLICT.
-  const run = React.useCallback(async (next: string) => {
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-    setStatus("saving");
-    try {
-      const result = await onSaveRef.current(next);
-      if (result?.error) {
-        setStatus("error");
-        return;
+  const run = React.useCallback(
+    (next: string, reason: AutosaveSaveReason): Promise<string | null> => {
+      if (inFlightRef.current) return inFlightRef.current;
+
+      setStatus("saving");
+      let saveRequest: ReturnType<typeof onSaveRef.current>;
+      try {
+        saveRequest = onSaveRef.current(next, reason);
+      } catch (error) {
+        saveRequest = Promise.reject(error);
       }
-      savedRef.current = next;
-      if (getContentRef.current() === next) {
-        setStatus("saved");
-      } else {
-        // Content drifted while this save was in flight; re-arm so the trailing
-        // edit is not silently lost.
-        armRef.current();
-      }
-    } finally {
-      inFlightRef.current = false;
-    }
-  }, []);
+
+      const request = saveRequest
+        .then((result) => {
+          if (result?.error) {
+            if (result.haltAutosave && reason === "autosave") {
+              haltedRef.current = true;
+            }
+            setStatus("error");
+            return result.error;
+          }
+          haltedRef.current = false;
+          const savedContent = result.content ?? next;
+          savedRef.current = savedContent;
+          if (getContentRef.current() === savedContent) {
+            setStatus("saved");
+          } else {
+            // Content drifted while this save was in flight; re-arm so a
+            // background autosave retries it. Explicit saves additionally
+            // drain this trailing snapshot before resolving.
+            armRef.current();
+          }
+          return null;
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error ? error.message : "保存请求失败";
+          setStatus("error");
+          return message;
+        })
+        .finally(() => {
+          if (inFlightRef.current === request) {
+            inFlightRef.current = null;
+          }
+        });
+      inFlightRef.current = request;
+      return request;
+    },
+    [],
+  );
 
   const flush = React.useCallback(async () => {
     clearTimer();
+    if (haltedRef.current) return;
     // A timer that fires mid-flight would otherwise no-op and drop the pending
     // edit; re-arm so it retries once the in-flight save completes.
     if (inFlightRef.current) {
@@ -120,11 +165,12 @@ export function useAutosave({
       }
       return;
     }
-    await run(next);
+    await run(next, "autosave");
   }, [clearTimer, run]);
 
   const arm = React.useCallback(() => {
     clearTimer();
+    if (haltedRef.current) return;
     timerRef.current = setTimeout(() => {
       void flushRef.current();
     }, delayRef.current);
@@ -138,32 +184,56 @@ export function useAutosave({
   });
 
   const notifyChange = React.useCallback(() => {
-    if (!enabledRef.current) return;
+    if (haltedRef.current) return;
     if (statusRef.current !== "unsaved" && statusRef.current !== "saving") {
       setStatus("unsaved");
     }
+    // Create mode deliberately has no background persistence, but it still
+    // needs a dirty signal so Back/refresh cannot silently discard the draft.
+    if (!enabledRef.current) return;
     arm();
   }, [arm]);
 
-  const save = React.useCallback(async () => {
-    clearTimer();
-    if (inFlightRef.current) return;
-    const next = getContentRef.current();
-    if (next === savedRef.current && statusRef.current !== "error") {
-      // Same convergence as the debounce path: we just cleared the timer that
-      // would have healed, so settle a pending dirty state here instead of
-      // leaving it stuck after a Cmd/Ctrl+S on already-in-sync content.
-      if (statusRef.current === "unsaved" || statusRef.current === "saving") {
-        setStatus("saved");
+  const flushLatest =
+    React.useCallback(async (): Promise<AutosaveFlushResult> => {
+      // A user-initiated save is a drain, not a single snapshot write: wait for
+      // any current request, then keep saving until the latest lazy snapshot is
+      // the one known to be persisted.
+      while (true) {
+        clearTimer();
+        const inFlight = inFlightRef.current;
+        if (inFlight) {
+          const error = await inFlight;
+          if (error) return { status: "error", error };
+          continue;
+        }
+
+        const next = getContentRef.current();
+        if (next === savedRef.current && statusRef.current !== "error") {
+          // Same convergence as the debounce path: we just cleared the timer that
+          // would have healed, so settle a pending dirty state here instead of
+          // leaving it stuck after a Cmd/Ctrl+S on already-in-sync content.
+          if (
+            statusRef.current === "unsaved" ||
+            statusRef.current === "saving"
+          ) {
+            setStatus("saved");
+          }
+          return { status: "saved" };
+        }
+        const error = await run(next, "explicit");
+        if (error) return { status: "error", error };
       }
-      return;
-    }
-    await run(next);
-  }, [clearTimer, run]);
+    }, [clearTimer, run]);
+
+  const save = React.useCallback(async () => {
+    await flushLatest();
+  }, [flushLatest]);
 
   const resetBaseline = React.useCallback(
     (content: string) => {
       clearTimer();
+      haltedRef.current = false;
       savedRef.current = content;
       setStatus("idle");
     },
@@ -182,5 +252,12 @@ export function useAutosave({
     return () => window.removeEventListener("beforeunload", handler);
   }, [isDirty]);
 
-  return { status, isDirty, save, notifyChange, resetBaseline };
+  return {
+    status,
+    isDirty,
+    save,
+    flush: flushLatest,
+    notifyChange,
+    resetBaseline,
+  };
 }

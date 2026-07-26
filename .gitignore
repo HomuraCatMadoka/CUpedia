@@ -64,6 +64,7 @@ wt/
 
 # local debug artifacts
 edit-snapshot.txt
+.scratch/
 
 # scraped course/handbook harvest (regenerable via tools/scraper; never committed)
 scripts/data/

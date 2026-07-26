@@ -12,8 +12,20 @@ vi.mock("next/navigation", () => ({
 }));
 
 const PAGES = [
-  { id: "1", slug: "guide", title: "校园指南", parentId: null },
-  { id: "2", slug: "guide/canteen", title: "食堂攻略", parentId: "1" },
+  {
+    id: "1",
+    slug: "guide",
+    title: "校园指南",
+    icon: "🏫",
+    parentId: null,
+  },
+  {
+    id: "2",
+    slug: "guide/canteen",
+    title: "食堂攻略",
+    icon: null,
+    parentId: "1",
+  },
 ];
 
 function ssr(props: Parameters<typeof WikiSidebar>[0]) {
@@ -29,6 +41,7 @@ describe("WikiSidebar is tree-only (ADR 0010)", () => {
     const html = ssr({ pages: PAGES });
     expect(html).toContain("校园指南");
     expect(html).toContain("食堂攻略");
+    expect(html).toContain("🏫");
   });
 
   it("labels the navigation column and never renders TOC chrome", () => {

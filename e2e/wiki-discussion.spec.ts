@@ -24,8 +24,9 @@ async function query<T extends Record<string, unknown>>(
 }
 
 async function selectText(page: Page, text: string) {
-  const editor = page.locator('[role="textbox"]').first();
-  await editor.evaluate((element, needle) => {
+  const editor = page.locator('[data-slate-editor="true"]');
+  await expect(editor).toBeEditable();
+  const points = await editor.evaluate((element, needle) => {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode();
     while (node && !node.textContent?.includes(needle)) {
@@ -34,17 +35,45 @@ async function selectText(page: Page, text: string) {
     if (!node?.textContent) throw new Error(`Text not found: ${needle}`);
 
     const start = node.textContent.indexOf(needle);
-    const range = document.createRange();
-    range.setStart(node, start);
-    range.setEnd(node, start + needle.length);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
-    document.dispatchEvent(new Event("selectionchange", { bubbles: true }));
+    const startRange = document.createRange();
+    startRange.setStart(node, start);
+    startRange.setEnd(node, start + 1);
+    const startRect = startRange.getBoundingClientRect();
+
+    const endRange = document.createRange();
+    endRange.setStart(node, start + needle.length - 1);
+    endRange.setEnd(node, start + needle.length);
+    const endRect = endRange.getBoundingClientRect();
+
+    return {
+      start: {
+        x: startRect.left + 1,
+        y: startRect.top + startRect.height / 2,
+      },
+      end: {
+        x: endRect.right - 1,
+        y: endRect.top + endRect.height / 2,
+      },
+    };
   }, text);
+
+  await page.mouse.move(points.start.x, points.start.y);
+  await page.mouse.down();
+  await page.mouse.move(points.end.x, points.end.y, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
+    .toBe(text);
 }
 
 async function openDiscussion(page: Page) {
+  const panelTrigger = page.locator(
+    'button[aria-controls="wiki-discussion-panel"]',
+  );
+  await expect(panelTrigger).toBeVisible();
+  if ((await panelTrigger.getAttribute("aria-expanded")) === "false") {
+    await panelTrigger.click();
+  }
   await page.getByRole("button", { name: new RegExp(rootComment) }).click();
   await expect(page.getByText(rootComment, { exact: true })).toBeVisible();
 }
@@ -60,11 +89,17 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   page,
   browser,
 }) => {
+  test.setTimeout(180_000);
   await loginAsAdmin(page);
   await page.goto("/wiki/new");
   await page.getByLabel("标题").fill(title);
-  await page.getByLabel("URL 路径").fill(slug);
-  await page.locator('[role="textbox"]').first().fill(selectedText);
+  await page.getByRole("button", { name: "页面设置" }).click();
+  await page
+    .getByRole("dialog", { name: "页面设置" })
+    .getByLabel("URL 路径")
+    .fill(slug);
+  await page.keyboard.press("Escape");
+  await page.locator('[data-slate-editor="true"]').fill(selectedText);
   await page.getByRole("button", { name: "保存" }).click();
   await page.waitForURL(`**/wiki/${slug}`);
 
@@ -77,11 +112,12 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   await loginWithPassword(owner, "user@test.com", "password123");
   await owner.goto(`/wiki/edit/${slug}`);
   await selectText(owner, selectedText);
-  await owner
-    .getByTestId("fixed-toolbar-buttons")
-    .getByRole("button", { name: "批注" })
-    .click();
-  await owner.getByPlaceholder("输入批注内容...").fill(rootComment);
+  const textToolbar = owner.getByRole("toolbar", {
+    name: "文字格式工具栏",
+  });
+  await expect(textToolbar).toBeVisible();
+  await textToolbar.getByLabel("批注").click();
+  await owner.getByPlaceholder("输入批注内容…").fill(rootComment);
   await owner.getByRole("button", { name: "提交" }).click();
   await expect(owner.getByText(rootComment, { exact: true })).toBeVisible();
   await expect(owner.getByText("已保存")).toBeVisible({ timeout: 15_000 });
@@ -97,7 +133,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   await expect(contributor.getByRole("button", { name: "删除" })).toHaveCount(
     0,
   );
-  const replyInput = contributor.getByPlaceholder("回复...");
+  const replyInput = contributor.getByPlaceholder("回复…");
   await replyInput.fill(reply);
   await replyInput.press("Enter");
   await expect(replyInput).toHaveValue("");
@@ -113,7 +149,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   await publicPage.goto(`/wiki/${slug}`);
   await openDiscussion(publicPage);
   await expect(publicPage.getByText(reply, { exact: true })).toBeVisible();
-  await expect(publicPage.getByPlaceholder("回复...")).toHaveCount(0);
+  await expect(publicPage.getByPlaceholder("回复…")).toHaveCount(0);
   await expect(
     publicPage.getByRole("button", { name: "标记为已解决" }),
   ).toHaveCount(0);
@@ -125,14 +161,18 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   await owner.getByRole("button", { name: "标记为已解决" }).click();
   await expect(owner.getByText("批注 (1)")).toHaveCount(0);
 
-  const resolved = await query<{ resolved: boolean }>(
-    `select d.resolved
-     from discussions d
-     join wiki_pages p on p.id = d.page_id
-     where p.slug = $1 and d.parent_id is null`,
-    [slug],
-  );
-  expect(resolved.rows).toEqual([{ resolved: true }]);
+  await expect
+    .poll(async () => {
+      const resolved = await query<{ resolved: boolean }>(
+        `select d.resolved
+         from discussions d
+         join wiki_pages p on p.id = d.page_id
+         where p.slug = $1 and d.parent_id is null`,
+        [slug],
+      );
+      return resolved.rows;
+    })
+    .toEqual([{ resolved: true }]);
 
   await owner.goto(`/wiki/edit/${slug}`);
   await expect(owner.getByText("批注 (1)")).toHaveCount(0);

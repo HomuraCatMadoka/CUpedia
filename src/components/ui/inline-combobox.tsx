@@ -24,6 +24,7 @@ import {
   useHTMLInputCursorState,
 } from "@platejs/combobox/react";
 import { cva } from "class-variance-authority";
+import { SearchIcon } from "lucide-react";
 import { useComposedRef, useEditorRef } from "platejs/react";
 
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ type InlineComboboxProps = {
   element: TElement;
   trigger: string;
   filter?: FilterFn | false;
+  historyStateKey?: string;
   hideWhenNoValue?: boolean;
   showTrigger?: boolean;
   value?: string;
@@ -75,6 +77,7 @@ const InlineCombobox = ({
   children,
   element,
   filter = defaultFilter,
+  historyStateKey,
   hideWhenNoValue = false,
   setValue: setValueProp,
   showTrigger = true,
@@ -160,6 +163,56 @@ const InlineCombobox = ({
       }
     },
   });
+  const removeInputRef = React.useRef(removeInput);
+  const historyTokenRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    removeInputRef.current = removeInput;
+  }, [removeInput]);
+
+  React.useEffect(() => {
+    if (!historyStateKey) return;
+
+    const token = crypto.randomUUID();
+    window.history.pushState(
+      {
+        ...window.history.state,
+        [historyStateKey]: token,
+      },
+      "",
+      window.location.href,
+    );
+    historyTokenRef.current = token;
+
+    const readToken = (state: unknown) => {
+      const value = (state as Record<string, unknown> | null)?.[
+        historyStateKey
+      ];
+      return typeof value === "string" ? value : null;
+    };
+    const handlePopState = (event: PopStateEvent) => {
+      if (
+        historyTokenRef.current !== token ||
+        readToken(event.state) === token
+      ) {
+        return;
+      }
+      historyTokenRef.current = null;
+      removeInputRef.current(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      if (
+        historyTokenRef.current === token &&
+        readToken(window.history.state) === token
+      ) {
+        historyTokenRef.current = null;
+        window.history.back();
+      }
+    };
+  }, [historyStateKey]);
 
   const [hasEmpty, setHasEmpty] = React.useState(false);
 
@@ -400,6 +453,28 @@ const InlineComboboxEmpty = ({
   );
 };
 
+function InlineComboboxQuery({
+  className,
+  placeholder,
+  ...props
+}: React.ComponentProps<"div"> & { placeholder: string }) {
+  const store = useComboboxContext()!;
+  const value = store.useState("value");
+
+  return (
+    <div
+      className={cn(
+        "flex min-h-9 items-center gap-2 border-b border-border px-2 pb-2 text-sm text-muted-foreground",
+        className,
+      )}
+      {...props}
+    >
+      <SearchIcon aria-hidden="true" className="size-4 shrink-0" />
+      <span className="truncate">{value || placeholder}</span>
+    </div>
+  );
+}
+
 const InlineComboboxRow = ComboboxRow;
 
 function InlineComboboxGroup({
@@ -440,5 +515,6 @@ export {
   InlineComboboxGroupLabel,
   InlineComboboxInput,
   InlineComboboxItem,
+  InlineComboboxQuery,
   InlineComboboxRow,
 };

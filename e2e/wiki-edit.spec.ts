@@ -64,12 +64,10 @@ test.describe("#94 editor reliability", () => {
     // Immediately dirty; the guard fires on in-app <a> clicks via confirm().
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
-    // Click the in-app "CUpedia" home link in the navbar.
+    // Focused edit routes replace the global navbar, so leave through the
+    // editor shell's in-app return link.
     const dialogPromise = page.waitForEvent("dialog");
-    const clickPromise = page
-      .getByRole("link", { name: "CUpedia" })
-      .first()
-      .click();
+    const clickPromise = page.getByRole("link", { name: "返回 Wiki" }).click();
     const dialog = await dialogPromise;
     expect(dialog.message()).toContain("未保存");
     await dialog.dismiss();

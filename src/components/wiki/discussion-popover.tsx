@@ -1,11 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { CheckIcon, MessageSquareIcon, SendIcon } from "lucide-react";
+import {
+  ArrowUpIcon,
+  CheckIcon,
+  MessageSquareIcon,
+  SendIcon,
+} from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Discussion } from "@/lib/discussion-actions";
 import { addReply, resolveDiscussion } from "@/lib/discussion-actions";
+import { authClient } from "@/lib/auth-client";
+import { resolveAvatarUrl } from "@/lib/user-avatar";
 import { cn } from "@/lib/utils";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 
@@ -27,12 +35,14 @@ function TimeAgo({ date }: { date: Date }) {
 
 function DiscussionMessage({ discussion }: { discussion: Discussion }) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium">{discussion.user.nickname}</span>
+    <div className="min-w-0 flex flex-col gap-1">
+      <div className="min-w-0 flex items-center gap-2">
+        <span className="min-w-0 truncate text-xs font-medium">
+          {discussion.user.nickname}
+        </span>
         <TimeAgo date={discussion.createdAt} />
       </div>
-      <p className="text-sm">{discussion.content}</p>
+      <p className="break-words text-sm">{discussion.content}</p>
     </div>
   );
 }
@@ -84,13 +94,14 @@ export function DiscussionThread({
 
       {!discussion.resolved && !readOnly && (
         <>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 gap-2">
             <Textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              placeholder="回复..."
+              aria-label="回复内容"
+              placeholder="回复…"
               rows={1}
-              className="min-h-8 resize-none text-sm"
+              className="min-h-11 min-w-0 resize-none text-sm"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -101,11 +112,12 @@ export function DiscussionThread({
             <Button
               size="icon"
               variant="ghost"
+              aria-label="发送回复"
               onClick={handleReply}
               disabled={pending || !reply.trim()}
-              className="h-8 w-8 shrink-0"
+              className="size-11 shrink-0"
             >
-              <SendIcon className="h-3.5 w-3.5" />
+              <SendIcon aria-hidden="true" className="size-4" />
             </Button>
           </div>
           {discussion.canResolve && (
@@ -116,7 +128,7 @@ export function DiscussionThread({
               disabled={pending}
               className="self-start text-xs"
             >
-              <CheckIcon className="mr-1 h-3 w-3" />
+              <CheckIcon aria-hidden="true" className="mr-1 h-3 w-3" />
               标记为已解决
             </Button>
           )}
@@ -127,13 +139,83 @@ export function DiscussionThread({
 }
 
 export function NewCommentForm({
+  compact = false,
+  submitting = false,
   onSubmit,
   onCancel,
 }: {
+  compact?: boolean;
+  submitting?: boolean;
   onSubmit: (content: string) => void;
   onCancel: () => void;
 }) {
   const [content, setContent] = useState("");
+  const { data: session } = authClient.useSession();
+
+  if (compact) {
+    return (
+      <div
+        data-testid="mobile-comment-composer"
+        className="flex h-14 items-start gap-2"
+      >
+        <button
+          type="button"
+          aria-label="取消批注"
+          onClick={onCancel}
+          className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-10 focus:flex focus:min-h-11 focus:items-center focus:rounded-md focus:bg-background focus:px-3 focus:text-sm"
+        >
+          取消批注
+        </button>
+        <div
+          data-testid="mobile-comment-author-avatar"
+          className="mt-1.5 size-6 shrink-0"
+        >
+          <Avatar className="size-6 rounded-full after:rounded-full">
+            <AvatarImage
+              alt="用户头像"
+              className="rounded-full bg-white object-contain p-[3%]"
+              src={resolveAvatarUrl(session?.user.image)}
+            />
+            <AvatarFallback className="rounded-full bg-white">
+              CU
+            </AvatarFallback>
+          </Avatar>
+        </div>
+        <div className="relative h-14 min-w-0 flex-1">
+          <Textarea
+            value={content}
+            disabled={submitting}
+            onChange={(e) => setContent(e.target.value)}
+            aria-label="批注内容"
+            placeholder="输入批注内容…"
+            rows={1}
+            className="h-9 min-h-9 w-full resize-none rounded-none border-0 bg-transparent px-0 py-1.5 pr-12 text-base shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!submitting && content.trim()) onSubmit(content);
+              }
+              if (e.key === "Escape") onCancel();
+            }}
+          />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            aria-label="提交"
+            onClick={() => content.trim() && onSubmit(content)}
+            disabled={submitting || !content.trim()}
+            className="group absolute right-0 bottom-0 size-11 shrink-0 rounded-full bg-transparent p-0 disabled:opacity-100 hover:bg-transparent"
+          >
+            <span className="flex size-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors group-disabled:bg-muted-foreground/25 group-disabled:text-muted-foreground">
+              <ArrowUpIcon aria-hidden="true" className="size-4" />
+            </span>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
@@ -143,15 +225,17 @@ export function NewCommentForm({
       </div>
       <Textarea
         value={content}
+        disabled={submitting}
         onChange={(e) => setContent(e.target.value)}
-        placeholder="输入批注内容..."
+        aria-label="批注内容"
+        placeholder="输入批注内容…"
         rows={2}
         className="resize-none text-sm"
         autoFocus
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (content.trim()) onSubmit(content);
+            if (!submitting && content.trim()) onSubmit(content);
           }
           if (e.key === "Escape") onCancel();
         }}
@@ -161,6 +245,7 @@ export function NewCommentForm({
           size="sm"
           variant="ghost"
           onClick={onCancel}
+          disabled={submitting}
           className="text-xs"
         >
           取消
@@ -168,7 +253,7 @@ export function NewCommentForm({
         <Button
           size="sm"
           onClick={() => content.trim() && onSubmit(content)}
-          disabled={!content.trim()}
+          disabled={submitting || !content.trim()}
           className="text-xs"
         >
           提交

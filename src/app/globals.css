@@ -10,7 +10,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -126,12 +126,12 @@
 @layer base {
   :root {
     --navbar-height: 6.25rem;
-    --sidebar-width: 240px;
+    --sidebar-width: 260px;
     --toc-width: 220px;
     --sidebar-collapsed-width: 44px;
-    --sidebar-bg: #f7f7f5;
-    --sidebar-border-color: #e8e5e0;
-    --sidebar-active-bg: #e8e5e0;
+    --sidebar-bg: #f9f8f7;
+    --sidebar-border-color: #e9e7e4;
+    --sidebar-active-bg: #eeeceb;
     --sidebar-active-border: #3b82f6;
     --sidebar-transition: 200ms ease;
     --content-max-width: 720px;
@@ -149,5 +149,288 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  .wiki-emoji-picker {
+    --wiki-emoji-picker-height: min(380px, 52dvh);
+  }
+
+  .wiki-emoji-picker .EmojiPickerReact {
+    --epr-highlight-color: #2383e2 !important;
+    --epr-hover-bg-color: #f1f1ef !important;
+    --epr-focus-bg-color: #e7f3ff !important;
+    --epr-text-color: #787774 !important;
+    --epr-search-input-bg-color: #f7f7f5 !important;
+    --epr-search-input-bg-color-active: #fff !important;
+    --epr-picker-border-color: transparent !important;
+    --epr-bg-color: transparent !important;
+    --epr-category-icon-active-color: #37352f !important;
+    --epr-horizontal-padding: 12px !important;
+    --epr-header-padding: 0 !important;
+    --epr-search-input-padding: 0 34px !important;
+    --epr-search-input-border-radius: 6px !important;
+    --epr-search-input-height: 36px !important;
+    --epr-search-bar-inner-padding: 9px !important;
+    --epr-search-border-color: rgb(15 15 15 / 14%) !important;
+    --epr-search-border-color-active: #2383e2 !important;
+    --epr-category-navigation-button-size: 32px !important;
+    --epr-category-padding: 0 12px !important;
+    --epr-category-label-bg-color: rgb(255 255 255 / 94%) !important;
+    --epr-category-label-text-color: #787774 !important;
+    --epr-category-label-padding: 0 13px !important;
+    --epr-category-label-height: 32px !important;
+    --epr-emoji-size: 21px !important;
+    --epr-emoji-padding: 6px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+  }
+
+  .wiki-emoji-picker .EmojiPickerReact input,
+  .wiki-emoji-picker .epr-emoji-category-label {
+    font-family: var(--font-sans), sans-serif !important;
+  }
+
+  .wiki-emoji-picker .epr-header {
+    display: contents;
+  }
+
+  .wiki-emoji-picker .epr-header > :first-child {
+    order: 0;
+    padding: 12px 12px 8px !important;
+  }
+
+  .wiki-emoji-picker input[aria-controls="epr-search-id"] {
+    font-size: 14px;
+    color: #37352f;
+    box-shadow: none;
+  }
+
+  .wiki-emoji-picker input[aria-controls="epr-search-id"]:focus {
+    box-shadow: 0 0 0 1px #2383e2;
+  }
+
+  .wiki-emoji-picker .epr-skin-tones {
+    --epr-skin-tone-size: 45px !important;
+    flex: 0 0 45px !important;
+    height: 45px;
+    min-width: 45px;
+    padding: 0 !important;
+  }
+
+  .wiki-emoji-picker .epr-skin-tones[data-skin-tone-open="true"] {
+    flex-basis: 270px !important;
+  }
+
+  .wiki-emoji-picker .epr-skin-tone-select {
+    width: 45px !important;
+    height: 45px !important;
+  }
+
+  .wiki-emoji-picker .epr-tone {
+    display: flex !important;
+    width: 45px !important;
+    height: 45px !important;
+    align-items: center;
+    justify-content: center;
+    border: 0 !important;
+    border-radius: 6px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .wiki-emoji-picker .epr-tone::after {
+    font-family:
+      "Segoe UI Emoji", "Apple Color Emoji", "Twemoji Mozilla",
+      "Noto Color Emoji", sans-serif !important;
+    font-size: 20px;
+    line-height: 1;
+    transition: transform 120ms ease;
+  }
+
+  .wiki-emoji-picker .epr-tone-neutral::after {
+    content: "✋";
+  }
+
+  .wiki-emoji-picker .epr-tone-1f3fb::after {
+    content: "✋🏻";
+  }
+
+  .wiki-emoji-picker .epr-tone-1f3fc::after {
+    content: "✋🏼";
+  }
+
+  .wiki-emoji-picker .epr-tone-1f3fd::after {
+    content: "✋🏽";
+  }
+
+  .wiki-emoji-picker .epr-tone-1f3fe::after {
+    content: "✋🏾";
+  }
+
+  .wiki-emoji-picker .epr-tone-1f3ff::after {
+    content: "✋🏿";
+  }
+
+  .wiki-emoji-picker
+    .epr-skin-tones[data-skin-tone-open="true"]
+    .epr-tone-neutral {
+    transform: translateX(0) !important;
+  }
+
+  .wiki-emoji-picker
+    .epr-skin-tones[data-skin-tone-open="true"]
+    .epr-tone-1f3fb {
+    transform: translateX(-45px) !important;
+  }
+
+  .wiki-emoji-picker
+    .epr-skin-tones[data-skin-tone-open="true"]
+    .epr-tone-1f3fc {
+    transform: translateX(-90px) !important;
+  }
+
+  .wiki-emoji-picker
+    .epr-skin-tones[data-skin-tone-open="true"]
+    .epr-tone-1f3fd {
+    transform: translateX(-135px) !important;
+  }
+
+  .wiki-emoji-picker
+    .epr-skin-tones[data-skin-tone-open="true"]
+    .epr-tone-1f3fe {
+    transform: translateX(-180px) !important;
+  }
+
+  .wiki-emoji-picker
+    .epr-skin-tones[data-skin-tone-open="true"]
+    .epr-tone-1f3ff {
+    transform: translateX(-225px) !important;
+  }
+
+  .wiki-emoji-picker .epr-tone:hover::after {
+    transform: scale(1.08);
+  }
+
+  .wiki-emoji-picker .epr-tone:focus-visible {
+    box-shadow: inset 0 0 0 2px rgb(35 131 226 / 65%) !important;
+  }
+
+  .wiki-emoji-picker .epr-body {
+    order: 1;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(15 15 15 / 20%) transparent;
+  }
+
+  .wiki-emoji-picker .epr-category-nav {
+    order: 2;
+    min-height: 48px;
+    padding: 8px 10px !important;
+    border-top: 1px solid rgb(15 15 15 / 10%);
+    background: #fff !important;
+  }
+
+  .wiki-emoji-picker .epr-cat-btn {
+    display: flex !important;
+    flex: 0 0 var(--epr-category-navigation-button-size) !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px !important;
+    color: #9b9a97;
+  }
+
+  .wiki-emoji-picker .epr-cat-btn:hover,
+  .wiki-emoji-picker .epr-cat-btn.epr-active {
+    color: #37352f;
+    background: #f1f1ef;
+  }
+
+  .wiki-emoji-picker .epr-cat-btn:focus::before {
+    inset: 1px;
+    border: 2px solid rgb(35 131 226 / 45%);
+    border-radius: 5px;
+  }
+
+  .wiki-emoji-picker .epr-emoji-category-label {
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .wiki-emoji-picker .epr-emoji {
+    border-radius: 6px !important;
+    transition:
+      background-color 120ms ease,
+      transform 100ms ease;
+  }
+
+  .wiki-emoji-picker .epr-emoji:active {
+    transform: scale(0.9);
+  }
+
+  .dark .wiki-emoji-picker .EmojiPickerReact {
+    --epr-hover-bg-color: rgb(255 255 255 / 8%) !important;
+    --epr-focus-bg-color: rgb(35 131 226 / 24%) !important;
+    --epr-text-color: #a9a9a7 !important;
+    --epr-search-input-bg-color: rgb(255 255 255 / 6%) !important;
+    --epr-search-input-bg-color-active: rgb(255 255 255 / 8%) !important;
+    --epr-bg-color: transparent !important;
+    --epr-category-label-bg-color: rgb(37 37 37 / 94%) !important;
+    --epr-category-label-text-color: #a9a9a7 !important;
+    --epr-search-border-color: rgb(255 255 255 / 15%) !important;
+  }
+
+  .dark .wiki-emoji-picker input[aria-controls="epr-search-id"] {
+    color: #efefef;
+  }
+
+  .dark .wiki-emoji-picker .epr-category-nav {
+    border-top-color: rgb(255 255 255 / 10%);
+    background: #252525 !important;
+  }
+
+  .dark .wiki-emoji-picker .epr-cat-btn:hover,
+  .dark .wiki-emoji-picker .epr-cat-btn.epr-active {
+    color: #efefef;
+    background: rgb(255 255 255 / 8%);
+  }
+
+  @media (max-width: 639px) {
+    .wiki-emoji-picker {
+      --wiki-emoji-picker-height: min(396px, 52dvh);
+    }
+
+    .wiki-emoji-picker .EmojiPickerReact {
+      --epr-search-input-height: 44px !important;
+      --epr-category-navigation-button-size: 44px !important;
+      --epr-emoji-size: 24px !important;
+      --epr-emoji-padding: 12px !important;
+    }
+
+    .wiki-emoji-picker .epr-header > :first-child {
+      padding-top: 12px;
+    }
+
+    .wiki-emoji-picker
+      .epr-header
+      > :first-child:has(.epr-skin-tones[data-skin-tone-open="true"])
+      .epr-search-container {
+      visibility: hidden;
+    }
+
+    .wiki-emoji-picker .epr-category-nav {
+      min-height: 52px;
+      justify-content: flex-start !important;
+      gap: 2px;
+      overflow-x: auto !important;
+      padding: 4px 8px !important;
+      scrollbar-width: none;
+    }
+
+    .wiki-emoji-picker .epr-category-nav::-webkit-scrollbar {
+      display: none;
+    }
   }
 }
