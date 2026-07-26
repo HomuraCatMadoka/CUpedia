@@ -890,10 +890,11 @@ test.describe("mobile wiki editing", () => {
   }) => {
     const originalContent = await readWikiContent("getting-started");
     await selectText(page, "New to CUHK?");
-    await page
-      .getByRole("toolbar", { name: "键盘上方编辑工具" })
+    const selectionActions = page.getByTestId("mobile-selection-actions");
+    await expect(selectionActions).toBeVisible();
+    await selectionActions
       .getByRole("button", { name: "添加批注", exact: true })
-      .click({ force: true });
+      .click();
 
     const composer = page.getByRole("dialog", { name: "添加批注" });
     await expect(composer).toBeVisible();
@@ -1666,7 +1667,7 @@ test.describe("mobile wiki editing", () => {
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.fill("Mobile done body");
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
 
     await page.waitForURL(`**/wiki/${MOBILE_SAVE_SLUG}`);
     await expect(

@@ -165,6 +165,7 @@ const InlineCombobox = ({
   });
   const removeInputRef = React.useRef(removeInput);
   const historyTokenRef = React.useRef<string | null>(null);
+  const historyCleanupFrameRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     removeInputRef.current = removeInput;
@@ -173,23 +174,31 @@ const InlineCombobox = ({
   React.useEffect(() => {
     if (!historyStateKey) return;
 
-    const token = crypto.randomUUID();
-    window.history.pushState(
-      {
-        ...window.history.state,
-        [historyStateKey]: token,
-      },
-      "",
-      window.location.href,
-    );
-    historyTokenRef.current = token;
-
     const readToken = (state: unknown) => {
       const value = (state as Record<string, unknown> | null)?.[
         historyStateKey
       ];
       return typeof value === "string" ? value : null;
     };
+    if (historyCleanupFrameRef.current !== null) {
+      cancelAnimationFrame(historyCleanupFrameRef.current);
+      historyCleanupFrameRef.current = null;
+    }
+
+    let token = historyTokenRef.current;
+    if (!token || readToken(window.history.state) !== token) {
+      token = crypto.randomUUID();
+      window.history.pushState(
+        {
+          ...window.history.state,
+          [historyStateKey]: token,
+        },
+        "",
+        window.location.href,
+      );
+      historyTokenRef.current = token;
+    }
+
     const handlePopState = (event: PopStateEvent) => {
       if (
         historyTokenRef.current !== token ||
@@ -204,13 +213,16 @@ const InlineCombobox = ({
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      if (
-        historyTokenRef.current === token &&
-        readToken(window.history.state) === token
-      ) {
-        historyTokenRef.current = null;
-        window.history.back();
-      }
+      historyCleanupFrameRef.current = requestAnimationFrame(() => {
+        historyCleanupFrameRef.current = null;
+        if (
+          historyTokenRef.current === token &&
+          readToken(window.history.state) === token
+        ) {
+          historyTokenRef.current = null;
+          window.history.back();
+        }
+      });
     };
   }, [historyStateKey]);
 

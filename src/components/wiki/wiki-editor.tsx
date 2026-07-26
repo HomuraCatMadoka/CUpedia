@@ -415,6 +415,7 @@ export function WikiEditor({
 
         pendingConflictRef.current = null;
         setAutosaveConflict(false);
+        setError("");
         return {
           ...result,
           content: serializeDraftSnapshot({
@@ -438,8 +439,7 @@ export function WikiEditor({
             result.theirParentId !== undefined
               ? result.theirParentId
               : next.parentId,
-          theirVersion:
-            result.theirVersion ?? versionBaselineRef.current ?? 0,
+          theirVersion: result.theirVersion ?? versionBaselineRef.current ?? 0,
           theirUpdatedAt:
             result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
         };
@@ -581,8 +581,7 @@ export function WikiEditor({
           result.theirParentId !== undefined
             ? result.theirParentId
             : parentIdRef.current || null,
-        theirVersion:
-          result.theirVersion ?? versionBaselineRef.current ?? 0,
+        theirVersion: result.theirVersion ?? versionBaselineRef.current ?? 0,
         theirUpdatedAt:
           result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
       });
@@ -632,26 +631,42 @@ export function WikiEditor({
     updatedAtBaselineRef.current = conflict.theirUpdatedAt;
     baseTitleRef.current = conflict.theirTitle;
     baseIconRef.current = conflict.theirIcon;
+    baseContentRef.current = conflict.theirContent;
     baseSlugRef.current = conflict.theirSlug;
     baseParentIdRef.current = conflict.theirParentId;
-    const result = await save(
-      serializeDraftSnapshot({
-        slug: slugRef.current,
-        title: titleRef.current,
-        icon: iconRef.current,
-        content: serializeContentWithoutDraftComments(editor.children),
-        parentId: parentIdRef.current || null,
-        editSummary: editSummaryRef.current,
-      }),
-    );
+    const nextSnapshot = serializeDraftSnapshot({
+      slug: slugRef.current,
+      title: titleRef.current,
+      icon: iconRef.current,
+      content: serializeContentWithoutDraftComments(editor.children),
+      parentId: parentIdRef.current || null,
+      editSummary: editSummaryRef.current,
+    });
+    const result = await save(nextSnapshot);
     if (result.error) {
       setError(result.error);
       setSubmitting(false);
       return;
     }
+    const savedSlug = result.slug ?? slugRef.current;
+    pendingConflictRef.current = null;
+    setAutosaveConflict(false);
+    resetAutosaveBaseline(result.content ?? nextSnapshot);
     setConflict(null);
-    router.push(`/wiki/${result.slug}`);
-  }, [conflict, save, editor, router, ensureContributorSetup]);
+    setSubmitting(false);
+    bypassNavigationUrlRef.current = new URL(
+      `/wiki/${savedSlug}`,
+      window.location.origin,
+    ).href;
+    router.push(`/wiki/${savedSlug}`);
+  }, [
+    conflict,
+    save,
+    editor,
+    router,
+    ensureContributorSetup,
+    resetAutosaveBaseline,
+  ]);
 
   const discardMine = useCallback(() => {
     if (!conflict) return;
@@ -911,14 +926,19 @@ export function WikiEditor({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {autosaveEnabled && autosave.status !== "idle" && (
-                  <span
-                    data-testid="wiki-autosave-status"
-                    className="hidden text-xs text-muted-foreground sm:inline"
-                  >
-                    {STATUS_LABEL[autosave.status]}
-                  </span>
-                )}
+                {autosaveEnabled &&
+                  autosave.status !== "idle" &&
+                  !autosaveConflict &&
+                  !conflict && (
+                    <span
+                      data-testid="wiki-autosave-status"
+                      role="status"
+                      aria-label="保存状态"
+                      className="hidden text-xs text-muted-foreground sm:inline"
+                    >
+                      {STATUS_LABEL[autosave.status]}
+                    </span>
+                  )}
                 {mode === "edit" && initialSlug && (
                   <button
                     type="button"
@@ -1011,12 +1031,11 @@ export function WikiEditor({
                   size="sm"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  aria-label={submitting ? "保存中..." : "保存"}
                   className={
                     mode === "edit" ? "hidden md:inline-flex" : undefined
                   }
                 >
-                  {submitting ? "完成中..." : "完成"}
+                  {submitting ? "完成中…" : "完成"}
                 </Button>
               </div>
             </header>

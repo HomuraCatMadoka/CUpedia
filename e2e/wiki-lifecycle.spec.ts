@@ -62,7 +62,7 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
     .fill("create lifecycle page");
   await page.keyboard.press("Escape");
   await page.locator('[role="textbox"]').first().fill(first);
-  await page.getByRole("button", { name: "保存" }).click();
+  await page.getByRole("button", { name: "完成" }).click();
   await page.waitForURL(`**/wiki/${slug}`);
   await expect(page.getByText(first)).toBeVisible();
   expect(await revisionCount()).toBe(1);

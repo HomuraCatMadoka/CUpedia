@@ -100,7 +100,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
     .fill(slug);
   await page.keyboard.press("Escape");
   await page.locator('[data-slate-editor="true"]').fill(selectedText);
-  await page.getByRole("button", { name: "保存" }).click();
+  await page.getByRole("button", { name: "完成" }).click();
   await page.waitForURL(`**/wiki/${slug}`);
 
   await query(

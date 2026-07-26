@@ -67,6 +67,8 @@ export function WikiBlockMenu({
   const isFirst = path[0] === 0;
   const isLast = path[0] === editor.children.length - 1;
   const selectionAfterCloseRef = React.useRef<string | null>(null);
+  const suppressOpenAfterDragRef = React.useRef(false);
+  const dragResetFrameRef = React.useRef<number | null>(null);
   const normalizedQuery = query.trim().toLocaleLowerCase();
   const matchesAction = (...terms: string[]) =>
     !normalizedQuery ||
@@ -116,6 +118,15 @@ export function WikiBlockMenu({
     return () => cancelAnimationFrame(frame);
   }, [blockSelection, open]);
 
+  React.useEffect(
+    () => () => {
+      if (dragResetFrameRef.current !== null) {
+        cancelAnimationFrame(dragResetFrameRef.current);
+      }
+    },
+    [],
+  );
+
   const closeMenu = () => {
     setOpen(false);
   };
@@ -132,6 +143,8 @@ export function WikiBlockMenu({
       modal={false}
       open={open}
       onOpenChange={(nextOpen) => {
+        if (nextOpen && suppressOpenAfterDragRef.current) return;
+
         setOpen(nextOpen);
         if (nextOpen) {
           setQuery("");
@@ -150,6 +163,16 @@ export function WikiBlockMenu({
         className="flex size-5 cursor-grab items-center justify-center rounded text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 active:cursor-grabbing"
         data-plate-prevent-deselect
         onMouseDown={(event) => event.stopPropagation()}
+        onDragStart={() => {
+          suppressOpenAfterDragRef.current = true;
+          setOpen(false);
+        }}
+        onDragEnd={() => {
+          dragResetFrameRef.current = requestAnimationFrame(() => {
+            suppressOpenAfterDragRef.current = false;
+            dragResetFrameRef.current = null;
+          });
+        }}
       >
         <GripVerticalIcon aria-hidden="true" className="size-3.5" />
       </DropdownMenuTrigger>

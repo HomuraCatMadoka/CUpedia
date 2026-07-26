@@ -206,7 +206,7 @@ export function MobileWikiEditorToolbar({
   const [blockPath, setBlockPath] = React.useState<Path | null>(null);
   const { bottomInset: visualViewportBottomInset } = useVisualViewport();
   const insertCancelRef = React.useRef<HTMLButtonElement>(null);
-  const savedSelectionRef = React.useRef<typeof editor.selection>(null);
+  const savedSelectionRef = React.useRef<typeof editor.selection>(selection);
   const restoreFocusAfterCloseRef = React.useRef(false);
   const surfaceHistoryEntryRef = React.useRef<MobileSurfaceHistoryEntry | null>(
     initialHistoryEntry,
@@ -265,14 +265,27 @@ export function MobileWikiEditorToolbar({
           })
         : null;
 
-    savedSelectionRef.current = slateSelection ?? editor.selection;
+    const nextSelection = slateSelection ?? editor.selection;
+    if (nextSelection) savedSelectionRef.current = nextSelection;
   }, [editor]);
+
+  React.useEffect(() => {
+    if (selection) savedSelectionRef.current = selection;
+  }, [selection]);
 
   const restoreSelection = React.useCallback(() => {
     if (savedSelectionRef.current) {
       editor.tf.select(savedSelectionRef.current);
     }
   }, [editor]);
+
+  const restoreSelectionOrDocumentEnd = () => {
+    restoreSelection();
+    if (editor.selection) return;
+
+    const documentEnd = editor.api.end([]);
+    if (documentEnd) editor.tf.select(documentEnd);
+  };
 
   const focusSavedSelection = React.useCallback(() => {
     const selectionToRestore = savedSelectionRef.current;
@@ -407,6 +420,12 @@ export function MobileWikiEditorToolbar({
     requestAnimationFrame(focusSavedSelection);
   };
 
+  const openMention = () => {
+    restoreSelectionOrDocumentEnd();
+    openWikiLinkCombobox(editor);
+    savedSelectionRef.current = editor.selection;
+  };
+
   const runAccessoryCommand = (command: () => void) => {
     restoreSelection();
     command();
@@ -416,7 +435,7 @@ export function MobileWikiEditorToolbar({
 
   const addComment = () => {
     if (!canCreateDiscussion) return;
-    saveSelection();
+    restoreSelectionOrDocumentEnd();
     if (RangeApi.isExpanded(editor.selection)) {
       commentTransforms.comment.setDraft();
     } else {
@@ -589,10 +608,11 @@ export function MobileWikiEditorToolbar({
                   <button
                     type="button"
                     aria-label="提及页面"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() =>
-                      runInlineCommand(() => openWikiLinkCombobox(editor))
-                    }
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      saveSelection();
+                    }}
+                    onClick={openMention}
                     className="flex touch-manipulation items-center justify-center text-[25px] font-light text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <span aria-hidden="true">@</span>
@@ -601,7 +621,10 @@ export function MobileWikiEditorToolbar({
                     type="button"
                     aria-label="添加批注"
                     disabled={!canCreateDiscussion}
-                    onPointerDown={(event) => event.preventDefault()}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      saveSelection();
+                    }}
                     onClick={addComment}
                     className="flex touch-manipulation items-center justify-center text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:opacity-35 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
@@ -649,12 +672,18 @@ export function MobileWikiEditorToolbar({
               )}
 
               {surface === null && selectionExpanded && (
-                <div className="flex min-w-max items-center px-1">
+                <div
+                  data-testid="mobile-selection-actions"
+                  className="flex min-w-max items-center px-1"
+                >
                   <button
                     type="button"
                     aria-label="添加批注"
                     disabled={!canCreateDiscussion}
-                    onPointerDown={(event) => event.preventDefault()}
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      saveSelection();
+                    }}
                     onClick={addComment}
                     className={toolbarButtonClass}
                   >

@@ -156,26 +156,21 @@ test.describe("#94 editor reliability", () => {
     await expect(dialog).toContainText("Legacy deployment edit");
   });
 
-  test("in-app navigation is guarded while dirty", async ({ page }) => {
+  test("in-app navigation flushes a dirty draft before leaving", async ({
+    page,
+  }) => {
     await page.goto("/wiki/edit/campus-life");
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
+    const marker = `navigation-flush-${Date.now()}`;
     await editor.click();
-    await page.keyboard.type(" dirty-edit");
-    // Immediately dirty; the guard fires on in-app <a> clicks via confirm().
+    await page.keyboard.type(` ${marker}`);
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
-    // Focused edit routes replace the global navbar, so leave through the
-    // editor shell's in-app return link.
-    const dialogPromise = page.waitForEvent("dialog");
-    const clickPromise = page.getByRole("link", { name: "返回 Wiki" }).click();
-    const dialog = await dialogPromise;
-    expect(dialog.message()).toContain("未保存");
-    await dialog.dismiss();
-    await clickPromise;
-    // Dismissed => still on the edit page.
-    await expect(page).toHaveURL(/\/wiki\/edit\//);
+    await page.getByRole("link", { name: "返回 Wiki" }).click();
+    await expect(page).toHaveURL(/\/wiki\/campus-life$/);
+    await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
   });
 
   test("Cmd/Ctrl+S triggers a save", async ({ page }) => {

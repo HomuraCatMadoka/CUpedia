@@ -37,7 +37,7 @@ test.describe("focused wiki editor shell", () => {
         page.getByRole("banner", { name: "编辑器顶栏" }),
       ).toBeVisible();
       await expect(page.getByRole("link", { name: "分院帽" })).toHaveCount(0);
-      const saveButton = page.getByRole("button", { name: "保存" });
+      const saveButton = page.getByRole("button", { name: "完成" });
       await expect(saveButton).toBeVisible();
       await expect(saveButton).toHaveText("完成");
     }
@@ -71,7 +71,7 @@ test.describe("focused wiki editor shell", () => {
     const topbarBorder = await topbar.evaluate(
       (element) => getComputedStyle(element).borderBottomWidth,
     );
-    expect(topbarBorder).toBe("0px");
+    expect(topbarBorder).toBe("1px");
 
     const document = page.getByTestId("wiki-editor-document");
     await expect(document).toBeVisible();
@@ -359,7 +359,7 @@ test.describe("focused wiki editor shell", () => {
     ).toBeAttached();
   });
 
-  test("393px editor has one compact topbar and 20px document gutters", async ({
+  test("393px editor has one compact topbar and 24px document gutters", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 393, height: 852 });
@@ -373,18 +373,22 @@ test.describe("focused wiki editor shell", () => {
     expect(topbarBox!.y).toBe(0);
     expect(topbarBox!.height).toBe(44);
 
-    const comments = page.getByRole("button", { name: "打开批注" });
+    await expect(topbar.getByRole("button", { name: "打开批注" })).toHaveCount(
+      0,
+    );
+    await page.locator('[data-slate-editor="true"]').click();
+    const comments = page
+      .getByRole("toolbar", { name: "键盘上方编辑工具" })
+      .getByRole("button", { name: "添加批注" });
     const commentsBox = await comments.boundingBox();
     expect(commentsBox).not.toBeNull();
-    expect(commentsBox!.width).toBeLessThanOrEqual(40);
+    expect(commentsBox!.width).toBe(44);
 
     const title = page.getByRole("textbox", { name: "页面标题" });
     const titleBox = await title.boundingBox();
     expect(titleBox).not.toBeNull();
-    expect(titleBox!.x).toBeGreaterThanOrEqual(19);
-    expect(titleBox!.x).toBeLessThanOrEqual(21);
-    expect(titleBox!.width).toBeGreaterThanOrEqual(351);
-    expect(titleBox!.width).toBeLessThanOrEqual(353);
+    expect(titleBox!.x).toBe(24);
+    expect(titleBox!.width).toBe(345);
     await expect(title).toHaveCSS("font-size", "32px");
 
     await expect(page.locator('[data-slate-editor="true"]')).toHaveCount(1);
@@ -453,7 +457,7 @@ test.describe("focused wiki editor shell", () => {
     );
   });
 
-  test("settings-only edits participate in the unsaved navigation guard", async ({
+  test("settings-only edits flush autosave before navigation", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -466,13 +470,13 @@ test.describe("focused wiki editor shell", () => {
       .fill("Unsaved settings summary");
     await page.keyboard.press("Escape");
 
-    const dialogPromise = page.waitForEvent("dialog");
-    const click = page.getByRole("link", { name: "返回 Wiki" }).click();
-    const dialog = await dialogPromise;
-    expect(dialog.message()).toContain("有未保存的修改");
-    await dialog.dismiss();
-    await click;
-    await expect(page).toHaveURL(/\/wiki\/edit\/welcome$/);
+    await page.getByRole("link", { name: "返回 Wiki" }).click();
+    await expect(page).toHaveURL(/\/wiki\/welcome$/);
+
+    await page.goto("/wiki/history/welcome");
+    await expect(
+      page.getByText("Unsaved settings summary", { exact: false }),
+    ).toBeVisible();
   });
 
   test("URL, parent, and edit summary persist when they are the only changes", async ({
@@ -492,7 +496,7 @@ test.describe("focused wiki editor shell", () => {
       .fill(settingsOriginalSlug);
     await page.keyboard.press("Escape");
     await page.locator('[data-slate-editor="true"]').fill("Settings body");
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
     await page.waitForURL(`**/wiki/${settingsOriginalSlug}`);
 
     await page.getByText("编辑", { exact: true }).click();
@@ -508,7 +512,7 @@ test.describe("focused wiki editor shell", () => {
       .getByRole("textbox", { name: "编辑摘要（可选）" })
       .fill("Move and rename from page settings");
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
 
     await page.waitForURL(`**/wiki/${settingsRenamedSlug}`);
     await expect(
@@ -552,7 +556,7 @@ test.describe("focused wiki editor shell", () => {
     ).toBeVisible();
 
     await page.locator('[data-slate-editor="true"]').fill("Icon body");
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
     await page.waitForURL(`**/wiki/${iconFixtureSlug}`);
     await expect(page.getByTestId("wiki-page-hero-icon")).toHaveText("📚");
 
@@ -570,7 +574,7 @@ test.describe("focused wiki editor shell", () => {
       .getByRole("dialog", { name: "选择页面图标" })
       .getByRole("button", { name: "移除" })
       .click();
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
     await page.waitForURL(`**/wiki/${iconFixtureSlug}`);
     await expect(page.getByTestId("wiki-page-hero-icon")).toHaveCount(0);
   });
