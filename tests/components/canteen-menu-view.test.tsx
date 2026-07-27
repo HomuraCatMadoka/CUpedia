@@ -10,7 +10,10 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
-import type { CanteenMenuItem } from "@/lib/canteen-types";
+import type {
+  CanteenMenuItem,
+  MealPeriodAssignment,
+} from "@/lib/canteen-types";
 import { AFTERNOON_HINT_TEXT } from "@/lib/canteen-meal-period";
 import { hktDate } from "../helpers/hkt-date";
 
@@ -41,7 +44,7 @@ vi.mock("@/components/canteen/menu-item-comment-panel", () => ({
 
 function item(
   id: string,
-  mealPeriod: "breakfast" | "lunch" | "dinner" | "allday",
+  mealPeriods: MealPeriodAssignment | MealPeriodAssignment[],
   name: string,
   svgKey = "default",
 ): CanteenMenuItem {
@@ -51,7 +54,7 @@ function item(
     canteenId: "c1",
     name,
     pricing: null,
-    mealPeriods: [mealPeriod],
+    mealPeriods: Array.isArray(mealPeriods) ? mealPeriods : [mealPeriods],
     sortOrder: 0,
     svgKey,
     createdAt: t,
@@ -234,10 +237,7 @@ describe("CanteenMenuView", () => {
   it("only shows meal periods the store actually serves when multiple", async () => {
     render(
       <CanteenMenuView
-        items={[
-          item("ln-1", "lunch", "午市"),
-          item("dn-1", "dinner", "晚市"),
-        ]}
+        items={[item("ln-1", "lunch", "午市"), item("dn-1", "dinner", "晚市")]}
         voteCounts={{}}
         myVotes={{}}
       />,
@@ -265,9 +265,9 @@ describe("CanteenMenuView", () => {
 
     await waitFor(() => {
       expect(screen.getByText("演示午餐")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "点赞" }).textContent).toContain(
-        "5",
-      );
+      expect(
+        screen.getByRole("button", { name: "点赞" }).textContent,
+      ).toContain("5");
     });
     expect(screen.queryByText("演示早餐")).toBeNull();
   });
@@ -414,10 +414,7 @@ describe("CanteenMenuView", () => {
   it("hides period tabs when every dish is allday-only", async () => {
     render(
       <CanteenMenuView
-        items={[
-          item("a", "allday", "甜品A"),
-          item("b", "allday", "甜品B"),
-        ]}
+        items={[item("a", "allday", "甜品A"), item("b", "allday", "甜品B")]}
         voteCounts={{}}
         myVotes={{}}
       />,
@@ -435,10 +432,7 @@ describe("CanteenMenuView", () => {
   it("shows allday dishes under the lunch tab when lunch is the only specific period", async () => {
     render(
       <CanteenMenuView
-        items={[
-          item("ln-1", "lunch", "热菜"),
-          item("d-1", "allday", "甜品"),
-        ]}
+        items={[item("ln-1", "lunch", "热菜"), item("d-1", "allday", "甜品")]}
         voteCounts={{}}
         myVotes={{}}
       />,
@@ -451,5 +445,23 @@ describe("CanteenMenuView", () => {
     expect(screen.getByRole("tab", { name: "午餐" })).toBeTruthy();
     expect(screen.queryByRole("tab", { name: "早餐" })).toBeNull();
     expect(screen.queryByRole("tab", { name: "晚餐" })).toBeNull();
+  });
+
+  it("shows one multi-period dish under both lunch and dinner tabs", async () => {
+    render(
+      <CanteenMenuView
+        items={[item("shared", ["lunch", "dinner"], "午晚餐菜品")]}
+        voteCounts={{}}
+        myVotes={{}}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("午晚餐菜品")).toBeTruthy();
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "晚餐" }));
+    await waitFor(() => {
+      expect(screen.getByText("午晚餐菜品")).toBeTruthy();
+    });
   });
 });

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MealPeriodsEditor } from "@/components/admin/meal-periods-editor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,15 +24,10 @@ import {
   PreviewBanner,
 } from "@/components/canteen/canteen-shell";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
-import {
-  MealPeriodsBadges,
-  mealPeriodAssignmentLabel,
-} from "@/components/canteen/meal-period-badge";
+import { MealPeriodsBadges } from "@/components/canteen/meal-period-badge";
 import { MenuItemPrice } from "@/components/canteen/menu-item-price";
 import {
   ALLDAY_MEAL_PERIOD,
-  MEAL_PERIOD_VALUES,
-  MEAL_PERIODS,
   type MealPeriodAssignment,
   type Canteen,
   type CanteenMenuItem,
@@ -74,66 +70,6 @@ function pricingInput(options: DraftPriceOption[]) {
       };
     }),
   };
-}
-
-function toggleMealPeriod(
-  current: MealPeriodAssignment[],
-  period: MealPeriodAssignment,
-): MealPeriodAssignment[] {
-  if (period === ALLDAY_MEAL_PERIOD) {
-    return [ALLDAY_MEAL_PERIOD];
-  }
-  const withoutAllDay = current.filter((p) => p !== ALLDAY_MEAL_PERIOD);
-  if (withoutAllDay.includes(period)) {
-    const next = withoutAllDay.filter((p) => p !== period);
-    return next.length > 0 ? next : [ALLDAY_MEAL_PERIOD];
-  }
-  return MEAL_PERIODS.filter(
-    (p) => withoutAllDay.includes(p) || p === period,
-  );
-}
-
-function MealPeriodsEditor({
-  idPrefix,
-  value,
-  onChange,
-  disabled,
-}: {
-  idPrefix: string;
-  value: MealPeriodAssignment[];
-  onChange: (next: MealPeriodAssignment[]) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <fieldset className="space-y-1">
-      <legend className="text-xs font-medium text-[var(--canteen-muted)]">
-        餐段
-      </legend>
-      <div className="flex flex-wrap gap-3">
-        {MEAL_PERIOD_VALUES.map((period) => {
-          const checked = value.includes(period);
-          const inputId = `${idPrefix}-${period}`;
-          return (
-            <label
-              key={period}
-              htmlFor={inputId}
-              className="inline-flex items-center gap-1.5 text-sm text-[var(--canteen-ink)]"
-            >
-              <input
-                id={inputId}
-                type="checkbox"
-                checked={checked}
-                disabled={disabled}
-                onChange={() => onChange(toggleMealPeriod(value, period))}
-                className="size-3.5 accent-[var(--canteen-purple)]"
-              />
-              {mealPeriodAssignmentLabel[period]}
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
 }
 
 function PriceOptionsEditor({
@@ -505,9 +441,7 @@ export function CanteenMenuAdmin({
           <AlertDialogHeader>
             <AlertDialogTitle>删除菜品？</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteImpact
-                ? formatDeleteImpact(deleteImpact)
-                : "加载中…"}
+              {deleteImpact ? formatDeleteImpact(deleteImpact) : "加载中…"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,5 +1,6 @@
 import { inferDishSvgKeyFromName } from "@/lib/canteen-svg-keys";
 import {
+  ALLDAY_MEAL_PERIOD,
   primaryMealPeriodSortKey,
   type MealPeriod,
   type MenuSyncInput,
@@ -55,13 +56,15 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
       ? groupsById.get(category.groupIds[0])
       : undefined;
     if (!primaryGroup?.items) continue;
-    const periods = [
+    const mappedPeriods = [
       ...new Set(
         (category.periods ?? [])
           .map((period) => PERIOD_MAP[period])
           .filter((period): period is MealPeriod => period !== undefined),
       ),
     ];
+    const periods =
+      mappedPeriods.length > 0 ? mappedPeriods : [ALLDAY_MEAL_PERIOD];
     for (const item of primaryGroup.items) {
       if (
         item.published === false ||
@@ -116,4 +119,3 @@ function parseAigensPrice(price: unknown): number {
   if (amountMinor > 999_900) throw new Error("INVALID_AIGENS_PRICE");
   return amountMinor;
 }
-

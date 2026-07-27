@@ -1,12 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { MealPeriodsEditor } from "@/components/admin/meal-periods-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ALLDAY_MEAL_PERIOD,
-  MEAL_PERIOD_VALUES,
-  type MealPeriodAssignment,
   type MenuImportDraft,
   type MenuImportDraftItem,
 } from "@/lib/canteen-types";
@@ -15,7 +14,6 @@ import {
   publishMenuImportDraft,
   updateMenuImportDraft,
 } from "@/lib/canteen-import-actions";
-import { mealPeriodAssignmentLabel } from "@/components/canteen/meal-period-badge";
 import { cn } from "@/lib/utils";
 
 function ocrErrorMessage(code: string | null | undefined): string {
@@ -40,16 +38,11 @@ function importDraftErrorMessage(code: string): string {
     return "餐段须为 breakfast / lunch / dinner / allday。";
   if (code === "INVALID_SORT_ORDER") return "排序值无效。";
   if (code === "IMPORT_DRAFT_NOT_FOUND") return "导入草稿不存在或已删除。";
-  if (code === "IMPORT_DRAFT_ALREADY_PUBLISHED") return "该草稿已发布，请重新上传。";
+  if (code === "IMPORT_DRAFT_ALREADY_PUBLISHED")
+    return "该草稿已发布，请重新上传。";
   if (code === "IMPORT_DRAFT_EMPTY") return "草稿中没有菜品，请添加后再发布。";
   if (code === "CANTEEN_NOT_FOUND") return "食堂不存在。";
   return "操作失败，请重试。";
-}
-
-function draftPrimaryPeriod(
-  periods: MealPeriodAssignment[],
-): MealPeriodAssignment {
-  return periods[0] ?? ALLDAY_MEAL_PERIOD;
 }
 
 export function CanteenMenuImportPanel({
@@ -91,10 +84,13 @@ export function CanteenMenuImportPanel({
       try {
         const form = new FormData();
         form.append("file", file);
-        const res = await fetch(`/api/admin/canteens/${canteenId}/menu-import`, {
-          method: "POST",
-          body: form,
-        });
+        const res = await fetch(
+          `/api/admin/canteens/${canteenId}/menu-import`,
+          {
+            method: "POST",
+            body: form,
+          },
+        );
         const data = (await res.json()) as {
           draft?: MenuImportDraft;
           error?: string;
@@ -133,10 +129,7 @@ export function CanteenMenuImportPanel({
     });
   }
 
-  function updateItem(
-    tempId: string,
-    patch: Partial<MenuImportDraftItem>,
-  ) {
+  function updateItem(tempId: string, patch: Partial<MenuImportDraftItem>) {
     setItems((prev) =>
       prev.map((row) => (row.tempId === tempId ? { ...row, ...patch } : row)),
     );
@@ -245,7 +238,7 @@ export function CanteenMenuImportPanel({
 
           {items.length > 0 ? (
             <ul className="space-y-2">
-              {items.map((row) => (
+              {items.map((row, index) => (
                 <li
                   key={row.tempId}
                   className="grid gap-2 rounded-lg border border-[var(--canteen-bamboo)]/20 bg-white/80 p-3 sm:grid-cols-[1fr_5rem_6rem_4rem_auto]"
@@ -273,23 +266,14 @@ export function CanteenMenuImportPanel({
                       }
                     }}
                   />
-                  <select
-                    value={draftPrimaryPeriod(row.mealPeriods)}
-                    onChange={(e) =>
-                      updateItem(row.tempId, {
-                        mealPeriods: [
-                          e.target.value as MealPeriodAssignment,
-                        ],
-                      })
+                  <MealPeriodsEditor
+                    idPrefix={`draft-meal-${index}`}
+                    value={row.mealPeriods}
+                    onChange={(mealPeriods) =>
+                      updateItem(row.tempId, { mealPeriods })
                     }
-                    className="rounded-md border border-[var(--canteen-bamboo)]/30 bg-white px-2 py-1 text-sm"
-                  >
-                    {MEAL_PERIOD_VALUES.map((p) => (
-                      <option key={p} value={p}>
-                        {mealPeriodAssignmentLabel[p]}
-                      </option>
-                    ))}
-                  </select>
+                    disabled={pending}
+                  />
                   <Input
                     value={row.sortOrder}
                     inputMode="numeric"
