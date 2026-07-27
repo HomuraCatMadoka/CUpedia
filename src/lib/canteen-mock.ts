@@ -714,6 +714,17 @@ export function mockAppendShameVote(
   return { canteenId, voteDate };
 }
 
+export function mockCountAnonShameVotesForDate(
+  anonymousSessionId: string,
+  voteDate: string,
+): number {
+  return getState().shameVotes.filter(
+    (v) =>
+      v.voteDate === voteDate &&
+      v.anonymousSessionId === anonymousSessionId,
+  ).length;
+}
+
 export function mockGetShameVoteCountsForDate(
   voteDate: string,
 ): Record<string, number> {

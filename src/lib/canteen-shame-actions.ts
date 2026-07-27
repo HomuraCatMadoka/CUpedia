@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { unstable_cache } from "next/cache";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { canteens, canteenShameVotes } from "@/db/schema";
 import { getSessionVoterUser } from "@/lib/auth-guard";
@@ -15,12 +15,17 @@ import {
   isCanteenMockMode,
   mockAppendShameVote,
   mockCanteenExists,
+  mockCountAnonShameVotesForDate,
   mockEnsureAnonSession,
   mockGetRateLimitKey,
   mockGetShameVoteCountsForDate,
   mockSetVoterUserId,
 } from "@/lib/canteen-mock";
-import { hktCalendarDate, CANTEEN_SHAME_COUNTS_TAG } from "@/lib/canteen-shame-rank";
+import {
+  CANTEEN_SHAME_COUNTS_TAG,
+  getAnonShameDailyLimit,
+  hktCalendarDate,
+} from "@/lib/canteen-shame-rank";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
 
 type VoterIdentity = { userId: string } | { anonymousSessionId: string };
@@ -89,6 +94,30 @@ async function assertCanteenExists(canteenId: string): Promise<void> {
   if (!row[0]) throw new Error("CANTEEN_NOT_FOUND");
 }
 
+/** Durable per-cookie daily quota for guests (survives serverless instances). */
+async function assertAnonDailyShameLimit(
+  anonymousSessionId: string,
+  voteDate: string,
+): Promise<void> {
+  const limit = getAnonShameDailyLimit();
+  if (isCanteenMockMode()) {
+    if (mockCountAnonShameVotesForDate(anonymousSessionId, voteDate) >= limit) {
+      throw new Error("DAILY_LIMIT_EXCEEDED");
+    }
+    return;
+  }
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(canteenShameVotes)
+    .where(
+      and(
+        eq(canteenShameVotes.anonymousSessionId, anonymousSessionId),
+        eq(canteenShameVotes.voteDate, voteDate),
+      ),
+    );
+  if ((row?.count ?? 0) >= limit) throw new Error("DAILY_LIMIT_EXCEEDED");
+}
+
 const getCachedShameCounts = unstable_cache(
   async (voteDate: string): Promise<Record<string, number>> => {
     const rows = await db
@@ -129,16 +158,20 @@ export async function appendShameVote(
   if (isCanteenMockMode()) {
     const sessionUser = await syncMockVoterFromSession();
     if (sessionUser?.banned) throw new Error("USER_BANNED");
-    if (!sessionUser) mockEnsureAnonSession();
+    const anonId = sessionUser ? null : mockEnsureAnonSession();
     const key = mockGetRateLimitKey();
     if (!key) throw new Error("ANON_SESSION_REQUIRED");
     if (!checkVoteRateLimit(key)) throw new Error("RATE_LIMIT_EXCEEDED");
+    if (anonId) await assertAnonDailyShameLimit(anonId, voteDate);
     return mockAppendShameVote(canteenId, voteDate);
   }
 
   const identity = await resolveVoterIdentityForWrite();
   if (!checkVoteRateLimit(rateLimitKey(identity))) {
     throw new Error("RATE_LIMIT_EXCEEDED");
+  }
+  if ("anonymousSessionId" in identity) {
+    await assertAnonDailyShameLimit(identity.anonymousSessionId, voteDate);
   }
 
   await db.insert(canteenShameVotes).values({

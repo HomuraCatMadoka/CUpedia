@@ -1300,6 +1300,10 @@ export const canteenShameVotes = pgTable(
       table.voteDate,
       table.canteenId,
     ),
+    index("canteen_shame_votes_date_anon_idx").on(
+      table.voteDate,
+      table.anonymousSessionId,
+    ),
     index("canteen_shame_votes_canteen_id_idx").on(table.canteenId),
     check(
       "canteen_shame_votes_identity_chk",

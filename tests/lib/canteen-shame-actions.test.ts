@@ -34,6 +34,7 @@ import {
 import { hktCalendarDate } from "@/lib/canteen-shame-rank";
 import {
   mockEnsureAnonSession,
+  mockSetVoterUserId,
   resetCanteenMockState,
 } from "@/lib/canteen-mock";
 import { resetVoteRateLimitForTests } from "@/lib/canteen-vote-rate-limit";
@@ -43,10 +44,12 @@ const DEMO_CANTEEN_ID = "mock-canteen-demo";
 describe("canteen-shame-actions (mock mode)", () => {
   const prevMock = process.env.CANTEEN_MOCK_DATA;
   const prevSecret = process.env.AUTH_SECRET;
+  const prevDaily = process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
 
   beforeEach(() => {
     process.env.CANTEEN_MOCK_DATA = "true";
     process.env.AUTH_SECRET = "test-secret";
+    delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
     resetCanteenMockState();
     resetVoteRateLimitForTests();
     mockGetSession.mockResolvedValue(null);
@@ -58,6 +61,8 @@ describe("canteen-shame-actions (mock mode)", () => {
   afterEach(() => {
     process.env.CANTEEN_MOCK_DATA = prevMock;
     process.env.AUTH_SECRET = prevSecret;
+    if (prevDaily === undefined) delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
+    else process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = prevDaily;
     resetCanteenMockState();
     resetVoteRateLimitForTests();
   });
@@ -89,5 +94,30 @@ describe("canteen-shame-actions (mock mode)", () => {
     await expect(appendShameVote("missing-canteen")).rejects.toThrow(
       "CANTEEN_NOT_FOUND",
     );
+  });
+
+  it("caps anonymous stomps per HKT day", async () => {
+    process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "3";
+    await appendShameVote(DEMO_CANTEEN_ID);
+    await appendShameVote(DEMO_CANTEEN_ID);
+    await appendShameVote(DEMO_CANTEEN_ID);
+    await expect(appendShameVote(DEMO_CANTEEN_ID)).rejects.toThrow(
+      "DAILY_LIMIT_EXCEEDED",
+    );
+    const counts = await getShameVoteCountsForDate(hktCalendarDate());
+    expect(counts[DEMO_CANTEEN_ID]).toBe(3);
+  });
+
+  it("does not apply daily cap to logged-in mock voters", async () => {
+    process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "2";
+    mockGetSession.mockResolvedValue({
+      user: { id: "user-1", email: "a@link.cuhk.edu.hk" },
+    });
+    mockSetVoterUserId("user-1");
+    await appendShameVote(DEMO_CANTEEN_ID);
+    await appendShameVote(DEMO_CANTEEN_ID);
+    await appendShameVote(DEMO_CANTEEN_ID);
+    const counts = await getShameVoteCountsForDate(hktCalendarDate());
+    expect(counts[DEMO_CANTEEN_ID]).toBe(3);
   });
 });

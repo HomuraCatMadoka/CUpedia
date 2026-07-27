@@ -20,6 +20,7 @@ function shameErrorMessage(code: string): string {
   if (code === "ANON_SESSION_REQUIRED") return "投票需允许 Cookie";
   if (code === "USER_BANNED") return "账号已封禁，无法投票";
   if (code === "RATE_LIMIT_EXCEEDED") return "操作太频繁，请稍后再试";
+  if (code === "DAILY_LIMIT_EXCEEDED") return "今日踩数已达上限，请明天再来";
   if (code === "CANTEEN_NOT_FOUND") return "食堂不存在";
   return "点踩失败，请重试";
 }

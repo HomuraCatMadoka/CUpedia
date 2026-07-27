@@ -18,4 +18,6 @@ ALTER TABLE "canteen_shame_votes" ADD CONSTRAINT "canteen_shame_votes_identity_c
 --> statement-breakpoint
 CREATE INDEX "canteen_shame_votes_date_canteen_idx" ON "canteen_shame_votes" USING btree ("vote_date","canteen_id");
 --> statement-breakpoint
+CREATE INDEX "canteen_shame_votes_date_anon_idx" ON "canteen_shame_votes" USING btree ("vote_date","anonymous_session_id");
+--> statement-breakpoint
 CREATE INDEX "canteen_shame_votes_canteen_id_idx" ON "canteen_shame_votes" USING btree ("canteen_id");

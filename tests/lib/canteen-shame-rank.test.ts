@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  getAnonShameDailyLimit,
   hktCalendarDate,
   rankShameCanteens,
   type ShameRankEntry,
@@ -17,6 +18,25 @@ function canteen(id: string, name: string): Canteen {
     updatedAt: t,
   };
 }
+
+describe("getAnonShameDailyLimit", () => {
+  const prev = process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
+
+  afterEach(() => {
+    if (prev === undefined) delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
+    else process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = prev;
+  });
+
+  it("defaults to 50", () => {
+    delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
+    expect(getAnonShameDailyLimit()).toBe(50);
+  });
+
+  it("reads positive env override", () => {
+    process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "10";
+    expect(getAnonShameDailyLimit()).toBe(10);
+  });
+});
 
 describe("hktCalendarDate", () => {
   it("returns Asia/Hong_Kong calendar date as YYYY-MM-DD", () => {

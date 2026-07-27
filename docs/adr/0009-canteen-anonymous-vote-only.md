@@ -17,7 +17,7 @@ Accepted
 2. 匿名写入凭证为 **HMAC 签名 cookie** `canteen_anon_session`（`HttpOnly` + `SameSite=Lax`），绑定 `anonymousSessionId`；无有效签名 cookie 时**拒绝写库**。
 3. 登录用户以 `userId` 标识票；匿名与登录票**不合并**（MVP 已知双票）。
 4. 菜品投票 upsert：同 `(userId|anonymousSessionId, menuItemId)` 覆盖更新；取消为 `vote = NULL` 留行。💩堂榜为 **append-only**（`canteen_shame_votes`）：每次点踩插入一行，不可取消；榜单按港时 `voteDate` 过滤当日。
-5. 限流按 **cookie / userId**，不按 IP；`CANTEEN_VOTE_RATE_LIMIT_PER_MIN` 为礼貌限流（菜品与💩堂榜共用）。
+5. 限流按 **cookie / userId**，不按 IP：`CANTEEN_VOTE_RATE_LIMIT_PER_MIN` 为礼貌限流（菜品与💩堂榜共用）；💩堂榜另对**匿名**会话按港时自然日硬限制最多 **50** 次踩（`CANTEEN_SHAME_ANON_DAILY_LIMIT`，按 `canteen_shame_votes` 计数，跨实例生效）。登录用户不受该日限额约束。
 6. 菜单赞踩计数经 `unstable_cache`（`revalidate: 60`，tag `canteen-vote-counts`）缓存；**投票写入时** `revalidateTag` 该 tag，避免硬刷新后「我的投票」高亮与计数不一致。他人投票的聚合计数在未写入时仍最多约 60s 延迟。「我的投票」走不缓存查询 + 乐观 UI。💩堂榜计数 tag 为 `canteen-shame-counts`。
 7. Cookie 禁用者：投票 UI 显示「投票需允许 Cookie」，不开无 cookie 后门。
 
