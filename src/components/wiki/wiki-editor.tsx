@@ -67,6 +67,7 @@ import {
 } from "@/components/wiki/edit-conflict-dialog";
 import type { Discussion } from "@/lib/discussion-actions";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 import {
   extractText,
   normalizeInitialValue,
@@ -94,7 +95,7 @@ interface WikiSubmitResult {
   theirUpdatedAt?: string;
 }
 
-interface WikiEditorProps {
+export interface WikiEditorProps {
   mode: "create" | "edit";
   pageId?: string;
   initialTitle?: string;
@@ -106,6 +107,8 @@ interface WikiEditorProps {
   parentId?: string | null;
   linkablePages?: WikiLinkPage[];
   initialDiscussions?: Discussion[];
+  canDelete?: boolean;
+  onDelete?: () => Promise<void>;
   onSubmit: (data: {
     slug: string;
     title: string;
@@ -205,6 +208,8 @@ export function WikiEditor({
   parentId,
   linkablePages = [],
   initialDiscussions = [],
+  canDelete = false,
+  onDelete,
   onSubmit,
 }: WikiEditorProps) {
   // Stabilize node ids across the SSR render and the client hydration of this
@@ -247,6 +252,9 @@ export function WikiEditor({
   const [conflict, setConflict] = useState<EditConflict | null>(null);
   const [autosaveConflict, setAutosaveConflict] = useState(false);
   const [mobileEditorFocused, setMobileEditorFocused] = useState(false);
+  const markEditorHydrated = useCallback((element: HTMLDivElement | null) => {
+    if (element) element.dataset.editorHydrated = "true";
+  }, []);
   const mobileFileDialogOpenRef = useRef(false);
   const handleMobileFileDialogChange = useCallback((open: boolean) => {
     mobileFileDialogOpenRef.current = open;
@@ -519,6 +527,10 @@ export function WikiEditor({
   // Stable across renders (memoized inside the hook); safe as an effect/callback dep.
   const { resetBaseline: resetAutosaveBaseline } = autosave;
   const { flush: flushAutosave } = autosave;
+  const autosaveDirtyRef = useRef(autosave.isDirty);
+  useEffect(() => {
+    autosaveDirtyRef.current = autosave.isDirty;
+  }, [autosave.isDirty]);
   const createDraftDirtyRef = useRef(false);
   useEffect(() => {
     createDraftDirtyRef.current = mode === "create" && autosave.isDirty;
@@ -566,6 +578,25 @@ export function WikiEditor({
     return request;
   }, [flushAutosave, surfaceAutosaveFailure]);
   const bypassNavigationUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    const bypassCreatedPageNavigation = (event: Event) => {
+      const destination = (event as CustomEvent<unknown>).detail;
+      if (typeof destination !== "string") return;
+      bypassNavigationUrlRef.current = new URL(
+        destination,
+        window.location.origin,
+      ).href;
+    };
+    window.addEventListener(
+      "cupedia:editor-navigation-bypass",
+      bypassCreatedPageNavigation,
+    );
+    return () =>
+      window.removeEventListener(
+        "cupedia:editor-navigation-bypass",
+        bypassCreatedPageNavigation,
+      );
+  }, []);
   const prepareForNavigation = useCallback(async () => {
     if (mode === "create") {
       if (!createDraftDirtyRef.current) return true;
@@ -573,15 +604,15 @@ export function WikiEditor({
     }
     return flushBeforeNavigation();
   }, [flushBeforeNavigation, mode]);
+  // Install the history guard for the full editor lifetime. Mobile overlays
+  // add their own temporary history entries, so mounting this guard only after
+  // the first dirty change can put it above an already-open overlay and make
+  // Back leave the page instead of closing that overlay.
   const navigationProtectionEnabled =
     autosaveEnabled || (mode === "create" && autosave.isDirty);
 
   const handleSubmit = useCallback(async () => {
     setError("");
-    if (!title.trim()) {
-      setError("标题不能为空");
-      return;
-    }
     if (!(await ensureContributorSetup())) return;
     setSubmitting(true);
 
@@ -592,7 +623,10 @@ export function WikiEditor({
         surfaceAutosaveFailure(outcome.error);
         return;
       }
-      router.push(`/wiki/${pageId}`);
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      setMobileEditorFocused(false);
       return;
     }
 
@@ -641,7 +675,6 @@ export function WikiEditor({
     }
     router.push(`/wiki/${savedPageId}`);
   }, [
-    title,
     autosaveEnabled,
     pageId,
     flushAutosave,
@@ -737,18 +770,26 @@ export function WikiEditor({
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
         e.preventDefault();
-        if (autosaveEnabled) void autosave.save();
-        else void handleSubmit();
+        if (autosaveEnabled) {
+          void flushAutosave().then((outcome) => {
+            if (outcome.status === "error") {
+              surfaceAutosaveFailure(outcome.error);
+            }
+          });
+        } else {
+          void handleSubmit();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [autosaveEnabled, autosave, handleSubmit]);
+  }, [autosaveEnabled, flushAutosave, handleSubmit, surfaceAutosaveFailure]);
 
   useEffect(() => {
     if (!navigationProtectionEnabled) return;
 
     const handleAnchorClick = (event: MouseEvent) => {
+      if (!autosaveDirtyRef.current) return;
       if (
         event.defaultPrevented ||
         event.button !== 0 ||
@@ -866,6 +907,7 @@ export function WikiEditor({
           bypassNavigationUrlRef.current = null;
           return;
         }
+        if (!autosaveDirtyRef.current) return;
         if (
           !event.canIntercept ||
           !event.cancelable ||
@@ -912,13 +954,19 @@ export function WikiEditor({
   }, [navigationProtectionEnabled, prepareForNavigation, router]);
 
   return (
-    <Plate editor={editor} onValueChange={() => autosave.notifyChange()}>
+    <Plate
+      editor={editor}
+      onValueChange={() => {
+        if (!editor.api.isComposing()) autosave.notifyChange();
+      }}
+    >
       <WikiLinkPagesProvider pages={linkablePages}>
         <DiscussionProvider
           pageId={pageId ?? ""}
           initialDiscussions={initialDiscussions}
         >
           <div
+            ref={markEditorHydrated}
             data-testid="wiki-editor-shell"
             data-autosave-status={autosave.status}
             className="flex min-h-dvh min-w-0 flex-1 flex-col bg-background dark:bg-[#191919]"
@@ -948,7 +996,7 @@ export function WikiEditor({
                         href={`/wiki/${selectedParent.id}`}
                         className="hidden max-w-36 truncate rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:inline"
                       >
-                        {selectedParent.title}
+                        {getWikiDisplayTitle(selectedParent.title)}
                       </Link>
                       <span aria-hidden="true" className="hidden sm:inline">
                         /
@@ -1017,19 +1065,6 @@ export function WikiEditor({
                       <PopoverTitle>页面设置</PopoverTitle>
                     </PopoverHeader>
                     <div className="space-y-2">
-                      <Label htmlFor="slug">URL 路径</Label>
-                      <Input
-                        id="slug"
-                        value={slug}
-                        onChange={(event) => {
-                          slugRef.current = event.target.value;
-                          setSlug(event.target.value);
-                          autosave.notifyChange();
-                        }}
-                        placeholder="e.g. octopus"
-                      />
-                    </div>
-                    <div className="space-y-2">
                       <Label htmlFor="parent-page">父页面</Label>
                       <select
                         id="parent-page"
@@ -1044,7 +1079,7 @@ export function WikiEditor({
                         <option value="">无父页面</option>
                         {linkablePages.map((page) => (
                           <option key={page.id} value={page.id}>
-                            {page.title}
+                            {getWikiDisplayTitle(page.title)}
                           </option>
                         ))}
                       </select>
@@ -1063,6 +1098,30 @@ export function WikiEditor({
                         rows={3}
                       />
                     </div>
+                    {mode === "edit" && pageId && (
+                      <div className="flex items-center justify-between border-t pt-3">
+                        <Link
+                          href={`/wiki/history/${pageId}`}
+                          className={buttonVariants({
+                            variant: "ghost",
+                            size: "sm",
+                          })}
+                        >
+                          历史记录
+                        </Link>
+                        {canDelete && onDelete && (
+                          <form action={onDelete}>
+                            <Button
+                              type="submit"
+                              variant="destructive"
+                              size="sm"
+                            >
+                              删除页面
+                            </Button>
+                          </form>
+                        )}
+                      </div>
+                    )}
                   </PopoverContent>
                 </Popover>
                 <Button
@@ -1071,9 +1130,7 @@ export function WikiEditor({
                   size="sm"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className={
-                    mode === "edit" ? "hidden md:inline-flex" : undefined
-                  }
+                  className={mode === "edit" ? "md:hidden" : undefined}
                 >
                   {submitting ? "完成中…" : "完成"}
                 </Button>
@@ -1130,6 +1187,7 @@ export function WikiEditor({
                         placeholder="开始编辑..."
                         onFocus={() => setMobileEditorFocused(true)}
                         onBlur={handleMobileEditorBlur}
+                        onCompositionEnd={() => autosave.notifyChange()}
                       />
                     </EditorContainer>
                   </div>

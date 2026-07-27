@@ -134,7 +134,7 @@ test.describe("#94 editor reliability", () => {
     await page.goto(`/wiki/edit/${slug}`);
     const marker = `first-save-${Date.now()}`;
     await typeMarker(page, marker);
-    await page.getByRole("button", { name: "完成" }).click();
+    await page.keyboard.press("Control+s");
 
     await expect(page).toHaveURL(wikiPageUrl(pageId), {
       timeout: 15_000,
@@ -152,7 +152,7 @@ test.describe("#94 editor reliability", () => {
 
     await updatePageAsLegacyDeployment(slug);
     await typeMarker(page, `new-client-${Date.now()}`);
-    await page.getByRole("button", { name: "完成" }).click();
+    await page.keyboard.press("Control+s");
 
     const dialog = page.getByRole("dialog", { name: "编辑冲突" });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
@@ -162,13 +162,7 @@ test.describe("#94 editor reliability", () => {
   test("in-app navigation flushes a dirty draft before leaving", async ({
     page,
   }) => {
-    // Warm the reader cache before editing so this covers the real prefetch
-    // path: leaving the editor must not render the pre-save cached document.
     await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
-    await expect(
-      page.getByRole("heading", { name: "Campus Life" }),
-    ).toBeVisible();
-    await page.goto(`/wiki/edit/${PAGE_IDS.campusLife}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -177,9 +171,14 @@ test.describe("#94 editor reliability", () => {
     await page.keyboard.type(` ${marker}`);
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
-    await page.getByRole("link", { name: "返回 Wiki" }).click();
-    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.campusLife));
-    await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
+    await page
+      .getByRole("link", { name: "Welcome to CUpedia", exact: true })
+      .click();
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome));
+    await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
+    await expect(page.locator('[role="textbox"]').first()).toContainText(
+      marker,
+    );
   });
 
   test("Cmd/Ctrl+S triggers a save", async ({ page }) => {
@@ -244,14 +243,14 @@ test.describe("#96 edit conflict merge flow", () => {
     // Session B commits an overlapping change, advancing the server copy past
     // A's baseline.
     await typeMarker(pageB, "BBB");
-    await pageB.getByRole("button", { name: "完成" }).click();
+    await pageB.keyboard.press("Control+s");
     await expect(pageB).toHaveURL(wikiPageUrl(PAGE_IDS.campusLife), {
       timeout: 15_000,
     });
 
     // Session A edits the same region on its now-stale baseline and saves.
     await typeMarker(pageA, "ZZZ");
-    await pageA.getByRole("button", { name: "完成" }).click();
+    await pageA.keyboard.press("Control+s");
 
     // No silent loss + no bare "refresh" dead-end: the merge dialog shows.
     const dialog = pageA.getByRole("dialog", { name: "编辑冲突" });
@@ -259,9 +258,11 @@ test.describe("#96 edit conflict merge flow", () => {
     await expect(dialog.getByText("我的版本", { exact: true })).toBeVisible();
     await expect(dialog.getByText("服务器最新版本")).toBeVisible();
 
-    // "Keep mine" re-saves against the latest revision and navigates to read.
+    // "Keep mine" re-saves against the latest revision in the canonical
+    // editor. The URL no longer changes, so wait for the dialog to close
+    // instead of treating an already-matching URL as save completion.
     await dialog.getByRole("button", { name: "保留我的版本另存" }).click();
-    await expect(pageA).toHaveURL(wikiPageUrl(PAGE_IDS.campusLife), {
+    await expect(dialog).toHaveCount(0, {
       timeout: 15_000,
     });
     await pageA.reload();

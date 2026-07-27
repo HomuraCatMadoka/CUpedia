@@ -2,6 +2,7 @@ import Link from "next/link";
 import { searchWikiPages } from "@/lib/wiki-actions";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export default async function SearchPage({
   searchParams,
@@ -36,14 +37,13 @@ export default async function SearchPage({
               href={`/wiki/${r.id}`}
               className="block rounded-lg border p-3 hover:bg-secondary/50"
             >
-              <p className="font-medium">{r.title}</p>
+              <p className="font-medium">{getWikiDisplayTitle(r.title)}</p>
               {r.snippet && (
                 <p
                   className="mt-1 line-clamp-1 text-xs text-muted-foreground"
                   dangerouslySetInnerHTML={{ __html: r.snippet }}
                 />
               )}
-              <p className="text-xs text-muted-foreground">/{r.slug}</p>
             </Link>
           ))}
         </div>

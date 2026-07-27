@@ -1,6 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
+import { Client } from "pg";
 
 /**
  * Contextual desktop editing.
@@ -11,6 +16,34 @@ import { PAGE_IDS } from "../scripts/seed-data";
  */
 
 const RICH_SLUG = "rich-content-demo";
+let gettingStartedBaseline = "";
+
+async function readWikiContent(slug: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query<{ content: string }>(
+      "select content from wiki_pages where slug = $1",
+      [slug],
+    );
+    return result.rows[0]?.content ?? "";
+  } finally {
+    await client.end();
+  }
+}
+
+async function restoreWikiContent(slug: string, content: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("update wiki_pages set content = $1 where slug = $2", [
+      content,
+      slug,
+    ]);
+  } finally {
+    await client.end();
+  }
+}
 
 // e2e runs a production build, where a React hydration failure surfaces as a
 // *minified* page error ("Minified React error #418; visit …/418") — the
@@ -29,8 +62,13 @@ function collectConsoleErrors(page: Page): string[] {
 }
 
 async function selectText(page: Page, text: string) {
-  const editor = page.locator('[data-slate-editor="true"]');
+  const hydratedEditor = page.locator(
+    '[data-testid="wiki-editor-shell"][data-editor-hydrated="true"]',
+  );
+  await expect(hydratedEditor).toHaveCount(1);
+  const editor = hydratedEditor.locator('[data-slate-editor="true"]');
 
+  await expect(editor).toHaveCount(1);
   await expect(editor).toBeEditable();
   const points = await editor.evaluate((element, needle) => {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
@@ -46,36 +84,52 @@ async function selectText(page: Page, text: string) {
     startRange.setStart(node, start);
     startRange.setEnd(node, start + 1);
     const startRect = startRange.getBoundingClientRect();
-
     const endRange = document.createRange();
     endRange.setStart(node, start + needle.length - 1);
     endRange.setEnd(node, start + needle.length);
     const endRect = endRange.getBoundingClientRect();
 
     return {
-      start: {
-        x: startRect.left + 1,
-        y: startRect.top + startRect.height / 2,
-      },
-      end: {
-        x: endRect.right - 1,
-        y: endRect.top + endRect.height / 2,
-      },
+      start: { x: startRect.left + 1, y: startRect.top + startRect.height / 2 },
+      end: { x: endRect.right - 1, y: endRect.top + endRect.height / 2 },
     };
   }, text);
 
-  await page.mouse.move(points.start.x, points.start.y);
-  await page.mouse.down();
-  await page.mouse.move(points.end.x, points.end.y, { steps: 8 });
-  await page.mouse.up();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.mouse.move(points.start.x, points.start.y);
+    await page.mouse.down();
+    await page.mouse.move(points.end.x, points.end.y, { steps: 12 });
+    await page.mouse.up();
+    if (
+      (await page.evaluate(() => window.getSelection()?.toString() ?? "")) ===
+      text
+    ) {
+      break;
+    }
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
+    );
+  }
+
   await expect
     .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
     .toBe(text);
 }
 
 test.describe("#203 contextual desktop toolbar", () => {
+  test.beforeAll(async () => {
+    gettingStartedBaseline = await readWikiContent("getting-started");
+  });
+
   test.beforeEach(async ({ page }) => {
+    await restoreWikiContent("getting-started", gettingStartedBaseline);
     await loginAsAdmin(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (!page.isClosed()) await page.close();
+    await restoreWikiContent("getting-started", gettingStartedBaseline);
   });
 
   test("the document opens in a quiet default state without a format toolbar", async ({
@@ -243,6 +297,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const document = page.getByTestId("wiki-editor-document");
     const before = await document.boundingBox();
@@ -512,6 +567,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const headingBlock = page
       .getByTestId("wiki-editor-block")
@@ -521,6 +577,8 @@ test.describe("#203 contextual desktop toolbar", () => {
       .getByTestId("wiki-editor-block")
       .filter({ hasText: "Registry" })
       .first();
+    await expect(headingBlock).toBeVisible();
+    await expect(registryBlock).toBeVisible();
     const beforeHeading = await headingBlock.boundingBox();
     const beforeRegistry = await registryBlock.boundingBox();
     expect(beforeHeading!.y).toBeLessThan(beforeRegistry!.y);
@@ -570,7 +628,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
     await page.keyboard.type("New to CUHK?");
@@ -618,7 +676,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     // Guard the Navbar SSR-hydration fix on the create editor.
     const consoleErrors = collectConsoleErrors(page);
 
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
     await expect(page.locator('[data-slate-editor="true"]')).toBeVisible();
     await expect(page.getByTestId("fixed-toolbar-buttons")).toHaveCount(0);
     const hydrationErrors = consoleErrors.filter((e) => HYDRATION_RE.test(e));

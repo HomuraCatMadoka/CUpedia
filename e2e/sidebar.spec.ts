@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
+import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 import { PAGE_IDS } from "../scripts/seed-data";
 import { wikiPageUrl } from "./helpers/wiki";
@@ -49,6 +50,33 @@ async function longPress(locator: Locator) {
   };
 
   await locator.dispatchEvent("pointerdown", pointer);
+}
+
+async function childPageIds(parentId: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query<{ id: string }>(
+      "select id from wiki_pages where parent_id = $1",
+      [parentId],
+    );
+    return result.rows.map((row) => row.id);
+  } finally {
+    await client.end();
+  }
+}
+
+async function deleteChildPagesExcept(parentId: string, retainedIds: string[]) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      "delete from wiki_pages where parent_id = $1 and not (id = any($2::uuid[]))",
+      [parentId, retainedIds],
+    );
+  } finally {
+    await client.end();
+  }
 }
 
 test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
@@ -184,12 +212,8 @@ test.describe("#316 mobile rail is replaced by the Header Drawer", () => {
     const open = page.getByRole("button", { name: "打开导航" });
     await expect(open).toBeVisible();
 
-    // The desktop rail entry remains mounted but is hidden with its parent.
-    await expect(page.locator('a[href="/wiki/new"]')).toHaveCount(1);
-    await expect(page.locator('a[href="/wiki/new"]')).toBeHidden();
-
     await open.click();
-    await expect(page.getByRole("link", NEW_PAGE)).toBeVisible();
+    await expect(page.getByRole("button", NEW_PAGE)).toBeVisible();
   });
 });
 
@@ -399,7 +423,7 @@ test.describe("#98 desktop collapsed rail is unchanged", () => {
 
     // The `max-md:hidden` guard only suppresses the new-page entry on mobile,
     // so on desktop it must stay visible.
-    const newPage = page.getByRole("link", NEW_PAGE);
+    const newPage = page.getByRole("button", NEW_PAGE);
     await expect(newPage).toHaveCount(1);
     await expect(newPage).toBeVisible();
   });
@@ -506,45 +530,48 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
   test("offers real hover actions and carries the parent into a new child page", async ({
     page,
   }) => {
+    const retainedChildIds = await childPageIds(PAGE_IDS.campusLife);
     await loginAsAdmin(page);
-    await page.goto(`/wiki/edit/${PAGE_IDS.dining}`);
+    try {
+      await page.goto(`/wiki/edit/${PAGE_IDS.dining}`);
 
-    const campusRow = page
-      .getByRole("tree", { name: "Wiki 页面层级" })
-      .getByRole("treeitem", { name: "Campus Life" })
-      .locator(":scope > .wiki-tree-row");
-    await campusRow.hover();
+      const campusRow = page
+        .getByRole("tree", { name: "Wiki 页面层级" })
+        .getByRole("treeitem", { name: "Campus Life" })
+        .locator(":scope > .wiki-tree-row");
+      await campusRow.hover();
 
-    const addChild = campusRow.getByRole("link", {
-      name: "在 Campus Life 下新建页面",
-    });
-    const pageMenu = campusRow.getByRole("button", {
-      name: "打开 Campus Life 的页面菜单",
-    });
-    await expect(addChild).toBeVisible();
-    await expect(pageMenu).toBeVisible();
+      const addChild = campusRow.getByRole("button", {
+        name: "在 Campus Life 下新建页面",
+      });
+      const pageMenu = campusRow.getByRole("button", {
+        name: "打开 Campus Life 的页面菜单",
+      });
+      await expect(addChild).toBeVisible();
+      await expect(pageMenu).toBeVisible();
 
-    await pageMenu.click();
-    await expect(
-      page.getByRole("menuitem", { name: "新建子页面" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("menuitem", { name: "编辑页面" }),
-    ).toBeVisible();
-    await page.keyboard.press("Escape");
+      await pageMenu.click();
+      await expect(
+        page.getByRole("menuitem", { name: "新建子页面" }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
 
-    const childHref = await addChild.getAttribute("href");
-    expect(childHref).toMatch(/^\/wiki\/new\?parent=.+/);
-    await addChild.click();
-    await expect(page).toHaveURL(/\/wiki\/new\?parent=.+$/);
-
-    await page.getByRole("button", { name: "页面设置" }).click();
-    await expect(
-      page
-        .getByRole("dialog", { name: "页面设置" })
-        .getByRole("combobox", { name: "父页面" })
-        .locator("option:checked"),
-    ).toHaveText("Campus Life");
+      await addChild.click();
+      await expect(page).toHaveURL(
+        /\/wiki\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        { timeout: 30_000 },
+      );
+      await page.getByRole("button", { name: "页面设置" }).click();
+      await expect(page.getByLabel("父页面")).toHaveValue(PAGE_IDS.campusLife);
+      await expect(
+        page
+          .getByRole("dialog", { name: "页面设置" })
+          .getByRole("combobox", { name: "父页面" })
+          .locator("option:checked"),
+      ).toHaveText("Campus Life");
+    } finally {
+      await deleteChildPagesExcept(PAGE_IDS.campusLife, retainedChildIds);
+    }
   });
 
   test("reveals the current page through collapsed ancestors without overwriting the preference", async ({
@@ -596,6 +623,9 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     const canteen = tree.getByRole("treeitem", {
       name: "United College Canteen",
     });
+    const firstCampusChild = campus
+      .locator(":scope > [role=group] > [role=treeitem]")
+      .first();
 
     await expect(campus).toHaveAttribute("aria-level", "1");
     await expect(dining).toHaveAttribute("aria-level", "2");
@@ -603,8 +633,9 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
 
     await campus.focus();
     await page.keyboard.press("ArrowRight");
-    await expect(dining).toBeFocused();
+    await expect(firstCampusChild).toBeFocused();
 
+    await dining.focus();
     await page.keyboard.press("ArrowLeft");
     await expect(dining).toBeFocused();
     await expect(dining).toHaveAttribute("aria-expanded", "false");
@@ -635,7 +666,7 @@ test.describe("ADR 0010 coexist nav shell (desktop)", () => {
 
     // Left column: the persistent page tree (was hidden by the old swap here).
     await expect(
-      page.locator("nav").filter({ hasText: "Pages" }),
+      page.getByRole("navigation", { name: "Wiki 页面树" }),
     ).toBeVisible();
 
     // Right column: the per-page table of contents, coexisting with the tree.

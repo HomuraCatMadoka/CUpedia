@@ -9,6 +9,7 @@ export const SlashKit = [
   SlashPlugin.configure({
     options: {
       triggerQuery: (editor: SlateEditor) =>
+        !editor.api.isComposing() &&
         !editor.api.some({
           match: { type: editor.getType(KEYS.codeBlock) },
         }),

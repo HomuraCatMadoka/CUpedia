@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { deleteObjects, getObject } from "../src/lib/minio";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
-import { canonicalWikiPageUrl } from "./helpers/wiki";
+import { createUntitledWikiPage } from "./helpers/wiki";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZAAAAAElFTkSuQmCC",
@@ -98,15 +98,9 @@ test("editor uploads an image and saves it on a wiki page", async ({
   request,
 }) => {
   await loginAsAdmin(page);
-  const slug = `upload-${randomUUID().slice(0, 8)}`;
-  const title = `Upload ${slug}`;
-  await page.goto("/wiki/new");
+  const title = `Upload ${randomUUID().slice(0, 8)}`;
+  await createUntitledWikiPage(page);
   await page.getByLabel("标题").fill(title);
-  await page.getByRole("button", { name: "页面设置" }).click();
-  const settings = page.getByRole("dialog", { name: "页面设置" });
-  await settings.getByLabel("URL 路径").fill(slug);
-  await page.keyboard.press("Escape");
-  await expect(settings).toHaveCount(0);
   const editor = page.locator('[role="textbox"]').first();
   await editor.evaluate((element, base64) => {
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
@@ -127,11 +121,9 @@ test("editor uploads an image and saves it on a wiki page", async ({
   expect(url).toBeTruthy();
   remember(url!);
 
-  await page.getByRole("button", { name: "完成" }).click();
-  await expect(page).toHaveURL(canonicalWikiPageUrl);
-  await expect(
-    page.getByRole("heading", { name: title, level: 1 }),
-  ).toBeVisible();
+  await page.keyboard.press("Control+s");
+  await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel("页面标题")).toHaveValue(title);
   await expect(page.locator(`img[src="${url}"]`)).toBeVisible();
   expect((await request.get(url!)).status()).toBe(200);
 });

@@ -1,10 +1,14 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderToString } from "react-dom/server";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
 
 function ssr(initialCollapsed: boolean, canEdit = false) {
   return renderToString(
@@ -41,8 +45,9 @@ describe("SidebarToggle mobile ownership (#316)", () => {
   it("keeps the desktop new-page entry without adding a second mobile rail affordance", () => {
     const html = ssr(true, true);
     expect(html).toContain("新建页面");
-    const anchor = html.match(/<a[^>]*aria-label="新建页面"[^>]*>/)?.[0] ?? "";
-    expect(anchor).not.toContain("max-md:hidden");
+    const button =
+      html.match(/<button[^>]*aria-label="新建页面"[^>]*>/)?.[0] ?? "";
+    expect(button).not.toContain("max-md:hidden");
   });
 
   it("omits the new-page button entirely when the user cannot edit", () => {

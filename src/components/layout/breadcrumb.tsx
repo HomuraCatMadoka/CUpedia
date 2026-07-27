@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { buildBreadcrumb } from "@/lib/breadcrumb";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export function Breadcrumb({
   pages,
@@ -22,7 +23,7 @@ export function Breadcrumb({
             href={`/wiki/${crumb.id}`}
             className="hover:text-foreground hover:underline"
           >
-            {crumb.title}
+            {getWikiDisplayTitle(crumb.title)}
           </Link>
           {i < crumbs.length - 1 && <span className="text-border">/</span>}
         </span>

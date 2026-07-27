@@ -72,7 +72,9 @@ test("#250 owner role governance and immediate wiki edit policy", async ({
     manager.getByText("当前：所有登录用户均可创建、编辑和回滚页面"),
   ).toBeVisible();
 
-  await user.goto("/wiki/new");
+  await user.goto("/wiki");
+  await user.getByRole("button", { name: "新建页面" }).first().click();
+  await expect(user).toHaveURL(/\/wiki\/[0-9a-f-]{36}$/);
   await expect(user.getByLabel("标题")).toBeVisible();
   await user.goto("/wiki/edit/rich-content-demo");
   await expect(user.locator('[role="textbox"]').first()).toBeVisible();

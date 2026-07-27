@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getCategoryCards, getRecentPages } from "@/lib/wiki-homepage";
 import { Card, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export default async function WikiIndexPage() {
   const [categories, recentPages] = await Promise.all([
@@ -30,7 +31,9 @@ export default async function WikiIndexPage() {
                     className="transition-colors hover:ring-foreground/20"
                   >
                     <CardHeader>
-                      <CardTitle className="text-sm">{cat.title}</CardTitle>
+                      <CardTitle className="text-sm">
+                        {getWikiDisplayTitle(cat.title)}
+                      </CardTitle>
                       <CardAction>
                         <Badge variant="secondary">{cat.childCount} 篇</Badge>
                       </CardAction>
@@ -53,7 +56,7 @@ export default async function WikiIndexPage() {
                   prefetch={false}
                   className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3 hover:bg-secondary"
                 >
-                  <div className="text-sm">{p.title}</div>
+                  <div className="text-sm">{getWikiDisplayTitle(p.title)}</div>
                   <div className="text-xs text-muted-foreground">
                     {(p as { updatedByUser?: { nickname: string } })
                       .updatedByUser?.nickname ?? "未知"}{" "}

@@ -1,6 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("responsive on-demand discussions", () => {
@@ -11,8 +15,7 @@ test.describe("responsive on-demand discussions", () => {
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
     const closedBox = await editor.boundingBox();
     expect(closedBox).not.toBeNull();
     expect(closedBox!.width).toBeGreaterThan(700);
@@ -62,8 +65,7 @@ test.describe("responsive on-demand discussions", () => {
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
     const before = await editor.boundingBox();
     expect(before).not.toBeNull();
 
@@ -77,15 +79,15 @@ test.describe("responsive on-demand discussions", () => {
     expect(Math.abs(after!.width - before!.width)).toBeLessThanOrEqual(1);
   });
 
-  test("new pages do not expose comments before they have a page identity", async ({
+  test("new pages expose comments immediately because identity already exists", async ({
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/new");
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await createUntitledWikiPage(page);
+    await waitForHydratedWikiEditor(page);
     await expect(
       page.locator('button[aria-controls="wiki-discussion-panel"]'),
-    ).toHaveCount(0);
+    ).toHaveCount(1);
   });
 });
 
@@ -102,8 +104,7 @@ test.describe("responsive on-demand discussions on mobile", () => {
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
     const closedBox = await editor.boundingBox();
     expect(closedBox).not.toBeNull();
     expect(closedBox!.width).toBeGreaterThan(300);

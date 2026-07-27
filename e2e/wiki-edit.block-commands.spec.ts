@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
+import { createUntitledWikiPage } from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("wiki editor block commands", () => {
@@ -12,7 +13,7 @@ test.describe("wiki editor block commands", () => {
   test("Slash search supports keyboard selection, Escape, and a clear empty state", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     const menu = page.getByTestId("slash-command-menu");
@@ -47,7 +48,7 @@ test.describe("wiki editor block commands", () => {
   test("Slash inserts representative rich content through existing Plate transforms", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
@@ -94,7 +95,7 @@ test.describe("wiki editor block commands", () => {
   test("the contextual block menu uses shared labels and only offers valid text conversions", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
@@ -121,7 +122,7 @@ test.describe("wiki editor block commands", () => {
   test("deleting the only block leaves an editable paragraph with focus", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
