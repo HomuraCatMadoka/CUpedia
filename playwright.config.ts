@@ -31,6 +31,7 @@ const PORT = runtime.port;
 const baseURL = `http://localhost:${PORT}`;
 const E2E_DATABASE_URL = runtime.databaseUrl;
 const node = JSON.stringify(process.execPath);
+const useDevServer = process.env.E2E_SERVER_MODE === "dev";
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with
@@ -56,15 +57,25 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /wiki-edit\.mobile-webkit\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "webkit-mobile",
+      testMatch: /wiki-edit\.mobile-webkit\.spec\.ts/,
+      use: { ...devices["iPhone 13"] },
     },
   ],
   webServer: {
     // Provision the isolated db before the server. CI builds in its own step;
     // local cold builds get a budget that reflects the real editor bundle.
+    // E2E_SERVER_MODE=dev is for fast local debugging only; production-mode
+    // runs and CI remain the authoritative gate.
     command: process.env.CI
       ? `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next start --port ${PORT}`
-      : `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next build && ${node} node_modules/next/dist/bin/next start --port ${PORT}`,
+      : useDevServer
+        ? `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next dev --port ${PORT}`
+        : `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next build && ${node} node_modules/next/dist/bin/next start --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 10 * 60_000,

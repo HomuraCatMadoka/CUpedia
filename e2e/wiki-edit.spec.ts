@@ -156,28 +156,27 @@ test.describe("#94 editor reliability", () => {
     await expect(dialog).toContainText("Legacy deployment edit");
   });
 
-  test("in-app navigation is guarded while dirty", async ({ page }) => {
+  test("in-app navigation flushes a dirty draft before leaving", async ({
+    page,
+  }) => {
+    // Warm the reader cache before editing so this covers the real prefetch
+    // path: leaving the editor must not render the pre-save cached document.
+    await page.goto("/wiki/campus-life");
+    await expect(
+      page.getByRole("heading", { name: "Campus Life" }),
+    ).toBeVisible();
     await page.goto("/wiki/edit/campus-life");
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
+    const marker = `navigation-flush-${Date.now()}`;
     await editor.click();
-    await page.keyboard.type(" dirty-edit");
-    // Immediately dirty; the guard fires on in-app <a> clicks via confirm().
+    await page.keyboard.type(` ${marker}`);
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
-    // Click the in-app "CUpedia" home link in the navbar.
-    const dialogPromise = page.waitForEvent("dialog");
-    const clickPromise = page
-      .getByRole("link", { name: "CUpedia" })
-      .first()
-      .click();
-    const dialog = await dialogPromise;
-    expect(dialog.message()).toContain("未保存");
-    await dialog.dismiss();
-    await clickPromise;
-    // Dismissed => still on the edit page.
-    await expect(page).toHaveURL(/\/wiki\/edit\//);
+    await page.getByRole("link", { name: "返回 Wiki" }).click();
+    await expect(page).toHaveURL(/\/wiki\/campus-life$/);
+    await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
   });
 
   test("Cmd/Ctrl+S triggers a save", async ({ page }) => {

@@ -13,6 +13,7 @@ import { getDiscussions } from "@/lib/discussion-actions";
 
 type DiscussionContextValue = {
   discussions: Discussion[];
+  canCreateDiscussion: boolean;
   activeCommentId: string | null;
   setActiveCommentId: (id: string | null) => void;
   panelOpen: boolean;
@@ -58,6 +59,7 @@ export function DiscussionProvider({
     <DiscussionContext.Provider
       value={{
         discussions,
+        canCreateDiscussion: Boolean(pageId),
         activeCommentId,
         setActiveCommentId,
         panelOpen,

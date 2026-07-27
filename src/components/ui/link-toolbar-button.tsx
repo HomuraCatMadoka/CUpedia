@@ -10,14 +10,20 @@ import { Link } from "lucide-react";
 
 import { ToolbarButton } from "./toolbar";
 
-export function LinkToolbarButton(
-  props: React.ComponentProps<typeof ToolbarButton>,
-) {
+export function LinkToolbarButton({
+  tooltip = "链接",
+  ...props
+}: React.ComponentProps<typeof ToolbarButton>) {
   const state = useLinkToolbarButtonState();
   const { props: buttonProps } = useLinkToolbarButton(state);
 
   return (
-    <ToolbarButton {...props} {...buttonProps} data-plate-focus tooltip="Link">
+    <ToolbarButton
+      {...props}
+      {...buttonProps}
+      data-plate-focus
+      tooltip={tooltip}
+    >
       <Link />
     </ToolbarButton>
   );

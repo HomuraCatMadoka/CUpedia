@@ -15,6 +15,7 @@ import { getDiscussions } from "@/lib/discussion-actions";
 import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
+import { resolveWikiLinkUrls } from "@/lib/wiki-links";
 
 export default async function WikiReadPage({
   params,
@@ -30,9 +31,13 @@ export default async function WikiReadPage({
   ]);
 
   if (!page) notFound();
+  if (page.slug !== slug) redirect(`/wiki/${page.slug}`);
 
   const headings = extractHeadings(page.content);
-  const plateValue = stripTitleHeading(parseContent(page.content), page.title);
+  const plateValue = stripTitleHeading(
+    resolveWikiLinkUrls(parseContent(page.content), pages),
+    page.title,
+  );
   const [discussions, backlinks] = await Promise.all([
     getDiscussions(page.id),
     getBacklinks(page.id),
@@ -47,6 +52,15 @@ export default async function WikiReadPage({
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-6">
           <Breadcrumb pages={pages} currentSlug={slug} />
+          {page.icon && (
+            <div
+              data-testid="wiki-page-hero-icon"
+              aria-hidden="true"
+              className="mt-4 mb-2 text-[56px] leading-none md:text-[64px]"
+            >
+              {page.icon}
+            </div>
+          )}
           <div className="mt-2 flex items-start justify-between gap-4">
             <h1 className="text-2xl font-bold">{page.title}</h1>
             <div className="flex shrink-0 gap-2">

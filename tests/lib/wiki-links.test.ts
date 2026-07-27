@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { extractWikiLinkTargets } from "@/lib/wiki-links";
+import { extractWikiLinkTargets, resolveWikiLinkUrls } from "@/lib/wiki-links";
 
 const link = (pageId: string, text: string) => ({
   type: "a",
@@ -46,5 +46,64 @@ describe("extractWikiLinkTargets", () => {
       },
     ]);
     expect(extractWikiLinkTargets(content).sort()).toEqual(["p1", "p2"]);
+  });
+});
+
+describe("resolveWikiLinkUrls", () => {
+  it("refreshes nested wiki-link URLs from stable page IDs", () => {
+    const value = [
+      {
+        type: "p",
+        children: [
+          { text: "see " },
+          {
+            type: "a",
+            pageId: "p1",
+            url: "/wiki/old-slug",
+            children: [{ text: "Page One" }],
+          },
+        ],
+      },
+    ];
+
+    expect(
+      resolveWikiLinkUrls(value, [{ id: "p1", slug: "new-slug" }]),
+    ).toEqual([
+      {
+        type: "p",
+        children: [
+          { text: "see " },
+          {
+            type: "a",
+            pageId: "p1",
+            url: "/wiki/new-slug",
+            children: [{ text: "Page One" }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("leaves external and unresolved links unchanged", () => {
+    const value = [
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            url: "https://example.com",
+            children: [{ text: "external" }],
+          },
+          {
+            type: "a",
+            pageId: "missing",
+            url: "/wiki/missing",
+            children: [{ text: "missing" }],
+          },
+        ],
+      },
+    ];
+
+    expect(resolveWikiLinkUrls(value, [])).toBe(value);
   });
 });

@@ -2,34 +2,11 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 
 /**
- * Edit-page persistent formatting toolbar.
+ * Contextual desktop editing.
  *
- * ref #203 — before the fix the editor exposed no always-on format controls:
- * the only toolbar (`FloatingToolbarKit`) surfaced on text selection, so a
- * freshly opened editor was a blank contenteditable with zero visible entry
- * points. `FixedToolbarKit` renders a sticky toolbar via `beforeEditable`, so
- * bold/turn-into/list/link/table controls are present the moment the page
- * loads — without removing the floating toolbar.
- *
- * ref #206 — the sticky toolbar renders those controls during SSR/first paint,
- * which surfaced a latent bug in `withTooltip`: it wrapped each control in a
- * base-ui tooltip trigger (a second <button>) and mixed a radix Tooltip portal
- * under a base-ui Tooltip root. That produced button-in-button markup plus an
- * uncaught `TooltipPortal must be used within Tooltip`, hard-throwing the whole
- * editor page into an error boundary. The fix merges the tooltip trigger onto
- * the control (`render=`) and unifies the tooltip on base-ui, so the toolbar
- * mounts with valid, non-nested markup.
- *
- * ref #202 (SSR 水合) — the always-on toolbar makes the editor page's first
- * paint heavier, which turned a pre-existing, app-wide hydration mismatch into
- * a hard failure: the `Navbar` renders its auth menu from `useSession()`, whose
- * cookie-backed snapshot lets the first client render already know the user
- * while the server rendered the logged-out link. React #418 then regenerates
- * the whole layout on hydrate, and on a slow first paint that regeneration
- * lands as the user clicks 保存 — detaching the button before its handler runs,
- * so create silently never saved (a flaky create→redirect timeout in CI). The
- * `Navbar` now gates its auth branch on mount, so SSR and the first client
- * render agree and the mismatch cannot occur.
+ * ref #203 keeps the hydration and valid-button regressions covered while
+ * replacing the old always-on toolbar contract with the Notion-style quiet
+ * default required by Ticket 06.
  */
 
 const RICH_SLUG = "rich-content-demo";
@@ -50,76 +27,599 @@ function collectConsoleErrors(page: Page): string[] {
   return errors;
 }
 
-test.describe("#203 edit-page fixed toolbar", () => {
+async function selectText(page: Page, text: string) {
+  const editor = page.locator('[data-slate-editor="true"]');
+
+  await expect(editor).toBeEditable();
+  const points = await editor.evaluate((element, needle) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+
+    while (node && !node.textContent?.includes(needle)) {
+      node = walker.nextNode();
+    }
+    if (!node?.textContent) throw new Error(`Text not found: ${needle}`);
+
+    const start = node.textContent.indexOf(needle);
+    const startRange = document.createRange();
+    startRange.setStart(node, start);
+    startRange.setEnd(node, start + 1);
+    const startRect = startRange.getBoundingClientRect();
+
+    const endRange = document.createRange();
+    endRange.setStart(node, start + needle.length - 1);
+    endRange.setEnd(node, start + needle.length);
+    const endRect = endRange.getBoundingClientRect();
+
+    return {
+      start: {
+        x: startRect.left + 1,
+        y: startRect.top + startRect.height / 2,
+      },
+      end: {
+        x: endRect.right - 1,
+        y: endRect.top + endRect.height / 2,
+      },
+    };
+  }, text);
+
+  await page.mouse.move(points.start.x, points.start.y);
+  await page.mouse.down();
+  await page.mouse.move(points.end.x, points.end.y, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""))
+    .toBe(text);
+}
+
+test.describe("#203 contextual desktop toolbar", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
   });
 
-  test("a persistent format toolbar is visible on load, before any selection", async ({
+  test("the document opens in a quiet default state without a format toolbar", async ({
     page,
   }) => {
     await page.goto(`/wiki/edit/${RICH_SLUG}`);
 
-    // Editor mounts.
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
-    // The always-on toolbar is present without clicking or selecting anything.
-    const toolbar = page.getByTestId("fixed-toolbar-buttons");
-    await expect(toolbar).toBeVisible();
-
-    // It carries a batch of format controls (turn-into, marks, lists, link,
-    // table, …), not an empty shell.
-    expect(await toolbar.getByRole("button").count()).toBeGreaterThanOrEqual(4);
-
-    // The turn-into control reflects the default block type ("Text") for a
-    // paragraph — proof the toolbar is wired to the editor, not inert markup.
-    await expect(toolbar.getByText("Text", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("fixed-toolbar-buttons")).toHaveCount(0);
+    await expect(
+      page.getByRole("toolbar", { name: "文字格式工具栏" }),
+    ).toHaveCount(0);
   });
 
-  test("toolbar controls render as valid, non-nested buttons (no button-in-button)", async ({
+  test("selecting text opens the contextual format toolbar and collapsing the selection closes it", async ({
     page,
   }) => {
-    await page.goto(`/wiki/edit/${RICH_SLUG}`);
+    await page.goto("/wiki/edit/getting-started");
 
-    // The editor must be alive — a hard hydration throw would have replaced the
-    // whole page with the "This page couldn't load" error boundary.
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
-    await expect(page.getByTestId("fixed-toolbar-buttons")).toBeVisible();
+    await selectText(page, "New to CUHK?");
 
-    // #206 regression: no control may render a <button> nested inside another
-    // <button>. That invalid markup is what threw on hydration once the sticky
-    // toolbar forced these controls into the first paint. This is a static,
-    // post-hydration structural check — the interactive dropdown-open path is
-    // covered by the Chrome DevTools pass, which is not subject to cold-compile
-    // timing races in CI.
-    const nestedButtons = await page.locator("button button").count();
-    expect(nestedButtons).toBe(0);
-
-    // The dropdown trigger survived the tooltip-trigger merge: it still exposes
-    // a working popup control (aria-haspopup) rather than inert markup.
+    const toolbar = page.getByRole("toolbar", {
+      name: "文字格式工具栏",
+    });
+    await expect(toolbar).toBeVisible();
+    await expect(toolbar.getByLabel("粗体")).toBeVisible();
+    await expect(toolbar.getByLabel("链接")).toBeVisible();
+    await expect(toolbar.getByLabel("批注")).toBeVisible();
+    expect(await page.locator("button button").count()).toBe(0);
     await expect(
-      page
-        .getByTestId("fixed-toolbar-buttons")
-        .locator('[aria-haspopup="menu"]')
-        .first(),
+      toolbar.locator('[aria-haspopup="menu"]').first(),
     ).toBeVisible();
+
+    await page.getByLabel("页面标题").click();
+    await expect(toolbar).toHaveCount(0);
+  });
+
+  test("Escape selects the current block with a full-row Notion-style highlight", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await selectText(page, "New to CUHK?");
+    await expect(
+      page.getByRole("toolbar", { name: "文字格式工具栏" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await expect(block).toHaveAttribute("data-block-selected", "true");
+    const selection = block.getByTestId("wiki-block-selection");
+    await expect(selection).toBeVisible();
+
+    const blockBox = await block.boundingBox();
+    const selectionBox = await selection.boundingBox();
+    expect(blockBox).not.toBeNull();
+    expect(selectionBox).not.toBeNull();
+    expect(blockBox!.x - selectionBox!.x).toBeGreaterThanOrEqual(5);
+    expect(blockBox!.x - selectionBox!.x).toBeLessThanOrEqual(7);
+    expect(selectionBox!.width - blockBox!.width).toBeGreaterThanOrEqual(11);
+    expect(selectionBox!.width - blockBox!.width).toBeLessThanOrEqual(13);
+    expect(blockBox!.y - selectionBox!.y).toBeGreaterThanOrEqual(1);
+    expect(blockBox!.y - selectionBox!.y).toBeLessThanOrEqual(3);
+    expect(selectionBox!.height - blockBox!.height).toBeGreaterThanOrEqual(3);
+    expect(selectionBox!.height - blockBox!.height).toBeLessThanOrEqual(5);
+    await expect(selection).toHaveCSS("background-color", "rgb(228, 237, 250)");
+
+    await page.keyboard.press("Escape");
+    await expect(selection).toHaveCount(0);
+  });
+
+  test("arrow keys move a block selection and Shift extends it", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/edit/getting-started");
+
+    const blocks = page.getByTestId("wiki-editor-block");
+    const editor = page.locator('[data-slate-editor="true"]');
+    await expect(editor).toBeEditable();
+    await expect.poll(() => blocks.count()).toBeGreaterThanOrEqual(3);
+    const firstBlock = blocks.nth(0);
+    const nextBlock = blocks.nth(1);
+    const followingBlock = blocks.nth(2);
+
+    const firstBlockText = (
+      await firstBlock.locator('[data-slate-node="text"]').first().textContent()
+    )?.trim();
+    expect(firstBlockText).toBeTruthy();
+    await selectText(page, firstBlockText!);
+    await page.keyboard.press("Escape");
+    await expect(firstBlock).toHaveAttribute("data-block-selected", "true");
+    await expect(page.locator(".slate-shadow-input")).toBeFocused();
+
+    await page.keyboard.press("ArrowDown");
+    await expect(firstBlock).not.toHaveAttribute("data-block-selected", "true");
+    await expect(nextBlock).toHaveAttribute("data-block-selected", "true");
+
+    await page.keyboard.press("Shift+ArrowDown");
+    await expect(nextBlock).toHaveAttribute("data-block-selected", "true");
+    await expect(followingBlock).toHaveAttribute("data-block-selected", "true");
+  });
+
+  test("Enter returns a selected text block to inline editing", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await selectText(page, "New to CUHK?");
+    await page.keyboard.press("Escape");
+    await expect(block).toHaveAttribute("data-block-selected", "true");
+
+    await page.keyboard.press("Enter");
+
+    await expect(block).not.toHaveAttribute("data-block-selected", "true");
+    await expect(page.locator('[data-slate-editor="true"]')).toBeFocused();
+  });
+
+  test("Command+D duplicates a selected block and selects the copy", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/edit/getting-started");
+
+    const matchingBlocks = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" });
+    await selectText(page, "New to CUHK?");
+    await page.keyboard.press("Escape");
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+d`);
+
+    await expect(matchingBlocks).toHaveCount(2);
+    await expect(matchingBlocks.nth(1)).toHaveAttribute(
+      "data-block-selected",
+      "true",
+    );
+  });
+
+  test("Delete removes the selected block without requiring its menu", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await selectText(page, "New to CUHK?");
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Delete");
+
+    await expect(block).toHaveCount(0);
+  });
+
+  test("a fine-pointer hover reveals contextual block controls without shifting the document", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const document = page.getByTestId("wiki-editor-document");
+    const before = await document.boundingBox();
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    const gutter = block.getByTestId("wiki-block-gutter");
+
+    await expect(gutter).toHaveCSS("opacity", "0");
+    await block.hover();
+    await expect(gutter).toHaveCSS("opacity", "1");
+    const insertButton = block.getByLabel("在此插入内容");
+    const gripButton = block.getByLabel("打开块菜单");
+    await expect(insertButton).toBeVisible();
+    await expect(gripButton).toBeVisible();
+
+    const blockBox = await block.boundingBox();
+    const insertBox = await insertButton.boundingBox();
+    const gripBox = await gripButton.boundingBox();
+    expect(blockBox).not.toBeNull();
+    expect(insertBox).not.toBeNull();
+    expect(gripBox).not.toBeNull();
+    const insertCenter = insertBox!.x + insertBox!.width / 2;
+    const gripCenter = gripBox!.x + gripBox!.width / 2;
+    const blockCenterY = blockBox!.y + blockBox!.height / 2;
+    const insertCenterY = insertBox!.y + insertBox!.height / 2;
+    const gripCenterY = gripBox!.y + gripBox!.height / 2;
+    expect(blockBox!.x - insertCenter).toBeGreaterThanOrEqual(48);
+    expect(blockBox!.x - insertCenter).toBeLessThanOrEqual(52);
+    expect(blockBox!.x - gripCenter).toBeGreaterThanOrEqual(26);
+    expect(blockBox!.x - gripCenter).toBeLessThanOrEqual(30);
+    expect(gripCenter - insertCenter).toBeGreaterThanOrEqual(20);
+    expect(gripCenter - insertCenter).toBeLessThanOrEqual(24);
+    expect(Math.abs(insertCenterY - blockCenterY)).toBeLessThanOrEqual(1);
+    expect(Math.abs(gripCenterY - blockCenterY)).toBeLessThanOrEqual(1);
+
+    const after = await document.boundingBox();
+    expect(before).not.toBeNull();
+    expect(after).not.toBeNull();
+    expect(after!.x).toBe(before!.x);
+    expect(after!.width).toBe(before!.width);
+  });
+
+  test("a wide coarse-pointer viewport does not expose hover-only block controls", async ({
+    browser,
+    baseURL,
+  }) => {
+    const context = await browser.newContext({
+      baseURL,
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 1440, height: 900 },
+    });
+    const touchPage = await context.newPage();
+
+    try {
+      await loginAsAdmin(touchPage, baseURL ?? "");
+      await touchPage.goto("/wiki/edit/getting-started");
+
+      const block = touchPage
+        .getByTestId("wiki-editor-block")
+        .filter({ hasText: "New to CUHK?" })
+        .first();
+      await block.tap();
+
+      const gutter = block.getByTestId("wiki-block-gutter");
+      await expect(gutter).toHaveCSS("opacity", "0");
+      await expect(gutter).toHaveCSS("pointer-events", "none");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("the grip opens an accessible block menu and Escape returns focus", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await block.hover();
+    const trigger = block.getByLabel("打开块菜单");
+    await trigger.click();
+
+    const menu = page.getByRole("menu", { name: "打开块菜单" });
+    await expect(menu).toBeVisible();
+    await expect(block).toHaveAttribute("data-block-selected", "true");
+    await expect(menu.getByRole("menuitem", { name: "转换为" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "复制" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "上移" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "下移" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "删除" })).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test("Command+/ opens the action menu for the selected block", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/edit/getting-started");
+
+    await selectText(page, "New to CUHK?");
+    await page.keyboard.press("Escape");
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+/`);
+
+    const menu = page.getByRole("menu", { name: "打开块菜单" });
+    await expect(menu).toBeVisible();
+    await expect(
+      menu.getByRole("searchbox", { name: "搜索块操作" }),
+    ).toBeFocused();
+  });
+
+  test("the block menu searches actions while preserving its keyboard close cycle", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await block.hover();
+    const trigger = block.getByLabel("打开块菜单");
+    await trigger.click();
+
+    const menu = page.getByRole("menu", { name: "打开块菜单" });
+    const search = menu.getByRole("searchbox", { name: "搜索块操作" });
+    await expect(search).toBeVisible();
+    await expect(search).toBeFocused();
+    await expect(menu).toContainText("正文");
+
+    const menuBox = await menu.boundingBox();
+    expect(menuBox).not.toBeNull();
+    expect(menuBox!.width).toBeGreaterThanOrEqual(260);
+    expect(menuBox!.width).toBeLessThanOrEqual(268);
+
+    await search.fill("删除");
+    await expect(menu.getByRole("menuitem", { name: "删除" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "复制" })).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: "转换为" })).toHaveCount(0);
+
+    await search.fill("标题");
+    await expect(menu.getByRole("menuitem", { name: "转换为" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "删除" })).toHaveCount(0);
+
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test("the block menu can start a comment for the whole block", async ({
+    page,
+  }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await block.hover();
+    await block.getByLabel("打开块菜单").click();
+    const menu = page.getByRole("menu", { name: "打开块菜单" });
+    await menu.getByRole("menuitem", { name: "批注" }).click();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        ),
+    );
+    expect(pageErrors, pageErrors.join("\n")).toEqual([]);
+
+    await expect(menu).toHaveCount(0);
+    const draftComment = block.locator('[data-comment-id="draft"]');
+    await expect(draftComment).toContainText(
+      "New to CUHK? Here are some tips to help you settle in.",
+    );
+    await expect(draftComment.locator("..")).toHaveCSS(
+      "border-bottom-width",
+      "0px",
+    );
+    await expect(page.getByText("新建批注", { exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder("输入批注内容…")).toBeFocused();
+  });
+
+  test("the block menu converts the targeted block through the shared command catalog", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await block.hover();
+    await block.getByLabel("打开块菜单").click();
+    await page.getByRole("menuitem", { name: "转换为" }).click();
+    await expect(
+      page.getByRole("menuitemradio", { name: "正文" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("menuitemradio", { name: "标题 2" }).click();
+
+    await expect(block.getByRole("heading", { level: 2 })).toContainText(
+      "New to CUHK?",
+    );
+  });
+
+  test("code conversion uses the block menu target instead of the caret block", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const caretBlock = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    const targetBlock = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "Registration" })
+      .first();
+    await caretBlock.click();
+    await page.keyboard.press("End");
+
+    await targetBlock.hover();
+    await targetBlock.getByLabel("打开块菜单").click();
+    await page.getByRole("menuitem", { name: "转换为" }).click();
+    await page.getByRole("menuitemradio", { name: "代码块" }).click();
+
+    await expect(targetBlock.locator("pre")).toContainText("Registration");
+    await expect(caretBlock.locator("pre")).toHaveCount(0);
+  });
+
+  test("the block menu duplicates the targeted block and selects the copy", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const matchingBlocks = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" });
+    const source = matchingBlocks.first();
+    await source.hover();
+    await source.getByLabel("打开块菜单").click();
+    await page.getByRole("menuitem", { name: "复制" }).click();
+
+    await expect(matchingBlocks).toHaveCount(2);
+    await expect(matchingBlocks.nth(1)).toHaveAttribute(
+      "data-block-selected",
+      "true",
+    );
+  });
+
+  test("the block menu moves a block relative to its siblings", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const headingBlock = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "Registration" })
+      .first();
+    const registryBlock = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "Registry" })
+      .first();
+    const beforeHeading = await headingBlock.boundingBox();
+    const beforeRegistry = await registryBlock.boundingBox();
+    expect(beforeHeading!.y).toBeLessThan(beforeRegistry!.y);
+
+    await headingBlock.hover();
+    await headingBlock.getByLabel("打开块菜单").click();
+    await page.getByRole("menuitem", { name: "下移" }).click();
+
+    const blockTexts = await page
+      .getByTestId("wiki-editor-block")
+      .allTextContents();
+    const headingIndex = blockTexts.findIndex((text) =>
+      text.includes("Registration"),
+    );
+    const registryIndex = blockTexts.findIndex((text) =>
+      text.includes("Registry"),
+    );
+    expect(headingIndex).toBeGreaterThan(registryIndex);
+    await expect(page.getByRole("menu", { name: "打开块菜单" })).toHaveCount(0);
+  });
+
+  test("deleting a block offers an undo action that restores it", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "Registration" })
+      .first();
+    await block.hover();
+    await block.getByLabel("打开块菜单").click();
+    await page.getByRole("menuitem", { name: "删除" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Registration", level: 2 }),
+    ).toHaveCount(0);
+    await expect(page.getByText("已删除块", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "撤销" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Registration", level: 2 }),
+    ).toBeVisible();
+  });
+
+  test("keyboard users enter block controls only after selecting a block", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/new");
+    const editor = page.locator('[data-slate-editor="true"]');
+    await editor.click();
+    await page.keyboard.type("New to CUHK?");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    const addButton = block.getByLabel("在此插入内容");
+    const menuButton = block.getByLabel("打开块菜单");
+    await expect(addButton).toHaveAttribute("tabindex", "-1");
+    await expect(menuButton).toHaveAttribute("tabindex", "-1");
+
+    await block.click();
+    await page.keyboard.press("Escape");
+    await expect(addButton).toHaveAttribute("tabindex", "0");
+    await expect(menuButton).toHaveAttribute("tabindex", "0");
+
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(() => ({
+        blockText:
+          document.activeElement
+            ?.closest('[data-testid="wiki-editor-block"]')
+            ?.textContent?.trim() ?? "",
+        label: document.activeElement?.getAttribute("aria-label"),
+      })),
+    ).toEqual({
+      blockText: expect.stringContaining("New to CUHK?"),
+      label: "在此插入内容",
+    });
+    await page.keyboard.press("Tab");
+    await expect(menuButton).toBeFocused();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("menu", { name: "打开块菜单" });
+    await expect(menu).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(menuButton).toBeFocused();
   });
 
   test("the create page hydrates with no auth-state mismatch (ref #202)", async ({
     page,
   }) => {
-    // Guard the Navbar SSR-hydration fix. The create page is the heaviest first
-    // paint (always-on toolbar + editor), so it is where the `Navbar`
-    // auth-state mismatch used to fire React #418 and regenerate the layout on
-    // hydrate — the flake that detached the 保存 button mid-save. With the
-    // Navbar gating its auth branch on mount, SSR and the first client render
-    // agree, so no hydration error must surface.
+    // Guard the Navbar SSR-hydration fix on the create editor.
     const consoleErrors = collectConsoleErrors(page);
 
     await page.goto("/wiki/new");
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
-    await expect(page.getByTestId("fixed-toolbar-buttons")).toBeVisible();
+    await expect(page.locator('[data-slate-editor="true"]')).toBeVisible();
+    await expect(page.getByTestId("fixed-toolbar-buttons")).toHaveCount(0);
     const hydrationErrors = consoleErrors.filter((e) => HYDRATION_RE.test(e));
     expect(
       hydrationErrors,

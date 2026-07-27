@@ -1,32 +1,14 @@
 "use client";
 
-import type { PlateEditor, PlateElementProps } from "platejs/react";
+import type { PlateElementProps } from "platejs/react";
 
-import {
-  AlertTriangleIcon,
-  Code2,
-  Heading1Icon,
-  Heading2Icon,
-  Heading3Icon,
-  ImageIcon,
-  InfoIcon,
-  LightbulbIcon,
-  ListIcon,
-  ListOrdered,
-  ListTreeIcon,
-  MessageSquareWarningIcon,
-  RadicalIcon,
-  MinusIcon,
-  PilcrowIcon,
-  Quote,
-  Square,
-  Table,
-} from "lucide-react";
-import { type TComboboxInputElement, KEYS } from "platejs";
-import { insertCallout } from "@platejs/callout";
+import { type TComboboxInputElement } from "platejs";
 import { PlateElement } from "platejs/react";
 
-import { insertBlock } from "@/components/editor/transforms";
+import {
+  getBlockCommandGroups,
+  insertBlockCommand,
+} from "@/components/editor/block-command-catalog";
 
 import {
   InlineCombobox,
@@ -36,164 +18,10 @@ import {
   InlineComboboxGroupLabel,
   InlineComboboxInput,
   InlineComboboxItem,
+  InlineComboboxQuery,
 } from "./inline-combobox";
 
-type Group = {
-  group: string;
-  items: {
-    icon: React.ReactNode;
-    value: string;
-    onSelect: (editor: PlateEditor, value: string) => void;
-    focusEditor?: boolean;
-    keywords?: string[];
-    label?: string;
-  }[];
-};
-
-const groups: Group[] = [
-  {
-    group: "基本块",
-    items: [
-      {
-        icon: <PilcrowIcon />,
-        keywords: ["paragraph", "text"],
-        label: "正文",
-        value: KEYS.p,
-      },
-      {
-        icon: <Heading1Icon />,
-        keywords: ["title", "h1"],
-        label: "标题 1",
-        value: KEYS.h1,
-      },
-      {
-        icon: <Heading2Icon />,
-        keywords: ["subtitle", "h2"],
-        label: "标题 2",
-        value: KEYS.h2,
-      },
-      {
-        icon: <Heading3Icon />,
-        keywords: ["subtitle", "h3"],
-        label: "标题 3",
-        value: KEYS.h3,
-      },
-      {
-        icon: <ListIcon />,
-        keywords: ["unordered", "ul", "-"],
-        label: "无序列表",
-        value: KEYS.ul,
-      },
-      {
-        icon: <ListOrdered />,
-        keywords: ["ordered", "ol", "1"],
-        label: "有序列表",
-        value: KEYS.ol,
-      },
-      {
-        icon: <Square />,
-        keywords: ["checklist", "task", "checkbox", "[]"],
-        label: "任务列表",
-        value: KEYS.listTodo,
-      },
-      {
-        icon: <Code2 />,
-        keywords: ["```"],
-        label: "代码块",
-        value: KEYS.codeBlock,
-      },
-      {
-        icon: <Table />,
-        label: "表格",
-        value: KEYS.table,
-      },
-      {
-        icon: <Quote />,
-        keywords: ["citation", "blockquote", ">"],
-        label: "引用",
-        value: KEYS.blockquote,
-      },
-      {
-        icon: <MinusIcon />,
-        keywords: ["divider", "separator", "---"],
-        label: "分割线",
-        value: KEYS.hr,
-      },
-      {
-        icon: <ImageIcon />,
-        keywords: ["image", "picture", "photo"],
-        label: "图片",
-        value: KEYS.img,
-      },
-      {
-        icon: <ListTreeIcon />,
-        keywords: ["toc", "table of contents", "outline"],
-        label: "目录",
-        value: KEYS.toc,
-      },
-      {
-        icon: <RadicalIcon />,
-        keywords: ["math", "formula", "equation", "latex", "katex"],
-        label: "公式",
-        value: KEYS.equation,
-      },
-    ].map((item) => ({
-      ...item,
-      onSelect: (editor: PlateEditor, value: string) => {
-        insertBlock(editor, value, { upsert: true });
-      },
-    })),
-  },
-  {
-    group: "提示框",
-    items: [
-      {
-        icon: <InfoIcon />,
-        keywords: ["callout", "info", "admonition"],
-        label: "信息",
-        value: "callout_info",
-        onSelect: (editor: PlateEditor) => {
-          insertCallout(editor, { select: true, variant: "info", icon: "ℹ️" });
-          editor.tf.removeNodes({ previousEmptyBlock: true });
-        },
-      },
-      {
-        icon: <LightbulbIcon />,
-        keywords: ["callout", "tip", "hint"],
-        label: "提示",
-        value: "callout_tip",
-        onSelect: (editor: PlateEditor) => {
-          insertCallout(editor, { select: true, variant: "tip", icon: "💡" });
-          editor.tf.removeNodes({ previousEmptyBlock: true });
-        },
-      },
-      {
-        icon: <AlertTriangleIcon />,
-        keywords: ["callout", "warning", "caution"],
-        label: "警告",
-        value: "callout_warning",
-        onSelect: (editor: PlateEditor) => {
-          insertCallout(editor, {
-            select: true,
-            variant: "warning",
-            icon: "⚠️",
-          });
-          editor.tf.removeNodes({ previousEmptyBlock: true });
-        },
-      },
-      {
-        icon: <MessageSquareWarningIcon />,
-        keywords: ["callout", "error", "danger"],
-        label: "危险",
-        value: "callout_error",
-        onSelect: (editor: PlateEditor) => {
-          insertCallout(editor, { select: true, variant: "error", icon: "🚫" });
-          editor.tf.removeNodes({ previousEmptyBlock: true });
-        },
-      },
-    ],
-  },
-];
+const groups = getBlockCommandGroups("insert");
 
 export function SlashInputElement(
   props: PlateElementProps<TComboboxInputElement>,
@@ -205,29 +33,50 @@ export function SlashInputElement(
       <InlineCombobox element={props.element} trigger="/">
         <InlineComboboxInput />
 
-        <InlineComboboxContent>
-          <InlineComboboxEmpty>无结果</InlineComboboxEmpty>
+        <InlineComboboxContent
+          aria-label="Slash 命令"
+          className="max-h-[330px] w-[320px] rounded-[7px] border border-border p-1.5 shadow-[0_10px_30px_color-mix(in_srgb,var(--foreground)_14%,transparent)]"
+          data-testid="slash-command-menu"
+        >
+          <InlineComboboxQuery placeholder="搜索块类型" />
+          <InlineComboboxEmpty className="mx-0 h-auto min-h-14 flex-col items-start justify-center px-2.5 py-2 text-muted-foreground">
+            <span className="text-sm text-foreground">未找到匹配的块</span>
+            <span className="mt-0.5 text-xs">试试“标题”或“表格”</span>
+          </InlineComboboxEmpty>
 
-          {groups.map(({ group, items }) => (
-            <InlineComboboxGroup key={group}>
-              <InlineComboboxGroupLabel>{group}</InlineComboboxGroupLabel>
+          {groups.map(({ id, label: groupLabel, commands }) => (
+            <InlineComboboxGroup key={id}>
+              <InlineComboboxGroupLabel>{groupLabel}</InlineComboboxGroupLabel>
 
-              {items.map(
-                ({ focusEditor, icon, keywords, label, value, onSelect }) => (
+              {commands.map((command) => {
+                const Icon = command.icon;
+
+                return (
                   <InlineComboboxItem
-                    key={value}
-                    value={value}
-                    onClick={() => onSelect(editor, value)}
-                    label={label}
-                    focusEditor={focusEditor}
-                    group={group}
-                    keywords={keywords}
+                    key={command.id}
+                    value={command.id}
+                    onClick={() => insertBlockCommand(editor, command)}
+                    label={command.label}
+                    group={groupLabel}
+                    keywords={[...command.keywords]}
+                    aria-label={`${command.label}：${command.description}`}
+                    className="mx-0 h-auto min-h-11 gap-2.5 rounded-[5px] px-[7px] py-[5px]"
+                    data-block-command={command.id}
                   >
-                    <div className="mr-2 text-muted-foreground">{icon}</div>
-                    {label ?? value}
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded border border-border text-muted-foreground">
+                      <Icon aria-hidden="true" className="size-4" />
+                    </span>
+                    <span className="grid min-w-0 text-left leading-tight">
+                      <span className="truncate text-sm font-medium">
+                        {command.label}
+                      </span>
+                      <span className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {command.description}
+                      </span>
+                    </span>
                   </InlineComboboxItem>
-                ),
-              )}
+                );
+              })}
             </InlineComboboxGroup>
           ))}
         </InlineComboboxContent>

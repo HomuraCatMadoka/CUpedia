@@ -1,12 +1,32 @@
 "use client";
 
 import { withTriggerCombobox } from "@platejs/combobox";
-import { createTSlatePlugin, type SlateEditor, KEYS } from "platejs";
-import { createPlatePlugin, toPlatePlugin } from "platejs/react";
+import {
+  createTSlatePlugin,
+  type SlateEditor,
+  type TComboboxInputElement,
+  KEYS,
+} from "platejs";
+import {
+  createPlatePlugin,
+  type PlateEditor,
+  toPlatePlugin,
+} from "platejs/react";
 
 import { WikiLinkInputElement } from "@/components/ui/wiki-link-node";
 
 const WIKI_LINK_INPUT_KEY = "wiki_link_input";
+
+export function openWikiLinkCombobox(editor: PlateEditor) {
+  editor.tf.insertNodes(
+    {
+      children: [{ text: "" }],
+      displayTrigger: "@",
+      type: WIKI_LINK_INPUT_KEY,
+    } as TComboboxInputElement & { displayTrigger: string },
+    { select: true },
+  );
+}
 
 const BaseWikiLinkInputPlugin = createPlatePlugin({
   key: WIKI_LINK_INPUT_KEY,

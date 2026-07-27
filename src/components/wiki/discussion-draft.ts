@@ -9,17 +9,25 @@ export function serializeContentWithoutDraftComments(value: unknown) {
 
   const removeDraftMarks = (candidate: unknown): unknown => {
     if (Array.isArray(candidate)) {
-      return candidate.map(removeDraftMarks);
+      return candidate
+        .filter(
+          (item) =>
+            !(
+              item &&
+              typeof item === "object" &&
+              (item as Record<string, unknown>).type === "wiki_link_input"
+            ),
+        )
+        .map(removeDraftMarks);
     }
     if (!candidate || typeof candidate !== "object") return candidate;
 
     const record = candidate as Record<string, unknown>;
     const isDraft = Boolean(record[draftKey]);
     const hasPersistedComment = Object.entries(record).some(
-      ([key, nested]) =>
-        key !== draftKey && key.startsWith(`${commentKey}_`) && Boolean(nested),
+      ([key, value]) =>
+        key !== draftKey && key.startsWith(`${commentKey}_`) && Boolean(value),
     );
-
     return Object.fromEntries(
       Object.entries(record)
         .filter(
