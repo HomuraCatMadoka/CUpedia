@@ -10,7 +10,7 @@ import { RevisionList } from "@/components/wiki/revision-list";
 import { RevisionDiff } from "@/components/wiki/revision-diff";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { getViewerEditContext } from "@/lib/auth-guard";
 import { redirect } from "next/navigation";
 import { parseContent, toMarkdown } from "@/lib/plate-utils";
@@ -126,10 +126,11 @@ export default async function HistoryPage({
     <ContentShell>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">编辑历史：{page.title}</h1>
-        <Link href={`/wiki/${pageId}`}>
-          <Button variant="outline" size="sm">
-            返回页面
-          </Button>
+        <Link
+          href={`/wiki/${pageId}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          返回页面
         </Link>
       </div>
       <RevisionList revisions={revisions} pageId={pageId} />
