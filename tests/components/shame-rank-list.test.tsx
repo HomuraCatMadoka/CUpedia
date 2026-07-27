@@ -108,4 +108,28 @@ describe("ShameRankList", () => {
       ),
     ).toBe(true);
   });
+
+  it("rolls back optimistic count when appendShameVote fails", async () => {
+    appendMock.mockRejectedValueOnce(new Error("RATE_LIMIT_EXCEEDED"));
+
+    render(
+      <ShameRankList
+        canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
+        initialCounts={{ a: 1, b: 5 }}
+        voteDate="2026-07-27"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
+
+    await waitFor(() => {
+      expect(appendMock).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "踩 甲食堂" }).textContent,
+      ).toContain("1");
+    });
+  });
 });

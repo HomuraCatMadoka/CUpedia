@@ -198,6 +198,8 @@ export function CanteenMenuAdmin({
   const [deleteAllImpact, setDeleteAllImpact] = useState<DeleteImpact | null>(
     null,
   );
+  const [isDeleteAllImpactLoading, setIsDeleteAllImpactLoading] =
+    useState(false);
   const [editTarget, setEditTarget] = useState<CanteenMenuItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editPriceOptions, setEditPriceOptions] = useState<DraftPriceOption[]>([
@@ -233,8 +235,16 @@ export function CanteenMenuAdmin({
 
   async function openDeleteAllDialog() {
     setDeleteAllOpen(true);
-    const impact = await getCanteenDeleteImpact(canteen.id);
-    setDeleteAllImpact(impact);
+    setDeleteAllImpact(null);
+    setIsDeleteAllImpactLoading(true);
+    try {
+      setDeleteAllImpact(await getCanteenDeleteImpact(canteen.id));
+    } catch (err) {
+      setDeleteAllOpen(false);
+      alert(err instanceof Error ? err.message : "加载删除影响失败");
+    } finally {
+      setIsDeleteAllImpactLoading(false);
+    }
   }
 
   function handleCreate(e: React.FormEvent) {
@@ -272,6 +282,7 @@ export function CanteenMenuAdmin({
   }
 
   function handleDeleteAll() {
+    if (!deleteAllImpact) return;
     startTransition(async () => {
       try {
         await deleteAllMenuItems(canteen.id);
@@ -529,7 +540,13 @@ export function CanteenMenuAdmin({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteAll} disabled={isPending}>
+            <AlertDialogAction
+              onClick={handleDeleteAll}
+              disabled={
+                isPending || isDeleteAllImpactLoading || !deleteAllImpact
+              }
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
               全部删除
             </AlertDialogAction>
           </AlertDialogFooter>

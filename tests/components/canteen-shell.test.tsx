@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import Link from "next/link";
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
@@ -38,7 +39,7 @@ describe("CanteenShell announcement", () => {
       <CanteenShell
         title="山城食记"
         brandTitle
-        action={<a href="/canteen/shit-rank">每日💩堂榜</a>}
+        action={<Link href="/canteen/shit-rank">每日💩堂榜</Link>}
       >
         <div>列表</div>
       </CanteenShell>,

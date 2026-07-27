@@ -1287,7 +1287,9 @@ export const canteenShameVotes = pgTable(
     canteenId: uuid("canteen_id")
       .notNull()
       .references(() => canteens.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").references(() => users.id),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "restrict",
+    }),
     anonymousSessionId: uuid("anonymous_session_id"),
     /** Asia/Hong_Kong calendar date (YYYY-MM-DD) at insert time. */
     voteDate: date("vote_date").notNull(),

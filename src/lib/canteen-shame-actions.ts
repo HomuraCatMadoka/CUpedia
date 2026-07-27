@@ -67,13 +67,13 @@ function rateLimitKey(identity: VoterIdentity): string {
     : `anon:${identity.anonymousSessionId}`;
 }
 
-async function syncMockVoterFromSession(): Promise<void> {
+async function syncMockVoterFromSession(): Promise<{
+  id: string;
+  banned: boolean;
+} | null> {
   const sessionUser = await getSessionVoterUser();
-  if (sessionUser?.banned) {
-    mockSetVoterUserId(null);
-    return;
-  }
-  mockSetVoterUserId(sessionUser?.id ?? null);
+  mockSetVoterUserId(sessionUser?.banned ? null : (sessionUser?.id ?? null));
+  return sessionUser;
 }
 
 async function assertCanteenExists(canteenId: string): Promise<void> {
@@ -127,8 +127,7 @@ export async function appendShameVote(
   const voteDate = hktCalendarDate();
 
   if (isCanteenMockMode()) {
-    await syncMockVoterFromSession();
-    const sessionUser = await getSessionVoterUser();
+    const sessionUser = await syncMockVoterFromSession();
     if (sessionUser?.banned) throw new Error("USER_BANNED");
     if (!sessionUser) mockEnsureAnonSession();
     const key = mockGetRateLimitKey();
