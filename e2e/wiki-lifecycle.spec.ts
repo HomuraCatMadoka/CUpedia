@@ -55,7 +55,7 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   await page.getByLabel("URL 路径").fill(slug);
   await page.locator('[role="textbox"]').first().fill(first);
   await page.getByLabel("编辑摘要（可选）").fill("create lifecycle page");
-  await page.getByRole("button", { name: "保存" }).click();
+  await page.getByRole("button", { name: "完成" }).click();
   await page.waitForURL(`**/wiki/${slug}`);
   await expect(page.getByText(first)).toBeVisible();
   expect(await revisionCount()).toBe(1);

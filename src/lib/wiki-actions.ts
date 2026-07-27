@@ -290,6 +290,8 @@ export async function updateWikiPage(data: {
   editSummary?: string;
   expectedVersion: number;
   expectedUpdatedAt: string;
+  /** Ancestor title for scalar three-way merge. */
+  baseTitle?: string;
   /** Ancestor content (editor's initialValue) for three-way merge. */
   baseContent?: string;
 }): Promise<WikiPageRow | UpdateConflict> {
@@ -319,6 +321,24 @@ export async function updateWikiPage(data: {
   if (!latest) throw new Error("Page not found");
 
   if (data.baseContent !== undefined) {
+    let mergedTitle = data.title;
+    if (data.baseTitle !== undefined) {
+      const mineChanged = data.title !== data.baseTitle;
+      const theirsChanged = latest.title !== data.baseTitle;
+
+      if (!mineChanged && theirsChanged) {
+        mergedTitle = latest.title;
+      } else if (mineChanged && theirsChanged && data.title !== latest.title) {
+        return {
+          conflict: true,
+          theirContent: latest.content,
+          theirTitle: latest.title,
+          theirVersion: latest.version,
+          theirUpdatedAt: latest.updatedAt.toISOString(),
+        };
+      }
+    }
+
     const merged = await threeWayMergeContent({
       base: data.baseContent,
       mine: data.content,
@@ -328,6 +348,7 @@ export async function updateWikiPage(data: {
       const result = await writeWikiPage(
         {
           ...data,
+          title: mergedTitle,
           content: merged.content,
           expectedVersion: latest.version,
           expectedUpdatedAt: latest.updatedAt.toISOString(),
@@ -336,11 +357,7 @@ export async function updateWikiPage(data: {
         existing.id,
       );
       revalidateTag("wiki-pages", "max");
-      // Gate on `latest.title` (the post-conflict state this write overwrites),
-      // not `existing.title` (the stale pre-conflict baseline): a concurrent
-      // rename may have already moved the title, so `data.title` could revert
-      // it — still a structural change the corpus must reflect. See ADR 0011.
-      if (data.title !== latest.title) revalidateSearchCorpus();
+      if (mergedTitle !== latest.title) revalidateSearchCorpus();
       return result;
     }
   }

@@ -31,6 +31,7 @@ export default async function EditWikiPage({
     editSummary?: string;
     expectedVersion?: number;
     expectedUpdatedAt?: string;
+    baseTitle?: string;
     baseContent?: string;
   }) {
     "use server";
@@ -42,6 +43,7 @@ export default async function EditWikiPage({
         editSummary: data.editSummary,
         expectedVersion: data.expectedVersion!,
         expectedUpdatedAt: data.expectedUpdatedAt!,
+        baseTitle: data.baseTitle,
         baseContent: data.baseContent,
       });
       if ("conflict" in updated) {
@@ -55,6 +57,8 @@ export default async function EditWikiPage({
       }
       return {
         slug: updated.slug,
+        title: updated.title,
+        content: updated.content,
         version: updated.version,
         updatedAt: updated.updatedAt.toISOString(),
       };
