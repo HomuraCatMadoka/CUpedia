@@ -38,6 +38,7 @@ export default async function CanteenShitRankPage() {
           返回食堂
         </Link>
         <ShameRankList
+          key={voteDate}
           canteens={canteens}
           initialTodayCounts={todayCounts}
           initialAllTimeCounts={allTimeCounts}
