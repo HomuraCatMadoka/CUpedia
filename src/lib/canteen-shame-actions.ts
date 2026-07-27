@@ -1,7 +1,6 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { unstable_cache } from "next/cache";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { canteens, canteenShameVotes } from "@/db/schema";
@@ -22,11 +21,12 @@ import {
   mockSetVoterUserId,
 } from "@/lib/canteen-mock";
 import {
-  CANTEEN_SHAME_COUNTS_TAG,
   getAnonShameDailyLimit,
   hktCalendarDate,
+  isShameVotingOpen,
 } from "@/lib/canteen-shame-rank";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
+import { getCanteenShameVoteEndDate } from "@/lib/site-settings";
 
 type VoterIdentity = { userId: string } | { anonymousSessionId: string };
 
@@ -94,66 +94,34 @@ async function assertCanteenExists(canteenId: string): Promise<void> {
   if (!row[0]) throw new Error("CANTEEN_NOT_FOUND");
 }
 
-/** Durable per-cookie daily quota for guests (survives serverless instances). */
-async function assertAnonDailyShameLimit(
-  anonymousSessionId: string,
-  voteDate: string,
-): Promise<void> {
-  const limit = getAnonShameDailyLimit();
-  if (isCanteenMockMode()) {
-    if (mockCountAnonShameVotesForDate(anonymousSessionId, voteDate) >= limit) {
-      throw new Error("DAILY_LIMIT_EXCEEDED");
-    }
-    return;
-  }
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(canteenShameVotes)
-    .where(
-      and(
-        eq(canteenShameVotes.anonymousSessionId, anonymousSessionId),
-        eq(canteenShameVotes.voteDate, voteDate),
-      ),
-    );
-  if ((row?.count ?? 0) >= limit) throw new Error("DAILY_LIMIT_EXCEEDED");
-}
-
-const getCachedShameCounts = unstable_cache(
-  async (voteDate: string): Promise<Record<string, number>> => {
-    const rows = await db
-      .select({
-        canteenId: canteenShameVotes.canteenId,
-        dislikes: sql<number>`count(*)::int`,
-      })
-      .from(canteenShameVotes)
-      .where(eq(canteenShameVotes.voteDate, voteDate))
-      .groupBy(canteenShameVotes.canteenId);
-
-    return Object.fromEntries(
-      rows.map((row) => [row.canteenId, row.dislikes]),
-    );
-  },
-  ["canteen-shame-counts"],
-  { tags: [CANTEEN_SHAME_COUNTS_TAG], revalidate: 60 },
-);
-
 export async function getShameVoteCountsForDate(
   voteDate: string,
 ): Promise<Record<string, number>> {
   if (isCanteenMockMode()) return mockGetShameVoteCountsForDate(voteDate);
-  return getCachedShameCounts(voteDate);
-}
+  const rows = await db
+    .select({
+      canteenId: canteenShameVotes.canteenId,
+      dislikes: sql<number>`count(*)::int`,
+    })
+    .from(canteenShameVotes)
+    .where(eq(canteenShameVotes.voteDate, voteDate))
+    .groupBy(canteenShameVotes.canteenId);
 
-export async function getTodayShameVoteCounts(): Promise<Record<string, number>> {
-  return getShameVoteCountsForDate(hktCalendarDate());
+  return Object.fromEntries(rows.map((row) => [row.canteenId, row.dislikes]));
 }
 
 /** Append one dislike. Never cancels; repeat clicks add more votes. */
 export async function appendShameVote(
   canteenId: string,
 ): Promise<{ canteenId: string; voteDate: string }> {
-  await assertCanteenExists(canteenId);
   const voteDate = hktCalendarDate();
+  const [, votingEndDate] = await Promise.all([
+    assertCanteenExists(canteenId),
+    getCanteenShameVoteEndDate(),
+  ]);
+  if (!isShameVotingOpen(voteDate, votingEndDate)) {
+    throw new Error("SHAME_VOTING_CLOSED");
+  }
 
   if (isCanteenMockMode()) {
     const sessionUser = await syncMockVoterFromSession();
@@ -162,7 +130,13 @@ export async function appendShameVote(
     const key = mockGetRateLimitKey();
     if (!key) throw new Error("ANON_SESSION_REQUIRED");
     if (!checkVoteRateLimit(key)) throw new Error("RATE_LIMIT_EXCEEDED");
-    if (anonId) await assertAnonDailyShameLimit(anonId, voteDate);
+    if (
+      anonId &&
+      mockCountAnonShameVotesForDate(anonId, voteDate) >=
+        getAnonShameDailyLimit()
+    ) {
+      throw new Error("DAILY_LIMIT_EXCEEDED");
+    }
     return mockAppendShameVote(canteenId, voteDate);
   }
 
@@ -170,19 +144,42 @@ export async function appendShameVote(
   if (!checkVoteRateLimit(rateLimitKey(identity))) {
     throw new Error("RATE_LIMIT_EXCEEDED");
   }
-  if ("anonymousSessionId" in identity) {
-    await assertAnonDailyShameLimit(identity.anonymousSessionId, voteDate);
+  if ("userId" in identity) {
+    await db.insert(canteenShameVotes).values({
+      canteenId,
+      voteDate,
+      userId: identity.userId,
+      anonymousSessionId: null,
+    });
+  } else {
+    await db.transaction(async (tx) => {
+      const lockKey = `canteen-shame:${identity.anonymousSessionId}:${voteDate}`;
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
+      );
+      const [row] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(canteenShameVotes)
+        .where(
+          and(
+            eq(
+              canteenShameVotes.anonymousSessionId,
+              identity.anonymousSessionId,
+            ),
+            eq(canteenShameVotes.voteDate, voteDate),
+          ),
+        );
+      if ((row?.count ?? 0) >= getAnonShameDailyLimit()) {
+        throw new Error("DAILY_LIMIT_EXCEEDED");
+      }
+      await tx.insert(canteenShameVotes).values({
+        canteenId,
+        voteDate,
+        userId: null,
+        anonymousSessionId: identity.anonymousSessionId,
+      });
+    });
   }
 
-  await db.insert(canteenShameVotes).values({
-    canteenId,
-    voteDate,
-    userId: "userId" in identity ? identity.userId : null,
-    anonymousSessionId:
-      "anonymousSessionId" in identity ? identity.anonymousSessionId : null,
-  });
-
-  // Skip revalidateTag: it refreshes the route and jumps scroll to top.
-  // Optimistic client counts cover the voter; cache TTL refreshes others.
   return { canteenId, voteDate };
 }

@@ -61,7 +61,8 @@ describe("canteen-shame-actions (mock mode)", () => {
   afterEach(() => {
     process.env.CANTEEN_MOCK_DATA = prevMock;
     process.env.AUTH_SECRET = prevSecret;
-    if (prevDaily === undefined) delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
+    if (prevDaily === undefined)
+      delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
     else process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = prevDaily;
     resetCanteenMockState();
     resetVoteRateLimitForTests();
@@ -106,6 +107,27 @@ describe("canteen-shame-actions (mock mode)", () => {
     );
     const counts = await getShameVoteCountsForDate(hktCalendarDate());
     expect(counts[DEMO_CANTEEN_ID]).toBe(3);
+  });
+
+  it("keeps concurrent anonymous stomps within the daily cap", async () => {
+    process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "3";
+    await Promise.allSettled(
+      Array.from({ length: 10 }, () => appendShameVote(DEMO_CANTEEN_ID)),
+    );
+    const counts = await getShameVoteCountsForDate(hktCalendarDate());
+    expect(counts[DEMO_CANTEEN_ID]).toBe(3);
+  });
+
+  it("rejects stomps after the configured HKT end date", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-01T16:00:00Z"));
+    try {
+      await expect(appendShameVote(DEMO_CANTEEN_ID)).rejects.toThrow(
+        "SHAME_VOTING_CLOSED",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not apply daily cap to logged-in mock voters", async () => {

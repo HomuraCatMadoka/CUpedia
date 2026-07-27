@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ThumbsDown } from "lucide-react";
 import type { Canteen } from "@/lib/canteen-types";
@@ -21,6 +22,7 @@ function shameErrorMessage(code: string): string {
   if (code === "USER_BANNED") return "账号已封禁，无法投票";
   if (code === "RATE_LIMIT_EXCEEDED") return "操作太频繁，请稍后再试";
   if (code === "DAILY_LIMIT_EXCEEDED") return "今日踩数已达上限，请明天再来";
+  if (code === "SHAME_VOTING_CLOSED") return "投票已截止";
   if (code === "CANTEEN_NOT_FOUND") return "食堂不存在";
   return "点踩失败，请重试";
 }
@@ -40,15 +42,18 @@ function ShameRankRow({
   rank,
   entry,
   onStomp,
+  disabled,
 }: {
   rank: number;
   entry: ShameRankEntry;
   onStomp: (canteenId: string) => Promise<void>;
+  disabled: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const isTop = rank === 1 && entry.dislikes > 0;
 
   async function handleStomp() {
+    if (disabled) return;
     setError(null);
     try {
       await onStomp(entry.canteen.id);
@@ -98,6 +103,7 @@ function ShameRankRow({
         onClick={() => {
           void handleStomp();
         }}
+        disabled={disabled}
         className="canteen-vote-btn canteen-vote-btn-dislike-on"
       >
         <ThumbsDown className="size-4 shrink-0" strokeWidth={2.4} aria-hidden />
@@ -111,11 +117,16 @@ export function ShameRankList({
   canteens,
   initialCounts,
   voteDate,
+  votingEndDate,
+  votingOpen,
 }: {
   canteens: Canteen[];
   initialCounts: Record<string, number>;
   voteDate: string;
+  votingEndDate: string;
+  votingOpen: boolean;
 }) {
+  const router = useRouter();
   const [counts, setCounts] = useState(initialCounts);
   const { pinnedScrollY, pin, release } = useScrollPin();
   const ranked = rankShameCanteens(canteens, counts);
@@ -130,7 +141,14 @@ export function ShameRankList({
       [canteenId]: (prev[canteenId] ?? 0) + 1,
     }));
     try {
-      await appendShameVote(canteenId);
+      const result = await appendShameVote(canteenId);
+      if (result.voteDate !== voteDate) {
+        setCounts((prev) => ({
+          ...prev,
+          [canteenId]: Math.max(0, (prev[canteenId] ?? 0) - 1),
+        }));
+        router.refresh();
+      }
     } catch (err) {
       setCounts((prev) => ({
         ...prev,
@@ -155,7 +173,10 @@ export function ShameRankList({
   return (
     <div className="canteen-fade-in space-y-3">
       <p className="text-xs text-[var(--canteen-muted)] sm:text-sm">
-        今日榜单 · {voteDate}（港时）· 只能踩，可连踩，不可取消
+        今日榜单 · {voteDate}（港时）·{" "}
+        {votingOpen
+          ? `开放至 ${votingEndDate}（含当日）· 只能踩，可连踩，不可取消`
+          : `投票已截止（截止日期 ${votingEndDate}）`}
       </p>
       <ol className="canteen-ledger">
         {ranked.map((entry, i) => (
@@ -164,6 +185,7 @@ export function ShameRankList({
             rank={i + 1}
             entry={entry}
             onStomp={onStomp}
+            disabled={!votingOpen}
           />
         ))}
       </ol>

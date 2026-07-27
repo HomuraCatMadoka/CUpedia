@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   getAnonShameDailyLimit,
   hktCalendarDate,
+  isShameVotingOpen,
   rankShameCanteens,
   type ShameRankEntry,
 } from "@/lib/canteen-shame-rank";
@@ -36,6 +37,11 @@ describe("getAnonShameDailyLimit", () => {
     process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "10";
     expect(getAnonShameDailyLimit()).toBe(10);
   });
+
+  it("falls back when the configured limit floors below one", () => {
+    process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "0.5";
+    expect(getAnonShameDailyLimit()).toBe(50);
+  });
 });
 
 describe("hktCalendarDate", () => {
@@ -48,6 +54,13 @@ describe("hktCalendarDate", () => {
     expect(hktCalendarDate(new Date("2026-07-26T15:59:00Z"))).toBe(
       "2026-07-26",
     );
+  });
+});
+
+describe("isShameVotingOpen", () => {
+  it("keeps the configured end date open and closes the following day", () => {
+    expect(isShameVotingOpen("2026-09-01", "2026-09-01")).toBe(true);
+    expect(isShameVotingOpen("2026-09-02", "2026-09-01")).toBe(false);
   });
 });
 

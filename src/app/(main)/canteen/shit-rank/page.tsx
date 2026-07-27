@@ -1,17 +1,19 @@
 import { getCanteens } from "@/lib/canteen-actions";
-import { getTodayShameVoteCounts } from "@/lib/canteen-shame-actions";
-import { hktCalendarDate } from "@/lib/canteen-shame-rank";
+import { getShameVoteCountsForDate } from "@/lib/canteen-shame-actions";
+import { hktCalendarDate, isShameVotingOpen } from "@/lib/canteen-shame-rank";
+import { getCanteenShameVoteEndDate } from "@/lib/site-settings";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
 import { ShameRankList } from "@/components/canteen/shame-rank-list";
 
 export const dynamic = "force-dynamic";
 
 export default async function CanteenShitRankPage() {
-  const [canteens, counts] = await Promise.all([
-    getCanteens(),
-    getTodayShameVoteCounts(),
-  ]);
   const voteDate = hktCalendarDate();
+  const [canteens, counts, votingEndDate] = await Promise.all([
+    getCanteens(),
+    getShameVoteCountsForDate(voteDate),
+    getCanteenShameVoteEndDate(),
+  ]);
 
   return (
     <CanteenShell
@@ -24,6 +26,8 @@ export default async function CanteenShitRankPage() {
         canteens={canteens}
         initialCounts={counts}
         voteDate={voteDate}
+        votingEndDate={votingEndDate}
+        votingOpen={isShameVotingOpen(voteDate, votingEndDate)}
       />
     </CanteenShell>
   );

@@ -13,6 +13,12 @@ vi.mock("@/lib/canteen-shame-actions", () => ({
   appendShameVote: vi.fn(),
 }));
 
+const { refreshMock } = vi.hoisted(() => ({ refreshMock: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: refreshMock }),
+}));
+
 import { appendShameVote } from "@/lib/canteen-shame-actions";
 
 const appendMock = vi.mocked(appendShameVote);
@@ -40,6 +46,7 @@ describe("ShameRankEntryLink", () => {
 describe("ShameRankList", () => {
   beforeEach(() => {
     appendMock.mockReset();
+    refreshMock.mockReset();
     appendMock.mockResolvedValue({
       canteenId: "a",
       voteDate: "2026-07-27",
@@ -52,6 +59,8 @@ describe("ShameRankList", () => {
         canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
         initialCounts={{ a: 1, b: 5 }}
         voteDate="2026-07-27"
+        votingEndDate="2026-09-01"
+        votingOpen
       />,
     );
 
@@ -67,9 +76,9 @@ describe("ShameRankList", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "踩 甲食堂" }).textContent).toContain(
-        "3",
-      );
+      expect(
+        screen.getByRole("button", { name: "踩 甲食堂" }).textContent,
+      ).toContain("3");
     });
   });
 
@@ -86,6 +95,8 @@ describe("ShameRankList", () => {
         canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
         initialCounts={{ a: 4, b: 5 }}
         voteDate="2026-07-27"
+        votingEndDate="2026-09-01"
+        votingOpen
       />,
     );
 
@@ -96,7 +107,9 @@ describe("ShameRankList", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getAllByRole("listitem")[0].textContent).toContain("甲食堂");
+      expect(screen.getAllByRole("listitem")[0].textContent).toContain(
+        "甲食堂",
+      );
     });
 
     expect(scrollTo).toHaveBeenCalled();
@@ -117,6 +130,8 @@ describe("ShameRankList", () => {
         canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
         initialCounts={{ a: 1, b: 5 }}
         voteDate="2026-07-27"
+        votingEndDate="2026-09-01"
+        votingOpen
       />,
     );
 
@@ -131,5 +146,49 @@ describe("ShameRankList", () => {
         screen.getByRole("button", { name: "踩 甲食堂" }).textContent,
       ).toContain("1");
     });
+  });
+
+  it("refreshes instead of adding a new-day vote to the old ranking", async () => {
+    appendMock.mockResolvedValueOnce({
+      canteenId: "a",
+      voteDate: "2026-07-28",
+    });
+    render(
+      <ShameRankList
+        canteens={[canteen("a", "甲食堂")]}
+        initialCounts={{ a: 1 }}
+        voteDate="2026-07-27"
+        votingEndDate="2026-09-01"
+        votingOpen
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
+
+    await waitFor(() => expect(refreshMock).toHaveBeenCalledOnce());
+    expect(
+      screen.getByRole("button", { name: "踩 甲食堂" }).textContent,
+    ).toContain("1");
+  });
+
+  it("disables voting after the configured deadline", () => {
+    render(
+      <ShameRankList
+        canteens={[canteen("a", "甲食堂")]}
+        initialCounts={{ a: 1 }}
+        voteDate="2026-09-02"
+        votingEndDate="2026-09-01"
+        votingOpen={false}
+      />,
+    );
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "踩 甲食堂",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(screen.getByText(/投票已截止/)).toBeTruthy();
   });
 });

@@ -9,8 +9,11 @@ vi.mock("@/db", () => ({
 }));
 
 import {
+  DEFAULT_CANTEEN_SHAME_VOTE_END_DATE,
   getWikiEditRole,
   getWikiEditRoleFresh,
+  getCanteenShameVoteEndDate,
+  setCanteenShameVoteEndDate,
   setWikiEditRole,
   _clearCache,
 } from "@/lib/site-settings";
@@ -83,5 +86,26 @@ describe("setWikiEditRole", () => {
     mockDbExecute.mockResolvedValue({ rows: [{ value: "user" }] });
     const result = await getWikiEditRole();
     expect(result).toBe("user");
+  });
+});
+
+describe("canteen shame vote end date", () => {
+  it("defaults to September 1, 2026 when unset", async () => {
+    mockDbExecute.mockResolvedValue({ rows: [] });
+    expect(await getCanteenShameVoteEndDate()).toBe(
+      DEFAULT_CANTEEN_SHAME_VOTE_END_DATE,
+    );
+  });
+
+  it("returns a valid stored date", async () => {
+    mockDbExecute.mockResolvedValue({ rows: [{ value: "2026-08-31" }] });
+    expect(await getCanteenShameVoteEndDate()).toBe("2026-08-31");
+  });
+
+  it("rejects impossible calendar dates", async () => {
+    await expect(setCanteenShameVoteEndDate("2026-02-31")).rejects.toThrow(
+      "INVALID_END_DATE",
+    );
+    expect(mockDbExecute).not.toHaveBeenCalled();
   });
 });

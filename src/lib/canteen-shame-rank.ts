@@ -2,13 +2,20 @@ import type { Canteen } from "@/lib/canteen-types";
 
 const HKT = "Asia/Hong_Kong";
 
-export const CANTEEN_SHAME_COUNTS_TAG = "canteen-shame-counts";
-
 /** Anonymous stomps per HKT calendar day (cookie session). Overridable for tests. */
 export function getAnonShameDailyLimit(): number {
   const raw = process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
   const n = raw ? Number(raw) : 50;
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 50;
+  const limit = Math.floor(n);
+  return Number.isFinite(n) && limit >= 1 ? limit : 50;
+}
+
+/** End date is inclusive; both values are validated YYYY-MM-DD strings. */
+export function isShameVotingOpen(
+  voteDate: string,
+  votingEndDate: string,
+): boolean {
+  return voteDate <= votingEndDate;
 }
 
 export type ShameRankEntry = {

@@ -6,7 +6,9 @@ import {
   captureWindowScroll,
   clearPinnedWindowScroll,
   restoreWindowScroll,
+  useRestorePinnedWindowScrollOnMount,
 } from "@/lib/pin-window-scroll";
+import { renderHook } from "@testing-library/react";
 
 describe("pin-window-scroll", () => {
   const scrollTo = vi.fn();
@@ -19,6 +21,7 @@ describe("pin-window-scroll", () => {
       get: () => 320,
     });
     window.scrollTo = scrollTo as typeof window.scrollTo;
+    window.history.replaceState(null, "", "/canteen/a");
   });
 
   afterEach(() => {
@@ -33,7 +36,9 @@ describe("pin-window-scroll", () => {
 
     expect(captureWindowScroll()).toBe(320);
     expect(document.activeElement).not.toBe(button);
-    expect(sessionStorage.getItem("cupedia:pin-window-scroll")).toBe("320");
+    expect(
+      JSON.parse(sessionStorage.getItem("cupedia:pin-window-scroll") ?? ""),
+    ).toEqual({ path: "/canteen/a", y: 320 });
 
     restoreWindowScroll(320);
     expect(scrollTo).toHaveBeenCalledWith({
@@ -45,5 +50,15 @@ describe("pin-window-scroll", () => {
     clearPinnedWindowScroll();
     expect(sessionStorage.getItem("cupedia:pin-window-scroll")).toBeNull();
     button.remove();
+  });
+
+  it("does not restore a scroll pin captured on another route", () => {
+    captureWindowScroll();
+    window.history.replaceState(null, "", "/canteen/b");
+
+    renderHook(() => useRestorePinnedWindowScrollOnMount());
+
+    expect(scrollTo).not.toHaveBeenCalled();
+    expect(sessionStorage.getItem("cupedia:pin-window-scroll")).toBeNull();
   });
 });

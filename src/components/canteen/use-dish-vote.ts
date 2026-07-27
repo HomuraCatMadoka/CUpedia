@@ -32,6 +32,7 @@ export function useDishVote(
   function handleVote(choice: "like" | "dislike") {
     const nextVote: VoteChoice = myVote === choice ? null : choice;
     const prevVote = myVote;
+    const scrollPath = window.location.pathname;
     const scrollY = captureWindowScroll();
 
     onVoteChange(itemId, prevVote, nextVote);
@@ -49,7 +50,7 @@ export function useDishVote(
       } finally {
         restoreWindowScrollThroughPaint(scrollY);
         // Leave sessionStorage for a possible remount; clear if none arrives.
-        window.setTimeout(() => clearPinnedWindowScroll(), 1000);
+        window.setTimeout(() => clearPinnedWindowScroll(scrollPath), 1000);
       }
     });
   }

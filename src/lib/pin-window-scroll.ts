@@ -3,6 +3,20 @@
 import { useLayoutEffect, useRef, type DependencyList } from "react";
 
 const PIN_SCROLL_KEY = "cupedia:pin-window-scroll";
+type ScrollPin = { path: string; y: number };
+
+function readScrollPin(): ScrollPin | null {
+  const raw = sessionStorage.getItem(PIN_SCROLL_KEY);
+  if (raw == null) return null;
+  try {
+    const pin = JSON.parse(raw) as Partial<ScrollPin>;
+    return typeof pin.path === "string" && Number.isFinite(pin.y)
+      ? { path: pin.path, y: pin.y as number }
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Blur focus (avoids scroll-into-view) and remember scrollY. */
 export function captureWindowScroll(): number {
@@ -11,7 +25,10 @@ export function captureWindowScroll(): number {
   if (active instanceof HTMLElement) active.blur();
   const y = window.scrollY;
   try {
-    sessionStorage.setItem(PIN_SCROLL_KEY, String(y));
+    sessionStorage.setItem(
+      PIN_SCROLL_KEY,
+      JSON.stringify({ path: window.location.pathname, y }),
+    );
   } catch {
     // private mode / disabled storage
   }
@@ -30,8 +47,10 @@ export function restoreWindowScrollThroughPaint(y: number): void {
   requestAnimationFrame(() => restoreWindowScroll(y));
 }
 
-export function clearPinnedWindowScroll(): void {
+export function clearPinnedWindowScroll(expectedPath?: string): void {
   try {
+    const pin = readScrollPin();
+    if (expectedPath && pin?.path !== expectedPath) return;
     sessionStorage.removeItem(PIN_SCROLL_KEY);
   } catch {
     // ignore
@@ -42,11 +61,9 @@ export function clearPinnedWindowScroll(): void {
 export function useRestorePinnedWindowScrollOnMount(): void {
   useLayoutEffect(() => {
     try {
-      const raw = sessionStorage.getItem(PIN_SCROLL_KEY);
-      if (raw == null) return;
+      const pin = readScrollPin();
       sessionStorage.removeItem(PIN_SCROLL_KEY);
-      const y = Number(raw);
-      if (Number.isFinite(y)) restoreWindowScroll(y);
+      if (pin?.path === window.location.pathname) restoreWindowScroll(pin.y);
     } catch {
       // ignore
     }
@@ -71,17 +88,21 @@ export function usePinnedWindowScroll(
 
 export function useScrollPin() {
   const pinnedScrollY = useRef<number | null>(null);
+  const pinnedPath = useRef<string | null>(null);
 
   function pin() {
+    pinnedPath.current = window.location.pathname;
     pinnedScrollY.current = captureWindowScroll();
   }
 
   function release() {
     const y = pinnedScrollY.current;
+    const path = pinnedPath.current;
     if (y != null) restoreWindowScrollThroughPaint(y);
     pinnedScrollY.current = null;
+    pinnedPath.current = null;
     // Leave sessionStorage briefly for a possible remount; clear shortly after.
-    window.setTimeout(() => clearPinnedWindowScroll(), 1000);
+    window.setTimeout(() => clearPinnedWindowScroll(path ?? undefined), 1000);
   }
 
   return { pinnedScrollY, pin, release };
