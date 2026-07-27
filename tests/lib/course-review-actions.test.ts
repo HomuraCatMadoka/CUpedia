@@ -120,6 +120,9 @@ vi.mock("@/db", () => ({
 }));
 
 import {
+  createCourseReviewReply,
+  deleteCourseReviewReply,
+  getCourseReviewReplies,
   submitCourseReview,
   deleteCourseReviewSubmission,
   toggleLike,
@@ -209,6 +212,189 @@ const SUBMISSION = {
   professorId: "p1",
   score: 4.5,
 };
+
+describe("createCourseReviewReply", () => {
+  it("rejects a non-text reply payload", async () => {
+    await expect(
+      createCourseReviewReply("review-1", 42 as unknown as string),
+    ).rejects.toThrow("回复格式无效");
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty reply before reading the review", async () => {
+    await expect(createCourseReviewReply("review-1", " \n ")).rejects.toThrow(
+      "回复内容不能为空",
+    );
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("rejects replies longer than 200 visible characters", async () => {
+    await expect(
+      createCourseReviewReply("review-1", "👨‍👩‍👧‍👦".repeat(201)),
+    ).rejects.toThrow("回复不能超过 200 个字符");
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("applies the course-review sensitive-content gate", async () => {
+    resetSensitiveMatcherForTests(["禁词"]);
+
+    await expect(
+      createCourseReviewReply("review-1", "这里有禁词"),
+    ).rejects.toThrow("SENSITIVE_CONTENT");
+    expect(dbSelect).not.toHaveBeenCalled();
+  });
+
+  it("publishes a signed reply beneath an existing course review", async () => {
+    queueRows(
+      [{ courseCode: "CSCI3150" }],
+      [
+        {
+          id: "reply-1",
+          reviewId: "review-1",
+          content: "讲得很清楚",
+          createdAt: new Date("2026-07-27T10:00:00Z"),
+        },
+      ],
+    );
+
+    await expect(
+      createCourseReviewReply("review-1", "  讲得很清楚  "),
+    ).resolves.toEqual({
+      id: "reply-1",
+      reviewId: "review-1",
+      content: "讲得很清楚",
+      createdAt: "2026-07-27T10:00:00.000Z",
+    });
+
+    expect(mockAssertContributorComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "u1" }),
+    );
+    expect(values()).toHaveBeenCalledWith({
+      reviewId: "review-1",
+      userId: "u1",
+      content: "讲得很清楚",
+    });
+  });
+});
+
+describe("getCourseReviewReplies", () => {
+  it("treats a non-finite pagination offset as the first page", async () => {
+    queueRows([{ userId: "review-author", isAnonymous: false }], []);
+
+    await getCourseReviewReplies("review-1", Number.NaN);
+
+    expect(dbChain.offset).toHaveBeenCalledWith(0);
+  });
+
+  it("shows an anonymous review author replying to themself only as 匿名用户", async () => {
+    queueRows(
+      [{ userId: "anonymous-author", isAnonymous: true }],
+      [
+        {
+          id: "reply-1",
+          reviewId: "review-1",
+          userId: "anonymous-author",
+          content: "补充一下",
+          createdAt: new Date("2026-07-27T10:00:00Z"),
+          authorNickname: "SecretName",
+        },
+      ],
+    );
+
+    await expect(getCourseReviewReplies("review-1")).resolves.toEqual({
+      replies: [
+        expect.objectContaining({
+          authorNickname: null,
+          authorShowcaseId: null,
+          authorAchievements: [],
+          authorAvatarUrl: null,
+          authorEquippedTitle: null,
+        }),
+      ],
+      hasMore: false,
+    });
+    expect(mockGetAchievementSummaries).toHaveBeenCalledWith([]);
+  });
+
+  it("returns 20 replies oldest-first with current public author identity", async () => {
+    mockGetAchievementSummaries.mockResolvedValue(
+      new Map([
+        [
+          "other",
+          {
+            showcaseId: "showcase-1",
+            avatarUrl: "/avatar.png",
+            equippedTitle: { displayName: "牛顿", badgeCode: "NEWT" },
+            achievements: [
+              {
+                id: "achievement-1",
+                displayName: "数学金标",
+                badgeCode: "MATH",
+                tier: "gold",
+                category: "professional",
+                publicDescription: "",
+                primary: true,
+              },
+            ],
+          },
+        ],
+      ]),
+    );
+    queueRows(
+      [{ userId: "review-author", isAnonymous: false }],
+      Array.from({ length: 21 }, (_, index) => ({
+        id: `reply-${index + 1}`,
+        reviewId: "review-1",
+        userId: "other",
+        content: `回复 ${index + 1}`,
+        createdAt: new Date(
+          `2026-07-27T10:${String(index).padStart(2, "0")}:00Z`,
+        ),
+        authorNickname: "Alice",
+      })),
+    );
+
+    const result = await getCourseReviewReplies("review-1");
+
+    expect(result.hasMore).toBe(true);
+    expect(result.replies).toHaveLength(20);
+    expect(result.replies[0]).toMatchObject({
+      id: "reply-1",
+      content: "回复 1",
+      authorNickname: "Alice",
+      authorShowcaseId: "showcase-1",
+      authorAvatarUrl: "/avatar.png",
+      canDelete: false,
+    });
+    expect(result.replies.at(-1)?.id).toBe("reply-20");
+  });
+});
+
+describe("deleteCourseReviewReply", () => {
+  it("does not let another ordinary user delete a reply", async () => {
+    queueRows([{ userId: "other", courseCode: "CSCI3150" }]);
+
+    await expect(deleteCourseReviewReply("reply-1")).rejects.toThrow(
+      "无权删除该回复",
+    );
+    expect(dbDelete).not.toHaveBeenCalled();
+  });
+
+  it("lets an administrator permanently delete another user's reply", async () => {
+    mockRequireAuth.mockResolvedValue({ id: "admin", role: "admin" });
+    queueRows([{ userId: "other", courseCode: "CSCI3150" }], []);
+
+    await expect(deleteCourseReviewReply("reply-1")).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledOnce();
+  });
+
+  it("lets a reply author permanently delete their reply", async () => {
+    queueRows([{ userId: "u1", courseCode: "CSCI3150" }], []);
+
+    await expect(deleteCourseReviewReply("reply-1")).resolves.toBeUndefined();
+    expect(dbDelete).toHaveBeenCalledOnce();
+  });
+});
 
 describe("submitCourseReview", () => {
   it("署名投稿前要求账户同时具有昵称和密码", async () => {
@@ -1137,6 +1323,7 @@ describe("getCourseReviews", () => {
           id: "r1",
           content: "很清楚",
           createdAt: new Date("2026-07-13T00:00:00Z"),
+          updatedAt: new Date("2026-07-14T00:00:00Z"),
           userId: "other",
           isAnonymous: false,
           professorId: "p1",
@@ -1144,6 +1331,7 @@ describe("getCourseReviews", () => {
           academicYear: "2025-26",
           term: "Term 2",
           score: 4.5,
+          replyCount: 3,
           storedTags: {
             workload: "light",
             grade: "good",
@@ -1160,6 +1348,8 @@ describe("getCourseReviews", () => {
     await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
       expect.objectContaining({
         id: "r1",
+        isEdited: true,
+        replyCount: 3,
         tags: ["hea", "靓 grade", "讲解清晰"],
         authorNickname: "Alice",
         authorShowcaseId: null,
