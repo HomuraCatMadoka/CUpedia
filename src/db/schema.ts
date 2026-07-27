@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   timestamp,
+  date,
   uuid,
   boolean,
   integer,
@@ -1176,6 +1177,7 @@ export const canteensRelations = relations(canteens, ({ many }) => ({
   menuItems: many(canteenMenuItems),
   importDrafts: many(menuImportDrafts),
   danmakuMessages: many(canteenDanmakuMessages),
+  shameVotes: many(canteenShameVotes),
 }));
 
 export const canteenMenuItemsRelations = relations(
@@ -1267,6 +1269,50 @@ export const canteenDishVotes = pgTable(
       )`,
     ),
   ],
+);
+
+/** Append-only 食堂踩票；票永久保留，榜单按 voteDate（港时自然日）过滤展示。 */
+export const canteenShameVotes = pgTable(
+  "canteen_shame_votes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id),
+    anonymousSessionId: uuid("anonymous_session_id"),
+    /** Asia/Hong_Kong calendar date (YYYY-MM-DD) at insert time. */
+    voteDate: date("vote_date").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_shame_votes_date_canteen_idx").on(
+      table.voteDate,
+      table.canteenId,
+    ),
+    index("canteen_shame_votes_canteen_id_idx").on(table.canteenId),
+    check(
+      "canteen_shame_votes_identity_chk",
+      sql`(
+        (${table.userId} IS NOT NULL AND ${table.anonymousSessionId} IS NULL) OR
+        (${table.userId} IS NULL AND ${table.anonymousSessionId} IS NOT NULL)
+      )`,
+    ),
+  ],
+);
+
+export const canteenShameVotesRelations = relations(
+  canteenShameVotes,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [canteenShameVotes.canteenId],
+      references: [canteens.id],
+    }),
+    user: one(users, {
+      fields: [canteenShameVotes.userId],
+      references: [users.id],
+    }),
+  }),
 );
 
 export const canteenDishVotesRelations = relations(

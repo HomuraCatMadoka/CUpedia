@@ -1,0 +1,56 @@
+import { describe, it, expect } from "vitest";
+import {
+  hktCalendarDate,
+  rankShameCanteens,
+  type ShameRankEntry,
+} from "@/lib/canteen-shame-rank";
+import type { Canteen } from "@/lib/canteen-types";
+
+function canteen(id: string, name: string): Canteen {
+  const t = new Date("2026-07-27T00:00:00Z");
+  return {
+    id,
+    name,
+    location: null,
+    announcement: null,
+    createdAt: t,
+    updatedAt: t,
+  };
+}
+
+describe("hktCalendarDate", () => {
+  it("returns Asia/Hong_Kong calendar date as YYYY-MM-DD", () => {
+    // 2026-07-26 16:00 UTC = 2026-07-27 00:00 HKT
+    expect(hktCalendarDate(new Date("2026-07-26T16:00:00Z"))).toBe(
+      "2026-07-27",
+    );
+    // Still previous HKT day just before midnight
+    expect(hktCalendarDate(new Date("2026-07-26T15:59:00Z"))).toBe(
+      "2026-07-26",
+    );
+  });
+});
+
+describe("rankShameCanteens", () => {
+  it("ranks by today's dislike count descending and includes zero-count canteens last", () => {
+    const canteens = [
+      canteen("a", "甲食堂"),
+      canteen("b", "乙食堂"),
+      canteen("c", "丙食堂"),
+    ];
+    const counts = { a: 3, b: 10, c: 0 };
+    const ranked = rankShameCanteens(canteens, counts);
+    expect(ranked.map((e: ShameRankEntry) => e.canteen.id)).toEqual([
+      "b",
+      "a",
+      "c",
+    ]);
+    expect(ranked[0].dislikes).toBe(10);
+  });
+
+  it("breaks ties by canteen id ascending for stable order", () => {
+    const canteens = [canteen("z", "张食堂"), canteen("a", "阿食堂")];
+    const ranked = rankShameCanteens(canteens, { z: 5, a: 5 });
+    expect(ranked.map((e) => e.canteen.id)).toEqual(["a", "z"]);
+  });
+});

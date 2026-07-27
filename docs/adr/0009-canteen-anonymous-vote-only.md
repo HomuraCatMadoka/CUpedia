@@ -13,19 +13,19 @@ Accepted
 
 ## Decision
 
-1. **唯一例外**：食堂菜品点赞/点踩是 CUpedia 中唯一允许匿名写入的用户生成内容；评论、弹幕、Admin 仍遵循 ADR 0001。
+1. **唯一例外**：食堂菜品点赞/点踩与**食堂💩堂榜点踩**是 CUpedia 中允许匿名写入的用户生成内容；评论、弹幕、Admin 仍遵循 ADR 0001。
 2. 匿名写入凭证为 **HMAC 签名 cookie** `canteen_anon_session`（`HttpOnly` + `SameSite=Lax`），绑定 `anonymousSessionId`；无有效签名 cookie 时**拒绝写库**。
 3. 登录用户以 `userId` 标识票；匿名与登录票**不合并**（MVP 已知双票）。
-4. 投票 upsert：同 `(userId|anonymousSessionId, menuItemId)` 覆盖更新；取消为 `vote = NULL` 留行。
-5. 限流按 **cookie / userId**，不按 IP；`CANTEEN_VOTE_RATE_LIMIT_PER_MIN` 为礼貌限流。
-6. 菜单赞踩计数经 `unstable_cache`（`revalidate: 60`，tag `canteen-vote-counts`）缓存；**投票写入时** `revalidateTag` 该 tag，避免硬刷新后「我的投票」高亮与计数不一致。他人投票的聚合计数在未写入时仍最多约 60s 延迟。「我的投票」走不缓存查询 + 乐观 UI。
+4. 菜品投票 upsert：同 `(userId|anonymousSessionId, menuItemId)` 覆盖更新；取消为 `vote = NULL` 留行。💩堂榜为 **append-only**（`canteen_shame_votes`）：每次点踩插入一行，不可取消；榜单按港时 `voteDate` 过滤当日。
+5. 限流按 **cookie / userId**，不按 IP；`CANTEEN_VOTE_RATE_LIMIT_PER_MIN` 为礼貌限流（菜品与💩堂榜共用）。
+6. 菜单赞踩计数经 `unstable_cache`（`revalidate: 60`，tag `canteen-vote-counts`）缓存；**投票写入时** `revalidateTag` 该 tag，避免硬刷新后「我的投票」高亮与计数不一致。他人投票的聚合计数在未写入时仍最多约 60s 延迟。「我的投票」走不缓存查询 + 乐观 UI。💩堂榜计数 tag 为 `canteen-shame-counts`。
 7. Cookie 禁用者：投票 UI 显示「投票需允许 Cookie」，不开无 cookie 后门。
 
 ## Consequences
 
 - 与 ADR 0001 的关系须在代码审查中显式核对：新增匿名写能力不得扩散到其他子系统。
 - 匿名 cookie 过期后可再投；排行计数最多约 60s 延迟。
-- 实现见 `src/lib/canteen-anon-session.ts`、`src/lib/canteen-vote-actions.ts`。
+- 实现见 `src/lib/canteen-anon-session.ts`、`src/lib/canteen-vote-actions.ts`、`src/lib/canteen-shame-actions.ts`。
 
 ## Related
 

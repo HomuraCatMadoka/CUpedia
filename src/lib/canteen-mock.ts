@@ -50,10 +50,20 @@ type MockComment = {
   updatedAt: Date;
 };
 
+type MockShameVote = {
+  id: string;
+  canteenId: string;
+  userId: string | null;
+  anonymousSessionId: string | null;
+  voteDate: string;
+  createdAt: Date;
+};
+
 type MockState = {
   canteens: Canteen[];
   items: CanteenMenuItem[];
   votes: MockVote[];
+  shameVotes: MockShameVote[];
   comments: MockComment[];
   auditLogs: AdminAuditLog[];
   importDrafts: MenuImportDraft[];
@@ -156,6 +166,7 @@ function seedState(): MockState {
     canteens: [demo],
     items,
     votes: [],
+    shameVotes: [],
     comments: [],
     auditLogs: [],
     importDrafts: [],
@@ -236,6 +247,7 @@ export function mockDeleteCanteen(id: string): void {
   s.items = s.items.filter((i) => i.canteenId !== id);
   s.votes = s.votes.filter((v) => !removedItemIds.has(v.menuItemId));
   s.comments = s.comments.filter((c) => !removedItemIds.has(c.menuItemId));
+  s.shameVotes = s.shameVotes.filter((v) => v.canteenId !== id);
   s.importDrafts = s.importDrafts.filter((d) => d.canteenId !== id);
 }
 
@@ -629,6 +641,42 @@ export function mockGetMyVotesForCanteen(
     if (vote.vote === "like" || vote.vote === "dislike") {
       result[vote.menuItemId] = vote.vote;
     }
+  }
+  return result;
+}
+
+export function mockCanteenExists(canteenId: string): boolean {
+  return getState().canteens.some((c) => c.id === canteenId);
+}
+
+/** Append-only; each call adds one dislike for the given HKT voteDate. */
+export function mockAppendShameVote(
+  canteenId: string,
+  voteDate: string,
+): { canteenId: string; voteDate: string } {
+  const s = getState();
+  if (!s.canteens.some((c) => c.id === canteenId)) {
+    throw new Error("CANTEEN_NOT_FOUND");
+  }
+  const voter = mockResolveVoter(true);
+  s.shameVotes.push({
+    id: crypto.randomUUID(),
+    canteenId,
+    userId: voter.userId,
+    anonymousSessionId: voter.anonymousSessionId,
+    voteDate,
+    createdAt: now(),
+  });
+  return { canteenId, voteDate };
+}
+
+export function mockGetShameVoteCountsForDate(
+  voteDate: string,
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const vote of getState().shameVotes) {
+    if (vote.voteDate !== voteDate) continue;
+    result[vote.canteenId] = (result[vote.canteenId] ?? 0) + 1;
   }
   return result;
 }
