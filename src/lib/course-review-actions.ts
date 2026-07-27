@@ -73,7 +73,6 @@ const COURSE_REVIEW_PRESET_TAGS = new Set<string>(
  * identity; attributed rows expose only the current nickname, never user ID. */
 export type CourseReviewView = {
   id: string;
-  isRatingOnly: boolean;
   content: string;
   createdAt: string;
   likeCount: number;
@@ -833,7 +832,6 @@ export async function getCourseReviews(
     );
     return {
       id: r.id,
-      isRatingOnly: false,
       content: r.content,
       createdAt: r.createdAt.toISOString(),
       likeCount: likeCount.get(r.id) ?? 0,
@@ -856,64 +854,7 @@ export async function getCourseReviews(
     };
   });
 
-  if (user?.role !== "admin") return reviewViews;
-
-  const reviewedUserIds = new Set(rows.map((row) => row.userId));
-  const ratingRows = await db
-    .select({
-      id: courseRatings.id,
-      userId: courseRatings.userId,
-      createdAt: courseRatings.createdAt,
-      professorId: courseRatings.professorId,
-      professorName: courseRatings.professorNameSnapshot,
-      professors: storedRatingProfessors,
-      academicYear: courseRatings.academicYear,
-      term: courseRatings.term,
-      score: courseRatings.score,
-      storedTags: storedReviewTagSelection,
-    })
-    .from(courseRatings)
-    .where(eq(courseRatings.courseCode, course.code));
-
-  const ratingOnlyViews: CourseReviewView[] = ratingRows
-    .filter(
-      (rating) =>
-        rating.userId !== viewerId && !reviewedUserIds.has(rating.userId),
-    )
-    .map((rating) => {
-      const professorSelections = selectedProfessors(
-        rating.professors,
-        rating.professorId,
-        rating.professorName,
-      );
-      return {
-        id: rating.id,
-        isRatingOnly: true,
-        content: "",
-        createdAt: rating.createdAt.toISOString(),
-        likeCount: 0,
-        likedByMe: false,
-        canAdminDelete: true,
-        professorId: rating.professorId,
-        professorName: rating.professorName,
-        professors: professorSelections,
-        academicYear: rating.academicYear,
-        term: COURSE_TERMS.includes(rating.term as CourseTerm)
-          ? (rating.term as CourseTerm)
-          : null,
-        score: rating.score,
-        tags: presentReviewTags(rating.storedTags),
-        authorNickname: null,
-        authorShowcaseId: null,
-        authorAchievements: [],
-        authorAvatarUrl: null,
-        authorEquippedTitle: null,
-      };
-    });
-
-  return [...reviewViews, ...ratingOnlyViews].sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt),
-  );
+  return reviewViews;
 }
 
 const getCachedProfessorSearchCorpus = unstable_cache(
