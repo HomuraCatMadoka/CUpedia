@@ -4,14 +4,14 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { canonicalWikiPageUrl, wikiEditUrl, wikiPageUrl } from "./helpers/wiki";
+import { createUntitledWikiPage, wikiPageUrl } from "./helpers/wiki";
 import { deleteObjects } from "../src/lib/minio";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 const MOBILE_VIEWPORT = { width: 393, height: 851 };
 const NARROW_MOBILE_WIDTHS = [360, 375] as const;
-const MOBILE_SAVE_SLUG = `mobile-editor-${randomUUID().slice(0, 8)}`;
 const MOBILE_NAV_SLUG = `mobile-nav-${randomUUID().slice(0, 8)}`;
+const mobileCreatedIds: string[] = [];
 const MOBILE_NAV_PAGE_ID = randomUUID();
 const MOBILE_UPLOAD_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZAAAAAElFTkSuQmCC",
@@ -233,9 +233,14 @@ test.describe("mobile wiki editing", () => {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     try {
-      await client.query("delete from wiki_pages where slug = any($1)", [
-        [MOBILE_SAVE_SLUG, MOBILE_NAV_SLUG],
+      await client.query("delete from wiki_pages where slug = $1", [
+        MOBILE_NAV_SLUG,
       ]);
+      if (mobileCreatedIds.length > 0) {
+        await client.query("delete from wiki_pages where id = any($1)", [
+          mobileCreatedIds,
+        ]);
+      }
     } finally {
       await client.end();
     }
@@ -556,7 +561,7 @@ test.describe("mobile wiki editing", () => {
     try {
       await page.reload();
       const topbar = page.getByRole("banner", { name: "编辑器顶栏" });
-      const document = page.getByTestId("wiki-editor-document");
+      const document = page.getByTestId("wiki-editor-document").first();
       const icon = page.getByRole("button", {
         name: "更改页面图标，当前为 🗺️",
       });
@@ -920,9 +925,9 @@ test.describe("mobile wiki editing", () => {
     await page.getByTestId("mobile-navigation-target").click({ force: true });
 
     await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome));
-    await expect(
-      page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
+      "Welcome to CUpedia",
+    );
   });
 
   test("the comment action opens a compact bottom composer", async ({
@@ -934,7 +939,9 @@ test.describe("mobile wiki editing", () => {
     await expect(selectionActions).toBeVisible();
     await selectionActions
       .getByRole("button", { name: "添加批注", exact: true })
-      .click();
+      // The Next.js development indicator can overlap the fixed mobile strip.
+      // The production build has no such portal; dispatch the intended tap.
+      .dispatchEvent("click");
 
     const composer = page.getByRole("dialog", { name: "添加批注" });
     await expect(composer).toBeVisible();
@@ -1080,9 +1087,9 @@ test.describe("mobile wiki editing", () => {
     await page.getByTestId("mobile-navigation-target").click({ force: true });
 
     await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome));
-    await expect(
-      page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
+      "Welcome to CUpedia",
+    );
   });
 
   test("canceling the compact composer consumes its temporary history entry", async ({
@@ -1274,7 +1281,7 @@ test.describe("mobile wiki editing", () => {
     page,
   }) => {
     const savedTitle = `Mobile nav saved ${Date.now()}`;
-    await page.goto(`/wiki/edit/${MOBILE_NAV_SLUG}`);
+    await page.goto(`/wiki/${MOBILE_NAV_PAGE_ID}`);
 
     let releaseResponse!: () => void;
     const responseGate = new Promise<void>((resolve) => {
@@ -1285,7 +1292,7 @@ test.describe("mobile wiki editing", () => {
       markResponseHeld = resolve;
     });
     let held = false;
-    await page.route(`**/wiki/edit/${MOBILE_NAV_PAGE_ID}`, async (route) => {
+    await page.route("**/*", async (route) => {
       if (route.request().method() === "POST" && !held) {
         held = true;
         markResponseHeld();
@@ -1301,13 +1308,13 @@ test.describe("mobile wiki editing", () => {
     await page.getByTestId("mobile-navigation-target").click();
     await responseHeld;
 
-    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
+    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID));
     releaseResponse();
     await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome), {
       timeout: 15_000,
     });
 
-    await page.goto(`/wiki/edit/${MOBILE_NAV_SLUG}`);
+    await page.goto(`/wiki/${MOBILE_NAV_PAGE_ID}`);
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       savedTitle,
     );
@@ -1317,8 +1324,8 @@ test.describe("mobile wiki editing", () => {
     page,
   }) => {
     const draftTitle = `Mobile nav failed ${Date.now()}`;
-    await page.goto(`/wiki/edit/${MOBILE_NAV_SLUG}`);
-    await page.route(`**/wiki/edit/${MOBILE_NAV_PAGE_ID}`, async (route) => {
+    await page.goto(`/wiki/${MOBILE_NAV_PAGE_ID}`);
+    await page.route("**/*", async (route) => {
       if (route.request().method() === "POST") {
         await route.abort("failed");
         return;
@@ -1330,7 +1337,7 @@ test.describe("mobile wiki editing", () => {
     await addNavigationTarget(page);
     await page.getByTestId("mobile-navigation-target").click();
 
-    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
+    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID));
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       draftTitle,
     );
@@ -1343,17 +1350,17 @@ test.describe("mobile wiki editing", () => {
     page,
   }) => {
     const savedTitle = `Mobile back saved ${Date.now()}`;
-    await page.goto(`/wiki/${MOBILE_NAV_SLUG}`);
-    await page.getByRole("link", { name: "编辑", exact: true }).first().click();
-    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
+    await page.goto("/wiki");
+    await page.goto(`/wiki/${MOBILE_NAV_PAGE_ID}`);
+    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID));
     await page.getByRole("textbox", { name: "页面标题" }).fill(savedTitle);
 
     await page.goBack();
 
-    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID), {
+    await expect(page).toHaveURL(/\/wiki$/, {
       timeout: 15_000,
     });
-    await page.getByRole("link", { name: "编辑", exact: true }).first().click();
+    await page.goto(`/wiki/${MOBILE_NAV_PAGE_ID}`);
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       savedTitle,
     );
@@ -1373,57 +1380,44 @@ test.describe("mobile wiki editing", () => {
         value: undefined,
       });
     });
-    await page.goto(`/wiki/${MOBILE_NAV_SLUG}`);
+    await page.goto("/wiki");
+    await page.goto(`/wiki/${MOBILE_NAV_PAGE_ID}`);
     expect(
       await page.evaluate(
         () => (window as Window & { navigation?: unknown }).navigation,
       ),
     ).toBeUndefined();
 
-    await page.getByRole("link", { name: "编辑", exact: true }).first().click();
-    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
+    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID));
     await page.getByRole("textbox", { name: "页面标题" }).fill(savedTitle);
     await page.goBack();
 
-    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID), {
+    await expect(page).toHaveURL(/\/wiki$/, {
       timeout: 15_000,
     });
-    await page.getByRole("link", { name: "编辑", exact: true }).first().click();
+    await page.goto(`/wiki/${MOBILE_NAV_PAGE_ID}`);
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       savedTitle,
     );
   });
 
-  test("a new page asks before browser Back discards an unsaved draft", async ({
-    page,
-  }) => {
-    await page.goto("/wiki/new");
+  test("a new page autosaves before browser Back", async ({ page }) => {
+    await createUntitledWikiPage(page);
+    mobileCreatedIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
     await page
       .getByRole("textbox", { name: "页面标题" })
       .fill("Unsaved mobile page");
     await page.locator('[data-slate-editor="true"]').fill("Unsaved body");
     const createUrl = page.url();
-
-    const dismissed = new Promise<void>((resolve) => {
-      page.once("dialog", async (dialog) => {
-        expect(dialog.type()).toBe("confirm");
-        expect(dialog.message()).toContain("尚未保存");
-        await dialog.dismiss();
-        resolve();
-      });
-    });
-    await page.goBack().catch(() => null);
-    await dismissed;
-    expect(page.url()).toBe(createUrl);
+    await page.goBack();
+    await expect(page).not.toHaveURL(createUrl);
+    await page.goto(createUrl);
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       "Unsaved mobile page",
     );
-
-    page.once("dialog", async (dialog) => {
-      await dialog.accept();
-    });
-    await page.goBack();
-    await expect(page).not.toHaveURL(/\/wiki\/new$/);
+    await expect(
+      page.locator('[data-slate-editor="true"]').first(),
+    ).toContainText("Unsaved body");
   });
 
   test("an Insert command restores its block location and typing continues in the new block", async ({
@@ -1468,8 +1462,8 @@ test.describe("mobile wiki editing", () => {
   test("nested table insertion and deletion preserve a legal selection in the same cell", async ({
     page,
   }) => {
-    await page.goto("/wiki/edit/rich-content-demo");
-    const editor = page.locator('[data-slate-editor="true"]');
+    await page.goto(`/wiki/${PAGE_IDS.richContent}`);
+    const editor = page.locator('[data-slate-editor="true"]').first();
     await editor.click();
     const cell = editor.locator("td").filter({ hasText: "CSCI1130" }).first();
     await cell.getByText("CSCI1130", { exact: true }).click();
@@ -1560,7 +1554,8 @@ test.describe("mobile wiki editing", () => {
   test("deleting the only block leaves a focused editable paragraph", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
+    mobileCreatedIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
     await page
@@ -1732,28 +1727,22 @@ test.describe("mobile wiki editing", () => {
     }
   });
 
-  test("mobile Done saves the current Plate draft and returns to the reader", async ({
+  test("mobile Done saves the current Plate draft and only dismisses focus", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
+    mobileCreatedIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
     await page
       .getByRole("textbox", { name: "页面标题" })
       .fill("Mobile editor done");
-    await page.getByRole("button", { name: "页面设置" }).click();
-    await page
-      .getByRole("dialog", { name: "页面设置" })
-      .getByRole("textbox", { name: "URL 路径" })
-      .fill(MOBILE_SAVE_SLUG);
-    await page.keyboard.press("Escape");
-
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.fill("Mobile done body");
+    const canonicalUrl = page.url();
     await page.getByRole("button", { name: "完成" }).click();
 
-    await page.waitForURL(canonicalWikiPageUrl);
-    await expect(
-      page.getByRole("heading", { name: "Mobile editor done" }),
-    ).toBeVisible();
-    await expect(page.getByText("Mobile done body")).toBeVisible();
+    await expect(page).toHaveURL(canonicalUrl);
+    await expect(page.getByLabel("页面标题")).toHaveValue("Mobile editor done");
+    await expect(editor).toContainText("Mobile done body");
+    await expect(editor).not.toBeFocused();
   });
 });

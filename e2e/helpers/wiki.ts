@@ -3,15 +3,17 @@ const UUID_SOURCE =
 
 export const canonicalWikiPageUrl = new RegExp(`/wiki/${UUID_SOURCE}$`, "i");
 
-export const canonicalWikiEditUrl = new RegExp(
-  `/wiki/edit/${UUID_SOURCE}$`,
-  "i",
-);
-
 export function wikiPageUrl(pageId: string) {
   return new RegExp(`/wiki/${pageId}$`);
 }
 
-export function wikiEditUrl(pageId: string) {
-  return new RegExp(`/wiki/edit/${pageId}$`);
+export async function createUntitledWikiPage(page: Page) {
+  await page.goto("/wiki");
+  if ((page.viewportSize()?.width ?? 1280) < 768) {
+    await page.getByRole("button", { name: "打开导航" }).click();
+  }
+  await page.getByRole("button", { name: "新建页面" }).first().click();
+  await page.waitForURL(canonicalWikiPageUrl, { timeout: 30_000 });
+  return new URL(page.url()).pathname.split("/").at(-1)!;
 }
+import type { Page } from "@playwright/test";

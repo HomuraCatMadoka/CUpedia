@@ -14,6 +14,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { getViewerEditContext } from "@/lib/auth-guard";
 import { redirect } from "next/navigation";
 import { parseContent, toMarkdown } from "@/lib/plate-utils";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 function ContentShell({ children }: { children: React.ReactNode }) {
   return (
@@ -125,7 +126,9 @@ export default async function HistoryPage({
   return (
     <ContentShell>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">编辑历史：{page.title}</h1>
+        <h1 className="text-xl font-bold">
+          编辑历史：{getWikiDisplayTitle(page.title)}
+        </h1>
         <Link
           href={`/wiki/${pageId}`}
           className={buttonVariants({ variant: "outline", size: "sm" })}

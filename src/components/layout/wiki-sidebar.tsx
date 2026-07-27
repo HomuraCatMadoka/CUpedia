@@ -24,13 +24,13 @@ import {
   FileTextIcon,
   HomeIcon,
   LoaderCircleIcon,
-  PencilIcon,
   PlusIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 import { useSidebar } from "@/components/layout/sidebar-provider";
 import { PrefetchLink } from "@/components/layout/prefetch-link";
 import {
@@ -39,6 +39,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { WikiCreateButton } from "@/components/wiki/wiki-create-button";
 
 type TreeNode = {
   id: string;
@@ -227,9 +228,8 @@ function PageTreeItem({
   pendingHref: string | null;
   feedbackHref: string | null;
 }) {
+  const displayTitle = getWikiDisplayTitle(node.title);
   const href = `/wiki/${node.id}`;
-  const editHref = `/wiki/edit/${node.id}`;
-  const newChildHref = `/wiki/new?parent=${encodeURIComponent(node.id)}`;
   const active = isCurrentWikiPage(pathname, node.id);
   const hasChildren = node.children.length > 0;
   const collapsed = collapsedIds.has(node.id);
@@ -322,7 +322,7 @@ function PageTreeItem({
   return (
     <li
       role="treeitem"
-      aria-label={node.title}
+      aria-label={displayTitle}
       aria-level={depth + 1}
       aria-expanded={hasChildren ? !collapsed : undefined}
       aria-current={active ? "page" : undefined}
@@ -383,7 +383,7 @@ function PageTreeItem({
               onToggle(node.id);
             }}
             className="relative hidden size-5 shrink-0 items-center justify-center rounded-md text-[#a09e9a] transition-[background-color,transform] group-hover/row:bg-black/[0.045] active:scale-95 focus-visible:outline-none md:flex"
-            aria-label={`${collapsed ? "展开" : "折叠"} ${node.title}`}
+            aria-label={`${collapsed ? "展开" : "折叠"} ${displayTitle}`}
           >
             <PageIcon
               icon={node.icon}
@@ -427,7 +427,7 @@ function PageTreeItem({
           aria-busy={showFeedback || undefined}
           aria-disabled={pending || undefined}
           aria-current={active ? "page" : undefined}
-          aria-label={showFeedback ? `${node.title}，正在打开` : undefined}
+          aria-label={showFeedback ? `${displayTitle}，正在打开` : undefined}
           data-wiki-tree-link
           tabIndex={-1}
           onPointerDown={(event) => {
@@ -455,7 +455,7 @@ function PageTreeItem({
           >
             <PageIcon icon={node.icon} testId={false} />
           </span>
-          <span className="min-w-0 flex-1 truncate">{node.title}</span>
+          <span className="min-w-0 flex-1 truncate">{displayTitle}</span>
           {showFeedback && (
             <LoaderCircleIcon
               data-testid="wiki-navigation-pending"
@@ -469,14 +469,16 @@ function PageTreeItem({
           className="pointer-events-none absolute right-1 hidden items-center gap-0.5 opacity-0 transition-opacity group-focus-within/row:pointer-events-auto group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:opacity-100 md:flex"
         >
           {canEdit && (
-            <Link
-              href={newChildHref}
+            <WikiCreateButton
+              parentId={node.id}
+              variant="ghost"
+              size="icon-xs"
               tabIndex={-1}
-              aria-label={`在 ${node.title} 下新建页面`}
+              aria-label={`在 ${displayTitle} 下新建页面`}
               className="flex size-5 items-center justify-center rounded text-[#787774] hover:bg-black/[0.06] hover:text-[#37352f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <PlusIcon aria-hidden="true" className="size-3.5" />
-            </Link>
+            </WikiCreateButton>
           )}
           <DropdownMenu
             open={pageMenuOpen}
@@ -485,7 +487,7 @@ function PageTreeItem({
           >
             <DropdownMenuTrigger
               tabIndex={-1}
-              aria-label={`打开 ${node.title} 的页面菜单`}
+              aria-label={`打开 ${displayTitle} 的页面菜单`}
               className="flex size-5 items-center justify-center rounded text-[#787774] hover:bg-black/[0.06] hover:text-[#37352f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
             >
               <EllipsisIcon aria-hidden="true" className="size-3.5" />
@@ -496,16 +498,16 @@ function PageTreeItem({
                 打开页面
               </DropdownMenuItem>
               {canEdit && (
-                <>
-                  <DropdownMenuItem render={<Link href={newChildHref} />}>
-                    <PlusIcon aria-hidden="true" />
-                    新建子页面
-                  </DropdownMenuItem>
-                  <DropdownMenuItem render={<Link href={editHref} />}>
-                    <PencilIcon aria-hidden="true" />
-                    编辑页面
-                  </DropdownMenuItem>
-                </>
+                <WikiCreateButton
+                  parentId={node.id}
+                  variant="ghost"
+                  role="menuitem"
+                  onCreated={() => setPageMenuOpen(false)}
+                  className="h-auto w-full justify-start rounded-sm px-2 py-1.5 font-normal"
+                >
+                  <PlusIcon aria-hidden="true" />
+                  新建子页面
+                </WikiCreateButton>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -721,9 +723,9 @@ function MobilePageActionsSheet({
 
   if (!node) return null;
 
+  const displayTitle = getWikiDisplayTitle(node.title);
   const href = `/wiki/${node.id}`;
   const hasChildren = node.children.length > 0;
-  const newChildHref = `/wiki/new?parent=${encodeURIComponent(node.id)}`;
 
   return (
     <Drawer.Root
@@ -748,7 +750,7 @@ function MobilePageActionsSheet({
             <Drawer.Content className="flex max-h-[min(72dvh,34rem)] min-h-0 flex-col overscroll-contain pb-[env(safe-area-inset-bottom)]">
               <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-[#9b9a97]/35" />
               <Drawer.Title className="sr-only">
-                {node.title} 页面操作
+                {displayTitle} 页面操作
               </Drawer.Title>
               <div className="flex min-h-14 shrink-0 items-center gap-3 border-b border-black/10 px-4 dark:border-white/10">
                 <span
@@ -758,7 +760,7 @@ function MobilePageActionsSheet({
                   <PageIcon icon={node.icon} testId={false} />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                  {node.title}
+                  {displayTitle}
                 </span>
                 <Drawer.Close
                   ref={closeRef}
@@ -809,36 +811,21 @@ function MobilePageActionsSheet({
                 )}
                 {canEdit && (
                   <>
-                    <Link
-                      href={newChildHref}
-                      onClick={(event) => {
-                        if (event.defaultPrevented) return;
+                    <WikiCreateButton
+                      parentId={node.id}
+                      variant="ghost"
+                      onCreated={() => {
                         onClose();
                         onCloseNavigation();
                       }}
-                      className="flex min-h-12 touch-manipulation items-center gap-3 rounded-lg px-3 text-sm font-medium hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                      className="min-h-12 w-full justify-start gap-3 rounded-lg px-3 text-sm font-medium"
                     >
                       <PlusIcon
                         aria-hidden="true"
                         className="size-[18px] text-[#787774]"
                       />
                       新建子页面
-                    </Link>
-                    <Link
-                      href={`/wiki/edit/${node.id}`}
-                      onClick={(event) => {
-                        if (event.defaultPrevented) return;
-                        onClose();
-                        onCloseNavigation();
-                      }}
-                      className="flex min-h-12 touch-manipulation items-center gap-3 rounded-lg px-3 text-sm font-medium hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
-                    >
-                      <PencilIcon
-                        aria-hidden="true"
-                        className="size-[18px] text-[#787774]"
-                      />
-                      编辑页面
-                    </Link>
+                    </WikiCreateButton>
                   </>
                 )}
               </div>
@@ -1035,6 +1022,16 @@ export function WikiSidebar({
                   </span>
                   <span className="truncate">CUpedia</span>
                 </Link>
+                {canEdit && (
+                  <WikiCreateButton
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="新建页面"
+                    className="text-muted-foreground"
+                  >
+                    <PlusIcon aria-hidden="true" />
+                  </WikiCreateButton>
+                )}
                 <button
                   type="button"
                   onClick={collapse}
@@ -1073,14 +1070,26 @@ export function WikiSidebar({
               <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                 Pages
               </span>
-              <button
-                type="button"
-                onClick={collapse}
-                className="rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                aria-label="收起导航"
-              >
-                <XIcon aria-hidden="true" className="size-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                {canEdit && (
+                  <WikiCreateButton
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="新建页面"
+                    className="text-muted-foreground"
+                  >
+                    <PlusIcon aria-hidden="true" />
+                  </WikiCreateButton>
+                )}
+                <button
+                  type="button"
+                  onClick={collapse}
+                  className="rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  aria-label="收起导航"
+                >
+                  <XIcon aria-hidden="true" className="size-4" />
+                </button>
+              </div>
             </div>
           )}
           <PageTree
@@ -1133,14 +1142,15 @@ export function WikiSidebar({
                     </Drawer.Title>
                   </div>
                   {canEdit && (
-                    <Link
-                      href="/wiki/new"
-                      onClick={closeMobile}
+                    <WikiCreateButton
+                      variant="ghost"
+                      size="icon-lg"
+                      onCreated={closeMobile}
                       className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                       aria-label="新建页面"
                     >
                       <PlusIcon aria-hidden="true" className="size-4" />
-                    </Link>
+                    </WikiCreateButton>
                   )}
                   <Drawer.Close
                     ref={mobileCloseRef}

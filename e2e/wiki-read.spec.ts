@@ -93,10 +93,7 @@ test.describe("#88 read path: static render + clickable annotations", () => {
 
   test("read page does not mount the editable Slate surface", async ({
     page,
-    baseURL,
   }) => {
-    await loginAsAdmin(page, baseURL!);
-
     await page.goto("/wiki/annotated");
     await expect(page.getByText("annotated phrase")).toBeVisible();
 

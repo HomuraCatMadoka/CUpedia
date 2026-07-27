@@ -3,7 +3,7 @@ import path from "node:path";
 import { Client } from "pg";
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
-import { canonicalWikiPageUrl } from "./helpers/wiki";
+import { createUntitledWikiPage } from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 function databaseUrl(): string {
@@ -17,11 +17,11 @@ function databaseUrl(): string {
 // Create-flow pages reference the seed admin user, which the seed reset deletes
 // by fixed UUID; an orphan page would block the next seed's FK. Hard-delete the
 // page (links/revisions cascade) so the suite stays re-runnable.
-async function dropPageBySlug(slug: string) {
+async function dropPageById(id: string) {
   const client = new Client({ connectionString: databaseUrl() });
   await client.connect();
   try {
-    await client.query("DELETE FROM wiki_pages WHERE slug = $1", [slug]);
+    await client.query("DELETE FROM wiki_pages WHERE id = $1", [id]);
   } finally {
     await client.end();
   }
@@ -34,8 +34,8 @@ async function dropPageBySlug(slug: string) {
 // "Getting Started" page via the [[ picker, then the target page is asserted to
 // surface the backlink. Tests run serially, so test 2 relies on test 1's page.
 
-const SOURCE_SLUG = `link-source-${Date.now()}`;
 const SOURCE_TITLE = "Link Source Page";
+let sourcePageId = "";
 
 test.describe.configure({ mode: "serial" });
 
@@ -45,20 +45,16 @@ test.describe("#95 wiki links", () => {
   });
 
   test.afterAll(async () => {
-    await dropPageBySlug(SOURCE_SLUG);
+    if (sourcePageId) await dropPageById(sourcePageId);
   });
 
   test("typing [[ opens the page picker and inserts an internal link", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
+    sourcePageId = new URL(page.url()).pathname.split("/").at(-1)!;
 
     await page.getByLabel("标题").fill(SOURCE_TITLE);
-    await page.getByRole("button", { name: "页面设置" }).click();
-    const settings = page.getByRole("dialog", { name: "页面设置" });
-    await settings.getByLabel("URL 路径").fill(SOURCE_SLUG);
-    await page.keyboard.press("Escape");
-    await expect(settings).toHaveCount(0);
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
@@ -75,17 +71,16 @@ test.describe("#95 wiki links", () => {
       editor.locator(`a[href="/wiki/${PAGE_IDS.gettingStarted}"]`),
     ).toHaveText("Getting Started");
 
-    await page.getByRole("button", { name: "完成" }).click();
+    await page.keyboard.press("Control+s");
 
-    // Create persists then redirects to the new read-only page, where the
-    // internal link is rendered.
-    await page.waitForURL(canonicalWikiPageUrl, { timeout: 15_000 });
+    await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
     await expect(
       page.locator(`a[href="/wiki/${PAGE_IDS.gettingStarted}"]`).first(),
     ).toBeVisible();
   });
 
   test("target page shows the backlink from the source", async ({ page }) => {
+    await page.context().clearCookies();
     const backlink = page
       .getByRole("region", { name: "反向链接" })
       .getByRole("link", { name: SOURCE_TITLE });

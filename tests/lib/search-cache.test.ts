@@ -83,6 +83,7 @@ vi.mock("@/db/schema", () => ({
     slug: "slug",
     title: "title",
     content: "content",
+    createdBy: "createdBy",
     deletedAt: "deletedAt",
     parentId: "parentId",
     sortOrder: "sortOrder",
@@ -179,6 +180,8 @@ const mockPages = [
 beforeEach(() => {
   vi.clearAllMocks();
   cacheStore.clear();
+  mockDbQueryWikiPages.findFirst.mockReset();
+  mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
   mockDbQueryWikiPageAliases.findFirst.mockResolvedValue(undefined);
 });
 
@@ -257,14 +260,93 @@ describe("searchWikiPages (cached)", () => {
 });
 
 describe("cache invalidation — revalidateTag called", () => {
+  const clientPageId = "11111111-1111-4111-8111-111111111111";
+
+  it("returns the existing page when one client create UUID is retried", async () => {
+    const existing = {
+      id: clientPageId,
+      slug: clientPageId,
+      title: "",
+      content: "",
+      createdBy: "user-1",
+      deletedAt: null,
+    };
+    mockDbQueryWikiPages.findFirst.mockResolvedValueOnce(existing);
+
+    await expect(createWikiPage({ id: clientPageId })).resolves.toBe(existing);
+    expect(mockDbTransaction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a client create UUID already owned by another user", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValueOnce({
+      id: clientPageId,
+      createdBy: "user-2",
+      deletedAt: null,
+    });
+
+    await expect(createWikiPage({ id: clientPageId })).rejects.toThrow(
+      "PAGE_CREATE_ID_CONFLICT",
+    );
+    expect(mockDbTransaction).not.toHaveBeenCalled();
+  });
+
+  it("creates an untitled page and one initial revision with the client UUID", async () => {
+    const insertedValues: unknown[] = [];
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => {
+        const tx = {
+          execute: vi
+            .fn()
+            .mockResolvedValueOnce({ rows: [] })
+            .mockResolvedValueOnce({ rows: [{ slugTaken: false }] }),
+          insert: vi.fn().mockReturnValue({
+            values: vi.fn((values: unknown) => {
+              insertedValues.push(values);
+              return {
+                returning: vi.fn().mockResolvedValue([
+                  {
+                    id: clientPageId,
+                    slug: clientPageId,
+                    title: "",
+                    content: expect.any(String),
+                    createdBy: "user-1",
+                  },
+                ]),
+              };
+            }),
+          }),
+          delete: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(undefined),
+          }),
+        };
+        return fn(tx);
+      },
+    );
+
+    await createWikiPage({ id: clientPageId });
+
+    expect(insertedValues).toHaveLength(2);
+    expect(insertedValues[0]).toMatchObject({
+      id: clientPageId,
+      slug: clientPageId,
+      title: "",
+      createdBy: "user-1",
+    });
+    expect(insertedValues[1]).toMatchObject({
+      pageId: clientPageId,
+      title: "",
+      editedBy: "user-1",
+    });
+  });
+
   it("blocks wiki creation before starting a transaction for an incomplete account", async () => {
     mockAssertContributorComplete.mockRejectedValueOnce(
       new Error("ACCOUNT_SETUP_REQUIRED"),
     );
 
-    await expect(
-      createWikiPage({ slug: "test", title: "Test", content: "content" }),
-    ).rejects.toThrow("ACCOUNT_SETUP_REQUIRED");
+    await expect(createWikiPage({ id: clientPageId })).rejects.toThrow(
+      "ACCOUNT_SETUP_REQUIRED",
+    );
     expect(mockDbTransaction).not.toHaveBeenCalled();
   });
 
@@ -319,7 +401,11 @@ describe("cache invalidation — revalidateTag called", () => {
       },
     );
 
-    await createWikiPage({ slug: "test", title: "Test", content: "content" });
+    await createWikiPage({
+      id: clientPageId,
+      title: "Test",
+      content: "content",
+    });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 
@@ -335,7 +421,7 @@ describe("cache invalidation — revalidateTag called", () => {
 
     await expect(
       createWikiPage({
-        slug: "old-guide",
+        id: clientPageId,
         title: "Replacement",
         content: "content",
       }),
@@ -568,7 +654,7 @@ describe("cache invalidation — revalidateTag called", () => {
 
     await expect(
       createWikiPage({
-        slug: "test",
+        id: clientPageId,
         title: "Test",
         content: "content",
         parentId: "deleted-parent",
@@ -775,7 +861,11 @@ describe("search corpus refresh — structural vs content", () => {
         return fn(tx);
       },
     );
-    await createWikiPage({ slug: "test", title: "Test", content: "content" });
+    await createWikiPage({
+      id: "22222222-2222-4222-8222-222222222222",
+      title: "Test",
+      content: "content",
+    });
     expect(mockRevalidateTag).toHaveBeenCalledWith(CORPUS, "max");
   });
 

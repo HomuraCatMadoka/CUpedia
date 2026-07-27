@@ -273,52 +273,97 @@ export async function getWikiTree() {
   return getCachedWikiTree();
 }
 
+const CLIENT_PAGE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EMPTY_WIKI_CONTENT = JSON.stringify([
+  { type: "p", children: [{ text: "" }] },
+]);
+
 export async function createWikiPage(data: {
-  slug: string;
-  title: string;
+  id: string;
+  title?: string;
   icon?: string | null;
-  content: string;
+  content?: string;
   parentId?: string | null;
 }) {
   const user = await assertContributorComplete(await requireEditor());
-  if (!validateSlug(data.slug)) throw new Error("Invalid slug");
+  if (!CLIENT_PAGE_ID_RE.test(data.id)) throw new Error("Invalid page id");
+
+  const existing = await db.query.wikiPages.findFirst({
+    where: eq(wikiPages.id, data.id),
+  });
+  if (existing) {
+    if (existing.createdBy === user.id && existing.deletedAt === null) {
+      return existing;
+    }
+    throw new Error("PAGE_CREATE_ID_CONFLICT");
+  }
+
+  const title = data.title ?? "";
+  const content = data.content ?? EMPTY_WIKI_CONTENT;
   const icon = normalizeWikiIcon(data.icon);
 
-  const page = await db.transaction(async (tx) => {
-    await lockWikiSlugNamespace(tx);
-    await assertWikiSlugAvailable(tx, data.slug, null);
-    if (data.parentId) {
-      await lockWikiTree(tx);
-      await assertLiveWikiParent(tx, data.parentId);
-    }
+  let page: WikiPageRow;
+  try {
+    page = await db.transaction(async (tx) => {
+      await lockWikiSlugNamespace(tx);
+      await assertWikiSlugAvailable(tx, data.id, null);
+      if (data.parentId) {
+        await lockWikiTree(tx);
+        await assertLiveWikiParent(tx, data.parentId);
+      }
 
-    const now = new Date();
-    const [p] = await tx
-      .insert(wikiPages)
-      .values({
-        slug: data.slug,
-        title: data.title,
-        icon,
-        content: data.content,
-        parentId: data.parentId ?? null,
-        createdBy: user.id,
-        updatedBy: user.id,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
+      const now = new Date();
+      const [p] = await tx
+        .insert(wikiPages)
+        .values({
+          id: data.id,
+          slug: data.id,
+          title,
+          icon,
+          content,
+          parentId: data.parentId ?? null,
+          createdBy: user.id,
+          updatedBy: user.id,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
 
-    await tx.insert(wikiRevisions).values({
-      pageId: p.id,
-      title: data.title,
-      content: data.content,
-      editedBy: user.id,
-      editSummary: CREATE_REVISION_SUMMARY,
+      await tx.insert(wikiRevisions).values({
+        pageId: p.id,
+        title,
+        content,
+        editedBy: user.id,
+        editSummary: CREATE_REVISION_SUMMARY,
+      });
+
+      await syncWikiLinks(tx, p.id, content);
+      return p;
     });
-
-    await syncWikiLinks(tx, p.id, data.content);
-    return p;
-  });
+  } catch (error) {
+    if (
+      !(
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23505"
+      )
+    ) {
+      throw error;
+    }
+    const retried = await db.query.wikiPages.findFirst({
+      where: eq(wikiPages.id, data.id),
+    });
+    if (
+      !retried ||
+      retried.createdBy !== user.id ||
+      retried.deletedAt !== null
+    ) {
+      throw new Error("PAGE_CREATE_ID_CONFLICT");
+    }
+    page = retried;
+  }
 
   revalidateTag("wiki-pages", "max");
   updateTag("wiki-pages");

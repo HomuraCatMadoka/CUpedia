@@ -2,11 +2,11 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
-import { canonicalWikiPageUrl } from "./helpers/wiki";
+import { createUntitledWikiPage } from "./helpers/wiki";
 
 const suffix = randomUUID().slice(0, 8);
-const slug = `discussion-${suffix}`;
 const title = `Discussion ${suffix}`;
+let pageId = "";
 const selectedText = `annotate-${suffix}`;
 const rootComment = `root-${suffix}`;
 const reply = `reply-${suffix}`;
@@ -83,7 +83,7 @@ test.afterAll(async () => {
   await query(
     "update site_settings set value = 'admin' where key = 'wiki_edit_role'",
   );
-  await query("delete from wiki_pages where slug = $1", [slug]);
+  if (pageId) await query("delete from wiki_pages where id = $1", [pageId]);
 });
 
 test("#245 annotation discussion lifecycle and permissions", async ({
@@ -92,26 +92,21 @@ test("#245 annotation discussion lifecycle and permissions", async ({
 }) => {
   test.setTimeout(180_000);
   await loginAsAdmin(page);
-  await page.goto("/wiki/new");
+  await createUntitledWikiPage(page);
+  pageId = new URL(page.url()).pathname.split("/").at(-1)!;
   await page.getByLabel("标题").fill(title);
-  await page.getByRole("button", { name: "页面设置" }).click();
-  await page
-    .getByRole("dialog", { name: "页面设置" })
-    .getByLabel("URL 路径")
-    .fill(slug);
-  await page.keyboard.press("Escape");
   await page.locator('[data-slate-editor="true"]').fill(selectedText);
-  await page.getByRole("button", { name: "完成" }).click();
-  await page.waitForURL(canonicalWikiPageUrl);
+  await page.keyboard.press("Control+s");
+  await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
 
-  await query(
-    "update site_settings set value = 'user' where key = 'wiki_edit_role'",
-  );
+  await page.goto("/admin/settings");
+  await page.getByRole("switch", { name: "允许普通用户编辑 Wiki" }).click();
+  await page.getByRole("button", { name: "确认" }).click();
 
   const ownerContext = await browser.newContext();
   const owner = await ownerContext.newPage();
   await loginWithPassword(owner, "user@test.com", "password123");
-  await owner.goto(`/wiki/edit/${slug}`);
+  await owner.goto(`/wiki/${pageId}`);
   await selectText(owner, selectedText);
   const textToolbar = owner.getByRole("toolbar", {
     name: "文字格式工具栏",
@@ -126,7 +121,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   const contributorContext = await browser.newContext();
   const contributor = await contributorContext.newPage();
   await loginWithPassword(contributor, "contributor@test.com", "password123");
-  await contributor.goto(`/wiki/${slug}`);
+  await contributor.goto(`/wiki/${pageId}`);
   await openDiscussion(contributor);
   await expect(
     contributor.getByRole("button", { name: "标记为已解决" }),
@@ -147,7 +142,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
 
   const publicContext = await browser.newContext();
   const publicPage = await publicContext.newPage();
-  await publicPage.goto(`/wiki/${slug}`);
+  await publicPage.goto(`/wiki/${pageId}`);
   await openDiscussion(publicPage);
   await expect(publicPage.getByText(reply, { exact: true })).toBeVisible();
   await expect(publicPage.getByPlaceholder("回复…")).toHaveCount(0);
@@ -157,7 +152,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   await expect(publicPage.getByRole("button", { name: "删除" })).toHaveCount(0);
   await publicContext.close();
 
-  await owner.goto(`/wiki/${slug}`);
+  await owner.goto(`/wiki/${pageId}`);
   await openDiscussion(owner);
   await owner.getByRole("button", { name: "标记为已解决" }).click();
   await expect(owner.getByText("批注 (1)")).toHaveCount(0);
@@ -168,15 +163,19 @@ test("#245 annotation discussion lifecycle and permissions", async ({
         `select d.resolved
          from discussions d
          join wiki_pages p on p.id = d.page_id
-         where p.slug = $1 and d.parent_id is null`,
-        [slug],
+         where p.id = $1 and d.parent_id is null`,
+        [pageId],
       );
       return resolved.rows;
     })
     .toEqual([{ resolved: true }]);
 
-  await owner.goto(`/wiki/edit/${slug}`);
+  await owner.goto(`/wiki/${pageId}`);
   await expect(owner.getByText("批注 (1)")).toHaveCount(0);
+
+  await page.goto("/admin/settings");
+  await page.getByRole("switch", { name: "允许普通用户编辑 Wiki" }).click();
+  await page.getByRole("button", { name: "确认" }).click();
 
   await contributorContext.close();
   await ownerContext.close();

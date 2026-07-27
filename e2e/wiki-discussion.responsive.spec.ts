@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
+import { createUntitledWikiPage } from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("responsive on-demand discussions", () => {
@@ -77,15 +78,15 @@ test.describe("responsive on-demand discussions", () => {
     expect(Math.abs(after!.width - before!.width)).toBeLessThanOrEqual(1);
   });
 
-  test("new pages do not expose comments before they have a page identity", async ({
+  test("new pages expose comments immediately because identity already exists", async ({
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
     await expect(page.locator('[role="textbox"]').first()).toBeVisible();
     await expect(
       page.locator('button[aria-controls="wiki-discussion-panel"]'),
-    ).toHaveCount(0);
+    ).toHaveCount(1);
   });
 });
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 type Backlink = { id: string; title: string };
 
@@ -17,7 +18,7 @@ export function Backlinks({ links }: { links: Backlink[] }) {
               href={`/wiki/${link.id}`}
               className="text-sm text-primary underline decoration-primary underline-offset-4"
             >
-              {link.title}
+              {getWikiDisplayTitle(link.title)}
             </Link>
           </li>
         ))}

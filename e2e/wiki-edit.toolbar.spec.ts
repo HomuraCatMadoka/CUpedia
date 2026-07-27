@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
+import { createUntitledWikiPage } from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 /**
@@ -570,7 +571,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
     await page.keyboard.type("New to CUHK?");
@@ -618,7 +619,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     // Guard the Navbar SSR-hydration fix on the create editor.
     const consoleErrors = collectConsoleErrors(page);
 
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
     await expect(page.locator('[data-slate-editor="true"]')).toBeVisible();
     await expect(page.getByTestId("fixed-toolbar-buttons")).toHaveCount(0);
     const hydrationErrors = consoleErrors.filter((e) => HYDRATION_RE.test(e));

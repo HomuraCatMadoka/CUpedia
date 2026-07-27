@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
   getWikiPage,
+  getWikiPageForEdit,
   getWikiTree,
   deleteWikiPage,
   getBacklinks,
@@ -16,6 +17,8 @@ import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
 import { resolveWikiLinkUrls } from "@/lib/wiki-links";
+import { WikiPageEditor } from "@/components/wiki/wiki-page-editor";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export default async function WikiReadPage({
   params,
@@ -32,6 +35,18 @@ export default async function WikiReadPage({
 
   if (!page) notFound();
   if (page.id !== identifier) redirect(`/wiki/${page.id}`);
+
+  if (canEdit) {
+    const editablePage = await getWikiPageForEdit(page.id);
+    if (!editablePage) notFound();
+    return (
+      <WikiPageEditor
+        page={editablePage}
+        pages={pages}
+        canDelete={user?.role === "admin"}
+      />
+    );
+  }
 
   const headings = extractHeadings(page.content);
   const plateValue = stripTitleHeading(
@@ -62,20 +77,15 @@ export default async function WikiReadPage({
             </div>
           )}
           <div className="mt-2 flex items-start justify-between gap-4">
-            <h1 className="text-2xl font-bold">{page.title}</h1>
+            <h1 className="text-2xl font-bold">
+              {getWikiDisplayTitle(page.title)}
+            </h1>
             <div className="flex shrink-0 gap-2">
               <Link href={`/wiki/history/${page.id}`}>
                 <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
                   历史
                 </span>
               </Link>
-              {canEdit && (
-                <Link href={`/wiki/edit/${page.id}`}>
-                  <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
-                    编辑
-                  </span>
-                </Link>
-              )}
               {user?.role === "admin" && (
                 <form
                   action={async () => {
