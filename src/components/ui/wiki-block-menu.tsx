@@ -7,7 +7,6 @@ import { BlockSelectionPlugin } from "@platejs/selection/react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
-  CheckIcon,
   CopyIcon,
   GripVerticalIcon,
   MessageSquarePlusIcon,
@@ -35,6 +34,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -67,6 +68,9 @@ export function WikiBlockMenu({
     turnIntoGroups
       .flatMap((group) => group.commands)
       .find((command) => command.value === currentType)?.label ?? "块";
+  const currentCommandId = turnIntoGroups
+    .flatMap((group) => group.commands)
+    .find((command) => command.value === currentType)?.id;
   const isFirst = path[0] === 0;
   const isLast = path[0] === editor.children.length - 1;
   const selectionAfterCloseRef = React.useRef<string | null>(null);
@@ -230,40 +234,39 @@ export function WikiBlockMenu({
                 {turnIntoGroups.map((group, groupIndex) => (
                   <React.Fragment key={group.id}>
                     {groupIndex > 0 && <DropdownMenuSeparator />}
-                    <DropdownMenuGroup>
+                    <DropdownMenuRadioGroup
+                      value={currentCommandId}
+                      onValueChange={(commandId) => {
+                        const command = group.commands.find(
+                          (item) => item.id === commandId,
+                        );
+                        if (!command) return;
+
+                        turnIntoBlockCommand(editor, command, { at: path });
+                        closeMenu();
+                      }}
+                    >
                       <DropdownMenuLabel className="px-2 py-1">
                         {group.label}
                       </DropdownMenuLabel>
                       {group.commands.map((command) => {
                         const Icon = command.icon;
-                        const selected = command.value === currentType;
 
                         return (
-                          <DropdownMenuItem
+                          <DropdownMenuRadioItem
                             key={command.id}
-                            className="min-h-8 gap-2 px-2 py-1.5"
-                            onClick={() => {
-                              turnIntoBlockCommand(editor, command, {
-                                at: path,
-                              });
-                              closeMenu();
-                            }}
+                            value={command.id}
+                            className="min-h-8 gap-2 px-2 py-1.5 *:first:[span]:hidden"
                           >
                             <Icon
                               aria-hidden="true"
                               className="size-4 text-muted-foreground"
                             />
                             <span>{command.label}</span>
-                            {selected && (
-                              <CheckIcon
-                                aria-hidden="true"
-                                className="ml-auto size-4"
-                              />
-                            )}
-                          </DropdownMenuItem>
+                          </DropdownMenuRadioItem>
                         );
                       })}
-                    </DropdownMenuGroup>
+                    </DropdownMenuRadioGroup>
                   </React.Fragment>
                 ))}
               </DropdownMenuSubContent>

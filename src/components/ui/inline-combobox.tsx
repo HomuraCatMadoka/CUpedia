@@ -164,12 +164,17 @@ const InlineCombobox = ({
     },
   });
   const removeInputRef = React.useRef(removeInput);
+  const editorRef = React.useRef(editor);
   const historyTokenRef = React.useRef<string | null>(null);
   const historyCleanupFrameRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
     removeInputRef.current = removeInput;
   }, [removeInput]);
+
+  React.useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
 
   React.useEffect(() => {
     if (!historyStateKey) return;
@@ -185,9 +190,10 @@ const InlineCombobox = ({
       historyCleanupFrameRef.current = null;
     }
 
-    let token = historyTokenRef.current;
+    let token =
+      historyTokenRef.current ?? readToken(window.history.state) ?? null;
     const comboboxUrl = window.location.href;
-    if (!token || readToken(window.history.state) !== token) {
+    if (!token) {
       token = crypto.randomUUID();
       window.history.pushState(
         {
@@ -197,8 +203,8 @@ const InlineCombobox = ({
         "",
         window.location.href,
       );
-      historyTokenRef.current = token;
     }
+    historyTokenRef.current = token;
 
     const handlePopState = (event: PopStateEvent) => {
       if (
@@ -209,6 +215,7 @@ const InlineCombobox = ({
       }
       historyTokenRef.current = null;
       removeInputRef.current(true);
+      requestAnimationFrame(() => editorRef.current.tf.focus({ retries: 5 }));
     };
 
     window.addEventListener("popstate", handlePopState);

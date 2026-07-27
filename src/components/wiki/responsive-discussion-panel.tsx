@@ -108,16 +108,23 @@ export function ResponsiveDiscussionPanel({
       cancelAnimationFrame(commentHistoryCleanupFrameRef.current);
       commentHistoryCleanupFrameRef.current = null;
     }
-    const token = crypto.randomUUID();
+    const currentToken = (
+      window.history.state as {
+        cupediaMobileCommentComposerToken?: string;
+      } | null
+    )?.cupediaMobileCommentComposerToken;
+    const token = currentToken ?? crypto.randomUUID();
     const composerUrl = window.location.href;
-    window.history.pushState(
-      {
-        ...window.history.state,
-        cupediaMobileCommentComposerToken: token,
-      },
-      "",
-      window.location.href,
-    );
+    if (!currentToken) {
+      window.history.pushState(
+        {
+          ...window.history.state,
+          cupediaMobileCommentComposerToken: token,
+        },
+        "",
+        window.location.href,
+      );
+    }
     commentHistoryTokenRef.current = token;
 
     const handlePopState = (event: PopStateEvent) => {

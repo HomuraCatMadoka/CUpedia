@@ -210,6 +210,9 @@ function SelectionPreservingButton({
         event.preventDefault();
         activatedOnPointerUpRef.current = true;
         onAction();
+        window.setTimeout(() => {
+          activatedOnPointerUpRef.current = false;
+        }, 0);
       }}
       onClick={() => {
         if (activatedOnPointerUpRef.current) {
@@ -234,7 +237,8 @@ export function MobileWikiEditorToolbar({
   const editor = useEditorRef();
   const selection = useEditorSelection();
   const selectionExpanded = RangeApi.isExpanded(selection);
-  const { canCreateDiscussion, setActiveCommentId } = useDiscussions();
+  const { activeCommentId, canCreateDiscussion, setActiveCommentId } =
+    useDiscussions();
   const commentTransforms = editor.getTransforms(BaseCommentPlugin);
   const initialHistoryEntry =
     typeof window === "undefined"
@@ -258,6 +262,7 @@ export function MobileWikiEditorToolbar({
   );
   const imagePickerPendingRef = React.useRef(false);
   const keyboardWasVisibleRef = React.useRef(false);
+  const mentionSelectionRef = React.useRef<typeof editor.selection>(null);
   const { openFilePicker: openImagePicker } = useFilePicker({
     accept: ["image/*"],
     multiple: true,
@@ -486,8 +491,8 @@ export function MobileWikiEditorToolbar({
 
   const openMention = () => {
     restoreSelectionOrDocumentEnd();
+    mentionSelectionRef.current = editor.selection;
     openWikiLinkCombobox(editor);
-    savedSelectionRef.current = editor.selection;
   };
 
   const runAccessoryCommand = (command: () => void) => {
@@ -508,6 +513,51 @@ export function MobileWikiEditorToolbar({
     }
     setActiveCommentId("draft");
   };
+
+  React.useEffect(() => {
+    const restoreForwardSurface = (event: PopStateEvent) => {
+      const state = event.state as {
+        cupediaMobileCommentComposerToken?: string;
+        cupediaMobileMentionToken?: string;
+      } | null;
+
+      if (state?.cupediaMobileMentionToken) {
+        if (mentionSelectionRef.current) {
+          editor.tf.select(mentionSelectionRef.current);
+        } else {
+          const documentEnd = editor.api.end([]);
+          if (documentEnd) editor.tf.select(documentEnd);
+        }
+        openWikiLinkCombobox(editor);
+      }
+      if (
+        state?.cupediaMobileCommentComposerToken &&
+        activeCommentId !== "draft"
+      ) {
+        restoreSelection();
+        if (!editor.selection) {
+          const documentEnd = editor.api.end([]);
+          if (documentEnd) editor.tf.select(documentEnd);
+        }
+        if (RangeApi.isExpanded(editor.selection)) {
+          commentTransforms.comment.setDraft();
+        } else {
+          const path = editor.api.block()?.[1];
+          if (path) commentTransforms.comment.setDraft({ at: path });
+        }
+        setActiveCommentId("draft");
+      }
+    };
+
+    window.addEventListener("popstate", restoreForwardSurface);
+    return () => window.removeEventListener("popstate", restoreForwardSurface);
+  }, [
+    activeCommentId,
+    commentTransforms.comment,
+    editor,
+    restoreSelection,
+    setActiveCommentId,
+  ]);
 
   const deleteCurrentBlock = () => {
     saveSelection();

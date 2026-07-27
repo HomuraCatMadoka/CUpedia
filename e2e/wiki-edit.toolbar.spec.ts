@@ -449,11 +449,40 @@ test.describe("#203 contextual desktop toolbar", () => {
     await block.hover();
     await block.getByLabel("打开块菜单").click();
     await page.getByRole("menuitem", { name: "转换为" }).click();
-    await page.getByRole("menuitem", { name: "标题 2" }).click();
+    await expect(
+      page.getByRole("menuitemradio", { name: "正文" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await page.getByRole("menuitemradio", { name: "标题 2" }).click();
 
     await expect(block.getByRole("heading", { level: 2 })).toContainText(
       "New to CUHK?",
     );
+  });
+
+  test("code conversion uses the block menu target instead of the caret block", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/wiki/edit/getting-started");
+
+    const caretBlock = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    const targetBlock = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "Registration" })
+      .first();
+    await caretBlock.click();
+    await page.keyboard.press("End");
+
+    await targetBlock.hover();
+    await targetBlock.getByLabel("打开块菜单").click();
+    await page.getByRole("menuitem", { name: "转换为" }).click();
+    await page.getByRole("menuitemradio", { name: "代码块" }).click();
+
+    await expect(targetBlock.locator("pre")).toContainText("Registration");
+    await expect(caretBlock.locator("pre")).toHaveCount(0);
   });
 
   test("the block menu duplicates the targeted block and selects the copy", async ({

@@ -148,7 +148,13 @@ const setBlockMap: Record<
   [KEYS.listTodo]: setList,
   [KEYS.ol]: setList,
   [KEYS.ul]: setList,
-  [KEYS.codeBlock]: (editor) => toggleCodeBlock(editor),
+  [KEYS.codeBlock]: (editor, _type, entry) => {
+    const start = editor.api.start(entry[1]);
+    if (!start) return;
+
+    editor.tf.select(start);
+    toggleCodeBlock(editor);
+  },
 };
 
 export const setBlockType = (

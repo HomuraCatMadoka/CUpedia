@@ -876,6 +876,22 @@ test.describe("mobile wiki editing", () => {
         "已保存",
       );
       expect(await readWikiContent("getting-started")).toBe(originalContent);
+
+      await page.goForward();
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () =>
+              (
+                window.history.state as {
+                  cupediaMobileMentionToken?: string;
+                } | null
+              )?.cupediaMobileMentionToken ?? null,
+          ),
+        )
+        .not.toBeNull();
+      await expect(picker).toBeFocused();
+      expect(page.url()).toBe(editUrl);
     } finally {
       await closePageAndRestoreWikiContent(
         page,
@@ -1031,6 +1047,10 @@ test.describe("mobile wiki editing", () => {
       await expect(composer).toHaveCount(0);
       expect(page.url()).toBe(editUrl);
       await expect(page.locator('[data-slate-editor="true"]')).toBeFocused();
+
+      await page.goForward();
+      await expect(composer).toBeVisible();
+      expect(page.url()).toBe(editUrl);
     } finally {
       await closePageAndRestoreWikiContent(
         page,

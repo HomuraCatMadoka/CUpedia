@@ -50,4 +50,41 @@ test.describe("mobile WebKit editor interactions", () => {
       page.getByRole("combobox", { name: "提及 Wiki 页面" }),
     ).toBeFocused();
   });
+
+  test("a missing synthetic click does not swallow the next keyboard activation", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await page.goto("/wiki/new");
+
+    const editor = page.locator('[data-slate-editor="true"]');
+    await editor.tap();
+    const mention = page
+      .getByRole("toolbar", { name: "键盘上方编辑工具" })
+      .getByRole("button", { name: "提及页面", exact: true });
+
+    await mention.dispatchEvent("pointerdown", {
+      button: 0,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    await mention.dispatchEvent("pointerup", {
+      button: 0,
+      isPrimary: true,
+      pointerId: 1,
+      pointerType: "touch",
+    });
+    const picker = page.getByRole("combobox", {
+      name: "提及 Wiki 页面",
+    });
+    await expect(picker).toBeFocused();
+
+    await page.keyboard.press("Escape");
+    await expect(picker).toHaveCount(0);
+    await mention.focus();
+    await page.keyboard.press("Enter");
+
+    await expect(picker).toBeFocused();
+  });
 });
