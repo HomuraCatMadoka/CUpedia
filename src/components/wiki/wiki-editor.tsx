@@ -95,7 +95,7 @@ interface WikiSubmitResult {
   theirUpdatedAt?: string;
 }
 
-interface WikiEditorProps {
+export interface WikiEditorProps {
   mode: "create" | "edit";
   pageId?: string;
   initialTitle?: string;
@@ -252,6 +252,9 @@ export function WikiEditor({
   const [conflict, setConflict] = useState<EditConflict | null>(null);
   const [autosaveConflict, setAutosaveConflict] = useState(false);
   const [mobileEditorFocused, setMobileEditorFocused] = useState(false);
+  const markEditorHydrated = useCallback((element: HTMLDivElement | null) => {
+    if (element) element.dataset.editorHydrated = "true";
+  }, []);
   const mobileFileDialogOpenRef = useRef(false);
   const handleMobileFileDialogChange = useCallback((open: boolean) => {
     mobileFileDialogOpenRef.current = open;
@@ -963,6 +966,7 @@ export function WikiEditor({
           initialDiscussions={initialDiscussions}
         >
           <div
+            ref={markEditorHydrated}
             data-testid="wiki-editor-shell"
             data-autosave-status={autosave.status}
             className="flex min-h-dvh min-w-0 flex-1 flex-col bg-background dark:bg-[#191919]"

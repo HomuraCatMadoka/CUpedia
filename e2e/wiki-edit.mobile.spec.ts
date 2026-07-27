@@ -128,7 +128,12 @@ async function addNavigationTarget(page: Page) {
 }
 
 async function selectText(page: Page, text: string) {
-  const editor = page.locator('[data-slate-editor="true"]');
+  const hydratedEditor = page.locator(
+    '[data-testid="wiki-editor-shell"][data-editor-hydrated="true"]',
+  );
+  await expect(hydratedEditor).toHaveCount(1);
+  const editor = hydratedEditor.locator('[data-slate-editor="true"]');
+  await expect(editor).toHaveCount(1);
   const points = await editor.evaluate((element, needle) => {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
     let node = walker.nextNode();
@@ -143,59 +148,32 @@ async function selectText(page: Page, text: string) {
     startRange.setStart(node, start);
     startRange.setEnd(node, start + 1);
     const startRect = startRange.getBoundingClientRect();
-
     const endRange = document.createRange();
     endRange.setStart(node, start + needle.length - 1);
     endRange.setEnd(node, start + needle.length);
     const endRect = endRange.getBoundingClientRect();
 
     return {
-      start: {
-        x: startRect.left + 1,
-        y: startRect.top + startRect.height / 2,
-      },
-      end: {
-        x: endRect.right - 1,
-        y: endRect.top + endRect.height / 2,
-      },
+      start: { x: startRect.left + 1, y: startRect.top + startRect.height / 2 },
+      end: { x: endRect.right - 1, y: endRect.top + endRect.height / 2 },
     };
   }, text);
 
-  await page.mouse.move(points.start.x, points.start.y);
-  await page.mouse.down();
-  await page.mouse.move(points.end.x, points.end.y, { steps: 8 });
-  await page.mouse.up();
-
-  const selectedByDrag = await expect
-    .poll(() => page.evaluate(() => window.getSelection()?.toString() ?? ""), {
-      timeout: 1_000,
-    })
-    .toBe(text)
-    .then(
-      () => true,
-      () => false,
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await page.mouse.move(points.start.x, points.start.y);
+    await page.mouse.down();
+    await page.mouse.move(points.end.x, points.end.y, { steps: 12 });
+    await page.mouse.up();
+    if (
+      (await page.evaluate(() => window.getSelection()?.toString() ?? "")) ===
+      text
+    ) {
+      break;
+    }
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => requestAnimationFrame(() => resolve())),
     );
-  if (!selectedByDrag) {
-    await editor.evaluate((element, needle) => {
-      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-      let node = walker.nextNode();
-      while (node && !node.textContent?.includes(needle)) {
-        node = walker.nextNode();
-      }
-      if (!node?.textContent) {
-        throw new Error(`Text not found: ${needle}`);
-      }
-
-      (element as HTMLElement).focus({ preventScroll: true });
-      const start = node.textContent.indexOf(needle);
-      const range = document.createRange();
-      range.setStart(node, start);
-      range.setEnd(node, start + needle.length);
-      const selection = window.getSelection();
-      selection?.removeAllRanges();
-      selection?.addRange(range);
-      document.dispatchEvent(new Event("selectionchange"));
-    }, text);
   }
 
   await expect

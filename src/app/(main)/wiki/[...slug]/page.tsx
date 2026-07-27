@@ -17,7 +17,6 @@ import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
 import { resolveWikiLinkUrls } from "@/lib/wiki-links";
-import { WikiPageEditor } from "@/components/wiki/wiki-page-editor";
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export default async function WikiReadPage({
@@ -37,6 +36,8 @@ export default async function WikiReadPage({
   if (page.id !== identifier) redirect(`/wiki/${page.id}`);
 
   if (canEdit) {
+    const { WikiPageEditor } =
+      await import("@/components/wiki/wiki-page-editor");
     const editablePage = await getWikiPageForEdit(page.id);
     if (!editablePage) notFound();
     return (

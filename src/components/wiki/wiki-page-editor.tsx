@@ -9,7 +9,7 @@ import {
 import { stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { resolveWikiLinkUrls } from "@/lib/wiki-links";
-import { WikiEditor } from "@/components/wiki/wiki-editor";
+import { WikiEditorLazy } from "@/components/wiki/wiki-editor-lazy";
 
 type EditablePage = NonNullable<Awaited<ReturnType<typeof getWikiPageForEdit>>>;
 type WikiTree = Awaited<ReturnType<typeof getWikiTree>>;
@@ -125,7 +125,7 @@ export async function WikiPageEditor({
   }
 
   return (
-    <WikiEditor
+    <WikiEditorLazy
       mode="edit"
       pageId={pageId}
       initialTitle={page.title}
