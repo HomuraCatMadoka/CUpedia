@@ -1583,21 +1583,30 @@ test.describe("mobile wiki editing", () => {
   test("a Format command restores the text selection and returns focus to Plate", async ({
     page,
   }) => {
-    await selectText(page, "New to CUHK?");
-    await page
-      .getByRole("toolbar", { name: "键盘上方编辑工具" })
-      .getByRole("button", { name: "更多格式" })
-      .dispatchEvent("click");
+    const originalContent = await readWikiContent("getting-started");
+    try {
+      await selectText(page, "New to CUHK?");
+      await page
+        .getByRole("toolbar", { name: "键盘上方编辑工具" })
+        .getByRole("button", { name: "更多格式" })
+        .dispatchEvent("click");
 
-    const panel = page.getByRole("region", { name: "文本样式" });
-    await panel.getByRole("button", { name: "粗体" }).dispatchEvent("click");
+      const panel = page.getByRole("region", { name: "文本样式" });
+      await panel.getByRole("button", { name: "粗体" }).dispatchEvent("click");
 
-    const editor = page.locator('[data-slate-editor="true"]');
-    await expect(panel).toBeVisible();
-    await expect(
-      editor.locator("strong").filter({ hasText: "New to CUHK?" }),
-    ).toBeVisible();
-    await expect(editor).toBeFocused();
+      const editor = page.locator('[data-slate-editor="true"]');
+      await expect(panel).toBeVisible();
+      await expect(
+        editor.locator("strong").filter({ hasText: "New to CUHK?" }),
+      ).toBeVisible();
+      await expect(editor).toBeFocused();
+    } finally {
+      await closePageAndRestoreWikiContent(
+        page,
+        "getting-started",
+        originalContent,
+      );
+    }
   });
 
   test("Escape closes a sheet and restores the caret for immediate typing", async ({
