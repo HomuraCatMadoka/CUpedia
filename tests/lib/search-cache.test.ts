@@ -1101,6 +1101,21 @@ describe("read caching — getWikiTree & getWikiPage", () => {
     expect(mockDbQueryWikiPageAliases.findFirst).not.toHaveBeenCalled();
   });
 
+  it("falls back to a UUID-shaped legacy slug when no page has that ID", async () => {
+    const legacySlug = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    mockDbQueryWikiPages.findFirst
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(pageData);
+
+    const result = await getWikiPage(legacySlug);
+
+    expect(result).toEqual(pageData);
+    expect(mockDbQueryWikiPages.findFirst).toHaveBeenCalledTimes(2);
+    expect(mockEq).toHaveBeenNthCalledWith(1, "id", legacySlug);
+    expect(mockEq).toHaveBeenNthCalledWith(2, "slug", legacySlug);
+    expect(mockDbQueryWikiPageAliases.findFirst).not.toHaveBeenCalled();
+  });
+
   it("getWikiPage resolves an old slug through its stable alias", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
     mockDbQueryWikiPageAliases.findFirst.mockResolvedValue({ page: pageData });

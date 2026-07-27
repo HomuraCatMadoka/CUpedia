@@ -165,19 +165,21 @@ async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
 
 const getCachedWikiPage = unstable_cache(
   async (identifier: string) => {
-    const page = await db.query.wikiPages.findFirst({
-      where: and(
-        eq(
-          UUID_PATTERN.test(identifier) ? wikiPages.id : wikiPages.slug,
-          identifier,
+    const findPage = (byId: boolean) =>
+      db.query.wikiPages.findFirst({
+        where: and(
+          eq(byId ? wikiPages.id : wikiPages.slug, identifier),
+          isNull(wikiPages.deletedAt),
         ),
-        isNull(wikiPages.deletedAt),
-      ),
-      with: {
-        createdByUser: { columns: { nickname: true } },
-        updatedByUser: { columns: { nickname: true } },
-      },
-    });
+        with: {
+          createdByUser: { columns: { nickname: true } },
+          updatedByUser: { columns: { nickname: true } },
+        },
+      });
+    const looksLikeUuid = UUID_PATTERN.test(identifier);
+    const page =
+      (await findPage(looksLikeUuid)) ||
+      (looksLikeUuid ? await findPage(false) : null);
     if (page) return page;
 
     const alias = await db.query.wikiPageAliases.findFirst({
@@ -204,15 +206,17 @@ export async function getWikiPage(identifier: string) {
 // Editing needs an authoritative optimistic-lock baseline. A stale cached
 // version or updatedAt turns the next legitimate save into a false conflict.
 export async function getWikiPageForEdit(identifier: string) {
-  const page = await db.query.wikiPages.findFirst({
-    where: and(
-      eq(
-        UUID_PATTERN.test(identifier) ? wikiPages.id : wikiPages.slug,
-        identifier,
+  const findPage = (byId: boolean) =>
+    db.query.wikiPages.findFirst({
+      where: and(
+        eq(byId ? wikiPages.id : wikiPages.slug, identifier),
+        isNull(wikiPages.deletedAt),
       ),
-      isNull(wikiPages.deletedAt),
-    ),
-  });
+    });
+  const looksLikeUuid = UUID_PATTERN.test(identifier);
+  const page =
+    (await findPage(looksLikeUuid)) ||
+    (looksLikeUuid ? await findPage(false) : null);
   if (page) return page;
 
   const alias = await db.query.wikiPageAliases.findFirst({
