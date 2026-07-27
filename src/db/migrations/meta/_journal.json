@@ -1,4 +1,4 @@
-{
+﻿{
   "version": "7",
   "dialect": "postgresql",
   "entries": [
@@ -362,8 +362,15 @@
     {
       "idx": 51,
       "version": "7",
+      "when": 1784888419127,
+      "tag": "0051_canteen_meal_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
       "when": 1785120000000,
-      "tag": "0051_canteen_shame_votes",
+      "tag": "0052_canteen_shame_votes",
       "breakpoints": true
     }
   ]

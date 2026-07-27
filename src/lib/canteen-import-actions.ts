@@ -1,11 +1,15 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { canteens, menuImportDrafts } from "@/db/schema";
+import {
+  canteenMenuItemPrices,
+  canteenMenuItems,
+  canteens,
+  menuImportDrafts,
+} from "@/db/schema";
 import { requireAdmin } from "@/lib/auth-guard";
-import { createMenuItem } from "@/lib/canteen-admin-actions";
 import {
   assertMenuImportImageSize,
   isAllowedMenuImportType,
@@ -23,7 +27,11 @@ import {
 } from "@/lib/canteen-mock";
 import { getOcrProvider } from "@/lib/canteen-ocr-provider";
 import type { CanteenMenuItem, MenuImportDraft } from "@/lib/canteen-types";
-import { validateMenuImportDraftItems } from "@/lib/canteen-types";
+import {
+  validateMenuImportDraftItems,
+  validatePricingInput,
+} from "@/lib/canteen-types";
+import { buildMenuItemPricing } from "@/lib/canteen-pricing";
 import { uploadFile } from "@/lib/minio";
 
 function revalidateCanteenPaths(canteenId: string) {
@@ -46,7 +54,9 @@ async function assertCanteenExists(canteenId: string): Promise<void> {
   if (!row) throw new Error("CANTEEN_NOT_FOUND");
 }
 
-function mapDraftRow(row: typeof menuImportDrafts.$inferSelect): MenuImportDraft {
+function mapDraftRow(
+  row: typeof menuImportDrafts.$inferSelect,
+): MenuImportDraft {
   return {
     id: row.id,
     canteenId: row.canteenId,
@@ -92,8 +102,7 @@ export async function startMenuImportFromImage(
     throw new Error("OCR_RATE_LIMIT_EXCEEDED");
   }
 
-  const skipObjectStorage =
-    isCanteenMockMode() || process.env.E2E_TEST === "1";
+  const skipObjectStorage = isCanteenMockMode() || process.env.E2E_TEST === "1";
   const sourceImageUrl = skipObjectStorage
     ? `mock://menu-import/${filename}`
     : await uploadFile(buffer, filename, mimeType);
@@ -195,37 +204,92 @@ export async function publishMenuImportDraft(
   draftId: string,
 ): Promise<CanteenMenuItem[]> {
   await requireAdmin();
-  const draft = await getMenuImportDraft(canteenId, draftId);
-  if (!draft) throw new Error("IMPORT_DRAFT_NOT_FOUND");
-  if (draft.status === "published") throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
-  if (draft.items.length === 0) throw new Error("IMPORT_DRAFT_EMPTY");
 
   if (isCanteenMockMode()) {
+    const draft = await getMenuImportDraft(canteenId, draftId);
+    if (!draft) throw new Error("IMPORT_DRAFT_NOT_FOUND");
+    if (draft.status === "published") {
+      throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
+    }
+    if (draft.items.length === 0) throw new Error("IMPORT_DRAFT_EMPTY");
     const created = mockPublishMenuImportDraft(canteenId, draftId);
     revalidateCanteenPaths(canteenId);
     return created;
   }
 
-  const created: CanteenMenuItem[] = [];
-  for (const item of draft.items) {
-    const row = await createMenuItem(canteenId, {
-      name: item.name,
-      price: item.price,
-      mealPeriod: item.mealPeriod,
-      sortOrder: item.sortOrder,
-    });
-    created.push(row);
-  }
+  const created = await db.transaction(async (tx) => {
+    const now = new Date();
+    const [claimed] = await tx
+      .update(menuImportDrafts)
+      .set({ status: "published", updatedAt: now })
+      .where(
+        and(
+          eq(menuImportDrafts.id, draftId),
+          eq(menuImportDrafts.canteenId, canteenId),
+          ne(menuImportDrafts.status, "published"),
+        ),
+      )
+      .returning();
 
-  await db
-    .update(menuImportDrafts)
-    .set({ status: "published", updatedAt: new Date() })
-    .where(
-      and(
-        eq(menuImportDrafts.id, draftId),
-        eq(menuImportDrafts.canteenId, canteenId),
-      ),
-    );
+    if (!claimed) {
+      const existing = await tx.query.menuImportDrafts.findFirst({
+        where: and(
+          eq(menuImportDrafts.id, draftId),
+          eq(menuImportDrafts.canteenId, canteenId),
+        ),
+        columns: { id: true },
+      });
+      if (!existing) throw new Error("IMPORT_DRAFT_NOT_FOUND");
+      throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
+    }
+
+    const items = validateMenuImportDraftItems(claimed.items);
+    if (items.length === 0) throw new Error("IMPORT_DRAFT_EMPTY");
+
+    const menuItems: CanteenMenuItem[] = [];
+    for (const item of items) {
+      const [menuItem] = await tx
+        .insert(canteenMenuItems)
+        .values({
+          canteenId,
+          name: item.name,
+          price: null,
+          mealPeriods: item.mealPeriods,
+          sortOrder: item.sortOrder,
+          svgKey: "default",
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
+      const options = validatePricingInput(undefined, item.price) ?? [];
+      const prices =
+        options.length === 0
+          ? []
+          : await tx
+              .insert(canteenMenuItemPrices)
+              .values(
+                options.map((option) => ({
+                  menuItemId: menuItem.id,
+                  ...option,
+                  createdAt: now,
+                  updatedAt: now,
+                })),
+              )
+              .returning();
+      menuItems.push({
+        id: menuItem.id,
+        canteenId: menuItem.canteenId,
+        name: menuItem.name,
+        pricing: buildMenuItemPricing(menuItem.id, prices, menuItem.price),
+        mealPeriods: item.mealPeriods,
+        sortOrder: menuItem.sortOrder,
+        svgKey: menuItem.svgKey,
+        createdAt: menuItem.createdAt,
+        updatedAt: menuItem.updatedAt,
+      });
+    }
+    return menuItems;
+  });
 
   revalidateCanteenPaths(canteenId);
   return created;

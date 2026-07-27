@@ -86,4 +86,27 @@ describe("S.H. Ho Aigens menu adapter", () => {
     });
     expect(payload.items[0].svgKey).toBe("default");
   });
+
+  it("defaults products without meal periods to all-day", () => {
+    const payload = buildShhoMenuSyncPayload({
+      data: {
+        menu: {
+          categories: [{ name: "飯類", groupIds: ["main"] }],
+          groups: [
+            {
+              id: "main",
+              items: [{ backendId: "42", name: "演示菜品", price: 20 }],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.items).toMatchObject([
+      {
+        externalKey: "42:allday",
+        mealPeriods: ["allday"],
+      },
+    ]);
+  });
 });

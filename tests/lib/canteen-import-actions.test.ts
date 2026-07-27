@@ -10,6 +10,7 @@ const {
   mockDbUpdate,
   mockDbDelete,
   mockDbSelect,
+  mockDbTransaction,
   mockRevalidatePath,
   mockUploadFile,
 } = vi.hoisted(() => ({
@@ -22,6 +23,7 @@ const {
   mockDbUpdate: vi.fn(),
   mockDbDelete: vi.fn(),
   mockDbSelect: vi.fn(),
+  mockDbTransaction: vi.fn(),
   mockRevalidatePath: vi.fn(),
   mockUploadFile: vi.fn(),
 }));
@@ -60,6 +62,7 @@ vi.mock("@/db", () => ({
     update: (...args: unknown[]) => mockDbUpdate(...args),
     delete: (...args: unknown[]) => mockDbDelete(...args),
     select: (...args: unknown[]) => mockDbSelect(...args),
+    transaction: (...args: unknown[]) => mockDbTransaction(...args),
   },
 }));
 
@@ -214,7 +217,7 @@ describe("canteen-import-actions (mock mode)", () => {
         tempId: "manual-1",
         name: "手工补录菜品",
         price: 16,
-        mealPeriod: "breakfast",
+        mealPeriods: ["breakfast"],
         sortOrder: 0,
       },
     ]);
@@ -223,8 +226,8 @@ describe("canteen-import-actions (mock mode)", () => {
     const menu = mockListMenuItems(CANTEEN_ID);
     expect(menu.some((item) => item.name === "手工补录菜品")).toBe(true);
     expect(
-      menu.find((item) => item.name === "手工补录菜品")?.mealPeriod,
-    ).toBe("breakfast");
+      menu.find((item) => item.name === "手工补录菜品")?.mealPeriods,
+    ).toEqual(["breakfast"]);
   });
 
   it("updates draft items and publishes to menu", async () => {
@@ -240,23 +243,23 @@ describe("canteen-import-actions (mock mode)", () => {
         tempId: "row-1",
         name: "校对后菜品",
         price: 30,
-        mealPeriod: "dinner",
+        mealPeriods: ["dinner"],
         sortOrder: 0,
       },
     ]);
-    expect(updated.items[0].mealPeriod).toBe("dinner");
+    expect(updated.items[0].mealPeriods).toEqual(["dinner"]);
 
     const created = await publishMenuImportDraft(CANTEEN_ID, draft.id);
     expect(created).toHaveLength(1);
     expect(created[0].name).toBe("校对后菜品");
-    expect(created[0].mealPeriod).toBe("dinner");
+    expect(created[0].mealPeriods).toEqual(["dinner"]);
 
     const menu = mockListMenuItems(CANTEEN_ID);
     expect(menu.some((item) => item.id === created[0].id)).toBe(true);
 
-    await expect(
-      publishMenuImportDraft(CANTEEN_ID, draft.id),
-    ).rejects.toThrow("IMPORT_DRAFT_ALREADY_PUBLISHED");
+    await expect(publishMenuImportDraft(CANTEEN_ID, draft.id)).rejects.toThrow(
+      "IMPORT_DRAFT_ALREADY_PUBLISHED",
+    );
   });
 
   it("deletes draft", async () => {
@@ -312,7 +315,7 @@ describe("canteen-import-actions (database mode)", () => {
             tempId: "row-0",
             name: "导入菜品甲",
             price: 15,
-            mealPeriod: "lunch",
+            mealPeriods: ["lunch"],
             sortOrder: 0,
           },
         ],
@@ -322,7 +325,9 @@ describe("canteen-import-actions (database mode)", () => {
         updatedAt: now,
       },
     ]);
-    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning }) });
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({ returning }),
+    });
 
     const draft = await startMenuImportFromImage(
       "canteen-db-1",
@@ -355,7 +360,9 @@ describe("canteen-import-actions (database mode)", () => {
         updatedAt: now,
       },
     ]);
-    mockDbInsert.mockReturnValue({ values: vi.fn().mockReturnValue({ returning }) });
+    mockDbInsert.mockReturnValue({
+      values: vi.fn().mockReturnValue({ returning }),
+    });
 
     const draft = await startMenuImportFromImage(
       "canteen-db-1",
@@ -366,5 +373,91 @@ describe("canteen-import-actions (database mode)", () => {
 
     expect(draft.status).toBe("failed");
     expect(draft.errorMessage).toBe("OCR_EMPTY_RESULT");
+  });
+
+  it("publishes every draft row in one transaction", async () => {
+    mockAdminSession();
+    const now = new Date();
+    const txUpdate = vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            {
+              id: "draft-db-1",
+              canteenId: "canteen-db-1",
+              items: [
+                {
+                  tempId: "row-1",
+                  name: "午晚餐菜品",
+                  price: 20,
+                  mealPeriods: ["lunch", "dinner"],
+                  sortOrder: 0,
+                },
+              ],
+              status: "published",
+              createdAt: now,
+              updatedAt: now,
+            },
+          ]),
+        }),
+      }),
+    });
+    const txInsert = vi
+      .fn()
+      .mockReturnValueOnce({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            {
+              id: "menu-item-1",
+              canteenId: "canteen-db-1",
+              name: "午晚餐菜品",
+              price: null,
+              mealPeriods: ["lunch", "dinner"],
+              sortOrder: 0,
+              svgKey: "default",
+              externalSource: null,
+              externalKey: null,
+              isAvailable: true,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ]),
+        }),
+      })
+      .mockReturnValueOnce({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([
+            {
+              id: "price-1",
+              menuItemId: "menu-item-1",
+              label: null,
+              amountMinor: 2000,
+              currency: "HKD",
+              sortOrder: 0,
+              createdAt: now,
+              updatedAt: now,
+            },
+          ]),
+        }),
+      });
+    mockDbTransaction.mockImplementation(
+      async (callback: (tx: unknown) => Promise<unknown>) =>
+        callback({
+          update: txUpdate,
+          insert: txInsert,
+          query: { menuImportDrafts: { findFirst: vi.fn() } },
+        }),
+    );
+
+    const created = await publishMenuImportDraft("canteen-db-1", "draft-db-1");
+
+    expect(mockDbTransaction).toHaveBeenCalledOnce();
+    expect(txUpdate).toHaveBeenCalledOnce();
+    expect(txInsert).toHaveBeenCalledTimes(2);
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({
+      name: "午晚餐菜品",
+      mealPeriods: ["lunch", "dinner"],
+    });
   });
 });

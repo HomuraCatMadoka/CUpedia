@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
-import type { MealPeriod } from "@/db/schema";
+import type { MealPeriodAssignment } from "@/db/schema";
+import { ALLDAY_MEAL_PERIOD } from "@/db/schema";
 import type { MenuImportDraftItem } from "@/lib/canteen-types";
 
 const TRAILING_PRICE_RE =
@@ -32,10 +33,10 @@ function parseLine(line: string): { name: string; price: number | null } | null 
   return { name: trimmed, price: null };
 }
 
-/** Best-effort parse of OCR plain text into editable draft rows. Meal period defaults to lunch. */
+/** Best-effort parse of OCR plain text into editable draft rows. Defaults to all-day. */
 export function parseOcrTextToDraftItems(
   ocrText: string,
-  defaultMealPeriod: MealPeriod = "lunch",
+  defaultMealPeriods: MealPeriodAssignment[] = [ALLDAY_MEAL_PERIOD],
 ): MenuImportDraftItem[] {
   const lines = ocrText.split(/\r?\n/);
   const items: MenuImportDraftItem[] = [];
@@ -49,7 +50,7 @@ export function parseOcrTextToDraftItems(
       tempId: randomUUID(),
       name: parsed.name,
       price: parsed.price,
-      mealPeriod: defaultMealPeriod,
+      mealPeriods: [...defaultMealPeriods],
       sortOrder: items.length,
     });
   }

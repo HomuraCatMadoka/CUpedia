@@ -73,7 +73,7 @@ describe("schema", () => {
     expect(cols.canteenId).toBeDefined();
     expect(cols.name).toBeDefined();
     expect(cols.price).toBeDefined();
-    expect(cols.mealPeriod).toBeDefined();
+    expect(cols.mealPeriods).toBeDefined();
     expect(cols.sortOrder).toBeDefined();
     expect(cols.svgKey).toBeDefined();
     expect(cols.externalSource).toBeDefined();

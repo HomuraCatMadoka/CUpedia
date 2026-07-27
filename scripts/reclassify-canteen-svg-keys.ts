@@ -34,16 +34,16 @@ async function main() {
         `UPDATE canteen_menu_items
          SET svg_key = '', updated_at = now()
          WHERE svg_key = 'spicy'
-         RETURNING id, name, meal_period`,
+         RETURNING id, name, meal_periods`,
       );
       console.log(`cleared spicy → empty: ${cleared.rowCount}`);
       for (const row of cleared.rows) {
-        console.log(`  - ${row.name} (${row.meal_period})`);
+        console.log(`  - ${row.name} (${(row.meal_periods ?? []).join(",")})`);
       }
 
       // Step 2: reclassify empty / legacy empty keys; skip default
       const candidates = await client.query(
-        `SELECT id, name, meal_period, svg_key
+        `SELECT id, name, meal_periods, svg_key
          FROM canteen_menu_items
          WHERE svg_key IS DISTINCT FROM 'default'
            AND (svg_key = '' OR svg_key = 'spicy' OR svg_key IS NULL)
