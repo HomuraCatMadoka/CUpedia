@@ -195,13 +195,8 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
 
   await createRatingOnly("contributor@test.com");
   await admin.reload();
-  const ratingOnly = admin
-    .getByRole("listitem")
-    .filter({ hasText: "仅评分投稿" });
-  await expect(ratingOnly).toContainText("4.0");
-  admin.once("dialog", (dialog) => dialog.accept());
-  await ratingOnly.getByTitle("删除整条投稿").click();
-  await expect(ratingOnly).toHaveCount(0);
-  await expect.poll(() => countRows("course_ratings")).toBe(0);
+  await expect(admin.getByText("仅评分投稿")).toHaveCount(0);
+  await expect.poll(() => countRows("course_ratings")).toBe(1);
+
   await adminContext.close();
 });

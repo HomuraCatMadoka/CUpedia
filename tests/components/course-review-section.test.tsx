@@ -219,7 +219,6 @@ describe("CourseReviewSection", () => {
   it("测评很多时默认只渲染 10 条，并按批次继续展开", () => {
     const reviews = Array.from({ length: 12 }, (_, index) => ({
       id: `review-${index}`,
-      isRatingOnly: false,
       content: `测评内容 ${index + 1}`,
       createdAt: new Date(2026, 6, 17, 10, index).toISOString(),
       likeCount: 0,
@@ -264,7 +263,6 @@ describe("CourseReviewSection", () => {
         reviews={[
           {
             id: "signed",
-            isRatingOnly: false,
             content: "署名投稿",
             createdAt: new Date().toISOString(),
             likeCount: 0,
@@ -314,7 +312,6 @@ describe("CourseReviewSection", () => {
           },
           {
             id: "anonymous",
-            isRatingOnly: false,
             content: "匿名投稿",
             createdAt: new Date().toISOString(),
             likeCount: 0,
