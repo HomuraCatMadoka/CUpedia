@@ -1120,6 +1120,7 @@ export const courseReviews = pgTable(
     score: real("score"),
     isAnonymous: boolean("is_anonymous").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at"),
   },
   (table) => [
     index("course_reviews_course_code_idx").on(table.courseCode),
@@ -1143,6 +1144,27 @@ export const courseReviewLikes = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
   },
   (table) => [primaryKey({ columns: [table.reviewId, table.userId] })],
+);
+
+export const courseReviewReplies = pgTable(
+  "course_review_replies",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    reviewId: uuid("review_id")
+      .notNull()
+      .references(() => courseReviews.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("course_review_replies_review_created_idx").on(
+      table.reviewId,
+      table.createdAt,
+    ),
+  ],
 );
 
 // ── Canteen subsystem (hard delete; no deletedAt — unlike wiki soft delete) ──

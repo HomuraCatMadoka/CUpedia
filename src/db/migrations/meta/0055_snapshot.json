@@ -1,6 +1,6 @@
 {
-  "id": "60cede32-b0ce-49e5-b2aa-1168b48affdd",
-  "prevId": "45a66074-0016-43c3-bf79-fae33e15aa7d",
+  "id": "1bd05aa8-00b1-4df6-bfa1-adfd871064a1",
+  "prevId": "60cede32-b0ce-49e5-b2aa-1168b48affdd",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1909,6 +1909,139 @@
         "canteen_menu_items_external_identity_chk": {
           "name": "canteen_menu_items_external_identity_chk",
           "value": "(\"canteen_menu_items\".\"external_source\" is null) = (\"canteen_menu_items\".\"external_key\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.canteen_shame_votes": {
+      "name": "canteen_shame_votes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "canteen_id": {
+          "name": "canteen_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "anonymous_session_id": {
+          "name": "anonymous_session_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "vote_date": {
+          "name": "vote_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "canteen_shame_votes_date_canteen_idx": {
+          "name": "canteen_shame_votes_date_canteen_idx",
+          "columns": [
+            {
+              "expression": "vote_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "canteen_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "canteen_shame_votes_date_anon_idx": {
+          "name": "canteen_shame_votes_date_anon_idx",
+          "columns": [
+            {
+              "expression": "vote_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "anonymous_session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "canteen_shame_votes_canteen_id_idx": {
+          "name": "canteen_shame_votes_canteen_id_idx",
+          "columns": [
+            {
+              "expression": "canteen_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "canteen_shame_votes_canteen_id_canteens_id_fk": {
+          "name": "canteen_shame_votes_canteen_id_canteens_id_fk",
+          "tableFrom": "canteen_shame_votes",
+          "tableTo": "canteens",
+          "columnsFrom": ["canteen_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "canteen_shame_votes_user_id_users_id_fk": {
+          "name": "canteen_shame_votes_user_id_users_id_fk",
+          "tableFrom": "canteen_shame_votes",
+          "tableTo": "users",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "canteen_shame_votes_identity_chk": {
+          "name": "canteen_shame_votes_identity_chk",
+          "value": "(\n        (\"canteen_shame_votes\".\"user_id\" IS NOT NULL AND \"canteen_shame_votes\".\"anonymous_session_id\" IS NULL) OR\n        (\"canteen_shame_votes\".\"user_id\" IS NULL AND \"canteen_shame_votes\".\"anonymous_session_id\" IS NOT NULL)\n      )"
         }
       },
       "isRLSEnabled": false

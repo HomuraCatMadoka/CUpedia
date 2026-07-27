@@ -78,6 +78,8 @@ describe("pin-window-scroll", () => {
     expect(
       JSON.parse(sessionStorage.getItem("cupedia:pin-window-scroll") ?? ""),
     ).toEqual(newPin);
+    restoreWindowScrollThroughPaint(oldPin);
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 
   it("binds each release to its request and preserves a later pin", () => {

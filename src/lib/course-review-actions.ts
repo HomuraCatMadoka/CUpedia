@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { revalidatePath, unstable_cache } from "next/cache";
 
 import { db } from "@/db";
@@ -9,6 +9,7 @@ import {
   courseRatingProfessors,
   courseEnrollments,
   courseReviewLikes,
+  courseReviewReplies,
   courseReviews,
   courseSubjects,
   courses,
@@ -65,6 +66,9 @@ import {
 
 /** Courses rendered per catalog page — the full catalog has ~4.8k rows. */
 const PAGE_SIZE = 48;
+const REPLY_SEGMENTER = new Intl.Segmenter(undefined, {
+  granularity: "grapheme",
+});
 const COURSE_REVIEW_PRESET_TAGS = new Set<string>(
   Object.values(COURSE_REVIEW_TAG_OPTIONS).flat(),
 );
@@ -75,6 +79,8 @@ export type CourseReviewView = {
   id: string;
   content: string;
   createdAt: string;
+  isEdited: boolean;
+  replyCount: number;
   likeCount: number;
   likedByMe: boolean;
   canAdminDelete: boolean;
@@ -127,6 +133,27 @@ export type CourseReviewSubmission = {
   content?: string;
   tags?: CourseReviewTags;
   isAnonymous?: boolean;
+};
+
+export type CreatedCourseReviewReply = {
+  id: string;
+  reviewId: string;
+  content: string;
+  createdAt: string;
+};
+
+export type CourseReviewReplyView = CreatedCourseReviewReply & {
+  authorNickname: string | null;
+  authorShowcaseId: string | null;
+  authorAchievements: PublicAchievementSummary[];
+  authorAvatarUrl: string | null;
+  authorEquippedTitle: EquippedPersonTitle | null;
+  canDelete: boolean;
+};
+
+export type CourseReviewReplyPage = {
+  replies: CourseReviewReplyView[];
+  hasMore: boolean;
 };
 
 export type CourseEnrollmentView = {
@@ -760,6 +787,11 @@ export async function getCourseReviews(
         id: courseReviews.id,
         content: courseReviews.content,
         createdAt: courseReviews.createdAt,
+        updatedAt: courseReviews.updatedAt,
+        replyCount: sql<number>`(
+          select count(*) from ${courseReviewReplies} reply
+          where reply.review_id = ${courseReviews.id}
+        )`,
         userId: courseReviews.userId,
         isAnonymous: courseReviews.isAnonymous,
         professorId: courseReviews.professorId,
@@ -834,6 +866,8 @@ export async function getCourseReviews(
       id: r.id,
       content: r.content,
       createdAt: r.createdAt.toISOString(),
+      isEdited: (r.updatedAt ?? r.createdAt).getTime() > r.createdAt.getTime(),
+      replyCount: Number(r.replyCount),
       likeCount: likeCount.get(r.id) ?? 0,
       likedByMe: mine.has(r.id),
       canAdminDelete: user?.role === "admin" && r.userId !== viewerId,
@@ -1143,6 +1177,133 @@ export async function isCourseProfessorOptional(
 
 // ── Mutations (require auth) ──
 
+export async function createCourseReviewReply(
+  reviewId: string,
+  input: string,
+): Promise<CreatedCourseReviewReply> {
+  if (typeof input !== "string") throw new Error("回复格式无效");
+  const content = input.trim();
+  if (!content) throw new Error("回复内容不能为空");
+  if (Array.from(REPLY_SEGMENTER.segment(content)).length > 200) {
+    throw new Error("回复不能超过 200 个字符");
+  }
+  assertNoSensitiveContent(content, ["考试"]);
+  const user = await requireAuth();
+  await assertContributorComplete(user);
+  const [review] = await db
+    .select({ courseCode: courseReviews.courseCode })
+    .from(courseReviews)
+    .where(eq(courseReviews.id, reviewId))
+    .limit(1);
+  if (!review) throw new Error("评论不存在");
+
+  const [reply] = await db
+    .insert(courseReviewReplies)
+    .values({ reviewId, userId: user.id, content })
+    .returning({
+      id: courseReviewReplies.id,
+      reviewId: courseReviewReplies.reviewId,
+      content: courseReviewReplies.content,
+      createdAt: courseReviewReplies.createdAt,
+    });
+  if (!reply) throw new Error("回复发布失败");
+
+  revalidatePath(`/courses/${review.courseCode}`);
+  return { ...reply, createdAt: reply.createdAt.toISOString() };
+}
+
+export async function getCourseReviewReplies(
+  reviewId: string,
+  offset = 0,
+): Promise<CourseReviewReplyPage> {
+  const safeOffset = Number.isFinite(offset)
+    ? Math.max(0, Math.floor(offset))
+    : 0;
+  const [review] = await db
+    .select({
+      userId: courseReviews.userId,
+      isAnonymous: courseReviews.isAnonymous,
+    })
+    .from(courseReviews)
+    .where(eq(courseReviews.id, reviewId))
+    .limit(1);
+  if (!review) throw new Error("评论不存在");
+
+  const viewer = await getOptionalUser();
+  const rows = await db
+    .select({
+      id: courseReviewReplies.id,
+      reviewId: courseReviewReplies.reviewId,
+      userId: courseReviewReplies.userId,
+      content: courseReviewReplies.content,
+      createdAt: courseReviewReplies.createdAt,
+      authorNickname: users.nickname,
+    })
+    .from(courseReviewReplies)
+    .innerJoin(users, eq(courseReviewReplies.userId, users.id))
+    .where(eq(courseReviewReplies.reviewId, reviewId))
+    .orderBy(asc(courseReviewReplies.createdAt), asc(courseReviewReplies.id))
+    .limit(21)
+    .offset(safeOffset);
+  const pageRows = rows.slice(0, 20);
+  const hidesIdentity = (userId: string) =>
+    review.isAnonymous && review.userId === userId;
+  const authorAchievements = await getAchievementSummariesForAuthors(
+    pageRows
+      .filter((row) => !hidesIdentity(row.userId))
+      .map((row) => row.userId),
+  );
+
+  return {
+    replies: pageRows.map((row) => {
+      const anonymousOriginalAuthor = hidesIdentity(row.userId);
+      const author = anonymousOriginalAuthor
+        ? undefined
+        : authorAchievements.get(row.userId);
+      return {
+        id: row.id,
+        reviewId: row.reviewId,
+        content: row.content,
+        createdAt: row.createdAt.toISOString(),
+        authorNickname: anonymousOriginalAuthor ? null : row.authorNickname,
+        authorShowcaseId: author?.showcaseId ?? null,
+        authorAchievements: author?.achievements ?? [],
+        authorAvatarUrl: author?.avatarUrl ?? null,
+        authorEquippedTitle: author?.equippedTitle ?? null,
+        canDelete:
+          viewer?.id === row.userId ||
+          (viewer?.role === "admin" && viewer.id !== row.userId),
+      };
+    }),
+    hasMore: rows.length > 20,
+  };
+}
+
+export async function deleteCourseReviewReply(replyId: string): Promise<void> {
+  const user = await requireAuth();
+  const [reply] = await db
+    .select({
+      userId: courseReviewReplies.userId,
+      courseCode: courseReviews.courseCode,
+    })
+    .from(courseReviewReplies)
+    .innerJoin(
+      courseReviews,
+      eq(courseReviewReplies.reviewId, courseReviews.id),
+    )
+    .where(eq(courseReviewReplies.id, replyId))
+    .limit(1);
+  if (!reply) throw new Error("回复不存在");
+  if (reply.userId !== user.id && user.role !== "admin") {
+    throw new Error("无权删除该回复");
+  }
+
+  await db
+    .delete(courseReviewReplies)
+    .where(eq(courseReviewReplies.id, replyId));
+  revalidatePath(`/courses/${reply.courseCode}`);
+}
+
 /** Create or update one concrete course experience. The optional comment is
  * updated in place so the rating and comment remain one manageable posting. */
 export async function submitCourseReview(
@@ -1270,6 +1431,7 @@ export async function submitCourseReview(
       term: submission.term,
       score: submission.score,
       isAnonymous,
+      updatedAt: sql`now()`,
     };
     if (content && existingReview) {
       await tx

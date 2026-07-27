@@ -6,16 +6,20 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { refresh, search, submit, toastSuccess } = vi.hoisted(() => ({
-  refresh: vi.fn(),
-  search: vi.fn(),
-  submit: vi.fn(),
-  toastSuccess: vi.fn(),
-}));
+const { refresh, search, submit, createReply, getReplies, toastSuccess } =
+  vi.hoisted(() => ({
+    refresh: vi.fn(),
+    search: vi.fn(),
+    submit: vi.fn(),
+    createReply: vi.fn(),
+    getReplies: vi.fn(),
+    toastSuccess: vi.fn(),
+  }));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh, push: vi.fn() }),
@@ -23,7 +27,10 @@ vi.mock("next/navigation", () => ({
 vi.mock("sonner", () => ({ toast: { success: toastSuccess } }));
 
 vi.mock("@/lib/course-review-actions", () => ({
+  createCourseReviewReply: (...args: unknown[]) => createReply(...args),
+  deleteCourseReviewReply: vi.fn(),
   deleteCourseReviewSubmission: vi.fn(),
+  getCourseReviewReplies: (...args: unknown[]) => getReplies(...args),
   searchProfessors: (...args: unknown[]) => search(...args),
   submitCourseReview: (...args: unknown[]) => submit(...args),
   toggleLike: vi.fn(),
@@ -221,6 +228,8 @@ describe("CourseReviewSection", () => {
       id: `review-${index}`,
       content: `测评内容 ${index + 1}`,
       createdAt: new Date(2026, 6, 17, 10, index).toISOString(),
+      isEdited: false,
+      replyCount: 0,
       likeCount: 0,
       likedByMe: false,
       canAdminDelete: false,
@@ -265,6 +274,8 @@ describe("CourseReviewSection", () => {
             id: "signed",
             content: "署名投稿",
             createdAt: new Date().toISOString(),
+            isEdited: false,
+            replyCount: 0,
             likeCount: 0,
             likedByMe: false,
             canAdminDelete: false,
@@ -314,6 +325,8 @@ describe("CourseReviewSection", () => {
             id: "anonymous",
             content: "匿名投稿",
             createdAt: new Date().toISOString(),
+            isEdited: false,
+            replyCount: 0,
             likeCount: 0,
             likedByMe: false,
             canAdminDelete: false,
@@ -359,5 +372,203 @@ describe("CourseReviewSection", () => {
         badge.getAttribute("data-badge-tier"),
       ),
     ).toEqual(["gold", "silver", "bronze"]);
+  });
+
+  it("loads one-level replies only after expanding the reply count", async () => {
+    getReplies.mockResolvedValue({
+      replies: [
+        {
+          id: "reply-1",
+          reviewId: "review-1",
+          content: "补充说明",
+          createdAt: new Date().toISOString(),
+          authorNickname: "Bob",
+          authorShowcaseId: null,
+          authorAchievements: [],
+          authorAvatarUrl: null,
+          authorEquippedTitle: null,
+          canDelete: false,
+        },
+      ],
+      hasMore: false,
+    });
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            id: "review-1",
+            content: "原评论",
+            createdAt: new Date().toISOString(),
+            isEdited: true,
+            replyCount: 1,
+            likeCount: 0,
+            likedByMe: false,
+            canAdminDelete: false,
+            professorId: null,
+            professorName: null,
+            academicYear: "2025-26",
+            term: "Term 1",
+            score: 5,
+            tags: [],
+            authorNickname: "Alice",
+            authorShowcaseId: null,
+            authorAchievements: [],
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    expect(screen.getByText("已编辑")).toBeTruthy();
+    expect(screen.queryByText("补充说明")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "回复 1" }));
+
+    await waitFor(() => expect(getReplies).toHaveBeenCalledWith("review-1", 0));
+    const replies = await screen.findByRole("region", { name: "评论回复" });
+    expect(within(replies).getByText("补充说明")).toBeTruthy();
+    expect(within(replies).queryByTitle("点赞")).toBeNull();
+  });
+
+  it("publishes a plain-text reply and appends the created oldest-first page", async () => {
+    getReplies
+      .mockResolvedValueOnce({ replies: [], hasMore: false })
+      .mockResolvedValueOnce({
+        replies: [
+          {
+            id: "reply-1",
+            reviewId: "review-1",
+            content: "谢谢补充",
+            createdAt: new Date().toISOString(),
+            authorNickname: "TestUser",
+            authorShowcaseId: null,
+            authorAchievements: [],
+            authorAvatarUrl: null,
+            authorEquippedTitle: null,
+            canDelete: true,
+          },
+        ],
+        hasMore: false,
+      });
+    createReply.mockResolvedValue({ id: "reply-1" });
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            id: "review-1",
+            content: "原评论",
+            createdAt: new Date().toISOString(),
+            isEdited: false,
+            replyCount: 0,
+            likeCount: 0,
+            likedByMe: false,
+            canAdminDelete: false,
+            professorId: null,
+            professorName: null,
+            academicYear: "2025-26",
+            term: "Term 1",
+            score: 5,
+            tags: [],
+            authorNickname: "Alice",
+            authorShowcaseId: null,
+            authorAchievements: [],
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "回复 0" }));
+    const input = await screen.findByRole("textbox", { name: "回复内容" });
+    fireEvent.change(input, { target: { value: "谢谢补充" } });
+    fireEvent.click(screen.getByRole("button", { name: "发布回复" }));
+
+    await waitFor(() =>
+      expect(createReply).toHaveBeenCalledWith("review-1", "谢谢补充"),
+    );
+    expect(await screen.findByText("谢谢补充")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "回复 1" })).toBeTruthy();
+  });
+
+  it("keeps older pages loadable when publishing after the first 20 replies", async () => {
+    const reply = (index: number) => ({
+      id: `reply-${index}`,
+      reviewId: "review-1",
+      content: `回复 ${index}`,
+      createdAt: new Date().toISOString(),
+      authorNickname: "TestUser",
+      authorShowcaseId: null,
+      authorAchievements: [],
+      authorAvatarUrl: null,
+      authorEquippedTitle: null,
+      canDelete: false,
+    });
+    getReplies
+      .mockResolvedValueOnce({
+        replies: Array.from({ length: 20 }, (_, index) => reply(index + 1)),
+        hasMore: true,
+      })
+      .mockResolvedValueOnce({
+        replies: [reply(51)],
+        hasMore: false,
+      })
+      .mockResolvedValueOnce({
+        replies: Array.from({ length: 20 }, (_, index) => reply(index + 21)),
+        hasMore: true,
+      });
+    createReply.mockResolvedValue({ id: "reply-51" });
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            id: "review-1",
+            content: "原评论",
+            createdAt: new Date().toISOString(),
+            isEdited: false,
+            replyCount: 50,
+            likeCount: 0,
+            likedByMe: false,
+            canAdminDelete: false,
+            professorId: null,
+            professorName: null,
+            academicYear: "2025-26",
+            term: "Term 1",
+            score: 5,
+            tags: [],
+            authorNickname: "Alice",
+            authorShowcaseId: null,
+            authorAchievements: [],
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "回复 50" }));
+    const input = await screen.findByRole("textbox", { name: "回复内容" });
+    fireEvent.change(input, { target: { value: "新回复" } });
+    fireEvent.click(screen.getByRole("button", { name: "发布回复" }));
+
+    await waitFor(() =>
+      expect(createReply).toHaveBeenCalledWith("review-1", "新回复"),
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "加载更多" }));
+    await waitFor(() =>
+      expect(getReplies).toHaveBeenLastCalledWith("review-1", 20),
+    );
   });
 });
