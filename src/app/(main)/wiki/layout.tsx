@@ -2,6 +2,7 @@ import { getWikiTree } from "@/lib/wiki-actions";
 import { getViewerEditContext } from "@/lib/auth-guard";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { WikiTreeProvider } from "@/components/wiki/wiki-tree-provider";
 
 // The page tree is common to every /wiki/* route, so it lives here in the wiki
 // segment layout rather than in each page. App Router preserves a shared layout
@@ -19,10 +20,10 @@ export default async function WikiLayout({
   ]);
 
   return (
-    <>
+    <WikiTreeProvider initialPages={pages}>
       <SidebarToggle canEdit={canEdit} />
       <WikiSidebar pages={pages} canEdit={canEdit} />
       {children}
-    </>
+    </WikiTreeProvider>
   );
 }

@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { getDiscussions } from "@/lib/discussion-actions";
 import {
   deleteWikiPage,
@@ -121,7 +120,6 @@ export async function WikiPageEditor({
   async function handleDelete() {
     "use server";
     await deleteWikiPage(pageId);
-    redirect("/wiki");
   }
 
   return (

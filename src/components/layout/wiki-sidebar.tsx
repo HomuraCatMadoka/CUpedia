@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { WikiCreateButton } from "@/components/wiki/wiki-create-button";
+import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
 
 type TreeNode = {
   id: string;
@@ -855,10 +856,12 @@ export function WikiSidebar({
   const pathname = usePathname();
   const focusedEditor = isFocusedWikiEditorRoute(pathname);
   const router = useRouter();
-  const tree = useMemo(() => buildTree(pages), [pages]);
+  const wikiTree = useOptionalWikiTree();
+  const projectedPages = wikiTree?.pages ?? pages;
+  const tree = useMemo(() => buildTree(projectedPages), [projectedPages]);
   const { activeNodeId, ancestorIds: activeAncestorIds } = useMemo(
-    () => getActiveTreeState(pages, pathname),
-    [pages, pathname],
+    () => getActiveTreeState(projectedPages, pathname),
+    [pathname, projectedPages],
   );
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
   const pendingHrefRef = useRef<string | null>(null);

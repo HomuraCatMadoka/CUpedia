@@ -116,6 +116,11 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   await page.getByRole("button", { name: "页面设置" }).click();
   await page.getByRole("button", { name: "删除页面" }).click();
   await page.waitForURL("**/wiki");
+  await expect(
+    page
+      .getByRole("tree", { name: "Wiki 页面层级" })
+      .getByRole("treeitem", { name: title }),
+  ).toHaveCount(0);
   expect(await isDeleted(pageId)).toBe(true);
   const publicContext = await browser.newContext();
   const publicPage = await publicContext.newPage();

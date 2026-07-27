@@ -525,6 +525,14 @@ test.describe("focused wiki editor shell", () => {
       "data-autosave-status",
       "saved",
     );
+    const campusTreeItem = page
+      .getByRole("tree", { name: "Wiki 页面层级" })
+      .getByRole("treeitem", { name: "Campus Life" });
+    await expect(
+      campusTreeItem
+        .locator(":scope > [role=group]")
+        .getByRole("treeitem", { name: "Editor settings fixture" }),
+    ).toHaveAttribute("aria-current", "page");
 
     await expect(page).toHaveURL(wikiPageUrl(settingsPageId));
     await expect(page.getByLabel("页面标题")).toHaveValue(
