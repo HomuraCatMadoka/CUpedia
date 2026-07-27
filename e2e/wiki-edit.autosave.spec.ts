@@ -6,6 +6,7 @@ import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 
 const FIXTURE_TOKEN = randomUUID().slice(0, 8);
+const RENAMED_SLUG = `autosave-renamed-${FIXTURE_TOKEN}`;
 const FIXTURE_CONTENT = JSON.stringify([
   { type: "p", children: [{ text: "Alpha block." }] },
   { type: "p", children: [{ text: "Beta block." }] },
@@ -35,6 +36,10 @@ const FIXTURES = {
   titleConflict: {
     slug: `autosave-title-conflict-${FIXTURE_TOKEN}`,
     title: "Autosave title conflict fixture",
+  },
+  slugRename: {
+    slug: `autosave-slug-${FIXTURE_TOKEN}`,
+    title: "Autosave slug fixture",
   },
 } as const;
 const MERGE_SLUG = FIXTURES.merge.slug;
@@ -68,7 +73,7 @@ test.afterAll(async () => {
   await client.connect();
   try {
     await client.query("delete from wiki_pages where slug = any($1::text[])", [
-      Object.values(FIXTURES).map((fixture) => fixture.slug),
+      [...Object.values(FIXTURES).map((fixture) => fixture.slug), RENAMED_SLUG],
     ]);
   } finally {
     await client.end();
@@ -89,7 +94,10 @@ async function appendAfterText(page: Page, anchor: string, marker: string) {
   await page.keyboard.type(` ${marker}`);
 
   await expect(editor).toContainText(marker);
-  await expect(page.getByText("未保存")).toBeVisible();
+  await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+    "data-autosave-status",
+    "unsaved",
+  );
 }
 
 test.describe("#432 latest draft convergence", () => {
@@ -145,6 +153,39 @@ test.describe("#432 latest draft convergence", () => {
 
     await page.goto(`/wiki/edit/${MERGE_SLUG}`);
     await expect(page.getByLabel("标题")).toHaveValue(title);
+  });
+
+  test("an autosaved slug rename updates the edit URL before refresh", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await page.goto(`/wiki/edit/${FIXTURES.slugRename.slug}`);
+
+    await page.getByRole("button", { name: "页面设置" }).click();
+    const settingsDialog = page.getByRole("dialog", { name: "页面设置" });
+    await settingsDialog
+      .getByRole("textbox", { name: "URL 路径" })
+      .fill(RENAMED_SLUG);
+    await page.keyboard.press("Escape");
+    await expect(settingsDialog).toHaveCount(0);
+
+    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${RENAMED_SLUG}$`), {
+      timeout: 15_000,
+    });
+    await expect(page.locator('a[aria-label="返回 Wiki"]')).toHaveAttribute(
+      "href",
+      `/wiki/${RENAMED_SLUG}`,
+    );
+
+    await page.reload();
+    await expect(page.getByLabel("标题")).toHaveValue(
+      FIXTURES.slugRename.title,
+    );
+
+    await page.goto(`/wiki/edit/${FIXTURES.slugRename.slug}`);
+    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${RENAMED_SLUG}$`));
+    await page.goto(`/wiki/${FIXTURES.slugRename.slug}`);
+    await expect(page).toHaveURL(new RegExp(`/wiki/${RENAMED_SLUG}$`));
   });
 
   test("explicit save persists input typed while its request is in flight", async ({
@@ -256,7 +297,11 @@ test.describe("#432 latest draft convergence", () => {
     const markerB = `passive-b-${Date.now()}`;
     const slug = FIXTURES.passiveConflict.slug;
 
-    const contextA = await browser.newContext();
+    const contextA = await browser.newContext({
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 393, height: 851 },
+    });
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
     await pageA.goto(`/wiki/edit/${slug}`);
@@ -283,7 +328,7 @@ test.describe("#432 latest draft convergence", () => {
       0,
     );
 
-    await pageA.getByRole("button", { name: "完成" }).click();
+    await pageA.getByRole("button", { name: "处理冲突" }).click();
     await expect(pageA.getByRole("dialog", { name: "编辑冲突" })).toBeVisible();
     await expect(pageA.getByText("保存失败", { exact: true })).toHaveCount(0);
 

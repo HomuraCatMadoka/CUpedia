@@ -4,10 +4,13 @@ import type { TElement } from "platejs";
 import type { PlateElementProps, RenderNodeWrapper } from "platejs/react";
 
 import { useDraggable, useDropLine } from "@platejs/dnd";
-import { GripVertical } from "lucide-react";
-import { usePath } from "platejs/react";
+import { useBlockSelected } from "@platejs/selection/react";
+import { PlusIcon } from "lucide-react";
+import { useEditorRef, usePath } from "platejs/react";
 
+import { insertSlashCommandAfterBlock } from "@/components/editor/transforms";
 import { cn } from "@/lib/utils";
+import { WikiBlockMenu } from "@/components/ui/wiki-block-menu";
 
 const SKIP_TYPES = new Set(["img", "video", "tr", "td", "th", "code_line"]);
 
@@ -28,35 +31,67 @@ function DraggableBlockNode({
   element: TElement;
   children: React.ReactNode;
 }) {
+  const editor = useEditorRef();
   const path = usePath();
   const isTopLevel = path.length === 1;
   const { isDragging, handleRef, nodeRef } = useDraggable({ element });
   const { dropLine } = useDropLine({ id: element.id as string });
+  const isBlockSelected = useBlockSelected(element.id as string);
 
   if (!isTopLevel) return <>{children}</>;
 
   return (
     <div
       ref={nodeRef}
-      className={cn("group/block relative", isDragging && "opacity-50")}
+      data-testid="wiki-editor-block"
+      data-block-selected={isBlockSelected ? "true" : undefined}
+      className={cn(
+        "group/block relative [&>[data-slate-node=element]]:relative [&>[data-slate-node=element]]:z-[1]",
+        isDragging && "opacity-50",
+      )}
     >
+      {isBlockSelected && !isDragging && (
+        <div
+          aria-hidden="true"
+          data-testid="wiki-block-selection"
+          className="pointer-events-none absolute -inset-x-1.5 -inset-y-0.5 z-0 rounded-[4px] bg-[#e4edfa] dark:bg-[#244160]"
+        />
+      )}
+
       <div
-        ref={handleRef}
-        role="button"
-        tabIndex={-1}
         contentEditable={false}
+        data-testid="wiki-block-gutter"
         className={cn(
-          "absolute -left-7 top-0 z-50 flex cursor-grab items-start pt-[3px]",
-          "opacity-0 transition-opacity group-hover/block:opacity-100",
-          "active:cursor-grabbing",
+          "pointer-events-none absolute top-1.5 -left-15 z-20 hidden w-12 items-center gap-0.5 opacity-0 transition-opacity duration-100 motion-reduce:transition-none md:flex",
+          "focus-within:pointer-events-auto focus-within:opacity-100 group-data-[block-selected=true]/block:pointer-events-auto group-data-[block-selected=true]/block:opacity-100",
+          "[@media(hover:hover)_and_(pointer:fine)]:group-hover/block:pointer-events-auto [@media(hover:hover)_and_(pointer:fine)]:group-hover/block:opacity-100",
         )}
-        onMouseDown={(e) => e.stopPropagation()}
       >
-        <GripVertical className="size-4 text-muted-foreground" />
+        <button
+          type="button"
+          tabIndex={isBlockSelected ? 0 : -1}
+          data-wiki-block-control
+          aria-label="在此插入内容"
+          className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:bg-accent focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={() => insertSlashCommandAfterBlock(editor, path)}
+        >
+          <PlusIcon aria-hidden="true" className="size-3.5" />
+        </button>
+        <WikiBlockMenu
+          dragHandleRef={handleRef}
+          element={element}
+          keyboardEnabled={Boolean(isBlockSelected)}
+          path={path}
+        />
       </div>
 
       {dropLine && (
         <div
+          data-testid="wiki-block-drop-line"
           className={cn(
             "absolute inset-x-0 z-50 h-0.5 bg-ring",
             dropLine === "top" ? "-top-px" : "-bottom-px",

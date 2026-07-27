@@ -59,6 +59,7 @@
     "cmdk": "^1.1.1",
     "diff": "^9.0.0",
     "drizzle-orm": "^0.45.2",
+    "emoji-picker-react": "4.19.1",
     "file-type": "^22.0.1",
     "fuse.js": "^7.3.0",
     "katex": "^0.17.0",

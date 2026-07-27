@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
 
-test.describe("responsive on-demand discussions #433", () => {
+test.describe("responsive on-demand discussions", () => {
   test("closed discussions do not reserve editor width and open on demand", async ({
     page,
   }) => {
@@ -88,14 +88,14 @@ test.describe("responsive on-demand discussions #433", () => {
   });
 });
 
-test.describe("responsive on-demand discussions on mobile #433", () => {
+test.describe("responsive on-demand discussions on mobile", () => {
   test.use({
     viewport: { width: 393, height: 851 },
     hasTouch: true,
     isMobile: true,
   });
 
-  test("opens a bottom sheet without squeezing the editor", async ({
+  test("opens the mobile comment composer without squeezing the editor", async ({
     page,
   }) => {
     await loginAsAdmin(page);
@@ -107,13 +107,20 @@ test.describe("responsive on-demand discussions on mobile #433", () => {
     expect(closedBox).not.toBeNull();
     expect(closedBox!.width).toBeGreaterThan(300);
 
-    const trigger = page.locator(
+    const desktopTrigger = page.locator(
       'button[aria-controls="wiki-discussion-panel"]',
     );
-    await expect(trigger).toBeVisible();
-    await trigger.click();
+    await expect(desktopTrigger).toBeHidden();
 
-    const sheet = page.getByRole("dialog", { name: "批注" });
+    await editor.click();
+    const toolbar = page.getByRole("toolbar", {
+      name: "键盘上方编辑工具",
+    });
+    await toolbar
+      .getByRole("button", { name: "添加批注", exact: true })
+      .click({ force: true });
+
+    const sheet = page.getByRole("dialog", { name: "添加批注" });
     await expect(sheet).toBeVisible();
     const openBox = await editor.boundingBox();
     expect(openBox).not.toBeNull();
@@ -126,6 +133,6 @@ test.describe("responsive on-demand discussions on mobile #433", () => {
 
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
-    await expect(trigger).toBeFocused();
+    await expect(editor).toBeFocused();
   });
 });

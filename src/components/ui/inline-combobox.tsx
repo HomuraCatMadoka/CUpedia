@@ -24,6 +24,7 @@ import {
   useHTMLInputCursorState,
 } from "@platejs/combobox/react";
 import { cva } from "class-variance-authority";
+import { SearchIcon } from "lucide-react";
 import { useComposedRef, useEditorRef } from "platejs/react";
 
 import { cn } from "@/lib/utils";
@@ -65,6 +66,7 @@ type InlineComboboxProps = {
   element: TElement;
   trigger: string;
   filter?: FilterFn | false;
+  historyStateKey?: string;
   hideWhenNoValue?: boolean;
   showTrigger?: boolean;
   value?: string;
@@ -75,6 +77,7 @@ const InlineCombobox = ({
   children,
   element,
   filter = defaultFilter,
+  historyStateKey,
   hideWhenNoValue = false,
   setValue: setValueProp,
   showTrigger = true,
@@ -160,6 +163,85 @@ const InlineCombobox = ({
       }
     },
   });
+  const removeInputRef = React.useRef(removeInput);
+  const editorRef = React.useRef(editor);
+  const historyTokenRef = React.useRef<string | null>(null);
+  const historyCleanupFrameRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    removeInputRef.current = removeInput;
+  }, [removeInput]);
+
+  React.useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
+
+  React.useEffect(() => {
+    if (!historyStateKey) return;
+
+    const readToken = (state: unknown) => {
+      const value = (state as Record<string, unknown> | null)?.[
+        historyStateKey
+      ];
+      return typeof value === "string" ? value : null;
+    };
+    if (historyCleanupFrameRef.current !== null) {
+      cancelAnimationFrame(historyCleanupFrameRef.current);
+      historyCleanupFrameRef.current = null;
+    }
+
+    let token =
+      historyTokenRef.current ?? readToken(window.history.state) ?? null;
+    const comboboxUrl = window.location.href;
+    if (!token) {
+      token = crypto.randomUUID();
+      window.history.pushState(
+        {
+          ...window.history.state,
+          [historyStateKey]: token,
+        },
+        "",
+        window.location.href,
+      );
+    }
+    historyTokenRef.current = token;
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (
+        historyTokenRef.current !== token ||
+        readToken(event.state) === token
+      ) {
+        return;
+      }
+      const focusPoint =
+        insertPointRef.current?.current ?? editorRef.current.api.end([]);
+      historyTokenRef.current = null;
+      removeInputRef.current(true);
+      editorRef.current.tf.blur();
+      requestAnimationFrame(() =>
+        editorRef.current.tf.focus({
+          at: focusPoint ?? undefined,
+          retries: 5,
+        }),
+      );
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      historyCleanupFrameRef.current = requestAnimationFrame(() => {
+        historyCleanupFrameRef.current = null;
+        if (
+          window.location.href === comboboxUrl &&
+          historyTokenRef.current === token &&
+          readToken(window.history.state) === token
+        ) {
+          historyTokenRef.current = null;
+          window.history.back();
+        }
+      });
+    };
+  }, [historyStateKey]);
 
   const [hasEmpty, setHasEmpty] = React.useState(false);
 
@@ -400,6 +482,28 @@ const InlineComboboxEmpty = ({
   );
 };
 
+function InlineComboboxQuery({
+  className,
+  placeholder,
+  ...props
+}: React.ComponentProps<"div"> & { placeholder: string }) {
+  const store = useComboboxContext()!;
+  const value = store.useState("value");
+
+  return (
+    <div
+      className={cn(
+        "flex min-h-9 items-center gap-2 border-b border-border px-2 pb-2 text-sm text-muted-foreground",
+        className,
+      )}
+      {...props}
+    >
+      <SearchIcon aria-hidden="true" className="size-4 shrink-0" />
+      <span className="truncate">{value || placeholder}</span>
+    </div>
+  );
+}
+
 const InlineComboboxRow = ComboboxRow;
 
 function InlineComboboxGroup({
@@ -440,5 +544,6 @@ export {
   InlineComboboxGroupLabel,
   InlineComboboxInput,
   InlineComboboxItem,
+  InlineComboboxQuery,
   InlineComboboxRow,
 };

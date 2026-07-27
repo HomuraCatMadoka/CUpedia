@@ -53,4 +53,28 @@ describe("serializeContentWithoutDraftComments", () => {
       },
     ]);
   });
+
+  it("removes transient wiki mention inputs before persistence", () => {
+    const serialized = serializeContentWithoutDraftComments([
+      {
+        type: "p",
+        children: [
+          { text: "Before " },
+          {
+            type: "wiki_link_input",
+            displayTrigger: "@",
+            children: [{ text: "" }],
+          },
+          { text: "after" },
+        ],
+      },
+    ]);
+
+    expect(JSON.parse(serialized)).toEqual([
+      {
+        type: "p",
+        children: [{ text: "Before " }, { text: "after" }],
+      },
+    ]);
+  });
 });

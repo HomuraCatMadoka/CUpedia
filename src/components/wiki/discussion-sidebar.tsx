@@ -13,8 +13,15 @@ import { DiscussionThread, NewCommentForm } from "./discussion-popover";
 import { createDiscussion } from "@/lib/discussion-actions";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import { clearDraftCommentMarks } from "@/components/wiki/discussion-draft";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
-export function DiscussionSidebar({ pageId }: { pageId: string }) {
+export function DiscussionSidebar({
+  compactComposer = false,
+  pageId,
+}: {
+  compactComposer?: boolean;
+  pageId: string;
+}) {
   const {
     discussions,
     activeCommentId,
@@ -26,6 +33,7 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
   const [isPending, startTransition] = useTransition();
   const submittingRef = useRef(false);
   const { ensureContributorSetup } = useContributorSetup();
+  const mobileLayout = useMediaQuery("(max-width: 767px)");
 
   const commentApi = editor.getApi(BaseCommentPlugin);
 
@@ -110,6 +118,7 @@ export function DiscussionSidebar({ pageId }: { pageId: string }) {
   if (isDraft) {
     return (
       <NewCommentForm
+        compact={compactComposer && mobileLayout}
         submitting={isPending}
         onSubmit={handleNewComment}
         onCancel={handleCancelDraft}

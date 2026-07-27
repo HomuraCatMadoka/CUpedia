@@ -85,6 +85,7 @@ export const wikiPages = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     slug: text("slug").notNull().unique(),
     title: text("title").notNull(),
+    icon: text("icon"),
     content: text("content").notNull().default(""),
     parentId: uuid("parent_id").references((): AnyPgColumn => wikiPages.id),
     sortOrder: integer("sort_order").notNull().default(0),
@@ -121,6 +122,18 @@ export const wikiRevisions = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
+);
+
+export const wikiPageAliases = pgTable(
+  "wiki_page_aliases",
+  {
+    slug: text("slug").primaryKey(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("wiki_page_aliases_page_id_idx").on(table.pageId)],
 );
 
 export const wikiLinks = pgTable(
@@ -192,7 +205,17 @@ export const wikiLinksRelations = relations(wikiLinks, ({ one }) => ({
   }),
 }));
 
-export const wikiPagesRelations = relations(wikiPages, ({ one }) => ({
+export const wikiPageAliasesRelations = relations(
+  wikiPageAliases,
+  ({ one }) => ({
+    page: one(wikiPages, {
+      fields: [wikiPageAliases.pageId],
+      references: [wikiPages.id],
+    }),
+  }),
+);
+
+export const wikiPagesRelations = relations(wikiPages, ({ one, many }) => ({
   createdByUser: one(users, {
     fields: [wikiPages.createdBy],
     references: [users.id],
@@ -203,6 +226,7 @@ export const wikiPagesRelations = relations(wikiPages, ({ one }) => ({
     references: [users.id],
     relationName: "updatedBy",
   }),
+  aliases: many(wikiPageAliases),
 }));
 
 export const wikiRevisionsRelations = relations(wikiRevisions, ({ one }) => ({
