@@ -564,6 +564,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
       await expect(
         page
           .getByRole("tree", { name: "Wiki 页面层级" })
+          .getByRole("treeitem", { name: "Campus Life" })
           .getByRole("treeitem", { name: "未命名" }),
       ).toHaveAttribute("aria-current", "page");
       await page.getByRole("button", { name: "页面设置" }).click();
