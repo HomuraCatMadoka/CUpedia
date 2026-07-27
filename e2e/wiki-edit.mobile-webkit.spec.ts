@@ -26,8 +26,12 @@ test.describe("mobile WebKit editor interactions", () => {
     await insertSheet.getByRole("button", { name: "标题 2" }).tap();
 
     await expect(insertSheet).toHaveCount(0);
-    await expect(editor.locator("h2")).toBeVisible();
+    const insertedHeading = editor.locator("h2");
+    await expect(insertedHeading).toBeVisible();
     await expect(editor).toBeFocused();
+    await insertedHeading.tap();
+    await page.keyboard.type("Converted heading");
+    await expect(insertedHeading).toContainText("Converted heading");
 
     await toolbar
       .getByRole("button", { name: "转换块类型", exact: true })
@@ -37,7 +41,8 @@ test.describe("mobile WebKit editor interactions", () => {
     await turnIntoSheet.getByRole("button", { name: "正文" }).tap();
 
     await expect(turnIntoSheet).toHaveCount(0);
-    await expect(editor.locator("h2")).toHaveCount(0);
+    await expect(insertedHeading).toHaveCount(0);
+    await expect(editor).toContainText("Converted heading");
     await expect(editor).toBeFocused();
 
     await toolbar.getByRole("button", { name: "提及页面", exact: true }).tap();

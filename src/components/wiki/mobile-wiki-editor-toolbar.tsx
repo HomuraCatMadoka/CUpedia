@@ -309,8 +309,8 @@ export function MobileWikiEditorToolbar({
   }, [editor]);
 
   React.useEffect(() => {
-    if (selection) savedSelectionRef.current = selection;
-  }, [selection]);
+    if (surface === null && selection) savedSelectionRef.current = selection;
+  }, [selection, surface]);
 
   const restoreSelection = React.useCallback(() => {
     if (savedSelectionRef.current) {
@@ -566,7 +566,7 @@ export function MobileWikiEditorToolbar({
   const insertCommand = (
     command: (typeof insertGroups)[number]["commands"][number],
   ) => {
-    restoreSelection();
+    restoreSelectionOrDocumentEnd();
     insertBlockCommand(editor, command);
     savedSelectionRef.current = editor.selection;
     rememberBlockPath(editor.api.block()?.[1] ?? null);
