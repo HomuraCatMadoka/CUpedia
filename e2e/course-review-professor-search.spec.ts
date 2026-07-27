@@ -25,6 +25,7 @@ const PROFESSORS = [
   },
 ] as const;
 const PROFESSOR_NAME = PROFESSORS[0].name;
+const SECOND_PROFESSOR_NAME = PROFESSORS[1].name;
 const USER_EMAIL = "contributor@test.com";
 const COURSE_CODE = "CSCI1130";
 
@@ -110,6 +111,9 @@ test("official professor outside the course assignment can be searched and submi
 
   await professorSearch.fill("Legacy Wong");
   await page.getByRole("button", { name: PROFESSOR_NAME }).click();
+  await page.getByLabel("搜索任课教授").fill("CHAN Wing Kai");
+  await page.getByRole("button", { name: SECOND_PROFESSOR_NAME }).click();
+  await expect(page.getByText("已选择 2 位教授")).toBeVisible();
   await page.getByRole("radio", { name: "4 星", exact: true }).click();
   await page.getByRole("button", { name: "提交测评" }).click();
 
@@ -117,4 +121,24 @@ test("official professor outside the course assignment can be searched and submi
   await expect(
     page.locator("section").filter({ hasText: "我的课程测评" }),
   ).toContainText(PROFESSOR_NAME);
+  await expect(
+    page.locator("section").filter({ hasText: "我的课程测评" }),
+  ).toContainText(SECOND_PROFESSOR_NAME);
+
+  const professorFilter = page.getByLabel("按任课教授筛选");
+  await expect(
+    professorFilter.locator(`option[value="${PROFESSORS[1].id}"]`),
+  ).toHaveText(SECOND_PROFESSOR_NAME);
+  await professorFilter.selectOption(PROFESSORS[1].id);
+  await expect(page.getByTestId("professor-rating-summary")).toContainText(
+    "4.0",
+  );
+
+  await page.getByRole("button", { name: "编辑" }).click();
+  await expect(
+    page.getByRole("button", { name: `移除 ${PROFESSOR_NAME}` }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `移除 ${SECOND_PROFESSOR_NAME}` }),
+  ).toBeVisible();
 });

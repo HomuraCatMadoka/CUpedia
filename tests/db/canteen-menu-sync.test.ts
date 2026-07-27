@@ -53,7 +53,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       id: itemId,
       canteenId,
       name: "演示菜品 A",
-      mealPeriod: "lunch",
+      mealPeriods: ["lunch"],
       svgKey: "drink",
     });
     await db.insert(canteenDishVotes).values({
@@ -80,7 +80,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         {
           externalKey: "product-42:lunch",
           name: "演示菜品 A",
-          mealPeriod: "lunch",
+          mealPeriods: ["lunch"],
           svgKey: "drink",
           pricing: { options: [{ amountMinor: 1300, currency: "HKD" }] },
         },
@@ -107,7 +107,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         {
           externalKey: "product-99:lunch",
           name: "演示菜品 B",
-          mealPeriod: "lunch",
+          mealPeriods: ["lunch"],
         },
       ],
     };

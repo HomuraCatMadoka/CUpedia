@@ -1,5 +1,5 @@
 import type {
-  MealPeriod,
+  MealPeriodAssignment,
   MenuItemPriceOptionInput,
   MenuSyncInput,
   MenuSyncItemInput,
@@ -8,7 +8,7 @@ import type {
 export type ExistingSyncMenuItem = {
   id: string;
   name: string;
-  mealPeriod: MealPeriod;
+  mealPeriods: MealPeriodAssignment[];
   sortOrder: number;
   svgKey: string;
   priceOptions: MenuItemPriceOptionInput[];
@@ -54,7 +54,7 @@ export function planMenuSync(
   const legacyByNamePeriod = new Map<string, ExistingSyncMenuItem[]>();
   for (const item of existingItems) {
     if (item.externalSource !== null) continue;
-    const key = legacyMatchKey(item.name, item.mealPeriod);
+    const key = legacyMatchKey(item.name, item.mealPeriods);
     legacyByNamePeriod.set(key, [...(legacyByNamePeriod.get(key) ?? []), item]);
   }
 
@@ -85,7 +85,7 @@ export function planMenuSync(
 
     const legacyMatches =
       legacyByNamePeriod.get(
-        legacyMatchKey(incoming.name, incoming.mealPeriod),
+        legacyMatchKey(incoming.name, incoming.mealPeriods),
       ) ?? [];
     if (legacyMatches.length > 1) {
       conflicts.push({
@@ -149,8 +149,15 @@ export function planMenuSync(
   return { source: input.source, actions, conflicts, unchanged };
 }
 
-function legacyMatchKey(name: string, mealPeriod: MealPeriod): string {
-  return `${normalizeMenuName(name)}\u0000${mealPeriod}`;
+function legacyMatchKey(
+  name: string,
+  mealPeriods: readonly MealPeriodAssignment[],
+): string {
+  return `${normalizeMenuName(name)}\u0000${periodsKey(mealPeriods)}`;
+}
+
+function periodsKey(mealPeriods: readonly MealPeriodAssignment[]): string {
+  return [...mealPeriods].sort().join(",");
 }
 
 function normalizeMenuName(name: string): string {
@@ -163,7 +170,9 @@ function changedMenuFields(
 ): string[] {
   const changed: string[] = [];
   if (existing.name !== incoming.name) changed.push("name");
-  if (existing.mealPeriod !== incoming.mealPeriod) changed.push("mealPeriod");
+  if (periodsKey(existing.mealPeriods) !== periodsKey(incoming.mealPeriods)) {
+    changed.push("mealPeriods");
+  }
   if (existing.sortOrder !== incoming.sortOrder) changed.push("sortOrder");
   if (existing.svgKey !== incoming.svgKey) changed.push("svgKey");
   if (!samePriceOptions(existing.priceOptions, incoming.priceOptions)) {

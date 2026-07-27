@@ -1,20 +1,14 @@
-import type {
-  CanteenMenuItem,
-  MealPeriod,
-  MenuItemVoteCounts,
-} from "@/lib/canteen-types";
+import type { CanteenMenuItem, MenuItemVoteCounts } from "@/lib/canteen-types";
+
+export {
+  availableMealPeriods,
+  filterItemsByMealPeriod,
+} from "@/lib/canteen-meal-periods";
 
 export type RankedDish = {
   item: CanteenMenuItem;
   counts: MenuItemVoteCounts;
 };
-
-export function filterItemsByMealPeriod(
-  items: CanteenMenuItem[],
-  period: MealPeriod,
-): CanteenMenuItem[] {
-  return items.filter((item) => item.mealPeriod === period);
-}
 
 function countsFor(
   itemId: string,
@@ -23,7 +17,7 @@ function countsFor(
   return voteCounts[itemId] ?? { likes: 0, dislikes: 0 };
 }
 
-/** 大众推荐：likes DESC，同分按 likes − dislikes DESC。 */
+/** 红榜：likes DESC，同分按 likes − dislikes DESC。 */
 export function rankRecommendDishes(
   items: CanteenMenuItem[],
   voteCounts: Record<string, MenuItemVoteCounts>,
@@ -43,7 +37,7 @@ export function rankRecommendDishes(
     });
 }
 
-/** 大众避雷：dislikes DESC，同分按 dislikes − likes DESC。 */
+/** 黑榜：dislikes DESC，同分按 dislikes − likes DESC。 */
 export function rankAvoidDishes(
   items: CanteenMenuItem[],
   voteCounts: Record<string, MenuItemVoteCounts>,

@@ -29,12 +29,12 @@ import type {
   Canteen,
   CanteenMenuItem,
   DeleteImpact,
-  MealPeriod,
+  MealPeriodAssignment,
   MenuItemPriceOptionInput,
   MenuSyncInput,
 } from "@/lib/canteen-types";
 import {
-  parseMealPeriod,
+  mealPeriodsFromRow,
   parseMenuItemsJson,
   parseMenuSyncJson,
   validateCanteenName,
@@ -61,7 +61,7 @@ function mapMenuItem(
     canteenId: row.canteenId,
     name: row.name,
     pricing: buildMenuItemPricing(row.id, options, row.price),
-    mealPeriod: row.mealPeriod as MealPeriod,
+    mealPeriods: row.mealPeriods as MealPeriodAssignment[],
     sortOrder: row.sortOrder,
     svgKey: row.svgKey,
     createdAt: row.createdAt,
@@ -237,6 +237,8 @@ export async function createMenuItem(
     pricing?: unknown;
     /** @deprecated Use pricing.options. */
     price?: unknown;
+    mealPeriods?: unknown;
+    /** @deprecated Prefer mealPeriods. */
     mealPeriod?: unknown;
     sortOrder?: unknown;
     svgKey?: unknown;
@@ -256,8 +258,8 @@ export async function createMenuItem(
   });
   if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
 
-  const mealPeriod = parseMealPeriod(String(input.mealPeriod ?? "lunch"));
-  if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+  const mealPeriods = mealPeriodsFromRow(input as Record<string, unknown>);
+  if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
   const options = validatePricingInput(input.pricing, input.price) ?? [];
 
   const now = new Date();
@@ -268,7 +270,7 @@ export async function createMenuItem(
         canteenId,
         name: validateMenuItemName(input.name),
         price: null,
-        mealPeriod,
+        mealPeriods,
         sortOrder: validateSortOrder(input.sortOrder),
         svgKey: validateSvgKey(input.svgKey),
         createdAt: now,
@@ -321,7 +323,7 @@ export async function bulkImportMenuItemsFromJson(
           canteenId,
           name: row.name,
           price: null,
-          mealPeriod: row.mealPeriod,
+          mealPeriods: row.mealPeriods,
           sortOrder: row.sortOrder,
           svgKey: row.svgKey,
           createdAt: now,
@@ -349,7 +351,7 @@ export async function bulkImportMenuItemsFromJson(
 type SyncMenuRow = {
   id: string;
   name: string;
-  mealPeriod: string;
+  mealPeriods: string[];
   sortOrder: number;
   svgKey: string;
   legacyPrice: number | null;
@@ -381,7 +383,7 @@ function collectExistingSyncItems(rows: SyncMenuRow[]): ExistingSyncMenuItem[] {
     items.set(row.id, {
       id: row.id,
       name: row.name,
-      mealPeriod: row.mealPeriod as MealPeriod,
+      mealPeriods: row.mealPeriods as MealPeriodAssignment[],
       sortOrder: row.sortOrder,
       svgKey: row.svgKey,
       priceOptions: row.priceId
@@ -418,7 +420,7 @@ function syncMenuSelection() {
   return {
     id: canteenMenuItems.id,
     name: canteenMenuItems.name,
-    mealPeriod: canteenMenuItems.mealPeriod,
+    mealPeriods: canteenMenuItems.mealPeriods,
     sortOrder: canteenMenuItems.sortOrder,
     svgKey: canteenMenuItems.svgKey,
     legacyPrice: canteenMenuItems.price,
@@ -535,7 +537,7 @@ export async function applyMenuSyncFromJson(
             canteenId,
             name: item.name,
             price: null,
-            mealPeriod: item.mealPeriod,
+            mealPeriods: item.mealPeriods,
             sortOrder: item.sortOrder,
             svgKey: item.svgKey,
             externalSource: input.source,
@@ -561,7 +563,7 @@ export async function applyMenuSyncFromJson(
         .set({
           name: item.name,
           price: null,
-          mealPeriod: item.mealPeriod,
+          mealPeriods: item.mealPeriods,
           sortOrder: item.sortOrder,
           svgKey: item.svgKey,
           externalSource: input.source,
@@ -617,6 +619,8 @@ export async function updateMenuItem(
     pricing?: unknown;
     /** @deprecated Use pricing.options. */
     price?: unknown;
+    mealPeriods?: unknown;
+    /** @deprecated Prefer mealPeriods. */
     mealPeriod?: unknown;
     sortOrder?: unknown;
     svgKey?: unknown;
@@ -634,7 +638,7 @@ export async function updateMenuItem(
   const updates: {
     name?: string;
     price?: number | null;
-    mealPeriod?: MealPeriod;
+    mealPeriods?: MealPeriodAssignment[];
     sortOrder?: number;
     svgKey?: string;
     updatedAt: Date;
@@ -643,10 +647,10 @@ export async function updateMenuItem(
   if (input.name !== undefined) updates.name = validateMenuItemName(input.name);
   const options = validatePricingInput(input.pricing, input.price);
   if (options !== undefined) updates.price = null;
-  if (input.mealPeriod !== undefined) {
-    const mealPeriod = parseMealPeriod(String(input.mealPeriod));
-    if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
-    updates.mealPeriod = mealPeriod;
+  if (input.mealPeriods !== undefined || input.mealPeriod !== undefined) {
+    const mealPeriods = mealPeriodsFromRow(input as Record<string, unknown>);
+    if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
+    updates.mealPeriods = mealPeriods;
   }
   if (input.sortOrder !== undefined) {
     updates.sortOrder = validateSortOrder(input.sortOrder);

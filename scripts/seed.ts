@@ -184,7 +184,7 @@ async function main() {
         canteenId: item.canteenId,
         name: item.name,
         price: item.price,
-        mealPeriod: item.mealPeriod,
+        mealPeriods: item.mealPeriods,
         sortOrder: item.sortOrder,
         svgKey: item.svgKey,
         createdAt: now,

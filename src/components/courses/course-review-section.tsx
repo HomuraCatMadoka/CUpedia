@@ -6,9 +6,11 @@ import Link from "next/link";
 import {
   CheckCircle2Icon,
   PencilIcon,
+  SearchIcon,
   StarIcon,
   ThumbsUpIcon,
   Trash2Icon,
+  XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -175,15 +177,17 @@ export function CourseReviewSection({
   const [visibleReviewLimit, setVisibleReviewLimit] =
     useState(INITIAL_REVIEW_LIMIT);
   const [showAllTermYears, setShowAllTermYears] = useState(false);
-  const [professorQuery, setProfessorQuery] = useState(
-    ratingState.lastProfessor?.name ?? "",
-  );
+  const initialProfessors = ratingState.lastProfessors?.length
+    ? ratingState.lastProfessors
+    : ratingState.lastProfessor
+      ? [ratingState.lastProfessor]
+      : [];
+  const [professorQuery, setProfessorQuery] = useState("");
   const [professorOptions, setProfessorOptions] = useState<ProfessorOption[]>(
     [],
   );
-  const [professor, setProfessor] = useState<ProfessorOption | null>(
-    ratingState.lastProfessor,
-  );
+  const [selectedProfessors, setSelectedProfessors] =
+    useState<ProfessorOption[]>(initialProfessors);
 
   useEffect(() => {
     const openEditor = () => setEditing(true);
@@ -195,9 +199,24 @@ export function CourseReviewSection({
 
   function handleProfessorQuery(value: string) {
     setProfessorQuery(value);
-    setProfessor(null);
     startSearch(async () =>
       setProfessorOptions(await searchProfessors(code, value)),
+    );
+  }
+
+  function addProfessor(professor: ProfessorOption) {
+    setSelectedProfessors((current) =>
+      current.some((item) => item.id === professor.id)
+        ? current
+        : [...current, professor],
+    );
+    setProfessorQuery("");
+    setProfessorOptions([]);
+  }
+
+  function removeProfessor(professorId: string) {
+    setSelectedProfessors((current) =>
+      current.filter((item) => item.id !== professorId),
     );
   }
 
@@ -207,13 +226,14 @@ export function CourseReviewSection({
       try {
         if (!academicYear) throw new Error("请选择学年");
         if (!term) throw new Error("请选择学期");
-        if (!professor && !professorOptional) throw new Error("请选择任课教授");
+        if (!selectedProfessors.length && !professorOptional)
+          throw new Error("请选择任课教授");
         if (score === null) throw new Error("请选择总体评分");
         if (!isAnonymous && !(await ensureContributorSetup())) return;
         const result = await submitCourseReview(code, {
           academicYear,
           term,
-          professorId: professor?.id ?? null,
+          professorIds: selectedProfessors.map((professor) => professor.id),
           score,
           content,
           tags: reviewTags,
@@ -287,13 +307,19 @@ export function CourseReviewSection({
   const ready =
     !!academicYear &&
     !!term &&
-    (!!professor || professorOptional) &&
+    (selectedProfessors.length > 0 || professorOptional) &&
     score !== null;
   const selectedProfessor = professorStats.find(
     (item) => item.id === selectedProfessorId,
   );
   const visibleReviews = selectedProfessor
-    ? reviews.filter((review) => review.professorId === selectedProfessor.id)
+    ? reviews.filter((review) =>
+        review.professors?.length
+          ? review.professors.some(
+              (professor) => professor.id === selectedProfessor.id,
+            )
+          : review.professorId === selectedProfessor.id,
+      )
     : reviews;
   const visibleCommentCount = visibleReviews.length;
   const displayedReviews = visibleReviews.slice(0, visibleReviewLimit);
@@ -317,13 +343,24 @@ export function CourseReviewSection({
   const hiddenTermCount = professorTermsByYear
     .slice(4)
     .reduce((total, year) => total + year.terms.size, 0);
+  const availableProfessorOptions = professorOptions.filter(
+    (option) =>
+      !selectedProfessors.some((selected) => selected.id === option.id),
+  );
+  const suggestedProfessors = professorStats.filter(
+    (professor) =>
+      professor.terms.some(
+        (offering) =>
+          offering.academicYear === academicYear && offering.term === term,
+      ) && !selectedProfessors.some((selected) => selected.id === professor.id),
+  );
 
   function resetForm() {
     setAcademicYear(ratingState.lastAcademicYear ?? "");
     setTerm(ratingState.lastTerm ?? "");
     setScore(ratingState.lastScore);
-    setProfessor(ratingState.lastProfessor);
-    setProfessorQuery(ratingState.lastProfessor?.name ?? "");
+    setSelectedProfessors(initialProfessors);
+    setProfessorQuery("");
     setContent(ratingState.lastContent);
     setReviewTags(parseReviewTags(ratingState.lastTags));
     setIsAnonymous(ratingState.lastIsAnonymous);
@@ -376,16 +413,9 @@ export function CourseReviewSection({
     <section id="course-review" className="scroll-mt-20 space-y-8">
       <div className="overflow-hidden rounded-2xl border bg-card">
         <div className="border-b bg-secondary/25 px-6 py-5">
-          <div>
-            <h2 className="text-lg font-semibold">
-              {isPublished ? "我的课程测评" : "提交课程测评"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {isPublished
-                ? "你可以随时修改署名方式，或删除这条投稿。"
-                : "记录你实际修读的学期；评论选填，默认展示你的昵称。"}
-            </p>
-          </div>
+          <h2 className="text-lg font-semibold">
+            {isPublished ? "我的课程测评" : "提交课程测评"}
+          </h2>
         </div>
 
         {!isAuthenticated ? (
@@ -417,11 +447,14 @@ export function CourseReviewSection({
                 <span className="rounded-full bg-secondary px-3 py-1.5">
                   {ratingState.lastTerm}
                 </span>
-                {ratingState.lastProfessor && (
-                  <span className="rounded-full bg-secondary px-3 py-1.5">
-                    {ratingState.lastProfessor.name}
+                {initialProfessors.map((professor) => (
+                  <span
+                    key={professor.id}
+                    className="rounded-full bg-secondary px-3 py-1.5"
+                  >
+                    {professor.name}
                   </span>
-                )}
+                ))}
                 {ratingState.lastTags.map((tag) => (
                   <span
                     key={tag}
@@ -462,17 +495,8 @@ export function CourseReviewSection({
               </div>
             </div>
           ) : (
-            <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-medium">分享你的实际修读体验</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                  评分必填，文字评论和课程体验标签均为选填。
-                </p>
-              </div>
-              <Button
-                className="self-start sm:self-auto"
-                onClick={() => setEditing(true)}
-              >
+            <div className="flex justify-end p-6">
+              <Button onClick={() => setEditing(true)}>
                 <PencilIcon className="size-4" />
                 开始填写
               </Button>
@@ -519,36 +543,72 @@ export function CourseReviewSection({
               </label>
             </div>
 
-            <label className="block space-y-2 text-sm font-medium">
-              <span>
-                任课教授
-                {professorOptional && (
-                  <span className="ml-2 font-normal text-muted-foreground">
-                    选填
+            <fieldset className="block space-y-2 text-sm font-medium">
+              <legend className="mb-2 w-full">
+                <span className="flex w-full items-center justify-between gap-3">
+                  <span>
+                    任课教授
+                    {professorOptional && (
+                      <span className="ml-2 font-normal text-muted-foreground">
+                        选填
+                      </span>
+                    )}
                   </span>
+                  {selectedProfessors.length > 0 && (
+                    <span
+                      aria-live="polite"
+                      className="text-xs font-normal tabular-nums text-muted-foreground"
+                    >
+                      已选择 {selectedProfessors.length} 位教授
+                    </span>
+                  )}
+                </span>
+              </legend>
+              <div className="space-y-2">
+                {selectedProfessors.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedProfessors.map((professor) => (
+                      <button
+                        key={professor.id}
+                        type="button"
+                        onClick={() => removeProfessor(professor.id)}
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-left text-xs font-normal text-foreground transition-colors hover:bg-destructive/10 hover:text-destructive active:scale-[0.98]"
+                        aria-label={`移除 ${professor.name}`}
+                      >
+                        <span className="min-w-0 break-words">
+                          {professor.name}
+                        </span>
+                        <XIcon aria-hidden="true" className="size-3 shrink-0" />
+                      </button>
+                    ))}
+                  </div>
                 )}
-              </span>
-              <div className="relative">
-                <input
-                  value={professorQuery}
-                  onChange={(event) => handleProfessorQuery(event.target.value)}
-                  placeholder="搜索任课教授姓名"
-                  autoComplete="off"
-                  className="h-10 w-full rounded-md border bg-background px-3 font-normal outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                />
-                {!professor &&
-                  professorQuery &&
-                  professorOptions.length > 0 && (
-                    <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
-                      {professorOptions.map((option) => (
+                <div className="relative">
+                  <SearchIcon
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  />
+                  <input
+                    aria-label="搜索任课教授"
+                    value={professorQuery}
+                    onChange={(event) =>
+                      handleProfessorQuery(event.target.value)
+                    }
+                    placeholder={
+                      selectedProfessors.length
+                        ? "继续搜索其他教授"
+                        : "搜索任课教授姓名"
+                    }
+                    autoComplete="off"
+                    className="h-11 w-full rounded-lg border bg-background pl-9 pr-3 text-sm font-normal outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+                  />
+                  {professorQuery && availableProfessorOptions.length > 0 && (
+                    <ul className="absolute inset-x-0 top-[calc(100%+0.25rem)] z-20 max-h-48 overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                      {availableProfessorOptions.map((option) => (
                         <li key={option.id}>
                           <button
                             type="button"
-                            onClick={() => {
-                              setProfessor(option);
-                              setProfessorQuery(option.name);
-                              setProfessorOptions([]);
-                            }}
+                            onClick={() => addProfessor(option)}
                             className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
                           >
                             <span className="block">{option.name}</span>
@@ -562,13 +622,31 @@ export function CourseReviewSection({
                       ))}
                     </ul>
                   )}
+                </div>
               </div>
+              {suggestedProfessors.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5">
+                  <span className="mr-0.5 text-xs font-normal text-muted-foreground">
+                    {academicYear} · {term} 任课
+                  </span>
+                  {suggestedProfessors.map((professor) => (
+                    <button
+                      key={professor.id}
+                      type="button"
+                      onClick={() => addProfessor(professor)}
+                      className="rounded-md border border-dashed bg-background px-2.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-secondary/50 hover:text-foreground active:scale-[0.98]"
+                    >
+                      + {professor.name}
+                    </button>
+                  ))}
+                </div>
+              )}
               {professorOptional && (
                 <span className="block text-xs font-normal text-muted-foreground">
                   课程资料未列任课教授，可留空
                 </span>
               )}
-            </label>
+            </fieldset>
 
             <fieldset className="space-y-2">
               <legend className="text-sm font-medium">总体评分</legend>
@@ -577,11 +655,6 @@ export function CourseReviewSection({
                 onChange={setScore}
                 disabled={submitting}
               />
-              {isPublished && (
-                <p className="text-xs text-muted-foreground">
-                  已保留你上次的选择，可直接修改后更新。
-                </p>
-              )}
             </fieldset>
 
             <fieldset className="space-y-4">
@@ -1031,11 +1104,19 @@ export function CourseReviewSection({
                   {review.term}
                 </span>
               )}
-              {review.professorName && (
-                <span className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground">
-                  {review.professorName}
+              {(review.professors?.length
+                ? review.professors
+                : review.professorId && review.professorName
+                  ? [{ id: review.professorId, name: review.professorName }]
+                  : []
+              ).map((professor) => (
+                <span
+                  key={professor.id}
+                  className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground"
+                >
+                  {professor.name}
                 </span>
-              )}
+              ))}
               {review.tags.map((tag) => (
                 <span
                   key={tag}

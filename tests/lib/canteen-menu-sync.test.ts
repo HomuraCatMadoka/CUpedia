@@ -11,7 +11,7 @@ function existing(
   return {
     id: "item-1",
     name: "凍奶茶",
-    mealPeriod: "lunch",
+    mealPeriods: ["lunch"],
     sortOrder: 0,
     svgKey: "drink",
     priceOptions: [],
@@ -29,7 +29,7 @@ function input(name = "凍奶茶") {
       {
         externalKey: "product-42:lunch",
         name,
-        mealPeriod: "lunch",
+        mealPeriods: ["lunch"],
         svgKey: "drink",
       },
     ],
@@ -105,8 +105,8 @@ describe("menu sync planner", () => {
     const duplicateNameInput = parseMenuSyncJson({
       source: "order-place:102830",
       items: [
-        { externalKey: "product-a:lunch", name: "凍奶茶" },
-        { externalKey: "product-b:lunch", name: "凍奶茶" },
+        { externalKey: "product-a:lunch", name: "凍奶茶", mealPeriod: "lunch" },
+        { externalKey: "product-b:lunch", name: "凍奶茶", mealPeriod: "lunch" },
       ],
     });
     const plan = planMenuSync(duplicateNameInput, [existing()]);
@@ -146,6 +146,7 @@ describe("menu sync planner", () => {
         {
           externalKey: "product-42:lunch",
           name: "凍奶茶",
+          mealPeriod: "lunch",
           svgKey: "drink",
           pricing: {
             options: [

@@ -2,7 +2,17 @@
 
 import { db } from "@/db";
 import { wikiPages, wikiRevisions, wikiLinks } from "@/db/schema";
-import { eq, isNull, and, sql, desc, inArray } from "drizzle-orm";
+import {
+  eq,
+  isNull,
+  isNotNull,
+  and,
+  sql,
+  desc,
+  inArray,
+  gte,
+  lt,
+} from "drizzle-orm";
 import {
   revalidatePath,
   unstable_cache,
@@ -75,7 +85,7 @@ export async function getWikiPage(slug: string) {
 }
 
 // Editing needs an authoritative optimistic-lock baseline. A stale cached
-// updatedAt turns the next legitimate save into a false EDIT_CONFLICT.
+// version or updatedAt turns the next legitimate save into a false conflict.
 export async function getWikiPageForEdit(slug: string) {
   return (
     (await db.query.wikiPages.findFirst({
@@ -177,23 +187,35 @@ export interface UpdateConflict {
   /** Server's current content, for manual resolution. */
   theirContent: string;
   theirTitle: string;
+  theirVersion: number;
   theirUpdatedAt: string;
 }
 
 type WikiPageRow = typeof wikiPages.$inferSelect;
 
-/** Optimistically-locked write; throws EDIT_CONFLICT if updatedAt moved. */
+/** Optimistically locked write; throws EDIT_CONFLICT if the baseline moved. */
 async function writeWikiPage(
   data: {
     slug: string;
     title: string;
     content: string;
     editSummary?: string;
+    expectedVersion: number;
     expectedUpdatedAt: string;
   },
   userId: string,
   pageId: string,
 ): Promise<WikiPageRow> {
+  const expectedUpdatedAt = new Date(data.expectedUpdatedAt);
+  if (
+    !Number.isInteger(data.expectedVersion) ||
+    data.expectedVersion < 1 ||
+    Number.isNaN(expectedUpdatedAt.getTime())
+  ) {
+    throw new Error("Invalid edit baseline");
+  }
+  const expectedUpdatedBefore = new Date(expectedUpdatedAt.getTime() + 1);
+
   return db.transaction(async (tx) => {
     const updated = await tx
       .update(wikiPages)
@@ -202,11 +224,19 @@ async function writeWikiPage(
         content: data.content,
         updatedBy: userId,
         updatedAt: new Date(),
+        version: sql`${wikiPages.version} + 1`,
       })
       .where(
         and(
           eq(wikiPages.id, pageId),
-          eq(wikiPages.updatedAt, new Date(data.expectedUpdatedAt)),
+          eq(wikiPages.version, data.expectedVersion),
+          // Compatibility guard for pre-version deployments: old writers do
+          // not advance `version`, but they do move `updatedAt`. Compare the
+          // millisecond window visible to JavaScript so PostgreSQL microseconds
+          // cannot recreate the false conflict this lock replaces.
+          gte(wikiPages.updatedAt, expectedUpdatedAt),
+          lt(wikiPages.updatedAt, expectedUpdatedBefore),
+          isNull(wikiPages.deletedAt),
         ),
       )
       .returning();
@@ -258,14 +288,17 @@ export async function updateWikiPage(data: {
   title: string;
   content: string;
   editSummary?: string;
+  expectedVersion: number;
   expectedUpdatedAt: string;
+  /** Ancestor title for scalar three-way merge. */
+  baseTitle?: string;
   /** Ancestor content (editor's initialValue) for three-way merge. */
   baseContent?: string;
 }): Promise<WikiPageRow | UpdateConflict> {
   const user = await assertContributorComplete(await requireEditor());
 
   const existing = await db.query.wikiPages.findFirst({
-    where: eq(wikiPages.slug, data.slug),
+    where: and(eq(wikiPages.slug, data.slug), isNull(wikiPages.deletedAt)),
   });
   if (!existing) throw new Error("Page not found");
 
@@ -283,12 +316,29 @@ export async function updateWikiPage(data: {
   }
 
   const latest = await db.query.wikiPages.findFirst({
-    where: eq(wikiPages.id, existing.id),
+    where: and(eq(wikiPages.id, existing.id), isNull(wikiPages.deletedAt)),
   });
   if (!latest) throw new Error("Page not found");
-  const theirUpdatedAt = new Date(latest.updatedAt).toISOString();
 
   if (data.baseContent !== undefined) {
+    let mergedTitle = data.title;
+    if (data.baseTitle !== undefined) {
+      const mineChanged = data.title !== data.baseTitle;
+      const theirsChanged = latest.title !== data.baseTitle;
+
+      if (!mineChanged && theirsChanged) {
+        mergedTitle = latest.title;
+      } else if (mineChanged && theirsChanged && data.title !== latest.title) {
+        return {
+          conflict: true,
+          theirContent: latest.content,
+          theirTitle: latest.title,
+          theirVersion: latest.version,
+          theirUpdatedAt: latest.updatedAt.toISOString(),
+        };
+      }
+    }
+
     const merged = await threeWayMergeContent({
       base: data.baseContent,
       mine: data.content,
@@ -296,16 +346,18 @@ export async function updateWikiPage(data: {
     });
     if (merged.clean && merged.content) {
       const result = await writeWikiPage(
-        { ...data, content: merged.content, expectedUpdatedAt: theirUpdatedAt },
+        {
+          ...data,
+          title: mergedTitle,
+          content: merged.content,
+          expectedVersion: latest.version,
+          expectedUpdatedAt: latest.updatedAt.toISOString(),
+        },
         user.id,
         existing.id,
       );
       revalidateTag("wiki-pages", "max");
-      // Gate on `latest.title` (the post-conflict state this write overwrites),
-      // not `existing.title` (the stale pre-conflict baseline): a concurrent
-      // rename may have already moved the title, so `data.title` could revert
-      // it — still a structural change the corpus must reflect. See ADR 0011.
-      if (data.title !== latest.title) revalidateSearchCorpus();
+      if (mergedTitle !== latest.title) revalidateSearchCorpus();
       return result;
     }
   }
@@ -314,7 +366,8 @@ export async function updateWikiPage(data: {
     conflict: true,
     theirContent: latest.content,
     theirTitle: latest.title,
-    theirUpdatedAt,
+    theirVersion: latest.version,
+    theirUpdatedAt: latest.updatedAt.toISOString(),
   };
 }
 
@@ -338,8 +391,11 @@ export async function deleteWikiPage(pageId: string) {
 
   await db
     .update(wikiPages)
-    .set({ deletedAt: now })
-    .where(inArray(wikiPages.id, ids));
+    .set({
+      deletedAt: now,
+      version: sql`${wikiPages.version} + 1`,
+    })
+    .where(and(inArray(wikiPages.id, ids), isNull(wikiPages.deletedAt)));
 
   updateTag("wiki-pages");
   revalidatePath("/wiki", "layout");
@@ -373,8 +429,11 @@ export async function restoreWikiPage(pageId: string) {
 
   await db
     .update(wikiPages)
-    .set({ deletedAt: null })
-    .where(inArray(wikiPages.id, ids));
+    .set({
+      deletedAt: null,
+      version: sql`${wikiPages.version} + 1`,
+    })
+    .where(and(inArray(wikiPages.id, ids), isNotNull(wikiPages.deletedAt)));
 
   updateTag("wiki-pages");
   revalidatePath("/wiki", "layout");
@@ -428,6 +487,7 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
         content: revision.content,
         updatedBy: user.id,
         updatedAt: new Date(),
+        version: sql`${wikiPages.version} + 1`,
       })
       .where(eq(wikiPages.id, pageId));
 

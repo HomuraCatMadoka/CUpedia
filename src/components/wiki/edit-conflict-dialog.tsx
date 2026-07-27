@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 export interface EditConflict {
   theirContent: string;
   theirTitle: string;
+  theirVersion: number;
   theirUpdatedAt: string;
 }
 
@@ -53,7 +54,7 @@ export function EditConflictDialog({
             放弃我的改动，加载最新
           </Button>
           <Button onClick={onKeepMine} disabled={saving}>
-            {saving ? "保存中..." : "保留我的版本另存"}
+            {saving ? "保存中…" : "保留我的版本另存"}
           </Button>
         </div>
       </div>

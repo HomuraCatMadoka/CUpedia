@@ -32,17 +32,19 @@ describe("canteen-actions (mock mode)", () => {
   });
 
   it("returns menu items sorted by meal period then sort order", async () => {
-    const { getCanteens, getCanteenMenuItems } = await import(
-      "@/lib/canteen-actions"
-    );
+    const { getCanteens, getCanteenMenuItems } =
+      await import("@/lib/canteen-actions");
     const canteen = (await getCanteens())[0];
     const items = await getCanteenMenuItems(canteen.id);
     expect(items.length).toBeGreaterThan(0);
-    const { compareMealPeriods } = await import("@/lib/canteen-types");
+    const { primaryMealPeriodSortKey } = await import("@/lib/canteen-types");
     for (let i = 1; i < items.length; i++) {
       const prev = items[i - 1];
       const curr = items[i];
-      expect(compareMealPeriods(prev.mealPeriod, curr.mealPeriod)).toBeLessThanOrEqual(0);
+      expect(
+        primaryMealPeriodSortKey(prev.mealPeriods) -
+          primaryMealPeriodSortKey(curr.mealPeriods),
+      ).toBeLessThanOrEqual(0);
     }
   });
 });

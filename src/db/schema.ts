@@ -97,6 +97,7 @@ export const wikiPages = pgTable(
       .references(() => users.id),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    version: integer("version").default(1).notNull(),
   },
   (table) => [
     index("wiki_pages_parent_id_idx").on(table.parentId),
@@ -914,6 +915,26 @@ export const professorCourses = pgTable(
   (table) => [primaryKey({ columns: [table.professorId, table.courseCode] })],
 );
 
+/** Professors attached to one student's course experience. The legacy
+ * course_ratings.professor_id column remains as the first selected professor
+ * for backwards compatibility; this table is the complete multi-select. */
+export const courseRatingProfessors = pgTable(
+  "course_rating_professors",
+  {
+    ratingId: uuid("rating_id")
+      .notNull()
+      .references(() => courseRatings.id, { onDelete: "cascade" }),
+    professorId: text("professor_id")
+      .notNull()
+      .references(() => professors.id),
+    professorNameSnapshot: text("professor_name_snapshot").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.ratingId, table.professorId] }),
+    index("course_rating_professors_professor_id_idx").on(table.professorId),
+  ],
+).enableRLS();
+
 export const professorStaffIdentities = pgTable(
   "professor_staff_identities",
   {
@@ -1101,8 +1122,17 @@ export const courseReviewLikes = pgTable(
 
 // ── Canteen subsystem (hard delete; no deletedAt — unlike wiki soft delete) ──
 
+/** Visible meal-period tabs (never includes allday). */
 export const MEAL_PERIODS = ["breakfast", "lunch", "dinner"] as const;
 export type MealPeriod = (typeof MEAL_PERIODS)[number];
+
+export const ALLDAY_MEAL_PERIOD = "allday" as const;
+/** Stored assignment values: specific periods and/or exclusive allday. */
+export const MEAL_PERIOD_VALUES = [
+  ...MEAL_PERIODS,
+  ALLDAY_MEAL_PERIOD,
+] as const;
+export type MealPeriodAssignment = (typeof MEAL_PERIOD_VALUES)[number];
 
 export const canteens = pgTable("canteens", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -1123,7 +1153,10 @@ export const canteenMenuItems = pgTable(
       .references(() => canteens.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     price: integer("price"),
-    mealPeriod: text("meal_period").notNull().default("lunch"),
+    mealPeriods: text("meal_periods")
+      .array()
+      .notNull()
+      .default(sql`'{allday}'`),
     sortOrder: integer("sort_order").notNull().default(0),
     svgKey: text("svg_key").notNull().default("default"),
     externalSource: text("external_source"),
@@ -1135,10 +1168,6 @@ export const canteenMenuItems = pgTable(
   },
   (table) => [
     index("canteen_menu_items_canteen_id_idx").on(table.canteenId),
-    index("canteen_menu_items_canteen_meal_idx").on(
-      table.canteenId,
-      table.mealPeriod,
-    ),
     uniqueIndex("canteen_menu_items_external_identity_uidx")
       .on(table.canteenId, table.externalSource, table.externalKey)
       .where(

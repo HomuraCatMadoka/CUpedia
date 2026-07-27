@@ -45,6 +45,13 @@ async function selectText(page: Page, text: string) {
 }
 
 async function openDiscussion(page: Page) {
+  const panelTrigger = page.locator(
+    'button[aria-controls="wiki-discussion-panel"]',
+  );
+  await expect(panelTrigger).toBeVisible();
+  if ((await panelTrigger.getAttribute("aria-expanded")) === "false") {
+    await panelTrigger.click();
+  }
   await page.getByRole("button", { name: new RegExp(rootComment) }).click();
   await expect(page.getByText(rootComment, { exact: true })).toBeVisible();
 }
@@ -65,7 +72,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   await page.getByLabel("标题").fill(title);
   await page.getByLabel("URL 路径").fill(slug);
   await page.locator('[role="textbox"]').first().fill(selectedText);
-  await page.getByRole("button", { name: "保存" }).click();
+  await page.getByRole("button", { name: "完成" }).click();
   await page.waitForURL(`**/wiki/${slug}`);
 
   await query(

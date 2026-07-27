@@ -62,6 +62,7 @@ export async function previewCreateMenuItem(
     name: unknown;
     pricing?: unknown;
     price?: unknown;
+    mealPeriods?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
     svgKey?: unknown;
@@ -81,6 +82,7 @@ export async function previewUpdateMenuItem(
     name?: unknown;
     pricing?: unknown;
     price?: unknown;
+    mealPeriods?: unknown;
     mealPeriod?: unknown;
     sortOrder?: unknown;
     svgKey?: unknown;

@@ -27,12 +27,14 @@ function TimeAgo({ date }: { date: Date }) {
 
 function DiscussionMessage({ discussion }: { discussion: Discussion }) {
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium">{discussion.user.nickname}</span>
+    <div className="min-w-0 flex flex-col gap-1">
+      <div className="min-w-0 flex items-center gap-2">
+        <span className="min-w-0 truncate text-xs font-medium">
+          {discussion.user.nickname}
+        </span>
         <TimeAgo date={discussion.createdAt} />
       </div>
-      <p className="text-sm">{discussion.content}</p>
+      <p className="break-words text-sm">{discussion.content}</p>
     </div>
   );
 }
@@ -84,13 +86,14 @@ export function DiscussionThread({
 
       {!discussion.resolved && !readOnly && (
         <>
-          <div className="flex gap-2">
+          <div className="flex min-w-0 gap-2">
             <Textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
+              aria-label="回复内容"
               placeholder="回复..."
               rows={1}
-              className="min-h-8 resize-none text-sm"
+              className="min-h-11 min-w-0 resize-none text-sm"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
@@ -101,11 +104,12 @@ export function DiscussionThread({
             <Button
               size="icon"
               variant="ghost"
+              aria-label="发送回复"
               onClick={handleReply}
               disabled={pending || !reply.trim()}
-              className="h-8 w-8 shrink-0"
+              className="size-11 shrink-0"
             >
-              <SendIcon className="h-3.5 w-3.5" />
+              <SendIcon aria-hidden="true" className="size-4" />
             </Button>
           </div>
           {discussion.canResolve && (
@@ -116,7 +120,7 @@ export function DiscussionThread({
               disabled={pending}
               className="self-start text-xs"
             >
-              <CheckIcon className="mr-1 h-3 w-3" />
+              <CheckIcon aria-hidden="true" className="mr-1 h-3 w-3" />
               标记为已解决
             </Button>
           )}
@@ -127,9 +131,11 @@ export function DiscussionThread({
 }
 
 export function NewCommentForm({
+  submitting = false,
   onSubmit,
   onCancel,
 }: {
+  submitting?: boolean;
   onSubmit: (content: string) => void;
   onCancel: () => void;
 }) {
@@ -138,12 +144,14 @@ export function NewCommentForm({
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
       <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-        <MessageSquareIcon className="h-3 w-3" />
+        <MessageSquareIcon aria-hidden="true" className="h-3 w-3" />
         新建批注
       </div>
       <Textarea
         value={content}
+        disabled={submitting}
         onChange={(e) => setContent(e.target.value)}
+        aria-label="批注内容"
         placeholder="输入批注内容..."
         rows={2}
         className="resize-none text-sm"
@@ -151,7 +159,7 @@ export function NewCommentForm({
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (content.trim()) onSubmit(content);
+            if (!submitting && content.trim()) onSubmit(content);
           }
           if (e.key === "Escape") onCancel();
         }}
@@ -161,6 +169,7 @@ export function NewCommentForm({
           size="sm"
           variant="ghost"
           onClick={onCancel}
+          disabled={submitting}
           className="text-xs"
         >
           取消
@@ -168,7 +177,7 @@ export function NewCommentForm({
         <Button
           size="sm"
           onClick={() => content.trim() && onSubmit(content)}
-          disabled={!content.trim()}
+          disabled={submitting || !content.trim()}
           className="text-xs"
         >
           提交

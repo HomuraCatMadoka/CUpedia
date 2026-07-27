@@ -66,7 +66,7 @@ describe("MenuItemCommentPanel", () => {
         initialCommentCount={3}
       />,
     );
-    expect(screen.getByRole("button", { name: "评论 (3)" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "评论 3" })).toBeTruthy();
     expect(mockGetCommentsForMenuItem).not.toHaveBeenCalled();
   });
 
@@ -143,17 +143,17 @@ describe("MenuItemCommentPanel", () => {
     fireEvent.change(screen.getByPlaceholderText("写下你的短评…"), {
       target: { value: "味道不错" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "发表评论" }));
+    fireEvent.click(screen.getByRole("button", { name: "发表" }));
 
     await waitFor(() => {
       expect(screen.getByText("味道不错")).toBeTruthy();
-      expect(screen.getByRole("button", { name: /评论 \(1\)/ })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "评论 1" })).toBeTruthy();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /评论 \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: "评论 1" }));
     expect(screen.queryByText("味道不错")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /评论 \(1\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: "评论 1" }));
     expect(screen.getByText("味道不错")).toBeTruthy();
     expect(mockGetCommentsForMenuItem).toHaveBeenCalledTimes(1);
   });
@@ -240,6 +240,6 @@ describe("MenuItemCommentPanel", () => {
     await waitFor(() => {
       expect(screen.getByText("暂无评论")).toBeTruthy();
     });
-    expect(screen.getByRole("button", { name: /评论 \(0\)/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "评论 0" })).toBeTruthy();
   });
 });

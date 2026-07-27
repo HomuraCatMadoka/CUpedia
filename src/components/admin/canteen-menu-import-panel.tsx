@@ -1,21 +1,20 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { MealPeriodsEditor } from "@/components/admin/meal-periods-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { MEAL_PERIODS, type MenuImportDraft, type MenuImportDraftItem } from "@/lib/canteen-types";
+import {
+  ALLDAY_MEAL_PERIOD,
+  type MenuImportDraft,
+  type MenuImportDraftItem,
+} from "@/lib/canteen-types";
 import {
   deleteMenuImportDraft,
   publishMenuImportDraft,
   updateMenuImportDraft,
 } from "@/lib/canteen-import-actions";
 import { cn } from "@/lib/utils";
-
-const MEAL_LABELS: Record<(typeof MEAL_PERIODS)[number], string> = {
-  breakfast: "早餐",
-  lunch: "午餐",
-  dinner: "晚餐",
-};
 
 function ocrErrorMessage(code: string | null | undefined): string {
   if (!code) return "识别失败，请改用手工录入。";
@@ -35,10 +34,12 @@ function importDraftErrorMessage(code: string): string {
   if (code === "INVALID_DRAFT_ITEMS") return "草稿数据格式无效。";
   if (code === "INVALID_NAME") return "菜品名称无效。";
   if (code === "INVALID_PRICE") return "价格须为 0–9999 的整数。";
-  if (code === "INVALID_MEAL_PERIOD") return "餐段须为 breakfast / lunch / dinner。";
+  if (code === "INVALID_MEAL_PERIOD")
+    return "餐段须为 breakfast / lunch / dinner / allday。";
   if (code === "INVALID_SORT_ORDER") return "排序值无效。";
   if (code === "IMPORT_DRAFT_NOT_FOUND") return "导入草稿不存在或已删除。";
-  if (code === "IMPORT_DRAFT_ALREADY_PUBLISHED") return "该草稿已发布，请重新上传。";
+  if (code === "IMPORT_DRAFT_ALREADY_PUBLISHED")
+    return "该草稿已发布，请重新上传。";
   if (code === "IMPORT_DRAFT_EMPTY") return "草稿中没有菜品，请添加后再发布。";
   if (code === "CANTEEN_NOT_FOUND") return "食堂不存在。";
   return "操作失败，请重试。";
@@ -83,10 +84,13 @@ export function CanteenMenuImportPanel({
       try {
         const form = new FormData();
         form.append("file", file);
-        const res = await fetch(`/api/admin/canteens/${canteenId}/menu-import`, {
-          method: "POST",
-          body: form,
-        });
+        const res = await fetch(
+          `/api/admin/canteens/${canteenId}/menu-import`,
+          {
+            method: "POST",
+            body: form,
+          },
+        );
         const data = (await res.json()) as {
           draft?: MenuImportDraft;
           error?: string;
@@ -125,10 +129,7 @@ export function CanteenMenuImportPanel({
     });
   }
 
-  function updateItem(
-    tempId: string,
-    patch: Partial<MenuImportDraftItem>,
-  ) {
+  function updateItem(tempId: string, patch: Partial<MenuImportDraftItem>) {
     setItems((prev) =>
       prev.map((row) => (row.tempId === tempId ? { ...row, ...patch } : row)),
     );
@@ -141,7 +142,7 @@ export function CanteenMenuImportPanel({
         tempId: `new-${Date.now()}`,
         name: "",
         price: null,
-        mealPeriod: "lunch",
+        mealPeriods: [ALLDAY_MEAL_PERIOD],
         sortOrder: prev.length,
       },
     ]);
@@ -237,7 +238,7 @@ export function CanteenMenuImportPanel({
 
           {items.length > 0 ? (
             <ul className="space-y-2">
-              {items.map((row) => (
+              {items.map((row, index) => (
                 <li
                   key={row.tempId}
                   className="grid gap-2 rounded-lg border border-[var(--canteen-bamboo)]/20 bg-white/80 p-3 sm:grid-cols-[1fr_5rem_6rem_4rem_auto]"
@@ -265,21 +266,14 @@ export function CanteenMenuImportPanel({
                       }
                     }}
                   />
-                  <select
-                    value={row.mealPeriod}
-                    onChange={(e) =>
-                      updateItem(row.tempId, {
-                        mealPeriod: e.target.value as MenuImportDraftItem["mealPeriod"],
-                      })
+                  <MealPeriodsEditor
+                    idPrefix={`draft-meal-${index}`}
+                    value={row.mealPeriods}
+                    onChange={(mealPeriods) =>
+                      updateItem(row.tempId, { mealPeriods })
                     }
-                    className="rounded-md border border-[var(--canteen-bamboo)]/30 bg-white px-2 py-1 text-sm"
-                  >
-                    {MEAL_PERIODS.map((p) => (
-                      <option key={p} value={p}>
-                        {MEAL_LABELS[p]}
-                      </option>
-                    ))}
-                  </select>
+                    disabled={pending}
+                  />
                   <Input
                     value={row.sortOrder}
                     inputMode="numeric"

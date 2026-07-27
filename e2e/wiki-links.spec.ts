@@ -69,7 +69,7 @@ test.describe("#95 wiki links", () => {
       "Getting Started",
     );
 
-    await page.getByRole("button", { name: "保存" }).click();
+    await page.getByRole("button", { name: "完成" }).click();
 
     // Create persists then redirects to the new read-only page, where the
     // internal link is rendered.

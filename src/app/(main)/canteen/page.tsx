@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { eq } from "drizzle-orm";
-import { getCanteens, getCanteenMenuItemCounts } from "@/lib/canteen-actions";
+import { getCanteens } from "@/lib/canteen-actions";
 import { CanteenCard, CanteenShell } from "@/components/canteen/canteen-shell";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
@@ -30,9 +30,8 @@ async function getDanmakuViewer() {
 
 export default async function CanteenBrowsePage() {
   const mock = isCanteenMockMode();
-  const [canteens, countMap, danmaku, danmakuViewer] = await Promise.all([
+  const [canteens, danmaku, danmakuViewer] = await Promise.all([
     getCanteens(),
-    getCanteenMenuItemCounts(),
     mock ? Promise.resolve([]) : listCurrentMonthDanmaku(),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
   ]);
@@ -63,12 +62,12 @@ export default async function CanteenBrowsePage() {
         ) : undefined
       }
     >
-      <div className="mb-10">
+      <div className="mb-3 sm:mb-8">
         <DanmakuBanner initialMessages={danmaku} viewer={danmakuViewer} />
       </div>
 
       {canteens.length === 0 ? (
-        <div className="canteen-fade-in canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-16 text-center">
+        <div className="canteen-fade-in canteen-ledger border-b border-dashed border-[var(--canteen-line)] px-1 py-10 text-center sm:py-16">
           <p className="canteen-display text-lg text-[var(--canteen-muted)]">
             暂无食堂
           </p>
@@ -83,7 +82,6 @@ export default async function CanteenBrowsePage() {
               key={canteen.id}
               canteen={canteen}
               href={`/canteen/${canteen.id}`}
-              itemCount={countMap[canteen.id] ?? 0}
               className={i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}
             />
           ))}

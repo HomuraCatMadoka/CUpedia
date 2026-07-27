@@ -1,16 +1,33 @@
-import { MEAL_PERIODS, type MealPeriod } from "@/db/schema";
+import {
+  MEAL_PERIODS,
+  ALLDAY_MEAL_PERIOD,
+  MEAL_PERIOD_VALUES,
+  type MealPeriod,
+  type MealPeriodAssignment,
+} from "@/db/schema";
 import { DISH_SVG_KEYS } from "@/lib/canteen-svg-keys";
+import {
+  compareMealPeriodAssignments,
+  mealPeriodsFromRow,
+  normalizeMealPeriods,
+  parseMealPeriod,
+  primaryMealPeriodSortKey,
+} from "@/lib/canteen-meal-periods";
 
-export { MEAL_PERIODS, type MealPeriod };
-
-const MEAL_PERIOD_ORDER: Record<MealPeriod, number> = {
-  breakfast: 0,
-  lunch: 1,
-  dinner: 2,
+export {
+  MEAL_PERIODS,
+  ALLDAY_MEAL_PERIOD,
+  MEAL_PERIOD_VALUES,
+  type MealPeriod,
+  type MealPeriodAssignment,
+  normalizeMealPeriods,
+  parseMealPeriod,
+  mealPeriodsFromRow,
+  primaryMealPeriodSortKey,
 };
 
 export function compareMealPeriods(a: MealPeriod, b: MealPeriod): number {
-  return MEAL_PERIOD_ORDER[a] - MEAL_PERIOD_ORDER[b];
+  return compareMealPeriodAssignments(a, b);
 }
 
 export type Canteen = {
@@ -42,7 +59,7 @@ export type CanteenMenuItem = {
   canteenId: string;
   name: string;
   pricing: MenuItemPricing;
-  mealPeriod: MealPeriod;
+  mealPeriods: MealPeriodAssignment[];
   sortOrder: number;
   svgKey: string;
   createdAt: Date;
@@ -107,7 +124,7 @@ export type MenuImportDraftItem = {
   tempId: string;
   name: string;
   price: number | null;
-  mealPeriod: MealPeriod;
+  mealPeriods: MealPeriodAssignment[];
   sortOrder: number;
 };
 
@@ -136,19 +153,19 @@ export function validateMenuImportDraftItems(
         : `draft-${index}`;
     const name = validateMenuItemName(r.name);
     const price = validatePrice(r.price);
-    const mealPeriod = parseMealPeriod(String(r.mealPeriod ?? "lunch"));
-    if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+    const mealPeriods = mealPeriodsFromRow(r);
+    if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
     const sortOrder = validateSortOrder(r.sortOrder ?? index);
-    return { tempId, name, price, mealPeriod, sortOrder };
+    return { tempId, name, price, mealPeriods, sortOrder };
   });
 }
 
-export const MENU_JSON_MAX_ROWS = 200;
+export const MENU_JSON_MAX_ROWS = 500;
 
 export type MenuItemJsonImportRow = {
   name: string;
   priceOptions: MenuItemPriceOptionInput[];
-  mealPeriod: MealPeriod;
+  mealPeriods: MealPeriodAssignment[];
   sortOrder: number;
   svgKey: string;
 };
@@ -189,13 +206,13 @@ export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
   return parsed.map((row, index) => {
     if (!row || typeof row !== "object") throw new Error("INVALID_MENU_JSON");
     const r = row as Record<string, unknown>;
-    const mealPeriod = parseMealPeriod(String(r.mealPeriod ?? "lunch"));
-    if (!mealPeriod) throw new Error("INVALID_MEAL_PERIOD");
+    const mealPeriods = mealPeriodsFromRow(r);
+    if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
     const priceOptions = validatePricingInput(r.pricing, r.price) ?? [];
     return {
       name: validateMenuItemName(r.name),
       priceOptions,
-      mealPeriod,
+      mealPeriods,
       sortOrder: validateSortOrder(r.sortOrder ?? index),
       svgKey: validateSvgKey(r.svgKey),
     };
@@ -262,12 +279,6 @@ export function parseVote(input: unknown): VoteChoice {
   if (input === null || input === undefined || input === "") return null;
   if (input === "like" || input === "dislike") return input;
   throw new Error("INVALID_VOTE");
-}
-
-export function parseMealPeriod(value: string): MealPeriod | null {
-  return (MEAL_PERIODS as readonly string[]).includes(value)
-    ? (value as MealPeriod)
-    : null;
 }
 
 export function validateCanteenName(name: unknown): string {

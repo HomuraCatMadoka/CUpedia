@@ -107,8 +107,13 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
   ).not.toBeChecked();
   await expect(page.getByLabel("学年")).toHaveValue("2025-26");
   await expect(page.getByLabel("学期")).toHaveValue("Term 2");
-  await expect(page.getByPlaceholder("搜索任课教授姓名")).toHaveValue(
-    "测试教授 Chan",
+  await expect(
+    page.getByRole("button", { name: "移除 测试教授 Chan" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("搜索任课教授")).toHaveValue("");
+  await expect(page.getByLabel("搜索任课教授")).toHaveAttribute(
+    "placeholder",
+    "继续搜索其他教授",
   );
   await expect(page.getByRole("radio", { name: "4.5 星" })).toBeChecked();
   await expect(

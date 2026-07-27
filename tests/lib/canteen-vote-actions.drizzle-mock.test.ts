@@ -230,6 +230,17 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
     expect(mockDbInsert).not.toHaveBeenCalled();
   });
 
+  it("does not fall back to anonymous voting when session lookup fails", async () => {
+    mockGetSession.mockRejectedValue(new Error("FAILED_TO_GET_SESSION"));
+    queueSelectResults([{ id: ITEM_ID }]);
+
+    await expect(upsertDishVote(ITEM_ID, "like")).rejects.toThrow(
+      "FAILED_TO_GET_SESSION",
+    );
+    expect(mockCookiesSet).not.toHaveBeenCalled();
+    expect(mockDbInsert).not.toHaveBeenCalled();
+  });
+
   it("rejects votes for unknown menu items", async () => {
     mockCookiesGet.mockImplementation((name: string) =>
       name === "canteen_anon_session" ? { value: signedCookie() } : undefined,

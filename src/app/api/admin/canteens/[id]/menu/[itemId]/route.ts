@@ -24,6 +24,7 @@ export async function PATCH(
         name?: unknown;
         pricing?: unknown;
         price?: unknown;
+        mealPeriods?: unknown;
         mealPeriod?: unknown;
         sortOrder?: unknown;
         svgKey?: unknown;
