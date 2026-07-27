@@ -241,8 +241,6 @@ export function WikiBlockMenu({
                         return (
                           <DropdownMenuItem
                             key={command.id}
-                            role="menuitemradio"
-                            aria-checked={selected}
                             className="min-h-8 gap-2 px-2 py-1.5"
                             onClick={() => {
                               turnIntoBlockCommand(editor, command, {

@@ -465,14 +465,16 @@ export function MobileWikiEditorToolbar({
   };
 
   const openFormat = () => {
+    const currentBlockPath = editor.api.block()?.[1] ?? null;
     saveSelection();
-    rememberBlockPath(editor.api.block()?.[1] ?? null);
+    rememberBlockPath(currentBlockPath);
     openSurface("format");
   };
 
   const openBlock = () => {
+    const currentBlockPath = editor.api.block()?.[1] ?? null;
     saveSelection();
-    rememberBlockPath(editor.api.block()?.[1] ?? null);
+    rememberBlockPath(currentBlockPath);
     openSurface("turnInto");
   };
 

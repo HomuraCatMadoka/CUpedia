@@ -941,7 +941,7 @@ export function WikiEditor({
                   className={buttonVariants({
                     variant: "ghost",
                     size: "icon-lg",
-                    className: "hidden text-muted-foreground md:flex",
+                    className: "text-muted-foreground max-md:hidden",
                   })}
                 >
                   <ChevronLeftIcon aria-hidden="true" className="size-[18px]" />
