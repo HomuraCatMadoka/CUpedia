@@ -463,16 +463,14 @@ export function MobileWikiEditorToolbar({
   };
 
   const openFormat = () => {
-    const currentBlockPath = editor.api.block()?.[1] ?? null;
-    saveSelection();
-    rememberBlockPath(currentBlockPath);
+    restoreSelection();
+    rememberBlockPath(editor.api.block()?.[1] ?? null);
     openSurface("format");
   };
 
   const openBlock = () => {
-    const currentBlockPath = editor.api.block()?.[1] ?? null;
-    saveSelection();
-    rememberBlockPath(currentBlockPath);
+    restoreSelection();
+    rememberBlockPath(editor.api.block()?.[1] ?? null);
     openSurface("turnInto");
   };
 
@@ -543,8 +541,8 @@ export function MobileWikiEditorToolbar({
       path.length > 1 ? editor.api.start(parentPath) : null;
     const resolvedAdjacentPoint = adjacentPointRef?.unref() ?? null;
     const nextPoint =
-      resolvedAdjacentPoint ??
       nestedParentPoint ??
+      resolvedAdjacentPoint ??
       editor.api.start(parentPath) ??
       editor.api.start([]);
     if (nextPoint) {
@@ -569,6 +567,7 @@ export function MobileWikiEditorToolbar({
     restoreSelection();
     insertBlockCommand(editor, command);
     savedSelectionRef.current = editor.selection;
+    rememberBlockPath(editor.api.block()?.[1] ?? null);
     closeSurface();
   };
 
