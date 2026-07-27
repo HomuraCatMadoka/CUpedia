@@ -17,7 +17,7 @@ function item(
     canteenId: "c1",
     name,
     pricing: null,
-    mealPeriod: "lunch",
+    mealPeriods: ["lunch"],
     sortOrder,
     svgKey,
     createdAt: t,

@@ -65,7 +65,7 @@ export type SeedMenuItem = {
   canteenId: string;
   name: string;
   price: number | null;
-  mealPeriod: "breakfast" | "lunch" | "dinner";
+  mealPeriods: Array<"breakfast" | "lunch" | "dinner" | "allday">;
   sortOrder: number;
   svgKey: string;
 };
@@ -84,7 +84,7 @@ export const SEED_MENU_ITEMS: SeedMenuItem[] = [
     canteenId: CANTEEN_IDS.demo,
     name: "演示米饭",
     price: 12,
-    mealPeriod: "lunch",
+    mealPeriods: ["lunch"],
     sortOrder: 0,
     svgKey: "rice",
   },
@@ -93,7 +93,7 @@ export const SEED_MENU_ITEMS: SeedMenuItem[] = [
     canteenId: CANTEEN_IDS.demo,
     name: "演示煲汤",
     price: 18,
-    mealPeriod: "lunch",
+    mealPeriods: ["lunch"],
     sortOrder: 1,
     svgKey: "bowl",
   },
@@ -102,7 +102,7 @@ export const SEED_MENU_ITEMS: SeedMenuItem[] = [
     canteenId: CANTEEN_IDS.demo,
     name: "演示面食",
     price: 15,
-    mealPeriod: "dinner",
+    mealPeriods: ["dinner"],
     sortOrder: 0,
     svgKey: "noodle",
   },

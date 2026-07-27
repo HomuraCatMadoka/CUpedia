@@ -226,7 +226,7 @@ describe("canteen-admin-actions", () => {
         canteenId: "c1",
         name: "饭",
         price: null,
-        mealPeriod: "lunch",
+        mealPeriods: ["lunch"],
         sortOrder: 0,
         svgKey: "default",
         createdAt: new Date(),
@@ -255,7 +255,7 @@ describe("canteen-admin-actions", () => {
 
     const row = await createMenuItem("c1", {
       name: "饭",
-      mealPeriod: "lunch",
+      mealPeriods: ["lunch"],
       pricing: {
         options: [{ label: "凍", amountMinor: 1300, currency: "HKD" }],
       },
@@ -276,7 +276,7 @@ describe("canteen-admin-actions", () => {
         canteenId: "c1",
         name: "新名",
         price: 12,
-        mealPeriod: "dinner",
+        mealPeriods: ["dinner"],
         sortOrder: 0,
         svgKey: "default",
         createdAt: new Date(),
@@ -291,10 +291,10 @@ describe("canteen-admin-actions", () => {
 
     const row = await updateMenuItem("c1", "i1", {
       name: "新名",
-      mealPeriod: "dinner",
+      mealPeriods: ["dinner"],
     });
     expect(row.name).toBe("新名");
-    expect(row.mealPeriod).toBe("dinner");
+    expect(row.mealPeriods).toEqual(["dinner"]);
   });
 
   it("deleteMenuItem removes row for admin", async () => {
@@ -330,8 +330,8 @@ describe("canteen-admin-actions", () => {
       mockAdminSession();
 
       const created = await bulkImportMenuItemsFromJson("mock-canteen-demo", [
-        { name: "JSON导入A", price: 15, mealPeriod: "lunch" },
-        { name: "JSON导入B", price: 20, mealPeriod: "dinner", sortOrder: 2 },
+        { name: "JSON导入A", price: 15, mealPeriods: ["lunch"] },
+        { name: "JSON导入B", price: 20, mealPeriods: ["dinner"], sortOrder: 2 },
       ]);
       expect(created).toHaveLength(2);
 

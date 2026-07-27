@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MealPeriodsEditor } from "@/components/admin/meal-periods-editor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,10 +24,11 @@ import {
   PreviewBanner,
 } from "@/components/canteen/canteen-shell";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
-import { MealPeriodBadge } from "@/components/canteen/meal-period-badge";
+import { MealPeriodsBadges } from "@/components/canteen/meal-period-badge";
 import { MenuItemPrice } from "@/components/canteen/menu-item-price";
 import {
-  MEAL_PERIODS,
+  ALLDAY_MEAL_PERIOD,
+  type MealPeriodAssignment,
   type Canteen,
   type CanteenMenuItem,
 } from "@/lib/canteen-types";
@@ -34,12 +36,6 @@ import type { DeleteImpact } from "@/lib/canteen-types";
 import * as liveActions from "@/lib/canteen-admin-actions";
 import * as previewActions from "@/lib/canteen-preview-actions";
 import { cn } from "@/lib/utils";
-
-const MEAL_LABELS: Record<(typeof MEAL_PERIODS)[number], string> = {
-  breakfast: "早餐",
-  lunch: "午餐",
-  dinner: "晚餐",
-};
 
 type DraftPriceOption = {
   key: string;
@@ -184,8 +180,9 @@ export function CanteenMenuAdmin({
   const [priceOptions, setPriceOptions] = useState<DraftPriceOption[]>([
     blankPriceOption(),
   ]);
-  const [mealPeriod, setMealPeriod] =
-    useState<(typeof MEAL_PERIODS)[number]>("lunch");
+  const [mealPeriods, setMealPeriods] = useState<MealPeriodAssignment[]>([
+    ALLDAY_MEAL_PERIOD,
+  ]);
   const [deleteTarget, setDeleteTarget] = useState<CanteenMenuItem | null>(
     null,
   );
@@ -224,11 +221,12 @@ export function CanteenMenuAdmin({
         await createMenuItem(canteen.id, {
           name,
           pricing: pricingInput(priceOptions),
-          mealPeriod,
+          mealPeriods,
           sortOrder: "0",
         });
         setName("");
         setPriceOptions([blankPriceOption()]);
+        setMealPeriods([ALLDAY_MEAL_PERIOD]);
         router.refresh();
       } catch (err) {
         alert(err instanceof Error ? err.message : "添加失败");
@@ -281,10 +279,13 @@ export function CanteenMenuAdmin({
     });
   }
 
-  function handleMealPeriodChange(item: CanteenMenuItem, next: string) {
+  function handleMealPeriodsChange(
+    item: CanteenMenuItem,
+    next: MealPeriodAssignment[],
+  ) {
     startTransition(async () => {
       try {
-        await updateMenuItem(canteen.id, item.id, { mealPeriod: next });
+        await updateMenuItem(canteen.id, item.id, { mealPeriods: next });
         router.refresh();
       } catch (err) {
         alert(err instanceof Error ? err.message : "更新失败");
@@ -346,27 +347,13 @@ export function CanteenMenuAdmin({
               onChange={setPriceOptions}
             />
           </div>
-          <div className="space-y-1">
-            <label
-              className="text-xs font-medium text-[var(--canteen-muted)]"
-              htmlFor="item-meal"
-            >
-              餐段
-            </label>
-            <select
-              id="item-meal"
-              value={mealPeriod}
-              onChange={(e) =>
-                setMealPeriod(e.target.value as (typeof MEAL_PERIODS)[number])
-              }
-              className="flex h-9 w-full rounded-md border border-[var(--canteen-bamboo)]/30 bg-white/90 px-3 py-1 text-sm"
-            >
-              {MEAL_PERIODS.map((p) => (
-                <option key={p} value={p}>
-                  {MEAL_LABELS[p]}
-                </option>
-              ))}
-            </select>
+          <div className="sm:col-span-2">
+            <MealPeriodsEditor
+              idPrefix="item-meal"
+              value={mealPeriods}
+              onChange={setMealPeriods}
+              disabled={isPending}
+            />
           </div>
         </div>
         <div className="mt-4 flex justify-end">
@@ -403,26 +390,21 @@ export function CanteenMenuAdmin({
                   {item.name}
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <MealPeriodBadge period={item.mealPeriod} />
+                  <MealPeriodsBadges periods={item.mealPeriods} />
                   <MenuItemPrice
                     pricing={item.pricing}
                     className="font-mono text-sm text-[var(--canteen-purple)]"
                   />
                 </div>
+                <div className="mt-2">
+                  <MealPeriodsEditor
+                    idPrefix={`row-${item.id}`}
+                    value={item.mealPeriods}
+                    onChange={(next) => handleMealPeriodsChange(item, next)}
+                    disabled={isPending}
+                  />
+                </div>
               </div>
-              <select
-                value={item.mealPeriod}
-                disabled={isPending}
-                onChange={(e) => handleMealPeriodChange(item, e.target.value)}
-                className="rounded-full border border-[var(--canteen-bamboo)]/30 bg-white/90 px-3 py-1.5 text-xs"
-                aria-label={`${item.name} 餐段`}
-              >
-                {MEAL_PERIODS.map((p) => (
-                  <option key={p} value={p}>
-                    {MEAL_LABELS[p]}
-                  </option>
-                ))}
-              </select>
               <Button
                 variant="outline"
                 size="sm"
@@ -457,16 +439,17 @@ export function CanteenMenuAdmin({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              确认删除「{deleteTarget?.name}」？
-            </AlertDialogTitle>
+            <AlertDialogTitle>删除菜品？</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteImpact ? formatDeleteImpact(deleteImpact) : "加载中…"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isPending}>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
               删除
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -484,10 +467,13 @@ export function CanteenMenuAdmin({
             <AlertDialogHeader>
               <AlertDialogTitle>编辑菜品</AlertDialogTitle>
             </AlertDialogHeader>
-            <div className="grid gap-3 py-4">
+            <div className="mt-4 space-y-3">
               <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="edit-item-name">
-                  名称
+                <label
+                  className="text-xs font-medium text-[var(--canteen-muted)]"
+                  htmlFor="edit-item-name"
+                >
+                  菜品名称
                 </label>
                 <Input
                   id="edit-item-name"
@@ -503,22 +489,25 @@ export function CanteenMenuAdmin({
                 onChange={setEditPriceOptions}
               />
               <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="edit-item-svg">
+                <label
+                  className="text-xs font-medium text-[var(--canteen-muted)]"
+                  htmlFor="edit-svg-key"
+                >
                   图标 key
                 </label>
                 <Input
-                  id="edit-item-svg"
+                  id="edit-svg-key"
                   value={editSvgKey}
                   onChange={(e) => setEditSvgKey(e.target.value)}
                   maxLength={64}
                 />
               </div>
             </div>
-            <AlertDialogFooter>
+            <AlertDialogFooter className="mt-4">
               <AlertDialogCancel type="button">取消</AlertDialogCancel>
-              <AlertDialogAction type="submit" disabled={isPending}>
+              <Button type="submit" disabled={isPending}>
                 保存
-              </AlertDialogAction>
+              </Button>
             </AlertDialogFooter>
           </form>
         </AlertDialogContent>

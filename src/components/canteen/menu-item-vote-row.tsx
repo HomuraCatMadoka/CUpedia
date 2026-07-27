@@ -7,7 +7,7 @@ import type {
 } from "@/lib/canteen-types";
 import { DishSvgIcon } from "./dish-svg-icon";
 import { DishVoteButtons } from "./dish-vote-buttons";
-import { MealPeriodBadge } from "./meal-period-badge";
+import { MealPeriodsBadges } from "./meal-period-badge";
 import { MenuItemCommentPanel } from "./menu-item-comment-panel";
 import { MenuItemPrice } from "./menu-item-price";
 import { useDishVote } from "./use-dish-vote";
@@ -57,7 +57,10 @@ export function MenuItemVoteRow({
           {item.name}
         </p>
         {showPeriodBadge ? (
-          <MealPeriodBadge period={item.mealPeriod} className="mt-0.5 sm:mt-1" />
+          <MealPeriodsBadges
+            periods={item.mealPeriods}
+            className="mt-0.5 sm:mt-1"
+          />
         ) : null}
         {error ? (
           <p className="mt-1 text-xs text-red-700" role="alert">

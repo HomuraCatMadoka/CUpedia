@@ -10,7 +10,7 @@ describe("parseOcrTextToDraftItems", () => {
     expect(items[0]).toMatchObject({ name: "宫保鸡丁", price: 28, sortOrder: 0 });
     expect(items[1]).toMatchObject({ name: "麻婆豆腐", price: 22, sortOrder: 1 });
     expect(items[2]).toMatchObject({ name: "红烧肉", price: 35, sortOrder: 2 });
-    expect(items[0].mealPeriod).toBe("lunch");
+    expect(items[0].mealPeriods).toEqual(["allday"]);
     expect(items[0].tempId).toBeTruthy();
   });
 

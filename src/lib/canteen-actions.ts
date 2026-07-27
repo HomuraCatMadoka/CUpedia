@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
 import { asc, eq, count, and } from "drizzle-orm";
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
-import { compareMealPeriods } from "@/lib/canteen-types";
+import { primaryMealPeriodSortKey } from "@/lib/canteen-types";
 import { buildMenuItemPricing } from "@/lib/canteen-pricing";
 import {
   isCanteenMockMode,
@@ -55,7 +55,7 @@ export async function getCanteenMenuItems(
       canteenId: canteenMenuItems.canteenId,
       name: canteenMenuItems.name,
       legacyPrice: canteenMenuItems.price,
-      mealPeriod: canteenMenuItems.mealPeriod,
+      mealPeriods: canteenMenuItems.mealPeriods,
       sortOrder: canteenMenuItems.sortOrder,
       svgKey: canteenMenuItems.svgKey,
       createdAt: canteenMenuItems.createdAt,
@@ -103,7 +103,7 @@ export async function getCanteenMenuItems(
         option ? [option] : [],
         row.legacyPrice,
       ),
-      mealPeriod: row.mealPeriod as CanteenMenuItem["mealPeriod"],
+      mealPeriods: row.mealPeriods as CanteenMenuItem["mealPeriods"],
       sortOrder: row.sortOrder,
       svgKey: row.svgKey,
       createdAt: row.createdAt,
@@ -119,7 +119,9 @@ export async function getCanteenMenuItems(
   }
 
   return [...items.values()].sort((a, b) => {
-    const periodCmp = compareMealPeriods(a.mealPeriod, b.mealPeriod);
+    const periodCmp =
+      primaryMealPeriodSortKey(a.mealPeriods) -
+      primaryMealPeriodSortKey(b.mealPeriods);
     if (periodCmp !== 0) return periodCmp;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
     return a.name.localeCompare(b.name);
