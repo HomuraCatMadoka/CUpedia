@@ -6,6 +6,7 @@ import {
   wikiRevisions,
   sessions,
   wikiLinks,
+  wikiPageAliases,
   canteens,
   canteenMenuItems,
   canteenMenuItemPrices,
@@ -50,6 +51,13 @@ describe("schema", () => {
     const cols = getTableColumns(wikiLinks);
     expect(cols.sourceId).toBeDefined();
     expect(cols.targetId).toBeDefined();
+  });
+
+  it("wikiPageAliases keeps old slugs mapped to stable page IDs", () => {
+    const cols = getTableColumns(wikiPageAliases);
+    expect(cols.slug).toBeDefined();
+    expect(cols.pageId).toBeDefined();
+    expect(cols.createdAt).toBeDefined();
   });
 
   it("sessions table has required Better Auth fields", () => {

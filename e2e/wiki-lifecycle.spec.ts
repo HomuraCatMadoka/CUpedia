@@ -61,6 +61,7 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
     .getByLabel("编辑摘要（可选）")
     .fill("create lifecycle page");
   await page.keyboard.press("Escape");
+  await expect(createSettings).toHaveCount(0);
   await page.locator('[role="textbox"]').first().fill(first);
   await page.getByRole("button", { name: "完成" }).click();
   await page.waitForURL(`**/wiki/${slug}`);
@@ -69,11 +70,10 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
 
   await page.getByText("编辑", { exact: true }).click();
   await page.getByRole("button", { name: "页面设置" }).click();
-  await page
-    .getByRole("dialog", { name: "页面设置" })
-    .getByLabel("编辑摘要（可选）")
-    .fill("edit lifecycle page");
+  const editSettings = page.getByRole("dialog", { name: "页面设置" });
+  await editSettings.getByLabel("编辑摘要（可选）").fill("edit lifecycle page");
   await page.keyboard.press("Escape");
+  await expect(editSettings).toHaveCount(0);
   const editor = page.locator('[role="textbox"]').first();
   await editor.fill(`${first} ${second}`);
   await expect(page.getByText("未保存")).toBeVisible();

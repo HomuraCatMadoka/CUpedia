@@ -76,7 +76,6 @@ export function TurnIntoToolbarButton(props: DropdownMenuProps) {
               );
               if (command) {
                 turnIntoBlockCommand(editor, command);
-                requestAnimationFrame(() => editor.tf.focus());
               }
             }}
             label={group.label}

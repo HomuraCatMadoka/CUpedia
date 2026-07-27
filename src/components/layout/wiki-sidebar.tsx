@@ -1032,6 +1032,7 @@ export function WikiSidebar({
                   <span className="truncate">CUpedia</span>
                 </Link>
                 <button
+                  type="button"
                   onClick={collapse}
                   className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-[#eeeceb] hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                   aria-label="收起导航"
@@ -1069,6 +1070,7 @@ export function WikiSidebar({
                 Pages
               </span>
               <button
+                type="button"
                 onClick={collapse}
                 className="rounded text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 aria-label="收起导航"
@@ -1081,7 +1083,7 @@ export function WikiSidebar({
             tree={tree}
             pathname={pathname}
             activeNodeId={activeNodeId}
-            focusedEditor
+            focusedEditor={focusedEditor}
             canEdit={canEdit}
             isMobile={false}
             collapsedIds={visibleCollapsedIds}

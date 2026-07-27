@@ -115,6 +115,29 @@ test.describe("wiki editor block commands", () => {
     await expect(editor.locator("h2")).toContainText("可转换内容");
   });
 
+  test("deleting the only block leaves an editable paragraph with focus", async ({
+    page,
+  }) => {
+    await page.goto("/wiki/new");
+
+    const editor = page.locator('[data-slate-editor="true"]');
+    await editor.click();
+    await page.keyboard.type("唯一内容块");
+
+    const block = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "唯一内容块" })
+      .first();
+    await block.hover();
+    await block.getByLabel("打开块菜单").click();
+    await page.getByRole("menuitem", { name: "删除" }).click();
+
+    await expect(page.getByTestId("wiki-editor-block")).toHaveCount(1);
+    await expect(editor).toBeFocused();
+    await page.keyboard.type("删除后仍可编辑");
+    await expect(editor).toContainText("删除后仍可编辑");
+  });
+
   test("the grip preserves drag feedback and desktop block reordering", async ({
     page,
   }) => {

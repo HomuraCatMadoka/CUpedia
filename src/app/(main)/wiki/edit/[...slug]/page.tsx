@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requireEditorOrRedirect } from "@/lib/auth-guard";
 import {
   getWikiPageForEdit,
@@ -9,25 +9,29 @@ import { getDiscussions } from "@/lib/discussion-actions";
 import { WikiEditor } from "@/components/wiki/wiki-editor";
 import { parseContent } from "@/lib/plate-utils";
 import { stripTitleHeading } from "@/lib/headings";
+import { resolveWikiLinkUrls } from "@/lib/wiki-links";
 
 function collectDescendantIds(
   pages: { id: string; parentId: string | null }[],
   pageId: string,
 ) {
-  const excluded = new Set([pageId]);
-  let foundDescendant = true;
+  const childrenByParent = new Map<string, string[]>();
+  for (const page of pages) {
+    if (!page.parentId) continue;
+    const children = childrenByParent.get(page.parentId) ?? [];
+    children.push(page.id);
+    childrenByParent.set(page.parentId, children);
+  }
 
-  while (foundDescendant) {
-    foundDescendant = false;
-    for (const candidate of pages) {
-      if (
-        candidate.parentId &&
-        excluded.has(candidate.parentId) &&
-        !excluded.has(candidate.id)
-      ) {
-        excluded.add(candidate.id);
-        foundDescendant = true;
-      }
+  const excluded = new Set([pageId]);
+  const queue = [pageId];
+  let cursor = 0;
+  while (cursor < queue.length) {
+    const current = queue[cursor++];
+    for (const childId of childrenByParent.get(current) ?? []) {
+      if (excluded.has(childId)) continue;
+      excluded.add(childId);
+      queue.push(childId);
     }
   }
 
@@ -47,6 +51,7 @@ export default async function EditWikiPage({
     getWikiTree(),
   ]);
   if (!page) notFound();
+  if (page.slug !== slug) redirect(`/wiki/edit/${page.slug}`);
   const pageId = page.id;
   const discussions = await getDiscussions(pageId);
   const excludedParentIds = collectDescendantIds(pages, pageId);
@@ -117,7 +122,10 @@ export default async function EditWikiPage({
       pageId={pageId}
       initialTitle={page.title}
       initialIcon={page.icon}
-      initialValue={stripTitleHeading(parseContent(page.content), page.title)}
+      initialValue={stripTitleHeading(
+        resolveWikiLinkUrls(parseContent(page.content), pages),
+        page.title,
+      )}
       initialSlug={page.slug}
       parentId={page.parentId}
       expectedVersion={page.version}

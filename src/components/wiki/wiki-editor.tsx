@@ -37,7 +37,7 @@ import {
 import { FloatingToolbarKit } from "@/components/editor/plugins/floating-toolbar-kit";
 import { MarkdownKit } from "@/components/editor/plugins/markdown-kit";
 import { EditorContainer, Editor } from "@/components/ui/editor";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -74,6 +74,25 @@ import {
   type PlateValue,
 } from "@/lib/plate-utils";
 
+interface WikiSubmitResult {
+  error?: string;
+  slug?: string;
+  parentId?: string | null;
+  title?: string;
+  icon?: string | null;
+  content?: string;
+  version?: number;
+  updatedAt?: string;
+  conflict?: boolean;
+  theirContent?: string;
+  theirTitle?: string;
+  theirIcon?: string | null;
+  theirSlug?: string;
+  theirParentId?: string | null;
+  theirVersion?: number;
+  theirUpdatedAt?: string;
+}
+
 interface WikiEditorProps {
   mode: "create" | "edit";
   pageId?: string;
@@ -100,24 +119,7 @@ interface WikiEditorProps {
     baseContent?: string;
     baseSlug?: string;
     baseParentId?: string | null;
-  }) => Promise<{
-    error?: string;
-    slug?: string;
-    parentId?: string | null;
-    title?: string;
-    icon?: string | null;
-    content?: string;
-    version?: number;
-    updatedAt?: string;
-    conflict?: boolean;
-    theirContent?: string;
-    theirTitle?: string;
-    theirIcon?: string | null;
-    theirSlug?: string;
-    theirParentId?: string | null;
-    theirVersion?: number;
-    theirUpdatedAt?: string;
-  }>;
+  }) => Promise<WikiSubmitResult>;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -134,6 +136,39 @@ interface WikiDraftSnapshot {
   content: string;
   parentId: string | null;
   editSummary: string;
+}
+
+interface ConflictFallback {
+  title: string;
+  icon: string | null;
+  slug: string;
+  parentId: string | null;
+  version: number | undefined;
+  updatedAt: string | undefined;
+}
+
+function buildConflictFromResult(
+  result: WikiSubmitResult,
+  fallback: ConflictFallback,
+): EditConflict | null {
+  if (!result.conflict || result.theirContent === undefined) return null;
+  const theirVersion = result.theirVersion ?? fallback.version;
+  const theirUpdatedAt = result.theirUpdatedAt ?? fallback.updatedAt;
+  if (theirVersion === undefined || !theirUpdatedAt) return null;
+
+  return {
+    theirContent: result.theirContent,
+    theirTitle: result.theirTitle ?? fallback.title,
+    theirIcon:
+      result.theirIcon !== undefined ? result.theirIcon : fallback.icon,
+    theirSlug: result.theirSlug ?? fallback.slug,
+    theirParentId:
+      result.theirParentId !== undefined
+        ? result.theirParentId
+        : fallback.parentId,
+    theirVersion,
+    theirUpdatedAt,
+  };
 }
 
 function serializeDraftSnapshot(snapshot: WikiDraftSnapshot) {
@@ -218,6 +253,15 @@ export function WikiEditor({
   const pendingConflictRef = useRef<EditConflict | null>(null);
   const router = useRouter();
   const { ensureContributorSetup } = useContributorSetup();
+  const replaceEditorUrl = useCallback(
+    (nextSlug: string) => {
+      if (mode !== "edit" || !nextSlug) return;
+      const nextUrl = new URL(window.location.href);
+      nextUrl.pathname = `/wiki/edit/${nextSlug}`;
+      window.history.replaceState(window.history.state, "", nextUrl);
+    },
+    [mode],
+  );
   const handleMobileEditorBlur = useCallback(
     (event: FocusEvent<HTMLDivElement>) => {
       const staysInEditorContext = (target: EventTarget | null) =>
@@ -241,10 +285,24 @@ export function WikiEditor({
   const selectedParent = linkablePages.find(
     (page) => page.id === selectedParentId,
   );
+  const versionBaselineRef = useRef(expectedVersion);
+  const updatedAtBaselineRef = useRef(expectedUpdatedAt);
+  const baseTitleRef = useRef(initialTitle);
+  const baseIconRef = useRef(initialIcon);
+  const baseContentRef = useRef(initialContent);
+  const baseSlugRef = useRef(initialSlug);
+  const baseParentIdRef = useRef(parentId ?? null);
+  const titleRef = useRef(initialTitle);
+  const iconRef = useRef(initialIcon);
+  const slugRef = useRef(initialSlug);
+  const parentIdRef = useRef(parentId ?? "");
+  const editSummaryRef = useRef("");
+  const autosaveEnabled = mode === "edit" && Boolean(pageId);
   const sharePage = useCallback(async () => {
-    if (mode !== "edit" || !initialSlug) return;
+    if (mode !== "edit" || !slugRef.current) return;
 
-    const url = new URL(`/wiki/${initialSlug}`, window.location.origin).href;
+    const url = new URL(`/wiki/${slugRef.current}`, window.location.origin)
+      .href;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -264,21 +322,7 @@ export function WikiEditor({
       }
       toast.error("无法分享页面");
     }
-  }, [initialSlug, mode, title]);
-
-  const versionBaselineRef = useRef(expectedVersion);
-  const updatedAtBaselineRef = useRef(expectedUpdatedAt);
-  const baseTitleRef = useRef(initialTitle);
-  const baseIconRef = useRef(initialIcon);
-  const baseContentRef = useRef(initialContent);
-  const baseSlugRef = useRef(initialSlug);
-  const baseParentIdRef = useRef(parentId ?? null);
-  const titleRef = useRef(initialTitle);
-  const iconRef = useRef(initialIcon);
-  const slugRef = useRef(initialSlug);
-  const parentIdRef = useRef(parentId ?? "");
-  const editSummaryRef = useRef("");
-  const autosaveEnabled = mode === "edit" && Boolean(pageId);
+  }, [mode, title]);
 
   const editor = usePlateEditor({
     plugins: [
@@ -403,6 +447,7 @@ export function WikiEditor({
         } else if (authoritativeSlug === next.slug) {
           baseSlugRef.current = authoritativeSlug;
         }
+        replaceEditorUrl(authoritativeSlug);
 
         if (!parentDrifted) {
           const nextParentValue = authoritativeParentId ?? "";
@@ -428,21 +473,24 @@ export function WikiEditor({
           }),
         };
       }
-      if (result.conflict && result.theirContent) {
-        const nextConflict = {
-          theirContent: result.theirContent,
-          theirTitle: result.theirTitle ?? next.title,
-          theirIcon:
-            result.theirIcon !== undefined ? result.theirIcon : next.icon,
-          theirSlug: result.theirSlug ?? next.slug,
-          theirParentId:
-            result.theirParentId !== undefined
-              ? result.theirParentId
-              : next.parentId,
-          theirVersion: result.theirVersion ?? versionBaselineRef.current ?? 0,
-          theirUpdatedAt:
-            result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
-        };
+      if (result.conflict) {
+        pendingConflictRef.current = null;
+        const nextConflict = buildConflictFromResult(result, {
+          title: next.title,
+          icon: next.icon,
+          slug: next.slug,
+          parentId: next.parentId,
+          version: versionBaselineRef.current,
+          updatedAt: updatedAtBaselineRef.current,
+        });
+        if (!nextConflict) {
+          return {
+            ...result,
+            conflict: false,
+            error: "EDIT_CONFLICT_RESPONSE_INVALID",
+            haltAutosave: true,
+          };
+        }
         pendingConflictRef.current = nextConflict;
         if (reason === "explicit") {
           setAutosaveConflict(false);
@@ -459,7 +507,7 @@ export function WikiEditor({
       }
       return result;
     },
-    [onSubmit, editor],
+    [onSubmit, editor, replaceEditorUrl],
   );
 
   // Serialize the document only when a save fires, never per keystroke — the
@@ -570,21 +618,7 @@ export function WikiEditor({
       }),
     );
 
-    if (result.conflict && result.theirContent) {
-      setConflict({
-        theirContent: result.theirContent,
-        theirTitle: result.theirTitle ?? title,
-        theirIcon:
-          result.theirIcon !== undefined ? result.theirIcon : iconRef.current,
-        theirSlug: result.theirSlug ?? slugRef.current,
-        theirParentId:
-          result.theirParentId !== undefined
-            ? result.theirParentId
-            : parentIdRef.current || null,
-        theirVersion: result.theirVersion ?? versionBaselineRef.current ?? 0,
-        theirUpdatedAt:
-          result.theirUpdatedAt ?? updatedAtBaselineRef.current ?? "",
-      });
+    if (result.conflict) {
       setSubmitting(false);
       return;
     }
@@ -626,6 +660,7 @@ export function WikiEditor({
   const keepMine = useCallback(async () => {
     if (!conflict) return;
     if (!(await ensureContributorSetup())) return;
+    setError("");
     setSubmitting(true);
     versionBaselineRef.current = conflict.theirVersion;
     updatedAtBaselineRef.current = conflict.theirUpdatedAt;
@@ -644,7 +679,7 @@ export function WikiEditor({
     });
     const result = await save(nextSnapshot);
     if (result.error) {
-      setError(result.error);
+      surfaceAutosaveFailure(result.error);
       setSubmitting(false);
       return;
     }
@@ -666,6 +701,7 @@ export function WikiEditor({
     router,
     ensureContributorSetup,
     resetAutosaveBaseline,
+    surfaceAutosaveFailure,
   ]);
 
   const discardMine = useCallback(() => {
@@ -686,6 +722,7 @@ export function WikiEditor({
     parentIdRef.current = conflict.theirParentId ?? "";
     setSlug(conflict.theirSlug);
     setSelectedParentId(conflict.theirParentId ?? "");
+    replaceEditorUrl(conflict.theirSlug);
     pendingConflictRef.current = null;
     setAutosaveConflict(false);
     resetAutosaveBaseline(
@@ -699,7 +736,7 @@ export function WikiEditor({
       }),
     );
     setConflict(null);
-  }, [conflict, editor, resetAutosaveBaseline]);
+  }, [conflict, editor, replaceEditorUrl, resetAutosaveBaseline]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -819,7 +856,11 @@ export function WikiEditor({
     const navigation = (window as Window & { navigation?: AppNavigation })
       .navigation;
     let handleNavigate: ((rawEvent: Event) => void) | null = null;
-    if (navigation && "NavigateEvent" in window) {
+    if (
+      navigation &&
+      "NavigateEvent" in window &&
+      "NavigationPrecommitController" in window
+    ) {
       handleNavigate = (rawEvent: Event) => {
         const event = rawEvent as AppNavigateEvent;
         if (allowNextNavigation) {
@@ -895,9 +936,13 @@ export function WikiEditor({
               <div className="flex min-w-0 items-center gap-1">
                 <SidebarMobileToggle editor />
                 <Link
-                  href={mode === "edit" ? `/wiki/${initialSlug}` : "/wiki"}
+                  href={mode === "edit" ? `/wiki/${slug}` : "/wiki"}
                   aria-label="返回 Wiki"
-                  className="hidden size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:flex"
+                  className={buttonVariants({
+                    variant: "ghost",
+                    size: "icon-lg",
+                    className: "hidden text-muted-foreground md:flex",
+                  })}
                 >
                   <ChevronLeftIcon aria-hidden="true" className="size-[18px]" />
                 </Link>
@@ -1104,13 +1149,26 @@ export function WikiEditor({
                     </p>
                   )}
                   {autosaveConflict && !conflict && (
-                    <p
+                    <div
                       role="status"
                       aria-label="自动保存已暂停"
-                      className="mt-4 text-sm text-amber-700 dark:text-amber-300"
+                      className="mt-4 flex flex-wrap items-center gap-2 text-sm text-amber-700 dark:text-amber-300"
                     >
-                      服务器版本已更新，自动保存已暂停。点击保存处理冲突。
-                    </p>
+                      <span>服务器版本已更新，自动保存已暂停。</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const pendingConflict = pendingConflictRef.current;
+                          if (!pendingConflict) return;
+                          setAutosaveConflict(false);
+                          setConflict(pendingConflict);
+                        }}
+                      >
+                        处理冲突
+                      </Button>
+                    </div>
                   )}
                 </article>
               </div>
@@ -1133,6 +1191,31 @@ export function WikiEditor({
 
             {conflict && (
               <EditConflictDialog
+                fields={[
+                  {
+                    label: "标题",
+                    mine: title || "未命名",
+                    theirs: conflict.theirTitle || "未命名",
+                  },
+                  {
+                    label: "图标",
+                    mine: icon ?? "无",
+                    theirs: conflict.theirIcon ?? "无",
+                  },
+                  {
+                    label: "URL 路径",
+                    mine: slug,
+                    theirs: conflict.theirSlug,
+                  },
+                  {
+                    label: "父页面",
+                    mine: selectedParent?.title ?? "无",
+                    theirs:
+                      linkablePages.find(
+                        (page) => page.id === conflict.theirParentId,
+                      )?.title ?? (conflict.theirParentId ? "其他页面" : "无"),
+                  },
+                ].filter((field) => field.mine !== field.theirs)}
                 mineText={extractText(
                   serializeContentWithoutDraftComments(editor.children),
                 )}
@@ -1141,6 +1224,7 @@ export function WikiEditor({
                 onKeepMine={() => void keepMine()}
                 onDiscard={discardMine}
                 onCancel={() => {
+                  setError("");
                   setConflict(null);
                   setAutosaveConflict(Boolean(pendingConflictRef.current));
                 }}

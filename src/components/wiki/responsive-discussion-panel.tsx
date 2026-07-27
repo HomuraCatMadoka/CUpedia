@@ -63,6 +63,7 @@ export function ResponsiveDiscussionPanel({
   const mobile = useMediaQuery("(max-width: 767px)");
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
   const commentHistoryTokenRef = useRef<string | null>(null);
+  const commentHistoryCleanupFrameRef = useRef<number | null>(null);
   const { bottomInset } = useVisualViewport();
   const compactComposer =
     mobile && variant === "editor" && activeCommentId === "draft";
@@ -103,7 +104,12 @@ export function ResponsiveDiscussionPanel({
   useEffect(() => {
     if (!panelOpen || !compactComposer) return;
 
+    if (commentHistoryCleanupFrameRef.current !== null) {
+      cancelAnimationFrame(commentHistoryCleanupFrameRef.current);
+      commentHistoryCleanupFrameRef.current = null;
+    }
     const token = crypto.randomUUID();
+    const composerUrl = window.location.href;
     window.history.pushState(
       {
         ...window.history.state,
@@ -130,17 +136,33 @@ export function ResponsiveDiscussionPanel({
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      const currentToken = (
-        window.history.state as {
-          cupediaMobileCommentComposerToken?: string;
-        } | null
-      )?.cupediaMobileCommentComposerToken;
-      if (commentHistoryTokenRef.current === token && currentToken === token) {
-        commentHistoryTokenRef.current = null;
-        window.history.back();
-      }
+      commentHistoryCleanupFrameRef.current = requestAnimationFrame(() => {
+        commentHistoryCleanupFrameRef.current = null;
+        const currentToken = (
+          window.history.state as {
+            cupediaMobileCommentComposerToken?: string;
+          } | null
+        )?.cupediaMobileCommentComposerToken;
+        if (
+          window.location.href === composerUrl &&
+          commentHistoryTokenRef.current === token &&
+          currentToken === token
+        ) {
+          commentHistoryTokenRef.current = null;
+          window.history.back();
+        }
+      });
     };
   }, [closeDirectly, compactComposer, panelOpen]);
+
+  useEffect(
+    () => () => {
+      if (commentHistoryCleanupFrameRef.current !== null) {
+        cancelAnimationFrame(commentHistoryCleanupFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!panelOpen || mobile) return;

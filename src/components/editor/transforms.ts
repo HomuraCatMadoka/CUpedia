@@ -115,11 +115,13 @@ export const insertSlashCommandAfterBlock = (
   editor: PlateEditor,
   path: Path,
 ) => {
-  editor.tf.insertNodes(editor.api.create.block({ type: KEYS.p }), {
-    at: PathApi.next(path),
-    select: true,
+  editor.tf.withoutNormalizing(() => {
+    editor.tf.insertNodes(editor.api.create.block({ type: KEYS.p }), {
+      at: PathApi.next(path),
+      select: true,
+    });
+    editor.tf.insertText("/");
   });
-  editor.tf.insertText("/");
 };
 
 export const insertInlineElement = (editor: PlateEditor, type: string) => {

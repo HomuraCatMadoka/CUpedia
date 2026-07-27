@@ -102,11 +102,10 @@ test("editor uploads an image and saves it on a wiki page", async ({
   await page.goto("/wiki/new");
   await page.getByLabel("标题").fill(title);
   await page.getByRole("button", { name: "页面设置" }).click();
-  await page
-    .getByRole("dialog", { name: "页面设置" })
-    .getByLabel("URL 路径")
-    .fill(slug);
+  const settings = page.getByRole("dialog", { name: "页面设置" });
+  await settings.getByLabel("URL 路径").fill(slug);
   await page.keyboard.press("Escape");
+  await expect(settings).toHaveCount(0);
   const editor = page.locator('[role="textbox"]').first();
   await editor.evaluate((element, base64) => {
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));

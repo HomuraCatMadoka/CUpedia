@@ -182,6 +182,45 @@ const toolbarButtonClass =
 const panelButtonClass =
   "flex min-h-12 touch-manipulation items-center gap-3 rounded-md px-3 text-left text-sm transition-colors hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:bg-black/[0.075] disabled:opacity-35 dark:hover:bg-white/10 dark:aria-pressed:bg-white/10";
 
+type SelectionPreservingButtonProps = Omit<
+  React.ComponentPropsWithoutRef<"button">,
+  "onClick" | "onPointerDown" | "onPointerUp"
+> & {
+  onAction: () => void;
+};
+
+function SelectionPreservingButton({
+  onAction,
+  ...props
+}: SelectionPreservingButtonProps) {
+  const directPointerActivationAtRef = React.useRef(0);
+
+  return (
+    <button
+      {...props}
+      onPointerDown={(event) => {
+        // Keep the editor selection and virtual keyboard stable while pressed.
+        // WebKit may omit click after a canceled touch pointerdown, so direct
+        // pointers activate on pointerup and suppress any synthetic click.
+        event.preventDefault();
+      }}
+      onPointerUp={(event) => {
+        if (event.pointerType === "mouse") return;
+        event.preventDefault();
+        directPointerActivationAtRef.current = Date.now();
+        onAction();
+      }}
+      onClick={() => {
+        if (Date.now() - directPointerActivationAtRef.current < 750) {
+          directPointerActivationAtRef.current = 0;
+          return;
+        }
+        onAction();
+      }}
+    />
+  );
+}
+
 export function MobileWikiEditorToolbar({
   onFileDialogChange,
   onDismiss,
@@ -204,6 +243,9 @@ export function MobileWikiEditorToolbar({
     initialHistoryEntry?.surface ?? null,
   );
   const [blockPath, setBlockPath] = React.useState<Path | null>(null);
+  const blockPathRef = React.useRef<ReturnType<
+    typeof editor.api.pathRef
+  > | null>(null);
   const { bottomInset: visualViewportBottomInset } = useVisualViewport();
   const insertCancelRef = React.useRef<HTMLButtonElement>(null);
   const savedSelectionRef = React.useRef<typeof editor.selection>(selection);
@@ -279,6 +321,27 @@ export function MobileWikiEditorToolbar({
     }
   }, [editor]);
 
+  const rememberBlockPath = React.useCallback(
+    (path: Path | null) => {
+      blockPathRef.current?.unref();
+      blockPathRef.current = path ? editor.api.pathRef(path) : null;
+      setBlockPath(path);
+    },
+    [editor],
+  );
+
+  const resolveBlockPath = React.useCallback(
+    () => blockPathRef.current?.current ?? editor.api.block()?.[1] ?? null,
+    [editor],
+  );
+
+  React.useEffect(
+    () => () => {
+      blockPathRef.current?.unref();
+    },
+    [],
+  );
+
   const restoreSelectionOrDocumentEnd = () => {
     restoreSelection();
     if (editor.selection) return;
@@ -348,6 +411,7 @@ export function MobileWikiEditorToolbar({
       const nextEntry = readSurfaceHistoryEntry(event.state);
       if (nextEntry) {
         surfaceHistoryEntryRef.current = nextEntry;
+        setBlockPath(blockPathRef.current?.current ?? null);
         setSurface(nextEntry.surface);
         return;
       }
@@ -402,13 +466,13 @@ export function MobileWikiEditorToolbar({
 
   const openFormat = () => {
     saveSelection();
-    setBlockPath(editor.api.block()?.[1] ?? null);
+    rememberBlockPath(editor.api.block()?.[1] ?? null);
     openSurface("format");
   };
 
   const openBlock = () => {
     saveSelection();
-    setBlockPath(editor.api.block()?.[1] ?? null);
+    rememberBlockPath(editor.api.block()?.[1] ?? null);
     openSurface("turnInto");
   };
 
@@ -512,7 +576,7 @@ export function MobileWikiEditorToolbar({
     command: (typeof turnIntoGroups)[number]["commands"][number],
   ) => {
     restoreSelection();
-    const path = blockPath ?? editor.api.block()?.[1];
+    const path = resolveBlockPath();
     if (!path) return;
 
     turnIntoBlockCommand(editor, command, { at: path });
@@ -525,18 +589,17 @@ export function MobileWikiEditorToolbar({
   if (!visible && surface === null) return null;
 
   const renderDismissButton = () => (
-    <button
+    <SelectionPreservingButton
       type="button"
       aria-label="收起键盘"
-      onPointerDown={(event) => event.preventDefault()}
-      onClick={() => {
+      onAction={() => {
         editor.tf.blur();
         onDismiss();
       }}
       className={`${toolbarButtonClass} border-l border-black/[0.07] dark:border-white/10`}
     >
       <ChevronDownIcon aria-hidden="true" className="size-[18px]" />
-    </button>
+    </SelectionPreservingButton>
   );
 
   return (
@@ -571,14 +634,13 @@ export function MobileWikiEditorToolbar({
             >
               {surface === null && !selectionExpanded && (
                 <div className="grid h-11 w-full grid-cols-[44px_minmax(70px,1fr)_repeat(5,44px)] items-stretch divide-x divide-black/[0.08] min-[376px]:grid-cols-[48px_minmax(81px,1fr)_repeat(5,44px)] min-[393px]:grid-cols-[54px_minmax(93px,1fr)_repeat(5,44px)] dark:divide-white/[0.1]">
-                  <button
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="插入块"
                     aria-controls="mobile-insert-block-surface"
                     aria-expanded={surface === "insert"}
                     aria-haspopup="dialog"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={openInsert}
+                    onAction={openInsert}
                     className="flex touch-manipulation items-center justify-center gap-1 text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <PlusIcon aria-hidden="true" className="size-6" />
@@ -586,15 +648,14 @@ export function MobileWikiEditorToolbar({
                       aria-hidden="true"
                       className="size-3.5 text-[#787774]"
                     />
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="转换块类型"
                     aria-controls="mobile-turn-into-surface"
                     aria-expanded={surface === "turnInto"}
                     aria-haspopup="dialog"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={openBlock}
+                    onAction={openBlock}
                     className="flex min-w-0 touch-manipulation items-center justify-center gap-0.5 px-0.5 text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 min-[376px]:gap-1 min-[376px]:px-1 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <span className="truncate text-[11px] font-medium min-[361px]:text-[12px] min-[376px]:text-[13px] min-[393px]:text-[14px]">
@@ -604,40 +665,37 @@ export function MobileWikiEditorToolbar({
                       aria-hidden="true"
                       className="size-3 shrink-0 text-[#787774] min-[376px]:size-3.5"
                     />
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="提及页面"
-                    onPointerDown={(event) => {
-                      event.preventDefault();
+                    onAction={() => {
                       saveSelection();
+                      openMention();
                     }}
-                    onClick={openMention}
                     className="flex touch-manipulation items-center justify-center text-[25px] font-light text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <span aria-hidden="true">@</span>
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="添加批注"
                     disabled={!canCreateDiscussion}
-                    onPointerDown={(event) => {
-                      event.preventDefault();
+                    onAction={() => {
                       saveSelection();
+                      addComment();
                     }}
-                    onClick={addComment}
                     className="flex touch-manipulation items-center justify-center text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 disabled:opacity-35 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <MessageSquareTextIcon
                       aria-hidden="true"
                       className="size-[21px]"
                     />
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="插入图片"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => {
+                    onAction={() => {
                       saveSelection();
                       imagePickerPendingRef.current = true;
                       onFileDialogChange(true);
@@ -646,28 +704,26 @@ export function MobileWikiEditorToolbar({
                     className="flex touch-manipulation items-center justify-center text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <ImageIcon aria-hidden="true" className="size-[22px]" />
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="删除当前块"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={deleteCurrentBlock}
+                    onAction={deleteCurrentBlock}
                     className="flex touch-manipulation items-center justify-center text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <Trash2Icon aria-hidden="true" className="size-[21px]" />
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="收起键盘"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => {
+                    onAction={() => {
                       editor.tf.blur();
                       onDismiss();
                     }}
                     className="flex touch-manipulation items-center justify-center text-[#37352f] hover:bg-black/[0.055] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 dark:text-[#efefef] dark:hover:bg-white/10"
                   >
                     <KeyboardIcon aria-hidden="true" className="size-[21px]" />
-                  </button>
+                  </SelectionPreservingButton>
                 </div>
               )}
 
@@ -676,32 +732,30 @@ export function MobileWikiEditorToolbar({
                   data-testid="mobile-selection-actions"
                   className="flex min-w-max items-center px-1"
                 >
-                  <button
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="添加批注"
                     disabled={!canCreateDiscussion}
-                    onPointerDown={(event) => {
-                      event.preventDefault();
+                    onAction={() => {
                       saveSelection();
+                      addComment();
                     }}
-                    onClick={addComment}
                     className={toolbarButtonClass}
                   >
                     <MessageSquareTextIcon
                       aria-hidden="true"
                       className="size-[18px]"
                     />
-                  </button>
+                  </SelectionPreservingButton>
                   {formatActions.slice(0, 2).map((action) => {
                     const Icon = action.icon;
                     return (
-                      <button
+                      <SelectionPreservingButton
                         key={action.key}
                         type="button"
                         aria-label={action.label}
                         aria-pressed={editor.api.hasMark(action.key)}
-                        onPointerDown={(event) => event.preventDefault()}
-                        onClick={() =>
+                        onAction={() =>
                           runInlineCommand(() =>
                             editor.tf.toggleMark(action.key),
                           )
@@ -709,14 +763,13 @@ export function MobileWikiEditorToolbar({
                         className={toolbarButtonClass}
                       >
                         <Icon aria-hidden="true" className="size-[18px]" />
-                      </button>
+                      </SelectionPreservingButton>
                     );
                   })}
-                  <button
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="链接"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() =>
+                    onAction={() =>
                       runInlineCommand(() =>
                         triggerFloatingLink(editor, { focused: true }),
                       )
@@ -724,54 +777,50 @@ export function MobileWikiEditorToolbar({
                     className={toolbarButtonClass}
                   >
                     <LinkIcon aria-hidden="true" className="size-[18px]" />
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="行内代码"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() =>
+                    onAction={() =>
                       runInlineCommand(() => editor.tf.toggleMark(KEYS.code))
                     }
                     className={toolbarButtonClass}
                   >
                     <Code2Icon aria-hidden="true" className="size-[18px]" />
-                  </button>
-                  <button
+                  </SelectionPreservingButton>
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="更多格式"
                     aria-controls="mobile-format-surface"
                     aria-expanded={surface === "format"}
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={openFormat}
+                    onAction={openFormat}
                     className={toolbarButtonClass}
                   >
                     <EllipsisIcon aria-hidden="true" className="size-[19px]" />
-                  </button>
+                  </SelectionPreservingButton>
                 </div>
               )}
 
               {surface === "format" && (
                 <div className="flex min-w-max items-center px-1">
-                  <button
+                  <SelectionPreservingButton
                     type="button"
                     aria-label="返回编辑工具"
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={closeSurface}
+                    onAction={closeSurface}
                     className={toolbarButtonClass}
                   >
                     <ArrowLeftIcon aria-hidden="true" className="size-[18px]" />
-                  </button>
+                  </SelectionPreservingButton>
                   <span className="px-2 text-sm font-medium">Aa</span>
                   {formatActions.map((action) => {
                     const Icon = action.icon;
                     return (
-                      <button
+                      <SelectionPreservingButton
                         key={action.key}
                         type="button"
                         aria-label={action.label}
                         aria-pressed={editor.api.hasMark(action.key)}
-                        onPointerDown={(event) => event.preventDefault()}
-                        onClick={() =>
+                        onAction={() =>
                           runAccessoryCommand(() =>
                             editor.tf.toggleMark(action.key),
                           )
@@ -779,7 +828,7 @@ export function MobileWikiEditorToolbar({
                         className={toolbarButtonClass}
                       >
                         <Icon aria-hidden="true" className="size-[18px]" />
-                      </button>
+                      </SelectionPreservingButton>
                     );
                   })}
                 </div>
@@ -803,15 +852,14 @@ export function MobileWikiEditorToolbar({
                 {formatBlockCommands.map((command) => {
                   const Icon = command.icon;
                   return (
-                    <button
+                    <SelectionPreservingButton
                       key={command.id}
                       type="button"
                       aria-label={command.label}
                       aria-pressed={currentBlockType === command.value}
-                      onPointerDown={(event) => event.preventDefault()}
-                      onClick={() =>
+                      onAction={() =>
                         runAccessoryCommand(() => {
-                          const path = blockPath ?? editor.api.block()?.[1];
+                          const path = resolveBlockPath();
                           if (!path) return;
                           turnIntoBlockCommand(editor, command, { at: path });
                         })
@@ -823,7 +871,7 @@ export function MobileWikiEditorToolbar({
                         className="size-5 shrink-0 text-[#787774]"
                       />
                       <span>{command.label}</span>
-                    </button>
+                    </SelectionPreservingButton>
                   );
                 })}
               </div>
@@ -834,13 +882,12 @@ export function MobileWikiEditorToolbar({
                 {formatActions.map((action) => {
                   const Icon = action.icon;
                   return (
-                    <button
+                    <SelectionPreservingButton
                       key={action.key}
                       type="button"
                       aria-label={action.label}
                       aria-pressed={editor.api.hasMark(action.key)}
-                      onPointerDown={(event) => event.preventDefault()}
-                      onClick={() =>
+                      onAction={() =>
                         runAccessoryCommand(() =>
                           editor.tf.toggleMark(action.key),
                         )
@@ -852,7 +899,7 @@ export function MobileWikiEditorToolbar({
                         className="size-[18px] shrink-0 text-[#787774]"
                       />
                       <span>{action.label}</span>
-                    </button>
+                    </SelectionPreservingButton>
                   );
                 })}
               </div>

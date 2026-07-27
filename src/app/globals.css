@@ -183,6 +183,7 @@
     --epr-category-label-height: 32px !important;
     --epr-emoji-size: 21px !important;
     --epr-emoji-padding: 6px !important;
+
     border: 0 !important;
     border-radius: 0 !important;
     background: transparent !important;
@@ -214,6 +215,7 @@
 
   .wiki-emoji-picker .epr-skin-tones {
     --epr-skin-tone-size: 45px !important;
+
     flex: 0 0 45px !important;
     height: 45px;
     min-width: 45px;
@@ -407,10 +409,6 @@
       --epr-category-navigation-button-size: 44px !important;
       --epr-emoji-size: 24px !important;
       --epr-emoji-padding: 12px !important;
-    }
-
-    .wiki-emoji-picker .epr-header > :first-child {
-      padding-top: 12px;
     }
 
     .wiki-emoji-picker

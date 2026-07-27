@@ -186,6 +186,7 @@ const InlineCombobox = ({
     }
 
     let token = historyTokenRef.current;
+    const comboboxUrl = window.location.href;
     if (!token || readToken(window.history.state) !== token) {
       token = crypto.randomUUID();
       window.history.pushState(
@@ -216,6 +217,7 @@ const InlineCombobox = ({
       historyCleanupFrameRef.current = requestAnimationFrame(() => {
         historyCleanupFrameRef.current = null;
         if (
+          window.location.href === comboboxUrl &&
           historyTokenRef.current === token &&
           readToken(window.history.state) === token
         ) {

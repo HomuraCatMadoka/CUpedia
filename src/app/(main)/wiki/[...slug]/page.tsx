@@ -15,6 +15,7 @@ import { getDiscussions } from "@/lib/discussion-actions";
 import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
+import { resolveWikiLinkUrls } from "@/lib/wiki-links";
 
 export default async function WikiReadPage({
   params,
@@ -30,9 +31,13 @@ export default async function WikiReadPage({
   ]);
 
   if (!page) notFound();
+  if (page.slug !== slug) redirect(`/wiki/${page.slug}`);
 
   const headings = extractHeadings(page.content);
-  const plateValue = stripTitleHeading(parseContent(page.content), page.title);
+  const plateValue = stripTitleHeading(
+    resolveWikiLinkUrls(parseContent(page.content), pages),
+    page.title,
+  );
   const [discussions, backlinks] = await Promise.all([
     getDiscussions(page.id),
     getBacklinks(page.id),

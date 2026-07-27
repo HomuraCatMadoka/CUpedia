@@ -15,7 +15,7 @@ import {
   SearchIcon,
   Trash2Icon,
 } from "lucide-react";
-import type { Path, TElement } from "platejs";
+import { KEYS, PathApi, type Path, type TElement } from "platejs";
 import { useEditorRef } from "platejs/react";
 import { toast } from "sonner";
 
@@ -23,7 +23,10 @@ import {
   getBlockCommandGroups,
   turnIntoBlockCommand,
 } from "@/components/editor/block-command-catalog";
-import { WIKI_OPEN_BLOCK_MENU_EVENT } from "@/components/editor/block-menu-events";
+import {
+  WIKI_OPEN_BLOCK_MENU_EVENT,
+  type WikiOpenBlockMenuDetail,
+} from "@/components/editor/block-menu-events";
 import { getBlockType } from "@/components/editor/transforms";
 import { useDiscussions } from "@/components/wiki/discussion-context";
 import {
@@ -78,6 +81,9 @@ export function WikiBlockMenu({
     "转换",
     "turn into",
     currentLabel,
+    ...turnIntoGroups.flatMap((group) =>
+      group.commands.map((command) => command.label),
+    ),
   );
   const showDuplicate = matchesAction("复制", "duplicate", "copy");
   const showMoveUp = matchesAction("上移", "向上移动", "move up");
@@ -95,8 +101,8 @@ export function WikiBlockMenu({
 
   React.useEffect(() => {
     const handleOpenRequest = (event: Event) => {
-      const requestedBlockId = (event as CustomEvent<{ blockId?: string }>)
-        .detail?.blockId;
+      const requestedBlockId = (event as CustomEvent<WikiOpenBlockMenuDetail>)
+        .detail.blockId;
       if (requestedBlockId !== blockId) return;
 
       setQuery("");
@@ -235,6 +241,8 @@ export function WikiBlockMenu({
                         return (
                           <DropdownMenuItem
                             key={command.id}
+                            role="menuitemradio"
+                            aria-checked={selected}
                             className="min-h-8 gap-2 px-2 py-1.5"
                             onClick={() => {
                               turnIntoBlockCommand(editor, command, {
@@ -329,13 +337,51 @@ export function WikiBlockMenu({
               className="min-h-8 gap-2 px-2 py-1.5"
               onClick={() => {
                 selectionAfterCloseRef.current = null;
-                editor.tf.removeNodes({ at: path });
+                const parentPath = PathApi.parent(path);
+                const siblingIndex = path.at(-1) ?? 0;
+                const previousPath =
+                  siblingIndex > 0 ? PathApi.previous(path) : null;
+                const nextPath = PathApi.next(path);
+                const adjacentPoint =
+                  (previousPath && editor.api.node(previousPath)
+                    ? editor.api.end(previousPath)
+                    : null) ??
+                  (editor.api.node(nextPath)
+                    ? editor.api.start(nextPath)
+                    : null);
+                const adjacentPointRef = adjacentPoint
+                  ? editor.api.pointRef(adjacentPoint)
+                  : null;
+
+                editor.tf.withoutNormalizing(() => {
+                  editor.tf.deselect();
+                  editor.tf.removeNodes({ at: path });
+                  if (editor.children.length === 0) {
+                    editor.tf.insertNodes(
+                      editor.api.create.block({ type: KEYS.p }),
+                      { at: [0] },
+                    );
+                  }
+                });
+
+                const resolvedAdjacentPoint = adjacentPointRef?.unref() ?? null;
+                const nextPoint =
+                  (path.length > 1 ? editor.api.start(parentPath) : null) ??
+                  resolvedAdjacentPoint ??
+                  editor.api.start([]);
+                if (nextPoint) editor.tf.select(nextPoint);
                 blockSelection.clear();
                 closeMenu();
+                requestAnimationFrame(() => editor.tf.focus({ retries: 5 }));
                 toast("已删除块", {
                   action: {
                     label: "撤销",
-                    onClick: () => editor.undo(),
+                    onClick: () => {
+                      editor.undo();
+                      requestAnimationFrame(() =>
+                        editor.tf.focus({ retries: 5 }),
+                      );
+                    },
                   },
                 });
               }}

@@ -365,6 +365,13 @@
       "when": 1785082868561,
       "tag": "0051_luxuriant_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1785121287394,
+      "tag": "0052_gifted_meteorite",
+      "breakpoints": true
     }
   ]
 }

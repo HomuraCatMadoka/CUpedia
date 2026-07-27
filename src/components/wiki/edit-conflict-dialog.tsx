@@ -13,7 +13,14 @@ export interface EditConflict {
   theirUpdatedAt: string;
 }
 
+export interface EditConflictField {
+  label: string;
+  mine: string;
+  theirs: string;
+}
+
 export function EditConflictDialog({
+  fields = [],
   mineText,
   theirText,
   saving,
@@ -21,6 +28,7 @@ export function EditConflictDialog({
   onDiscard,
   onCancel,
 }: {
+  fields?: EditConflictField[];
   mineText: string;
   theirText: string;
   saving: boolean;
@@ -41,6 +49,29 @@ export function EditConflictDialog({
             该页面已被他人修改，且与你的改动重叠。请对比后选择处理方式，已写内容不会被丢弃。
           </p>
         </div>
+        {fields.length > 0 && (
+          <div
+            role="region"
+            aria-label="页面属性冲突"
+            className="overflow-hidden rounded-md border text-sm"
+          >
+            <div className="grid grid-cols-[minmax(5rem,0.7fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 bg-muted/50 px-3 py-2 font-medium">
+              <span>属性</span>
+              <span>服务器最新版本</span>
+              <span>我的版本</span>
+            </div>
+            {fields.map((field) => (
+              <div
+                key={field.label}
+                className="grid grid-cols-[minmax(5rem,0.7fr)_minmax(0,1fr)_minmax(0,1fr)] gap-2 border-t px-3 py-2"
+              >
+                <span className="font-medium">{field.label}</span>
+                <span className="break-words">{field.theirs}</span>
+                <span className="break-words">{field.mine}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto">
           <RevisionDiff
             oldText={theirText}

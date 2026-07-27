@@ -351,7 +351,8 @@ test.describe("#203 contextual desktop toolbar", () => {
 
     await selectText(page, "New to CUHK?");
     await page.keyboard.press("Escape");
-    await page.keyboard.press("Meta+/");
+    const modifier = process.platform === "darwin" ? "Meta" : "Control";
+    await page.keyboard.press(`${modifier}+/`);
 
     const menu = page.getByRole("menu", { name: "打开块菜单" });
     await expect(menu).toBeVisible();
@@ -389,6 +390,10 @@ test.describe("#203 contextual desktop toolbar", () => {
     await expect(menu.getByRole("menuitem", { name: "删除" })).toBeVisible();
     await expect(menu.getByRole("menuitem", { name: "复制" })).toHaveCount(0);
     await expect(menu.getByRole("menuitem", { name: "转换为" })).toHaveCount(0);
+
+    await search.fill("标题");
+    await expect(menu.getByRole("menuitem", { name: "转换为" })).toBeVisible();
+    await expect(menu.getByRole("menuitem", { name: "删除" })).toHaveCount(0);
 
     await page.keyboard.press("Escape");
     await expect(menu).toHaveCount(0);

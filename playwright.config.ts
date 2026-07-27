@@ -57,12 +57,20 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: /wiki-edit\.mobile-webkit\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "webkit-mobile",
+      testMatch: /wiki-edit\.mobile-webkit\.spec\.ts/,
+      use: { ...devices["iPhone 13"] },
     },
   ],
   webServer: {
     // Provision the isolated db before the server. CI builds in its own step;
     // local cold builds get a budget that reflects the real editor bundle.
+    // E2E_SERVER_MODE=dev is for fast local debugging only; production-mode
+    // runs and CI remain the authoritative gate.
     command: process.env.CI
       ? `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next start --port ${PORT}`
       : useDevServer

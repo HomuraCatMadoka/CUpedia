@@ -120,7 +120,7 @@ async function addNavigationTarget(page: Page) {
     anchor.href = "/wiki/welcome";
     anchor.dataset.testid = "mobile-navigation-target";
     anchor.textContent = "Leave editor";
-    document.body.append(anchor);
+    (document.querySelector('[role="dialog"]') ?? document.body).append(anchor);
   });
 }
 
@@ -885,6 +885,28 @@ test.describe("mobile wiki editing", () => {
     }
   });
 
+  test("navigating with the mention picker open is not undone by cleanup", async ({
+    page,
+  }) => {
+    const editor = page.locator('[data-slate-editor="true"]');
+    await editor.click();
+    await page
+      .getByRole("toolbar", { name: "键盘上方编辑工具" })
+      .getByRole("button", { name: "提及页面", exact: true })
+      .click({ force: true });
+    await expect(
+      page.getByRole("combobox", { name: "提及 Wiki 页面" }),
+    ).toBeFocused();
+
+    await addNavigationTarget(page);
+    await page.getByTestId("mobile-navigation-target").click({ force: true });
+
+    await expect(page).toHaveURL(/\/wiki\/welcome$/);
+    await expect(
+      page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
+    ).toBeVisible();
+  });
+
   test("the comment action opens a compact bottom composer", async ({
     page,
   }) => {
@@ -1016,6 +1038,29 @@ test.describe("mobile wiki editing", () => {
         originalContent,
       );
     }
+  });
+
+  test("navigating with the compact composer open is not undone by cleanup", async ({
+    page,
+  }) => {
+    const firstBlock = page
+      .getByTestId("wiki-editor-block")
+      .filter({ hasText: "New to CUHK?" })
+      .first();
+    await firstBlock.click();
+    await page
+      .getByRole("toolbar", { name: "键盘上方编辑工具" })
+      .getByRole("button", { name: "添加批注", exact: true })
+      .click({ force: true });
+    await expect(page.getByRole("dialog", { name: "添加批注" })).toBeVisible();
+
+    await addNavigationTarget(page);
+    await page.getByTestId("mobile-navigation-target").click({ force: true });
+
+    await expect(page).toHaveURL(/\/wiki\/welcome$/);
+    await expect(
+      page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
+    ).toBeVisible();
   });
 
   test("canceling the compact composer consumes its temporary history entry", async ({
@@ -1627,28 +1672,37 @@ test.describe("mobile wiki editing", () => {
   test("a Turn into command converts the active block and restores editor focus", async ({
     page,
   }) => {
-    const firstBlock = page
-      .getByTestId("wiki-editor-block")
-      .filter({ hasText: "New to CUHK?" })
-      .first();
-    await firstBlock.click();
-    await page.keyboard.press("End");
-    await page
-      .getByRole("toolbar", { name: "键盘上方编辑工具" })
-      .getByRole("button", { name: "转换块类型", exact: true })
-      .dispatchEvent("click");
+    const originalContent = await readWikiContent("getting-started");
+    try {
+      const firstBlock = page
+        .getByTestId("wiki-editor-block")
+        .filter({ hasText: "New to CUHK?" })
+        .first();
+      await firstBlock.click();
+      await page.keyboard.press("End");
+      await page
+        .getByRole("toolbar", { name: "键盘上方编辑工具" })
+        .getByRole("button", { name: "转换块类型", exact: true })
+        .dispatchEvent("click");
 
-    const sheet = page.getByRole("dialog", { name: "Turn into" });
-    await sheet
-      .getByRole("button", { name: "标题 2", exact: true })
-      .dispatchEvent("click");
+      const sheet = page.getByRole("dialog", { name: "Turn into" });
+      await sheet
+        .getByRole("button", { name: "标题 2", exact: true })
+        .dispatchEvent("click");
 
-    const editor = page.locator('[data-slate-editor="true"]');
-    await expect(sheet).toHaveCount(0);
-    await expect(
-      editor.getByRole("heading", { name: /New to CUHK\?/, level: 2 }),
-    ).toBeVisible();
-    await expect(editor).toBeFocused();
+      const editor = page.locator('[data-slate-editor="true"]');
+      await expect(sheet).toHaveCount(0);
+      await expect(
+        editor.getByRole("heading", { name: /New to CUHK\?/, level: 2 }),
+      ).toBeVisible();
+      await expect(editor).toBeFocused();
+    } finally {
+      await closePageAndRestoreWikiContent(
+        page,
+        "getting-started",
+        originalContent,
+      );
+    }
   });
 
   test("mobile Done saves the current Plate draft and returns to the reader", async ({
