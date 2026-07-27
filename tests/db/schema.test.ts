@@ -16,6 +16,8 @@ import {
   menuImportDrafts,
   danmakuMessages,
   courseRatings,
+  courseReviews,
+  courseReviewReplies,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -151,5 +153,15 @@ describe("schema", () => {
     expect(cols.enrollment).toBeDefined();
     expect(cols.attendance).toBeDefined();
     expect(cols.customTags).toBeDefined();
+  });
+
+  it("course review replies belong directly to a review author", () => {
+    const reviewCols = getTableColumns(courseReviews);
+    const replyCols = getTableColumns(courseReviewReplies);
+    expect(reviewCols.updatedAt).toBeDefined();
+    expect(replyCols.reviewId).toBeDefined();
+    expect(replyCols.userId).toBeDefined();
+    expect(replyCols.content).toBeDefined();
+    expect(replyCols.createdAt).toBeDefined();
   });
 });

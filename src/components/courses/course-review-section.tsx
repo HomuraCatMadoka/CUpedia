@@ -16,8 +16,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-actions";
-import { ProfessionalBadgeLogo } from "@/components/courses/professional-badge-logo";
-import { AchievementAvatar } from "@/components/user/achievement-avatar";
+import { CourseReviewAuthorIdentity } from "@/components/courses/course-review-author-identity";
+import { CourseReviewReplies } from "@/components/courses/course-review-replies";
 import { cn } from "@/lib/utils";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import {
@@ -287,7 +287,7 @@ export function CourseReviewSection({
                 : "";
         if (
           !window.confirm(
-            `确定删除整条课程测评吗？评分、评论和收到的点赞都会一并删除。${achievementCopy}`,
+            `确定删除整条课程测评吗？评分、评论、收到的点赞和回复都会一并删除。${achievementCopy}`,
           )
         ) {
           return;
@@ -484,6 +484,7 @@ export function CourseReviewSection({
                   编辑
                 </Button>
                 <Button
+                  data-testid="delete-own-course-review"
                   variant="outline"
                   className="text-destructive hover:text-destructive"
                   onClick={() => handleDelete()}
@@ -1023,68 +1024,25 @@ export function CourseReviewSection({
           <li key={review.id} className="rounded-xl border p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 items-start gap-3">
-                {review.authorShowcaseId ? (
-                  <Link
-                    aria-label={`${review.authorNickname ?? "用户"}的成就橱窗`}
-                    className="shrink-0"
-                    href={`/courses/achievements/showcase/${review.authorShowcaseId}`}
-                  >
-                    <AchievementAvatar
-                      image={review.authorAvatarUrl}
-                      size="sm"
-                      title={review.authorEquippedTitle}
-                    />
-                  </Link>
-                ) : (
-                  <AchievementAvatar image={review.authorAvatarUrl} size="sm" />
-                )}
-                <div className="min-w-0 pt-0.5">
-                  <span className="block truncate">
-                    {review.authorShowcaseId && review.authorNickname ? (
-                      <Link
-                        className="text-sm font-medium hover:underline"
-                        href={`/courses/achievements/showcase/${review.authorShowcaseId}`}
-                      >
-                        {review.authorNickname}
-                      </Link>
-                    ) : (
-                      <span className="text-sm font-medium">
-                        {review.authorNickname ?? "匿名用户"}
-                      </span>
-                    )}
-                  </span>
-                  {review.authorAchievements.length > 0 && (
-                    <div
-                      aria-label="作者成就"
-                      className="mt-1 flex flex-wrap items-end gap-1"
-                    >
-                      {[...review.authorAchievements]
-                        .sort((a, b) => {
-                          const tierOrder = { gold: 0, silver: 1, bronze: 2 };
-                          return (
-                            tierOrder[a.tier] - tierOrder[b.tier] ||
-                            Number(b.primary) - Number(a.primary) ||
-                            a.badgeCode.localeCompare(b.badgeCode)
-                          );
-                        })
-                        .map((achievement) => (
-                          <ProfessionalBadgeLogo
-                            code={achievement.badgeCode}
-                            compact
-                            key={achievement.id}
-                            size={achievement.primary ? 56 : 52}
-                            tier={achievement.tier}
-                          />
-                        ))}
-                    </div>
-                  )}
-                </div>
+                <CourseReviewAuthorIdentity
+                  nickname={review.authorNickname}
+                  showcaseId={review.authorShowcaseId}
+                  achievements={review.authorAchievements}
+                  avatarUrl={review.authorAvatarUrl}
+                  equippedTitle={review.authorEquippedTitle}
+                  achievementLabel="作者成就"
+                />
               </div>
-              <span
-                className="text-xs text-muted-foreground"
-                suppressHydrationWarning
-              >
-                {timeAgo(review.createdAt)}
+              <span className="text-xs text-muted-foreground">
+                <span suppressHydrationWarning>
+                  {timeAgo(review.createdAt)}
+                </span>
+                {review.isEdited && (
+                  <>
+                    <span> · </span>
+                    <span>已编辑</span>
+                  </>
+                )}
               </span>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
@@ -1129,7 +1087,7 @@ export function CourseReviewSection({
             <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
               {review.content}
             </p>
-            <div className="mt-4 flex items-center gap-3">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => isAuthenticated && handleLike(review.id)}
@@ -1150,6 +1108,11 @@ export function CourseReviewSection({
                 />
                 {review.likeCount}
               </button>
+              <CourseReviewReplies
+                reviewId={review.id}
+                initialCount={review.replyCount}
+                isAuthenticated={isAuthenticated}
+              />
               {review.canAdminDelete && (
                 <button
                   type="button"
