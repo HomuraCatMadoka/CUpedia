@@ -70,11 +70,11 @@ export function CommandSearch() {
     };
   }, []);
 
-  function handleSelect(slug: string) {
+  function handleSelect(pageId: string) {
     setOpen(false);
     setQuery("");
     setResults([]);
-    router.push(`/wiki/${slug}`);
+    router.push(`/wiki/${pageId}`);
   }
 
   return (
@@ -146,7 +146,7 @@ export function CommandSearch() {
                 <Command.Item
                   key={r.id}
                   value={r.slug}
-                  onSelect={() => handleSelect(r.slug)}
+                  onSelect={() => handleSelect(r.id)}
                   className="flex cursor-pointer flex-col gap-0.5 rounded-md px-2 py-2 text-sm aria-selected:bg-accent"
                 >
                   <span className="font-medium">{r.title}</span>

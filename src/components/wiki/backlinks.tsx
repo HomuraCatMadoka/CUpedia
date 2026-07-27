@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type Backlink = { slug: string; title: string };
+type Backlink = { id: string; title: string };
 
 export function Backlinks({ links }: { links: Backlink[] }) {
   if (links.length === 0) return null;
@@ -12,9 +12,9 @@ export function Backlinks({ links }: { links: Backlink[] }) {
       </h2>
       <ul className="space-y-1">
         {links.map((link) => (
-          <li key={link.slug}>
+          <li key={link.id}>
             <Link
-              href={`/wiki/${link.slug}`}
+              href={`/wiki/${link.id}`}
               className="text-sm text-primary underline decoration-primary underline-offset-4"
             >
               {link.title}

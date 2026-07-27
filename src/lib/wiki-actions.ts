@@ -138,6 +138,8 @@ async function assertValidWikiParent(tx: Tx, pageId: string, parentId: string) {
 // `revalidateSearchCorpus()` for immediate, high-value freshness.
 const SEARCH_CORPUS_TAG = "wiki-search-corpus";
 const SEARCH_CORPUS_REVALIDATE_SECONDS = 5 * 60;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function revalidateSearchCorpus() {
   revalidateTag(SEARCH_CORPUS_TAG, "max");
@@ -162,18 +164,26 @@ async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
 }
 
 const getCachedWikiPage = unstable_cache(
-  async (slug: string) => {
-    const page = await db.query.wikiPages.findFirst({
-      where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
-      with: {
-        createdByUser: { columns: { nickname: true } },
-        updatedByUser: { columns: { nickname: true } },
-      },
-    });
+  async (identifier: string) => {
+    const findPage = (byId: boolean) =>
+      db.query.wikiPages.findFirst({
+        where: and(
+          eq(byId ? wikiPages.id : wikiPages.slug, identifier),
+          isNull(wikiPages.deletedAt),
+        ),
+        with: {
+          createdByUser: { columns: { nickname: true } },
+          updatedByUser: { columns: { nickname: true } },
+        },
+      });
+    const looksLikeUuid = UUID_PATTERN.test(identifier);
+    const page =
+      (await findPage(looksLikeUuid)) ||
+      (looksLikeUuid ? await findPage(false) : null);
     if (page) return page;
 
     const alias = await db.query.wikiPageAliases.findFirst({
-      where: eq(wikiPageAliases.slug, slug),
+      where: eq(wikiPageAliases.slug, identifier),
       with: {
         page: {
           with: {
@@ -189,20 +199,28 @@ const getCachedWikiPage = unstable_cache(
   { tags: ["wiki-pages"] },
 );
 
-export async function getWikiPage(slug: string) {
-  return getCachedWikiPage(slug);
+export async function getWikiPage(identifier: string) {
+  return getCachedWikiPage(identifier);
 }
 
 // Editing needs an authoritative optimistic-lock baseline. A stale cached
 // version or updatedAt turns the next legitimate save into a false conflict.
-export async function getWikiPageForEdit(slug: string) {
-  const page = await db.query.wikiPages.findFirst({
-    where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
-  });
+export async function getWikiPageForEdit(identifier: string) {
+  const findPage = (byId: boolean) =>
+    db.query.wikiPages.findFirst({
+      where: and(
+        eq(byId ? wikiPages.id : wikiPages.slug, identifier),
+        isNull(wikiPages.deletedAt),
+      ),
+    });
+  const looksLikeUuid = UUID_PATTERN.test(identifier);
+  const page =
+    (await findPage(looksLikeUuid)) ||
+    (looksLikeUuid ? await findPage(false) : null);
   if (page) return page;
 
   const alias = await db.query.wikiPageAliases.findFirst({
-    where: eq(wikiPageAliases.slug, slug),
+    where: eq(wikiPageAliases.slug, identifier),
     with: { page: true },
   });
   return alias?.page && !alias.page.deletedAt ? alias.page : null;
@@ -211,7 +229,7 @@ export async function getWikiPageForEdit(slug: string) {
 const getCachedBacklinks = unstable_cache(
   async (pageId: string) => {
     return db
-      .select({ slug: wikiPages.slug, title: wikiPages.title })
+      .select({ id: wikiPages.id, title: wikiPages.title })
       .from(wikiLinks)
       .innerJoin(wikiPages, eq(wikiLinks.sourceId, wikiPages.id))
       .where(and(eq(wikiLinks.targetId, pageId), isNull(wikiPages.deletedAt)))
@@ -548,13 +566,12 @@ export async function updateWikiPage(data: {
       validateSlugChange: slugChanged,
     });
     revalidateTag("wiki-pages", "max");
-    revalidatePath(`/wiki/${result.slug}`);
-    if (slugChanged) revalidatePath(`/wiki/${existing.slug}`);
-    // updateTag immediately refreshes the current Server Action route. During
-    // a slug rename that route still contains the old slug and would render a
-    // 404 before the client can replace its URL. `revalidateTag(..., "max")`
-    // above expires the tree safely while the editor adopts the new route.
-    if (!slugChanged && (titleChanged || parentChanged || iconChanged)) {
+    revalidatePath(`/wiki/${result.id}`);
+    if (slugChanged) {
+      revalidatePath(`/wiki/${existing.slug}`);
+      revalidatePath(`/wiki/${result.slug}`);
+    }
+    if (titleChanged || slugChanged || parentChanged || iconChanged) {
       updateTag("wiki-pages");
     }
     if (titleChanged || slugChanged) revalidateSearchCorpus();
@@ -655,15 +672,17 @@ export async function updateWikiPage(data: {
         return toUpdateConflict(newest);
       }
       revalidateTag("wiki-pages", "max");
-      revalidatePath(`/wiki/${result.slug}`);
+      revalidatePath(`/wiki/${result.id}`);
       const mergedSlugChanged = slugMerge.value !== latest.slug;
-      if (mergedSlugChanged) revalidatePath(`/wiki/${latest.slug}`);
+      if (mergedSlugChanged) {
+        revalidatePath(`/wiki/${latest.slug}`);
+        revalidatePath(`/wiki/${result.slug}`);
+      }
       if (
-        !mergedSlugChanged &&
-        (mergedTitle !== latest.title ||
-          (mergedParentId !== undefined &&
-            mergedParentId !== latest.parentId) ||
-          (mergedIcon !== undefined && mergedIcon !== latest.icon))
+        mergedSlugChanged ||
+        mergedTitle !== latest.title ||
+        (mergedParentId !== undefined && mergedParentId !== latest.parentId) ||
+        (mergedIcon !== undefined && mergedIcon !== latest.icon)
       ) {
         updateTag("wiki-pages");
       }

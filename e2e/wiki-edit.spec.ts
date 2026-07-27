@@ -1,6 +1,8 @@
 import { test, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
+import { PAGE_IDS } from "../scripts/seed-data";
+import { wikiPageUrl } from "./helpers/wiki";
 
 /**
  * Wiki editor reliability and conflict handling.
@@ -57,6 +59,7 @@ async function insertPageWithMicrosecondTimestamp(slug: string) {
        values ($1, $2, $3, $4)`,
       [inserted.id, "Imported timestamp page", content, admin.id],
     );
+    return inserted.id;
   } finally {
     await client.end();
   }
@@ -103,7 +106,7 @@ test.describe("#94 editor reliability", () => {
   });
 
   test("autosave shows 已保存 after debounce", async ({ page }) => {
-    await page.goto("/wiki/edit/welcome");
+    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -126,14 +129,14 @@ test.describe("#94 editor reliability", () => {
     page,
   }) => {
     const slug = `db-timestamp-${Date.now()}`;
-    await insertPageWithMicrosecondTimestamp(slug);
+    const pageId = await insertPageWithMicrosecondTimestamp(slug);
 
     await page.goto(`/wiki/edit/${slug}`);
     const marker = `first-save-${Date.now()}`;
     await typeMarker(page, marker);
     await page.getByRole("button", { name: "完成" }).click();
 
-    await expect(page).toHaveURL(new RegExp(`/wiki/${slug}$`), {
+    await expect(page).toHaveURL(wikiPageUrl(pageId), {
       timeout: 15_000,
     });
     await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
@@ -161,11 +164,11 @@ test.describe("#94 editor reliability", () => {
   }) => {
     // Warm the reader cache before editing so this covers the real prefetch
     // path: leaving the editor must not render the pre-save cached document.
-    await page.goto("/wiki/campus-life");
+    await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
     await expect(
       page.getByRole("heading", { name: "Campus Life" }),
     ).toBeVisible();
-    await page.goto("/wiki/edit/campus-life");
+    await page.goto(`/wiki/edit/${PAGE_IDS.campusLife}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -175,12 +178,12 @@ test.describe("#94 editor reliability", () => {
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
     await page.getByRole("link", { name: "返回 Wiki" }).click();
-    await expect(page).toHaveURL(/\/wiki\/campus-life$/);
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.campusLife));
     await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
   });
 
   test("Cmd/Ctrl+S triggers a save", async ({ page }) => {
-    await page.goto("/wiki/edit/getting-started");
+    await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -201,7 +204,7 @@ test.describe("#94 editor reliability", () => {
   });
 
   test("unsaved changes arm the beforeunload guard", async ({ page }) => {
-    await page.goto("/wiki/edit/welcome");
+    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
     // Type and wait until dirty so use-autosave has attached its beforeunload
     // listener (it only registers while `isDirty`).
     await typeMarker(page, "beforeunload-" + Date.now());
@@ -242,7 +245,7 @@ test.describe("#96 edit conflict merge flow", () => {
     // A's baseline.
     await typeMarker(pageB, "BBB");
     await pageB.getByRole("button", { name: "完成" }).click();
-    await expect(pageB).toHaveURL(new RegExp(`/wiki/${CONFLICT_SLUG}$`), {
+    await expect(pageB).toHaveURL(wikiPageUrl(PAGE_IDS.campusLife), {
       timeout: 15_000,
     });
 
@@ -258,7 +261,7 @@ test.describe("#96 edit conflict merge flow", () => {
 
     // "Keep mine" re-saves against the latest revision and navigates to read.
     await dialog.getByRole("button", { name: "保留我的版本另存" }).click();
-    await expect(pageA).toHaveURL(new RegExp(`/wiki/${CONFLICT_SLUG}$`), {
+    await expect(pageA).toHaveURL(wikiPageUrl(PAGE_IDS.campusLife), {
       timeout: 15_000,
     });
     await pageA.reload();

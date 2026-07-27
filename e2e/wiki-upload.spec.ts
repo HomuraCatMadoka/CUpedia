@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { deleteObjects, getObject } from "../src/lib/minio";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
+import { canonicalWikiPageUrl } from "./helpers/wiki";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZAAAAAElFTkSuQmCC",
@@ -127,7 +128,7 @@ test("editor uploads an image and saves it on a wiki page", async ({
   remember(url!);
 
   await page.getByRole("button", { name: "完成" }).click();
-  await expect(page).toHaveURL(new RegExp(`/wiki/${slug}$`));
+  await expect(page).toHaveURL(canonicalWikiPageUrl);
   await expect(
     page.getByRole("heading", { name: title, level: 1 }),
   ).toBeVisible();

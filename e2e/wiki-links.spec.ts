@@ -3,6 +3,8 @@ import path from "node:path";
 import { Client } from "pg";
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
+import { canonicalWikiPageUrl } from "./helpers/wiki";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 function databaseUrl(): string {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
@@ -69,17 +71,17 @@ test.describe("#95 wiki links", () => {
     await option.click();
 
     // The inserted node renders as an internal /wiki link inside the editor.
-    await expect(editor.locator('a[href="/wiki/getting-started"]')).toHaveText(
-      "Getting Started",
-    );
+    await expect(
+      editor.locator(`a[href="/wiki/${PAGE_IDS.gettingStarted}"]`),
+    ).toHaveText("Getting Started");
 
     await page.getByRole("button", { name: "完成" }).click();
 
     // Create persists then redirects to the new read-only page, where the
     // internal link is rendered.
-    await page.waitForURL(`**/wiki/${SOURCE_SLUG}`, { timeout: 15_000 });
+    await page.waitForURL(canonicalWikiPageUrl, { timeout: 15_000 });
     await expect(
-      page.locator('a[href="/wiki/getting-started"]').first(),
+      page.locator(`a[href="/wiki/${PAGE_IDS.gettingStarted}"]`).first(),
     ).toBeVisible();
   });
 
@@ -91,7 +93,7 @@ test.describe("#95 wiki links", () => {
     // The backlink is derived from a tag-revalidated cache; allow a couple of
     // reloads for invalidation from the create above to propagate.
     await expect(async () => {
-      await page.goto("/wiki/getting-started");
+      await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
       await expect(backlink).toBeVisible({ timeout: 3_000 });
     }).toPass({ timeout: 20_000 });
   });

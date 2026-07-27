@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
+import { canonicalWikiPageUrl, wikiPageUrl } from "./helpers/wiki";
 
 const slug = `lifecycle-${randomUUID().slice(0, 8)}`;
 const title = `Lifecycle ${slug}`;
@@ -64,7 +65,8 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   await expect(createSettings).toHaveCount(0);
   await page.locator('[role="textbox"]').first().fill(first);
   await page.getByRole("button", { name: "完成" }).click();
-  await page.waitForURL(`**/wiki/${slug}`);
+  await page.waitForURL(canonicalWikiPageUrl);
+  const pageId = new URL(page.url()).pathname.split("/").at(-1)!;
   await expect(page.getByText(first)).toBeVisible();
   expect(await revisionCount()).toBe(1);
 
@@ -96,7 +98,7 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   await page.getByRole("link", { name: "查看" }).last().click();
   await expect(page.getByText(first)).toBeVisible();
   await page.getByRole("button", { name: "回滚到此版本" }).click();
-  await page.waitForURL(`**/wiki/${slug}`);
+  await page.waitForURL(wikiPageUrl(pageId));
   expect(await revisionCount()).toBe(3);
   await expect(async () => {
     await page.goto(`/wiki/${slug}`);
@@ -133,7 +135,7 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   }).toPass({ timeout: 20_000 });
   await restoredContext.close();
 
-  await page.goto(`/wiki/history/${slug}`);
+  await page.goto(`/wiki/history/${pageId}`);
   await expect(page.getByRole("link", { name: "查看" })).toHaveCount(3);
   expect(await revisionCount()).toBe(3);
 });

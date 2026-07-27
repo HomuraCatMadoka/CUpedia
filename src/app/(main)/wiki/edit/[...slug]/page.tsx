@@ -45,14 +45,15 @@ export default async function EditWikiPage({
 }) {
   await requireEditorOrRedirect();
   const { slug: slugParts } = await params;
-  const slug = slugParts.map(decodeURIComponent).join("/");
+  const identifier = slugParts.map(decodeURIComponent).join("/");
   const [page, pages] = await Promise.all([
-    getWikiPageForEdit(slug),
+    getWikiPageForEdit(identifier),
     getWikiTree(),
   ]);
   if (!page) notFound();
-  if (page.slug !== slug) redirect(`/wiki/edit/${page.slug}`);
+  if (page.id !== identifier) redirect(`/wiki/edit/${page.id}`);
   const pageId = page.id;
+  const pageSlug = page.slug;
   const discussions = await getDiscussions(pageId);
   const excludedParentIds = collectDescendantIds(pages, pageId);
 
@@ -75,7 +76,7 @@ export default async function EditWikiPage({
     try {
       const updated = await updateWikiPage({
         pageId,
-        slug,
+        slug: pageSlug,
         nextSlug: data.slug,
         title: data.title,
         icon: data.icon,
@@ -103,6 +104,7 @@ export default async function EditWikiPage({
         };
       }
       return {
+        id: updated.id,
         slug: updated.slug,
         parentId: updated.parentId,
         title: updated.title,

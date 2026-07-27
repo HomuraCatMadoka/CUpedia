@@ -22,19 +22,19 @@ const pages: TreePage[] = [
 
 describe("buildBreadcrumb", () => {
   it("returns empty array for root page", () => {
-    expect(buildBreadcrumb(pages, "guide")).toEqual([]);
+    expect(buildBreadcrumb(pages, "1")).toEqual([]);
   });
 
   it("returns parent chain for nested page", () => {
-    expect(buildBreadcrumb(pages, "guide/late-night")).toEqual([
-      { slug: "guide", title: "CU 全港觅食指南⭐⭐⭐" },
+    expect(buildBreadcrumb(pages, "2")).toEqual([
+      { id: "1", title: "CU 全港觅食指南⭐⭐⭐" },
     ]);
   });
 
   it("returns full ancestor chain for deeply nested page", () => {
-    expect(buildBreadcrumb(pages, "guide/late-night/tips")).toEqual([
-      { slug: "guide", title: "CU 全港觅食指南⭐⭐⭐" },
-      { slug: "guide/late-night", title: "后半夜觅食" },
+    expect(buildBreadcrumb(pages, "3")).toEqual([
+      { id: "1", title: "CU 全港觅食指南⭐⭐⭐" },
+      { id: "2", title: "后半夜觅食" },
     ]);
   });
 

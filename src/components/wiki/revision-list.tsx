@@ -10,10 +10,10 @@ type Revision = {
 
 export function RevisionList({
   revisions,
-  slug,
+  pageId,
 }: {
   revisions: Revision[];
-  slug: string;
+  pageId: string;
 }) {
   if (revisions.length === 0) {
     return <p className="text-muted-foreground">暂无编辑历史。</p>;
@@ -37,14 +37,14 @@ export function RevisionList({
           </div>
           <div className="flex gap-2">
             <Link
-              href={`/wiki/history/${slug}?view=${rev.id}`}
+              href={`/wiki/history/${pageId}?view=${rev.id}`}
               className="text-xs text-blue-600 hover:underline"
             >
               查看
             </Link>
             {i < revisions.length - 1 && (
               <Link
-                href={`/wiki/history/${slug}?diff=${revisions[i + 1].id}&with=${rev.id}`}
+                href={`/wiki/history/${pageId}?diff=${revisions[i + 1].id}&with=${rev.id}`}
                 className="text-xs text-blue-600 hover:underline"
               >
                 对比

@@ -76,6 +76,7 @@ import {
 
 interface WikiSubmitResult {
   error?: string;
+  id?: string;
   slug?: string;
   parentId?: string | null;
   title?: string;
@@ -253,15 +254,6 @@ export function WikiEditor({
   const pendingConflictRef = useRef<EditConflict | null>(null);
   const router = useRouter();
   const { ensureContributorSetup } = useContributorSetup();
-  const replaceEditorUrl = useCallback(
-    (nextSlug: string) => {
-      if (mode !== "edit" || !nextSlug) return;
-      const nextUrl = new URL(window.location.href);
-      nextUrl.pathname = `/wiki/edit/${nextSlug}`;
-      window.history.replaceState(window.history.state, "", nextUrl);
-    },
-    [mode],
-  );
   const handleMobileEditorBlur = useCallback(
     (event: FocusEvent<HTMLDivElement>) => {
       const staysInEditorContext = (target: EventTarget | null) =>
@@ -299,10 +291,9 @@ export function WikiEditor({
   const editSummaryRef = useRef("");
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
   const sharePage = useCallback(async () => {
-    if (mode !== "edit" || !slugRef.current) return;
+    if (mode !== "edit" || !pageId) return;
 
-    const url = new URL(`/wiki/${slugRef.current}`, window.location.origin)
-      .href;
+    const url = new URL(`/wiki/${pageId}`, window.location.origin).href;
     try {
       if (navigator.share) {
         await navigator.share({
@@ -322,7 +313,7 @@ export function WikiEditor({
       }
       toast.error("无法分享页面");
     }
-  }, [mode, title]);
+  }, [mode, pageId, title]);
 
   const editor = usePlateEditor({
     plugins: [
@@ -447,10 +438,6 @@ export function WikiEditor({
         } else if (authoritativeSlug === next.slug) {
           baseSlugRef.current = authoritativeSlug;
         }
-        if (!slugDrifted) {
-          replaceEditorUrl(authoritativeSlug);
-        }
-
         if (!parentDrifted) {
           const nextParentValue = authoritativeParentId ?? "";
           parentIdRef.current = nextParentValue;
@@ -509,7 +496,7 @@ export function WikiEditor({
       }
       return result;
     },
-    [onSubmit, editor, replaceEditorUrl],
+    [onSubmit, editor],
   );
 
   // Serialize the document only when a save fires, never per keystroke — the
@@ -605,7 +592,7 @@ export function WikiEditor({
         surfaceAutosaveFailure(outcome.error);
         return;
       }
-      router.push(`/wiki/${slugRef.current}`);
+      router.push(`/wiki/${pageId}`);
       return;
     }
 
@@ -646,10 +633,17 @@ export function WikiEditor({
         editSummary: editSummaryRef.current,
       }),
     );
-    router.push(`/wiki/${result.slug}`);
+    const savedPageId = result.id ?? pageId;
+    if (!savedPageId) {
+      setError("页面已保存，但无法打开。请刷新后重试。");
+      setSubmitting(false);
+      return;
+    }
+    router.push(`/wiki/${savedPageId}`);
   }, [
     title,
     autosaveEnabled,
+    pageId,
     flushAutosave,
     save,
     editor,
@@ -685,19 +679,19 @@ export function WikiEditor({
       setSubmitting(false);
       return;
     }
-    const savedSlug = result.slug ?? slugRef.current;
     pendingConflictRef.current = null;
     setAutosaveConflict(false);
     resetAutosaveBaseline(result.content ?? nextSnapshot);
     setConflict(null);
     setSubmitting(false);
     bypassNavigationUrlRef.current = new URL(
-      `/wiki/${savedSlug}`,
+      `/wiki/${pageId}`,
       window.location.origin,
     ).href;
-    router.push(`/wiki/${savedSlug}`);
+    router.push(`/wiki/${pageId}`);
   }, [
     conflict,
+    pageId,
     save,
     editor,
     router,
@@ -724,7 +718,6 @@ export function WikiEditor({
     parentIdRef.current = conflict.theirParentId ?? "";
     setSlug(conflict.theirSlug);
     setSelectedParentId(conflict.theirParentId ?? "");
-    replaceEditorUrl(conflict.theirSlug);
     pendingConflictRef.current = null;
     setAutosaveConflict(false);
     resetAutosaveBaseline(
@@ -738,7 +731,7 @@ export function WikiEditor({
       }),
     );
     setConflict(null);
-  }, [conflict, editor, replaceEditorUrl, resetAutosaveBaseline]);
+  }, [conflict, editor, resetAutosaveBaseline]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -938,7 +931,7 @@ export function WikiEditor({
               <div className="flex min-w-0 items-center gap-1">
                 <SidebarMobileToggle editor />
                 <Link
-                  href={mode === "edit" ? `/wiki/${slug}` : "/wiki"}
+                  href={mode === "edit" ? `/wiki/${pageId}` : "/wiki"}
                   aria-label="返回 Wiki"
                   className={buttonVariants({
                     variant: "ghost",
@@ -952,7 +945,7 @@ export function WikiEditor({
                   {selectedParent && (
                     <>
                       <Link
-                        href={`/wiki/${selectedParent.slug}`}
+                        href={`/wiki/${selectedParent.id}`}
                         className="hidden max-w-36 truncate rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 sm:inline"
                       >
                         {selectedParent.title}

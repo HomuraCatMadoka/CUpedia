@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin } from "./helpers/auth";
+import { wikiEditUrl, wikiPageUrl } from "./helpers/wiki";
 
 const FIXTURE_TOKEN = randomUUID().slice(0, 8);
 const RENAMED_SLUG = `autosave-renamed-${FIXTURE_TOKEN}`;
@@ -14,30 +15,37 @@ const FIXTURE_CONTENT = JSON.stringify([
 ]);
 const FIXTURES = {
   merge: {
+    id: randomUUID(),
     slug: `autosave-merge-${FIXTURE_TOKEN}`,
     title: "Autosave merge fixture",
   },
   explicit: {
+    id: randomUUID(),
     slug: `autosave-explicit-${FIXTURE_TOKEN}`,
     title: "Autosave explicit fixture",
   },
   failure: {
+    id: randomUUID(),
     slug: `autosave-failure-${FIXTURE_TOKEN}`,
     title: "Autosave failure fixture",
   },
   passiveConflict: {
+    id: randomUUID(),
     slug: `autosave-passive-${FIXTURE_TOKEN}`,
     title: "Autosave passive conflict fixture",
   },
   bodyTitleMerge: {
+    id: randomUUID(),
     slug: `autosave-body-title-${FIXTURE_TOKEN}`,
     title: "Autosave body title fixture",
   },
   titleConflict: {
+    id: randomUUID(),
     slug: `autosave-title-conflict-${FIXTURE_TOKEN}`,
     title: "Autosave title conflict fixture",
   },
   slugRename: {
+    id: randomUUID(),
     slug: `autosave-slug-${FIXTURE_TOKEN}`,
     title: "Autosave slug fixture",
   },
@@ -60,7 +68,7 @@ test.beforeAll(async () => {
         `insert into wiki_pages
            (id, slug, title, content, created_by, updated_by, version)
          values ($1, $2, $3, $4, $5, $5, 1)`,
-        [randomUUID(), fixture.slug, fixture.title, FIXTURE_CONTENT, adminId],
+        [fixture.id, fixture.slug, fixture.title, FIXTURE_CONTENT, adminId],
       );
     }
   } finally {
@@ -155,7 +163,7 @@ test.describe("#432 latest draft convergence", () => {
     await expect(page.getByLabel("标题")).toHaveValue(title);
   });
 
-  test("an autosaved slug rename updates the edit URL before refresh", async ({
+  test("an autosaved slug rename keeps the canonical edit URL stable", async ({
     page,
   }) => {
     await loginAsAdmin(page);
@@ -169,12 +177,12 @@ test.describe("#432 latest draft convergence", () => {
     await page.keyboard.press("Escape");
     await expect(settingsDialog).toHaveCount(0);
 
-    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${RENAMED_SLUG}$`), {
+    await expect(page).toHaveURL(wikiEditUrl(FIXTURES.slugRename.id), {
       timeout: 15_000,
     });
     await expect(page.locator('a[aria-label="返回 Wiki"]')).toHaveAttribute(
       "href",
-      `/wiki/${RENAMED_SLUG}`,
+      `/wiki/${FIXTURES.slugRename.id}`,
     );
 
     await page.reload();
@@ -183,9 +191,9 @@ test.describe("#432 latest draft convergence", () => {
     );
 
     await page.goto(`/wiki/edit/${FIXTURES.slugRename.slug}`);
-    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${RENAMED_SLUG}$`));
+    await expect(page).toHaveURL(wikiEditUrl(FIXTURES.slugRename.id));
     await page.goto(`/wiki/${FIXTURES.slugRename.slug}`);
-    await expect(page).toHaveURL(new RegExp(`/wiki/${RENAMED_SLUG}$`));
+    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.slugRename.id));
   });
 
   test("explicit save persists input typed while its request is in flight", async ({
@@ -206,20 +214,17 @@ test.describe("#432 latest draft convergence", () => {
     });
     let held = false;
 
-    await page.route(
-      `**/wiki/edit/${FIXTURES.explicit.slug}`,
-      async (route) => {
-        if (route.request().method() === "POST" && !held) {
-          held = true;
-          const response = await route.fetch();
-          markFirstResponseHeld();
-          await firstResponseGate;
-          await route.fulfill({ response });
-          return;
-        }
-        await route.continue();
-      },
-    );
+    await page.route(`**/wiki/edit/${FIXTURES.explicit.id}`, async (route) => {
+      if (route.request().method() === "POST" && !held) {
+        held = true;
+        const response = await route.fetch();
+        markFirstResponseHeld();
+        await firstResponseGate;
+        await route.fulfill({ response });
+        return;
+      }
+      await route.continue();
+    });
 
     await page.goto(`/wiki/edit/${FIXTURES.explicit.slug}`);
     await expect(page.locator('[role="textbox"]').first()).toBeVisible();
@@ -232,7 +237,7 @@ test.describe("#432 latest draft convergence", () => {
 
     try {
       const navigatedEarly = await page
-        .waitForURL(new RegExp(`/wiki/${FIXTURES.explicit.slug}$`), {
+        .waitForURL(wikiPageUrl(FIXTURES.explicit.id), {
           timeout: 1_000,
         })
         .then(
@@ -244,12 +249,9 @@ test.describe("#432 latest draft convergence", () => {
       releaseFirstResponse();
     }
 
-    await expect(page).toHaveURL(
-      new RegExp(`/wiki/${FIXTURES.explicit.slug}$`),
-      {
-        timeout: 15_000,
-      },
-    );
+    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.explicit.id), {
+      timeout: 15_000,
+    });
     await page.goto(`/wiki/edit/${FIXTURES.explicit.slug}`);
     await expect(page.getByLabel("标题")).toHaveValue(trailingTitle);
   });
@@ -258,7 +260,7 @@ test.describe("#432 latest draft convergence", () => {
     page,
   }) => {
     const draftTitle = `Offline draft ${Date.now()}`;
-    const editPath = `/wiki/edit/${FIXTURES.failure.slug}`;
+    const editPath = `/wiki/edit/${FIXTURES.failure.id}`;
 
     await loginAsAdmin(page);
     await page.route(`**${editPath}`, async (route) => {
@@ -274,9 +276,7 @@ test.describe("#432 latest draft convergence", () => {
     await page.getByLabel("标题").fill(draftTitle);
     await page.getByRole("button", { name: "完成" }).click();
 
-    await expect(page).toHaveURL(
-      new RegExp(`/wiki/edit/${FIXTURES.failure.slug}$`),
-    );
+    await expect(page).toHaveURL(wikiEditUrl(FIXTURES.failure.id));
     await expect(page.getByLabel("标题")).toHaveValue(draftTitle);
     await expect(page.getByRole("alert", { name: "保存错误" })).toContainText(
       "保存失败，请检查网络后重试",
@@ -315,7 +315,7 @@ test.describe("#432 latest draft convergence", () => {
 
     await appendAfterText(pageB, "Alpha block.", markerB);
     await pageB.getByRole("button", { name: "完成" }).click();
-    await expect(pageB).toHaveURL(new RegExp(`/wiki/${slug}$`));
+    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.passiveConflict.id));
 
     await appendAfterText(pageA, "Alpha block.", markerA);
     await expect(
@@ -357,7 +357,7 @@ test.describe("#432 latest draft convergence", () => {
 
     await pageB.getByLabel("标题").fill(serverTitle);
     await pageB.getByRole("button", { name: "完成" }).click();
-    await expect(pageB).toHaveURL(new RegExp(`/wiki/${slug}$`));
+    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.bodyTitleMerge.id));
 
     await appendAfterText(pageA, "Alpha block.", bodyMarker);
     await expect(pageA.getByText("已保存")).toBeVisible({ timeout: 15_000 });
@@ -394,7 +394,7 @@ test.describe("#432 latest draft convergence", () => {
 
     await pageB.getByLabel("标题").fill(serverTitle);
     await pageB.getByRole("button", { name: "完成" }).click();
-    await expect(pageB).toHaveURL(new RegExp(`/wiki/${slug}$`));
+    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.titleConflict.id));
 
     await pageA.getByLabel("标题").fill(mineTitle);
     await expect(
@@ -436,7 +436,7 @@ test.describe("#431 authoritative autosave baseline", () => {
     // B advances the server copy by editing a different top-level block.
     await appendAfterText(pageB, "Beta block.", markerB);
     await pageB.getByRole("button", { name: "完成" }).click();
-    await expect(pageB).toHaveURL(new RegExp(`/wiki/${MERGE_SLUG}$`));
+    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.merge.id));
 
     // A is still on the original baseline. Its non-overlapping edit should
     // clean-merge and the editor should adopt the authoritative merged copy.
