@@ -50,7 +50,7 @@ describe("extractWikiLinkTargets", () => {
 });
 
 describe("resolveWikiLinkUrls", () => {
-  it("refreshes nested wiki-link URLs from stable page IDs", () => {
+  it("resolves nested wiki-link URLs to the canonical page ID", () => {
     const value = [
       {
         type: "p",
@@ -66,9 +66,7 @@ describe("resolveWikiLinkUrls", () => {
       },
     ];
 
-    expect(
-      resolveWikiLinkUrls(value, [{ id: "p1", slug: "new-slug" }]),
-    ).toEqual([
+    expect(resolveWikiLinkUrls(value, [{ id: "p1" }])).toEqual([
       {
         type: "p",
         children: [
@@ -76,7 +74,7 @@ describe("resolveWikiLinkUrls", () => {
           {
             type: "a",
             pageId: "p1",
-            url: "/wiki/new-slug",
+            url: "/wiki/p1",
             children: [{ text: "Page One" }],
           },
         ],

@@ -54,7 +54,7 @@ function insertWikiLink(editor: PlateEditor, page: WikiLinkPage) {
   }
   editor.tf.insertNodes({
     type: KEYS.link,
-    url: `/wiki/${page.slug}`,
+    url: `/wiki/${page.id}`,
     pageId: page.id,
     children: [{ text: page.title }],
   });

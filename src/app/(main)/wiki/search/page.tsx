@@ -33,7 +33,7 @@ export default async function SearchPage({
           {results.map((r) => (
             <Link
               key={r.id}
-              href={`/wiki/${r.slug}`}
+              href={`/wiki/${r.id}`}
               className="block rounded-lg border p-3 hover:bg-secondary/50"
             >
               <p className="font-medium">{r.title}</p>

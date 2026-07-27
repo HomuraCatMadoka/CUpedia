@@ -25,7 +25,7 @@ export default async function NewWikiPage({
     "use server";
     try {
       const page = await createWikiPage(data);
-      return { slug: page.slug };
+      return { id: page.id, slug: page.slug };
     } catch (e: unknown) {
       return { error: e instanceof Error ? e.message : String(e) };
     }
