@@ -321,9 +321,7 @@ export function CourseReviewSection({
           : review.professorId === selectedProfessor.id,
       )
     : reviews;
-  const visibleCommentCount = visibleReviews.filter(
-    (review) => !review.isRatingOnly,
-  ).length;
+  const visibleCommentCount = visibleReviews.length;
   const displayedReviews = visibleReviews.slice(0, visibleReviewLimit);
   const hiddenReviewCount = visibleReviews.length - displayedReviews.length;
   const professorTermsByYear = selectedProfessor
@@ -1042,9 +1040,7 @@ export function CourseReviewSection({
                 )}
                 <div className="min-w-0 pt-0.5">
                   <span className="block truncate">
-                    {review.isRatingOnly ? (
-                      <span className="text-sm font-medium">仅评分投稿</span>
-                    ) : review.authorShowcaseId && review.authorNickname ? (
+                    {review.authorShowcaseId && review.authorNickname ? (
                       <Link
                         className="text-sm font-medium hover:underline"
                         href={`/courses/achievements/showcase/${review.authorShowcaseId}`}
@@ -1130,44 +1126,37 @@ export function CourseReviewSection({
                 </span>
               ))}
             </div>
-            {!review.isRatingOnly && (
-              <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
-                {review.content}
-              </p>
-            )}
+            <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+              {review.content}
+            </p>
             <div className="mt-4 flex items-center gap-3">
-              {!review.isRatingOnly && (
-                <button
-                  type="button"
-                  onClick={() => isAuthenticated && handleLike(review.id)}
-                  disabled={
-                    !isAuthenticated || (submitting && busyId === review.id)
-                  }
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors",
-                    review.likedByMe
-                      ? "bg-primary/10 text-primary"
-                      : "bg-secondary text-muted-foreground hover:bg-accent",
-                    !isAuthenticated && "cursor-not-allowed opacity-60",
-                  )}
-                  title={isAuthenticated ? "点赞" : "登录后可点赞"}
-                >
-                  <ThumbsUpIcon
-                    className={cn(
-                      "size-3.5",
-                      review.likedByMe && "fill-current",
-                    )}
-                  />
-                  {review.likeCount}
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => isAuthenticated && handleLike(review.id)}
+                disabled={
+                  !isAuthenticated || (submitting && busyId === review.id)
+                }
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors",
+                  review.likedByMe
+                    ? "bg-primary/10 text-primary"
+                    : "bg-secondary text-muted-foreground hover:bg-accent",
+                  !isAuthenticated && "cursor-not-allowed opacity-60",
+                )}
+                title={isAuthenticated ? "点赞" : "登录后可点赞"}
+              >
+                <ThumbsUpIcon
+                  className={cn("size-3.5", review.likedByMe && "fill-current")}
+                />
+                {review.likeCount}
+              </button>
               {review.canAdminDelete && (
                 <button
                   type="button"
                   onClick={() =>
                     handleDelete({
                       id: review.id,
-                      type: review.isRatingOnly ? "rating" : "review",
+                      type: "review",
                     })
                   }
                   disabled={submitting && busyId === review.id}

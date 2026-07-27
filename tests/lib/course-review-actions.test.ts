@@ -1255,31 +1255,12 @@ describe("getCourseReviews", () => {
     expect(review.authorAchievements[0]).not.toHaveProperty("evidence");
   });
 
-  it("管理员可看到没有评论的评分投稿管理卡片", async () => {
+  it("管理员也只看到有文字评论的投稿", async () => {
     mockGetOptionalUser.mockResolvedValue({ id: "admin", role: "admin" });
-    queueRows(
-      [COURSE],
-      [],
-      [
-        {
-          id: "rating1",
-          userId: "other",
-          createdAt: new Date("2026-07-13T00:00:00Z"),
-          professorName: "Professor CHAN",
-          academicYear: "2025-26",
-          term: "Term 2",
-          score: 4.5,
-        },
-      ],
-    );
-    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([
-      expect.objectContaining({
-        id: "rating1",
-        isRatingOnly: true,
-        canAdminDelete: true,
-        score: 4.5,
-      }),
-    ]);
+    queueRows([COURSE], []);
+
+    await expect(getCourseReviews("CSCI3150")).resolves.toEqual([]);
+    expect(dbSelect).toHaveBeenCalledTimes(2);
   });
 });
 
