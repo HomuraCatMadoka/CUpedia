@@ -344,7 +344,7 @@ describe("cache invalidation — revalidateTag called", () => {
   // "most recent revision" select returns; the update/insert spies let a test
   // assert whether the write coalesced (updates the revision) or inserted a new
   // one. See ADR 0009.
-  function makeWriteTx(latestRevision: unknown) {
+  function makeWriteTx(latestRevision: unknown, currentSlug = "test") {
     const set = vi.fn().mockReturnValue({
       where: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([
@@ -359,8 +359,14 @@ describe("cache invalidation — revalidateTag called", () => {
     const update = vi.fn().mockReturnValue({
       set,
     });
+    const insertedValues: unknown[] = [];
     const insert = vi.fn().mockReturnValue({
-      values: vi.fn().mockResolvedValue(undefined),
+      values: vi.fn((value: unknown) => {
+        insertedValues.push(value);
+        return {
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
+        };
+      }),
     });
     const tx = {
       update,
@@ -371,6 +377,7 @@ describe("cache invalidation — revalidateTag called", () => {
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue([{ slug: currentSlug }]),
             orderBy: vi.fn().mockReturnValue({
               limit: vi
                 .fn()
@@ -380,7 +387,7 @@ describe("cache invalidation — revalidateTag called", () => {
         }),
       }),
     };
-    return { tx, update, insert, set };
+    return { tx, update, insert, insertedValues, set };
   }
 
   it("updateWikiPage calls revalidateTag", async () => {
@@ -508,6 +515,40 @@ describe("cache invalidation — revalidateTag called", () => {
       }),
     ).rejects.toThrow("Slug already exists");
     expect(spies.update).not.toHaveBeenCalled();
+  });
+
+  it("records the transaction-current slug as the rename alias", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValue({
+      id: "1",
+      slug: "preflight-slug",
+      title: "Test",
+      parentId: null,
+      updatedAt: new Date("2024-01-01"),
+      version: 1,
+    });
+    const spies = makeWriteTx(null, "transaction-current-slug");
+    const execute = vi
+      .fn()
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ slugTaken: false }] });
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => fn({ ...spies.tx, execute }),
+    );
+
+    await updateWikiPage({
+      pageId: "1",
+      slug: "stale-client-slug",
+      nextSlug: "renamed-slug",
+      title: "Test",
+      content: "new",
+      expectedVersion: 1,
+      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    expect(spies.insertedValues).toContainEqual({
+      slug: "transaction-current-slug",
+      pageId: "1",
+    });
   });
 
   it("rejects a deleted parent before inserting a page", async () => {

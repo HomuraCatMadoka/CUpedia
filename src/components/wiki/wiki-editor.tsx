@@ -447,7 +447,9 @@ export function WikiEditor({
         } else if (authoritativeSlug === next.slug) {
           baseSlugRef.current = authoritativeSlug;
         }
-        replaceEditorUrl(authoritativeSlug);
+        if (!slugDrifted) {
+          replaceEditorUrl(authoritativeSlug);
+        }
 
         if (!parentDrifted) {
           const nextParentValue = authoritativeParentId ?? "";

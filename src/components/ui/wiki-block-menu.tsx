@@ -82,7 +82,7 @@ export function WikiBlockMenu({
     "turn into",
     currentLabel,
     ...turnIntoGroups.flatMap((group) =>
-      group.commands.map((command) => command.label),
+      group.commands.flatMap((command) => [command.label, ...command.keywords]),
     ),
   );
   const showDuplicate = matchesAction("复制", "duplicate", "copy");

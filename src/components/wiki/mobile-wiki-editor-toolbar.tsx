@@ -193,12 +193,13 @@ function SelectionPreservingButton({
   onAction,
   ...props
 }: SelectionPreservingButtonProps) {
-  const directPointerActivationAtRef = React.useRef(0);
+  const activatedOnPointerUpRef = React.useRef(false);
 
   return (
     <button
       {...props}
       onPointerDown={(event) => {
+        activatedOnPointerUpRef.current = false;
         // Keep the editor selection and virtual keyboard stable while pressed.
         // WebKit may omit click after a canceled touch pointerdown, so direct
         // pointers activate on pointerup and suppress any synthetic click.
@@ -207,12 +208,12 @@ function SelectionPreservingButton({
       onPointerUp={(event) => {
         if (event.pointerType === "mouse") return;
         event.preventDefault();
-        directPointerActivationAtRef.current = Date.now();
+        activatedOnPointerUpRef.current = true;
         onAction();
       }}
       onClick={() => {
-        if (Date.now() - directPointerActivationAtRef.current < 750) {
-          directPointerActivationAtRef.current = 0;
+        if (activatedOnPointerUpRef.current) {
+          activatedOnPointerUpRef.current = false;
           return;
         }
         onAction();
@@ -242,7 +243,9 @@ export function MobileWikiEditorToolbar({
   const [surface, setSurface] = React.useState<MobileEditorSurface>(
     initialHistoryEntry?.surface ?? null,
   );
-  const [blockPath, setBlockPath] = React.useState<Path | null>(null);
+  const [currentBlockType, setCurrentBlockType] = React.useState<string | null>(
+    null,
+  );
   const blockPathRef = React.useRef<ReturnType<
     typeof editor.api.pathRef
   > | null>(null);
@@ -291,12 +294,6 @@ export function MobileWikiEditorToolbar({
     }
   }, [editor, onDismiss, surface, visible, visualViewportBottomInset]);
 
-  const currentBlockType = React.useMemo(() => {
-    if (!blockPath) return null;
-    const entry = editor.api.node<TElement>(blockPath);
-    return entry ? getBlockType(entry[0]) : null;
-  }, [blockPath, editor]);
-
   const saveSelection = React.useCallback(() => {
     const domSelection = window.getSelection();
     const slateSelection =
@@ -325,7 +322,8 @@ export function MobileWikiEditorToolbar({
     (path: Path | null) => {
       blockPathRef.current?.unref();
       blockPathRef.current = path ? editor.api.pathRef(path) : null;
-      setBlockPath(path);
+      const entry = path ? editor.api.node<TElement>(path) : null;
+      setCurrentBlockType(entry ? getBlockType(entry[0]) : null);
     },
     [editor],
   );
@@ -411,7 +409,7 @@ export function MobileWikiEditorToolbar({
       const nextEntry = readSurfaceHistoryEntry(event.state);
       if (nextEntry) {
         surfaceHistoryEntryRef.current = nextEntry;
-        setBlockPath(blockPathRef.current?.current ?? null);
+        rememberBlockPath(blockPathRef.current?.current ?? null);
         setSurface(nextEntry.surface);
         return;
       }
@@ -423,7 +421,7 @@ export function MobileWikiEditorToolbar({
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, []);
+  }, [rememberBlockPath]);
 
   React.useEffect(() => {
     const restoreAfterFileDialog = () => {
@@ -545,8 +543,8 @@ export function MobileWikiEditorToolbar({
       path.length > 1 ? editor.api.start(parentPath) : null;
     const resolvedAdjacentPoint = adjacentPointRef?.unref() ?? null;
     const nextPoint =
-      nestedParentPoint ??
       resolvedAdjacentPoint ??
+      nestedParentPoint ??
       editor.api.start(parentPath) ??
       editor.api.start([]);
     if (nextPoint) {
@@ -582,6 +580,7 @@ export function MobileWikiEditorToolbar({
     if (!path) return;
 
     turnIntoBlockCommand(editor, command, { at: path });
+    setCurrentBlockType(command.value);
     savedSelectionRef.current = editor.selection;
     closeSurface();
   };
@@ -864,6 +863,7 @@ export function MobileWikiEditorToolbar({
                           const path = resolveBlockPath();
                           if (!path) return;
                           turnIntoBlockCommand(editor, command, { at: path });
+                          setCurrentBlockType(command.value);
                         })
                       }
                       className={panelButtonClass}

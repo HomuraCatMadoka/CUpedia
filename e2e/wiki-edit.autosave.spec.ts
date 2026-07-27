@@ -162,11 +162,12 @@ test.describe("#432 latest draft convergence", () => {
     await page.goto(`/wiki/edit/${FIXTURES.slugRename.slug}`);
 
     await page.getByRole("button", { name: "页面设置" }).click();
-    await page
-      .getByRole("dialog", { name: "页面设置" })
+    const settingsDialog = page.getByRole("dialog", { name: "页面设置" });
+    await settingsDialog
       .getByRole("textbox", { name: "URL 路径" })
       .fill(RENAMED_SLUG);
     await page.keyboard.press("Escape");
+    await expect(settingsDialog).toHaveCount(0);
 
     await expect(page).toHaveURL(new RegExp(`/wiki/edit/${RENAMED_SLUG}$`), {
       timeout: 15_000,

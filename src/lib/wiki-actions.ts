@@ -382,18 +382,29 @@ async function writeWikiPage(
   const expectedUpdatedBefore = new Date(expectedUpdatedAt.getTime() + 1);
 
   return db.transaction(async (tx) => {
+    let originalSlug: string | null = null;
     if (options?.validateSlugChange) {
       const nextSlug = data.nextSlug ?? data.slug;
       await lockWikiSlugNamespace(tx);
-      await assertWikiSlugAvailable(tx, nextSlug, pageId);
-      await tx
-        .delete(wikiPageAliases)
-        .where(
-          and(
-            eq(wikiPageAliases.slug, nextSlug),
-            eq(wikiPageAliases.pageId, pageId),
-          ),
-        );
+      const [currentPage] = await tx
+        .select({ slug: wikiPages.slug })
+        .from(wikiPages)
+        .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)))
+        .limit(1);
+      if (!currentPage) throw new Error("Page not found");
+      originalSlug = currentPage.slug;
+
+      if (nextSlug !== originalSlug) {
+        await assertWikiSlugAvailable(tx, nextSlug, pageId);
+        await tx
+          .delete(wikiPageAliases)
+          .where(
+            and(
+              eq(wikiPageAliases.slug, nextSlug),
+              eq(wikiPageAliases.pageId, pageId),
+            ),
+          );
+      }
     }
     if (options?.validateParentChange) {
       await lockWikiTree(tx);
@@ -468,10 +479,14 @@ async function writeWikiPage(
     }
 
     await syncWikiLinks(tx, pageId, data.content);
-    if (data.nextSlug !== undefined && data.nextSlug !== data.slug) {
+    if (
+      originalSlug !== null &&
+      data.nextSlug !== undefined &&
+      data.nextSlug !== originalSlug
+    ) {
       await tx
         .insert(wikiPageAliases)
-        .values({ slug: data.slug, pageId })
+        .values({ slug: originalSlug, pageId })
         .onConflictDoNothing();
     }
     return updated[0];
