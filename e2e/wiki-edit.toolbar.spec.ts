@@ -1,6 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage } from "./helpers/wiki";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 import { Client } from "pg";
 
@@ -294,6 +297,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const document = page.getByTestId("wiki-editor-document");
     const before = await document.boundingBox();
@@ -563,6 +567,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const headingBlock = page
       .getByTestId("wiki-editor-block")
@@ -572,6 +577,8 @@ test.describe("#203 contextual desktop toolbar", () => {
       .getByTestId("wiki-editor-block")
       .filter({ hasText: "Registry" })
       .first();
+    await expect(headingBlock).toBeVisible();
+    await expect(registryBlock).toBeVisible();
     const beforeHeading = await headingBlock.boundingBox();
     const beforeRegistry = await registryBlock.boundingBox();
     expect(beforeHeading!.y).toBeLessThan(beforeRegistry!.y);

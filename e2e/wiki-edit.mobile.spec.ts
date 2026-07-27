@@ -4,7 +4,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage, wikiPageUrl } from "./helpers/wiki";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+  wikiPageUrl,
+} from "./helpers/wiki";
 import { deleteObjects } from "../src/lib/minio";
 import { PAGE_IDS } from "../scripts/seed-data";
 
@@ -546,12 +550,17 @@ test.describe("mobile wiki editing", () => {
     await setGettingStartedIcon("🗺️");
     try {
       await page.reload();
+      await waitForHydratedWikiEditor(page);
       const topbar = page.getByRole("banner", { name: "编辑器顶栏" });
       const document = page.getByTestId("wiki-editor-document").first();
       const icon = page.getByRole("button", {
         name: "更改页面图标，当前为 🗺️",
       });
       const title = page.getByRole("textbox", { name: "页面标题" });
+      await expect(topbar).toBeVisible();
+      await expect(document).toBeVisible();
+      await expect(icon).toBeVisible();
+      await expect(title).toBeVisible();
 
       const [topbarBox, documentPadding, iconBox, titleBox] = await Promise.all(
         [
