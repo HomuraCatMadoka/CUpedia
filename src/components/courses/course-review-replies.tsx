@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Trash2Icon } from "lucide-react";
 
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
@@ -38,14 +38,19 @@ export function CourseReviewReplies({
   reviewId,
   initialCount,
   isAuthenticated,
+  initiallyOpen = false,
+  initialOffset = 0,
 }: {
   reviewId: string;
   initialCount: number;
   isAuthenticated: boolean;
+  initiallyOpen?: boolean;
+  initialOffset?: number;
 }) {
   const { ensureContributorSetup } = useContributorSetup();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initiallyOpen);
   const [loaded, setLoaded] = useState(false);
+  const [baseOffset, setBaseOffset] = useState<number | null>(null);
   const [replies, setReplies] = useState<CourseReviewReplyView[]>([]);
   const [count, setCount] = useState(initialCount);
   const [nextOffset, setNextOffset] = useState(0);
@@ -56,25 +61,44 @@ export function CourseReviewReplies({
   const [error, setError] = useState("");
   const length = visibleLength(content.trim());
 
-  async function load(offset: number, append: boolean) {
-    setLoading(true);
-    setError("");
-    try {
-      const page = await getCourseReviewReplies(reviewId, offset);
-      setReplies((current) =>
-        append ? [...current, ...page.replies] : page.replies,
-      );
-      setNextOffset((current) =>
-        append ? current + page.replies.length : page.replies.length,
-      );
-      setHasMore(page.hasMore);
-      setLoaded(true);
-    } catch {
-      setError("回复加载失败，请重试");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const load = useCallback(
+    async (offset: number, append: boolean) => {
+      setLoading(true);
+      setError("");
+      try {
+        const page = await getCourseReviewReplies(reviewId, offset);
+        setReplies((current) =>
+          append ? [...current, ...page.replies] : page.replies,
+        );
+        setNextOffset(
+          append
+            ? (current) => current + page.replies.length
+            : offset + page.replies.length,
+        );
+        setHasMore(page.hasMore);
+        setLoaded(true);
+        if (!append) setBaseOffset(offset);
+      } catch {
+        setError("回复加载失败，请重试");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [reviewId],
+  );
+
+  useEffect(() => {
+    if (!initiallyOpen) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled && baseOffset !== initialOffset) {
+        void load(initialOffset, false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [baseOffset, initialOffset, initiallyOpen, load]);
 
   async function toggle() {
     if (open) {

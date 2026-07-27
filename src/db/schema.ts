@@ -1166,6 +1166,47 @@ export const courseReviewReplies = pgTable(
   ],
 );
 
+export const NOTIFICATION_KINDS = ["course_review_reply"] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+export type CourseReviewReplyNotificationMetadata = {
+  courseCode: string;
+  reviewId: string;
+  replyId: string;
+};
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    recipientId: uuid("recipient_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    actorId: uuid("actor_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    kind: text("kind").$type<NotificationKind>().notNull(),
+    metadata: jsonb("metadata")
+      .$type<CourseReviewReplyNotificationMetadata>()
+      .notNull(),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("notifications_recipient_created_idx").on(
+      table.recipientId,
+      table.createdAt,
+    ),
+    index("notifications_recipient_read_idx").on(
+      table.recipientId,
+      table.readAt,
+    ),
+    check(
+      "notifications_kind_check",
+      sql`${table.kind} in ('course_review_reply')`,
+    ),
+  ],
+);
+
 // ── Canteen subsystem (hard delete; no deletedAt — unlike wiki soft delete) ──
 
 /** Visible meal-period tabs (never includes allday). */

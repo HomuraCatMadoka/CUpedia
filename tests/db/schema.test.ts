@@ -18,6 +18,7 @@ import {
   courseRatings,
   courseReviews,
   courseReviewReplies,
+  notifications,
 } from "@/db/schema";
 
 describe("schema", () => {
@@ -163,5 +164,17 @@ describe("schema", () => {
     expect(replyCols.userId).toBeDefined();
     expect(replyCols.content).toBeDefined();
     expect(replyCols.createdAt).toBeDefined();
+  });
+
+  it("notifications keep generic metadata and read state without source foreign keys", () => {
+    const cols = getTableColumns(notifications);
+    expect(cols.recipientId).toBeDefined();
+    expect(cols.actorId).toBeDefined();
+    expect(cols.kind).toBeDefined();
+    expect(cols.metadata).toBeDefined();
+    expect(cols.readAt).toBeDefined();
+    expect(cols.createdAt).toBeDefined();
+    expect("reviewId" in cols).toBe(false);
+    expect("replyId" in cols).toBe(false);
   });
 });
