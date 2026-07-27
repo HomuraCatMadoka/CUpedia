@@ -1,6 +1,17 @@
 "use server";
 
-import { and, asc, count, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  inArray,
+  lt,
+  ne,
+  or,
+  sql,
+} from "drizzle-orm";
 import { revalidatePath, unstable_cache } from "next/cache";
 
 import { db } from "@/db";
@@ -19,6 +30,7 @@ import {
   staffOrganisationAffiliations,
   staffOrganisations,
   staffPeople,
+  notifications,
   users,
 } from "@/db/schema";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
@@ -69,6 +81,8 @@ const PAGE_SIZE = 48;
 const REPLY_SEGMENTER = new Intl.Segmenter(undefined, {
   granularity: "grapheme",
 });
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const COURSE_REVIEW_PRESET_TAGS = new Set<string>(
   Object.values(COURSE_REVIEW_TAG_OPTIONS).flat(),
 );
@@ -1190,25 +1204,44 @@ export async function createCourseReviewReply(
   assertNoSensitiveContent(content, ["考试"]);
   const user = await requireAuth();
   await assertContributorComplete(user);
-  const [review] = await db
-    .select({ courseCode: courseReviews.courseCode })
-    .from(courseReviews)
-    .where(eq(courseReviews.id, reviewId))
-    .limit(1);
-  if (!review) throw new Error("评论不存在");
+  const { reply, courseCode } = await db.transaction(async (tx) => {
+    const [review] = await tx
+      .select({
+        courseCode: courseReviews.courseCode,
+        userId: courseReviews.userId,
+      })
+      .from(courseReviews)
+      .where(eq(courseReviews.id, reviewId))
+      .limit(1);
+    if (!review) throw new Error("评论不存在");
 
-  const [reply] = await db
-    .insert(courseReviewReplies)
-    .values({ reviewId, userId: user.id, content })
-    .returning({
-      id: courseReviewReplies.id,
-      reviewId: courseReviewReplies.reviewId,
-      content: courseReviewReplies.content,
-      createdAt: courseReviewReplies.createdAt,
-    });
-  if (!reply) throw new Error("回复发布失败");
+    const [createdReply] = await tx
+      .insert(courseReviewReplies)
+      .values({ reviewId, userId: user.id, content })
+      .returning({
+        id: courseReviewReplies.id,
+        reviewId: courseReviewReplies.reviewId,
+        content: courseReviewReplies.content,
+        createdAt: courseReviewReplies.createdAt,
+      });
+    if (!createdReply) throw new Error("回复发布失败");
 
-  revalidatePath(`/courses/${review.courseCode}`);
+    if (review.userId !== user.id) {
+      await tx.insert(notifications).values({
+        recipientId: review.userId,
+        actorId: user.id,
+        kind: "course_review_reply",
+        metadata: {
+          courseCode: review.courseCode,
+          reviewId,
+          replyId: createdReply.id,
+        },
+      });
+    }
+    return { reply: createdReply, courseCode: review.courseCode };
+  });
+
+  revalidatePath(`/courses/${courseCode}`);
   return { ...reply, createdAt: reply.createdAt.toISOString() };
 }
 
@@ -1277,6 +1310,50 @@ export async function getCourseReviewReplies(
     }),
     hasMore: rows.length > 20,
   };
+}
+
+export async function getCourseReviewReplyTargetOffset(
+  courseCode: string,
+  reviewId: string,
+  replyId: string,
+): Promise<number | null> {
+  if (!UUID_PATTERN.test(reviewId) || !UUID_PATTERN.test(replyId)) return null;
+  const [target] = await db
+    .select({
+      id: courseReviewReplies.id,
+      createdAt: courseReviewReplies.createdAt,
+    })
+    .from(courseReviewReplies)
+    .innerJoin(
+      courseReviews,
+      eq(courseReviewReplies.reviewId, courseReviews.id),
+    )
+    .where(
+      and(
+        eq(courseReviewReplies.id, replyId),
+        eq(courseReviewReplies.reviewId, reviewId),
+        eq(courseReviews.courseCode, normalizeCode(courseCode)),
+      ),
+    )
+    .limit(1);
+  if (!target) return null;
+
+  const [row] = await db
+    .select({ value: count() })
+    .from(courseReviewReplies)
+    .where(
+      and(
+        eq(courseReviewReplies.reviewId, reviewId),
+        or(
+          lt(courseReviewReplies.createdAt, target.createdAt),
+          and(
+            eq(courseReviewReplies.createdAt, target.createdAt),
+            lt(courseReviewReplies.id, target.id),
+          ),
+        ),
+      ),
+    );
+  return Math.floor(Number(row?.value ?? 0) / 20) * 20;
 }
 
 export async function deleteCourseReviewReply(replyId: string): Promise<void> {

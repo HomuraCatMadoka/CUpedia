@@ -571,4 +571,48 @@ describe("CourseReviewSection", () => {
       expect(getReplies).toHaveBeenLastCalledWith("review-1", 20),
     );
   });
+
+  it("reveals and expands a notification-targeted review regardless of the initial limit", async () => {
+    getReplies.mockResolvedValue({ replies: [], hasMore: false });
+    const reviews = Array.from({ length: 12 }, (_, index) => ({
+      id: `review-${index + 1}`,
+      content: `测评内容 ${index + 1}`,
+      createdAt: new Date().toISOString(),
+      isEdited: false,
+      replyCount: index === 11 ? 41 : 0,
+      likeCount: 0,
+      likedByMe: false,
+      canAdminDelete: false,
+      professorId: null,
+      professorName: null,
+      academicYear: "2025-26",
+      term: "Term 1" as const,
+      score: 5,
+      tags: [],
+      authorNickname: "Alice",
+      authorShowcaseId: null,
+      authorAchievements: [],
+    }));
+
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={reviews}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+        targetReviewId="review-12"
+        targetReplyId="reply-41"
+        targetReplyOffset={40}
+      />,
+    );
+
+    expect(screen.getByText("测评内容 12")).toBeTruthy();
+    await waitFor(() =>
+      expect(getReplies).toHaveBeenCalledWith("review-12", 40),
+    );
+    expect(screen.getByRole("region", { name: "评论回复" })).toBeTruthy();
+  });
 });
