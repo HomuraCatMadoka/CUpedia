@@ -3,6 +3,7 @@ import {
   getAnonShameDailyLimit,
   hktCalendarDate,
   isShameVotingOpen,
+  previousCalendarDate,
   rankShameCanteens,
   type ShameRankEntry,
 } from "@/lib/canteen-shame-rank";
@@ -59,6 +60,13 @@ describe("hktCalendarDate", () => {
     expect(hktCalendarDate(new Date("2026-07-26T15:59:00Z"))).toBe(
       "2026-07-26",
     );
+  });
+});
+
+describe("previousCalendarDate", () => {
+  it("returns the previous calendar date across month and year boundaries", () => {
+    expect(previousCalendarDate("2026-07-01")).toBe("2026-06-30");
+    expect(previousCalendarDate("2026-01-01")).toBe("2025-12-31");
   });
 });
 

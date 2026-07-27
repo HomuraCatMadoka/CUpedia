@@ -29,11 +29,13 @@ vi.mock("next/cache", () => ({
 
 import {
   appendShameVote,
+  getShameVoteCounts,
   getShameVoteCountsForDate,
 } from "@/lib/canteen-shame-actions";
 import { hktCalendarDate } from "@/lib/canteen-shame-rank";
 import {
   mockEnsureAnonSession,
+  mockAppendShameVote,
   mockSetVoterUserId,
   resetCanteenMockState,
 } from "@/lib/canteen-mock";
@@ -82,6 +84,15 @@ describe("canteen-shame-actions (mock mode)", () => {
     await appendShameVote(DEMO_CANTEEN_ID);
     const counts = await getShameVoteCountsForDate(hktCalendarDate());
     expect(counts[DEMO_CANTEEN_ID]).toBe(3);
+  });
+
+  it("counts votes across dates for the historical ranking", async () => {
+    mockAppendShameVote(DEMO_CANTEEN_ID, "2026-07-26");
+    mockAppendShameVote(DEMO_CANTEEN_ID, "2026-07-27");
+    expect((await getShameVoteCounts())[DEMO_CANTEEN_ID]).toBe(2);
+    expect(
+      (await getShameVoteCountsForDate("2026-07-27"))[DEMO_CANTEEN_ID],
+    ).toBe(1);
   });
 
   it("allows guests via anon session", async () => {

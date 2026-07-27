@@ -37,6 +37,13 @@ export function hktCalendarDate(now: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export function previousCalendarDate(value: string): string {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day - 1))
+    .toISOString()
+    .slice(0, 10);
+}
+
 /** 💩堂榜：当日踩数降序；同分按食堂 id 升序；零票食堂仍展示。 */
 export function rankShameCanteens(
   canteens: Canteen[],

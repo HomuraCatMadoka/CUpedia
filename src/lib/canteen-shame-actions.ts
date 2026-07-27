@@ -17,6 +17,7 @@ import {
   mockCountAnonShameVotesForDate,
   mockEnsureAnonSession,
   mockGetRateLimitKey,
+  mockGetShameVoteCounts,
   mockGetShameVoteCountsForDate,
   mockSetVoterUserId,
 } from "@/lib/canteen-mock";
@@ -106,6 +107,19 @@ export async function getShameVoteCountsForDate(
     })
     .from(canteenShameVotes)
     .where(eq(canteenShameVotes.voteDate, voteDate))
+    .groupBy(canteenShameVotes.canteenId);
+
+  return Object.fromEntries(rows.map((row) => [row.canteenId, row.dislikes]));
+}
+
+export async function getShameVoteCounts(): Promise<Record<string, number>> {
+  if (isCanteenMockMode()) return mockGetShameVoteCounts();
+  const rows = await db
+    .select({
+      canteenId: canteenShameVotes.canteenId,
+      dislikes: sql<number>`count(*)::int`,
+    })
+    .from(canteenShameVotes)
     .groupBy(canteenShameVotes.canteenId);
 
   return Object.fromEntries(rows.map((row) => [row.canteenId, row.dislikes]));

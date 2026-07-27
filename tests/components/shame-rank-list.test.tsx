@@ -38,7 +38,7 @@ function canteen(id: string, name: string): Canteen {
 describe("ShameRankEntryLink", () => {
   it("links to the daily shit-rank page", () => {
     render(<ShameRankEntryLink />);
-    const link = screen.getByRole("link", { name: "每日💩堂榜" });
+    const link = screen.getByRole("link", { name: "💩堂榜" });
     expect(link.getAttribute("href")).toBe("/canteen/shit-rank");
   });
 });
@@ -57,7 +57,9 @@ describe("ShameRankList", () => {
     render(
       <ShameRankList
         canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
-        initialCounts={{ a: 1, b: 5 }}
+        initialTodayCounts={{ a: 1, b: 5 }}
+        initialAllTimeCounts={{ a: 11, b: 8 }}
+        previousCounts={{}}
         voteDate="2026-07-27"
         votingEndDate="2026-09-01"
         votingOpen
@@ -68,8 +70,8 @@ describe("ShameRankList", () => {
     expect(items[0].textContent).toContain("乙食堂");
     expect(items[0].textContent).toContain("5");
 
-    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
-    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
+    fireEvent.click(screen.getByRole("button", { name: "投 💩 给 甲食堂" }));
+    fireEvent.click(screen.getByRole("button", { name: "投 💩 给 甲食堂" }));
 
     await waitFor(() => {
       expect(appendMock).toHaveBeenCalledTimes(2);
@@ -77,9 +79,41 @@ describe("ShameRankList", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "踩 甲食堂" }).textContent,
+        screen.getByRole("button", { name: "投 💩 给 甲食堂" }).textContent,
       ).toContain("3");
     });
+  });
+
+  it("switches to cumulative history and keeps both totals in sync", async () => {
+    render(
+      <ShameRankList
+        canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
+        initialTodayCounts={{ a: 1, b: 5 }}
+        initialAllTimeCounts={{ a: 11, b: 8 }}
+        previousCounts={{}}
+        voteDate="2026-07-27"
+        votingEndDate="2026-09-01"
+        votingOpen
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "历史" }));
+    expect(screen.getAllByRole("listitem")[0].textContent).toContain("甲食堂");
+    expect(
+      screen.getByRole("button", { name: "投 💩 给 甲食堂" }).textContent,
+    ).toContain("11");
+
+    fireEvent.click(screen.getByRole("button", { name: "投 💩 给 甲食堂" }));
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", { name: "投 💩 给 甲食堂" }).textContent,
+      ).toContain("12");
+    });
+
+    fireEvent.click(screen.getByRole("tab", { name: "今日" }));
+    expect(
+      screen.getByRole("button", { name: "投 💩 给 甲食堂" }).textContent,
+    ).toContain("2");
   });
 
   it("keeps window scroll position when a row reorders upward", async () => {
@@ -93,14 +127,16 @@ describe("ShameRankList", () => {
     render(
       <ShameRankList
         canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
-        initialCounts={{ a: 4, b: 5 }}
+        initialTodayCounts={{ a: 4, b: 5 }}
+        initialAllTimeCounts={{ a: 4, b: 5 }}
+        previousCounts={{}}
         voteDate="2026-07-27"
         votingEndDate="2026-09-01"
         votingOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
+    fireEvent.click(screen.getByRole("button", { name: "投 💩 给 甲食堂" }));
 
     await waitFor(() => {
       expect(appendMock).toHaveBeenCalledTimes(1);
@@ -128,14 +164,16 @@ describe("ShameRankList", () => {
     render(
       <ShameRankList
         canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
-        initialCounts={{ a: 1, b: 5 }}
+        initialTodayCounts={{ a: 1, b: 5 }}
+        initialAllTimeCounts={{ a: 11, b: 15 }}
+        previousCounts={{}}
         voteDate="2026-07-27"
         votingEndDate="2026-09-01"
         votingOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
+    fireEvent.click(screen.getByRole("button", { name: "投 💩 给 甲食堂" }));
 
     await waitFor(() => {
       expect(appendMock).toHaveBeenCalledTimes(1);
@@ -143,7 +181,7 @@ describe("ShameRankList", () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole("button", { name: "踩 甲食堂" }).textContent,
+        screen.getByRole("button", { name: "投 💩 给 甲食堂" }).textContent,
       ).toContain("1");
     });
   });
@@ -156,18 +194,20 @@ describe("ShameRankList", () => {
     render(
       <ShameRankList
         canteens={[canteen("a", "甲食堂")]}
-        initialCounts={{ a: 1 }}
+        initialTodayCounts={{ a: 1 }}
+        initialAllTimeCounts={{ a: 11 }}
+        previousCounts={{}}
         voteDate="2026-07-27"
         votingEndDate="2026-09-01"
         votingOpen
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
+    fireEvent.click(screen.getByRole("button", { name: "投 💩 给 甲食堂" }));
 
     await waitFor(() => expect(refreshMock).toHaveBeenCalledOnce());
     expect(
-      screen.getByRole("button", { name: "踩 甲食堂" }).textContent,
+      screen.getByRole("button", { name: "投 💩 给 甲食堂" }).textContent,
     ).toContain("1");
   });
 
@@ -175,7 +215,9 @@ describe("ShameRankList", () => {
     render(
       <ShameRankList
         canteens={[canteen("a", "甲食堂")]}
-        initialCounts={{ a: 1 }}
+        initialTodayCounts={{ a: 1 }}
+        initialAllTimeCounts={{ a: 11 }}
+        previousCounts={{}}
         voteDate="2026-09-02"
         votingEndDate="2026-09-01"
         votingOpen={false}
@@ -185,10 +227,35 @@ describe("ShameRankList", () => {
     expect(
       (
         screen.getByRole("button", {
-          name: "踩 甲食堂",
+          name: "投 💩 给 甲食堂",
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
     expect(screen.getByText(/投票已截止/)).toBeTruthy();
+  });
+
+  it("hides unranked canteens until the full ranking is expanded", () => {
+    const canteens = Array.from({ length: 20 }, (_, index) =>
+      canteen(String(index), `${index + 1} 号食堂`),
+    );
+    render(
+      <ShameRankList
+        canteens={canteens}
+        initialTodayCounts={{ "0": 3, "1": 2, "2": 1 }}
+        initialAllTimeCounts={{ "0": 3, "1": 2, "2": 1 }}
+        previousCounts={{}}
+        voteDate="2026-07-27"
+        votingEndDate="2026-09-01"
+        votingOpen
+      />,
+    );
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByText("尚未上榜 · 17 家食堂")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /查看完整榜单（20）/ }));
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(20);
+    expect(screen.getByRole("list", { name: "尚未上榜的食堂" })).toBeTruthy();
   });
 });

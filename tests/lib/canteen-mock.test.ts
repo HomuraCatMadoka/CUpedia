@@ -34,15 +34,16 @@ describe("canteen-mock", () => {
 
   it("seeds demo canteens with dishes across meal periods and categories", () => {
     const canteens = mockListCanteens();
-    expect(canteens.map((c) => c.name).sort()).toEqual(
-      ["演示食堂", "演示食堂乙", "演示食堂丙"].sort(),
+    expect(canteens).toHaveLength(20);
+    expect(canteens.map((c) => c.name)).toEqual(
+      expect.arrayContaining(["演示食堂", "演示食堂乙", "演示食堂丙"]),
     );
     const items = mockListMenuItems("mock-canteen-demo");
     expect(items.length).toBeGreaterThanOrEqual(20);
     expect(items.some((i) => i.id === "mock-item-demo")).toBe(true);
-    expect(
-      new Set(items.flatMap((i) => i.mealPeriods)),
-    ).toEqual(new Set(["breakfast", "lunch", "dinner"]));
+    expect(new Set(items.flatMap((i) => i.mealPeriods))).toEqual(
+      new Set(["breakfast", "lunch", "dinner"]),
+    );
     expect(new Set(items.map((i) => i.svgKey)).size).toBeGreaterThan(3);
   });
 
@@ -60,20 +61,20 @@ describe("canteen-mock", () => {
   });
 
   it("drops vote rows when a menu item is deleted", () => {
-    const canteen = mockListCanteens()[0];
-    const item = mockListMenuItems(canteen.id)[0];
+    const canteenId = "mock-canteen-demo";
+    const item = mockListMenuItems(canteenId)[0];
     mockEnsureAnonSession();
     mockUpsertDishVote(item.id, "like");
-    mockDeleteMenuItem(canteen.id, item.id);
+    mockDeleteMenuItem(canteenId, item.id);
     expect(mockDeleteImpactForMenuItem(item.id).voteCount).toBe(0);
   });
 
   it("deletes all menu items for a canteen", () => {
-    const canteen = mockListCanteens()[0];
-    const before = mockListMenuItems(canteen.id).length;
+    const canteenId = "mock-canteen-demo";
+    const before = mockListMenuItems(canteenId).length;
     expect(before).toBeGreaterThan(0);
-    const result = mockDeleteAllMenuItems(canteen.id);
+    const result = mockDeleteAllMenuItems(canteenId);
     expect(result.deletedCount).toBe(before);
-    expect(mockListMenuItems(canteen.id)).toHaveLength(0);
+    expect(mockListMenuItems(canteenId)).toHaveLength(0);
   });
 });

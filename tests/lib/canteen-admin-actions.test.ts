@@ -324,18 +324,14 @@ describe("canteen-admin-actions", () => {
     const prev = process.env.CANTEEN_MOCK_DATA;
     process.env.CANTEEN_MOCK_DATA = "true";
     try {
-      const {
-        resetCanteenMockState,
-        mockListMenuItems,
-        mockListCanteens,
-      } = await import("@/lib/canteen-mock");
-      const { deleteAllMenuItems } = await import(
-        "@/lib/canteen-admin-actions"
-      );
+      const { resetCanteenMockState, mockListMenuItems } =
+        await import("@/lib/canteen-mock");
+      const { deleteAllMenuItems } =
+        await import("@/lib/canteen-admin-actions");
       resetCanteenMockState();
       mockAdminSession();
 
-      const canteenId = mockListCanteens()[0]!.id;
+      const canteenId = "mock-canteen-demo";
       expect(mockListMenuItems(canteenId).length).toBeGreaterThan(0);
 
       const result = await deleteAllMenuItems(canteenId);
