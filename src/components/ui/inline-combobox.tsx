@@ -213,9 +213,17 @@ const InlineCombobox = ({
       ) {
         return;
       }
+      const focusPoint =
+        insertPointRef.current?.current ?? editorRef.current.api.end([]);
       historyTokenRef.current = null;
       removeInputRef.current(true);
-      requestAnimationFrame(() => editorRef.current.tf.focus({ retries: 5 }));
+      editorRef.current.tf.blur();
+      requestAnimationFrame(() =>
+        editorRef.current.tf.focus({
+          at: focusPoint ?? undefined,
+          retries: 5,
+        }),
+      );
     };
 
     window.addEventListener("popstate", handlePopState);

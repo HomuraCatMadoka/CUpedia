@@ -1,1 +1,0 @@
-ALTER TABLE "wiki_pages" ADD COLUMN "icon" text;

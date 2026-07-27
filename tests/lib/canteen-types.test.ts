@@ -119,7 +119,7 @@ describe("canteen-types", () => {
             { label: "凍 16oz", amountMinor: 2900 },
           ],
         },
-        mealPeriod: "lunch",
+        mealPeriods: ["lunch"],
       },
     ]);
     expect(
@@ -163,7 +163,7 @@ describe("canteen-types", () => {
           tempId: "a",
           name: "饭",
           price: -1,
-          mealPeriod: "lunch",
+          mealPeriods: ["lunch"],
           sortOrder: 0,
         },
       ]),
@@ -185,7 +185,7 @@ describe("canteen-types", () => {
           tempId: "a",
           name: "饭",
           price: 10,
-          mealPeriod: "lunch",
+          mealPeriods: ["lunch"],
           sortOrder: -1,
         },
       ]),
@@ -194,11 +194,11 @@ describe("canteen-types", () => {
 
   it("validateMenuImportDraftItems normalizes rows", () => {
     const items = validateMenuImportDraftItems([
-      { name: "  叉烧饭  ", price: 18, mealPeriod: "dinner" },
+      { name: "  叉烧饭  ", price: 18, mealPeriods: ["dinner"] },
     ]);
     expect(items).toHaveLength(1);
     expect(items[0].name).toBe("叉烧饭");
-    expect(items[0].mealPeriod).toBe("dinner");
+    expect(items[0].mealPeriods).toEqual(["dinner"]);
     expect(items[0].tempId).toBe("draft-0");
   });
 });

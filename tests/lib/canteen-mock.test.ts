@@ -37,10 +37,10 @@ describe("canteen-mock", () => {
     expect(canteens[0].name).toBe("演示食堂");
     const items = mockListMenuItems(canteens[0].id);
     expect(items).toHaveLength(3);
-    expect(items.map((i) => i.mealPeriod)).toEqual([
-      "breakfast",
-      "lunch",
-      "dinner",
+    expect(items.map((i) => i.mealPeriods)).toEqual([
+      ["breakfast"],
+      ["lunch"],
+      ["dinner"],
     ]);
   });
 

@@ -1,6 +1,6 @@
 {
-  "id": "b7cb354a-66ad-4dce-9095-f9b92b25675a",
-  "prevId": "e9d3ca63-5833-496f-af9d-b1746be65fda",
+  "id": "fad0bab1-4bdc-49ec-8cd3-56c634044474",
+  "prevId": "de9a85b1-749e-48dc-8472-098cf37bb9d8",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1785,12 +1785,12 @@
           "primaryKey": false,
           "notNull": false
         },
-        "meal_period": {
-          "name": "meal_period",
-          "type": "text",
+        "meal_periods": {
+          "name": "meal_periods",
+          "type": "text[]",
           "primaryKey": false,
           "notNull": true,
-          "default": "'lunch'"
+          "default": "'{allday}'"
         },
         "sort_order": {
           "name": "sort_order",
@@ -1852,27 +1852,6 @@
           "columns": [
             {
               "expression": "canteen_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_menu_items_canteen_meal_idx": {
-          "name": "canteen_menu_items_canteen_meal_idx",
-          "columns": [
-            {
-              "expression": "canteen_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "meal_period",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

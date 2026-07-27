@@ -55,7 +55,7 @@ describe("GET /api/canteens/[id]/menu", () => {
             },
           ],
         },
-        mealPeriod: "lunch" as const,
+        mealPeriods: ["lunch"] as const,
         sortOrder: 0,
         svgKey: "rice",
         createdAt: new Date(),

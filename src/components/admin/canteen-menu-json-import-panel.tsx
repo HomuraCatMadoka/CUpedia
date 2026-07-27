@@ -23,7 +23,7 @@ const SAMPLE_JSON = `{
           { "label": "冻", "amountMinor": 1300, "currency": "HKD" }
         ]
       },
-      "mealPeriod": "lunch",
+      "mealPeriods": ["lunch"],
       "sortOrder": 0,
       "svgKey": "drink"
     }
@@ -54,7 +54,7 @@ function jsonImportErrorMessage(code: string): string {
   if (code === "INVALID_PRICE_AMOUNT") return "价格须为有效的非负金额。";
   if (code === "INVALID_CURRENCY") return "币种须为三个英文字母，例如 HKD。";
   if (code === "INVALID_MEAL_PERIOD")
-    return "餐段须为 breakfast / lunch / dinner。";
+    return "餐段须为 breakfast / lunch / dinner / allday。";
   if (code === "INVALID_SORT_ORDER") return "排序值无效。";
   if (code === "CANTEEN_NOT_FOUND") return "食堂不存在。";
   return "导入失败，请重试。";

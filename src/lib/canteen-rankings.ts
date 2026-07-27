@@ -1,29 +1,14 @@
-import type {
-  CanteenMenuItem,
-  MealPeriod,
-  MenuItemVoteCounts,
-} from "@/lib/canteen-types";
-import { MEAL_PERIODS } from "@/lib/canteen-types";
+import type { CanteenMenuItem, MenuItemVoteCounts } from "@/lib/canteen-types";
+
+export {
+  availableMealPeriods,
+  filterItemsByMealPeriod,
+} from "@/lib/canteen-meal-periods";
 
 export type RankedDish = {
   item: CanteenMenuItem;
   counts: MenuItemVoteCounts;
 };
-
-/** Meal periods that actually have dishes, in breakfast → lunch → dinner order. */
-export function availableMealPeriods(
-  items: CanteenMenuItem[],
-): MealPeriod[] {
-  const present = new Set(items.map((item) => item.mealPeriod));
-  return MEAL_PERIODS.filter((period) => present.has(period));
-}
-
-export function filterItemsByMealPeriod(
-  items: CanteenMenuItem[],
-  period: MealPeriod,
-): CanteenMenuItem[] {
-  return items.filter((item) => item.mealPeriod === period);
-}
 
 function countsFor(
   itemId: string,

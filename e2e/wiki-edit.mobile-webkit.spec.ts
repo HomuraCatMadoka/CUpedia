@@ -59,44 +59,36 @@ test.describe("mobile WebKit editor interactions", () => {
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.tap();
-    const mention = page
+    await page.keyboard.type("First");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Second");
+    await page.keyboard.press("Enter");
+    await page.keyboard.type("Third");
+
+    const blocks = page.getByTestId("wiki-editor-block");
+    await expect(blocks).toHaveCount(3);
+
+    const deleteBlock = page
       .getByRole("toolbar", { name: "键盘上方编辑工具" })
-      .getByRole("button", { name: "提及页面", exact: true });
+      .getByRole("button", { name: "删除当前块", exact: true });
 
-    await mention.dispatchEvent("pointerdown", {
+    await deleteBlock.dispatchEvent("pointerdown", {
       button: 0,
       isPrimary: true,
       pointerId: 1,
       pointerType: "touch",
     });
-    await mention.dispatchEvent("pointerup", {
+    await deleteBlock.dispatchEvent("pointerup", {
       button: 0,
       isPrimary: true,
       pointerId: 1,
       pointerType: "touch",
     });
-    const picker = page.getByRole("combobox", {
-      name: "提及 Wiki 页面",
-    });
-    await expect(picker).toBeFocused();
+    await expect(blocks).toHaveCount(2);
 
-    await page.keyboard.press("Escape");
-    await expect(picker).toHaveCount(0);
-    await expect
-      .poll(() =>
-        page.evaluate(
-          () =>
-            (
-              window.history.state as {
-                cupediaMobileMentionToken?: string;
-              } | null
-            )?.cupediaMobileMentionToken ?? null,
-        ),
-      )
-      .toBeNull();
-    await mention.focus();
+    await deleteBlock.focus();
     await page.keyboard.press("Enter");
 
-    await expect(picker).toBeFocused();
+    await expect(blocks).toHaveCount(1);
   });
 });
