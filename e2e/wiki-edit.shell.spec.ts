@@ -2,7 +2,11 @@ import { Client } from "pg";
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage, wikiPageUrl } from "./helpers/wiki";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+  wikiPageUrl,
+} from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 async function dropSettingsFixture() {
@@ -28,6 +32,7 @@ test.describe("focused wiki editor shell", () => {
     await loginAsAdmin(page);
 
     await page.goto(`/wiki/${PAGE_IDS.welcome}`);
+    await waitForHydratedWikiEditor(page);
     await expect(
       page.getByRole("banner", { name: "编辑器顶栏" }),
     ).toBeVisible();
@@ -50,6 +55,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const pageTree = page.getByRole("navigation", { name: "Wiki 页面树" });
     const pageTreeBox = await pageTree.boundingBox();
@@ -125,6 +131,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       "Getting Started",
@@ -147,6 +154,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
     await page.evaluate(async () => {
       await document.fonts.ready;
     });
@@ -182,6 +190,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const comments = page.getByRole("button", { name: "打开批注" });
     const commentsBox = await comments.boundingBox();
@@ -194,6 +203,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.dining}`);
+    await waitForHydratedWikiEditor(page);
 
     const topbar = page.getByRole("banner", { name: "编辑器顶栏" });
     await expect(
@@ -210,6 +220,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await waitForHydratedWikiEditor(page);
 
     const pageTree = page.getByRole("navigation", { name: "Wiki 页面树" });
     const topbar = page.getByRole("banner", { name: "编辑器顶栏" });
@@ -231,6 +242,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const pageTree = page.getByRole("navigation", { name: "Wiki 页面树" });
     await expect(
@@ -251,6 +263,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
 
     const pageTree = page.getByRole("navigation", { name: "Wiki 页面树" });
     const currentPage = pageTree.getByRole("link", {
@@ -285,6 +298,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await waitForHydratedWikiEditor(page);
     await page.getByRole("button", { name: "打开批注" }).click();
 
     const panel = page.getByRole("complementary", { name: "批注" });
@@ -314,6 +328,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await waitForHydratedWikiEditor(page);
 
     await page.getByRole("button", { name: "页面设置" }).click();
     const settings = page.getByRole("dialog", { name: "页面设置" });
@@ -335,6 +350,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.campusLife}`);
+    await waitForHydratedWikiEditor(page);
     await page.getByRole("button", { name: "页面设置" }).click();
 
     const parentPicker = page
@@ -360,6 +376,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 393, height: 852 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await waitForHydratedWikiEditor(page);
 
     const topbar = page.getByRole("banner", { name: "编辑器顶栏" });
     await expect(topbar).toHaveCount(1);
@@ -400,6 +417,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 393, height: 852 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await waitForHydratedWikiEditor(page);
     await page.getByRole("button", { name: "打开导航" }).click();
 
     const pageTree = page.getByRole("navigation", { name: "Wiki 页面树" });
@@ -459,6 +477,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await waitForHydratedWikiEditor(page);
     await page.getByRole("button", { name: "页面设置" }).click();
     await page
       .getByRole("dialog", { name: "页面设置" })
