@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { CommandSearch } from "@/components/layout/command-search";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
+import { NotificationCenter } from "@/components/layout/notification-center";
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const router = useRouter();
@@ -128,37 +129,40 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
           <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
             <CommandSearch />
             {mounted && session?.user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger className="flex min-h-11 touch-manipulation items-center gap-2 rounded-md px-2 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1">
-                  <AchievementAvatar image={session.user.image} size="xs" />
-                  <span className="hidden sm:inline">
-                    {((session.user as Record<string, unknown>)
-                      .nickname as string) || session.user.email}
-                  </span>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => router.push("/courses/my-reviews")}
-                  >
-                    我的测评
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => router.push("/courses/achievements")}
-                  >
-                    我的成就
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={openNicknameDialog}>
-                    修改昵称
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={signingOut}
-                    onClick={handleSignOut}
-                  >
-                    {signingOut ? "登出中..." : "登出"}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <>
+                <NotificationCenter />
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="flex min-h-11 touch-manipulation items-center gap-2 rounded-md px-2 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1">
+                    <AchievementAvatar image={session.user.image} size="xs" />
+                    <span className="hidden sm:inline">
+                      {((session.user as Record<string, unknown>)
+                        .nickname as string) || session.user.email}
+                    </span>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      onClick={() => router.push("/courses/my-reviews")}
+                    >
+                      我的测评
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => router.push("/courses/achievements")}
+                    >
+                      我的成就
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={openNicknameDialog}>
+                      修改昵称
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={signingOut}
+                      onClick={handleSignOut}
+                    >
+                      {signingOut ? "登出中..." : "登出"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <Link
                 href="/login"

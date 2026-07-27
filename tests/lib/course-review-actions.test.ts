@@ -123,6 +123,7 @@ import {
   createCourseReviewReply,
   deleteCourseReviewReply,
   getCourseReviewReplies,
+  getCourseReviewReplyTargetOffset,
   submitCourseReview,
   deleteCourseReviewSubmission,
   toggleLike,
@@ -244,9 +245,9 @@ describe("createCourseReviewReply", () => {
     expect(dbSelect).not.toHaveBeenCalled();
   });
 
-  it("publishes a signed reply beneath an existing course review", async () => {
+  it("publishes a reply and its notification in one transaction", async () => {
     queueRows(
-      [{ courseCode: "CSCI3150" }],
+      [{ courseCode: "CSCI3150", userId: "review-author" }],
       [
         {
           id: "reply-1",
@@ -255,6 +256,7 @@ describe("createCourseReviewReply", () => {
           createdAt: new Date("2026-07-27T10:00:00Z"),
         },
       ],
+      [],
     );
 
     await expect(
@@ -269,11 +271,75 @@ describe("createCourseReviewReply", () => {
     expect(mockAssertContributorComplete).toHaveBeenCalledWith(
       expect.objectContaining({ id: "u1" }),
     );
-    expect(values()).toHaveBeenCalledWith({
-      reviewId: "review-1",
-      userId: "u1",
-      content: "讲得很清楚",
-    });
+    expect(dbTransaction).toHaveBeenCalledOnce();
+    expect(dbInsert).toHaveBeenCalledTimes(2);
+    expect(values().mock.calls).toEqual(
+      expect.arrayContaining([
+        [
+          {
+            reviewId: "review-1",
+            userId: "u1",
+            content: "讲得很清楚",
+          },
+        ],
+        [
+          expect.objectContaining({
+            recipientId: "review-author",
+            actorId: "u1",
+            kind: "course_review_reply",
+            metadata: {
+              courseCode: "CSCI3150",
+              reviewId: "review-1",
+              replyId: "reply-1",
+            },
+          }),
+        ],
+      ]),
+    );
+  });
+
+  it("does not notify the review author about their own reply", async () => {
+    queueRows(
+      [{ courseCode: "CSCI3150", userId: "u1" }],
+      [
+        {
+          id: "reply-1",
+          reviewId: "review-1",
+          content: "补充说明",
+          createdAt: new Date("2026-07-27T10:00:00Z"),
+        },
+      ],
+    );
+
+    await createCourseReviewReply("review-1", "补充说明");
+
+    expect(dbTransaction).toHaveBeenCalledOnce();
+    expect(dbInsert).toHaveBeenCalledOnce();
+  });
+
+  it("fails the transactional reply write when notification delivery fails", async () => {
+    queueRows(
+      [{ courseCode: "CSCI3150", userId: "review-author" }],
+      [
+        {
+          id: "reply-1",
+          reviewId: "review-1",
+          content: "讲得很清楚",
+          createdAt: new Date("2026-07-27T10:00:00Z"),
+        },
+      ],
+      {
+        then: (
+          _resolve: (value: unknown) => void,
+          reject: (reason: Error) => void,
+        ) => reject(new Error("notification insert failed")),
+      },
+    );
+
+    await expect(
+      createCourseReviewReply("review-1", "讲得很清楚"),
+    ).rejects.toThrow("notification insert failed");
+    expect(dbTransaction).toHaveBeenCalledOnce();
   });
 });
 
@@ -367,6 +433,47 @@ describe("getCourseReviewReplies", () => {
       canDelete: false,
     });
     expect(result.replies.at(-1)?.id).toBe("reply-20");
+  });
+});
+
+describe("getCourseReviewReplyTargetOffset", () => {
+  it("returns the 20-item page containing a specific reply", async () => {
+    queueRows(
+      [
+        {
+          id: "00000000-0000-4000-8000-000000000041",
+          createdAt: new Date("2026-07-27T10:41:00Z"),
+        },
+      ],
+      [{ value: 41 }],
+    );
+
+    await expect(
+      getCourseReviewReplyTargetOffset(
+        "CSCI3150",
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000041",
+      ),
+    ).resolves.toBe(40);
+  });
+
+  it("returns null when the review or reply source no longer exists", async () => {
+    queueRows([]);
+
+    await expect(
+      getCourseReviewReplyTargetOffset(
+        "CSCI3150",
+        "00000000-0000-4000-8000-000000000001",
+        "00000000-0000-4000-8000-000000000041",
+      ),
+    ).resolves.toBeNull();
+  });
+
+  it("treats malformed source identifiers as missing", async () => {
+    await expect(
+      getCourseReviewReplyTargetOffset("CSCI3150", "bad", "bad"),
+    ).resolves.toBeNull();
+    expect(dbSelect).not.toHaveBeenCalled();
   });
 });
 

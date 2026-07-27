@@ -6,12 +6,19 @@ import { loginWithPassword } from "./helpers/auth";
 import { selectSeedProfessor } from "./helpers/course-review";
 
 const reviewContents: string[] = [];
+const reviewIds: string[] = [];
 
 async function cleanup() {
   if (!reviewContents.length) return;
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
+    if (reviewIds.length) {
+      await client.query(
+        "delete from notifications where metadata->>'reviewId' = any($1)",
+        [reviewIds],
+      );
+    }
     await client.query("delete from course_reviews where content = any($1)", [
       reviewContents,
     ]);
@@ -20,6 +27,8 @@ async function cleanup() {
     );
   } finally {
     await client.end();
+    reviewContents.length = 0;
+    reviewIds.length = 0;
   }
 }
 
@@ -48,6 +57,20 @@ async function replyCountForReview(content: string): Promise<number> {
   }
 }
 
+async function reviewIdForContent(content: string): Promise<string> {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query<{ id: string }>(
+      "select id from course_reviews where content = $1",
+      [content],
+    );
+    return result.rows[0].id;
+  } finally {
+    await client.end();
+  }
+}
+
 test.afterEach(cleanup);
 
 test("#445 course review replies stay one level, preserve anonymity, and cascade", async ({
@@ -68,6 +91,8 @@ test("#445 course review replies stay one level, preserve anonymity, and cascade
   await page.getByRole("button", { name: "提交测评" }).click();
 
   const review = page.getByRole("listitem").filter({ hasText: original });
+  await expect(review).toBeVisible();
+  reviewIds.push(await reviewIdForContent(original));
   await review.getByRole("button", { name: "回复 0" }).click();
   const replies = review.getByRole("region", { name: "评论回复" });
   await replies.getByRole("textbox", { name: "回复内容" }).fill(anonymousReply);

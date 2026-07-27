@@ -145,6 +145,9 @@ export function CourseReviewSection({
   academicYears,
   isAuthenticated,
   professorOptional,
+  targetReviewId,
+  targetReplyId,
+  targetReplyOffset,
 }: {
   code: string;
   reviews: CourseReviewView[];
@@ -153,6 +156,9 @@ export function CourseReviewSection({
   academicYears: string[];
   isAuthenticated: boolean;
   professorOptional: boolean;
+  targetReviewId?: string;
+  targetReplyId?: string;
+  targetReplyOffset?: number;
 }) {
   const router = useRouter();
   const { ensureContributorSetup } = useContributorSetup();
@@ -174,8 +180,12 @@ export function CourseReviewSection({
   const [, startSearch] = useTransition();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedProfessorId, setSelectedProfessorId] = useState("");
-  const [visibleReviewLimit, setVisibleReviewLimit] =
-    useState(INITIAL_REVIEW_LIMIT);
+  const [visibleReviewLimit, setVisibleReviewLimit] = useState(() => {
+    const targetIndex = reviews.findIndex(
+      (review) => review.id === targetReviewId,
+    );
+    return Math.max(INITIAL_REVIEW_LIMIT, targetIndex + 1);
+  });
   const [showAllTermYears, setShowAllTermYears] = useState(false);
   const initialProfessors = ratingState.lastProfessors?.length
     ? ratingState.lastProfessors
@@ -196,6 +206,13 @@ export function CourseReviewSection({
     return () =>
       window.removeEventListener(OPEN_COURSE_REVIEW_EVENT, openEditor);
   }, []);
+
+  useEffect(() => {
+    if (!targetReviewId) return;
+    document
+      .getElementById(`course-review-${targetReviewId}`)
+      ?.scrollIntoView?.({ block: "center" });
+  }, [targetReviewId]);
 
   function handleProfessorQuery(value: string) {
     setProfessorQuery(value);
@@ -309,8 +326,9 @@ export function CourseReviewSection({
     !!term &&
     (selectedProfessors.length > 0 || professorOptional) &&
     score !== null;
+  const activeProfessorId = targetReviewId ? "" : selectedProfessorId;
   const selectedProfessor = professorStats.find(
-    (item) => item.id === selectedProfessorId,
+    (item) => item.id === activeProfessorId,
   );
   const visibleReviews = selectedProfessor
     ? reviews.filter((review) =>
@@ -322,7 +340,14 @@ export function CourseReviewSection({
       )
     : reviews;
   const visibleCommentCount = visibleReviews.length;
-  const displayedReviews = visibleReviews.slice(0, visibleReviewLimit);
+  const targetReviewIndex = visibleReviews.findIndex(
+    (review) => review.id === targetReviewId,
+  );
+  const effectiveReviewLimit = Math.max(
+    visibleReviewLimit,
+    targetReviewIndex + 1,
+  );
+  const displayedReviews = visibleReviews.slice(0, effectiveReviewLimit);
   const hiddenReviewCount = visibleReviews.length - displayedReviews.length;
   const professorTermsByYear = selectedProfessor
     ? [
@@ -818,7 +843,7 @@ export function CourseReviewSection({
             任课教授
             <select
               aria-label="按任课教授筛选"
-              value={selectedProfessorId}
+              value={activeProfessorId}
               onChange={(event) => {
                 setSelectedProfessorId(event.target.value);
                 setShowAllTermYears(false);
@@ -1021,7 +1046,11 @@ export function CourseReviewSection({
           </li>
         )}
         {displayedReviews.map((review) => (
-          <li key={review.id} className="rounded-xl border p-5">
+          <li
+            key={review.id}
+            id={`course-review-${review.id}`}
+            className="scroll-mt-24 rounded-xl border p-5"
+          >
             <div className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 items-start gap-3">
                 <CourseReviewAuthorIdentity
@@ -1109,9 +1138,20 @@ export function CourseReviewSection({
                 {review.likeCount}
               </button>
               <CourseReviewReplies
+                key={
+                  review.id === targetReviewId && targetReplyId
+                    ? targetReplyId
+                    : "default"
+                }
                 reviewId={review.id}
                 initialCount={review.replyCount}
                 isAuthenticated={isAuthenticated}
+                initiallyOpen={
+                  review.id === targetReviewId && Boolean(targetReplyId)
+                }
+                initialOffset={
+                  review.id === targetReviewId ? targetReplyOffset : undefined
+                }
               />
               {review.canAdminDelete && (
                 <button

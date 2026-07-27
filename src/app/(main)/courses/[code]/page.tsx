@@ -5,6 +5,7 @@ import {
   getCourse,
   getCourseProfessorStats,
   getCourseReviews,
+  getCourseReviewReplyTargetOffset,
   getCourseRatingState,
   getCourseEnrollmentHistory,
   isCourseProfessorOptional,
@@ -36,10 +37,15 @@ export default async function CourseDetailPage({
   searchParams,
 }: {
   params: Promise<{ code: string }>;
-  searchParams: Promise<{ from?: string; tab?: string }>;
+  searchParams: Promise<{
+    from?: string;
+    tab?: string;
+    review?: string;
+    reply?: string;
+  }>;
 }) {
   const { code } = await params;
-  const { from, tab } = await searchParams;
+  const { from, tab, review, reply } = await searchParams;
   const course = await getCourse(code);
   if (!course) notFound();
   const courseCode = course.code;
@@ -70,6 +76,7 @@ export default async function CourseDetailPage({
     professorOptional,
     reviews,
     professorStats,
+    targetReplyOffset,
   ] = await Promise.all([
     getCourseRatingState(course.code),
     getCourseEnrollmentHistory(course.code),
@@ -81,7 +88,12 @@ export default async function CourseDetailPage({
     activeTab === "reviews"
       ? getCourseProfessorStats(course.code)
       : Promise.resolve([]),
+    activeTab === "reviews" && review && reply
+      ? getCourseReviewReplyTargetOffset(course.code, review, reply)
+      : Promise.resolve(null),
   ]);
+  const targetRequested = Boolean(review || reply);
+  const targetMissing = targetRequested && targetReplyOffset === null;
 
   return (
     <div className="min-w-0 flex-1">
@@ -154,6 +166,15 @@ export default async function CourseDetailPage({
           enrollmentHref={enrollmentHref}
         />
 
+        {activeTab === "reviews" && targetMissing && (
+          <p
+            role="alert"
+            className="mt-4 rounded-xl border border-dashed p-4 text-sm text-muted-foreground"
+          >
+            消息不存在
+          </p>
+        )}
+
         {activeTab === "reviews" && ratingState && (
           <div className="mt-4">
             <CourseReviewSection
@@ -175,6 +196,9 @@ export default async function CourseDetailPage({
                 .reverse()}
               isAuthenticated={!!user}
               professorOptional={professorOptional}
+              targetReviewId={targetReplyOffset === null ? undefined : review}
+              targetReplyId={targetReplyOffset === null ? undefined : reply}
+              targetReplyOffset={targetReplyOffset ?? undefined}
             />
           </div>
         )}
