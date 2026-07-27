@@ -3,6 +3,7 @@ import type {
   Canteen,
   CanteenDishComment,
   CanteenMenuItem,
+  MealPeriod,
   MenuImportDraft,
   MenuImportDraftItem,
   MenuItemVoteCounts,
@@ -92,78 +93,99 @@ function seedState(): MockState {
   const demo: Canteen = {
     id: "mock-canteen-demo",
     name: "演示食堂",
-    location: null,
+    location: "演示区域 A",
     announcement: "外带加 $1 · 随餐饮品加 $3",
     createdAt: t,
     updatedAt: t,
   };
+  const demoB: Canteen = {
+    id: "mock-canteen-demo-b",
+    name: "演示食堂乙",
+    location: "演示区域 B",
+    announcement: null,
+    createdAt: t,
+    updatedAt: t,
+  };
+  const demoC: Canteen = {
+    id: "mock-canteen-demo-c",
+    name: "演示食堂丙",
+    location: null,
+    announcement: "周末休息",
+    createdAt: t,
+    updatedAt: t,
+  };
+
+  function dish(
+    id: string,
+    canteenId: string,
+    name: string,
+    mealPeriod: MealPeriod,
+    amountMinor: number,
+    svgKey: string,
+    sortOrder: number,
+  ): CanteenMenuItem {
+    return {
+      id,
+      canteenId,
+      name,
+      pricing: {
+        options: [
+          {
+            id: `${id}-price`,
+            label: null,
+            amountMinor,
+            currency: "HKD",
+            sortOrder: 0,
+          },
+        ],
+      },
+      mealPeriods: [mealPeriod],
+      sortOrder,
+      svgKey,
+      createdAt: t,
+      updatedAt: t,
+    };
+  }
+
   const items: CanteenMenuItem[] = [
-    {
-      id: "mock-item-breakfast",
-      canteenId: demo.id,
-      name: "演示早餐",
-      pricing: {
-        options: [
-          {
-            id: "mock-price-breakfast",
-            label: null,
-            amountMinor: 800,
-            currency: "HKD",
-            sortOrder: 0,
-          },
-        ],
-      },
-      mealPeriods: ["breakfast"],
-      sortOrder: 0,
-      svgKey: "default",
-      createdAt: t,
-      updatedAt: t,
-    },
-    {
-      id: "mock-item-demo",
-      canteenId: demo.id,
-      name: "演示菜品",
-      pricing: {
-        options: [
-          {
-            id: "mock-price-demo",
-            label: null,
-            amountMinor: 1000,
-            currency: "HKD",
-            sortOrder: 0,
-          },
-        ],
-      },
-      mealPeriods: ["lunch"],
-      sortOrder: 0,
-      svgKey: "default",
-      createdAt: t,
-      updatedAt: t,
-    },
-    {
-      id: "mock-item-dinner",
-      canteenId: demo.id,
-      name: "演示晚餐",
-      pricing: {
-        options: [
-          {
-            id: "mock-price-dinner",
-            label: null,
-            amountMinor: 1200,
-            currency: "HKD",
-            sortOrder: 0,
-          },
-        ],
-      },
-      mealPeriods: ["dinner"],
-      sortOrder: 0,
-      svgKey: "default",
-      createdAt: t,
-      updatedAt: t,
-    },
+    // Keep stable IDs used by unit tests.
+    dish("mock-item-breakfast", demo.id, "演示粥品", "breakfast", 800, "bowl", 0),
+    dish("mock-item-demo", demo.id, "演示菜品", "lunch", 1000, "default", 0),
+    dish("mock-item-dinner", demo.id, "演示晚餐定食", "dinner", 1200, "rice", 0),
+
+    dish("mock-item-bf-egg", demo.id, "演示煎蛋多士", "breakfast", 1200, "default", 1),
+    dish("mock-item-bf-noodle", demo.id, "演示早餐面", "breakfast", 1500, "noodle", 2),
+    dish("mock-item-bf-drink", demo.id, "演示豆浆", "breakfast", 600, "drink", 3),
+
+    dish("mock-item-ln-rice", demo.id, "演示叉烧饭", "lunch", 2800, "rice", 1),
+    dish("mock-item-ln-rice-2", demo.id, "演示咖喱鸡饭", "lunch", 3000, "rice", 2),
+    dish("mock-item-ln-bowl", demo.id, "演示番茄蛋汤", "lunch", 1200, "bowl", 3),
+    dish("mock-item-ln-noodle", demo.id, "演示牛肉面", "lunch", 3200, "noodle", 4),
+    dish("mock-item-ln-noodle-2", demo.id, "演示云吞面", "lunch", 2800, "noodle", 5),
+    dish("mock-item-ln-drink", demo.id, "演示柠檬茶", "lunch", 1000, "drink", 6),
+    dish("mock-item-ln-drink-2", demo.id, "演示奶茶", "lunch", 1200, "drink", 7),
+    dish("mock-item-ln-dessert", demo.id, "演示双皮奶", "lunch", 1500, "dessert", 8),
+    dish("mock-item-ln-snack", demo.id, "演示炸鸡块", "lunch", 1800, "default", 9),
+    dish("mock-item-ln-veg", demo.id, "演示青菜", "lunch", 800, "default", 10),
+    dish("mock-item-ln-fish", demo.id, "演示蒸鱼", "lunch", 3500, "default", 11),
+    dish("mock-item-ln-tofu", demo.id, "演示麻婆豆腐", "lunch", 1600, "bowl", 12),
+
+    dish("mock-item-dn-rice", demo.id, "演示烧鸭饭", "dinner", 3200, "rice", 1),
+    dish("mock-item-dn-noodle", demo.id, "演示炒河粉", "dinner", 2800, "noodle", 2),
+    dish("mock-item-dn-bowl", demo.id, "演示例汤", "dinner", 1000, "bowl", 3),
+    dish("mock-item-dn-drink", demo.id, "演示汽水", "dinner", 800, "drink", 4),
+    dish("mock-item-dn-dessert", demo.id, "演示红豆沙", "dinner", 1200, "dessert", 5),
+    dish("mock-item-dn-snack", demo.id, "演示春卷", "dinner", 1400, "default", 6),
+
+    dish("mock-item-b-ln-1", demoB.id, "演示乙食堂饭", "lunch", 2500, "rice", 0),
+    dish("mock-item-b-ln-2", demoB.id, "演示乙食堂面", "lunch", 2600, "noodle", 1),
+    dish("mock-item-b-dn-1", demoB.id, "演示乙食堂晚餐", "dinner", 2800, "rice", 0),
+
+    dish("mock-item-c-ln-1", demoC.id, "演示丙食堂简餐", "lunch", 2000, "default", 0),
   ];
+
   return {
-    canteens: [demo],
+    canteens: [demo, demoB, demoC],
     items,
     votes: [],
     shameVotes: [],
@@ -346,6 +368,24 @@ export function mockDeleteMenuItem(canteenId: string, itemId: string): void {
   s.items.splice(idx, 1);
   s.votes = s.votes.filter((v) => v.menuItemId !== itemId);
   s.comments = s.comments.filter((c) => c.menuItemId !== itemId);
+}
+
+/** Hard-delete every menu item for a canteen (votes/comments cascade in mock). */
+export function mockDeleteAllMenuItems(canteenId: string): {
+  deletedCount: number;
+} {
+  const s = getState();
+  if (!s.canteens.some((c) => c.id === canteenId)) {
+    throw new Error("CANTEEN_NOT_FOUND");
+  }
+  const removedItemIds = new Set(
+    s.items.filter((i) => i.canteenId === canteenId).map((i) => i.id),
+  );
+  const deletedCount = removedItemIds.size;
+  s.items = s.items.filter((i) => i.canteenId !== canteenId);
+  s.votes = s.votes.filter((v) => !removedItemIds.has(v.menuItemId));
+  s.comments = s.comments.filter((c) => !removedItemIds.has(c.menuItemId));
+  return { deletedCount };
 }
 
 function mockCountCommentsForCanteen(canteenId: string): number {

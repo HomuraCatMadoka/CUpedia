@@ -72,4 +72,40 @@ describe("ShameRankList", () => {
       );
     });
   });
+
+  it("keeps window scroll position when a row reorders upward", async () => {
+    const scrollTo = vi.fn();
+    Object.defineProperty(window, "scrollY", {
+      configurable: true,
+      get: () => 420,
+    });
+    window.scrollTo = scrollTo as typeof window.scrollTo;
+
+    render(
+      <ShameRankList
+        canteens={[canteen("a", "甲食堂"), canteen("b", "乙食堂")]}
+        initialCounts={{ a: 4, b: 5 }}
+        voteDate="2026-07-27"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "踩 甲食堂" }));
+
+    await waitFor(() => {
+      expect(appendMock).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("listitem")[0].textContent).toContain("甲食堂");
+    });
+
+    expect(scrollTo).toHaveBeenCalled();
+    expect(
+      scrollTo.mock.calls.some(
+        (args) =>
+          (typeof args[0] === "object" && args[0]?.top === 420) ||
+          args[1] === 420,
+      ),
+    ).toBe(true);
+  });
 });

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import {
   isCanteenMockMode,
   mockCreateCanteen,
+  mockDeleteAllMenuItems,
   mockDeleteCanteen,
   mockDeleteImpactForMenuItem,
   mockDeleteMenuItem,
@@ -31,17 +32,18 @@ describe("canteen-mock", () => {
     expect(isCanteenMockMode()).toBe(false);
   });
 
-  it("seeds a minimal demo canteen with one dish per meal period", () => {
+  it("seeds demo canteens with dishes across meal periods and categories", () => {
     const canteens = mockListCanteens();
-    expect(canteens).toHaveLength(1);
-    expect(canteens[0].name).toBe("演示食堂");
-    const items = mockListMenuItems(canteens[0].id);
-    expect(items).toHaveLength(3);
-    expect(items.map((i) => i.mealPeriods)).toEqual([
-      ["breakfast"],
-      ["lunch"],
-      ["dinner"],
-    ]);
+    expect(canteens.map((c) => c.name).sort()).toEqual(
+      ["演示食堂", "演示食堂乙", "演示食堂丙"].sort(),
+    );
+    const items = mockListMenuItems("mock-canteen-demo");
+    expect(items.length).toBeGreaterThanOrEqual(20);
+    expect(items.some((i) => i.id === "mock-item-demo")).toBe(true);
+    expect(
+      new Set(items.flatMap((i) => i.mealPeriods)),
+    ).toEqual(new Set(["breakfast", "lunch", "dinner"]));
+    expect(new Set(items.map((i) => i.svgKey)).size).toBeGreaterThan(3);
   });
 
   it("creates and deletes canteens in memory", () => {
@@ -64,5 +66,14 @@ describe("canteen-mock", () => {
     mockUpsertDishVote(item.id, "like");
     mockDeleteMenuItem(canteen.id, item.id);
     expect(mockDeleteImpactForMenuItem(item.id).voteCount).toBe(0);
+  });
+
+  it("deletes all menu items for a canteen", () => {
+    const canteen = mockListCanteens()[0];
+    const before = mockListMenuItems(canteen.id).length;
+    expect(before).toBeGreaterThan(0);
+    const result = mockDeleteAllMenuItems(canteen.id);
+    expect(result.deletedCount).toBe(before);
+    expect(mockListMenuItems(canteen.id)).toHaveLength(0);
   });
 });

@@ -9,6 +9,11 @@ import {
   type ShameRankEntry,
 } from "@/lib/canteen-shame-rank";
 import { appendShameVote } from "@/lib/canteen-shame-actions";
+import {
+  usePinnedWindowScroll,
+  useRestorePinnedWindowScrollOnMount,
+  useScrollPin,
+} from "@/lib/pin-window-scroll";
 import { cn } from "@/lib/utils";
 
 function shameErrorMessage(code: string): string {
@@ -111,9 +116,14 @@ export function ShameRankList({
   voteDate: string;
 }) {
   const [counts, setCounts] = useState(initialCounts);
+  const { pinnedScrollY, pin, release } = useScrollPin();
   const ranked = rankShameCanteens(canteens, counts);
 
+  useRestorePinnedWindowScrollOnMount();
+  usePinnedWindowScroll(pinnedScrollY, [counts]);
+
   async function onStomp(canteenId: string) {
+    pin();
     setCounts((prev) => ({
       ...prev,
       [canteenId]: (prev[canteenId] ?? 0) + 1,
@@ -126,6 +136,8 @@ export function ShameRankList({
         [canteenId]: Math.max(0, (prev[canteenId] ?? 0) - 1),
       }));
       throw err;
+    } finally {
+      release();
     }
   }
 

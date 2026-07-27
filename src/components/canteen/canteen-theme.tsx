@@ -11,7 +11,7 @@ const canteenSans = Noto_Sans_SC({
 export function CanteenTheme({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className={`canteen-zone ${canteenSans.variable} min-h-full min-w-0 flex-1 overflow-x-clip`}
+      className={`canteen-zone ${canteenSans.variable} min-h-full min-w-0 flex-1`}
       style={
         {
           ["--font-canteen-display" as string]:

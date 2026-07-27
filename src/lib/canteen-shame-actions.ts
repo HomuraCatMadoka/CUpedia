@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { revalidateTag, unstable_cache } from "next/cache";
+import { unstable_cache } from "next/cache";
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { canteens, canteenShameVotes } from "@/db/schema";
@@ -150,6 +150,7 @@ export async function appendShameVote(
       "anonymousSessionId" in identity ? identity.anonymousSessionId : null,
   });
 
-  revalidateTag(CANTEEN_SHAME_COUNTS_TAG, "max");
+  // Skip revalidateTag: it refreshes the route and jumps scroll to top.
+  // Optimistic client counts cover the voter; cache TTL refreshes others.
   return { canteenId, voteDate };
 }

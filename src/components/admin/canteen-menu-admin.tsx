@@ -165,6 +165,13 @@ function formatDeleteImpact(impact: DeleteImpact) {
   return `将删除 ${parts.join("、")}。不可恢复。`;
 }
 
+function formatDeleteAllImpact(impact: DeleteImpact) {
+  const parts: string[] = [`${impact.menuItemCount} 道菜品`];
+  if (impact.voteCount > 0) parts.push(`${impact.voteCount} 票`);
+  if (impact.commentCount > 0) parts.push(`${impact.commentCount} 条评论`);
+  return `将删除本食堂全部 ${parts.join("、")}。不可恢复。`;
+}
+
 export function CanteenMenuAdmin({
   canteen,
   items,
@@ -187,6 +194,10 @@ export function CanteenMenuAdmin({
     null,
   );
   const [deleteImpact, setDeleteImpact] = useState<DeleteImpact | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deleteAllImpact, setDeleteAllImpact] = useState<DeleteImpact | null>(
+    null,
+  );
   const [editTarget, setEditTarget] = useState<CanteenMenuItem | null>(null);
   const [editName, setEditName] = useState("");
   const [editPriceOptions, setEditPriceOptions] = useState<DraftPriceOption[]>([
@@ -204,14 +215,26 @@ export function CanteenMenuAdmin({
   const deleteMenuItem = previewMode
     ? previewActions.previewDeleteMenuItem
     : liveActions.deleteMenuItem;
+  const deleteAllMenuItems = previewMode
+    ? previewActions.previewDeleteAllMenuItems
+    : liveActions.deleteAllMenuItems;
   const getMenuItemDeleteImpact = previewMode
     ? previewActions.previewGetMenuItemDeleteImpact
     : liveActions.getMenuItemDeleteImpact;
+  const getCanteenDeleteImpact = previewMode
+    ? previewActions.previewGetCanteenDeleteImpact
+    : liveActions.getCanteenDeleteImpact;
 
   async function openDeleteDialog(item: CanteenMenuItem) {
     setDeleteTarget(item);
     const impact = await getMenuItemDeleteImpact(item.id);
     setDeleteImpact(impact);
+  }
+
+  async function openDeleteAllDialog() {
+    setDeleteAllOpen(true);
+    const impact = await getCanteenDeleteImpact(canteen.id);
+    setDeleteAllImpact(impact);
   }
 
   function handleCreate(e: React.FormEvent) {
@@ -241,6 +264,19 @@ export function CanteenMenuAdmin({
         await deleteMenuItem(canteen.id, deleteTarget.id);
         setDeleteTarget(null);
         setDeleteImpact(null);
+        router.refresh();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "删除失败");
+      }
+    });
+  }
+
+  function handleDeleteAll() {
+    startTransition(async () => {
+      try {
+        await deleteAllMenuItems(canteen.id);
+        setDeleteAllOpen(false);
+        setDeleteAllImpact(null);
         router.refresh();
       } catch (err) {
         alert(err instanceof Error ? err.message : "删除失败");
@@ -372,60 +408,77 @@ export function CanteenMenuAdmin({
           <p className="text-[var(--canteen-muted)]">暂无菜品</p>
         </div>
       ) : (
-        <ul className="space-y-2">
-          {items.map((item, i) => (
-            <li
-              key={item.id}
-              className={cn(
-                "canteen-fade-in flex flex-wrap items-center gap-3 rounded-xl border border-[var(--canteen-bamboo)]/20 bg-white/60 px-4 py-3 sm:flex-nowrap",
-                i % 2 === 1 && "canteen-fade-in-delay-1",
-              )}
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="rounded-full"
+              disabled={isPending}
+              onClick={() => {
+                void openDeleteAllDialog();
+              }}
             >
-              <DishSvgIcon
-                svgKey={item.svgKey}
-                className="size-10 rounded-xl"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="font-medium text-[var(--canteen-ink)]">
-                  {item.name}
-                </p>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <MealPeriodsBadges periods={item.mealPeriods} />
-                  <MenuItemPrice
-                    pricing={item.pricing}
-                    className="font-mono text-sm text-[var(--canteen-purple)]"
-                  />
-                </div>
-                <div className="mt-2">
-                  <MealPeriodsEditor
-                    idPrefix={`row-${item.id}`}
-                    value={item.mealPeriods}
-                    onChange={(next) => handleMealPeriodsChange(item, next)}
-                    disabled={isPending}
-                  />
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-full"
-                disabled={isPending}
-                onClick={() => openEditDialog(item)}
+              <Trash2 className="size-4" aria-hidden />
+              一键删除全部菜品
+            </Button>
+          </div>
+          <ul className="space-y-2">
+            {items.map((item, i) => (
+              <li
+                key={item.id}
+                className={cn(
+                  "canteen-fade-in flex flex-wrap items-center gap-3 rounded-xl border border-[var(--canteen-bamboo)]/20 bg-white/60 px-4 py-3 sm:flex-nowrap",
+                  i % 2 === 1 && "canteen-fade-in-delay-1",
+                )}
               >
-                编辑
-              </Button>
-              <Button
-                variant="destructive"
-                size="sm"
-                className="rounded-full"
-                disabled={isPending}
-                onClick={() => openDeleteDialog(item)}
-              >
-                删除
-              </Button>
-            </li>
-          ))}
-        </ul>
+                <DishSvgIcon
+                  svgKey={item.svgKey}
+                  className="size-10 rounded-xl"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-[var(--canteen-ink)]">
+                    {item.name}
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <MealPeriodsBadges periods={item.mealPeriods} />
+                    <MenuItemPrice
+                      pricing={item.pricing}
+                      className="font-mono text-sm text-[var(--canteen-purple)]"
+                    />
+                  </div>
+                  <div className="mt-2">
+                    <MealPeriodsEditor
+                      idPrefix={`row-${item.id}`}
+                      value={item.mealPeriods}
+                      onChange={(next) => handleMealPeriodsChange(item, next)}
+                      disabled={isPending}
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={isPending}
+                  onClick={() => openEditDialog(item)}
+                >
+                  编辑
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="rounded-full"
+                  disabled={isPending}
+                  onClick={() => openDeleteDialog(item)}
+                >
+                  删除
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <AlertDialog
@@ -451,6 +504,33 @@ export function CanteenMenuAdmin({
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteAllOpen}
+        onOpenChange={(open) => {
+          setDeleteAllOpen(open);
+          if (!open) setDeleteAllImpact(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              确认删除「{canteen.name}」的全部菜品？
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteAllImpact
+                ? formatDeleteAllImpact(deleteAllImpact)
+                : "加载中…"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAll} disabled={isPending}>
+              全部删除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

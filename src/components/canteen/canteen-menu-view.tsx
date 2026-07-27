@@ -41,6 +41,7 @@ import {
 import { CanteenRankingRow } from "@/components/canteen/canteen-ranking-row";
 import { MenuItemVoteRow } from "@/components/canteen/menu-item-vote-row";
 import { cn } from "@/lib/utils";
+import { useRestorePinnedWindowScrollOnMount } from "@/lib/pin-window-scroll";
 
 type CanteenMenuViewProps = {
   items: CanteenMenuItem[];
@@ -262,6 +263,8 @@ export function CanteenMenuView({
     useState<Record<string, VoteChoice>>(myVotes);
   const periodInitializedRef = useRef(false);
 
+  useRestorePinnedWindowScrollOnMount();
+
   const menuDataByPeriod = useMemo(() => buildMenuDataByPeriod(items), [items]);
   const selectedSections = menuDataByPeriod[selection.period].sections;
 
@@ -354,7 +357,7 @@ export function CanteenMenuView({
 
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
-      <div className="sticky top-0 z-10 -mx-3 min-w-0 space-y-2 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-3 py-2 backdrop-blur-md sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
+      <div className="sticky top-[var(--navbar-height)] z-10 -mx-3 min-w-0 space-y-2 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-3 py-2 backdrop-blur-md sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
         <CanteenPeriodTabs
           value={selection.period}
           onChange={handlePeriodChange}
