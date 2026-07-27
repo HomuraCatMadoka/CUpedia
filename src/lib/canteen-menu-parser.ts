@@ -8,9 +8,7 @@ const TRAILING_PRICE_RE =
 
 const LEADING_PRICE_RE = /^(\d{1,4})\s+(.+)$/;
 
-function parseLine(
-  line: string,
-): { name: string; price: number | null } | null {
+function parseLine(line: string): { name: string; price: number | null } | null {
   const trimmed = line.trim();
   if (!trimmed || trimmed.length < 2) return null;
 

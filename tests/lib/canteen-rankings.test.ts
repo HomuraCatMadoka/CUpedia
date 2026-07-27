@@ -42,14 +42,17 @@ describe("availableMealPeriods", () => {
   });
 
   it("returns a single period for single-shift menus", () => {
-    expect(
-      availableMealPeriods([item("a", "lunch"), item("b", "lunch")]),
-    ).toEqual(["lunch"]);
+    expect(availableMealPeriods([item("a", "lunch"), item("b", "lunch")])).toEqual([
+      "lunch",
+    ]);
   });
 
   it("ignores allday when deciding which tabs to show", () => {
     expect(
-      availableMealPeriods([item("dessert", "allday"), item("rice", "lunch")]),
+      availableMealPeriods([
+        item("dessert", "allday"),
+        item("rice", "lunch"),
+      ]),
     ).toEqual(["lunch"]);
   });
 

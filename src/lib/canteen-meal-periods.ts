@@ -7,7 +7,11 @@ import {
 } from "@/db/schema";
 import type { CanteenMenuItem } from "@/lib/canteen-types";
 
-export { ALLDAY_MEAL_PERIOD, MEAL_PERIOD_VALUES, type MealPeriodAssignment };
+export {
+  ALLDAY_MEAL_PERIOD,
+  MEAL_PERIOD_VALUES,
+  type MealPeriodAssignment,
+};
 
 const ASSIGNMENT_ORDER: Record<MealPeriodAssignment, number> = {
   breakfast: 0,
@@ -40,9 +44,7 @@ function isAssignment(value: string): value is MealPeriodAssignment {
  * Missing/empty → `["allday"]`. If `allday` is present (alone or with others) → `["allday"]`.
  * Returns null when input contains unknown values (caller may throw).
  */
-export function normalizeMealPeriods(
-  input: unknown,
-): MealPeriodAssignment[] | null {
+export function normalizeMealPeriods(input: unknown): MealPeriodAssignment[] | null {
   if (input == null || input === "") {
     return [ALLDAY_MEAL_PERIOD];
   }
@@ -123,17 +125,11 @@ export function filterItemsByMealPeriod(
  * Resolve periods from API/JSON row: prefer `mealPeriods`, fall back to scalar
  * `mealPeriod`, default allday when both missing.
  */
-export function mealPeriodsFromRow(
-  row: Record<string, unknown>,
-): MealPeriodAssignment[] | null {
+export function mealPeriodsFromRow(row: Record<string, unknown>): MealPeriodAssignment[] | null {
   if ("mealPeriods" in row && row.mealPeriods !== undefined) {
     return normalizeMealPeriods(row.mealPeriods);
   }
-  if (
-    "mealPeriod" in row &&
-    row.mealPeriod !== undefined &&
-    row.mealPeriod !== null
-  ) {
+  if ("mealPeriod" in row && row.mealPeriod !== undefined && row.mealPeriod !== null) {
     return normalizeMealPeriods(row.mealPeriod);
   }
   return normalizeMealPeriods(undefined);

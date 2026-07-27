@@ -32,8 +32,9 @@ describe("canteen-actions (mock mode)", () => {
   });
 
   it("returns menu items sorted by meal period then sort order", async () => {
-    const { getCanteens, getCanteenMenuItems } =
-      await import("@/lib/canteen-actions");
+    const { getCanteens, getCanteenMenuItems } = await import(
+      "@/lib/canteen-actions"
+    );
     const canteen = (await getCanteens())[0];
     const items = await getCanteenMenuItems(canteen.id);
     expect(items.length).toBeGreaterThan(0);

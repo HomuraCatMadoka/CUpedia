@@ -77,10 +77,7 @@ export function CanteenRankingRow({
         ) : null}
         {rank}
       </span>
-      <DishSvgIcon
-        svgKey={item.svgKey}
-        className="size-8 rounded-md sm:size-10"
-      />
+      <DishSvgIcon svgKey={item.svgKey} className="size-8 rounded-md sm:size-10" />
       <div className="min-w-0 flex-1">
         <p className="min-w-0 text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
           {item.name}

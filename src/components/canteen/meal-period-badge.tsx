@@ -49,9 +49,7 @@ export function MealPeriodsBadges({
 }) {
   if (periods.length === 0) return null;
   return (
-    <span
-      className={cn("inline-flex flex-wrap items-center gap-x-1.5", className)}
-    >
+    <span className={cn("inline-flex flex-wrap items-center gap-x-1.5", className)}>
       {periods.map((period) => (
         <MealPeriodBadge key={period} period={period} />
       ))}

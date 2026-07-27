@@ -51,10 +51,7 @@ export function MenuItemVoteRow({
         pending && "opacity-80",
       )}
     >
-      <DishSvgIcon
-        svgKey={item.svgKey}
-        className="size-9 rounded-md sm:size-11"
-      />
+      <DishSvgIcon svgKey={item.svgKey} className="size-9 rounded-md sm:size-11" />
       <div className="min-w-0 flex-1">
         <p className="min-w-0 break-words text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
           {item.name}

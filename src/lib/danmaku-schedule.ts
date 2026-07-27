@@ -113,9 +113,7 @@ export function scheduleScrollingDanmaku(
     if (bestTrack < 0 || bestStart > maxScheduleSec) continue;
 
     const visible =
-      bestStart +
-      (duration * width) / (screenWidth + width) +
-      DANMAKU_NEXT_GAP_SEC;
+      bestStart + (duration * width) / (screenWidth + width) + DANMAKU_NEXT_GAP_SEC;
     const end = bestStart + duration;
     lanes[bestTrack] = { width, visible, end };
     scheduled.push({
