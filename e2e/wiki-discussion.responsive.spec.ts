@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage } from "./helpers/wiki";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("responsive on-demand discussions", () => {
@@ -12,8 +15,7 @@ test.describe("responsive on-demand discussions", () => {
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
     const closedBox = await editor.boundingBox();
     expect(closedBox).not.toBeNull();
     expect(closedBox!.width).toBeGreaterThan(700);
@@ -63,8 +65,7 @@ test.describe("responsive on-demand discussions", () => {
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
     const before = await editor.boundingBox();
     expect(before).not.toBeNull();
 
@@ -83,7 +84,7 @@ test.describe("responsive on-demand discussions", () => {
   }) => {
     await loginAsAdmin(page);
     await createUntitledWikiPage(page);
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(page);
     await expect(
       page.locator('button[aria-controls="wiki-discussion-panel"]'),
     ).toHaveCount(1);
@@ -103,8 +104,7 @@ test.describe("responsive on-demand discussions on mobile", () => {
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
     const closedBox = await editor.boundingBox();
     expect(closedBox).not.toBeNull();
     expect(closedBox!.width).toBeGreaterThan(300);

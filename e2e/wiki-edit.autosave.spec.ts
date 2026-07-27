@@ -4,7 +4,11 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage, wikiPageUrl } from "./helpers/wiki";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+  wikiPageUrl,
+} from "./helpers/wiki";
 
 const FIXTURE_TOKEN = randomUUID().slice(0, 8);
 const FIXTURE_CONTENT = JSON.stringify([
@@ -112,7 +116,7 @@ test.describe("#432 latest draft convergence", () => {
     await loginAsAdmin(page);
 
     await createUntitledWikiPage(page);
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(page);
     await page.getByLabel("标题").fill(`Guarded draft ${Date.now()}`);
 
     await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
@@ -127,7 +131,7 @@ test.describe("#432 latest draft convergence", () => {
 
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${MERGE_SLUG}`);
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(page);
 
     await page.getByLabel("标题").fill(title);
     await expect(page.getByText("未保存")).toBeVisible();
@@ -205,17 +209,28 @@ test.describe("#432 latest draft convergence", () => {
     });
 
     await page.goto(`/wiki/edit/${FIXTURES.explicit.slug}`);
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(page);
     await page.getByLabel("标题").fill(firstTitle);
+    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "unsaved",
+    );
     await page.keyboard.press("Control+s");
     await firstResponseHeld;
-    await expect(page.getByText("保存中")).toBeVisible();
+    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saving",
+    );
 
     await page.getByLabel("标题").fill(trailingTitle);
 
     releaseFirstResponse();
 
-    await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
     await page.goto(`/wiki/edit/${FIXTURES.explicit.slug}`);
     await expect(page.getByLabel("标题")).toHaveValue(trailingTitle);
   });
@@ -236,7 +251,7 @@ test.describe("#432 latest draft convergence", () => {
     });
 
     await page.goto(editPath);
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(page);
     await page.getByLabel("标题").fill(draftTitle);
     await page.keyboard.press("Control+s");
 
@@ -268,17 +283,21 @@ test.describe("#432 latest draft convergence", () => {
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
     await pageA.goto(`/wiki/edit/${slug}`);
-    await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
     await pageB.goto(`/wiki/edit/${slug}`);
-    await expect(pageB.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageB);
 
     await appendAfterText(pageB, "Alpha block.", markerB);
     await pageB.keyboard.press("Control+s");
-    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.passiveConflict.id));
+    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
 
     await appendAfterText(pageA, "Alpha block.", markerA);
     await expect(
@@ -310,20 +329,32 @@ test.describe("#432 latest draft convergence", () => {
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
     await pageA.goto(`/wiki/edit/${slug}`);
-    await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
     await pageB.goto(`/wiki/edit/${slug}`);
-    await expect(pageB.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageB);
 
     await pageB.getByLabel("标题").fill(serverTitle);
+    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "unsaved",
+    );
     await pageB.keyboard.press("Control+s");
-    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.bodyTitleMerge.id));
+    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
 
     await appendAfterText(pageA, "Alpha block.", bodyMarker);
-    await expect(pageA.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+    await expect(pageA.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
     await expect(pageA.getByLabel("标题")).toHaveValue(serverTitle);
 
     await pageA.goto(`/wiki/edit/${slug}`);
@@ -347,17 +378,25 @@ test.describe("#432 latest draft convergence", () => {
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
     await pageA.goto(`/wiki/edit/${slug}`);
-    await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
     await pageB.goto(`/wiki/edit/${slug}`);
-    await expect(pageB.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageB);
 
     await pageB.getByLabel("标题").fill(serverTitle);
+    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "unsaved",
+    );
     await pageB.keyboard.press("Control+s");
-    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.titleConflict.id));
+    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
 
     await pageA.getByLabel("标题").fill(mineTitle);
     await expect(
@@ -388,23 +427,31 @@ test.describe("#431 authoritative autosave baseline", () => {
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
     await pageA.goto(`/wiki/edit/${MERGE_SLUG}`);
-    await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
     await pageB.goto(`/wiki/edit/${MERGE_SLUG}`);
-    await expect(pageB.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageB);
 
     // B advances the server copy by editing a different top-level block.
     await appendAfterText(pageB, "Beta block.", markerB);
     await pageB.keyboard.press("Control+s");
-    await expect(pageB).toHaveURL(wikiPageUrl(FIXTURES.merge.id));
+    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
 
     // A is still on the original baseline. Its non-overlapping edit should
     // clean-merge and the editor should adopt the authoritative merged copy.
     await appendAfterText(pageA, "Alpha block.", markerA);
-    await expect(pageA.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+    await expect(pageA.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
     await expect(pageA.locator('[role="textbox"]').first()).toContainText(
       markerB,
     );
@@ -412,7 +459,11 @@ test.describe("#431 authoritative autosave baseline", () => {
     // A continues from that merged copy. A later optimistic write must not
     // overwrite B's already-merged block.
     await appendAfterText(pageA, "Gamma block.", trailingMarker);
-    await expect(pageA.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+    await expect(pageA.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
 
     // Re-open the edit route to prove the server retained all three changes.
     await pageA.goto(`/wiki/edit/${MERGE_SLUG}`);
