@@ -21,7 +21,7 @@ describe("canteen-actions (mock mode)", () => {
   it("lists canteens without touching the database", async () => {
     const { getCanteens } = await import("@/lib/canteen-actions");
     const canteens = await getCanteens();
-    expect(canteens).toHaveLength(1);
+    expect(canteens).toHaveLength(3);
     expect(canteens.every((c) => c.name.length > 0)).toBe(true);
   });
 
