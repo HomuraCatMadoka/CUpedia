@@ -37,6 +37,11 @@ export async function setWikiEditRole(role: WikiEditRole) {
 const OWNER_USER_ID_KEY = "owner_user_id";
 const CANTEEN_SHAME_VOTE_END_DATE_KEY = "canteen_shame_vote_end_date";
 export const DEFAULT_CANTEEN_SHAME_VOTE_END_DATE = "2026-09-01";
+let mockCanteenShameVoteEndDate = DEFAULT_CANTEEN_SHAME_VOTE_END_DATE;
+
+export function _resetCanteenShameVoteEndDateForTests(): void {
+  mockCanteenShameVoteEndDate = DEFAULT_CANTEEN_SHAME_VOTE_END_DATE;
+}
 
 function isCalendarDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -54,7 +59,7 @@ function isCalendarDate(value: string): boolean {
 
 export async function getCanteenShameVoteEndDate(): Promise<string> {
   if (process.env.CANTEEN_MOCK_DATA === "true") {
-    return DEFAULT_CANTEEN_SHAME_VOTE_END_DATE;
+    return mockCanteenShameVoteEndDate;
   }
   const result = await db.execute(
     sql`SELECT ${siteSettings.value} FROM ${siteSettings} WHERE ${siteSettings.key} = ${CANTEEN_SHAME_VOTE_END_DATE_KEY}`,
@@ -68,6 +73,10 @@ export async function getCanteenShameVoteEndDate(): Promise<string> {
 
 export async function setCanteenShameVoteEndDate(value: string): Promise<void> {
   if (!isCalendarDate(value)) throw new Error("INVALID_END_DATE");
+  if (process.env.CANTEEN_MOCK_DATA === "true") {
+    mockCanteenShameVoteEndDate = value;
+    return;
+  }
   await db.execute(
     sql`INSERT INTO ${siteSettings} (${sql.identifier("key")}, ${sql.identifier("value")}) VALUES (${CANTEEN_SHAME_VOTE_END_DATE_KEY}, ${value}) ON CONFLICT (${sql.identifier("key")}) DO UPDATE SET ${sql.identifier("value")} = ${value}`,
   );

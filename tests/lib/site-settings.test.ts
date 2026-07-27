@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 
 const { mockDbExecute } = vi.hoisted(() => ({
   mockDbExecute: vi.fn(),
@@ -16,11 +16,22 @@ import {
   setCanteenShameVoteEndDate,
   setWikiEditRole,
   _clearCache,
+  _resetCanteenShameVoteEndDateForTests,
 } from "@/lib/site-settings";
+
+const previousMockMode = process.env.CANTEEN_MOCK_DATA;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  delete process.env.CANTEEN_MOCK_DATA;
   _clearCache();
+  _resetCanteenShameVoteEndDateForTests();
+});
+
+afterEach(() => {
+  if (previousMockMode === undefined) delete process.env.CANTEEN_MOCK_DATA;
+  else process.env.CANTEEN_MOCK_DATA = previousMockMode;
+  _resetCanteenShameVoteEndDateForTests();
 });
 
 describe("getWikiEditRoleFresh", () => {
@@ -106,6 +117,18 @@ describe("canteen shame vote end date", () => {
     await expect(setCanteenShameVoteEndDate("2026-02-31")).rejects.toThrow(
       "INVALID_END_DATE",
     );
+    expect(mockDbExecute).not.toHaveBeenCalled();
+  });
+
+  it("updates and reads the deadline in mock mode without using the database", async () => {
+    process.env.CANTEEN_MOCK_DATA = "true";
+
+    expect(await getCanteenShameVoteEndDate()).toBe(
+      DEFAULT_CANTEEN_SHAME_VOTE_END_DATE,
+    );
+    await setCanteenShameVoteEndDate("2026-08-31");
+
+    expect(await getCanteenShameVoteEndDate()).toBe("2026-08-31");
     expect(mockDbExecute).not.toHaveBeenCalled();
   });
 });

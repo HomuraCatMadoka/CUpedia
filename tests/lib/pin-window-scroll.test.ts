@@ -6,9 +6,11 @@ import {
   captureWindowScroll,
   clearPinnedWindowScroll,
   restoreWindowScroll,
+  restoreWindowScrollThroughPaint,
   useRestorePinnedWindowScrollOnMount,
+  useScrollPin,
 } from "@/lib/pin-window-scroll";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 
 describe("pin-window-scroll", () => {
   const scrollTo = vi.fn();
@@ -34,11 +36,16 @@ describe("pin-window-scroll", () => {
     button.focus();
     expect(document.activeElement).toBe(button);
 
-    expect(captureWindowScroll()).toBe(320);
+    const pin = captureWindowScroll();
+    expect(pin).toEqual({
+      path: "/canteen/a",
+      y: 320,
+      token: expect.any(String),
+    });
     expect(document.activeElement).not.toBe(button);
     expect(
       JSON.parse(sessionStorage.getItem("cupedia:pin-window-scroll") ?? ""),
-    ).toEqual({ path: "/canteen/a", y: 320 });
+    ).toEqual(pin);
 
     restoreWindowScroll(320);
     expect(scrollTo).toHaveBeenCalledWith({
@@ -60,5 +67,62 @@ describe("pin-window-scroll", () => {
 
     expect(scrollTo).not.toHaveBeenCalled();
     expect(sessionStorage.getItem("cupedia:pin-window-scroll")).toBeNull();
+  });
+
+  it("does not let an old clear remove a newer pin on the same route", () => {
+    const oldPin = captureWindowScroll();
+    const newPin = captureWindowScroll();
+
+    clearPinnedWindowScroll(oldPin);
+
+    expect(
+      JSON.parse(sessionStorage.getItem("cupedia:pin-window-scroll") ?? ""),
+    ).toEqual(newPin);
+  });
+
+  it("binds each release to its request and preserves a later pin", () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() => useScrollPin());
+    let firstPin!: ReturnType<typeof captureWindowScroll>;
+    let secondPin!: ReturnType<typeof captureWindowScroll>;
+    let latestPin!: ReturnType<typeof captureWindowScroll>;
+    try {
+      act(() => {
+        firstPin = result.current.pin();
+        secondPin = result.current.pin();
+        result.current.release(firstPin);
+        latestPin = result.current.pin();
+        result.current.release(secondPin);
+        vi.runAllTimers();
+      });
+
+      expect(
+        JSON.parse(sessionStorage.getItem("cupedia:pin-window-scroll") ?? ""),
+      ).toEqual(latestPin);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not run queued restores after navigation", () => {
+    const microtasks: Array<() => void> = [];
+    const frames: FrameRequestCallback[] = [];
+    vi.spyOn(globalThis, "queueMicrotask").mockImplementation((callback) => {
+      microtasks.push(callback);
+    });
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const pin = captureWindowScroll();
+
+    restoreWindowScrollThroughPaint(pin);
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+
+    window.history.replaceState(null, "", "/canteen/b");
+    microtasks.forEach((callback) => callback());
+    frames.forEach((callback) => callback(0));
+
+    expect(scrollTo).toHaveBeenCalledTimes(1);
   });
 });

@@ -7,7 +7,7 @@ export function getAnonShameDailyLimit(): number {
   const raw = process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
   const n = raw ? Number(raw) : 50;
   const limit = Math.floor(n);
-  return Number.isFinite(n) && limit >= 1 ? limit : 50;
+  return Number.isFinite(n) && limit >= 1 ? Math.min(50, limit) : 50;
 }
 
 /** End date is inclusive; both values are validated YYYY-MM-DD strings. */

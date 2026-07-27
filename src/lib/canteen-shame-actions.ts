@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { canteens, canteenShameVotes } from "@/db/schema";
 import { getSessionVoterUser } from "@/lib/auth-guard";
@@ -26,6 +26,7 @@ import {
   isShameVotingOpen,
 } from "@/lib/canteen-shame-rank";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
+import { appendAnonymousShameVote } from "@/lib/canteen-shame-vote-store";
 import { getCanteenShameVoteEndDate } from "@/lib/site-settings";
 
 type VoterIdentity = { userId: string } | { anonymousSessionId: string };
@@ -152,32 +153,11 @@ export async function appendShameVote(
       anonymousSessionId: null,
     });
   } else {
-    await db.transaction(async (tx) => {
-      const lockKey = `canteen-shame:${identity.anonymousSessionId}:${voteDate}`;
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended(${lockKey}, 0))`,
-      );
-      const [row] = await tx
-        .select({ count: sql<number>`count(*)::int` })
-        .from(canteenShameVotes)
-        .where(
-          and(
-            eq(
-              canteenShameVotes.anonymousSessionId,
-              identity.anonymousSessionId,
-            ),
-            eq(canteenShameVotes.voteDate, voteDate),
-          ),
-        );
-      if ((row?.count ?? 0) >= getAnonShameDailyLimit()) {
-        throw new Error("DAILY_LIMIT_EXCEEDED");
-      }
-      await tx.insert(canteenShameVotes).values({
-        canteenId,
-        voteDate,
-        userId: null,
-        anonymousSessionId: identity.anonymousSessionId,
-      });
+    await appendAnonymousShameVote({
+      canteenId,
+      anonymousSessionId: identity.anonymousSessionId,
+      voteDate,
+      limit: getAnonShameDailyLimit(),
     });
   }
 

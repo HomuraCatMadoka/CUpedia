@@ -32,11 +32,10 @@ export function useDishVote(
   function handleVote(choice: "like" | "dislike") {
     const nextVote: VoteChoice = myVote === choice ? null : choice;
     const prevVote = myVote;
-    const scrollPath = window.location.pathname;
-    const scrollY = captureWindowScroll();
+    const scrollPin = captureWindowScroll();
 
     onVoteChange(itemId, prevVote, nextVote);
-    restoreWindowScrollThroughPaint(scrollY);
+    restoreWindowScrollThroughPaint(scrollPin);
     setError(null);
 
     startTransition(async () => {
@@ -44,13 +43,13 @@ export function useDishVote(
         await upsertDishVote(itemId, nextVote);
       } catch (err) {
         onVoteChange(itemId, nextVote, prevVote);
-        restoreWindowScrollThroughPaint(scrollY);
+        restoreWindowScrollThroughPaint(scrollPin);
         const code = err instanceof Error ? err.message : "VOTE_FAILED";
         setError(voteErrorMessage(code));
       } finally {
-        restoreWindowScrollThroughPaint(scrollY);
+        restoreWindowScrollThroughPaint(scrollPin);
         // Leave sessionStorage for a possible remount; clear if none arrives.
-        window.setTimeout(() => clearPinnedWindowScroll(scrollPath), 1000);
+        window.setTimeout(() => clearPinnedWindowScroll(scrollPin), 1000);
       }
     });
   }

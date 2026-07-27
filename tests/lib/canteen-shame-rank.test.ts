@@ -38,6 +38,11 @@ describe("getAnonShameDailyLimit", () => {
     expect(getAnonShameDailyLimit()).toBe(10);
   });
 
+  it("never allows an env override above the hard cap", () => {
+    process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "100";
+    expect(getAnonShameDailyLimit()).toBe(50);
+  });
+
   it("falls back when the configured limit floors below one", () => {
     process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "0.5";
     expect(getAnonShameDailyLimit()).toBe(50);

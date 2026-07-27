@@ -128,14 +128,14 @@ export function ShameRankList({
 }) {
   const router = useRouter();
   const [counts, setCounts] = useState(initialCounts);
-  const { pinnedScrollY, pin, release } = useScrollPin();
+  const { pinnedScroll, pin, release } = useScrollPin();
   const ranked = rankShameCanteens(canteens, counts);
 
   useRestorePinnedWindowScrollOnMount();
-  usePinnedWindowScroll(pinnedScrollY, [counts]);
+  usePinnedWindowScroll(pinnedScroll, [counts]);
 
   async function onStomp(canteenId: string) {
-    pin();
+    const scrollPin = pin();
     setCounts((prev) => ({
       ...prev,
       [canteenId]: (prev[canteenId] ?? 0) + 1,
@@ -156,7 +156,7 @@ export function ShameRankList({
       }));
       throw err;
     } finally {
-      release();
+      release(scrollPin);
     }
   }
 
