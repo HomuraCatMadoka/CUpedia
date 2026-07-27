@@ -82,6 +82,18 @@ test.describe("mobile WebKit editor interactions", () => {
 
     await page.keyboard.press("Escape");
     await expect(picker).toHaveCount(0);
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            (
+              window.history.state as {
+                cupediaMobileMentionToken?: string;
+              } | null
+            )?.cupediaMobileMentionToken ?? null,
+        ),
+      )
+      .toBeNull();
     await mention.focus();
     await page.keyboard.press("Enter");
 

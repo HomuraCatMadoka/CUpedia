@@ -107,11 +107,13 @@ test.describe("wiki editor block commands", () => {
     await block.getByLabel("打开块菜单").click();
     await page.getByRole("menuitem", { name: "转换为" }).click();
 
-    await expect(page.getByRole("menuitem", { name: "标题 2" })).toBeVisible();
+    await expect(
+      page.getByRole("menuitemradio", { name: "标题 2" }),
+    ).toBeVisible();
     await expect(page.getByRole("menuitem", { name: "表格" })).toHaveCount(0);
     await expect(page.getByRole("menuitem", { name: "图片" })).toHaveCount(0);
 
-    await page.getByRole("menuitem", { name: "标题 2" }).click();
+    await page.getByRole("menuitemradio", { name: "标题 2" }).click();
     await expect(editor.locator("h2")).toContainText("可转换内容");
   });
 
