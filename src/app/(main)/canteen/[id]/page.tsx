@@ -57,7 +57,7 @@ export default async function CanteenMenuPage({
     getMenuItemVoteCounts(id),
     getMyVotesForCanteen(id),
     getCommentCountsForCanteen(id),
-    getSessionVoterUser(),
+    mock ? Promise.resolve(null) : getSessionVoterUser(),
     mock ? Promise.resolve([]) : listCurrentMonthCanteenDanmaku(id),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
   ]);

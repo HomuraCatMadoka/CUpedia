@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { getCanteens } from "@/lib/canteen-actions";
 import { CanteenCard, CanteenShell } from "@/components/canteen/canteen-shell";
+import { ShameRankEntryLink } from "@/components/canteen/shame-rank-list";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { db } from "@/db";
@@ -43,24 +43,7 @@ export default async function CanteenBrowsePage() {
       backLabel="返回首页"
       title="山城食记"
       subtitle="还有食堂能吃吗"
-      action={
-        isCanteenMockMode() && process.env.NODE_ENV === "development" ? (
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/admin/canteens"
-              className="inline-flex items-center border border-[var(--canteen-purple)]/35 bg-[var(--canteen-surface)] px-4 py-2 text-sm font-medium text-[var(--canteen-purple)] transition-colors hover:bg-[var(--canteen-purple)] hover:text-white"
-            >
-              管理后台
-            </Link>
-            <Link
-              href="/canteen/manage"
-              className="inline-flex items-center border border-[var(--canteen-bamboo)]/35 bg-[var(--canteen-surface)] px-4 py-2 text-sm font-medium text-[var(--canteen-muted)] transition-colors hover:bg-[var(--canteen-bamboo)]/15"
-            >
-              演示预览
-            </Link>
-          </div>
-        ) : undefined
-      }
+      action={<ShameRankEntryLink />}
     >
       <div className="mb-3 sm:mb-8">
         <DanmakuBanner initialMessages={danmaku} viewer={danmakuViewer} />

@@ -118,12 +118,20 @@ export async function getSessionVoterUser(): Promise<{
   id: string;
   banned: boolean;
 } | null> {
+  // Mock mode must not hard-fail when Postgres is down — local canteen browse
+  // still needs to render as guest.
+  if (process.env.CANTEEN_MOCK_DATA === "true") {
+    try {
+      const session = await auth.api.getSession({ headers: await headers() });
+      if (!session?.user?.id) return null;
+      return { id: session.user.id, banned: false };
+    } catch {
+      return null;
+    }
+  }
+
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
-
-  if (process.env.CANTEEN_MOCK_DATA === "true") {
-    return { id: session.user.id, banned: false };
-  }
 
   const dbUser = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),

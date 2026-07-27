@@ -111,7 +111,13 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               href="/canteen"
               className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
             >
-              食堂测评（测试中）
+              食堂
+            </Link>
+            <Link
+              href="/canteen/shit-rank"
+              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
+            >
+              💩堂榜
             </Link>
             <Link
               href="/courses"

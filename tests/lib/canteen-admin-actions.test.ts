@@ -320,6 +320,28 @@ describe("canteen-admin-actions", () => {
     );
   });
 
+  it("deleteAllMenuItems clears every dish for a canteen in mock mode", async () => {
+    const prev = process.env.CANTEEN_MOCK_DATA;
+    process.env.CANTEEN_MOCK_DATA = "true";
+    try {
+      const { resetCanteenMockState, mockListMenuItems } =
+        await import("@/lib/canteen-mock");
+      const { deleteAllMenuItems } =
+        await import("@/lib/canteen-admin-actions");
+      resetCanteenMockState();
+      mockAdminSession();
+
+      const canteenId = "mock-canteen-demo";
+      expect(mockListMenuItems(canteenId).length).toBeGreaterThan(0);
+
+      const result = await deleteAllMenuItems(canteenId);
+      expect(result.deletedCount).toBeGreaterThan(0);
+      expect(mockListMenuItems(canteenId)).toHaveLength(0);
+    } finally {
+      process.env.CANTEEN_MOCK_DATA = prev;
+    }
+  });
+
   it("bulkImportMenuItemsFromJson imports rows in mock mode", async () => {
     const prev = process.env.CANTEEN_MOCK_DATA;
     process.env.CANTEEN_MOCK_DATA = "true";
