@@ -23,15 +23,15 @@ export default async function WikiReadPage({
   params: Promise<{ slug: string[] }>;
 }) {
   const { slug: slugParts } = await params;
-  const slug = slugParts.map(decodeURIComponent).join("/");
+  const identifier = slugParts.map(decodeURIComponent).join("/");
   const [page, pages, { user, canEdit }] = await Promise.all([
-    getWikiPage(slug),
+    getWikiPage(identifier),
     getWikiTree(),
     getViewerEditContext(),
   ]);
 
   if (!page) notFound();
-  if (page.slug !== slug) redirect(`/wiki/${page.slug}`);
+  if (page.id !== identifier) redirect(`/wiki/${page.id}`);
 
   const headings = extractHeadings(page.content);
   const plateValue = stripTitleHeading(
@@ -51,7 +51,7 @@ export default async function WikiReadPage({
     <>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-6">
-          <Breadcrumb pages={pages} currentSlug={slug} />
+          <Breadcrumb pages={pages} currentPageId={page.id} />
           {page.icon && (
             <div
               data-testid="wiki-page-hero-icon"
@@ -64,13 +64,13 @@ export default async function WikiReadPage({
           <div className="mt-2 flex items-start justify-between gap-4">
             <h1 className="text-2xl font-bold">{page.title}</h1>
             <div className="flex shrink-0 gap-2">
-              <Link href={`/wiki/history/${slug}`}>
+              <Link href={`/wiki/history/${page.id}`}>
                 <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
                   历史
                 </span>
               </Link>
               {canEdit && (
-                <Link href={`/wiki/edit/${slug}`}>
+                <Link href={`/wiki/edit/${page.id}`}>
                   <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
                     编辑
                   </span>
@@ -124,7 +124,7 @@ export default async function WikiReadPage({
             headings={headings}
             pageTitle={page.title}
             parentTitle={parentPage?.title}
-            parentSlug={parentPage?.slug}
+            parentPageId={parentPage?.id}
           />
         </nav>
       )}

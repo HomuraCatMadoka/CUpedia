@@ -1,23 +1,22 @@
 type TreePage = {
   id: string;
-  slug: string;
   title: string;
   parentId: string | null;
 };
-type BreadcrumbItem = { slug: string; title: string };
+type BreadcrumbItem = { id: string; title: string };
 
 export function buildBreadcrumb(
   pages: TreePage[],
-  currentSlug: string
+  currentPageId: string,
 ): BreadcrumbItem[] {
   const byId = new Map(pages.map((p) => [p.id, p]));
-  const current = pages.find((p) => p.slug === currentSlug);
+  const current = byId.get(currentPageId);
   if (!current) return [];
 
   const crumbs: BreadcrumbItem[] = [];
   let node = current.parentId ? byId.get(current.parentId) : undefined;
   while (node) {
-    crumbs.unshift({ slug: node.slug, title: node.title });
+    crumbs.unshift({ id: node.id, title: node.title });
     node = node.parentId ? byId.get(node.parentId) : undefined;
   }
   return crumbs;

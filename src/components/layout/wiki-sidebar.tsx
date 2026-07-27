@@ -128,8 +128,12 @@ function saveCollapsed(ids: Set<string>) {
   }
 }
 
-function isCurrentWikiPage(pathname: string, slug: string) {
-  return pathname === `/wiki/${slug}` || pathname === `/wiki/edit/${slug}`;
+function isCurrentWikiPage(pathname: string, pageId: string) {
+  return (
+    pathname === `/wiki/${pageId}` ||
+    pathname === `/wiki/edit/${pageId}` ||
+    pathname === `/wiki/history/${pageId}`
+  );
 }
 
 function getActiveTreeState(
@@ -138,7 +142,7 @@ function getActiveTreeState(
 ) {
   const byId = new Map(pages.map((page) => [page.id, page]));
   const activePage =
-    pages.find((page) => isCurrentWikiPage(pathname, page.slug)) ?? null;
+    pages.find((page) => isCurrentWikiPage(pathname, page.id)) ?? null;
   const ancestorIds = new Set<string>();
   const visited = new Set<string>();
   let parentId = activePage?.parentId ?? null;
@@ -223,10 +227,10 @@ function PageTreeItem({
   pendingHref: string | null;
   feedbackHref: string | null;
 }) {
-  const href = `/wiki/${node.slug}`;
-  const editHref = `/wiki/edit/${node.slug}`;
+  const href = `/wiki/${node.id}`;
+  const editHref = `/wiki/edit/${node.id}`;
   const newChildHref = `/wiki/new?parent=${encodeURIComponent(node.id)}`;
-  const active = isCurrentWikiPage(pathname, node.slug);
+  const active = isCurrentWikiPage(pathname, node.id);
   const hasChildren = node.children.length > 0;
   const collapsed = collapsedIds.has(node.id);
   const pending = pendingHref === href;
@@ -717,7 +721,7 @@ function MobilePageActionsSheet({
 
   if (!node) return null;
 
-  const href = `/wiki/${node.slug}`;
+  const href = `/wiki/${node.id}`;
   const hasChildren = node.children.length > 0;
   const newChildHref = `/wiki/new?parent=${encodeURIComponent(node.id)}`;
 
@@ -821,7 +825,7 @@ function MobilePageActionsSheet({
                       新建子页面
                     </Link>
                     <Link
-                      href={`/wiki/edit/${node.slug}`}
+                      href={`/wiki/edit/${node.id}`}
                       onClick={(event) => {
                         if (event.defaultPrevented) return;
                         onClose();

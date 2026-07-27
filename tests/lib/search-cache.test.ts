@@ -35,10 +35,13 @@ const {
     }),
     mockUnstableCache: vi.fn((...args: unknown[]) => {
       unstableCacheCalls.push(args);
-      const loader = args[0] as () => Promise<unknown>;
-      const key = JSON.stringify(args[1]);
-      return async () => {
-        if (!cacheStore.has(key)) cacheStore.set(key, await loader());
+      const loader = args[0] as (...loaderArgs: unknown[]) => Promise<unknown>;
+      const baseKey = JSON.stringify(args[1]);
+      return async (...loaderArgs: unknown[]) => {
+        const key = `${baseKey}:${JSON.stringify(loaderArgs)}`;
+        if (!cacheStore.has(key)) {
+          cacheStore.set(key, await loader(...loaderArgs));
+        }
         return cacheStore.get(key);
       };
     }),
@@ -1087,6 +1090,32 @@ describe("read caching — getWikiTree & getWikiPage", () => {
     expect(result).toEqual(pageData);
   });
 
+  it("getWikiPage resolves a canonical UUID directly by page ID", async () => {
+    const pageId = "00000000-0000-4000-c000-000000000001";
+    mockDbQueryWikiPages.findFirst.mockResolvedValue(pageData);
+
+    const result = await getWikiPage(pageId);
+
+    expect(result).toEqual(pageData);
+    expect(mockEq).toHaveBeenCalledWith("id", pageId);
+    expect(mockDbQueryWikiPageAliases.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a UUID-shaped legacy slug when no page has that ID", async () => {
+    const legacySlug = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    mockDbQueryWikiPages.findFirst
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(pageData);
+
+    const result = await getWikiPage(legacySlug);
+
+    expect(result).toEqual(pageData);
+    expect(mockDbQueryWikiPages.findFirst).toHaveBeenCalledTimes(2);
+    expect(mockEq).toHaveBeenNthCalledWith(1, "id", legacySlug);
+    expect(mockEq).toHaveBeenNthCalledWith(2, "slug", legacySlug);
+    expect(mockDbQueryWikiPageAliases.findFirst).not.toHaveBeenCalled();
+  });
+
   it("getWikiPage resolves an old slug through its stable alias", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
     mockDbQueryWikiPageAliases.findFirst.mockResolvedValue({ page: pageData });
@@ -1110,7 +1139,7 @@ describe("read caching — getWikiTree & getWikiPage", () => {
   });
 
   it("getBacklinks returns linking source pages", async () => {
-    const rows = [{ slug: "a", title: "Page A" }];
+    const rows = [{ id: "page-a", title: "Page A" }];
     mockDbSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({
         innerJoin: vi.fn().mockReturnValue({

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("responsive on-demand discussions", () => {
   test("closed discussions do not reserve editor width and open on demand", async ({
@@ -8,7 +9,7 @@ test.describe("responsive on-demand discussions", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
-    await page.goto("/wiki/edit/welcome");
+    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
@@ -59,7 +60,7 @@ test.describe("responsive on-demand discussions", () => {
   }) => {
     await page.setViewportSize({ width: 1024, height: 800 });
     await loginAsAdmin(page);
-    await page.goto("/wiki/edit/welcome");
+    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
@@ -99,7 +100,7 @@ test.describe("responsive on-demand discussions on mobile", () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/edit/welcome");
+    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();

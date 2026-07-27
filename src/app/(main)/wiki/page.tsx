@@ -24,7 +24,7 @@ export default async function WikiIndexPage() {
             <h2 className="text-sm font-semibold">分类</h2>
             <div className="mt-3 grid grid-cols-2 gap-3">
               {categories.map((cat) => (
-                <Link key={cat.id} href={`/wiki/${cat.slug}`} prefetch={false}>
+                <Link key={cat.id} href={`/wiki/${cat.id}`} prefetch={false}>
                   <Card
                     size="sm"
                     className="transition-colors hover:ring-foreground/20"
@@ -49,7 +49,7 @@ export default async function WikiIndexPage() {
               {recentPages.map((p) => (
                 <Link
                   key={p.id}
-                  href={`/wiki/${p.slug}`}
+                  href={`/wiki/${p.id}`}
                   prefetch={false}
                   className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3 hover:bg-secondary"
                 >

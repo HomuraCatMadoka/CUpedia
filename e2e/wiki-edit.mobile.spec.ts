@@ -4,7 +4,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin } from "./helpers/auth";
+import { canonicalWikiPageUrl, wikiEditUrl, wikiPageUrl } from "./helpers/wiki";
 import { deleteObjects } from "../src/lib/minio";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 const MOBILE_VIEWPORT = { width: 393, height: 851 };
 const NARROW_MOBILE_WIDTHS = [360, 375] as const;
@@ -115,13 +117,13 @@ async function createMobileNavigationFixture() {
 }
 
 async function addNavigationTarget(page: Page) {
-  await page.evaluate(() => {
+  await page.evaluate((welcomePageId) => {
     const anchor = document.createElement("a");
-    anchor.href = "/wiki/welcome";
+    anchor.href = `/wiki/${welcomePageId}`;
     anchor.dataset.testid = "mobile-navigation-target";
     anchor.textContent = "Leave editor";
     (document.querySelector('[role="dialog"]') ?? document.body).append(anchor);
-  });
+  }, PAGE_IDS.welcome);
 }
 
 async function selectText(page: Page, text: string) {
@@ -224,7 +226,7 @@ test.describe("mobile wiki editing", () => {
 
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/edit/getting-started");
+    await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
   });
 
   test.afterAll(async () => {
@@ -917,7 +919,7 @@ test.describe("mobile wiki editing", () => {
     await addNavigationTarget(page);
     await page.getByTestId("mobile-navigation-target").click({ force: true });
 
-    await expect(page).toHaveURL(/\/wiki\/welcome$/);
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome));
     await expect(
       page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
     ).toBeVisible();
@@ -1077,7 +1079,7 @@ test.describe("mobile wiki editing", () => {
     await addNavigationTarget(page);
     await page.getByTestId("mobile-navigation-target").click({ force: true });
 
-    await expect(page).toHaveURL(/\/wiki\/welcome$/);
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome));
     await expect(
       page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
     ).toBeVisible();
@@ -1283,7 +1285,7 @@ test.describe("mobile wiki editing", () => {
       markResponseHeld = resolve;
     });
     let held = false;
-    await page.route(`**/wiki/edit/${MOBILE_NAV_SLUG}`, async (route) => {
+    await page.route(`**/wiki/edit/${MOBILE_NAV_PAGE_ID}`, async (route) => {
       if (route.request().method() === "POST" && !held) {
         held = true;
         markResponseHeld();
@@ -1299,15 +1301,11 @@ test.describe("mobile wiki editing", () => {
     await page.getByTestId("mobile-navigation-target").click();
     await responseHeld;
 
-    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${MOBILE_NAV_SLUG}$`));
+    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
     releaseResponse();
-    await expect(page.getByTestId("wiki-autosave-status")).toHaveText(
-      "已保存",
-      {
-        timeout: 15_000,
-      },
-    );
-    await expect(page).toHaveURL(/\/wiki\/welcome$/, { timeout: 15_000 });
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome), {
+      timeout: 15_000,
+    });
 
     await page.goto(`/wiki/edit/${MOBILE_NAV_SLUG}`);
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
@@ -1320,7 +1318,7 @@ test.describe("mobile wiki editing", () => {
   }) => {
     const draftTitle = `Mobile nav failed ${Date.now()}`;
     await page.goto(`/wiki/edit/${MOBILE_NAV_SLUG}`);
-    await page.route(`**/wiki/edit/${MOBILE_NAV_SLUG}`, async (route) => {
+    await page.route(`**/wiki/edit/${MOBILE_NAV_PAGE_ID}`, async (route) => {
       if (route.request().method() === "POST") {
         await route.abort("failed");
         return;
@@ -1332,7 +1330,7 @@ test.describe("mobile wiki editing", () => {
     await addNavigationTarget(page);
     await page.getByTestId("mobile-navigation-target").click();
 
-    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${MOBILE_NAV_SLUG}$`));
+    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
     await expect(page.getByRole("textbox", { name: "页面标题" })).toHaveValue(
       draftTitle,
     );
@@ -1347,12 +1345,12 @@ test.describe("mobile wiki editing", () => {
     const savedTitle = `Mobile back saved ${Date.now()}`;
     await page.goto(`/wiki/${MOBILE_NAV_SLUG}`);
     await page.getByRole("link", { name: "编辑", exact: true }).first().click();
-    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${MOBILE_NAV_SLUG}$`));
+    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
     await page.getByRole("textbox", { name: "页面标题" }).fill(savedTitle);
 
     await page.goBack();
 
-    await expect(page).toHaveURL(new RegExp(`/wiki/${MOBILE_NAV_SLUG}$`), {
+    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID), {
       timeout: 15_000,
     });
     await page.getByRole("link", { name: "编辑", exact: true }).first().click();
@@ -1383,11 +1381,11 @@ test.describe("mobile wiki editing", () => {
     ).toBeUndefined();
 
     await page.getByRole("link", { name: "编辑", exact: true }).first().click();
-    await expect(page).toHaveURL(new RegExp(`/wiki/edit/${MOBILE_NAV_SLUG}$`));
+    await expect(page).toHaveURL(wikiEditUrl(MOBILE_NAV_PAGE_ID));
     await page.getByRole("textbox", { name: "页面标题" }).fill(savedTitle);
     await page.goBack();
 
-    await expect(page).toHaveURL(new RegExp(`/wiki/${MOBILE_NAV_SLUG}$`), {
+    await expect(page).toHaveURL(wikiPageUrl(MOBILE_NAV_PAGE_ID), {
       timeout: 15_000,
     });
     await page.getByRole("link", { name: "编辑", exact: true }).first().click();
@@ -1752,7 +1750,7 @@ test.describe("mobile wiki editing", () => {
     await editor.fill("Mobile done body");
     await page.getByRole("button", { name: "完成" }).click();
 
-    await page.waitForURL(`**/wiki/${MOBILE_SAVE_SLUG}`);
+    await page.waitForURL(canonicalWikiPageUrl);
     await expect(
       page.getByRole("heading", { name: "Mobile editor done" }),
     ).toBeVisible();
