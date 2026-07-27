@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
+import { canonicalWikiPageUrl } from "./helpers/wiki";
 
 const suffix = randomUUID().slice(0, 8);
 const slug = `discussion-${suffix}`;
@@ -101,7 +102,7 @@ test("#245 annotation discussion lifecycle and permissions", async ({
   await page.keyboard.press("Escape");
   await page.locator('[data-slate-editor="true"]').fill(selectedText);
   await page.getByRole("button", { name: "完成" }).click();
-  await page.waitForURL(`**/wiki/${slug}`);
+  await page.waitForURL(canonicalWikiPageUrl);
 
   await query(
     "update site_settings set value = 'user' where key = 'wiki_edit_role'",

@@ -1,5 +1,7 @@
 import { test, expect, type Locator, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
+import { PAGE_IDS } from "../scripts/seed-data";
+import { wikiPageUrl } from "./helpers/wiki";
 
 /**
  * Sidebar behaviour across viewports.
@@ -121,7 +123,7 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
     page,
   }) => {
     const errors = collectConsoleErrors(page);
-    const response = await page.goto("/wiki/welcome");
+    const response = await page.goto(`/wiki/${PAGE_IDS.welcome}`);
     expect(response?.status()).toBe(200);
     await expect(
       page.getByRole("heading", { name: "Welcome to CUpedia", level: 1 }),
@@ -276,7 +278,7 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     ).toBeVisible();
 
     await drawer.getByRole("link", { name: "Getting Started" }).click();
-    await expect(page).toHaveURL(/\/wiki\/getting-started$/);
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.gettingStarted));
     await expect(drawer).toBeHidden();
   });
 });
@@ -298,7 +300,7 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
       isPrefetch: boolean;
       segmentPrefetch?: string;
     }[] = [];
-    await page.route("**/wiki/getting-started?*", async (route) => {
+    await page.route(`**/wiki/${PAGE_IDS.gettingStarted}?*`, async (route) => {
       const headers = await route.request().allHeaders();
       targetRequests.push({
         isPrefetch: headers["next-router-prefetch"] === "1",
@@ -323,7 +325,7 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
     ).toBeVisible();
 
     await pendingTarget.click({ force: true, noWaitAfter: true });
-    await expect(page).toHaveURL(/\/wiki\/getting-started$/);
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.gettingStarted));
     await expect(drawer).toBeHidden();
     // Next.js intentionally disables router prefetching in development. Keep
     // the request-level assertion for the production E2E path; the dev-server
@@ -361,7 +363,7 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
     await drawer
       .getByRole("link", { name: "Getting Started" })
       .click({ noWaitAfter: true });
-    await expect(page).toHaveURL(/\/wiki\/getting-started$/);
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.gettingStarted));
     // Development compilation can make an otherwise-fast route cross the
     // 180ms production feedback threshold. Keep the timing assertion on the
     // production E2E path while still verifying the completed navigation here.
@@ -407,7 +409,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
   test.use({ viewport: { width: 1280, height: 800 } });
 
   test("indents each parent-child level by the same step", async ({ page }) => {
-    await page.goto("/wiki/campus-life/dining");
+    await page.goto(`/wiki/${PAGE_IDS.dining}`);
 
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
     const labelX = (name: string) =>
@@ -430,7 +432,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/edit/campus-life/dining");
+    await page.goto(`/wiki/edit/${PAGE_IDS.dining}`);
 
     const nav = page.getByRole("navigation", { name: "Wiki 页面树" });
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
@@ -505,7 +507,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/edit/campus-life/dining");
+    await page.goto(`/wiki/edit/${PAGE_IDS.dining}`);
 
     const campusRow = page
       .getByRole("tree", { name: "Wiki 页面层级" })
@@ -549,7 +551,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     page,
   }) => {
     const errors = collectConsoleErrors(page);
-    await page.goto("/wiki/campus-life");
+    await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
 
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
     const campus = tree.getByRole("treeitem", { name: "Campus Life" });
@@ -565,7 +567,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     );
     expect(storedPreference).not.toBeNull();
 
-    await page.goto("/wiki/campus-life/dining");
+    await page.goto(`/wiki/${PAGE_IDS.dining}`);
 
     const reopenedTree = page.getByRole("tree", { name: "Wiki 页面层级" });
     await expect(
@@ -586,7 +588,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
   test("exposes hierarchy semantics and supports standard tree arrow keys", async ({
     page,
   }) => {
-    await page.goto("/wiki/campus-life/dining");
+    await page.goto(`/wiki/${PAGE_IDS.dining}`);
 
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
     const campus = tree.getByRole("treeitem", { name: "Campus Life" });
@@ -628,7 +630,7 @@ test.describe("ADR 0010 coexist nav shell (desktop)", () => {
     page,
   }) => {
     // `getting-started` seeds a `## Registration` heading, so the TOC renders.
-    const response = await page.goto("/wiki/getting-started");
+    const response = await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
     expect(response?.status()).toBe(200);
 
     // Left column: the persistent page tree (was hidden by the old swap here).

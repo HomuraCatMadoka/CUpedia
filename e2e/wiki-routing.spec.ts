@@ -45,6 +45,7 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
   });
 
   test("shares the canonical UUID URL from the editor", async ({ page }) => {
+    await page.setViewportSize({ width: 393, height: 851 });
     await page.addInitScript(() => {
       Object.defineProperty(navigator, "share", {
         configurable: true,
