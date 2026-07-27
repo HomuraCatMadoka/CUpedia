@@ -55,6 +55,7 @@ import {
   serializeContentWithoutDraftComments,
 } from "@/components/wiki/discussion-draft";
 import { WikiIconPicker } from "@/components/wiki/wiki-icon-picker";
+import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
 import { MobileWikiEditorToolbar } from "@/components/wiki/mobile-wiki-editor-toolbar";
 import { SidebarMobileToggle } from "@/components/layout/sidebar-mobile-toggle";
 import {
@@ -261,6 +262,7 @@ export function WikiEditor({
   }, []);
   const pendingConflictRef = useRef<EditConflict | null>(null);
   const router = useRouter();
+  const wikiTree = useOptionalWikiTree();
   const { ensureContributorSetup } = useContributorSetup();
   const handleMobileEditorBlur = useCallback(
     (event: FocusEvent<HTMLDivElement>) => {
@@ -356,21 +358,37 @@ export function WikiEditor({
   const save = useCallback(
     async (nextSnapshot: string, reason: AutosaveSaveReason = "explicit") => {
       const next = parseDraftSnapshot(nextSnapshot);
-      const result = await onSubmit({
-        slug: next.slug,
-        title: next.title,
-        icon: next.icon,
-        content: next.content,
-        editSummary: next.editSummary || undefined,
-        parentId: next.parentId,
-        expectedVersion: versionBaselineRef.current,
-        expectedUpdatedAt: updatedAtBaselineRef.current,
-        baseTitle: baseTitleRef.current,
-        baseIcon: baseIconRef.current,
-        baseContent: baseContentRef.current,
-        baseSlug: baseSlugRef.current,
-        baseParentId: baseParentIdRef.current,
-      });
+      const mutationToken =
+        pageId && wikiTree
+          ? wikiTree.projectUpsert({
+              id: pageId,
+              slug: next.slug,
+              title: next.title,
+              icon: next.icon,
+              parentId: next.parentId,
+            })
+          : null;
+      let result: WikiSubmitResult;
+      try {
+        result = await onSubmit({
+          slug: next.slug,
+          title: next.title,
+          icon: next.icon,
+          content: next.content,
+          editSummary: next.editSummary || undefined,
+          parentId: next.parentId,
+          expectedVersion: versionBaselineRef.current,
+          expectedUpdatedAt: updatedAtBaselineRef.current,
+          baseTitle: baseTitleRef.current,
+          baseIcon: baseIconRef.current,
+          baseContent: baseContentRef.current,
+          baseSlug: baseSlugRef.current,
+          baseParentId: baseParentIdRef.current,
+        });
+      } catch (error) {
+        wikiTree?.rollback(mutationToken);
+        throw error;
+      }
       // A clean three-way merge advances the baseline to the new revision.
       if (result.version !== undefined && result.updatedAt) {
         const authoritativeTitle = result.title ?? next.title;
@@ -458,6 +476,13 @@ export function WikiEditor({
         pendingConflictRef.current = null;
         setAutosaveConflict(false);
         setError("");
+        wikiTree?.confirm(mutationToken, {
+          id: pageId!,
+          slug: authoritativeSlug,
+          title: authoritativeTitle,
+          icon: authoritativeIcon,
+          parentId: authoritativeParentId,
+        });
         return {
           ...result,
           content: serializeDraftSnapshot({
@@ -471,6 +496,7 @@ export function WikiEditor({
         };
       }
       if (result.conflict) {
+        wikiTree?.rollback(mutationToken);
         pendingConflictRef.current = null;
         const nextConflict = buildConflictFromResult(result, {
           title: next.title,
@@ -502,9 +528,11 @@ export function WikiEditor({
           haltAutosave: true,
         };
       }
+      if (result.error) wikiTree?.rollback(mutationToken);
+      else wikiTree?.confirm(mutationToken);
       return result;
     },
-    [onSubmit, editor],
+    [editor, onSubmit, pageId, wikiTree],
   );
 
   // Serialize the document only when a save fires, never per keystroke — the
@@ -765,6 +793,27 @@ export function WikiEditor({
     );
     setConflict(null);
   }, [conflict, editor, resetAutosaveBaseline]);
+
+  const handleDeletePage = useCallback(async () => {
+    if (!pageId || !onDelete || submitting) return;
+    const mutationToken = wikiTree?.projectDelete(pageId) ?? null;
+    setSubmitting(true);
+    try {
+      await onDelete();
+      wikiTree?.confirm(mutationToken);
+      const destination = "/wiki";
+      window.dispatchEvent(
+        new CustomEvent("cupedia:editor-navigation-bypass", {
+          detail: destination,
+        }),
+      );
+      router.push(destination);
+    } catch {
+      wikiTree?.rollback(mutationToken);
+      setSubmitting(false);
+      toast.error("删除页面失败，请重试");
+    }
+  }, [onDelete, pageId, router, submitting, wikiTree]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1110,15 +1159,15 @@ export function WikiEditor({
                           历史记录
                         </Link>
                         {canDelete && onDelete && (
-                          <form action={onDelete}>
-                            <Button
-                              type="submit"
-                              variant="destructive"
-                              size="sm"
-                            >
-                              删除页面
-                            </Button>
-                          </form>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={submitting}
+                            onClick={() => void handleDeletePage()}
+                          >
+                            删除页面
+                          </Button>
                         )}
                       </div>
                     )}

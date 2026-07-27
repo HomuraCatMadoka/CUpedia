@@ -561,6 +561,12 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
         /\/wiki\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
         { timeout: 30_000 },
       );
+      await expect(
+        page
+          .getByRole("tree", { name: "Wiki 页面层级" })
+          .getByRole("treeitem", { name: "Campus Life" })
+          .getByRole("treeitem", { name: "未命名" }),
+      ).toHaveAttribute("aria-current", "page");
       await page.getByRole("button", { name: "页面设置" }).click();
       await expect(page.getByLabel("父页面")).toHaveValue(PAGE_IDS.campusLife);
       await expect(
