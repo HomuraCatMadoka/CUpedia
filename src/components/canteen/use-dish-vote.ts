@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import type { VoteChoice } from "@/lib/canteen-types";
 import { upsertDishVote } from "@/lib/canteen-vote-actions";
+import {
+  captureWindowScroll,
+  clearPinnedWindowScroll,
+  restoreWindowScrollThroughPaint,
+} from "@/lib/pin-window-scroll";
 
 function voteErrorMessage(code: string): string {
   if (code === "ANON_SESSION_REQUIRED") return "投票需允许 Cookie";
@@ -27,8 +32,10 @@ export function useDishVote(
   function handleVote(choice: "like" | "dislike") {
     const nextVote: VoteChoice = myVote === choice ? null : choice;
     const prevVote = myVote;
+    const scrollPin = captureWindowScroll();
 
     onVoteChange(itemId, prevVote, nextVote);
+    restoreWindowScrollThroughPaint(scrollPin);
     setError(null);
 
     startTransition(async () => {
@@ -36,8 +43,13 @@ export function useDishVote(
         await upsertDishVote(itemId, nextVote);
       } catch (err) {
         onVoteChange(itemId, nextVote, prevVote);
+        restoreWindowScrollThroughPaint(scrollPin);
         const code = err instanceof Error ? err.message : "VOTE_FAILED";
         setError(voteErrorMessage(code));
+      } finally {
+        restoreWindowScrollThroughPaint(scrollPin);
+        // Leave sessionStorage for a possible remount; clear if none arrives.
+        window.setTimeout(() => clearPinnedWindowScroll(scrollPin), 1000);
       }
     });
   }

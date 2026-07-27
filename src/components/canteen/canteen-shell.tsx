@@ -53,7 +53,7 @@ export function CanteenShell({
           </Link>
         </div>
       ) : null}
-      <header className="canteen-fade-in mb-3 flex flex-col gap-1.5 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+      <header className="canteen-fade-in mb-3 flex flex-col gap-1.5 sm:mb-10 sm:gap-3">
         <div className="min-w-0 space-y-0.5 sm:space-y-3">
           {eyebrow ? (
             typeof eyebrow === "string" ? (
@@ -66,7 +66,7 @@ export function CanteenShell({
               </div>
             )
           ) : null}
-          <div className="flex min-w-0 items-center gap-1 sm:block">
+          <div className="flex min-w-0 items-center gap-1 sm:gap-3">
             {backHref ? (
               <div className="shrink-0 sm:hidden">
                 <Link
@@ -93,6 +93,9 @@ export function CanteenShell({
             >
               {title}
             </h1>
+            {action ? (
+              <div className="ml-auto shrink-0 self-center">{action}</div>
+            ) : null}
           </div>
           {subtitle ? (
             <p
@@ -117,7 +120,6 @@ export function CanteenShell({
             </p>
           ) : null}
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
       </header>
       {children}
     </div>

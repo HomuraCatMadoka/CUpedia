@@ -14,5 +14,6 @@ alwaysApply: false
 - 餐段排序：`compareMealPeriods()`，顺序早→午→晚。
 - 餐段默认 Tab：客户端 `defaultMealPeriodForHkt()`，勿在 RSC 用服务器时区。
 - 排行纯函数：`canteen-rankings.ts`；`"use server"` 文件只 export async。
+- 💩堂榜：`canteen-shame-rank.ts` / `canteen-shame-actions.ts`；append-only，按港时 `voteDate` 展示当日；匿名日限额 50；管理员在 `site_settings` 维护含当天的截止日期。
 - 删除菜单项：`where(and(eq(id), eq(canteenId)))`。
 - UI 链接按钮：不用 `Button asChild`（见 `pr-ready-checklist`）。

@@ -12,6 +12,7 @@ import {
   canteenMenuItemPrices,
   canteenDishVotes,
   canteenDishComments,
+  canteenShameVotes,
   adminAuditLogs,
   menuImportDrafts,
   danmakuMessages,
@@ -107,6 +108,16 @@ describe("schema", () => {
     expect(cols.userId).toBeDefined();
     expect(cols.anonymousSessionId).toBeDefined();
     expect(cols.vote).toBeDefined();
+  });
+
+  it("canteenShameVotes table is append-only with HKT voteDate", () => {
+    const cols = getTableColumns(canteenShameVotes);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.userId).toBeDefined();
+    expect(cols.anonymousSessionId).toBeDefined();
+    expect(cols.voteDate).toBeDefined();
+    expect(cols.createdAt).toBeDefined();
+    expect("vote" in cols).toBe(false);
   });
 
   it("canteenDishComments table has required fields", () => {
