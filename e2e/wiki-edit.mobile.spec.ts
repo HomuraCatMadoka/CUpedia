@@ -13,6 +13,7 @@ const NARROW_MOBILE_WIDTHS = [360, 375] as const;
 const MOBILE_NAV_SLUG = `mobile-nav-${randomUUID().slice(0, 8)}`;
 const mobileCreatedIds: string[] = [];
 const MOBILE_NAV_PAGE_ID = randomUUID();
+let gettingStartedBaseline = "";
 const MOBILE_UPLOAD_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZAAAAAElFTkSuQmCC",
   "base64",
@@ -221,12 +222,19 @@ test.describe("mobile wiki editing", () => {
   });
 
   test.beforeAll(async () => {
+    gettingStartedBaseline = await readWikiContent("getting-started");
     await createMobileNavigationFixture();
   });
 
   test.beforeEach(async ({ page }) => {
+    await restoreWikiContent("getting-started", gettingStartedBaseline);
     await loginAsAdmin(page);
     await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (!page.isClosed()) await page.close();
+    await restoreWikiContent("getting-started", gettingStartedBaseline);
   });
 
   test.afterAll(async () => {
@@ -1668,6 +1676,11 @@ test.describe("mobile wiki editing", () => {
 
     await editor.dispatchEvent("compositionend", { data: "／" });
     await expect(firstBlock).toContainText("/");
+    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      "saved",
+      { timeout: 15_000 },
+    );
   });
 
   test("rotation keeps the active sheet and the single Plate document", async ({

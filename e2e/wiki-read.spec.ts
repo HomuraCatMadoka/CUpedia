@@ -111,7 +111,7 @@ test.describe("#88 read path: static render + clickable annotations", () => {
     const measureJs = async (path: string) => {
       const context = await browser.newContext();
       const page = await context.newPage();
-      await loginAsAdmin(page, baseURL!);
+      if (path.includes("/edit/")) await loginAsAdmin(page, baseURL!);
       const jsResponses: Response[] = [];
       page.on("response", (res) => {
         if ((res.headers()["content-type"] ?? "").includes("javascript")) {

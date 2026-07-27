@@ -951,7 +951,12 @@ export function WikiEditor({
   }, [navigationProtectionEnabled, prepareForNavigation, router]);
 
   return (
-    <Plate editor={editor} onValueChange={() => autosave.notifyChange()}>
+    <Plate
+      editor={editor}
+      onValueChange={() => {
+        if (!editor.api.isComposing()) autosave.notifyChange();
+      }}
+    >
       <WikiLinkPagesProvider pages={linkablePages}>
         <DiscussionProvider
           pageId={pageId ?? ""}
@@ -1178,6 +1183,7 @@ export function WikiEditor({
                         placeholder="开始编辑..."
                         onFocus={() => setMobileEditorFocused(true)}
                         onBlur={handleMobileEditorBlur}
+                        onCompositionEnd={() => autosave.notifyChange()}
                       />
                     </EditorContainer>
                   </div>

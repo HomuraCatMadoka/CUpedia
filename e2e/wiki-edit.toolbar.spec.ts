@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 import { createUntitledWikiPage } from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
+import { Client } from "pg";
 
 /**
  * Contextual desktop editing.
@@ -12,6 +13,34 @@ import { PAGE_IDS } from "../scripts/seed-data";
  */
 
 const RICH_SLUG = "rich-content-demo";
+let gettingStartedBaseline = "";
+
+async function readWikiContent(slug: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query<{ content: string }>(
+      "select content from wiki_pages where slug = $1",
+      [slug],
+    );
+    return result.rows[0]?.content ?? "";
+  } finally {
+    await client.end();
+  }
+}
+
+async function restoreWikiContent(slug: string, content: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("update wiki_pages set content = $1 where slug = $2", [
+      content,
+      slug,
+    ]);
+  } finally {
+    await client.end();
+  }
+}
 
 // e2e runs a production build, where a React hydration failure surfaces as a
 // *minified* page error ("Minified React error #418; visit …/418") — the
@@ -75,8 +104,18 @@ async function selectText(page: Page, text: string) {
 }
 
 test.describe("#203 contextual desktop toolbar", () => {
+  test.beforeAll(async () => {
+    gettingStartedBaseline = await readWikiContent("getting-started");
+  });
+
   test.beforeEach(async ({ page }) => {
+    await restoreWikiContent("getting-started", gettingStartedBaseline);
     await loginAsAdmin(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    if (!page.isClosed()) await page.close();
+    await restoreWikiContent("getting-started", gettingStartedBaseline);
   });
 
   test("the document opens in a quiet default state without a format toolbar", async ({
