@@ -236,3 +236,42 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await expect(courseCard).toContainText("/5");
   await expect(courseCard).not.toContainText("/10");
 });
+
+test.describe("#461 responsive course review boundaries", () => {
+  test.use({ viewport: { width: 393, height: 851 } });
+
+  test("editor and comment cards fit the mobile viewport", async ({ page }) => {
+    await loginWithPassword(page, "user@test.com", "password123");
+    await page.goto(`/courses/${CODE}`);
+    await page.getByRole("button", { name: "开始填写" }).click();
+
+    const section = page.locator("#course-review");
+    await expect(section.getByLabel("学年")).toBeVisible();
+    const editorWidths = await section.evaluate((element) => ({
+      client: element.clientWidth,
+      scroll: element.scrollWidth,
+    }));
+    expect(editorWidths.client).toBeGreaterThan(0);
+    expect(editorWidths.scroll).toBeLessThanOrEqual(editorWidths.client);
+
+    await page.getByLabel("学年").selectOption("2025-26");
+    await page.getByLabel("学期").selectOption("Term 2");
+    await selectSeedProfessor(page);
+    await page.getByRole("radio", { name: "4.5 星" }).click();
+    await page
+      .getByPlaceholder("分享课程内容、功课量或考试体验…")
+      .fill("mobile course review");
+    await page.getByRole("button", { name: "提交测评" }).click();
+
+    const card = page
+      .getByRole("listitem")
+      .filter({ hasText: "mobile course review" });
+    await expect(card.getByRole("button", { name: "点赞" })).toBeVisible();
+    await expect(card.getByRole("button", { name: "回复 0" })).toBeVisible();
+    const cardWidths = await card.evaluate((element) => ({
+      client: element.clientWidth,
+      scroll: element.scrollWidth,
+    }));
+    expect(cardWidths.scroll).toBeLessThanOrEqual(cardWidths.client);
+  });
+});
