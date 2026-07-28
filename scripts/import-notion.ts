@@ -59,6 +59,13 @@ export function notionIdToUuid(value: string): string {
   ].join("-");
 }
 
+export function rewriteDroppedRootLinks(
+  content: string,
+  droppedRootPageId: string,
+): string {
+  return content.replaceAll(`/wiki/${droppedRootPageId}`, "/wiki");
+}
+
 interface ImportEntry {
   id: string;
   title: string;
@@ -154,15 +161,25 @@ async function processEntry(
     filename: string,
     contentType: string,
   ) => Promise<{ key: string; url: string }>,
+  droppedRootPageId?: string,
 ): Promise<void> {
   let content = entry.content;
   content = stripMetadata(content);
   content = convertLinks(content, entry.relativeDir, pathToPageId);
+  if (droppedRootPageId) {
+    content = rewriteDroppedRootLinks(content, droppedRootPageId);
+  }
   content = await processImages(content, entry.fileDir, exportRoot, uploadFn);
   entry.content = content;
 
   for (const child of entry.children) {
-    await processEntry(child, exportRoot, pathToPageId, uploadFn);
+    await processEntry(
+      child,
+      exportRoot,
+      pathToPageId,
+      uploadFn,
+      droppedRootPageId,
+    );
   }
 }
 
@@ -298,12 +315,15 @@ async function main() {
     `Found ${entries.length} top-level pages, ${pathToPageId.size} total pages`,
   );
 
+  let droppedRootPageId: string | undefined;
+
   // Unwrap single root: promote its children to top-level
   if (entries.length === 1 && entries[0].children.length > 0) {
     const root = entries[0];
     console.log(
       `Unwrapping single root: "${root.title}" (${root.children.length} children)`,
     );
+    droppedRootPageId = root.id;
     entries = root.children;
   }
 
@@ -312,7 +332,13 @@ async function main() {
   try {
     console.log("Processing content (metadata, images, links)...");
     for (const entry of entries) {
-      await processEntry(entry, exportRoot, pathToPageId, upload);
+      await processEntry(
+        entry,
+        exportRoot,
+        pathToPageId,
+        upload,
+        droppedRootPageId,
+      );
     }
 
     console.log("Inserting into database...");

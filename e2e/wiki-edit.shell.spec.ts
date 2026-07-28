@@ -43,6 +43,7 @@ test.describe("focused wiki editor shell", () => {
 
     await page.goto("/wiki/new");
     await expect(page).toHaveURL(/\/wiki\/new$/);
+    await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
     await expect(page.getByRole("banner", { name: "编辑器顶栏" })).toHaveCount(
       0,
     );

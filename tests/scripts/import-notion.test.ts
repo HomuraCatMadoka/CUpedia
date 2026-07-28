@@ -3,6 +3,7 @@ import {
   parseNotionFilename,
   extractLinkOrder,
   notionIdToUuid,
+  rewriteDroppedRootLinks,
 } from "../../scripts/import-notion";
 
 describe("parseNotionFilename", () => {
@@ -35,6 +36,24 @@ describe("notionIdToUuid", () => {
     expect(notionIdToUuid("09e7498223e7494dac05c8eaa7d25f89")).toBe(
       "09e74982-23e7-494d-ac05-c8eaa7d25f89",
     );
+  });
+
+  it("generates a UUID when the export has no valid Notion identity", () => {
+    expect(notionIdToUuid("invalid-id")).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+  });
+});
+
+describe("rewriteDroppedRootLinks", () => {
+  it("points links to an unwrapped root at the wiki index", () => {
+    const rootId = "09e74982-23e7-494d-ac05-c8eaa7d25f89";
+    expect(
+      rewriteDroppedRootLinks(
+        `[Root](/wiki/${rootId})\n[Section](/wiki/${rootId}#section)`,
+        rootId,
+      ),
+    ).toBe("[Root](/wiki)\n[Section](/wiki#section)");
   });
 });
 
