@@ -82,8 +82,28 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
         ],
       );
 
+      await loginAsAdmin(page);
+      await page.addInitScript((targetHref) => {
+        document.addEventListener(
+          "click",
+          (event) => {
+            const anchor =
+              event.target instanceof Element
+                ? event.target.closest<HTMLAnchorElement>("a[href]")
+                : null;
+            if (anchor?.getAttribute("href") !== targetHref) return;
+            const count = Number(sessionStorage.getItem("target-clicks") ?? 0);
+            sessionStorage.setItem("target-clicks", String(count + 1));
+          },
+          true,
+        );
+      }, `/wiki/${TOMBSTONE_LINK_CHILD_ID}`);
       await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
-      const link = page.getByRole("link", { name: "Deleted target" });
+      await page.getByLabel("标题").fill("Tombstone Link Parent (edited)");
+      await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
+      const link = page
+        .getByTestId("wiki-editor-canvas")
+        .getByRole("link", { name: "Deleted target" });
       await expect(link).toHaveAttribute(
         "href",
         `/wiki/${TOMBSTONE_LINK_CHILD_ID}`,
@@ -96,6 +116,15 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
       await expect(
         page.getByRole("heading", { name: "页面已删除" }),
       ).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(() => sessionStorage.getItem("target-clicks")),
+        )
+        .toBe("1");
+      await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
+      await expect(page.getByLabel("标题")).toHaveValue(
+        "Tombstone Link Parent (edited)",
+      );
     } finally {
       await client.query("delete from wiki_pages where id in ($1, $2)", [
         TOMBSTONE_LINK_CHILD_ID,
