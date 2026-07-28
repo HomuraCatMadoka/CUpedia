@@ -10,7 +10,6 @@ import {
   wikiPageUrl,
 } from "./helpers/wiki";
 
-const FIXTURE_TOKEN = randomUUID().slice(0, 8);
 const FIXTURE_CONTENT = JSON.stringify([
   { type: "p", children: [{ text: "Alpha block." }] },
   { type: "p", children: [{ text: "Beta block." }] },
@@ -19,41 +18,34 @@ const FIXTURE_CONTENT = JSON.stringify([
 const FIXTURES = {
   merge: {
     id: randomUUID(),
-    slug: `autosave-merge-${FIXTURE_TOKEN}`,
     title: "Autosave merge fixture",
   },
   explicit: {
     id: randomUUID(),
-    slug: `autosave-explicit-${FIXTURE_TOKEN}`,
     title: "Autosave explicit fixture",
   },
   failure: {
     id: randomUUID(),
-    slug: `autosave-failure-${FIXTURE_TOKEN}`,
     title: "Autosave failure fixture",
   },
   passiveConflict: {
     id: randomUUID(),
-    slug: `autosave-passive-${FIXTURE_TOKEN}`,
     title: "Autosave passive conflict fixture",
   },
   bodyTitleMerge: {
     id: randomUUID(),
-    slug: `autosave-body-title-${FIXTURE_TOKEN}`,
     title: "Autosave body title fixture",
   },
   titleConflict: {
     id: randomUUID(),
-    slug: `autosave-title-conflict-${FIXTURE_TOKEN}`,
     title: "Autosave title conflict fixture",
   },
-  slugRename: {
+  urlIdentity: {
     id: randomUUID(),
-    slug: `autosave-slug-${FIXTURE_TOKEN}`,
-    title: "Autosave slug fixture",
+    title: "Autosave UUID fixture",
   },
 } as const;
-const MERGE_SLUG = FIXTURES.merge.slug;
+const MERGE_ID = FIXTURES.merge.id;
 
 test.beforeAll(async () => {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -69,9 +61,9 @@ test.beforeAll(async () => {
     for (const fixture of Object.values(FIXTURES)) {
       await client.query(
         `insert into wiki_pages
-           (id, slug, title, content, created_by, updated_by, version)
-         values ($1, $2, $3, $4, $5, $5, 1)`,
-        [fixture.id, fixture.slug, fixture.title, FIXTURE_CONTENT, adminId],
+           (id, title, content, created_by, updated_by, version)
+         values ($1, $2, $3, $4, $4, 1)`,
+        [fixture.id, fixture.title, FIXTURE_CONTENT, adminId],
       );
     }
   } finally {
@@ -83,8 +75,8 @@ test.afterAll(async () => {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await client.query("delete from wiki_pages where slug = any($1::text[])", [
-      Object.values(FIXTURES).map((fixture) => fixture.slug),
+    await client.query("delete from wiki_pages where id = any($1::uuid[])", [
+      Object.values(FIXTURES).map((fixture) => fixture.id),
     ]);
   } finally {
     await client.end();
@@ -130,7 +122,7 @@ test.describe("#432 latest draft convergence", () => {
     const title = `Autosaved title ${Date.now()}`;
 
     await loginAsAdmin(page);
-    await page.goto(`/wiki/edit/${MERGE_SLUG}`);
+    await page.goto(`/wiki/${MERGE_ID}`);
     await waitForHydratedWikiEditor(page);
 
     await page.getByLabel("标题").fill(title);
@@ -143,7 +135,7 @@ test.describe("#432 latest draft convergence", () => {
       page.getByRole("button", { name: "完成", exact: true }),
     ).toBeHidden();
 
-    await page.goto(`/wiki/edit/${MERGE_SLUG}`);
+    await page.goto(`/wiki/${MERGE_ID}`);
     await expect(page.getByLabel("标题")).toHaveValue(title);
   });
 
@@ -151,7 +143,7 @@ test.describe("#432 latest draft convergence", () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto(`/wiki/edit/${FIXTURES.slugRename.slug}`);
+    await page.goto(`/wiki/${FIXTURES.urlIdentity.id}`);
 
     await page.getByRole("button", { name: "页面设置" }).click();
     const settingsDialog = page.getByRole("dialog", { name: "页面设置" });
@@ -161,21 +153,21 @@ test.describe("#432 latest draft convergence", () => {
     await page.keyboard.press("Escape");
     await expect(settingsDialog).toHaveCount(0);
 
-    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.slugRename.id));
+    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.urlIdentity.id));
     await expect(page.locator('a[aria-label="返回 Wiki"]')).toHaveAttribute(
       "href",
-      `/wiki/${FIXTURES.slugRename.id}`,
+      `/wiki/${FIXTURES.urlIdentity.id}`,
     );
 
     await page.reload();
     await expect(page.getByLabel("标题")).toHaveValue(
-      FIXTURES.slugRename.title,
+      FIXTURES.urlIdentity.title,
     );
 
-    await page.goto(`/wiki/edit/${FIXTURES.slugRename.slug}`);
-    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.slugRename.id));
-    await page.goto(`/wiki/${FIXTURES.slugRename.slug}`);
-    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.slugRename.id));
+    await page.goto(`/wiki/${FIXTURES.urlIdentity.id}`);
+    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.urlIdentity.id));
+    await page.goto(`/wiki/${FIXTURES.urlIdentity.id}`);
+    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.urlIdentity.id));
   });
 
   test("explicit save persists input typed while its request is in flight", async ({
@@ -208,7 +200,7 @@ test.describe("#432 latest draft convergence", () => {
       await route.continue();
     });
 
-    await page.goto(`/wiki/edit/${FIXTURES.explicit.slug}`);
+    await page.goto(`/wiki/${FIXTURES.explicit.id}`);
     await waitForHydratedWikiEditor(page);
     await page.getByLabel("标题").fill(firstTitle);
     await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
@@ -231,7 +223,7 @@ test.describe("#432 latest draft convergence", () => {
       "saved",
       { timeout: 15_000 },
     );
-    await page.goto(`/wiki/edit/${FIXTURES.explicit.slug}`);
+    await page.goto(`/wiki/${FIXTURES.explicit.id}`);
     await expect(page.getByLabel("标题")).toHaveValue(trailingTitle);
   });
 
@@ -285,7 +277,7 @@ test.describe("#432 latest draft convergence", () => {
   }) => {
     const markerA = `passive-a-${Date.now()}`;
     const markerB = `passive-b-${Date.now()}`;
-    const slug = FIXTURES.passiveConflict.slug;
+    const pageId = FIXTURES.passiveConflict.id;
 
     const contextA = await browser.newContext({
       hasTouch: true,
@@ -294,13 +286,13 @@ test.describe("#432 latest draft convergence", () => {
     });
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
-    await pageA.goto(`/wiki/edit/${slug}`);
+    await pageA.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
-    await pageB.goto(`/wiki/edit/${slug}`);
+    await pageB.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageB);
 
     await appendAfterText(pageB, "Alpha block.", markerB);
@@ -335,18 +327,18 @@ test.describe("#432 latest draft convergence", () => {
   }) => {
     const serverTitle = `Concurrent title ${Date.now()}`;
     const bodyMarker = `body-only-${Date.now()}`;
-    const slug = FIXTURES.bodyTitleMerge.slug;
+    const pageId = FIXTURES.bodyTitleMerge.id;
 
     const contextA = await browser.newContext();
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
-    await pageA.goto(`/wiki/edit/${slug}`);
+    await pageA.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
-    await pageB.goto(`/wiki/edit/${slug}`);
+    await pageB.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageB);
 
     await pageB.getByLabel("标题").fill(serverTitle);
@@ -369,7 +361,7 @@ test.describe("#432 latest draft convergence", () => {
     );
     await expect(pageA.getByLabel("标题")).toHaveValue(serverTitle);
 
-    await pageA.goto(`/wiki/edit/${slug}`);
+    await pageA.goto(`/wiki/${pageId}`);
     await expect(pageA.getByLabel("标题")).toHaveValue(serverTitle);
     await expect(pageA.locator('[role="textbox"]').first()).toContainText(
       bodyMarker,
@@ -384,18 +376,18 @@ test.describe("#432 latest draft convergence", () => {
   }) => {
     const mineTitle = `Mine title ${Date.now()}`;
     const serverTitle = `Server title ${Date.now()}`;
-    const slug = FIXTURES.titleConflict.slug;
+    const pageId = FIXTURES.titleConflict.id;
 
     const contextA = await browser.newContext();
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
-    await pageA.goto(`/wiki/edit/${slug}`);
+    await pageA.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
-    await pageB.goto(`/wiki/edit/${slug}`);
+    await pageB.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageB);
 
     await pageB.getByLabel("标题").fill(serverTitle);
@@ -419,7 +411,7 @@ test.describe("#432 latest draft convergence", () => {
     await pageA.keyboard.press("Control+s");
     await expect(pageA.getByRole("dialog", { name: "编辑冲突" })).toBeVisible();
 
-    await pageB.goto(`/wiki/edit/${slug}`);
+    await pageB.goto(`/wiki/${pageId}`);
     await expect(pageB.getByLabel("标题")).toHaveValue(serverTitle);
 
     await contextA.close();
@@ -438,13 +430,13 @@ test.describe("#431 authoritative autosave baseline", () => {
     const contextA = await browser.newContext();
     const pageA = await contextA.newPage();
     await loginAsAdmin(pageA);
-    await pageA.goto(`/wiki/edit/${MERGE_SLUG}`);
+    await pageA.goto(`/wiki/${MERGE_ID}`);
     await waitForHydratedWikiEditor(pageA);
 
     const contextB = await browser.newContext();
     const pageB = await contextB.newPage();
     await loginAsAdmin(pageB);
-    await pageB.goto(`/wiki/edit/${MERGE_SLUG}`);
+    await pageB.goto(`/wiki/${MERGE_ID}`);
     await waitForHydratedWikiEditor(pageB);
 
     // B advances the server copy by editing a different top-level block.
@@ -478,7 +470,7 @@ test.describe("#431 authoritative autosave baseline", () => {
     );
 
     // Re-open the edit route to prove the server retained all three changes.
-    await pageA.goto(`/wiki/edit/${MERGE_SLUG}`);
+    await pageA.goto(`/wiki/${MERGE_ID}`);
     const persistedEditor = pageA.locator('[role="textbox"]').first();
     await expect(persistedEditor).toContainText(markerA);
     await expect(persistedEditor).toContainText(markerB);

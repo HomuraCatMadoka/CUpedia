@@ -32,7 +32,6 @@ Next.js 16 App Router wiki application for CUHK students ("你的中大百科全
 │       ├── plate-utils.ts    # Plate JSON ↔ markdown (headless editor)
 │       ├── minio.ts          # MinIO S3 storage
 │       ├── email.ts          # Domain whitelist, normalization
-│       ├── slug.ts           # CJK-aware slug generation
 │       └── nickname.ts       # Grapheme-safe validation
 ├── tests/                # Vitest unit tests
 ├── scripts/              # bootstrap (setup.ts), seed, Notion import
@@ -147,13 +146,13 @@ ORM: Drizzle with PostgreSQL dialect. Schema in `src/db/schema.ts`.
 
 ### Core Tables
 
-| Table                                   | Purpose                                                        |
-| --------------------------------------- | -------------------------------------------------------------- |
-| `users`                                 | Email, nickname, role (user/admin), banned flag                |
-| `wikiPages`                             | Hierarchical pages (slug, title, content, parentId, deletedAt) |
-| `wikiRevisions`                         | Full edit history per page                                     |
-| `siteSettings`                          | Key/value app config (e.g. `wiki_edit_role`)                   |
-| `accounts`, `sessions`, `verifications` | better-auth adapter tables                                     |
+| Table                                   | Purpose                                                                 |
+| --------------------------------------- | ----------------------------------------------------------------------- |
+| `users`                                 | Email, nickname, role (user/admin), banned flag                         |
+| `wikiPages`                             | UUID-addressed hierarchical pages (title, content, parentId, deletedAt) |
+| `wikiRevisions`                         | Full edit history per page                                              |
+| `siteSettings`                          | Key/value app config (e.g. `wiki_edit_role`)                            |
+| `accounts`, `sessions`, `verifications` | better-auth adapter tables                                              |
 
 ### Schema Change Workflow
 
@@ -208,12 +207,15 @@ const maybe = await getOptionalUser(); // Returns null if not authenticated
 ### Key Behaviors
 
 - **Hierarchical pages**: parentId builds tree structure for sidebar
+- **Permanent UUID identity**: `/wiki/<UUID>` is the only page route; title and
+  hierarchy can change without changing links
+- **Immediate creation**: a client UUID idempotently creates a permanent public
+  blank page before editing begins
 - **Soft deletes**: `deletedAt` timestamp, restorable from admin panel
 - **Optimistic locking**: Edit conflict detection via `updatedAt` comparison
 - **Revision history**: Every edit creates a `wikiRevision` entry
 - **Rollback**: Creates new revision from old content (non-destructive)
 - **Search**: Fuse.js fuzzy search with weighted title (0.7) / content (0.3)
-- **Slug generation**: CJK-aware, reserved prefixes: `edit`, `history`, `new`, `search`
 
 ### Content Format
 

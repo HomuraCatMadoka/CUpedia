@@ -86,7 +86,6 @@ interface WikiSubmitResult {
   error?: string;
   haltAutosave?: boolean;
   id?: string;
-  slug?: string;
   parentId?: string | null;
   title?: string;
   icon?: string | null;
@@ -98,7 +97,6 @@ interface WikiSubmitResult {
   theirContent?: string;
   theirTitle?: string;
   theirIcon?: string | null;
-  theirSlug?: string;
   theirParentId?: string | null;
   theirVersion?: number;
   theirContentGeneration?: number;
@@ -112,7 +110,6 @@ export interface WikiEditorProps {
   initialTitle?: string;
   initialIcon?: string | null;
   initialValue?: PlateValue;
-  initialSlug?: string;
   expectedVersion?: number;
   expectedContentGeneration?: number;
   expectedUpdatedAt?: string;
@@ -122,7 +119,6 @@ export interface WikiEditorProps {
   canDelete?: boolean;
   onDelete?: () => Promise<void>;
   onSubmit: (data: {
-    slug: string;
     title: string;
     icon?: string | null;
     content: string;
@@ -134,7 +130,6 @@ export interface WikiEditorProps {
     baseTitle?: string;
     baseIcon?: string | null;
     baseContent?: string;
-    baseSlug?: string;
     baseParentId?: string | null;
   }) => Promise<WikiSubmitResult>;
 }
@@ -147,7 +142,6 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 interface WikiDraftSnapshot {
-  slug: string;
   title: string;
   icon: string | null;
   content: string;
@@ -158,7 +152,6 @@ interface WikiDraftSnapshot {
 interface ConflictFallback {
   title: string;
   icon: string | null;
-  slug: string;
   parentId: string | null;
   version: number | undefined;
   contentGeneration: number;
@@ -179,7 +172,6 @@ function buildConflictFromResult(
     theirTitle: result.theirTitle ?? fallback.title,
     theirIcon:
       result.theirIcon !== undefined ? result.theirIcon : fallback.icon,
-    theirSlug: result.theirSlug ?? fallback.slug,
     theirParentId:
       result.theirParentId !== undefined
         ? result.theirParentId
@@ -235,7 +227,6 @@ export function WikiEditor({
   initialTitle = "",
   initialIcon = null,
   initialValue,
-  initialSlug = "",
   expectedVersion,
   expectedContentGeneration = 0,
   expectedUpdatedAt,
@@ -266,19 +257,17 @@ export function WikiEditor({
   const initialDraftSnapshot = useMemo(
     () =>
       serializeDraftSnapshot({
-        slug: initialSlug,
         title: initialTitle,
         icon: initialIcon,
         content: initialContent,
         parentId: parentId ?? null,
         editSummary: "",
       }),
-    [initialContent, initialIcon, initialSlug, initialTitle, parentId],
+    [initialContent, initialIcon, initialTitle, parentId],
   );
 
   const [title, setTitle] = useState(initialTitle);
   const [icon, setIcon] = useState(initialIcon);
-  const [slug, setSlug] = useState(initialSlug);
   const [selectedParentId, setSelectedParentId] = useState(parentId ?? "");
   const [editSummary, setEditSummary] = useState("");
   const [error, setError] = useState("");
@@ -333,11 +322,9 @@ export function WikiEditor({
   const baseTitleRef = useRef(initialTitle);
   const baseIconRef = useRef(initialIcon);
   const baseContentRef = useRef(initialContent);
-  const baseSlugRef = useRef(initialSlug);
   const baseParentIdRef = useRef(parentId ?? null);
   const titleRef = useRef(initialTitle);
   const iconRef = useRef(initialIcon);
-  const slugRef = useRef(initialSlug);
   const parentIdRef = useRef(parentId ?? "");
   const editSummaryRef = useRef("");
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
@@ -390,7 +377,6 @@ export function WikiEditor({
   const getCurrentDraftSnapshot = useCallback(
     () =>
       serializeDraftSnapshot({
-        slug: slugRef.current,
         title: titleRef.current,
         icon: iconRef.current,
         content: serializeContentWithoutDraftComments(editor.children),
@@ -428,7 +414,6 @@ export function WikiEditor({
         pageId && wikiTree
           ? wikiTree.projectUpsert({
               id: pageId,
-              slug: next.slug,
               title: next.title,
               icon: next.icon,
               parentId: next.parentId,
@@ -437,7 +422,6 @@ export function WikiEditor({
       let result: WikiSubmitResult;
       try {
         result = await onSubmit({
-          slug: next.slug,
           title: next.title,
           icon: next.icon,
           content: next.content,
@@ -449,7 +433,6 @@ export function WikiEditor({
           baseTitle: baseTitleRef.current,
           baseIcon: baseIconRef.current,
           baseContent: baseContentRef.current,
-          baseSlug: baseSlugRef.current,
           baseParentId: baseParentIdRef.current,
         });
       } catch (error) {
@@ -462,7 +445,6 @@ export function WikiEditor({
         const authoritativeIcon =
           result.icon !== undefined ? result.icon : next.icon;
         const authoritativeContent = result.content ?? next.content;
-        const authoritativeSlug = result.slug ?? next.slug;
         const authoritativeParentId =
           result.parentId !== undefined ? result.parentId : next.parentId;
         const currentTitle = titleRef.current;
@@ -470,13 +452,11 @@ export function WikiEditor({
         const currentContent = serializeContentWithoutDraftComments(
           editor.children,
         );
-        const currentSlug = slugRef.current;
         const currentParentId = parentIdRef.current || null;
         const currentEditSummary = editSummaryRef.current;
         const titleDrifted = currentTitle !== next.title;
         const iconDrifted = currentIcon !== next.icon;
         const contentDrifted = currentContent !== next.content;
-        const slugDrifted = currentSlug !== next.slug;
         const parentDrifted = currentParentId !== next.parentId;
         const summaryDrifted = currentEditSummary !== next.editSummary;
 
@@ -489,7 +469,6 @@ export function WikiEditor({
           !titleDrifted &&
           !iconDrifted &&
           !contentDrifted &&
-          !slugDrifted &&
           !parentDrifted &&
           !summaryDrifted
         ) {
@@ -526,13 +505,6 @@ export function WikiEditor({
           baseContentRef.current = authoritativeContent;
         }
 
-        if (!slugDrifted) {
-          slugRef.current = authoritativeSlug;
-          baseSlugRef.current = authoritativeSlug;
-          setSlug(authoritativeSlug);
-        } else if (authoritativeSlug === next.slug) {
-          baseSlugRef.current = authoritativeSlug;
-        }
         if (!parentDrifted) {
           const nextParentValue = authoritativeParentId ?? "";
           parentIdRef.current = nextParentValue;
@@ -547,13 +519,11 @@ export function WikiEditor({
         setError("");
         wikiTree?.confirm(mutationToken, {
           id: pageId!,
-          slug: authoritativeSlug,
           title: authoritativeTitle,
           icon: authoritativeIcon,
           parentId: authoritativeParentId,
         });
         const authoritativeSnapshot = serializeDraftSnapshot({
-          slug: authoritativeSlug,
           title: authoritativeTitle,
           icon: authoritativeIcon,
           content: authoritativeContent,
@@ -579,7 +549,6 @@ export function WikiEditor({
         const nextConflict = buildConflictFromResult(result, {
           title: next.title,
           icon: next.icon,
-          slug: next.slug,
           parentId: next.parentId,
           version: versionBaselineRef.current,
           contentGeneration: contentGenerationRef.current,
@@ -748,7 +717,6 @@ export function WikiEditor({
 
     const result = await save(
       serializeDraftSnapshot({
-        slug: slugRef.current,
         title: titleRef.current,
         icon: iconRef.current,
         content: serializeContentWithoutDraftComments(editor.children),
@@ -775,7 +743,6 @@ export function WikiEditor({
     createDraftDirtyRef.current = false;
     resetAutosaveBaseline(
       serializeDraftSnapshot({
-        slug: slugRef.current,
         title: titleRef.current,
         icon: iconRef.current,
         content: serializeContentWithoutDraftComments(editor.children),
@@ -816,7 +783,6 @@ export function WikiEditor({
       if (!conflict) return;
       wikiDraft.suspend();
       const serverSnapshot = serializeDraftSnapshot({
-        slug: conflict.theirSlug,
         title: conflict.theirTitle,
         icon: conflict.theirIcon,
         content: conflict.theirContent,
@@ -845,11 +811,8 @@ export function WikiEditor({
       baseTitleRef.current = conflict.theirTitle;
       baseIconRef.current = conflict.theirIcon;
       baseContentRef.current = conflict.theirContent;
-      baseSlugRef.current = conflict.theirSlug;
       baseParentIdRef.current = conflict.theirParentId;
-      slugRef.current = conflict.theirSlug;
       parentIdRef.current = conflict.theirParentId ?? "";
-      setSlug(conflict.theirSlug);
       setSelectedParentId(conflict.theirParentId ?? "");
       pendingConflictRef.current = null;
       setAutosaveConflict(false);
@@ -1144,7 +1107,7 @@ export function WikiEditor({
                       {STATUS_LABEL[autosave.status]}
                     </span>
                   )}
-                {mode === "edit" && initialSlug && (
+                {mode === "edit" && pageId && (
                   <button
                     type="button"
                     aria-label="分享页面"
@@ -1383,11 +1346,6 @@ export function WikiEditor({
                     theirs: conflict.theirIcon ?? "无",
                   },
                   {
-                    label: "URL 路径",
-                    mine: slug,
-                    theirs: conflict.theirSlug,
-                  },
-                  {
                     label: "父页面",
                     mine: selectedParent?.title ?? "无",
                     theirs:
@@ -1427,11 +1385,6 @@ export function WikiEditor({
                           label: "图标",
                           mine: recoveredDraft.icon ?? "无",
                           theirs: initialIcon ?? "无",
-                        },
-                        {
-                          label: "URL 路径",
-                          mine: recoveredDraft.slug,
-                          theirs: initialSlug,
                         },
                         {
                           label: "父页面",

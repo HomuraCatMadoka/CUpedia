@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 // The history list projects away revision `content` and is fetched only in the
 // list branch (#142). These guard that the list still renders every revision's
@@ -7,7 +8,7 @@ test.describe("#142 history list renders revision metadata", () => {
   test("lists every revision with author, summary and view/diff links", async ({
     page,
   }) => {
-    const res = await page.goto("/wiki/history/history-demo");
+    const res = await page.goto(`/wiki/history/${PAGE_IDS.history}`);
     expect(res?.status()).toBe(200);
 
     for (const summary of [
@@ -28,7 +29,7 @@ test.describe("#142 history list renders revision metadata", () => {
   });
 
   test("a view link renders that revision's body", async ({ page }) => {
-    await page.goto("/wiki/history/history-demo");
+    await page.goto(`/wiki/history/${PAGE_IDS.history}`);
 
     // Target a specific row so the assertion is order-independent.
     const row = page

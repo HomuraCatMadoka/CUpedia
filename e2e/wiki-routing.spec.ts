@@ -3,7 +3,7 @@ import { PAGE_IDS } from "../scripts/seed-data";
 import { loginAsAdmin } from "./helpers/auth";
 
 test.describe("UUID canonical wiki routing (ref #447)", () => {
-  test("serves existing pages by UUID and redirects a legacy slug", async ({
+  test("serves existing pages by UUID and rejects a legacy slug", async ({
     page,
   }) => {
     await page.goto(`/wiki/${PAGE_IDS.welcome}`);
@@ -13,7 +13,14 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
     ).toBeVisible();
 
     await page.goto("/wiki/welcome");
-    await expect(page).toHaveURL(new RegExp(`/wiki/${PAGE_IDS.welcome}$`));
+    await expect(page).toHaveURL(/\/wiki\/welcome$/);
+    await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
+
+    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
+
+    await page.goto("/wiki/history/welcome");
+    await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
   });
 
   test("emits UUID links from navigation, search, and page history", async ({
@@ -55,7 +62,7 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
       });
     });
     await loginAsAdmin(page);
-    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await page.goto(`/wiki/${PAGE_IDS.welcome}`);
 
     await page.getByRole("button", { name: "分享页面" }).click();
 

@@ -14,14 +14,12 @@ vi.mock("next/navigation", () => ({
 const PAGES = [
   {
     id: "1",
-    slug: "guide",
     title: "校园指南",
     icon: "🏫",
     parentId: null,
   },
   {
     id: "2",
-    slug: "guide/canteen",
     title: "食堂攻略",
     icon: null,
     parentId: "1",

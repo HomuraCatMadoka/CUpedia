@@ -4,8 +4,8 @@ import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 import { createUntitledWikiPage, wikiPageUrl } from "./helpers/wiki";
 
-const slug = `lifecycle-${randomUUID().slice(0, 8)}`;
-const title = `Lifecycle ${slug}`;
+const fixtureToken = `lifecycle-${randomUUID().slice(0, 8)}`;
+const title = `Lifecycle ${fixtureToken}`;
 const first = `first-${randomUUID()}`;
 const second = `second-${randomUUID()}`;
 let createdPageId = "";

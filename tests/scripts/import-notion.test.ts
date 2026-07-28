@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   parseNotionFilename,
   extractLinkOrder,
+  notionIdToUuid,
 } from "../../scripts/import-notion";
-import { generateSlug } from "@/lib/slug";
 
 describe("parseNotionFilename", () => {
   it("extracts title and UUID", () => {
@@ -27,6 +27,14 @@ describe("parseNotionFilename", () => {
       "For 国际生 6e1ec4af86e3440b980ed3b21dc47162.md",
     );
     expect(result.title).toBe("For 国际生");
+  });
+});
+
+describe("notionIdToUuid", () => {
+  it("preserves the exported Notion identity in UUID form", () => {
+    expect(notionIdToUuid("09e7498223e7494dac05c8eaa7d25f89")).toBe(
+      "09e74982-23e7-494d-ac05-c8eaa7d25f89",
+    );
   });
 });
 
@@ -60,15 +68,5 @@ describe("extractLinkOrder", () => {
 
   it("returns empty for content without .md links", () => {
     expect(extractLinkOrder("# No links here\nJust text.")).toEqual([]);
-  });
-});
-
-describe("generateSlug (used by import)", () => {
-  it("keeps Chinese characters in slug", () => {
-    expect(generateSlug("八达通")).toBe("八达通");
-  });
-
-  it("handles mixed content", () => {
-    expect(generateSlug("CU 全港觅食指南")).toBe("cu-全港觅食指南");
   });
 });

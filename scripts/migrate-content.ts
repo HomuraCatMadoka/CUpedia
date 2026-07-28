@@ -34,7 +34,6 @@ async function main() {
   const pages = await db
     .select({
       id: wikiPages.id,
-      slug: wikiPages.slug,
       content: wikiPages.content,
     })
     .from(wikiPages);
@@ -55,8 +54,8 @@ async function main() {
       skipped++;
       continue;
     }
-    if (LATEX_RE.test(page.content)) latex.push(`page:${page.slug}`);
-    if (METADATA_RE.test(page.content)) metadata.push(`page:${page.slug}`);
+    if (LATEX_RE.test(page.content)) latex.push(`page:${page.id}`);
+    if (METADATA_RE.test(page.content)) metadata.push(`page:${page.id}`);
 
     try {
       const json = await fromMarkdown(page.content);
@@ -71,7 +70,7 @@ async function main() {
       }
       converted++;
     } catch (e) {
-      errors.push({ id: `page:${page.slug}`, error: String(e) });
+      errors.push({ id: `page:${page.id}`, error: String(e) });
     }
   }
 

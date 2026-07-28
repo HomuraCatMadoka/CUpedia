@@ -62,7 +62,7 @@ test.describe("wiki editor block commands", () => {
   test("the block plus inserts directly after its source block and opens the shared menu", async ({
     page,
   }) => {
-    await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
 
     const editor = page.locator('[data-slate-editor="true"]');
     const blocks = editor.getByTestId("wiki-editor-block");
@@ -145,7 +145,7 @@ test.describe("wiki editor block commands", () => {
   test("the grip preserves drag feedback and desktop block reordering", async ({
     page,
   }) => {
-    await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
 
     const blocks = page.getByTestId("wiki-editor-block");
     const source = blocks.filter({ hasText: "Registration" }).first();

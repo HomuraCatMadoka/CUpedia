@@ -2,14 +2,12 @@ import Fuse from "fuse.js";
 
 export interface SearchablePage {
   id: string;
-  slug: string;
   title: string;
   content: string;
 }
 
 export interface SearchResult {
   id: string;
-  slug: string;
   title: string;
   snippet?: string;
 }
@@ -61,7 +59,6 @@ export function searchPages(
 
         return {
           id: page.id,
-          slug: page.slug,
           title: page.title,
           snippet: titleOnly
             ? undefined
@@ -82,7 +79,6 @@ export function searchPages(
 
   return fuse.search(trimmed, { limit: MAX_RESULTS }).map((r) => ({
     id: r.item.id,
-    slug: r.item.slug,
     title: r.item.title,
     snippet: generateFuzzySnippet(r.item.content, trimmed),
   }));

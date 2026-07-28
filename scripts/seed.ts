@@ -126,7 +126,6 @@ async function main() {
     for (const p of pages) {
       await tx.insert(wikiPages).values({
         id: p.id,
-        slug: p.slug,
         title: p.title,
         content: p.content,
         parentId: p.parentId,

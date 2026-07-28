@@ -22,10 +22,10 @@ import { getWikiDisplayTitle } from "@/lib/wiki-title";
 export default async function WikiReadPage({
   params,
 }: {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ id: string[] }>;
 }) {
-  const { slug: slugParts } = await params;
-  const identifier = slugParts.map(decodeURIComponent).join("/");
+  const { id: idParts } = await params;
+  const identifier = idParts.map(decodeURIComponent).join("/");
   const [page, pages, { user, canEdit }] = await Promise.all([
     getWikiPage(identifier),
     getWikiTree(),
@@ -33,7 +33,6 @@ export default async function WikiReadPage({
   ]);
 
   if (!page) notFound();
-  if (page.id !== identifier) redirect(`/wiki/${page.id}`);
 
   if (canEdit) {
     const { WikiPageEditor } =

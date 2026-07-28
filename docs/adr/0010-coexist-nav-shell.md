@@ -1,5 +1,7 @@
 # 页面树与目录并存的导航壳:tree 提到 wiki 段 layout 常驻,TOC 独立成列
 
+状态：Accepted；路由清单与新建入口部分由 ADR 0018 取代。
+
 wiki 导航壳原本把**页面树(tree)**与**页内目录(TOC)**塞进同一列 `<nav>`,靠"当前页有标题就渲 TOC、否则渲 tree"的二选一 swap 分流(`WikiSidebar` 内的条件分支)。读一篇有标题的页时,页面树整个消失——用户失去"我在整棵 wiki 里的位置"这个导航锚点。swap 之所以存在,是因为 `WikiSidebar` 是 client 组件、挂在**页面**里,每次导航它的 `pages`(整棵树)props 都进 RSC 载荷(#136);把树在读页上藏掉是当时压载荷的手段(#138)。
 
 改为二者**并存(coexist)**的三列壳 `[ tree │ 内容 │ TOC ]`:
@@ -29,4 +31,5 @@ wiki 导航壳原本把**页面树(tree)**与**页内目录(TOC)**塞进同一�
 - **移动端不显示 TOC(取舍)**:桌面三列;窄屏塞不下,TOC 作为宽屏阅读辅助隐藏(`lg:block`),移动端抽屉只留 tree 导航。相对原 swap,移动端失去 TOC——小幅退化,换取桌面并存与实现简单。需要时再把 TOC 在窄屏收进正文顶部的可折叠块。
 - **rail 的"新建页面"按钮在所有 wiki 路由统一出现**:`canEdit` 由 layout 统一下发,编辑/新建页的折叠 rail 现在也会给编辑者显示 `+`(原先这两页不传 `canEdit`)。更一致,属良性变化。
 - **每请求多一次会话读取(取舍)**:layout 用 `getViewerEditContext()` 拿 `canEdit`,读页/历史页为了 `user`/编辑与回滚门控又各自调一次,于是热路径(读页)的 `auth.api.getSession` 从 1 次变 2 次。`getWikiTree()` 走 `unstable_cache`(Data Cache)不受影响,只有会话读取未去重。这是把树提到 layout 的固有代价——layout 不能把数据作为 props 下传给页面段,页面只能自取。刻意不在本 PR 触碰共享的 `auth-guard`(属 ADR 0012 范围);若开放编辑后该读取成为热点,用 React `cache()` 包一层 `getSession` 即可让 layout 与页面在同一请求内去重,零行为变化。
-- 现有 e2e 的 `#89`/`#98` 侧栏断言不受影响:侧栏 DOM(`nav`、`Pages`、`展开导航`、`a[href="/wiki/new"]`)不变,只是渲染位置从页面移到 layout。
+- 现有 e2e 的 `#89`/`#98` 侧栏断言不受影响；新建入口后来由
+  ADR 0018 改为客户端 UUID 立即创建，不再使用 `/wiki/new`。

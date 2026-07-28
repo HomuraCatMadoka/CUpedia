@@ -14,7 +14,6 @@ import { PAGE_IDS } from "../scripts/seed-data";
 
 const MOBILE_VIEWPORT = { width: 393, height: 851 };
 const NARROW_MOBILE_WIDTHS = [360, 375] as const;
-const MOBILE_NAV_SLUG = `mobile-nav-${randomUUID().slice(0, 8)}`;
 const mobileCreatedIds: string[] = [];
 const MOBILE_NAV_PAGE_ID = randomUUID();
 let gettingStartedBaseline = "";
@@ -27,22 +26,22 @@ async function setGettingStartedIcon(icon: string | null) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await client.query("update wiki_pages set icon = $1 where slug = $2", [
+    await client.query("update wiki_pages set icon = $1 where id = $2", [
       icon,
-      "getting-started",
+      PAGE_IDS.gettingStarted,
     ]);
   } finally {
     await client.end();
   }
 }
 
-async function readWikiContent(slug: string) {
+async function readWikiContent(pageId: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
     const result = await client.query<{ content: string }>(
-      "select content from wiki_pages where slug = $1",
-      [slug],
+      "select content from wiki_pages where id = $1",
+      [pageId],
     );
     return result.rows[0]?.content ?? "";
   } finally {
@@ -50,13 +49,13 @@ async function readWikiContent(slug: string) {
   }
 }
 
-async function restoreWikiContent(slug: string, content: string) {
+async function restoreWikiContent(pageId: string, content: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    await client.query("update wiki_pages set content = $1 where slug = $2", [
+    await client.query("update wiki_pages set content = $1 where id = $2", [
       content,
-      slug,
+      pageId,
     ]);
   } finally {
     await client.end();
@@ -65,11 +64,11 @@ async function restoreWikiContent(slug: string, content: string) {
 
 async function closePageAndRestoreWikiContent(
   page: Page,
-  slug: string,
+  pageId: string,
   content: string,
 ) {
   if (!page.isClosed()) await page.close();
-  await restoreWikiContent(slug, content);
+  await restoreWikiContent(pageId, content);
 }
 
 async function countDiscussionsByContent(content: string) {
@@ -103,18 +102,18 @@ async function createMobileNavigationFixture() {
     await client.query(
       `
         insert into wiki_pages (
-          id, slug, title, icon, content, parent_id, sort_order, deleted_at,
+          id, title, icon, content, parent_id, sort_order, deleted_at,
           created_by, updated_by, created_at, updated_at
         )
         select
-          $1, $2, 'Mobile navigation fixture', icon, content, null, 999, null,
+          $1, 'Mobile navigation fixture', icon, content, null, 999, null,
           created_by, updated_by,
           date_trunc('milliseconds', now()),
           date_trunc('milliseconds', now())
         from wiki_pages
-        where slug = 'getting-started'
+        where id = $2
       `,
-      [MOBILE_NAV_PAGE_ID, MOBILE_NAV_SLUG],
+      [MOBILE_NAV_PAGE_ID, PAGE_IDS.gettingStarted],
     );
   } finally {
     await client.end();
@@ -204,27 +203,27 @@ test.describe("mobile wiki editing", () => {
   });
 
   test.beforeAll(async () => {
-    gettingStartedBaseline = await readWikiContent("getting-started");
+    gettingStartedBaseline = await readWikiContent(PAGE_IDS.gettingStarted);
     await createMobileNavigationFixture();
   });
 
   test.beforeEach(async ({ page }) => {
-    await restoreWikiContent("getting-started", gettingStartedBaseline);
+    await restoreWikiContent(PAGE_IDS.gettingStarted, gettingStartedBaseline);
     await loginAsAdmin(page);
-    await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
   });
 
   test.afterEach(async ({ page }) => {
     if (!page.isClosed()) await page.close();
-    await restoreWikiContent("getting-started", gettingStartedBaseline);
+    await restoreWikiContent(PAGE_IDS.gettingStarted, gettingStartedBaseline);
   });
 
   test.afterAll(async () => {
     const client = new Client({ connectionString: process.env.DATABASE_URL });
     await client.connect();
     try {
-      await client.query("delete from wiki_pages where slug = $1", [
-        MOBILE_NAV_SLUG,
+      await client.query("delete from wiki_pages where id = $1", [
+        MOBILE_NAV_PAGE_ID,
       ]);
       if (mobileCreatedIds.length > 0) {
         await client.query("delete from wiki_pages where id = any($1)", [
@@ -742,7 +741,7 @@ test.describe("mobile wiki editing", () => {
   test("the mobile image action uploads a selected file into the document", async ({
     page,
   }) => {
-    const originalContent = await readWikiContent("getting-started");
+    const originalContent = await readWikiContent(PAGE_IDS.gettingStarted);
     let uploadedKey: string | null = null;
 
     try {
@@ -771,7 +770,7 @@ test.describe("mobile wiki editing", () => {
     } finally {
       await closePageAndRestoreWikiContent(
         page,
-        "getting-started",
+        PAGE_IDS.gettingStarted,
         originalContent,
       );
       if (uploadedKey) await deleteObjects([uploadedKey]);
@@ -840,7 +839,7 @@ test.describe("mobile wiki editing", () => {
   test("browser Back closes the mention picker before leaving the editor", async ({
     page,
   }) => {
-    const originalContent = await readWikiContent("getting-started");
+    const originalContent = await readWikiContent(PAGE_IDS.gettingStarted);
     try {
       const editor = page.locator('[data-slate-editor="true"]');
       await page.keyboard.press("Escape");
@@ -877,7 +876,9 @@ test.describe("mobile wiki editing", () => {
       await expect(page.getByTestId("wiki-autosave-status")).toHaveText(
         "已保存",
       );
-      expect(await readWikiContent("getting-started")).toBe(originalContent);
+      expect(await readWikiContent(PAGE_IDS.gettingStarted)).toBe(
+        originalContent,
+      );
 
       await page.goForward();
       await expect
@@ -897,7 +898,7 @@ test.describe("mobile wiki editing", () => {
     } finally {
       await closePageAndRestoreWikiContent(
         page,
-        "getting-started",
+        PAGE_IDS.gettingStarted,
         originalContent,
       );
     }
@@ -928,7 +929,7 @@ test.describe("mobile wiki editing", () => {
   test("the comment action opens a compact bottom composer", async ({
     page,
   }) => {
-    const originalContent = await readWikiContent("getting-started");
+    const originalContent = await readWikiContent(PAGE_IDS.gettingStarted);
     await selectText(page, "New to CUHK?");
     const selectionActions = page.getByTestId("mobile-selection-actions");
     await expect(selectionActions).toBeVisible();
@@ -1019,13 +1020,15 @@ test.describe("mobile wiki editing", () => {
     ).toHaveCount(0);
     await expect(page.locator('[data-slate-editor="true"]')).toBeFocused();
     await expect(page.getByTestId("wiki-autosave-status")).toHaveText("已保存");
-    expect(await readWikiContent("getting-started")).toBe(originalContent);
+    expect(await readWikiContent(PAGE_IDS.gettingStarted)).toBe(
+      originalContent,
+    );
   });
 
   test("temporary comment marks stay out of autosave and Back cancels the composer first", async ({
     page,
   }) => {
-    const originalContent = await readWikiContent("getting-started");
+    const originalContent = await readWikiContent(PAGE_IDS.gettingStarted);
     try {
       const firstBlock = page
         .getByTestId("wiki-editor-block")
@@ -1044,7 +1047,9 @@ test.describe("mobile wiki editing", () => {
         /^(idle|saved)$/,
         { timeout: 15_000 },
       );
-      expect(await readWikiContent("getting-started")).toBe(originalContent);
+      expect(await readWikiContent(PAGE_IDS.gettingStarted)).toBe(
+        originalContent,
+      );
 
       const editUrl = page.url();
       await page.goBack();
@@ -1058,7 +1063,7 @@ test.describe("mobile wiki editing", () => {
     } finally {
       await closePageAndRestoreWikiContent(
         page,
-        "getting-started",
+        PAGE_IDS.gettingStarted,
         originalContent,
       );
     }
@@ -1138,7 +1143,7 @@ test.describe("mobile wiki editing", () => {
     page,
   }) => {
     const content = `mobile-comment-${randomUUID().slice(0, 8)}`;
-    const originalContent = await readWikiContent("getting-started");
+    const originalContent = await readWikiContent(PAGE_IDS.gettingStarted);
     try {
       const firstBlock = page
         .getByTestId("wiki-editor-block")
@@ -1165,7 +1170,7 @@ test.describe("mobile wiki editing", () => {
     } finally {
       if (!page.isClosed()) await page.close();
       await deleteDiscussionsByContent(content);
-      await restoreWikiContent("getting-started", originalContent);
+      await restoreWikiContent(PAGE_IDS.gettingStarted, originalContent);
     }
   });
 
@@ -1505,11 +1510,11 @@ test.describe("mobile wiki editing", () => {
   test("deleting the inner block of a callout keeps a legal editable selection", async ({
     page,
   }) => {
-    const originalContent = await readWikiContent("rich-content-demo");
+    const originalContent = await readWikiContent(PAGE_IDS.richContent);
     const marker = `Callout remains editable ${randomUUID().slice(0, 8)}`;
 
     try {
-      await page.goto("/wiki/edit/rich-content-demo");
+      await page.goto(`/wiki/${PAGE_IDS.richContent}`);
       const editor = page.locator('[data-slate-editor="true"]');
       const calloutText = editor.getByText(
         "CUpedia is maintained by students — contribute freely.",
@@ -1540,7 +1545,7 @@ test.describe("mobile wiki editing", () => {
     } finally {
       await closePageAndRestoreWikiContent(
         page,
-        "rich-content-demo",
+        PAGE_IDS.richContent,
         originalContent,
       );
     }
@@ -1591,7 +1596,7 @@ test.describe("mobile wiki editing", () => {
   test("a Format command restores the text selection and returns focus to Plate", async ({
     page,
   }) => {
-    const originalContent = await readWikiContent("getting-started");
+    const originalContent = await readWikiContent(PAGE_IDS.gettingStarted);
     try {
       await selectText(page, "New to CUHK?");
       await page
@@ -1611,7 +1616,7 @@ test.describe("mobile wiki editing", () => {
     } finally {
       await closePageAndRestoreWikiContent(
         page,
-        "getting-started",
+        PAGE_IDS.gettingStarted,
         originalContent,
       );
     }
@@ -1694,7 +1699,7 @@ test.describe("mobile wiki editing", () => {
   test("a Turn into command converts the active block and restores editor focus", async ({
     page,
   }) => {
-    const originalContent = await readWikiContent("getting-started");
+    const originalContent = await readWikiContent(PAGE_IDS.gettingStarted);
     try {
       const firstBlock = page
         .getByTestId("wiki-editor-block")
@@ -1721,7 +1726,7 @@ test.describe("mobile wiki editing", () => {
     } finally {
       await closePageAndRestoreWikiContent(
         page,
-        "getting-started",
+        PAGE_IDS.gettingStarted,
         originalContent,
       );
     }

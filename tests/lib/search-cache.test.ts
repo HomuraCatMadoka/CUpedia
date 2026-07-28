@@ -12,7 +12,6 @@ const {
   mockDbUpdate,
   mockDbTransaction,
   mockDbQueryWikiPages,
-  mockDbQueryWikiPageAliases,
   mockDbQueryWikiRevisions,
   mockAssertContributorComplete,
   mockEq,
@@ -52,7 +51,6 @@ const {
     mockDbUpdate: vi.fn(),
     mockDbTransaction: vi.fn(),
     mockDbQueryWikiPages: { findFirst: vi.fn() },
-    mockDbQueryWikiPageAliases: { findFirst: vi.fn() },
     mockDbQueryWikiRevisions: { findFirst: vi.fn(), findMany: vi.fn() },
     mockAssertContributorComplete: vi.fn(async (user) => user),
     mockEq: vi.fn(),
@@ -71,7 +69,6 @@ vi.mock("@/db", () => ({
     transaction: (fn: (...a: unknown[]) => unknown) => mockDbTransaction(fn),
     query: {
       wikiPages: mockDbQueryWikiPages,
-      wikiPageAliases: mockDbQueryWikiPageAliases,
       wikiRevisions: mockDbQueryWikiRevisions,
     },
   },
@@ -80,7 +77,6 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   wikiPages: {
     id: "id",
-    slug: "slug",
     title: "title",
     content: "content",
     createdBy: "createdBy",
@@ -94,10 +90,6 @@ vi.mock("@/db/schema", () => ({
     id: "id",
     pageId: "pageId",
     createdAt: "createdAt",
-  },
-  wikiPageAliases: {
-    slug: "aliasSlug",
-    pageId: "aliasPageId",
   },
   wikiLinks: {
     sourceId: "sourceId",
@@ -133,10 +125,6 @@ vi.mock("@/lib/contributor-account", () => ({
   assertContributorComplete: mockAssertContributorComplete,
 }));
 
-vi.mock("@/lib/slug", () => ({
-  validateSlug: vi.fn().mockReturnValue(true),
-}));
-
 vi.mock("@/lib/plate-utils", async () => {
   const actual =
     await vi.importActual<typeof import("@/lib/plate-utils")>(
@@ -163,7 +151,6 @@ import {
 const mockPages = [
   {
     id: "1",
-    slug: "衣",
     title: "衣",
     content: JSON.stringify([
       { type: "p", children: [{ text: "需要穿正装的场合" }] },
@@ -171,7 +158,6 @@ const mockPages = [
   },
   {
     id: "2",
-    slug: "食",
     title: "觅食指南",
     content: JSON.stringify([{ type: "p", children: [{ text: "推荐美食" }] }]),
   },
@@ -182,7 +168,6 @@ beforeEach(() => {
   cacheStore.clear();
   mockDbQueryWikiPages.findFirst.mockReset();
   mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
-  mockDbQueryWikiPageAliases.findFirst.mockResolvedValue(undefined);
 });
 
 function makeHierarchyTx(ids = ["1"]) {
@@ -265,7 +250,6 @@ describe("cache invalidation — revalidateTag called", () => {
   it("returns the existing page when one client create UUID is retried", async () => {
     const existing = {
       id: clientPageId,
-      slug: clientPageId,
       title: "",
       content: "",
       createdBy: "user-1",
@@ -306,7 +290,6 @@ describe("cache invalidation — revalidateTag called", () => {
                 returning: vi.fn().mockResolvedValue([
                   {
                     id: clientPageId,
-                    slug: clientPageId,
                     title: "",
                     content: expect.any(String),
                     createdBy: "user-1",
@@ -328,7 +311,6 @@ describe("cache invalidation — revalidateTag called", () => {
     expect(insertedValues).toHaveLength(2);
     expect(insertedValues[0]).toMatchObject({
       id: clientPageId,
-      slug: clientPageId,
       title: "",
       createdBy: "user-1",
     });
@@ -357,7 +339,7 @@ describe("cache invalidation — revalidateTag called", () => {
 
     await expect(
       updateWikiPage({
-        slug: "test",
+        pageId: "1",
         title: "Test",
         content: "content",
         expectedVersion: 1,
@@ -390,7 +372,7 @@ describe("cache invalidation — revalidateTag called", () => {
             values: vi.fn().mockReturnValue({
               returning: vi
                 .fn()
-                .mockResolvedValue([{ id: "new-1", slug: "t", title: "T" }]),
+                .mockResolvedValue([{ id: "new-1", title: "T" }]),
             }),
           }),
           delete: vi.fn().mockReturnValue({
@@ -409,31 +391,11 @@ describe("cache invalidation — revalidateTag called", () => {
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
   });
 
-  it("keeps historical aliases reserved when creating a page", async () => {
-    const insert = vi.fn();
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ slugTaken: true }] });
-    mockDbTransaction.mockImplementation(
-      async (fn: (...a: unknown[]) => unknown) => fn({ execute, insert }),
-    );
-
-    await expect(
-      createWikiPage({
-        id: clientPageId,
-        title: "Replacement",
-        content: "content",
-      }),
-    ).rejects.toThrow("Slug already exists");
-    expect(insert).not.toHaveBeenCalled();
-  });
-
   // Build a transaction mock for writeWikiPage. `latestRevision` is what the
   // "most recent revision" select returns; the update/insert spies let a test
   // assert whether the write coalesced (updates the revision) or inserted a new
   // one. See ADR 0009.
-  function makeWriteTx(latestRevision: unknown, currentSlug = "test") {
+  function makeWriteTx(latestRevision: unknown) {
     const set = vi.fn().mockReturnValue({
       where: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([
@@ -466,7 +428,7 @@ describe("cache invalidation — revalidateTag called", () => {
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([{ slug: currentSlug }]),
+            limit: vi.fn().mockResolvedValue([]),
             orderBy: vi.fn().mockReturnValue({
               limit: vi
                 .fn()
@@ -482,7 +444,6 @@ describe("cache invalidation — revalidateTag called", () => {
   it("updateWikiPage calls revalidateTag", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       updatedAt: new Date("2024-01-01"),
       version: 1,
     });
@@ -491,7 +452,7 @@ describe("cache invalidation — revalidateTag called", () => {
     );
 
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "Updated",
       content: "new",
       expectedVersion: 1,
@@ -503,7 +464,6 @@ describe("cache invalidation — revalidateTag called", () => {
   it("uses the integer version for CAS and advances it atomically", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       title: "Test",
       updatedAt: new Date("2024-01-01T00:00:00.123456Z"),
       version: 7,
@@ -517,7 +477,7 @@ describe("cache invalidation — revalidateTag called", () => {
     );
 
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "Test",
       content: "new",
       expectedVersion: 7,
@@ -543,7 +503,6 @@ describe("cache invalidation — revalidateTag called", () => {
   it("validates a parent move under the hierarchy lock in the write transaction", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       title: "Test",
       parentId: null,
       updatedAt: new Date("2024-01-01"),
@@ -561,7 +520,7 @@ describe("cache invalidation — revalidateTag called", () => {
     );
 
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "Test",
       content: "new",
       parentId: "parent-2",
@@ -573,71 +532,6 @@ describe("cache invalidation — revalidateTag called", () => {
     expect(execute.mock.invocationCallOrder[1]).toBeLessThan(
       spies.update.mock.invocationCallOrder[0],
     );
-  });
-
-  it("rejects a rename to another page's historical alias before writing", async () => {
-    mockDbQueryWikiPages.findFirst.mockResolvedValue({
-      id: "1",
-      slug: "test",
-      title: "Test",
-      parentId: null,
-      updatedAt: new Date("2024-01-01"),
-      version: 1,
-    });
-    const spies = makeWriteTx(null);
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ slugTaken: true }] });
-    mockDbTransaction.mockImplementation(
-      async (fn: (...a: unknown[]) => unknown) => fn({ ...spies.tx, execute }),
-    );
-
-    await expect(
-      updateWikiPage({
-        slug: "test",
-        nextSlug: "old-guide",
-        title: "Test",
-        content: "new",
-        expectedVersion: 1,
-        expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
-      }),
-    ).rejects.toThrow("Slug already exists");
-    expect(spies.update).not.toHaveBeenCalled();
-  });
-
-  it("records the transaction-current slug as the rename alias", async () => {
-    mockDbQueryWikiPages.findFirst.mockResolvedValue({
-      id: "1",
-      slug: "preflight-slug",
-      title: "Test",
-      parentId: null,
-      updatedAt: new Date("2024-01-01"),
-      version: 1,
-    });
-    const spies = makeWriteTx(null, "transaction-current-slug");
-    const execute = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ slugTaken: false }] });
-    mockDbTransaction.mockImplementation(
-      async (fn: (...a: unknown[]) => unknown) => fn({ ...spies.tx, execute }),
-    );
-
-    await updateWikiPage({
-      pageId: "1",
-      slug: "stale-client-slug",
-      nextSlug: "renamed-slug",
-      title: "Test",
-      content: "new",
-      expectedVersion: 1,
-      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
-    });
-
-    expect(spies.insertedValues).toContainEqual({
-      slug: "transaction-current-slug",
-      pageId: "1",
-    });
   });
 
   it("rejects a deleted parent before inserting a page", async () => {
@@ -666,7 +560,6 @@ describe("cache invalidation — revalidateTag called", () => {
   it("updateWikiPage coalesces a same-author edit within the window (updates the latest revision, no insert)", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       updatedAt: new Date("2024-01-01"),
       version: 1,
     });
@@ -684,7 +577,7 @@ describe("cache invalidation — revalidateTag called", () => {
     );
 
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "Updated",
       content: "new",
       expectedVersion: 1,
@@ -699,7 +592,6 @@ describe("cache invalidation — revalidateTag called", () => {
   it("updateWikiPage opens a new revision for a different author (inserts, does not coalesce)", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       updatedAt: new Date("2024-01-01"),
       version: 1,
     });
@@ -717,7 +609,7 @@ describe("cache invalidation — revalidateTag called", () => {
     );
 
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "Updated",
       content: "new",
       expectedVersion: 1,
@@ -775,7 +667,6 @@ describe("cache invalidation — revalidateTag called", () => {
     });
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
     });
     const set = vi.fn().mockReturnValue({
       where: vi.fn().mockResolvedValue(undefined),
@@ -851,7 +742,7 @@ describe("search corpus refresh — structural vs content", () => {
             values: vi.fn().mockReturnValue({
               returning: vi
                 .fn()
-                .mockResolvedValue([{ id: "new-1", slug: "t", title: "T" }]),
+                .mockResolvedValue([{ id: "new-1", title: "T" }]),
             }),
           }),
           delete: vi.fn().mockReturnValue({
@@ -890,7 +781,6 @@ describe("search corpus refresh — structural vs content", () => {
   it("updateWikiPage refreshes the corpus when the title changes", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       title: "Old title",
       updatedAt: new Date("2024-01-01"),
       version: 1,
@@ -899,7 +789,7 @@ describe("search corpus refresh — structural vs content", () => {
       async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx()),
     );
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "New title",
       content: "new",
       expectedVersion: 1,
@@ -911,7 +801,6 @@ describe("search corpus refresh — structural vs content", () => {
   it("updateWikiPage does NOT refresh the corpus for a content-only edit (same title)", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       title: "Same title",
       updatedAt: new Date("2024-01-01"),
       version: 1,
@@ -920,7 +809,7 @@ describe("search corpus refresh — structural vs content", () => {
       async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx()),
     );
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "Same title",
       content: "different body",
       expectedVersion: 1,
@@ -938,7 +827,6 @@ describe("search corpus refresh — structural vs content", () => {
     });
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       title: "Current",
     });
     const rollbackTx = makeWriteTx();
@@ -962,7 +850,6 @@ describe("search corpus refresh — structural vs content", () => {
     });
     mockDbQueryWikiPages.findFirst.mockResolvedValue({
       id: "1",
-      slug: "test",
       title: "Same",
     });
     mockDbTransaction.mockImplementation(
@@ -997,14 +884,12 @@ describe("search corpus refresh — structural vs content", () => {
       return call === 1
         ? {
             id: "1",
-            slug: "test",
             title: "A",
             content: PLATE("shared"),
             version: 1,
           }
         : {
             id: "1",
-            slug: "test",
             title: "B", // Y renamed A→B after X loaded the page
             content: PLATE("shared"),
             updatedAt: new Date("2024-01-02"),
@@ -1025,7 +910,7 @@ describe("search corpus refresh — structural vs content", () => {
       },
     );
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "A", // unchanged vs pre-conflict baseline, but differs from latest "B"
       baseTitle: "A",
       content: PLATE("X body edit"),
@@ -1048,14 +933,12 @@ describe("search corpus refresh — structural vs content", () => {
       return call === 1
         ? {
             id: "1",
-            slug: "test",
             title: "A",
             content: PLATE("shared"),
             version: 1,
           }
         : {
             id: "1",
-            slug: "test",
             title: "A", // concurrent write was content-only
             content: PLATE("shared"),
             updatedAt: new Date("2024-01-02"),
@@ -1071,7 +954,7 @@ describe("search corpus refresh — structural vs content", () => {
       },
     );
     await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "A",
       content: PLATE("X body edit"),
       baseContent: PLATE("shared"),
@@ -1086,7 +969,6 @@ describe("search corpus refresh — structural vs content", () => {
     const pages = [
       {
         id: "1",
-        slug: "test",
         title: "A",
         content: PLATE("shared"),
         parentId: null,
@@ -1096,7 +978,6 @@ describe("search corpus refresh — structural vs content", () => {
       },
       {
         id: "1",
-        slug: "test",
         title: "A",
         icon: null,
         content: PLATE("rolled back"),
@@ -1114,7 +995,7 @@ describe("search corpus refresh — structural vs content", () => {
     );
 
     const result = await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "A",
       content: PLATE("my old-generation edit"),
       baseContent: PLATE("shared"),
@@ -1135,7 +1016,6 @@ describe("search corpus refresh — structural vs content", () => {
     const pages = [
       {
         id: "1",
-        slug: "test",
         title: "A",
         content: PLATE("shared"),
         parentId: null,
@@ -1144,7 +1024,6 @@ describe("search corpus refresh — structural vs content", () => {
       },
       {
         id: "1",
-        slug: "test",
         title: "A",
         content: PLATE("shared"),
         parentId: null,
@@ -1153,7 +1032,6 @@ describe("search corpus refresh — structural vs content", () => {
       },
       {
         id: "1",
-        slug: "test",
         title: "C",
         icon: null,
         content: PLATE("third writer"),
@@ -1170,7 +1048,7 @@ describe("search corpus refresh — structural vs content", () => {
     );
 
     const result = await updateWikiPage({
-      slug: "test",
+      pageId: "1",
       title: "A",
       content: PLATE("my edit"),
       baseContent: PLATE("shared"),
@@ -1189,12 +1067,11 @@ describe("search corpus refresh — structural vs content", () => {
 
 describe("read caching — getWikiTree & getWikiPage", () => {
   const treeData = [
-    { id: "1", slug: "guide", title: "Guide", parentId: null, sortOrder: 0 },
-    { id: "2", slug: "faq", title: "FAQ", parentId: null, sortOrder: 1 },
+    { id: "1", title: "Guide", parentId: null, sortOrder: 0 },
+    { id: "2", title: "FAQ", parentId: null, sortOrder: 1 },
   ];
   const pageData = {
     id: "1",
-    slug: "guide",
     title: "Guide",
     content: "# Guide",
     createdByUser: { nickname: "test" },
@@ -1229,10 +1106,10 @@ describe("read caching — getWikiTree & getWikiPage", () => {
     expect(result).toEqual(treeData);
   });
 
-  it("getWikiPage returns page by slug", async () => {
-    mockDbQueryWikiPages.findFirst.mockResolvedValue(pageData);
+  it("getWikiPage rejects a legacy slug without querying the database", async () => {
     const result = await getWikiPage("guide");
-    expect(result).toEqual(pageData);
+    expect(result).toBeNull();
+    expect(mockDbQueryWikiPages.findFirst).not.toHaveBeenCalled();
   });
 
   it("getWikiPage resolves a canonical UUID directly by page ID", async () => {
@@ -1243,34 +1120,11 @@ describe("read caching — getWikiTree & getWikiPage", () => {
 
     expect(result).toEqual(pageData);
     expect(mockEq).toHaveBeenCalledWith("id", pageId);
-    expect(mockDbQueryWikiPageAliases.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("falls back to a UUID-shaped legacy slug when no page has that ID", async () => {
-    const legacySlug = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-    mockDbQueryWikiPages.findFirst
-      .mockResolvedValueOnce(undefined)
-      .mockResolvedValueOnce(pageData);
-
-    const result = await getWikiPage(legacySlug);
-
-    expect(result).toEqual(pageData);
-    expect(mockDbQueryWikiPages.findFirst).toHaveBeenCalledTimes(2);
-    expect(mockEq).toHaveBeenNthCalledWith(1, "id", legacySlug);
-    expect(mockEq).toHaveBeenNthCalledWith(2, "slug", legacySlug);
-    expect(mockDbQueryWikiPageAliases.findFirst).not.toHaveBeenCalled();
-  });
-
-  it("getWikiPage resolves an old slug through its stable alias", async () => {
-    mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
-    mockDbQueryWikiPageAliases.findFirst.mockResolvedValue({ page: pageData });
-    const result = await getWikiPage("old-guide");
-    expect(result).toEqual(pageData);
   });
 
   it("getWikiPage returns null for missing page", async () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
-    const result = await getWikiPage("nonexistent");
+    const result = await getWikiPage("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(result).toBeNull();
   });
 

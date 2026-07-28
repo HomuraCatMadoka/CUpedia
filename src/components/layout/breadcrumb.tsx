@@ -6,7 +6,7 @@ export function Breadcrumb({
   pages,
   currentPageId,
 }: {
-  pages: { id: string; slug: string; title: string; parentId: string | null }[];
+  pages: { id: string; title: string; parentId: string | null }[];
   currentPageId: string;
 }) {
   const crumbs = buildBreadcrumb(pages, currentPageId);
