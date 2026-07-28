@@ -5,35 +5,46 @@ import { AchievementAvatar } from "@/components/user/achievement-avatar";
 import type { PublicAchievementSummary } from "@/lib/achievement-profile";
 import type { EquippedPersonTitle } from "@/lib/user-avatar";
 
-export function CourseReviewAuthorIdentity({
-  nickname,
-  showcaseId,
-  achievements = [],
-  avatarUrl,
-  equippedTitle,
-  achievementLabel = "",
-  variant = "review",
-}: {
+type CourseReviewAuthorIdentityProps = {
   nickname: string | null;
   showcaseId: string | null;
-  achievements?: PublicAchievementSummary[];
-  avatarUrl?: string | null;
-  equippedTitle?: EquippedPersonTitle | null;
-  achievementLabel?: string;
-  variant?: "review" | "reply";
-}) {
-  const sortedAchievements = [...achievements].sort((a, b) => {
-    const tierOrder = { gold: 0, silver: 1, bronze: 2 };
-    return (
-      tierOrder[a.tier] - tierOrder[b.tier] ||
-      Number(b.primary) - Number(a.primary) ||
-      a.badgeCode.localeCompare(b.badgeCode)
-    );
-  });
+} & (
+  | {
+      achievements: PublicAchievementSummary[];
+      avatarUrl: string | null | undefined;
+      equippedTitle: EquippedPersonTitle | null | undefined;
+      achievementLabel: string;
+      variant?: "review";
+    }
+  | {
+      achievements?: never;
+      avatarUrl?: never;
+      equippedTitle?: never;
+      achievementLabel?: never;
+      variant: "reply";
+    }
+);
 
-  if (variant === "review") {
+export function CourseReviewAuthorIdentity(
+  props: CourseReviewAuthorIdentityProps,
+) {
+  const { nickname, showcaseId } = props;
+
+  if (props.variant !== "reply") {
+    const sortedAchievements = [...props.achievements].sort((a, b) => {
+      const tierOrder = { gold: 0, silver: 1, bronze: 2 };
+      return (
+        tierOrder[a.tier] - tierOrder[b.tier] ||
+        Number(b.primary) - Number(a.primary) ||
+        a.badgeCode.localeCompare(b.badgeCode)
+      );
+    });
     const avatar = (
-      <AchievementAvatar image={avatarUrl} size="sm" title={equippedTitle} />
+      <AchievementAvatar
+        image={props.avatarUrl}
+        size="sm"
+        title={props.equippedTitle}
+      />
     );
     return (
       <div
@@ -68,7 +79,7 @@ export function CourseReviewAuthorIdentity({
           </span>
           {sortedAchievements.length > 0 && (
             <div
-              aria-label={achievementLabel}
+              aria-label={props.achievementLabel}
               className="mt-1 flex flex-wrap items-end gap-1"
             >
               {sortedAchievements.map((achievement) => (
