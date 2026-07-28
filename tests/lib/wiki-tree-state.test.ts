@@ -10,7 +10,6 @@ import {
 const pages: WikiTreePage[] = [
   {
     id: "root",
-    slug: "root",
     title: "Root",
     icon: null,
     parentId: null,
@@ -18,7 +17,6 @@ const pages: WikiTreePage[] = [
   },
   {
     id: "child",
-    slug: "child",
     title: "Child",
     icon: null,
     parentId: "root",
@@ -26,7 +24,6 @@ const pages: WikiTreePage[] = [
   },
   {
     id: "grandchild",
-    slug: "grandchild",
     title: "Grandchild",
     icon: null,
     parentId: "child",

@@ -52,12 +52,10 @@ export async function WikiPageEditor({
   canDelete?: boolean;
 }) {
   const pageId = page.id;
-  const pageSlug = page.slug;
   const discussions = await getDiscussions(pageId);
   const excludedParentIds = collectDescendantIds(pages, pageId);
 
   async function handleUpdate(data: {
-    slug: string;
     title: string;
     icon?: string | null;
     content: string;
@@ -69,15 +67,12 @@ export async function WikiPageEditor({
     baseTitle?: string;
     baseIcon?: string | null;
     baseContent?: string;
-    baseSlug?: string;
     baseParentId?: string | null;
   }) {
     "use server";
     try {
       const updated = await updateWikiPage({
         pageId,
-        slug: pageSlug,
-        nextSlug: data.slug,
         title: data.title,
         icon: data.icon,
         content: data.content,
@@ -89,7 +84,6 @@ export async function WikiPageEditor({
         baseTitle: data.baseTitle,
         baseIcon: data.baseIcon,
         baseContent: data.baseContent,
-        baseSlug: data.baseSlug,
         baseParentId: data.baseParentId,
       });
       if ("conflict" in updated) {
@@ -98,7 +92,6 @@ export async function WikiPageEditor({
           theirContent: updated.theirContent,
           theirTitle: updated.theirTitle,
           theirIcon: updated.theirIcon,
-          theirSlug: updated.theirSlug,
           theirParentId: updated.theirParentId,
           theirVersion: updated.theirVersion,
           theirContentGeneration: updated.theirContentGeneration,
@@ -107,7 +100,6 @@ export async function WikiPageEditor({
       }
       return {
         id: updated.id,
-        slug: updated.slug,
         parentId: updated.parentId,
         title: updated.title,
         icon: updated.icon,
@@ -139,7 +131,6 @@ export async function WikiPageEditor({
         resolveWikiLinkUrls(parseContent(page.content), pages),
         page.title,
       )}
-      initialSlug={page.slug}
       parentId={page.parentId}
       expectedVersion={page.version}
       expectedContentGeneration={page.contentGeneration}
@@ -148,7 +139,6 @@ export async function WikiPageEditor({
         .filter((candidate) => !excludedParentIds.has(candidate.id))
         .map((candidate) => ({
           id: candidate.id,
-          slug: candidate.slug,
           title: candidate.title,
           icon: candidate.icon,
         }))}

@@ -7,7 +7,6 @@ export interface EditConflict {
   theirContent: string;
   theirTitle: string;
   theirIcon: string | null;
-  theirSlug: string;
   theirParentId: string | null;
   theirVersion: number;
   theirContentGeneration: number;

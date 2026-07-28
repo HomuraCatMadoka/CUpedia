@@ -4,8 +4,8 @@ import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 import { createUntitledWikiPage, wikiPageUrl } from "./helpers/wiki";
 
-const slug = `lifecycle-${randomUUID().slice(0, 8)}`;
-const title = `Lifecycle ${slug}`;
+const fixtureToken = `lifecycle-${randomUUID().slice(0, 8)}`;
+const title = `Lifecycle ${fixtureToken}`;
 const first = `first-${randomUUID()}`;
 const second = `second-${randomUUID()}`;
 let createdPageId = "";
@@ -57,7 +57,7 @@ test.afterAll(async () => {
   }
 });
 
-test("page lifecycle: create, edit, rollback, delete, and restore", async ({
+test("#451 admin UI page lifecycle: create, read, update, delete, and restore", async ({
   page,
   browser,
 }) => {
@@ -66,6 +66,7 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   await createUntitledWikiPage(page);
   const pageId = new URL(page.url()).pathname.split("/").at(-1)!;
   createdPageId = pageId;
+  await expect(page.getByText("Invalid slug", { exact: true })).toHaveCount(0);
   await page.getByLabel("标题").fill(title);
   await page.getByRole("button", { name: "页面设置" }).click();
   const createSettings = page.getByRole("dialog", { name: "页面设置" });
@@ -78,7 +79,21 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   await page.keyboard.press("Control+s");
   await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText(first)).toBeVisible();
+  await expect(page.getByText("Invalid slug", { exact: true })).toHaveCount(0);
   expect(await revisionCount(pageId)).toBe(2);
+
+  const initialPublicContext = await browser.newContext();
+  const initialPublicPage = await initialPublicContext.newPage();
+  await initialPublicPage.goto(`/wiki/${pageId}`);
+  await expect(
+    initialPublicPage.getByRole("heading", { name: title }),
+  ).toBeVisible();
+  await expect(initialPublicPage.getByText(first)).toBeVisible();
+  await expect(initialPublicPage.getByTestId("wiki-editor-shell")).toHaveCount(
+    0,
+  );
+  await initialPublicContext.close();
+
   await query(
     "update wiki_revisions set created_at = now() - interval '10 minutes' where page_id = $1",
     [pageId],

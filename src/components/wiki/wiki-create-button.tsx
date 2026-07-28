@@ -35,7 +35,6 @@ export function WikiCreateButton({
     const mutationToken =
       wikiTree?.projectUpsert({
         id,
-        slug: id,
         title: "",
         icon: null,
         parentId: parentId ?? null,
@@ -44,7 +43,6 @@ export function WikiCreateButton({
       const page = await createWikiPage({ id, parentId });
       wikiTree?.confirm(mutationToken, {
         id: page.id,
-        slug: page.slug,
         title: page.title,
         icon: page.icon,
         parentId: page.parentId,

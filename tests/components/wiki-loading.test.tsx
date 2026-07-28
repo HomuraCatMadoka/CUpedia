@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { renderToString } from "react-dom/server";
-import Loading from "@/app/(main)/wiki/[...slug]/loading";
+import Loading from "@/app/(main)/wiki/[...id]/loading";
 
 describe("wiki read-page loading skeleton (#137, ADR 0010)", () => {
   const html = renderToString(<Loading />);

@@ -1,6 +1,5 @@
 export interface WikiTreePage {
   id: string;
-  slug: string;
   title: string;
   icon: string | null;
   parentId: string | null;

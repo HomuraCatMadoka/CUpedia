@@ -30,22 +30,14 @@ export default async function HistoryPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ id: string[] }>;
   searchParams: Promise<{ view?: string; diff?: string; with?: string }>;
 }) {
-  const { slug: slugParts } = await params;
-  const identifier = slugParts.map(decodeURIComponent).join("/");
+  const { id: idParts } = await params;
+  const identifier = idParts.map(decodeURIComponent).join("/");
   const sp = await searchParams;
   const page = await getWikiPage(identifier);
   if (!page) notFound();
-  if (page.id !== identifier) {
-    const query = new URLSearchParams();
-    if (sp.view) query.set("view", sp.view);
-    if (sp.diff) query.set("diff", sp.diff);
-    if (sp.with) query.set("with", sp.with);
-    const suffix = query.size > 0 ? `?${query}` : "";
-    redirect(`/wiki/history/${page.id}${suffix}`);
-  }
   const pageId = page.id;
 
   const { canEdit } = await getViewerEditContext();

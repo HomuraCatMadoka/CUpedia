@@ -23,7 +23,6 @@ import {
 
 export type WikiLinkPage = {
   id: string;
-  slug: string;
   title: string;
   icon?: string | null;
 };
@@ -96,7 +95,6 @@ export function WikiLinkInputElement(
               <InlineComboboxItem
                 key={page.id}
                 value={getWikiDisplayTitle(page.title)}
-                keywords={[page.slug]}
                 onClick={() => insertWikiLink(editor, page)}
                 className="mx-[10px] h-11 gap-3 rounded-md px-3 text-[16px] transition-none data-[active-item=true]:bg-black/[0.075] dark:data-[active-item=true]:bg-white/10"
               >

@@ -19,8 +19,7 @@ dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
 const ADMIN_ID = "00000000-0000-4000-a000-000000000001";
 // Fixture ids live in a high range the seed never touches (seed pages use
-// ...c000-0001‥0008). Reusing a seed id would make the `on conflict (id)`
-// upsert below keep the seed row's slug, so /wiki/annotated would 404.
+// ...c000-0001‥0008).
 const PAGE_ID = "00000000-0000-4000-c000-0000000000e8";
 const REV_ID = "00000000-0000-4000-d000-0000000000e8";
 const DISCUSSION_ID = "00000000-0000-4000-e000-0000000000e8";
@@ -43,8 +42,8 @@ async function ensureFixture() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   try {
     await pool.query(
-      `insert into wiki_pages (id, slug, title, content, parent_id, sort_order, created_by, updated_by)
-       values ($1,'annotated','Annotated Page',$2,null,3,$3,$3)
+      `insert into wiki_pages (id, title, content, parent_id, sort_order, created_by, updated_by)
+       values ($1,'Annotated Page',$2,null,3,$3,$3)
        on conflict (id) do update set content = excluded.content, deleted_at = null`,
       [PAGE_ID, CONTENT, ADMIN_ID],
     );
@@ -71,11 +70,8 @@ test.beforeEach(async () => {
 test.describe("#88 read path: static render + clickable annotations", () => {
   test("renders body and keeps inline annotation clickable", async ({
     page,
-    baseURL,
   }) => {
-    await loginAsAdmin(page, baseURL!);
-
-    await page.goto("/wiki/annotated");
+    await page.goto(`/wiki/${PAGE_ID}`);
 
     // Body rendered via static Plate.
     await expect(page.getByText("annotated phrase")).toBeVisible();
@@ -94,7 +90,7 @@ test.describe("#88 read path: static render + clickable annotations", () => {
   test("read page does not mount the editable Slate surface", async ({
     page,
   }) => {
-    await page.goto("/wiki/annotated");
+    await page.goto(`/wiki/${PAGE_ID}`);
     await expect(page.getByText("annotated phrase")).toBeVisible();
 
     // Static render emits no contenteditable editing surface.
@@ -108,19 +104,19 @@ test.describe("#88 read path: static render + clickable annotations", () => {
     // Measure JS bytes on a fresh context per route so neither run reuses the
     // other's chunk cache. The read page renders via Plate static; the edit
     // page mounts the full editor — the #88 win is the read page shipping less.
-    const measureJs = async (path: string) => {
+    const measureJs = async (editable: boolean) => {
       const context = await browser.newContext();
       const page = await context.newPage();
-      if (path.includes("/edit/")) await loginAsAdmin(page, baseURL!);
+      if (editable) await loginAsAdmin(page, baseURL!);
       const jsResponses: Response[] = [];
       page.on("response", (res) => {
         if ((res.headers()["content-type"] ?? "").includes("javascript")) {
           jsResponses.push(res);
         }
       });
-      await page.goto(path);
+      await page.goto(`/wiki/${PAGE_ID}`);
       await expect(
-        path.includes("/edit/")
+        editable
           ? page.locator('[role="textbox"]').first()
           : page.getByText("annotated phrase"),
       ).toBeVisible();
@@ -136,8 +132,8 @@ test.describe("#88 read path: static render + clickable annotations", () => {
       return bytes;
     };
 
-    const read = await measureJs("/wiki/annotated");
-    const edit = await measureJs("/wiki/edit/annotated");
+    const read = await measureJs(false);
+    const edit = await measureJs(true);
 
     expect(read).toBeLessThan(edit);
   });

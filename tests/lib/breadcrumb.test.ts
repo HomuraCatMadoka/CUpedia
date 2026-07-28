@@ -3,21 +3,19 @@ import { buildBreadcrumb } from "@/lib/breadcrumb";
 
 type TreePage = {
   id: string;
-  slug: string;
   title: string;
   parentId: string | null;
 };
 
 const pages: TreePage[] = [
-  { id: "1", slug: "guide", title: "CU 全港觅食指南⭐⭐⭐", parentId: null },
-  { id: "2", slug: "guide/late-night", title: "后半夜觅食", parentId: "1" },
+  { id: "1", title: "CU 全港觅食指南⭐⭐⭐", parentId: null },
+  { id: "2", title: "后半夜觅食", parentId: "1" },
   {
     id: "3",
-    slug: "guide/late-night/tips",
     title: "小贴士",
     parentId: "2",
   },
-  { id: "4", slug: "canteen", title: "校内觅食", parentId: null },
+  { id: "4", title: "校内觅食", parentId: null },
 ];
 
 describe("buildBreadcrumb", () => {
@@ -38,7 +36,7 @@ describe("buildBreadcrumb", () => {
     ]);
   });
 
-  it("returns empty array for unknown slug", () => {
+  it("returns empty array for unknown page ID", () => {
     expect(buildBreadcrumb(pages, "nonexistent")).toEqual([]);
   });
 });

@@ -80,7 +80,8 @@ test.describe("#448 Notion-style page creation", () => {
     );
 
     await page.goto("/wiki/new");
-    await expect(page).toHaveURL(/\/wiki$/);
+    await expect(page).toHaveURL(/\/wiki\/new$/);
+    await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
 
     const after = await query<{ count: string }>(
       "select count(*)::text as count from wiki_pages",

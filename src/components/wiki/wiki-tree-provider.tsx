@@ -30,7 +30,6 @@ const WikiTreeContext = createContext<WikiTreeContextValue | null>(null);
 
 function samePage(left: WikiTreePage, right: WikiTreePage) {
   return (
-    left.slug === right.slug &&
     left.title === right.title &&
     left.icon === right.icon &&
     left.parentId === right.parentId &&
@@ -61,7 +60,6 @@ export function WikiTreeProvider({
       const current = pages.find((page) => page.id === patch.id);
       const page: WikiTreePage = {
         id: patch.id,
-        slug: patch.slug ?? current?.slug ?? patch.id,
         title: patch.title ?? current?.title ?? "",
         icon: patch.icon !== undefined ? patch.icon : (current?.icon ?? null),
         parentId:

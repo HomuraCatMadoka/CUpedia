@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { randomUUID } from "node:crypto";
 import { loginAsAdmin } from "./helpers/auth";
 import { PAGE_IDS } from "../scripts/seed-data";
 import { wikiPageUrl } from "./helpers/wiki";
@@ -21,9 +22,9 @@ import { wikiPageUrl } from "./helpers/wiki";
  *      calls `preventDefault()` while dirty, so a tab close / reload prompts.
  */
 
-const CONFLICT_SLUG = "campus-life";
+const CONFLICT_PAGE_ID = PAGE_IDS.campusLife;
 
-async function insertPageWithMicrosecondTimestamp(slug: string) {
+async function insertPageWithMicrosecondTimestamp() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is required");
 
@@ -40,15 +41,16 @@ async function insertPageWithMicrosecondTimestamp(slug: string) {
     const content = JSON.stringify([
       { type: "p", children: [{ text: "Imported baseline" }] },
     ]);
+    const pageId = randomUUID();
     const { rows: pages } = await client.query<{ id: string; version: number }>(
       `insert into wiki_pages (
-        slug, title, content, created_by, updated_by, updated_at
+        id, title, content, created_by, updated_by, updated_at
       ) values (
         $1, $2, $3, $4, $4,
         date_trunc('milliseconds', clock_timestamp()) + interval '456 microseconds'
       )
       returning id, version`,
-      [slug, "Imported timestamp page", content, admin.id],
+      [pageId, "Imported timestamp page", content, admin.id],
     );
     const inserted = pages[0];
     if (!inserted) throw new Error("Page insert failed");
@@ -65,7 +67,7 @@ async function insertPageWithMicrosecondTimestamp(slug: string) {
   }
 }
 
-async function updatePageAsLegacyDeployment(slug: string) {
+async function updatePageAsLegacyDeployment(pageId: string) {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is required");
 
@@ -78,9 +80,9 @@ async function updatePageAsLegacyDeployment(slug: string) {
     const { rows } = await client.query<{ version: number }>(
       `update wiki_pages
        set content = $2, updated_at = updated_at + interval '1 second'
-       where slug = $1
+       where id = $1
        returning version`,
-      [slug, content],
+      [pageId, content],
     );
     const updated = rows[0];
     if (!updated) throw new Error("Legacy page update failed");
@@ -106,7 +108,7 @@ test.describe("#94 editor reliability", () => {
   });
 
   test("autosave shows 已保存 after debounce", async ({ page }) => {
-    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await page.goto(`/wiki/${PAGE_IDS.welcome}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -128,10 +130,9 @@ test.describe("#94 editor reliability", () => {
   test("page with a database microsecond timestamp saves without a false conflict", async ({
     page,
   }) => {
-    const slug = `db-timestamp-${Date.now()}`;
-    const pageId = await insertPageWithMicrosecondTimestamp(slug);
+    const pageId = await insertPageWithMicrosecondTimestamp();
 
-    await page.goto(`/wiki/edit/${slug}`);
+    await page.goto(`/wiki/${pageId}`);
     const marker = `first-save-${Date.now()}`;
     await typeMarker(page, marker);
     await page.keyboard.press("Control+s");
@@ -145,12 +146,11 @@ test.describe("#94 editor reliability", () => {
   test("a legacy deployment write invalidates the new editor baseline", async ({
     page,
   }) => {
-    const slug = `legacy-writer-${Date.now()}`;
-    await insertPageWithMicrosecondTimestamp(slug);
-    await page.goto(`/wiki/edit/${slug}`);
+    const pageId = await insertPageWithMicrosecondTimestamp();
+    await page.goto(`/wiki/${pageId}`);
     await expect(page.locator('[role="textbox"]').first()).toBeVisible();
 
-    await updatePageAsLegacyDeployment(slug);
+    await updatePageAsLegacyDeployment(pageId);
     await typeMarker(page, `new-client-${Date.now()}`);
     await page.keyboard.press("Control+s");
 
@@ -182,7 +182,7 @@ test.describe("#94 editor reliability", () => {
   });
 
   test("Cmd/Ctrl+S triggers a save", async ({ page }) => {
-    await page.goto(`/wiki/edit/${PAGE_IDS.gettingStarted}`);
+    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -203,7 +203,7 @@ test.describe("#94 editor reliability", () => {
   });
 
   test("unsaved changes arm the beforeunload guard", async ({ page }) => {
-    await page.goto(`/wiki/edit/${PAGE_IDS.welcome}`);
+    await page.goto(`/wiki/${PAGE_IDS.welcome}`);
     // Type and wait until dirty so use-autosave has attached its beforeunload
     // listener (it only registers while `isDirty`).
     await typeMarker(page, "beforeunload-" + Date.now());
@@ -233,13 +233,13 @@ test.describe("#96 edit conflict merge flow", () => {
     const ctxA = await browser.newContext();
     const pageA = await ctxA.newPage();
     await loginAsAdmin(pageA);
-    await pageA.goto(`/wiki/edit/${CONFLICT_SLUG}`);
+    await pageA.goto(`/wiki/${CONFLICT_PAGE_ID}`);
     await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
 
     const ctxB = await browser.newContext();
     const pageB = await ctxB.newPage();
     await loginAsAdmin(pageB);
-    await pageB.goto(`/wiki/edit/${CONFLICT_SLUG}`);
+    await pageB.goto(`/wiki/${CONFLICT_PAGE_ID}`);
 
     // Session B commits an overlapping change, advancing the server copy past
     // A's baseline.

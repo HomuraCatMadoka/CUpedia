@@ -456,7 +456,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto(`/wiki/edit/${PAGE_IDS.dining}`);
+    await page.goto(`/wiki/${PAGE_IDS.dining}`);
 
     const nav = page.getByRole("navigation", { name: "Wiki 页面树" });
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
@@ -533,7 +533,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     const retainedChildIds = await childPageIds(PAGE_IDS.campusLife);
     await loginAsAdmin(page);
     try {
-      await page.goto(`/wiki/edit/${PAGE_IDS.dining}`);
+      await page.goto(`/wiki/${PAGE_IDS.dining}`);
 
       const campusRow = page
         .getByRole("tree", { name: "Wiki 页面层级" })

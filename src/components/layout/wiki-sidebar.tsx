@@ -44,7 +44,6 @@ import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
 
 type TreeNode = {
   id: string;
-  slug: string;
   title: string;
   icon: string | null;
   parentId: string | null;
@@ -68,7 +67,6 @@ type OpenMobilePageActions = (node: TreeNode, trigger: HTMLElement) => void;
 function buildTree(
   pages: {
     id: string;
-    slug: string;
     title: string;
     icon?: string | null;
     parentId: string | null;
@@ -132,14 +130,12 @@ function saveCollapsed(ids: Set<string>) {
 
 function isCurrentWikiPage(pathname: string, pageId: string) {
   return (
-    pathname === `/wiki/${pageId}` ||
-    pathname === `/wiki/edit/${pageId}` ||
-    pathname === `/wiki/history/${pageId}`
+    pathname === `/wiki/${pageId}` || pathname === `/wiki/history/${pageId}`
   );
 }
 
 function getActiveTreeState(
-  pages: { id: string; slug: string; parentId: string | null }[],
+  pages: { id: string; parentId: string | null }[],
   pathname: string,
 ) {
   const byId = new Map(pages.map((page) => [page.id, page]));
@@ -844,7 +840,6 @@ export function WikiSidebar({
 }: {
   pages: {
     id: string;
-    slug: string;
     title: string;
     icon?: string | null;
     parentId: string | null;

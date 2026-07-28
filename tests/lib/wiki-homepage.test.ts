@@ -17,7 +17,6 @@ vi.mock("@/db", () => ({
 vi.mock("@/db/schema", () => ({
   wikiPages: {
     id: "id",
-    slug: "slug",
     title: "title",
     parentId: "parentId",
     deletedAt: "deletedAt",
@@ -46,8 +45,8 @@ describe("getCategoryCards", () => {
 
   it("returns top-level pages with child counts", async () => {
     const expected = [
-      { id: "1", slug: "guide", title: "觅食指南", childCount: 5 },
-      { id: "2", slug: "canteen", title: "校内觅食", childCount: 3 },
+      { id: "1", title: "觅食指南", childCount: 5 },
+      { id: "2", title: "校内觅食", childCount: 3 },
     ];
 
     const subqueryChain = {
@@ -88,7 +87,6 @@ describe("getRecentPages", () => {
     const mockPages = [
       {
         id: "1",
-        slug: "guide/late-night",
         title: "后半夜觅食",
         updatedAt: new Date("2026-05-20"),
         updatedByUser: { nickname: "wyh" },
