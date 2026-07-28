@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useEffect, useRef, type ComponentProps } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -30,8 +30,7 @@ export function WikiCreateButton({
   const wikiTree = useOptionalWikiTree();
   const { ensureContributorSetup } = useContributorSetup();
   const pendingRef = useRef(false);
-  const [pendingPath, setPendingPath] = useState<string | null>(null);
-  const isPending = pendingPath !== null && pendingPath !== pathname;
+  const pendingPathRef = useRef<string | null>(null);
   const fallbackQuery = new URLSearchParams({ draft: "1" });
   if (parentId) fallbackQuery.set("parent", parentId);
   const fallbackHref = `/wiki/new?${fallbackQuery}`;
@@ -40,8 +39,14 @@ export function WikiCreateButton({
     preloadWikiEditor();
   }, []);
 
-  const create = async () => {
-    if (pendingRef.current && pendingPath !== pathname) return;
+  useEffect(() => {
+    if (pendingPathRef.current !== pathname) return;
+    pendingRef.current = false;
+    pendingPathRef.current = null;
+  }, [pathname]);
+
+  const create = () => {
+    if (pendingRef.current) return;
     pendingRef.current = true;
 
     const contributorReady = ensureContributorSetup();
@@ -53,12 +58,13 @@ export function WikiCreateButton({
         icon: null,
         parentId: parentId ?? null,
       }) ?? null;
+    wikiTree?.confirm(mutationToken);
     onCreated?.();
 
     const query = new URLSearchParams({ draft: "1" });
     if (parentId) query.set("parent", parentId);
     const destination = `/wiki/${id}?${query}`;
-    setPendingPath(`/wiki/${id}`);
+    pendingPathRef.current = `/wiki/${id}`;
     const persistDraft = contributorReady
       .then(async (ready) => {
         if (!ready) return false;
@@ -77,30 +83,28 @@ export function WikiCreateButton({
       }),
     );
     router.push(destination);
-
-    if (await persistDraft) {
-      wikiTree?.confirm(mutationToken);
-    } else {
-      wikiTree?.rollback(mutationToken);
-      pendingRef.current = false;
-      setPendingPath(null);
-    }
+    void persistDraft;
   };
 
   return (
     <a
       href={fallbackHref}
       role="button"
-      aria-disabled={disabled || isPending}
-      aria-busy={isPending}
+      aria-disabled={disabled || undefined}
       className={cn(
         buttonVariants({ variant, size, className }),
-        (disabled || isPending) && "pointer-events-none opacity-50",
+        disabled && "pointer-events-none opacity-50",
       )}
       onClick={(event) => {
         event.preventDefault();
-        if (disabled || isPending) return;
+        if (disabled || pendingRef.current) return;
         void create();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== " ") return;
+        event.preventDefault();
+        if (disabled || pendingRef.current) return;
+        create();
       }}
       {...props}
     >

@@ -101,6 +101,34 @@ describe("useWikiDraft", () => {
     );
   });
 
+  it("waits for IndexedDB initialization when navigation flushes immediately", async () => {
+    let finishRead!: (record: WikiDraftRecord | null) => void;
+    storage.readWikiDraft.mockImplementation(
+      () =>
+        new Promise<WikiDraftRecord | null>((resolve) => {
+          finishRead = resolve;
+        }),
+    );
+    const hook = setup();
+    hook.setSnapshot("navigate immediately");
+    act(() => hook.result.current.notifyChange());
+
+    let flushed = false;
+    const flush = hook.result.current.flush().then(() => {
+      flushed = true;
+    });
+    await act(async () => Promise.resolve());
+    expect(flushed).toBe(false);
+
+    await act(async () => {
+      finishRead(null);
+      await flush;
+    });
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ draftSnapshot: "navigate immediately" }),
+    );
+  });
+
   it("loads a recoverable session draft without applying it silently", async () => {
     const record: WikiDraftRecord = {
       schemaVersion: 1,

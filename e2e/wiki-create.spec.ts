@@ -132,12 +132,23 @@ test.describe("#465 server-backed private Wiki drafts", () => {
         page.getByRole("button", { name: "完成", exact: true }),
       ).toHaveCount(0);
 
+      await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
+        if (route.request().method() === "POST") {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        await route.continue();
+      });
       await page.getByRole("button", { name: "共享", exact: true }).click();
       await expect(page.getByText("仅自己可见", { exact: true })).toBeVisible();
       await page.getByRole("button", { name: "发布到 Wiki" }).click();
       await expect(
         page.getByRole("button", { name: "发布中…", exact: true }),
       ).toBeVisible();
+      await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+        "inert",
+        "",
+      );
+      await expect(page.getByLabel("页面标题")).not.toBeEditable();
       await expect(page.getByRole("alert", { name: "保存错误" })).toHaveCount(
         0,
       );
@@ -195,7 +206,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
     expect(after.rows[0]?.count).toBe(before.rows[0]?.count);
   });
 
-  test("removes the optimistic page when private initialization fails", async ({
+  test("keeps the local page when private initialization fails", async ({
     page,
   }) => {
     await loginAsAdmin(page);
@@ -204,13 +215,198 @@ test.describe("#465 server-backed private Wiki drafts", () => {
     await page.goto(`/wiki/${pageId}?draft=1&parent=${missingParentId}`);
 
     await expect(page.getByRole("alert", { name: "保存错误" })).toContainText(
-      "私有草稿尚未同步到服务器",
+      "私有草稿尚未同步",
     );
     await expect(
       page
         .getByRole("tree", { name: "Wiki 页面层级" })
         .locator(`a[href="/wiki/${pageId}"]`),
-    ).toHaveCount(0);
+    ).toHaveCount(1);
+  });
+
+  test("retries private initialization after a transport failure", async ({
+    page,
+  }) => {
+    const pageId = crypto.randomUUID();
+    let rejectedInitialization = false;
+    await loginAsAdmin(page);
+    await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
+      if (!rejectedInitialization && route.request().method() === "POST") {
+        rejectedInitialization = true;
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+
+    try {
+      await page.goto(`/wiki/${pageId}?draft=1`, { waitUntil: "commit" });
+      await expect(page.getByTestId("wiki-editor-shell")).toBeVisible({
+        timeout: 60_000,
+      });
+      await expect(page.getByRole("alert", { name: "保存错误" })).toContainText(
+        "私有草稿尚未同步",
+      );
+      await page.getByLabel("页面标题").fill("重试后保存");
+
+      await expect
+        .poll(async () => {
+          const draft = await query<{ title: string }>(
+            "select title from wiki_drafts where id = $1",
+            [pageId],
+          );
+          return draft.rows[0]?.title;
+        })
+        .toBe("重试后保存");
+    } finally {
+      await query("delete from wiki_drafts where id = $1", [pageId]);
+    }
+  });
+
+  test("leaves a private draft without waiting for server autosave", async ({
+    page,
+  }) => {
+    let pageId: string | null = null;
+    await loginAsAdmin(page);
+    try {
+      await page.goto("/wiki");
+      await page.getByRole("button", { name: "新建页面" }).first().click();
+      await expect(page).toHaveURL(/\?draft=1$/);
+      pageId = new URL(page.url()).pathname.split("/").at(-1)!;
+      await expect
+        .poll(async () => {
+          const draft = await query<{ count: string }>(
+            "select count(*)::text as count from wiki_drafts where id = $1",
+            [pageId!],
+          );
+          return draft.rows[0]?.count;
+        })
+        .toBe("1");
+
+      await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
+        if (route.request().method() === "POST") {
+          await new Promise((resolve) => setTimeout(resolve, 5_000));
+        }
+        await route.continue();
+      });
+      await page.getByLabel("页面标题").fill("本地优先导航");
+      await page.getByRole("link", { name: "CUpedia" }).first().click();
+
+      await expect(page).toHaveURL(/\/wiki$/, { timeout: 3_000 });
+    } finally {
+      if (pageId) {
+        await query("delete from wiki_drafts where id = $1", [pageId]);
+      }
+    }
+  });
+
+  test("browser Back keeps a local private draft without Navigation API", async ({
+    page,
+  }) => {
+    let pageId: string | null = null;
+    await loginAsAdmin(page);
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "navigation", {
+        value: undefined,
+        configurable: true,
+      });
+    });
+    try {
+      await page.goto("/wiki");
+      await page.getByRole("button", { name: "新建页面" }).first().click();
+      await expect(page).toHaveURL(/\?draft=1$/);
+      pageId = new URL(page.url()).pathname.split("/").at(-1)!;
+      await expect
+        .poll(async () => {
+          const draft = await query<{ count: string }>(
+            "select count(*)::text as count from wiki_drafts where id = $1",
+            [pageId!],
+          );
+          return draft.rows[0]?.count;
+        })
+        .toBe("1");
+
+      await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
+        if (route.request().method() === "POST") {
+          await route.abort("failed");
+          return;
+        }
+        await route.continue();
+      });
+      await page.getByLabel("页面标题").fill("Back 本地恢复");
+      await page.locator('[data-slate-editor="true"]').fill("本地正文");
+      await page.goBack();
+      await expect(page).toHaveURL(/\/wiki$/);
+
+      const localDrafts = await page.evaluate(
+        () =>
+          new Promise<unknown[]>((resolve, reject) => {
+            const open = indexedDB.open("cupedia-wiki-drafts", 1);
+            open.onerror = () => reject(open.error);
+            open.onsuccess = () => {
+              const database = open.result;
+              const request = database
+                .transaction("drafts", "readonly")
+                .objectStore("drafts")
+                .getAll();
+              request.onerror = () => reject(request.error);
+              request.onsuccess = () => {
+                resolve(request.result);
+                database.close();
+              };
+            };
+          }),
+      );
+      expect(JSON.stringify(localDrafts)).toContain("Back 本地恢复");
+      expect(JSON.stringify(localDrafts)).toContain("本地正文");
+    } finally {
+      if (pageId) {
+        await query("delete from wiki_drafts where id = $1", [pageId]);
+      }
+    }
+  });
+
+  test("unfreezes the draft and retries after publish transport failure", async ({
+    page,
+  }) => {
+    let pageId: string | null = null;
+    await loginAsAdmin(page);
+    try {
+      await page.goto("/wiki");
+      await page.getByRole("button", { name: "新建页面" }).first().click();
+      await expect(page).toHaveURL(/\?draft=1$/);
+      pageId = new URL(page.url()).pathname.split("/").at(-1)!;
+      await page.getByLabel("页面标题").fill("发布重试");
+      await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+
+      let rejectedPublish = false;
+      await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
+        if (!rejectedPublish && route.request().method() === "POST") {
+          rejectedPublish = true;
+          await route.abort("failed");
+          return;
+        }
+        await route.continue();
+      });
+      await page.getByRole("button", { name: "共享", exact: true }).click();
+      await page.getByRole("button", { name: "发布到 Wiki" }).click();
+
+      await expect(page.getByRole("alert", { name: "保存错误" })).toContainText(
+        "发布失败",
+      );
+      await expect(page.getByTestId("wiki-editor-shell")).not.toHaveAttribute(
+        "inert",
+      );
+      await expect(page.getByLabel("页面标题")).toBeEditable();
+      await page.unroute(`**/wiki/${pageId}?draft=1`);
+      await page.getByRole("button", { name: "发布到 Wiki" }).click();
+      await expect(page).toHaveURL(`/wiki/${pageId}`, { timeout: 30_000 });
+    } finally {
+      if (pageId) {
+        await query("delete from wiki_drafts where id = $1", [pageId]);
+        await query("delete from wiki_pages where id = $1", [pageId]);
+      }
+    }
   });
 
   test("can create another page after the first navigation commits", async ({
@@ -227,7 +423,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
       await createButton.click();
       await expect(page).toHaveURL(/\?draft=1$/);
       pageIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
-      await expect(createButton).toHaveAttribute("aria-disabled", "false");
+      await expect(createButton).not.toHaveAttribute("aria-busy");
 
       await createButton.click();
       await expect
