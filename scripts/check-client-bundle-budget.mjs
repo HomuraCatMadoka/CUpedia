@@ -6,13 +6,13 @@ const budgets = [
   {
     route: "/",
     manifest: ".next/server/app/(main)/page_client-reference-manifest.js",
-    maxBytes: 425 * 1024,
+    maxBytes: 330 * 1024,
   },
   {
     route: "/wiki/[...id]",
     manifest:
       ".next/server/app/(main)/wiki/[...id]/page_client-reference-manifest.js",
-    maxBytes: 550 * 1024,
+    maxBytes: 475 * 1024,
   },
 ];
 
@@ -27,8 +27,8 @@ for (const budget of budgets) {
       ? Object.values(manifest.entryJSFiles).flat()
       : Object.values(manifest.clientModules)
           .flatMap((module) => module.chunks)
-          .filter((chunk) => chunk.endsWith(".js"))
-          .map(decodeURIComponent),
+          .map((chunk) => decodeURIComponent(chunk.split("?", 1)[0]))
+          .filter((chunk) => chunk.endsWith(".js")),
   );
   const bytes = [...chunks].reduce(
     (total, chunk) => total + fs.statSync(path.join(".next", chunk)).size,

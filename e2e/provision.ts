@@ -19,6 +19,10 @@ import { assertDatabaseReady, assertSafeE2eDatabase } from "./runtime";
 async function main() {
   const root = path.resolve(__dirname, "..");
   const url = requireEnv("DATABASE_URL");
+  const distDir = path.resolve(root, process.env.NEXT_DIST_DIR ?? ".next");
+  if (path.dirname(distDir) !== root) {
+    throw new Error("NEXT_DIST_DIR must be a direct child of the project root");
+  }
 
   assertSafeE2eDatabase(url);
   await assertDatabaseReady(withDatabase(url, "postgres"));
@@ -31,15 +35,11 @@ async function main() {
       stdio: "inherit",
     },
   );
-  await resetData(url);
-  const distDir = path.resolve(root, process.env.NEXT_DIST_DIR ?? ".next");
-  if (path.dirname(distDir) !== root) {
-    throw new Error("NEXT_DIST_DIR must be a direct child of the project root");
-  }
   rmSync(path.join(distDir, "cache", "fetch-cache"), {
     recursive: true,
     force: true,
   });
+  await resetData(url);
   execFileSync(
     process.execPath,
     [
