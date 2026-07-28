@@ -34,4 +34,15 @@ test.describe("#92 wiki search returns correct results", () => {
     await page.goto("/wiki/search?q=zzzznomatchzzzz");
     await expect(page.getByText("找到 0 个结果")).toBeVisible();
   });
+
+  test("global search loads on demand and opens a result", async ({ page }) => {
+    await page.goto("/wiki");
+    await page.getByRole("button", { name: "搜索 (⌘K)" }).click();
+    await page.getByPlaceholder("搜索页面...").fill("Dining");
+
+    const result = page.getByRole("option", { name: /Dining on Campus/ });
+    await expect(result).toBeVisible();
+    await result.click();
+    await expect(page).toHaveURL(`/wiki/${PAGE_IDS.dining}`);
+  });
 });
