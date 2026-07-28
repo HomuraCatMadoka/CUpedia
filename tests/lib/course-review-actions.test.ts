@@ -372,40 +372,14 @@ describe("getCourseReviewReplies", () => {
         expect.objectContaining({
           authorNickname: null,
           authorShowcaseId: null,
-          authorAchievements: [],
-          authorAvatarUrl: null,
-          authorEquippedTitle: null,
         }),
       ],
       hasMore: false,
     });
-    expect(mockGetAchievementSummaries).toHaveBeenCalledWith([]);
+    expect(mockGetAchievementSummaries).not.toHaveBeenCalled();
   });
 
-  it("returns 20 replies oldest-first with current public author identity", async () => {
-    mockGetAchievementSummaries.mockResolvedValue(
-      new Map([
-        [
-          "other",
-          {
-            showcaseId: "showcase-1",
-            avatarUrl: "/avatar.png",
-            equippedTitle: { displayName: "牛顿", badgeCode: "NEWT" },
-            achievements: [
-              {
-                id: "achievement-1",
-                displayName: "数学金标",
-                badgeCode: "MATH",
-                tier: "gold",
-                category: "professional",
-                publicDescription: "",
-                primary: true,
-              },
-            ],
-          },
-        ],
-      ]),
-    );
+  it("returns 20 replies oldest-first with compact public author identity", async () => {
     queueRows(
       [{ userId: "review-author", isAnonymous: false }],
       Array.from({ length: 21 }, (_, index) => ({
@@ -417,6 +391,7 @@ describe("getCourseReviewReplies", () => {
           `2026-07-27T10:${String(index).padStart(2, "0")}:00Z`,
         ),
         authorNickname: "Alice",
+        authorShowcaseId: "showcase-1",
       })),
     );
 
@@ -429,9 +404,12 @@ describe("getCourseReviewReplies", () => {
       content: "回复 1",
       authorNickname: "Alice",
       authorShowcaseId: "showcase-1",
-      authorAvatarUrl: "/avatar.png",
       canDelete: false,
     });
+    expect(result.replies[0]).not.toHaveProperty("authorAchievements");
+    expect(result.replies[0]).not.toHaveProperty("authorAvatarUrl");
+    expect(result.replies[0]).not.toHaveProperty("authorEquippedTitle");
+    expect(mockGetAchievementSummaries).not.toHaveBeenCalled();
     expect(result.replies.at(-1)?.id).toBe("reply-20");
   });
 });

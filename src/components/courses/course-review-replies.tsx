@@ -178,18 +178,20 @@ export function CourseReviewReplies({
             </p>
           )}
           {replies.length > 0 && (
-            <ul className="space-y-4">
+            <ul className="divide-y divide-border/70">
               {replies.map((reply) => (
-                <li key={reply.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <CourseReviewAuthorIdentity
-                      nickname={reply.authorNickname}
-                      showcaseId={reply.authorShowcaseId}
-                      achievements={reply.authorAchievements}
-                      avatarUrl={reply.authorAvatarUrl}
-                      equippedTitle={reply.authorEquippedTitle}
-                      achievementLabel="回复者成就"
-                    />
+                <li
+                  key={reply.id}
+                  className="min-w-0 py-2 first:pt-0 last:pb-0"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                    <div data-slot="reply-author" className="min-w-0 flex-1">
+                      <CourseReviewAuthorIdentity
+                        nickname={reply.authorNickname}
+                        showcaseId={reply.authorShowcaseId}
+                        variant="reply"
+                      />
+                    </div>
                     <span
                       className="shrink-0 text-xs text-muted-foreground"
                       suppressHydrationWarning
@@ -197,21 +199,23 @@ export function CourseReviewReplies({
                       {timeAgo(reply.createdAt)}
                     </span>
                   </div>
-                  <p className="mt-2 break-words text-sm leading-relaxed whitespace-pre-wrap">
-                    {reply.content}
-                  </p>
-                  {reply.canDelete && (
-                    <button
-                      type="button"
-                      title="删除回复"
-                      disabled={submitting}
-                      onClick={() => remove(reply.id)}
-                      className="mt-1 inline-flex items-center gap-1 rounded-sm text-xs text-destructive hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                    >
-                      <Trash2Icon aria-hidden="true" className="size-3" />
-                      删除
-                    </button>
-                  )}
+                  <div data-slot="reply-content" className="min-w-0">
+                    <p className="mt-2 break-words text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
+                      {reply.content}
+                    </p>
+                    {reply.canDelete && (
+                      <button
+                        type="button"
+                        title="删除回复"
+                        disabled={submitting}
+                        onClick={() => remove(reply.id)}
+                        className="mt-1 inline-flex items-center gap-1 rounded-sm text-xs text-destructive hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      >
+                        <Trash2Icon aria-hidden="true" className="size-3" />
+                        删除
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
