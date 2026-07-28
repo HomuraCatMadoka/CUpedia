@@ -388,7 +388,9 @@ test.describe("focused wiki editor shell", () => {
     await expect(topbar.getByRole("button", { name: "打开批注" })).toHaveCount(
       0,
     );
-    await page.locator('[data-slate-editor="true"]').click();
+    const editor = page.locator('[data-slate-editor="true"]');
+    await expect(editor).toHaveCount(1);
+    await editor.click();
     const comments = page
       .getByRole("toolbar", { name: "键盘上方编辑工具" })
       .getByRole("button", { name: "添加批注" });
@@ -403,7 +405,6 @@ test.describe("focused wiki editor shell", () => {
     expect(titleBox!.width).toBe(345);
     await expect(title).toHaveCSS("font-size", "32px");
 
-    await expect(page.locator('[data-slate-editor="true"]')).toHaveCount(1);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth === window.innerWidth,

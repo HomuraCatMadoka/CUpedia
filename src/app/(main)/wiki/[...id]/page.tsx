@@ -1,11 +1,12 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
-  getWikiPage,
+  getWikiPageState,
   getWikiPageForEdit,
   getWikiTree,
   deleteWikiPage,
   getBacklinks,
+  restoreWikiPage,
 } from "@/lib/wiki-actions";
 import { PageToc } from "@/components/layout/page-toc";
 import { Breadcrumb } from "@/components/layout/breadcrumb";
@@ -21,6 +22,60 @@ import { getWikiDisplayTitle } from "@/lib/wiki-title";
 import { isCanonicalWikiPageId } from "@/lib/wiki-routes";
 import { getOwnWikiDraft } from "@/lib/wiki-draft-actions";
 
+function WikiPageTombstone({
+  pageId,
+  deletedAt,
+  canRestore,
+}: {
+  pageId: string;
+  deletedAt: Date | null;
+  canRestore: boolean;
+}) {
+  return (
+    <main className="flex-1 overflow-y-auto">
+      <div
+        data-testid="wiki-page-tombstone"
+        className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center px-6 py-16 text-center"
+      >
+        <p className="text-sm font-medium text-muted-foreground">CUpedia</p>
+        <h1 className="mt-3 text-2xl font-semibold">页面已删除</h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          这个页面已被移至回收站。指向它的链接会保留，恢复后会自动重新生效。
+        </p>
+        {deletedAt ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            删除于 {deletedAt.toLocaleString("zh-CN")}
+          </p>
+        ) : null}
+        <div className="mt-6 flex items-center gap-3">
+          <Link
+            href="/wiki"
+            className="rounded-md border px-3 py-2 text-sm hover:bg-accent"
+          >
+            返回 Wiki
+          </Link>
+          {canRestore ? (
+            <form
+              action={async () => {
+                "use server";
+                await restoreWikiPage(pageId);
+                redirect(`/wiki/${pageId}`);
+              }}
+            >
+              <button
+                type="submit"
+                className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground hover:bg-primary/90"
+              >
+                恢复页面
+              </button>
+            </form>
+          ) : null}
+        </div>
+      </div>
+    </main>
+  );
+}
+
 export default async function WikiReadPage({
   params,
   searchParams,
@@ -32,7 +87,7 @@ export default async function WikiReadPage({
   const draftParams = await searchParams;
   const identifier = idParts.map(decodeURIComponent).join("/");
   const [page, { user, canEdit }] = await Promise.all([
-    getWikiPage(identifier),
+    getWikiPageState(identifier),
     getViewerEditContext(),
   ]);
 
@@ -86,6 +141,16 @@ export default async function WikiReadPage({
 
   const pages = await getWikiTree();
 
+  if (page.deletedAt) {
+    return (
+      <WikiPageTombstone
+        pageId={page.id}
+        deletedAt={page.deletedAt}
+        canRestore={user?.role === "admin"}
+      />
+    );
+  }
+
   if (canEdit) {
     const { WikiPageEditor } =
       await import("@/components/wiki/wiki-page-editor");
@@ -103,7 +168,7 @@ export default async function WikiReadPage({
 
   const headings = extractHeadings(page.content);
   const plateValue = stripTitleHeading(
-    resolveWikiLinkUrls(parseContent(page.content), pages),
+    resolveWikiLinkUrls(parseContent(page.content)),
     page.title,
   );
   const [discussions, backlinks] = await Promise.all([

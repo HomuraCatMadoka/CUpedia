@@ -1,7 +1,17 @@
 import type { Page } from "@playwright/test";
 
+let adminCookies:
+  | Parameters<ReturnType<Page["context"]>["addCookies"]>[0]
+  | undefined;
+
 export async function loginAsAdmin(page: Page, baseURL = "") {
-  return loginWithPassword(page, "admin@test.com", "password123", baseURL);
+  if (adminCookies) {
+    await page.context().addCookies(adminCookies);
+    return;
+  }
+
+  await loginWithPassword(page, "admin@test.com", "password123", baseURL);
+  adminCookies = await page.context().cookies();
 }
 
 export async function loginWithPassword(

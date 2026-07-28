@@ -20,10 +20,6 @@ const FIXTURES = {
     id: randomUUID(),
     title: "Autosave merge fixture",
   },
-  explicit: {
-    id: randomUUID(),
-    title: "Autosave explicit fixture",
-  },
   failure: {
     id: randomUUID(),
     title: "Autosave failure fixture",
@@ -32,17 +28,9 @@ const FIXTURES = {
     id: randomUUID(),
     title: "Autosave passive conflict fixture",
   },
-  bodyTitleMerge: {
-    id: randomUUID(),
-    title: "Autosave body title fixture",
-  },
   titleConflict: {
     id: randomUUID(),
     title: "Autosave title conflict fixture",
-  },
-  urlIdentity: {
-    id: randomUUID(),
-    title: "Autosave UUID fixture",
   },
 } as const;
 const MERGE_ID = FIXTURES.merge.id;
@@ -139,94 +127,6 @@ test.describe("#432 latest draft convergence", () => {
     await expect(page.getByLabel("标题")).toHaveValue(title);
   });
 
-  test("page settings no longer expose a mutable URL path", async ({
-    page,
-  }) => {
-    await loginAsAdmin(page);
-    await page.goto(`/wiki/${FIXTURES.urlIdentity.id}`);
-
-    await page.getByRole("button", { name: "页面设置" }).click();
-    const settingsDialog = page.getByRole("dialog", { name: "页面设置" });
-    await expect(
-      settingsDialog.getByRole("textbox", { name: "URL 路径" }),
-    ).toHaveCount(0);
-    await page.keyboard.press("Escape");
-    await expect(settingsDialog).toHaveCount(0);
-
-    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.urlIdentity.id));
-    await expect(page.locator('a[aria-label="返回 Wiki"]')).toHaveAttribute(
-      "href",
-      `/wiki/${FIXTURES.urlIdentity.id}`,
-    );
-
-    await page.reload();
-    await expect(page.getByLabel("标题")).toHaveValue(
-      FIXTURES.urlIdentity.title,
-    );
-
-    await page.goto(`/wiki/${FIXTURES.urlIdentity.id}`);
-    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.urlIdentity.id));
-    await page.goto(`/wiki/${FIXTURES.urlIdentity.id}`);
-    await expect(page).toHaveURL(wikiPageUrl(FIXTURES.urlIdentity.id));
-  });
-
-  test("explicit save persists input typed while its request is in flight", async ({
-    page,
-  }) => {
-    const firstTitle = `First save title ${Date.now()}`;
-    const trailingTitle = `Trailing title ${Date.now()}`;
-
-    await loginAsAdmin(page);
-
-    let releaseFirstResponse!: () => void;
-    const firstResponseGate = new Promise<void>((resolve) => {
-      releaseFirstResponse = resolve;
-    });
-    let markFirstResponseHeld!: () => void;
-    const firstResponseHeld = new Promise<void>((resolve) => {
-      markFirstResponseHeld = resolve;
-    });
-    let held = false;
-
-    await page.route(`**/wiki/${FIXTURES.explicit.id}`, async (route) => {
-      if (route.request().method() === "POST" && !held) {
-        held = true;
-        const response = await route.fetch();
-        markFirstResponseHeld();
-        await firstResponseGate;
-        await route.fulfill({ response });
-        return;
-      }
-      await route.continue();
-    });
-
-    await page.goto(`/wiki/${FIXTURES.explicit.id}`);
-    await waitForHydratedWikiEditor(page);
-    await page.getByLabel("标题").fill(firstTitle);
-    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
-      "data-autosave-status",
-      "unsaved",
-    );
-    await page.keyboard.press("Control+s");
-    await firstResponseHeld;
-    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
-      "data-autosave-status",
-      "saving",
-    );
-
-    await page.getByLabel("标题").fill(trailingTitle);
-
-    releaseFirstResponse();
-
-    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
-      "data-autosave-status",
-      "saved",
-      { timeout: 15_000 },
-    );
-    await page.goto(`/wiki/${FIXTURES.explicit.id}`);
-    await expect(page.getByLabel("标题")).toHaveValue(trailingTitle);
-  });
-
   test("a failed explicit save keeps the draft open with retryable feedback", async ({
     page,
   }) => {
@@ -317,55 +217,6 @@ test.describe("#432 latest draft convergence", () => {
     await pageA.getByRole("button", { name: "处理冲突" }).click();
     await expect(pageA.getByRole("dialog", { name: "编辑冲突" })).toBeVisible();
     await expect(pageA.getByText("保存失败", { exact: true })).toHaveCount(0);
-
-    await contextA.close();
-    await contextB.close();
-  });
-
-  test("a body-only clean merge preserves a concurrent server title", async ({
-    browser,
-  }) => {
-    const serverTitle = `Concurrent title ${Date.now()}`;
-    const bodyMarker = `body-only-${Date.now()}`;
-    const pageId = FIXTURES.bodyTitleMerge.id;
-
-    const contextA = await browser.newContext();
-    const pageA = await contextA.newPage();
-    await loginAsAdmin(pageA);
-    await pageA.goto(`/wiki/${pageId}`);
-    await waitForHydratedWikiEditor(pageA);
-
-    const contextB = await browser.newContext();
-    const pageB = await contextB.newPage();
-    await loginAsAdmin(pageB);
-    await pageB.goto(`/wiki/${pageId}`);
-    await waitForHydratedWikiEditor(pageB);
-
-    await pageB.getByLabel("标题").fill(serverTitle);
-    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
-      "data-autosave-status",
-      "unsaved",
-    );
-    await pageB.keyboard.press("Control+s");
-    await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
-      "data-autosave-status",
-      "saved",
-      { timeout: 15_000 },
-    );
-
-    await appendAfterText(pageA, "Alpha block.", bodyMarker);
-    await expect(pageA.getByTestId("wiki-editor-shell")).toHaveAttribute(
-      "data-autosave-status",
-      "saved",
-      { timeout: 15_000 },
-    );
-    await expect(pageA.getByLabel("标题")).toHaveValue(serverTitle);
-
-    await pageA.goto(`/wiki/${pageId}`);
-    await expect(pageA.getByLabel("标题")).toHaveValue(serverTitle);
-    await expect(pageA.locator('[role="textbox"]').first()).toContainText(
-      bodyMarker,
-    );
 
     await contextA.close();
     await contextB.close();

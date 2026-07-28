@@ -6,9 +6,16 @@ type ResolvableNode = {
   [key: string]: unknown;
 };
 
+const WIKI_PAGE_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isWikiPageId(value: unknown): value is string {
+  return typeof value === "string" && WIKI_PAGE_ID_PATTERN.test(value);
+}
+
 function walk(nodes: Node[], targets: Set<string>): void {
   for (const node of nodes) {
-    if (typeof node.pageId === "string" && node.pageId) {
+    if (isWikiPageId(node.pageId)) {
       targets.add(node.pageId);
     }
     if (node.children) walk(node.children, targets);
@@ -29,15 +36,24 @@ export function extractWikiLinkTargets(content: string): string[] {
   return Array.from(targets);
 }
 
+export function buildWikiLinkRows(
+  pages: { id: string; content: string; deletedAt?: Date | null }[],
+): { sourceId: string; targetId: string }[] {
+  const pageIds = new Set(pages.map((page) => page.id));
+  return pages.flatMap((page) =>
+    extractWikiLinkTargets(page.content)
+      .filter((targetId) => targetId !== page.id && pageIds.has(targetId))
+      .map((targetId) => ({ sourceId: page.id, targetId })),
+  );
+}
+
 /**
  * Resolve internal wiki-link URLs from their stable page IDs.
  *
- * Stored Plate nodes retain the URL that existed when the mention was
- * inserted. Rendering from pageId keeps old documents on the canonical URL.
+ * `pageId` is the source of truth. Its URL remains valid while the page is
+ * live, deleted (tombstone), or later restored.
  */
-export function resolveWikiLinkUrls<T>(value: T, pages: { id: string }[]): T {
-  const pageIds = new Set(pages.map((page) => page.id));
-
+export function resolveWikiLinkUrls<T>(value: T): T {
   const visit = (input: unknown): unknown => {
     if (Array.isArray(input)) {
       let changed = false;
@@ -52,10 +68,7 @@ export function resolveWikiLinkUrls<T>(value: T, pages: { id: string }[]): T {
 
     const node = input as ResolvableNode;
     const resolvedChildren = visit(node.children);
-    const pageId =
-      typeof node.pageId === "string" && pageIds.has(node.pageId)
-        ? node.pageId
-        : undefined;
+    const pageId = isWikiPageId(node.pageId) ? node.pageId : undefined;
     const resolvedUrl = pageId ? `/wiki/${pageId}` : node.url;
     if (resolvedChildren === node.children && resolvedUrl === node.url) {
       return input;

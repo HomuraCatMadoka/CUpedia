@@ -135,7 +135,7 @@ export async function WikiPageEditor({
       initialTitle={page.title}
       initialIcon={page.icon}
       initialValue={stripTitleHeading(
-        resolveWikiLinkUrls(parseContent(page.content), pages),
+        resolveWikiLinkUrls(parseContent(page.content)),
         page.title,
       )}
       parentId={page.parentId}

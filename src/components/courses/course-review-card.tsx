@@ -225,7 +225,7 @@ export function CourseReviewCard({
           </span>
         ))}
       </div>
-      <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap">
+      <p className="mt-3 text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
         {review.content}
       </p>
       <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -249,7 +249,7 @@ export function CourseReviewCard({
             type="button"
             onClick={handleDelete}
             disabled={deleting}
-            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10"
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs text-destructive transition-colors hover:bg-destructive/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             title="删除整条投稿"
           >
             <Trash2Icon className="size-3.5" />

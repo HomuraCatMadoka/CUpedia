@@ -105,16 +105,25 @@ jobs:
   # to required once it proves stable.
   e2e:
     runs-on: ubuntu-latest
-    needs: [lint-and-test, typecheck, build]
+    needs: build
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        include:
+          - project: chromium-general
+            browser: chromium
+            install_args: --only-shell
+          - project: chromium-wiki
+            browser: chromium
+            install_args: --only-shell
+          - project: webkit-mobile
+            browser: webkit
+            install_args: --with-deps --only-shell
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
       AUTH_URL: http://localhost:3100
-      E2E_SHARDING: "1"
+      E2E_CI_GROUPS: "1"
       MINIO_ENDPOINT: localhost
       MINIO_PORT: "9000"
       MINIO_REGION: us-east-1
@@ -154,16 +163,16 @@ jobs:
       # + migrate + seed), so no separate migrate step is needed here.
 
       - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install ${{ matrix.install_args }} ${{ matrix.browser }}
 
       - name: Run e2e
-        run: pnpm test:e2e --shard=${{ matrix.shard }}/2
+        run: pnpm test:e2e --project=${{ matrix.project }}
 
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.project }}
           path: |
             playwright-report/
             test-results/

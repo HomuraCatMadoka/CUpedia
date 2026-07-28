@@ -1055,6 +1055,13 @@ export function WikiEditor({
 
   const handleDeletePage = useCallback(async () => {
     if (!pageId || !onDelete || submitting) return;
+    if (
+      !window.confirm(
+        "此页面及其子页面将移至回收站。指向它们的链接会保留，并显示“页面已删除”。确定继续吗？",
+      )
+    ) {
+      return;
+    }
     const mutationToken = wikiTree?.projectDelete(pageId) ?? null;
     setSubmitting(true);
     try {
