@@ -160,7 +160,7 @@ jobs:
       # + migrate + seed), so no separate migrate step is needed here.
 
       - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps --only-shell ${{ matrix.browser }}
+        run: pnpm exec playwright install --only-shell ${{ matrix.browser }}
 
       - name: Run e2e
         run: pnpm test:e2e --project=${{ matrix.project }}
