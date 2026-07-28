@@ -7,7 +7,7 @@ Environment:
 - macOS arm64
 - Node.js 20.20.2
 - pnpm 10.24.0
-- Next.js 16.2.6 (Turbopack)
+- Next.js 16.2.6 (Turbopack baseline; Webpack final build)
 - Playwright 1.60.0
 - isolated worktree, `.next`, and E2E database
 
@@ -66,7 +66,12 @@ The application-only build also had a slower median TypeScript phase (18.5 s
 versus 16.9 s). The isolated `tsc` benchmark cannot be used to predict Next's
 integrated type-check cost, so this change was not retained.
 
-### Retained optimization: Turbopack build filesystem cache
+### Superseded experiment: Turbopack build filesystem cache
+
+This cache was retained during the first profiling pass, but the final build
+uses Webpack because its cold production E2E path was materially faster. The
+measurements below are historical; the Turbopack build-cache flag is no longer
+enabled.
 
 Next.js 16.2.6 does not enable the production-build filesystem cache by
 default. Enabling `experimental.turbopackFileSystemCacheForBuild` lets repeated
@@ -88,14 +93,12 @@ no-op builds.
 
 The generated cache is large: `.next/cache` is about 400 MB and a gzip archive
 is about 317 MB. Local compression took 17.73 seconds and extraction took 1.75
-seconds. CI now restores this directory using an exact source/config key with a
-dependency-level fallback. Only the build job writes the cache; the two E2E
-shards use the restore-only action so they cannot each upload another 400 MB.
-In the first PR run, cache restore was below one second, the build step took 33
-seconds, and the post-cache step took 3 seconds. The next run restored the cache
-in 2 seconds and completed the build step in 5 seconds, with 4 seconds of
-post-cache work. More runs are still needed to establish a representative hit
-rate.
+seconds. The experiment restored this directory using an exact source/config
+key with a dependency-level fallback. Only the build job wrote the cache; the
+two E2E shards used restore-only access. In the first PR run, cache restore was
+below one second, the build step took 33 seconds, and the post-cache step took
+3 seconds. The next run restored the cache in 2 seconds and completed the build
+step in 5 seconds, with 4 seconds of post-cache work.
 
 ### Retained optimization: remove build-time font downloads
 
@@ -213,7 +216,11 @@ parallel baseline:
 
 No run passed. Same-database workers are therefore not a usable optimization.
 
-### Retained optimization: isolated CI shards
+### Initial optimization: isolated CI shards
+
+The final workflow replaces these two timing-balanced shards with three
+feature/browser project groups. The measurements below document the earlier
+parallelism experiment.
 
 CI now runs two matrix shards. Each shard keeps one worker and gets its own
 runner, server, and provisioned database. `E2E_SHARDING=1` lets Playwright
@@ -304,31 +311,33 @@ first-load budgets were revalidated against the new route manifests:
 
 | Route           |   Current |  Budget |
 | --------------- | --------: | ------: |
-| `/`             | 399.4 KiB | 425 KiB |
-| `/wiki/[...id]` | 493.3 KiB | 550 KiB |
+| `/`             | 716.6 KiB | 800 KiB |
+| `/wiki/[...id]` | 847.3 KiB | 950 KiB |
 
 CI runs `pnpm bundle:check` after the build to enforce those first-load
-budgets. They use emitted route `entryJSFiles`, so async editor, Emoji, and
-search chunks are intentionally excluded.
+budgets. For Webpack builds, it combines the shared App Router bootstrap files
+with each route's client-module chunks. Async editor, Emoji, and search chunks
+are intentionally excluded, as is the legacy `nomodule` polyfill.
 
 ## Conclusions
 
-1. The uncached build is split almost evenly between Turbopack and TypeScript.
-   Repeated builds were needlessly paying the Turbopack cost because the
-   production filesystem cache was disabled.
+1. The Turbopack baseline split uncached build time almost evenly between
+   compilation and TypeScript. Filesystem caching improved repeat builds, but
+   the final production and E2E build path uses Webpack for better cold-start
+   behavior.
 2. Before the route-consolidation merge, the editor exposed a 3.68 MiB
-   first-load graph. The current wiki read route is 493.3 KiB and the editor is
+   first-load graph. The current wiki read route is 847.3 KiB and the editor is
    async, so first-load and async editor budgets should remain separate.
 3. E2E is serial because of shared test state, not because the application or
    database cannot handle two workers.
-4. Two isolated CI shards are the shortest stable path to parallelism and
-   reduce measured E2E execution from 286 seconds to at most 153.5 seconds.
+4. Isolated CI project groups are the shortest stable path to parallelism while
+   retaining one worker per database.
 5. Four workers require a much larger fixture-isolation project and currently
    have negative performance value.
 6. Splitting application TypeScript from test/tool TypeScript did not improve
    the integrated Next build and was reverted.
 7. CI now has one build owner. Strict type checking runs as a parallel gate,
-   and the two E2E shards reuse the same 25 MB compressed build artifact.
+   and the three E2E project groups reuse the same compressed build artifact.
 8. The five slow editor/account specs account for 141.6 seconds of summed
    one-worker duration. Keep full browser tracer bullets for the user-visible
    contracts, but move timer/state/command matrices below the browser seam.
@@ -340,11 +349,11 @@ search chunks are intentionally excluded.
 
 ## Recommended sequence
 
-1. Keep the production Turbopack filesystem cache and collect more CI runs for
-   a representative hit rate.
-2. Keep one worker per database and parallelize through isolated CI shards.
-3. Rebalance the two E2E shards using measured test duration; the latest test
-   phases were 2 minutes 9 seconds and 3 minutes 6 seconds.
+1. Keep the production Webpack path and monitor its Next build-cache hit rate.
+2. Keep one worker per database and parallelize through isolated CI project
+   groups.
+3. Rebalance the project groups only when repeated CI timings show a persistent
+   critical-path imbalance.
 4. Review the slow editor E2E files for duplicate state-matrix coverage before
    changing the editor bundle.
 5. Analyze package-level editor bundle contribution, then lazy-load optional UI
