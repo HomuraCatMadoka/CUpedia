@@ -92,8 +92,10 @@ seconds. CI now restores this directory using an exact source/config key with a
 dependency-level fallback. Only the build job writes the cache; the two E2E
 shards use the restore-only action so they cannot each upload another 400 MB.
 In the first PR run, cache restore was below one second, the build step took 33
-seconds, and the post-cache step took 3 seconds. More runs are still needed to
-establish a representative hit rate.
+seconds, and the post-cache step took 3 seconds. The next run restored the cache
+in 2 seconds and completed the build step in 5 seconds, with 4 seconds of
+post-cache work. More runs are still needed to establish a representative hit
+rate.
 
 ### Retained optimization: remove build-time font downloads
 
@@ -241,6 +243,12 @@ still serialized the build after lint/test, delaying both E2E shards by about
 70 seconds. The workflow now starts build, lint/test, and typecheck together;
 E2E waits for all three gates before starting.
 
+The first run with that parallel gate topology completed in 5 minutes 57
+seconds. That is 1 minute 33 seconds faster than the preceding PR run and 2
+minutes 54 seconds (33%) faster than the previous workflow on `main`. The
+remaining critical path was the slower E2E shard: 42 seconds installing
+Playwright browsers followed by 3 minutes 6 seconds executing 116 tests.
+
 ## Dependency graph optimization
 
 Next 16's production analyzer showed that the editor graph was dominated by two
@@ -335,7 +343,8 @@ search chunks are intentionally excluded.
 1. Keep the production Turbopack filesystem cache and collect more CI runs for
    a representative hit rate.
 2. Keep one worker per database and parallelize through isolated CI shards.
-3. Re-measure the parallel gate topology on GitHub Actions.
+3. Rebalance the two E2E shards using measured test duration; the latest test
+   phases were 2 minutes 9 seconds and 3 minutes 6 seconds.
 4. Review the slow editor E2E files for duplicate state-matrix coverage before
    changing the editor bundle.
 5. Analyze package-level editor bundle contribution, then lazy-load optional UI
