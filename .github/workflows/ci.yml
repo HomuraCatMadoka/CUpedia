@@ -33,9 +33,8 @@ jobs:
       - run: pnpm test
         name: Test
 
-  build:
+  typecheck:
     runs-on: ubuntu-latest
-    needs: lint-and-test
     steps:
       - uses: actions/checkout@v4
 
@@ -50,12 +49,55 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm typecheck
+        name: Typecheck
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Restore Next build cache
+        uses: actions/cache@v4
+        with:
+          path: .next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('src/**/*.ts', 'src/**/*.tsx', 'src/**/*.css', 'next.config.ts', 'tsconfig.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
+
+      - run: pnpm install --frozen-lockfile
+
       - run: pnpm build
         name: Build
         env:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
           AUTH_SECRET: ci-placeholder-secret
           AUTH_URL: http://localhost:3000
+          NEXT_BUILD_SKIP_TYPECHECK: "1"
+
+      - run: pnpm bundle:check
+        name: Check client bundle budgets
+
+      - name: Package Next build
+        run: tar -czf next-build.tar.gz --exclude=.next/cache .next
+
+      - name: Upload Next build
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: next-build.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
 
   # Non-blocking gate (not in branch-protection required checks yet): runs the
   # Playwright suite against the same zhparser Postgres the dev stack uses, so
@@ -63,11 +105,16 @@ jobs:
   # to required once it proves stable.
   e2e:
     runs-on: ubuntu-latest
-    needs: lint-and-test
+    needs: [lint-and-test, typecheck, build]
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
       AUTH_URL: http://localhost:3100
+      E2E_SHARDING: "1"
       MINIO_ENDPOINT: localhost
       MINIO_PORT: "9000"
       MINIO_REGION: us-east-1
@@ -87,6 +134,14 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Download Next build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+
+      - name: Extract Next build
+        run: tar -xzf next-build.tar.gz
+
       - run: pnpm install --frozen-lockfile
 
       - name: Start Postgres and MinIO
@@ -98,20 +153,17 @@ jobs:
       # global-setup provisions the isolated `cuclaw_e2e` db (create + zhparser
       # + migrate + seed), so no separate migrate step is needed here.
 
-      - name: Build
-        run: pnpm build
-
       - name: Install Playwright browser
         run: pnpm exec playwright install --with-deps chromium webkit
 
       - name: Run e2e
-        run: pnpm test:e2e
+        run: pnpm test:e2e --shard=${{ matrix.shard }}/2
 
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/

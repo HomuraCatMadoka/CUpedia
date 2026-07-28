@@ -40,10 +40,9 @@ if (E2E_DATABASE_URL) process.env.DATABASE_URL = E2E_DATABASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
-  // Run serially: better-auth rate-limits /sign-in to 3 req / 10s per IP, so
-  // parallel workers signing in at once trip a shared 429. One worker spaces
-  // logins out and keeps the auth-dependent specs deterministic.
-  fullyParallel: false,
+  // A worker owns one isolated database. CI shards individual tests across
+  // separate jobs/databases instead of racing shared fixtures in one process.
+  fullyParallel: process.env.E2E_SHARDING === "1",
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
