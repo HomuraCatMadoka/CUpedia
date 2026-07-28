@@ -127,4 +127,15 @@ describe("getOptionalUser / getSessionVoterUser", () => {
       "FAILED_TO_GET_SESSION",
     );
   });
+
+  it("treats session lookup failures as guest in canteen mock mode", async () => {
+    const prev = process.env.CANTEEN_MOCK_DATA;
+    process.env.CANTEEN_MOCK_DATA = "true";
+    mockGetSession.mockRejectedValue(new Error("FAILED_TO_GET_SESSION"));
+    try {
+      await expect(getSessionVoterUser()).resolves.toBeNull();
+    } finally {
+      process.env.CANTEEN_MOCK_DATA = prev;
+    }
+  });
 });

@@ -282,10 +282,19 @@ when opened, and the notification center is an authenticated dynamic boundary:
 | `/`                    |   470.4 KiB |   399.2 KiB |   -15% |
 | `/wiki/edit/[...slug]` | 3,313.5 KiB | 2,545.5 KiB |   -23% |
 
-CI runs `pnpm bundle:check` after the build to keep `/` below 425 KiB and the
-editor route below 2,700 KiB. These budgets use the emitted route
-`entryJSFiles`, so async Emoji and search chunks are not misreported as initial
-JavaScript.
+Those measurements predate the UUID route consolidation merged in
+`0b463b13`. After merging that `main`, the separate edit route no longer
+exists and the editor loads asynchronously from `/wiki/[...id]`. The
+first-load budgets were revalidated against the new route manifests:
+
+| Route           |   Current |  Budget |
+| --------------- | --------: | ------: |
+| `/`             | 399.4 KiB | 425 KiB |
+| `/wiki/[...id]` | 493.3 KiB | 550 KiB |
+
+CI runs `pnpm bundle:check` after the build to enforce those first-load
+budgets. They use emitted route `entryJSFiles`, so async editor, Emoji, and
+search chunks are intentionally excluded.
 
 ## Conclusions
 

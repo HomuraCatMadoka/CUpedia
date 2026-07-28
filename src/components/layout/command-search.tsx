@@ -23,7 +23,7 @@ export function CommandSearch() {
           return;
         }
         e.preventDefault();
-        setOpen((o) => !o);
+        setOpen((value) => !value);
       }
     };
     document.addEventListener("keydown", down);

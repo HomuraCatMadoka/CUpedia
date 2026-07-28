@@ -20,7 +20,7 @@ export default async function DeletedPagesPage() {
               <div>
                 <p className="font-medium">{page.title}</p>
                 <p className="text-xs text-muted-foreground">
-                  /{page.slug} · 删除于{" "}
+                  {page.id} · 删除于{" "}
                   {page.deletedAt
                     ? new Date(page.deletedAt).toLocaleString("zh-CN")
                     : ""}

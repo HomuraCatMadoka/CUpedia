@@ -6,6 +6,7 @@ import {
   mockCreateCanteen,
   mockCreateMenuItem,
   mockDeleteCanteen,
+  mockDeleteAllMenuItems,
   mockDeleteMenuItem,
   mockDeleteImpactForCanteen,
   mockDeleteImpactForMenuItem,
@@ -100,6 +101,15 @@ export async function previewDeleteMenuItem(canteenId: string, itemId: string) {
   mockDeleteMenuItem(canteenId, itemId);
   revalidatePath(`/canteen/${canteenId}`);
   revalidatePath(`/canteen/manage/${canteenId}`);
+}
+
+export async function previewDeleteAllMenuItems(canteenId: string) {
+  assertPreview();
+  const result = mockDeleteAllMenuItems(canteenId);
+  revalidatePath(`/canteen/${canteenId}`);
+  revalidatePath(`/canteen/manage/${canteenId}`);
+  revalidatePath("/canteen");
+  return result;
 }
 
 export async function previewGetMenuItemDeleteImpact(itemId: string) {

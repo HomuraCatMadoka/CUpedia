@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { buildBreadcrumb } from "@/lib/breadcrumb";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export function Breadcrumb({
   pages,
-  currentSlug,
+  currentPageId,
 }: {
-  pages: { id: string; slug: string; title: string; parentId: string | null }[];
-  currentSlug: string;
+  pages: { id: string; title: string; parentId: string | null }[];
+  currentPageId: string;
 }) {
-  const crumbs = buildBreadcrumb(pages, currentSlug);
+  const crumbs = buildBreadcrumb(pages, currentPageId);
   if (crumbs.length === 0) return null;
 
   return (
@@ -17,12 +18,12 @@ export function Breadcrumb({
       aria-label="面包屑导航"
     >
       {crumbs.map((crumb, i) => (
-        <span key={crumb.slug} className="flex items-center gap-1">
+        <span key={crumb.id} className="flex items-center gap-1">
           <Link
-            href={`/wiki/${crumb.slug}`}
+            href={`/wiki/${crumb.id}`}
             className="hover:text-foreground hover:underline"
           >
-            {crumb.title}
+            {getWikiDisplayTitle(crumb.title)}
           </Link>
           {i < crumbs.length - 1 && <span className="text-border">/</span>}
         </span>

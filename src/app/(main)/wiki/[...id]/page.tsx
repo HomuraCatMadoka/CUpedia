@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import {
   getWikiPage,
+  getWikiPageForEdit,
   getWikiTree,
   deleteWikiPage,
   getBacklinks,
@@ -16,22 +17,37 @@ import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
 import { resolveWikiLinkUrls } from "@/lib/wiki-links";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export default async function WikiReadPage({
   params,
 }: {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ id: string[] }>;
 }) {
-  const { slug: slugParts } = await params;
-  const slug = slugParts.map(decodeURIComponent).join("/");
+  const { id: idParts } = await params;
+  const identifier = idParts.map(decodeURIComponent).join("/");
   const [page, pages, { user, canEdit }] = await Promise.all([
-    getWikiPage(slug),
+    getWikiPage(identifier),
     getWikiTree(),
     getViewerEditContext(),
   ]);
 
   if (!page) notFound();
-  if (page.slug !== slug) redirect(`/wiki/${page.slug}`);
+
+  if (canEdit) {
+    const { WikiPageEditor } =
+      await import("@/components/wiki/wiki-page-editor");
+    const editablePage = await getWikiPageForEdit(page.id);
+    if (!editablePage) notFound();
+    return (
+      <WikiPageEditor
+        page={editablePage}
+        pages={pages}
+        userId={user!.id}
+        canDelete={user?.role === "admin"}
+      />
+    );
+  }
 
   const headings = extractHeadings(page.content);
   const plateValue = stripTitleHeading(
@@ -51,7 +67,7 @@ export default async function WikiReadPage({
     <>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-[var(--content-max-width)] px-6 py-6">
-          <Breadcrumb pages={pages} currentSlug={slug} />
+          <Breadcrumb pages={pages} currentPageId={page.id} />
           {page.icon && (
             <div
               data-testid="wiki-page-hero-icon"
@@ -62,20 +78,15 @@ export default async function WikiReadPage({
             </div>
           )}
           <div className="mt-2 flex items-start justify-between gap-4">
-            <h1 className="text-2xl font-bold">{page.title}</h1>
+            <h1 className="text-2xl font-bold">
+              {getWikiDisplayTitle(page.title)}
+            </h1>
             <div className="flex shrink-0 gap-2">
-              <Link href={`/wiki/history/${slug}`}>
+              <Link href={`/wiki/history/${page.id}`}>
                 <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
                   历史
                 </span>
               </Link>
-              {canEdit && (
-                <Link href={`/wiki/edit/${slug}`}>
-                  <span className="inline-block rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground hover:bg-accent">
-                    编辑
-                  </span>
-                </Link>
-              )}
               {user?.role === "admin" && (
                 <form
                   action={async () => {
@@ -124,7 +135,7 @@ export default async function WikiReadPage({
             headings={headings}
             pageTitle={page.title}
             parentTitle={parentPage?.title}
-            parentSlug={parentPage?.slug}
+            parentPageId={parentPage?.id}
           />
         </nav>
       )}

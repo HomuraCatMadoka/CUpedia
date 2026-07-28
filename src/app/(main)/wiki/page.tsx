@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getCategoryCards, getRecentPages } from "@/lib/wiki-homepage";
 import { Card, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 export default async function WikiIndexPage() {
   const [categories, recentPages] = await Promise.all([
@@ -24,13 +25,15 @@ export default async function WikiIndexPage() {
             <h2 className="text-sm font-semibold">分类</h2>
             <div className="mt-3 grid grid-cols-2 gap-3">
               {categories.map((cat) => (
-                <Link key={cat.id} href={`/wiki/${cat.slug}`} prefetch={false}>
+                <Link key={cat.id} href={`/wiki/${cat.id}`} prefetch={false}>
                   <Card
                     size="sm"
                     className="transition-colors hover:ring-foreground/20"
                   >
                     <CardHeader>
-                      <CardTitle className="text-sm">{cat.title}</CardTitle>
+                      <CardTitle className="text-sm">
+                        {getWikiDisplayTitle(cat.title)}
+                      </CardTitle>
                       <CardAction>
                         <Badge variant="secondary">{cat.childCount} 篇</Badge>
                       </CardAction>
@@ -49,11 +52,11 @@ export default async function WikiIndexPage() {
               {recentPages.map((p) => (
                 <Link
                   key={p.id}
-                  href={`/wiki/${p.slug}`}
+                  href={`/wiki/${p.id}`}
                   prefetch={false}
                   className="flex items-center justify-between rounded-lg bg-secondary/50 px-4 py-3 hover:bg-secondary"
                 >
-                  <div className="text-sm">{p.title}</div>
+                  <div className="text-sm">{getWikiDisplayTitle(p.title)}</div>
                   <div className="text-xs text-muted-foreground">
                     {(p as { updatedByUser?: { nickname: string } })
                       .updatedByUser?.nickname ?? "未知"}{" "}

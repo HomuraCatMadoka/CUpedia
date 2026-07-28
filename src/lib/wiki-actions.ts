@@ -1,12 +1,7 @@
 "use server";
 
 import { db } from "@/db";
-import {
-  wikiPageAliases,
-  wikiPages,
-  wikiRevisions,
-  wikiLinks,
-} from "@/db/schema";
+import { wikiPages, wikiRevisions, wikiLinks } from "@/db/schema";
 import {
   eq,
   isNull,
@@ -26,7 +21,6 @@ import {
 } from "next/cache";
 import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { assertContributorComplete } from "@/lib/contributor-account";
-import { validateSlug } from "@/lib/slug";
 import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
 import { extractWikiLinkTargets } from "@/lib/wiki-links";
@@ -46,39 +40,6 @@ async function lockWikiTree(tx: Tx) {
   await tx.execute(
     sql`SELECT pg_advisory_xact_lock(hashtext('cupedia.wiki-tree'))`,
   );
-}
-
-async function lockWikiSlugNamespace(tx: Tx) {
-  // Current slugs and historical aliases form one namespace even though they
-  // live in separate tables. Serialize create/rename checks so an old slug
-  // cannot be reclaimed while another transaction is recording its alias.
-  await tx.execute(
-    sql`SELECT pg_advisory_xact_lock(hashtext('cupedia.wiki-slug'))`,
-  );
-}
-
-async function assertWikiSlugAvailable(
-  tx: Tx,
-  slug: string,
-  pageId: string | null,
-) {
-  const result = await tx.execute(sql`
-    SELECT
-      EXISTS (
-        SELECT 1
-        FROM wiki_pages
-        WHERE slug = ${slug}
-          AND (${pageId}::uuid IS NULL OR id <> ${pageId}::uuid)
-      )
-      OR EXISTS (
-        SELECT 1
-        FROM wiki_page_aliases
-        WHERE slug = ${slug}
-          AND (${pageId}::uuid IS NULL OR page_id <> ${pageId}::uuid)
-      ) AS "slugTaken"
-  `);
-  const [status] = (result.rows ?? result) as { slugTaken: boolean }[];
-  if (status?.slugTaken) throw new Error("Slug already exists");
 }
 
 async function assertLiveWikiParent(tx: Tx, parentId: string) {
@@ -138,6 +99,8 @@ async function assertValidWikiParent(tx: Tx, pageId: string, parentId: string) {
 // `revalidateSearchCorpus()` for immediate, high-value freshness.
 const SEARCH_CORPUS_TAG = "wiki-search-corpus";
 const SEARCH_CORPUS_REVALIDATE_SECONDS = 5 * 60;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function revalidateSearchCorpus() {
   revalidateTag(SEARCH_CORPUS_TAG, "max");
@@ -162,56 +125,39 @@ async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
 }
 
 const getCachedWikiPage = unstable_cache(
-  async (slug: string) => {
-    const page = await db.query.wikiPages.findFirst({
-      where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
-      with: {
-        createdByUser: { columns: { nickname: true } },
-        updatedByUser: { columns: { nickname: true } },
-      },
-    });
-    if (page) return page;
-
-    const alias = await db.query.wikiPageAliases.findFirst({
-      where: eq(wikiPageAliases.slug, slug),
-      with: {
-        page: {
-          with: {
-            createdByUser: { columns: { nickname: true } },
-            updatedByUser: { columns: { nickname: true } },
-          },
+  async (pageId: string) => {
+    if (!UUID_PATTERN.test(pageId)) return null;
+    return (
+      (await db.query.wikiPages.findFirst({
+        where: and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)),
+        with: {
+          createdByUser: { columns: { nickname: true } },
+          updatedByUser: { columns: { nickname: true } },
         },
-      },
-    });
-    return alias?.page && !alias.page.deletedAt ? alias.page : null;
+      })) ?? null
+    );
   },
   ["wiki-page"],
   { tags: ["wiki-pages"] },
 );
 
-export async function getWikiPage(slug: string) {
-  return getCachedWikiPage(slug);
+export async function getWikiPage(pageId: string) {
+  return getCachedWikiPage(pageId);
 }
 
 // Editing needs an authoritative optimistic-lock baseline. A stale cached
 // version or updatedAt turns the next legitimate save into a false conflict.
-export async function getWikiPageForEdit(slug: string) {
-  const page = await db.query.wikiPages.findFirst({
-    where: and(eq(wikiPages.slug, slug), isNull(wikiPages.deletedAt)),
+export async function getWikiPageForEdit(pageId: string) {
+  if (!UUID_PATTERN.test(pageId)) return null;
+  return db.query.wikiPages.findFirst({
+    where: and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)),
   });
-  if (page) return page;
-
-  const alias = await db.query.wikiPageAliases.findFirst({
-    where: eq(wikiPageAliases.slug, slug),
-    with: { page: true },
-  });
-  return alias?.page && !alias.page.deletedAt ? alias.page : null;
 }
 
 const getCachedBacklinks = unstable_cache(
   async (pageId: string) => {
     return db
-      .select({ slug: wikiPages.slug, title: wikiPages.title })
+      .select({ id: wikiPages.id, title: wikiPages.title })
       .from(wikiLinks)
       .innerJoin(wikiPages, eq(wikiLinks.sourceId, wikiPages.id))
       .where(and(eq(wikiLinks.targetId, pageId), isNull(wikiPages.deletedAt)))
@@ -236,7 +182,6 @@ const getCachedWikiTree = unstable_cache(
     const pages = await db
       .select({
         id: wikiPages.id,
-        slug: wikiPages.slug,
         title: wikiPages.title,
         icon: wikiPages.icon,
         parentId: wikiPages.parentId,
@@ -255,52 +200,94 @@ export async function getWikiTree() {
   return getCachedWikiTree();
 }
 
+const CLIENT_PAGE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EMPTY_WIKI_CONTENT = JSON.stringify([
+  { type: "p", children: [{ text: "" }] },
+]);
+
 export async function createWikiPage(data: {
-  slug: string;
-  title: string;
+  id: string;
+  title?: string;
   icon?: string | null;
-  content: string;
+  content?: string;
   parentId?: string | null;
 }) {
   const user = await assertContributorComplete(await requireEditor());
-  if (!validateSlug(data.slug)) throw new Error("Invalid slug");
+  if (!CLIENT_PAGE_ID_RE.test(data.id)) throw new Error("Invalid page id");
+
+  const existing = await db.query.wikiPages.findFirst({
+    where: eq(wikiPages.id, data.id),
+  });
+  if (existing) {
+    if (existing.createdBy === user.id && existing.deletedAt === null) {
+      return existing;
+    }
+    throw new Error("PAGE_CREATE_ID_CONFLICT");
+  }
+
+  const title = data.title ?? "";
+  const content = data.content ?? EMPTY_WIKI_CONTENT;
   const icon = normalizeWikiIcon(data.icon);
 
-  const page = await db.transaction(async (tx) => {
-    await lockWikiSlugNamespace(tx);
-    await assertWikiSlugAvailable(tx, data.slug, null);
-    if (data.parentId) {
-      await lockWikiTree(tx);
-      await assertLiveWikiParent(tx, data.parentId);
-    }
+  let page: WikiPageRow;
+  try {
+    page = await db.transaction(async (tx) => {
+      if (data.parentId) {
+        await lockWikiTree(tx);
+        await assertLiveWikiParent(tx, data.parentId);
+      }
 
-    const now = new Date();
-    const [p] = await tx
-      .insert(wikiPages)
-      .values({
-        slug: data.slug,
-        title: data.title,
-        icon,
-        content: data.content,
-        parentId: data.parentId ?? null,
-        createdBy: user.id,
-        updatedBy: user.id,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .returning();
+      const now = new Date();
+      const [p] = await tx
+        .insert(wikiPages)
+        .values({
+          id: data.id,
+          title,
+          icon,
+          content,
+          parentId: data.parentId ?? null,
+          createdBy: user.id,
+          updatedBy: user.id,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .returning();
 
-    await tx.insert(wikiRevisions).values({
-      pageId: p.id,
-      title: data.title,
-      content: data.content,
-      editedBy: user.id,
-      editSummary: CREATE_REVISION_SUMMARY,
+      await tx.insert(wikiRevisions).values({
+        pageId: p.id,
+        title,
+        content,
+        editedBy: user.id,
+        editSummary: CREATE_REVISION_SUMMARY,
+      });
+
+      await syncWikiLinks(tx, p.id, content);
+      return p;
     });
-
-    await syncWikiLinks(tx, p.id, data.content);
-    return p;
-  });
+  } catch (error) {
+    if (
+      !(
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "23505"
+      )
+    ) {
+      throw error;
+    }
+    const retried = await db.query.wikiPages.findFirst({
+      where: eq(wikiPages.id, data.id),
+    });
+    if (
+      !retried ||
+      retried.createdBy !== user.id ||
+      retried.deletedAt !== null
+    ) {
+      throw new Error("PAGE_CREATE_ID_CONFLICT");
+    }
+    page = retried;
+  }
 
   revalidateTag("wiki-pages", "max");
   updateTag("wiki-pages");
@@ -314,9 +301,9 @@ export interface UpdateConflict {
   theirContent: string;
   theirTitle: string;
   theirIcon: string | null;
-  theirSlug: string;
   theirParentId: string | null;
   theirVersion: number;
+  theirContentGeneration: number;
   theirUpdatedAt: string;
 }
 
@@ -328,9 +315,9 @@ function toUpdateConflict(page: WikiPageRow): UpdateConflict {
     theirContent: page.content,
     theirTitle: page.title,
     theirIcon: page.icon,
-    theirSlug: page.slug,
     theirParentId: page.parentId,
     theirVersion: page.version,
+    theirContentGeneration: page.contentGeneration ?? 0,
     theirUpdatedAt: new Date(page.updatedAt).toISOString(),
   };
 }
@@ -354,27 +341,27 @@ function mergeScalarField<T>(
 /** Optimistically locked write; throws EDIT_CONFLICT if the baseline moved. */
 async function writeWikiPage(
   data: {
-    slug: string;
-    nextSlug?: string;
     title: string;
     icon?: string | null;
     content: string;
     editSummary?: string;
     parentId?: string | null;
     expectedVersion: number;
+    expectedContentGeneration: number;
     expectedUpdatedAt: string;
   },
   userId: string,
   pageId: string,
   options?: {
     validateParentChange?: boolean;
-    validateSlugChange?: boolean;
   },
 ): Promise<WikiPageRow> {
   const expectedUpdatedAt = new Date(data.expectedUpdatedAt);
   if (
     !Number.isInteger(data.expectedVersion) ||
     data.expectedVersion < 1 ||
+    !Number.isInteger(data.expectedContentGeneration) ||
+    data.expectedContentGeneration < 0 ||
     Number.isNaN(expectedUpdatedAt.getTime())
   ) {
     throw new Error("Invalid edit baseline");
@@ -382,30 +369,6 @@ async function writeWikiPage(
   const expectedUpdatedBefore = new Date(expectedUpdatedAt.getTime() + 1);
 
   return db.transaction(async (tx) => {
-    let originalSlug: string | null = null;
-    if (options?.validateSlugChange) {
-      const nextSlug = data.nextSlug ?? data.slug;
-      await lockWikiSlugNamespace(tx);
-      const [currentPage] = await tx
-        .select({ slug: wikiPages.slug })
-        .from(wikiPages)
-        .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)))
-        .limit(1);
-      if (!currentPage) throw new Error("Page not found");
-      originalSlug = currentPage.slug;
-
-      if (nextSlug !== originalSlug) {
-        await assertWikiSlugAvailable(tx, nextSlug, pageId);
-        await tx
-          .delete(wikiPageAliases)
-          .where(
-            and(
-              eq(wikiPageAliases.slug, nextSlug),
-              eq(wikiPageAliases.pageId, pageId),
-            ),
-          );
-      }
-    }
     if (options?.validateParentChange) {
       await lockWikiTree(tx);
       if (data.parentId === pageId) throw new Error("Invalid parent page");
@@ -417,7 +380,6 @@ async function writeWikiPage(
     const updated = await tx
       .update(wikiPages)
       .set({
-        ...(data.nextSlug !== undefined ? { slug: data.nextSlug } : {}),
         ...(data.parentId !== undefined ? { parentId: data.parentId } : {}),
         ...(data.icon !== undefined ? { icon: data.icon } : {}),
         title: data.title,
@@ -430,6 +392,7 @@ async function writeWikiPage(
         and(
           eq(wikiPages.id, pageId),
           eq(wikiPages.version, data.expectedVersion),
+          eq(wikiPages.contentGeneration, data.expectedContentGeneration),
           // Compatibility guard for pre-version deployments: old writers do
           // not advance `version`, but they do move `updatedAt`. Compare the
           // millisecond window visible to JavaScript so PostgreSQL microseconds
@@ -479,30 +442,19 @@ async function writeWikiPage(
     }
 
     await syncWikiLinks(tx, pageId, data.content);
-    if (
-      originalSlug !== null &&
-      data.nextSlug !== undefined &&
-      data.nextSlug !== originalSlug
-    ) {
-      await tx
-        .insert(wikiPageAliases)
-        .values({ slug: originalSlug, pageId })
-        .onConflictDoNothing();
-    }
     return updated[0];
   });
 }
 
 export async function updateWikiPage(data: {
-  pageId?: string;
-  slug: string;
-  nextSlug?: string;
+  pageId: string;
   title: string;
   icon?: string | null;
   content: string;
   editSummary?: string;
   parentId?: string | null;
   expectedVersion: number;
+  expectedContentGeneration?: number;
   expectedUpdatedAt: string;
   /** Ancestor title for scalar three-way merge. */
   baseTitle?: string;
@@ -510,33 +462,27 @@ export async function updateWikiPage(data: {
   baseIcon?: string | null;
   /** Ancestor content (editor's initialValue) for three-way merge. */
   baseContent?: string;
-  /** Ancestor URL path for scalar three-way merge. */
-  baseSlug?: string;
   /** Ancestor parent for scalar three-way merge. */
   baseParentId?: string | null;
 }): Promise<WikiPageRow | UpdateConflict> {
   const user = await assertContributorComplete(await requireEditor());
-  const nextSlug = data.nextSlug ?? data.slug;
-  if (!validateSlug(nextSlug)) throw new Error("Invalid slug");
   const normalizedIcon =
     data.icon === undefined ? undefined : normalizeWikiIcon(data.icon);
-  const normalizedData =
-    data.icon === undefined ? data : { ...data, icon: normalizedIcon };
+  const expectedContentGeneration = data.expectedContentGeneration ?? 0;
+  const normalizedData = {
+    ...data,
+    expectedContentGeneration,
+    ...(data.icon === undefined ? {} : { icon: normalizedIcon }),
+  };
 
   const existing = await db.query.wikiPages.findFirst({
-    where: and(
-      data.pageId
-        ? eq(wikiPages.id, data.pageId)
-        : eq(wikiPages.slug, data.slug),
-      isNull(wikiPages.deletedAt),
-    ),
+    where: and(eq(wikiPages.id, data.pageId), isNull(wikiPages.deletedAt)),
   });
   if (!existing) throw new Error("Page not found");
 
   // A title change is structural (title carries search weight 2); a body-only
   // edit is not, so it rides the corpus's time-based refresh. See ADR 0011.
   const titleChanged = data.title !== existing.title;
-  const slugChanged = nextSlug !== existing.slug;
   const parentChanged =
     data.parentId !== undefined && data.parentId !== existing.parentId;
   const iconChanged =
@@ -545,19 +491,13 @@ export async function updateWikiPage(data: {
   try {
     const result = await writeWikiPage(normalizedData, user.id, existing.id, {
       validateParentChange: parentChanged,
-      validateSlugChange: slugChanged,
     });
     revalidateTag("wiki-pages", "max");
-    revalidatePath(`/wiki/${result.slug}`);
-    if (slugChanged) revalidatePath(`/wiki/${existing.slug}`);
-    // updateTag immediately refreshes the current Server Action route. During
-    // a slug rename that route still contains the old slug and would render a
-    // 404 before the client can replace its URL. `revalidateTag(..., "max")`
-    // above expires the tree safely while the editor adopts the new route.
-    if (!slugChanged && (titleChanged || parentChanged || iconChanged)) {
+    revalidatePath(`/wiki/${result.id}`);
+    if (titleChanged || parentChanged || iconChanged) {
       updateTag("wiki-pages");
     }
-    if (titleChanged || slugChanged) revalidateSearchCorpus();
+    if (titleChanged) revalidateSearchCorpus();
     return result;
   } catch (e) {
     if (!(e instanceof Error && e.message === "EDIT_CONFLICT")) throw e;
@@ -568,6 +508,10 @@ export async function updateWikiPage(data: {
   });
   if (!latest) throw new Error("Page not found");
   const theirUpdatedAt = new Date(latest.updatedAt).toISOString();
+  const latestContentGeneration = latest.contentGeneration ?? 0;
+  if (latestContentGeneration !== expectedContentGeneration) {
+    return toUpdateConflict(latest);
+  }
 
   if (data.baseContent !== undefined) {
     let mergedTitle = data.title;
@@ -580,11 +524,6 @@ export async function updateWikiPage(data: {
       } else if (mineChanged && theirsChanged && data.title !== latest.title) {
         return toUpdateConflict(latest);
       }
-    }
-
-    const slugMerge = mergeScalarField(data.baseSlug, nextSlug, latest.slug);
-    if (!slugMerge.clean) {
-      return toUpdateConflict(latest);
     }
 
     let mergedParentId = data.parentId;
@@ -624,12 +563,12 @@ export async function updateWikiPage(data: {
         result = await writeWikiPage(
           {
             ...normalizedData,
-            nextSlug: slugMerge.value,
             parentId: mergedParentId,
             icon: mergedIcon,
             title: mergedTitle,
             content: merged.content,
             expectedVersion: latest.version,
+            expectedContentGeneration: latestContentGeneration,
             expectedUpdatedAt: theirUpdatedAt,
           },
           user.id,
@@ -638,7 +577,6 @@ export async function updateWikiPage(data: {
             validateParentChange:
               mergedParentId !== undefined &&
               mergedParentId !== latest.parentId,
-            validateSlugChange: slugMerge.value !== latest.slug,
           },
         );
       } catch (error) {
@@ -655,19 +593,15 @@ export async function updateWikiPage(data: {
         return toUpdateConflict(newest);
       }
       revalidateTag("wiki-pages", "max");
-      revalidatePath(`/wiki/${result.slug}`);
-      const mergedSlugChanged = slugMerge.value !== latest.slug;
-      if (mergedSlugChanged) revalidatePath(`/wiki/${latest.slug}`);
+      revalidatePath(`/wiki/${result.id}`);
       if (
-        !mergedSlugChanged &&
-        (mergedTitle !== latest.title ||
-          (mergedParentId !== undefined &&
-            mergedParentId !== latest.parentId) ||
-          (mergedIcon !== undefined && mergedIcon !== latest.icon))
+        mergedTitle !== latest.title ||
+        (mergedParentId !== undefined && mergedParentId !== latest.parentId) ||
+        (mergedIcon !== undefined && mergedIcon !== latest.icon)
       ) {
         updateTag("wiki-pages");
       }
-      if (mergedTitle !== latest.title || slugMerge.value !== latest.slug) {
+      if (mergedTitle !== latest.title) {
         revalidateSearchCorpus();
       }
       return result;
@@ -702,6 +636,7 @@ export async function deleteWikiPage(pageId: string) {
       .set({
         deletedAt: now,
         version: sql`${wikiPages.version} + 1`,
+        contentGeneration: sql`${wikiPages.contentGeneration} + 1`,
       })
       .where(and(inArray(wikiPages.id, ids), isNull(wikiPages.deletedAt)));
     return true;
@@ -804,6 +739,7 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
         updatedBy: user.id,
         updatedAt: new Date(),
         version: sql`${wikiPages.version} + 1`,
+        contentGeneration: sql`${wikiPages.contentGeneration} + 1`,
       })
       .where(eq(wikiPages.id, pageId));
 
@@ -825,7 +761,6 @@ const getCachedSearchablePages = unstable_cache(
     const pages = await db
       .select({
         id: wikiPages.id,
-        slug: wikiPages.slug,
         title: wikiPages.title,
         content: wikiPages.content,
       })
@@ -847,7 +782,6 @@ export async function getDeletedPages() {
   return db
     .select({
       id: wikiPages.id,
-      slug: wikiPages.slug,
       title: wikiPages.title,
       deletedAt: wikiPages.deletedAt,
     })

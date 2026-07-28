@@ -1,6 +1,8 @@
 # 搜索留在内存 Fuse,删掉无人查询的 trgm 索引,语料按时间刷新
 
-wiki 搜索(`searchWikiPages` → `getCachedSearchablePages` → `src/lib/search.ts` 的 `searchPages`)**全程在内存里跑**:把所有未删页的 `{id, slug, title, extractText(content)}` 灌进内存缓存,先 `indexOf` 精确匹配、miss 才 fallback 到 `Fuse`。没有任何一条 SQL 走索引。据此:(1) migration `0003` 建的 `wiki_pages_title_trgm_idx` / `wiki_pages_content_trgm_idx` 两个 pg_trgm GIN 索引**没有任何读路径**,删除;(2) 搜索继续留在内存,不下沉 Postgres;(3) 语料缓存改为按时间刷新,不再每次写都清。触发背景:即将开放全员编辑,写路径变最热。
+状态：Accepted；其中 `wiki_pages.slug` 索引的描述由 ADR 0018 的删列迁移取代。
+
+wiki 搜索(`searchWikiPages` → `getCachedSearchablePages` → `src/lib/search.ts` 的 `searchPages`)**全程在内存里跑**:把所有未删页的 `{id, title, extractText(content)}` 灌进内存缓存,先 `indexOf` 精确匹配、miss 才 fallback 到 `Fuse`。没有任何一条 SQL 走索引。据此:(1) migration `0003` 建的 `wiki_pages_title_trgm_idx` / `wiki_pages_content_trgm_idx` 两个 pg_trgm GIN 索引**没有任何读路径**,删除;(2) 搜索继续留在内存,不下沉 Postgres;(3) 语料缓存改为按时间刷新,不再每次写都清。触发背景:即将开放全员编辑,写路径变最热。
 
 ## Considered Options
 

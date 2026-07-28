@@ -7,9 +7,9 @@ export interface EditConflict {
   theirContent: string;
   theirTitle: string;
   theirIcon: string | null;
-  theirSlug: string;
   theirParentId: string | null;
   theirVersion: number;
+  theirContentGeneration: number;
   theirUpdatedAt: string;
 }
 
@@ -20,34 +20,38 @@ export interface EditConflictField {
 }
 
 export function EditConflictDialog({
+  ariaLabel = "编辑冲突",
+  title = "编辑冲突，无法自动合并",
+  description = "服务器版本已更新，且与你的改动重叠。服务器版本保持不变；请复制需要保留的内容，再基于服务器版本继续编辑。",
   fields = [],
   mineText,
   theirText,
   saving,
-  onKeepMine,
+  onCopy,
   onDiscard,
-  onCancel,
+  onReturn,
 }: {
+  ariaLabel?: string;
+  title?: string;
+  description?: string;
   fields?: EditConflictField[];
   mineText: string;
   theirText: string;
   saving: boolean;
-  onKeepMine: () => void;
+  onCopy: () => void;
   onDiscard: () => void;
-  onCancel: () => void;
+  onReturn: () => void;
 }) {
   return (
     <div
       role="dialog"
-      aria-label="编辑冲突"
+      aria-label={ariaLabel}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
     >
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-4 overflow-hidden rounded-lg border bg-background p-6">
         <div>
-          <h2 className="text-lg font-semibold">编辑冲突，无法自动合并</h2>
-          <p className="text-sm text-muted-foreground">
-            该页面已被他人修改，且与你的改动重叠。请对比后选择处理方式，已写内容不会被丢弃。
-          </p>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
         </div>
         {fields.length > 0 && (
           <div
@@ -81,14 +85,14 @@ export function EditConflictDialog({
           />
         </div>
         <div className="flex flex-wrap justify-end gap-3">
-          <Button variant="outline" onClick={onCancel} disabled={saving}>
-            继续编辑
+          <Button variant="outline" onClick={onCopy} disabled={saving}>
+            复制我的内容
           </Button>
-          <Button variant="outline" onClick={onDiscard} disabled={saving}>
-            放弃我的改动，加载最新
+          <Button variant="outline" onClick={onReturn} disabled={saving}>
+            返回编辑最终结果
           </Button>
-          <Button onClick={onKeepMine} disabled={saving}>
-            {saving ? "保存中…" : "保留我的版本另存"}
+          <Button onClick={onDiscard} disabled={saving}>
+            放弃本地草稿并加载服务器版本
           </Button>
         </div>
       </div>

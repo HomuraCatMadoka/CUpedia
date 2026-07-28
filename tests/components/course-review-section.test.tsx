@@ -11,29 +11,48 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { refresh, search, submit, createReply, getReplies, toastSuccess } =
-  vi.hoisted(() => ({
-    refresh: vi.fn(),
-    search: vi.fn(),
-    submit: vi.fn(),
-    createReply: vi.fn(),
-    getReplies: vi.fn(),
-    toastSuccess: vi.fn(),
-  }));
+const {
+  refresh,
+  search,
+  submit,
+  deleteSubmission,
+  getDeletionImpact,
+  createReply,
+  getReplies,
+  toggleLike,
+  toastSuccess,
+  toastError,
+} = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  search: vi.fn(),
+  submit: vi.fn(),
+  deleteSubmission: vi.fn(),
+  getDeletionImpact: vi.fn(),
+  createReply: vi.fn(),
+  getReplies: vi.fn(),
+  toggleLike: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh, push: vi.fn() }),
 }));
-vi.mock("sonner", () => ({ toast: { success: toastSuccess } }));
+vi.mock("sonner", () => ({
+  toast: { success: toastSuccess, error: toastError },
+}));
 
 vi.mock("@/lib/course-review-actions", () => ({
   createCourseReviewReply: (...args: unknown[]) => createReply(...args),
   deleteCourseReviewReply: vi.fn(),
-  deleteCourseReviewSubmission: vi.fn(),
+  deleteCourseReviewSubmission: (...args: unknown[]) =>
+    deleteSubmission(...args),
+  getCourseReviewDeletionImpact: (...args: unknown[]) =>
+    getDeletionImpact(...args),
   getCourseReviewReplies: (...args: unknown[]) => getReplies(...args),
   searchProfessors: (...args: unknown[]) => search(...args),
   submitCourseReview: (...args: unknown[]) => submit(...args),
-  toggleLike: vi.fn(),
+  toggleLike: (...args: unknown[]) => toggleLike(...args),
 }));
 
 import { CourseReviewSection } from "@/components/courses/course-review-section";
@@ -51,6 +70,26 @@ const RATING_STATE = {
   myRatingCount: 0,
 };
 
+const REVIEW = {
+  id: "review",
+  content: "值得推荐",
+  createdAt: new Date().toISOString(),
+  isEdited: false,
+  replyCount: 0,
+  likeCount: 0,
+  likedByMe: false,
+  canAdminDelete: false,
+  professorId: null,
+  professorName: null,
+  academicYear: "2025-26",
+  term: "Term 1" as const,
+  score: 5,
+  tags: [],
+  authorNickname: "Alice",
+  authorShowcaseId: null,
+  authorAchievements: [],
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
 });
@@ -58,6 +97,178 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("CourseReviewSection", () => {
+  it("立即切换点赞状态，并以服务端计数完成保存", async () => {
+    let finishLike: (count: number) => void = () => {};
+    toggleLike.mockReturnValue(
+      new Promise<number>((resolve) => {
+        finishLike = resolve;
+      }),
+    );
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "review-like",
+            likeCount: 2,
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    const like = screen.getByRole("button", { name: "点赞" });
+    fireEvent.click(like);
+
+    expect(like.getAttribute("aria-pressed")).toBe("true");
+    expect(like.textContent).toContain("3");
+    expect((like as HTMLButtonElement).disabled).toBe(true);
+    expect(refresh).not.toHaveBeenCalled();
+
+    finishLike(4);
+    await waitFor(() => {
+      expect(like.textContent).toContain("4");
+      expect((like as HTMLButtonElement).disabled).toBe(false);
+    });
+
+    toggleLike.mockResolvedValueOnce(3);
+    fireEvent.click(like);
+    expect(like.getAttribute("aria-pressed")).toBe("false");
+    expect(like.textContent).toContain("3");
+    await waitFor(() =>
+      expect((like as HTMLButtonElement).disabled).toBe(false),
+    );
+  });
+
+  it("点赞保存失败时回滚并提示重试", async () => {
+    toggleLike.mockRejectedValue(new Error("写入失败"));
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "review-rollback",
+            likeCount: 3,
+            likedByMe: true,
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    const like = screen.getByRole("button", { name: "点赞" });
+    fireEvent.click(like);
+    expect(like.getAttribute("aria-pressed")).toBe("false");
+    expect(like.textContent).toContain("2");
+
+    await waitFor(() => {
+      expect(like.getAttribute("aria-pressed")).toBe("true");
+      expect(like.textContent).toContain("3");
+      expect(toastError).toHaveBeenCalledWith("取消点赞失败，请重试");
+    });
+  });
+
+  it("管理员删除评论时编辑器保持可用", async () => {
+    let finishDelete: () => void = () => {};
+    getDeletionImpact.mockResolvedValue({ kind: "none" });
+    deleteSubmission.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishDelete = resolve;
+      }),
+    );
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[{ ...REVIEW, canAdminDelete: true }]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    fireEvent.change(screen.getByLabelText("学年"), {
+      target: { value: "2025-26" },
+    });
+    fireEvent.change(screen.getByLabelText("学期"), {
+      target: { value: "Term 1" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
+
+    const submitButton = screen.getByRole("button", { name: "提交测评" });
+    fireEvent.click(screen.getByTitle("删除整条投稿"));
+
+    await waitFor(() => expect(deleteSubmission).toHaveBeenCalled());
+    expect((submitButton as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: "点赞" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    finishDelete();
+    confirm.mockRestore();
+  });
+
+  it("编辑器保存时评论交互保持可用", async () => {
+    let finishSubmit: (result: {
+      newAchievementNotices: [];
+    }) => void = () => {};
+    submit.mockReturnValue(
+      new Promise<{ newAchievementNotices: [] }>((resolve) => {
+        finishSubmit = resolve;
+      }),
+    );
+
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[{ ...REVIEW, canAdminDelete: true }]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    fireEvent.change(screen.getByLabelText("学年"), {
+      target: { value: "2025-26" },
+    });
+    fireEvent.change(screen.getByLabelText("学期"), {
+      target: { value: "Term 1" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "保存中…" })).toBeTruthy(),
+    );
+    expect(
+      (screen.getByTitle("删除整条投稿") as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: "点赞" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    finishSubmit({ newAchievementNotices: [] });
+  });
+
   it("展示并互斥选择考勤要求标签", () => {
     render(
       <CourseReviewSection

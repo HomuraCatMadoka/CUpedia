@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
+import { createUntitledWikiPage } from "./helpers/wiki";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("wiki editor block commands", () => {
   test.beforeEach(async ({ page }) => {
@@ -11,7 +13,7 @@ test.describe("wiki editor block commands", () => {
   test("Slash search supports keyboard selection, Escape, and a clear empty state", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     const menu = page.getByTestId("slash-command-menu");
@@ -46,7 +48,7 @@ test.describe("wiki editor block commands", () => {
   test("Slash inserts representative rich content through existing Plate transforms", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
@@ -60,7 +62,7 @@ test.describe("wiki editor block commands", () => {
   test("the block plus inserts directly after its source block and opens the shared menu", async ({
     page,
   }) => {
-    await page.goto("/wiki/edit/getting-started");
+    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
 
     const editor = page.locator('[data-slate-editor="true"]');
     const blocks = editor.getByTestId("wiki-editor-block");
@@ -93,7 +95,7 @@ test.describe("wiki editor block commands", () => {
   test("the contextual block menu uses shared labels and only offers valid text conversions", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
@@ -120,7 +122,7 @@ test.describe("wiki editor block commands", () => {
   test("deleting the only block leaves an editable paragraph with focus", async ({
     page,
   }) => {
-    await page.goto("/wiki/new");
+    await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
@@ -143,7 +145,7 @@ test.describe("wiki editor block commands", () => {
   test("the grip preserves drag feedback and desktop block reordering", async ({
     page,
   }) => {
-    await page.goto("/wiki/edit/getting-started");
+    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
 
     const blocks = page.getByTestId("wiki-editor-block");
     const source = blocks.filter({ hasText: "Registration" }).first();

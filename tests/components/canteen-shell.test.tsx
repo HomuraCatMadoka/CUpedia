@@ -1,6 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
+import Link from "next/link";
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
@@ -31,5 +32,20 @@ describe("CanteenShell announcement", () => {
     );
 
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows action on the same row as the title", () => {
+    render(
+      <CanteenShell
+        title="山城食记"
+        brandTitle
+        action={<Link href="/canteen/shit-rank">每日💩堂榜</Link>}
+      >
+        <div>列表</div>
+      </CanteenShell>,
+    );
+
+    expect(screen.getByRole("link", { name: "每日💩堂榜" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "山城食记" })).toBeTruthy();
   });
 });

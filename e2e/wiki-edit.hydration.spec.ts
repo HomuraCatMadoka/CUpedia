@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 /**
  * Edit-page SSR/CSR hydration stability.
@@ -17,8 +18,6 @@ import { loginAsAdmin } from "./helpers/auth";
  * the editor mounts without the error boundary.
  */
 
-const RICH_SLUG = "rich-content-demo";
-
 test.describe("#204 edit-page hydration", () => {
   test.beforeEach(async ({ page }) => {
     await loginAsAdmin(page);
@@ -27,7 +26,7 @@ test.describe("#204 edit-page hydration", () => {
   test("table cells render with deterministic static ids, editor does not crash", async ({
     page,
   }) => {
-    await page.goto(`/wiki/edit/${RICH_SLUG}`);
+    await page.goto(`/wiki/${PAGE_IDS.richContent}`);
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();

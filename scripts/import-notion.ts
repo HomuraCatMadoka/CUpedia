@@ -11,7 +11,6 @@ import {
 } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { wikiPages, wikiRevisions } from "../src/db/schema";
-import { generateSlug, validateSlug } from "../src/lib/slug";
 import {
   stripMetadata,
   convertLinks,
@@ -49,28 +48,27 @@ export function extractLinkOrder(content: string): string[] {
   return titles;
 }
 
-function makeImportSlug(
-  title: string,
-  parentSlug: string | undefined,
-  usedSlugs: Set<string>,
+export function notionIdToUuid(value: string): string {
+  if (!/^[a-f0-9]{32}$/i.test(value)) return randomUUID();
+  return [
+    value.slice(0, 8),
+    value.slice(8, 12),
+    value.slice(12, 16),
+    value.slice(16, 20),
+    value.slice(20),
+  ].join("-");
+}
+
+export function rewriteDroppedRootLinks(
+  content: string,
+  droppedRootPageId: string,
 ): string {
-  const basePart = generateSlug(title) || "untitled";
-  const base = parentSlug ? `${parentSlug}/${basePart}` : basePart;
-  let candidate = base;
-  let i = 2;
-
-  while (!validateSlug(candidate) || usedSlugs.has(candidate)) {
-    candidate = `${base}-${i}`;
-    i += 1;
-  }
-
-  usedSlugs.add(candidate);
-  return candidate;
+  return content.replaceAll(`/wiki/${droppedRootPageId}`, "/wiki");
 }
 
 interface ImportEntry {
+  id: string;
   title: string;
-  slug: string;
   content: string;
   fileDir: string;
   relativeDir: string;
@@ -80,9 +78,7 @@ interface ImportEntry {
 function scanDir(
   dir: string,
   exportRoot: string,
-  pathToSlug: Map<string, string>,
-  parentSlug?: string,
-  usedSlugs = new Set<string>(),
+  pathToPageId: Map<string, string>,
 ): ImportEntry[] {
   const entries: ImportEntry[] = [];
   const items = fs.readdirSync(dir);
@@ -93,23 +89,21 @@ function scanDir(
     const stat = fs.statSync(fullPath);
 
     if (stat.isFile() && item.endsWith(".md")) {
-      const { title } = parseNotionFilename(item);
-      const slug = makeImportSlug(title, parentSlug, usedSlugs);
+      const { title, uuid } = parseNotionFilename(item);
+      const id = notionIdToUuid(uuid);
       const content = fs.readFileSync(fullPath, "utf-8");
 
       const relPath = path
         .relative(exportRoot, fullPath)
         .split(path.sep)
         .join("/");
-      pathToSlug.set(relPath, slug);
+      pathToPageId.set(relPath, id);
 
       const children: ImportEntry[] = [];
       const subDir = path.join(dir, title);
       if (fs.existsSync(subDir) && fs.statSync(subDir).isDirectory()) {
         scannedDirs.add(title);
-        children.push(
-          ...scanDir(subDir, exportRoot, pathToSlug, slug, usedSlugs),
-        );
+        children.push(...scanDir(subDir, exportRoot, pathToPageId));
       }
 
       if (children.length > 1) {
@@ -125,8 +119,8 @@ function scanDir(
       }
 
       entries.push({
+        id,
         title,
-        slug,
         content,
         fileDir: dir,
         relativeDir: path.relative(exportRoot, dir),
@@ -146,13 +140,7 @@ function scanDir(
     }
     if (item === ".DS_Store") continue;
 
-    const orphaned = scanDir(
-      fullPath,
-      exportRoot,
-      pathToSlug,
-      parentSlug,
-      usedSlugs,
-    );
+    const orphaned = scanDir(fullPath, exportRoot, pathToPageId);
     if (orphaned.length > 0) {
       console.log(
         `Recovered ${orphaned.length} pages from orphan directory: ${path.relative(exportRoot, fullPath)}`,
@@ -167,21 +155,31 @@ function scanDir(
 async function processEntry(
   entry: ImportEntry,
   exportRoot: string,
-  pathToSlug: Map<string, string>,
+  pathToPageId: Map<string, string>,
   uploadFn: (
     buffer: Buffer,
     filename: string,
     contentType: string,
   ) => Promise<{ key: string; url: string }>,
+  droppedRootPageId?: string,
 ): Promise<void> {
   let content = entry.content;
   content = stripMetadata(content);
-  content = convertLinks(content, entry.relativeDir, pathToSlug);
+  content = convertLinks(content, entry.relativeDir, pathToPageId);
+  if (droppedRootPageId) {
+    content = rewriteDroppedRootLinks(content, droppedRootPageId);
+  }
   content = await processImages(content, entry.fileDir, exportRoot, uploadFn);
   entry.content = content;
 
   for (const child of entry.children) {
-    await processEntry(child, exportRoot, pathToSlug, uploadFn);
+    await processEntry(
+      child,
+      exportRoot,
+      pathToPageId,
+      uploadFn,
+      droppedRootPageId,
+    );
   }
 }
 
@@ -197,7 +195,7 @@ async function insertEntries(
       const [inserted] = await tx
         .insert(wikiPages)
         .values({
-          slug: entry.slug,
+          id: entry.id,
           title: entry.title,
           content: entry.content,
           parentId,
@@ -218,7 +216,7 @@ async function insertEntries(
       return [inserted];
     });
 
-    console.log(`Imported: ${entry.slug}`);
+    console.log(`Imported: ${entry.id}`);
 
     if (entry.children.length > 0) {
       await insertEntries(db, adminUserId, entry.children, page.id);
@@ -310,48 +308,22 @@ async function main() {
 
   await checkSchema(db);
 
-  const existingPages = await db
-    .select({ slug: wikiPages.slug })
-    .from(wikiPages);
-  const usedSlugs = new Set(existingPages.map((page) => page.slug));
-
   console.log(`Scanning ${exportRoot}...`);
-  const pathToSlug = new Map<string, string>();
-  let entries = scanDir(
-    exportRoot,
-    exportRoot,
-    pathToSlug,
-    undefined,
-    usedSlugs,
-  );
+  const pathToPageId = new Map<string, string>();
+  let entries = scanDir(exportRoot, exportRoot, pathToPageId);
   console.log(
-    `Found ${entries.length} top-level pages, ${pathToSlug.size} total pages`,
+    `Found ${entries.length} top-level pages, ${pathToPageId.size} total pages`,
   );
+
+  let droppedRootPageId: string | undefined;
 
   // Unwrap single root: promote its children to top-level
   if (entries.length === 1 && entries[0].children.length > 0) {
     const root = entries[0];
-    const prefix = `${root.slug}/`;
     console.log(
       `Unwrapping single root: "${root.title}" (${root.children.length} children)`,
     );
-
-    function stripPrefix(entry: ImportEntry) {
-      if (entry.slug.startsWith(prefix)) {
-        entry.slug = entry.slug.slice(prefix.length);
-      }
-      entry.content = entry.content.replaceAll(`/wiki/${prefix}`, "/wiki/");
-      for (const child of entry.children) stripPrefix(child);
-    }
-    for (const child of root.children) stripPrefix(child);
-
-    // Update pathToSlug to reflect stripped slugs
-    for (const [key, val] of pathToSlug) {
-      if (val.startsWith(prefix)) {
-        pathToSlug.set(key, val.slice(prefix.length));
-      }
-    }
-
+    droppedRootPageId = root.id;
     entries = root.children;
   }
 
@@ -360,7 +332,13 @@ async function main() {
   try {
     console.log("Processing content (metadata, images, links)...");
     for (const entry of entries) {
-      await processEntry(entry, exportRoot, pathToSlug, upload);
+      await processEntry(
+        entry,
+        exportRoot,
+        pathToPageId,
+        upload,
+        droppedRootPageId,
+      );
     }
 
     console.log("Inserting into database...");

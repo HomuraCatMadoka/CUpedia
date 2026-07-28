@@ -9,10 +9,10 @@ const budgets = [
     maxBytes: 425 * 1024,
   },
   {
-    route: "/wiki/edit/[...slug]",
+    route: "/wiki/[...id]",
     manifest:
-      ".next/server/app/(main)/wiki/edit/[...slug]/page_client-reference-manifest.js",
-    maxBytes: 2700 * 1024,
+      ".next/server/app/(main)/wiki/[...id]/page_client-reference-manifest.js",
+    maxBytes: 550 * 1024,
   },
 ];
 

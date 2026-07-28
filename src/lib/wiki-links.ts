@@ -33,14 +33,10 @@ export function extractWikiLinkTargets(content: string): string[] {
  * Resolve internal wiki-link URLs from their stable page IDs.
  *
  * Stored Plate nodes retain the URL that existed when the mention was
- * inserted. Rendering from pageId keeps old documents working after a slug
- * rename; the next edit naturally persists the refreshed URL.
+ * inserted. Rendering from pageId keeps old documents on the canonical URL.
  */
-export function resolveWikiLinkUrls<T>(
-  value: T,
-  pages: { id: string; slug: string }[],
-): T {
-  const slugById = new Map(pages.map((page) => [page.id, page.slug]));
+export function resolveWikiLinkUrls<T>(value: T, pages: { id: string }[]): T {
+  const pageIds = new Set(pages.map((page) => page.id));
 
   const visit = (input: unknown): unknown => {
     if (Array.isArray(input)) {
@@ -56,9 +52,11 @@ export function resolveWikiLinkUrls<T>(
 
     const node = input as ResolvableNode;
     const resolvedChildren = visit(node.children);
-    const slug =
-      typeof node.pageId === "string" ? slugById.get(node.pageId) : undefined;
-    const resolvedUrl = slug ? `/wiki/${slug}` : node.url;
+    const pageId =
+      typeof node.pageId === "string" && pageIds.has(node.pageId)
+        ? node.pageId
+        : undefined;
+    const resolvedUrl = pageId ? `/wiki/${pageId}` : node.url;
     if (resolvedChildren === node.children && resolvedUrl === node.url) {
       return input;
     }

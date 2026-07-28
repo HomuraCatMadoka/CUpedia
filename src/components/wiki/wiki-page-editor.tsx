@@ -1,15 +1,17 @@
-import { notFound, redirect } from "next/navigation";
-import { requireEditorOrRedirect } from "@/lib/auth-guard";
+import { getDiscussions } from "@/lib/discussion-actions";
 import {
+  deleteWikiPage,
   getWikiPageForEdit,
   getWikiTree,
   updateWikiPage,
 } from "@/lib/wiki-actions";
-import { getDiscussions } from "@/lib/discussion-actions";
-import { WikiEditor } from "@/components/wiki/wiki-editor";
-import { parseContent } from "@/lib/plate-utils";
 import { stripTitleHeading } from "@/lib/headings";
+import { parseContent } from "@/lib/plate-utils";
 import { resolveWikiLinkUrls } from "@/lib/wiki-links";
+import { WikiEditorLazy } from "@/components/wiki/wiki-editor-lazy";
+
+type EditablePage = NonNullable<Awaited<ReturnType<typeof getWikiPageForEdit>>>;
+type WikiTree = Awaited<ReturnType<typeof getWikiTree>>;
 
 function collectDescendantIds(
   pages: { id: string; parentId: string | null }[],
@@ -38,56 +40,50 @@ function collectDescendantIds(
   return excluded;
 }
 
-export default async function EditWikiPage({
-  params,
+export async function WikiPageEditor({
+  page,
+  pages,
+  userId,
+  canDelete = false,
 }: {
-  params: Promise<{ slug: string[] }>;
+  page: EditablePage;
+  pages: WikiTree;
+  userId: string;
+  canDelete?: boolean;
 }) {
-  await requireEditorOrRedirect();
-  const { slug: slugParts } = await params;
-  const slug = slugParts.map(decodeURIComponent).join("/");
-  const [page, pages] = await Promise.all([
-    getWikiPageForEdit(slug),
-    getWikiTree(),
-  ]);
-  if (!page) notFound();
-  if (page.slug !== slug) redirect(`/wiki/edit/${page.slug}`);
   const pageId = page.id;
   const discussions = await getDiscussions(pageId);
   const excludedParentIds = collectDescendantIds(pages, pageId);
 
   async function handleUpdate(data: {
-    slug: string;
     title: string;
     icon?: string | null;
     content: string;
     editSummary?: string;
     parentId?: string | null;
     expectedVersion?: number;
+    expectedContentGeneration?: number;
     expectedUpdatedAt?: string;
     baseTitle?: string;
     baseIcon?: string | null;
     baseContent?: string;
-    baseSlug?: string;
     baseParentId?: string | null;
   }) {
     "use server";
     try {
       const updated = await updateWikiPage({
         pageId,
-        slug,
-        nextSlug: data.slug,
         title: data.title,
         icon: data.icon,
         content: data.content,
         editSummary: data.editSummary,
         parentId: data.parentId,
         expectedVersion: data.expectedVersion!,
+        expectedContentGeneration: data.expectedContentGeneration!,
         expectedUpdatedAt: data.expectedUpdatedAt!,
         baseTitle: data.baseTitle,
         baseIcon: data.baseIcon,
         baseContent: data.baseContent,
-        baseSlug: data.baseSlug,
         baseParentId: data.baseParentId,
       });
       if ("conflict" in updated) {
@@ -96,29 +92,38 @@ export default async function EditWikiPage({
           theirContent: updated.theirContent,
           theirTitle: updated.theirTitle,
           theirIcon: updated.theirIcon,
-          theirSlug: updated.theirSlug,
           theirParentId: updated.theirParentId,
           theirVersion: updated.theirVersion,
+          theirContentGeneration: updated.theirContentGeneration,
           theirUpdatedAt: updated.theirUpdatedAt,
         };
       }
       return {
-        slug: updated.slug,
+        id: updated.id,
         parentId: updated.parentId,
         title: updated.title,
         icon: updated.icon,
         content: updated.content,
         version: updated.version,
+        contentGeneration: updated.contentGeneration,
         updatedAt: new Date(updated.updatedAt).toISOString(),
       };
-    } catch (e: unknown) {
-      return { error: e instanceof Error ? e.message : String(e) };
+    } catch (error: unknown) {
+      return {
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
+  async function handleDelete() {
+    "use server";
+    await deleteWikiPage(pageId);
+  }
+
   return (
-    <WikiEditor
+    <WikiEditorLazy
       mode="edit"
+      userId={userId}
       pageId={pageId}
       initialTitle={page.title}
       initialIcon={page.icon}
@@ -126,19 +131,20 @@ export default async function EditWikiPage({
         resolveWikiLinkUrls(parseContent(page.content), pages),
         page.title,
       )}
-      initialSlug={page.slug}
       parentId={page.parentId}
       expectedVersion={page.version}
+      expectedContentGeneration={page.contentGeneration}
       expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
       linkablePages={pages
-        .filter((p) => !excludedParentIds.has(p.id))
-        .map((p) => ({
-          id: p.id,
-          slug: p.slug,
-          title: p.title,
-          icon: p.icon,
+        .filter((candidate) => !excludedParentIds.has(candidate.id))
+        .map((candidate) => ({
+          id: candidate.id,
+          title: candidate.title,
+          icon: candidate.icon,
         }))}
       initialDiscussions={discussions}
+      canDelete={canDelete}
+      onDelete={canDelete ? handleDelete : undefined}
       onSubmit={handleUpdate}
     />
   );

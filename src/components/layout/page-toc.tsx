@@ -10,17 +10,17 @@ export function PageToc({
   headings,
   pageTitle,
   parentTitle,
-  parentSlug,
+  parentPageId,
 }: {
   headings: Heading[];
   pageTitle: string;
   parentTitle?: string;
-  parentSlug?: string;
+  parentPageId?: string;
 }) {
   const ids = headings.map((h) => h.id);
   const activeId = useScrollSpy(ids);
 
-  const backHref = parentSlug ? `/wiki/${parentSlug}` : "/wiki";
+  const backHref = parentPageId ? `/wiki/${parentPageId}` : "/wiki";
   const backLabel = parentTitle ?? "CUpedia";
 
   return (

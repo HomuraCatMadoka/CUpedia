@@ -61,38 +61,38 @@ Owner: 这不是元数据，是正文里的`;
 });
 
 describe("convertLinks", () => {
-  const pathToSlug = new Map([
+  const pathToPageId = new Map([
     [
       "入学准备（必读）/生活物品 afea2c2e1ae541e88b320cabc0d2864c.md",
-      "入学准备-必读/生活物品",
+      "afea2c2e-1ae5-41e8-8b32-0cabc0d2864c",
     ],
     [
       "序/第一版编者按（2021ver） 6d69ec3e2aa34f7393a6ea630a5b7425.md",
-      "序/第一版编者按-2021ver",
+      "6d69ec3e-2aa3-4f73-93a6-ea630a5b7425",
     ],
   ]);
 
   it("converts a URL-encoded Notion link to wiki route", () => {
     const input = `[生活物品](%E5%85%A5%E5%AD%A6%E5%87%86%E5%A4%87%EF%BC%88%E5%BF%85%E8%AF%BB%EF%BC%89/%E7%94%9F%E6%B4%BB%E7%89%A9%E5%93%81%20afea2c2e1ae541e88b320cabc0d2864c.md)`;
-    const result = convertLinks(input, ".", pathToSlug);
-    expect(result).toContain("/wiki/入学准备-必读/生活物品");
+    const result = convertLinks(input, ".", pathToPageId);
+    expect(result).toContain("/wiki/afea2c2e-1ae5-41e8-8b32-0cabc0d2864c");
   });
 
   it("resolves relative paths from nested dirs", () => {
     const input = `[第一版编者按（2021ver）](%E5%BA%8F/%E7%AC%AC%E4%B8%80%E7%89%88%E7%BC%96%E8%80%85%E6%8C%89%EF%BC%882021ver%EF%BC%89%206d69ec3e2aa34f7393a6ea630a5b7425.md)`;
-    const result = convertLinks(input, ".", pathToSlug);
-    expect(result).toContain("/wiki/序/第一版编者按-2021ver");
+    const result = convertLinks(input, ".", pathToPageId);
+    expect(result).toContain("/wiki/6d69ec3e-2aa3-4f73-93a6-ea630a5b7425");
   });
 
   it("leaves external links unchanged", () => {
     const input = `[顺丰](https://htm.sf-express.com/hk/tc/)`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).toContain("https://htm.sf-express.com/hk/tc/");
   });
 
   it("leaves unmatched .md links unchanged", () => {
     const input = `[未知页面](unknown%20abc123.md)`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).toContain("unknown%20abc123.md");
   });
 
@@ -102,12 +102,12 @@ describe("convertLinks", () => {
     const map = new Map([
       [
         "讨新亚檄文（by DVD) fa4b93c41a0b4e46b039cf6c19fe31a4.md",
-        "书院/讨新亚檄文-by-dvd",
+        "fa4b93c4-1a0b-4e46-b039-cf6c19fe31a4",
       ],
     ]);
     const input = `[讨新亚檄文（by DVD)](%E8%AE%A8%E6%96%B0%E4%BA%9A%E6%AA%84%E6%96%87%EF%BC%88by%20DVD)%20fa4b93c41a0b4e46b039cf6c19fe31a4.md)`;
     const result = convertLinks(input, ".", map);
-    expect(result).toContain("/wiki/书院/讨新亚檄文-by-dvd");
+    expect(result).toContain("/wiki/fa4b93c4-1a0b-4e46-b039-cf6c19fe31a4");
     expect(result).not.toContain("fa4b93c41a0b4e46b039cf6c19fe31a4");
     expect(result).not.toContain(".md");
   });
@@ -116,57 +116,57 @@ describe("convertLinks", () => {
     const map = new Map([
       [
         "逸夫书院测评 （by Littleboer & ily) 14655dd483e545488ba5b4d3592532ef.md",
-        "书院/逸夫书院测评-by-littleboer-ily",
+        "14655dd4-83e5-4548-8ba5-b4d3592532ef",
       ],
     ]);
     const input = `[逸夫书院测评 （by. Littleboer & ily)](%E9%80%B8%E5%A4%AB%E4%B9%A6%E9%99%A2%E6%B5%8B%E8%AF%84%20%EF%BC%88by%20Littleboer%20&%20ily)%2014655dd483e545488ba5b4d3592532ef.md)`;
     const result = convertLinks(input, ".", map);
-    expect(result).toContain("/wiki/书院/逸夫书院测评-by-littleboer-ily");
+    expect(result).toContain("/wiki/14655dd4-83e5-4548-8ba5-b4d3592532ef");
     expect(result).not.toContain("14655dd483e545488ba5b4d3592532ef");
   });
 
   it("does not touch image links", () => {
     const input = `![Untitled](images/Untitled.png)`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).toContain("images/Untitled.png");
   });
 
   it("blocks javascript: scheme links", () => {
     const input = `[click](javascript:alert(1))`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).not.toContain("javascript:");
   });
 
   it("blocks data: scheme links", () => {
     const input = `[click](data:text/html,<h1>hi</h1>)`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).not.toContain("data:");
   });
 
   it("converts empty link with image URL to image syntax", () => {
     const input = `[](https://docimg9.docs.qq.com/image/test?w=100&h=200)`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).toContain("![");
     expect(result).toContain("docimg9.docs.qq.com/image/test");
   });
 
   it("converts empty link with .png URL to image syntax", () => {
     const input = `[](http://example.com/photo.png)`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).toContain("![");
     expect(result).toContain("http://example.com/photo.png");
   });
 
   it("makes empty non-image link visible with hostname", () => {
     const input = `[](https://www.cuhk.edu.hk/some/page.pdf)`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).toContain("www.cuhk.edu.hk");
     expect(result).not.toContain("[](");
   });
 
   it("preserves GFM tables through round-trip", () => {
     const input = `| Col1 | Col2 |\n| --- | --- |\n| A | B |\n`;
-    const result = convertLinks(input, ".", pathToSlug);
+    const result = convertLinks(input, ".", pathToPageId);
     expect(result).toContain("| Col1 | Col2 |");
     expect(result).toMatch(/\|\s*A\s*\|\s*B\s*\|/);
   });

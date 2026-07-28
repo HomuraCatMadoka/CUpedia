@@ -7,21 +7,19 @@ import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { WikiSidebar } from "@/components/layout/wiki-sidebar";
 
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/wiki/guide",
+  usePathname: () => "/wiki/1",
   useRouter: () => ({ prefetch: () => {} }),
 }));
 
 const PAGES = [
   {
     id: "1",
-    slug: "guide",
     title: "校园指南",
     icon: "🏫",
     parentId: null,
   },
   {
     id: "2",
-    slug: "guide/canteen",
     title: "食堂攻略",
     icon: null,
     parentId: "1",
@@ -42,6 +40,9 @@ describe("WikiSidebar is tree-only (ADR 0010)", () => {
     expect(html).toContain("校园指南");
     expect(html).toContain("食堂攻略");
     expect(html).toContain("🏫");
+    expect(html).toContain('href="/wiki/1"');
+    expect(html).toContain('href="/wiki/2"');
+    expect(html).not.toContain('href="/wiki/guide"');
   });
 
   it("labels the navigation column and never renders TOC chrome", () => {

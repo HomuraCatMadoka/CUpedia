@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 /**
  * Issue #92 — server search caches extracted text; results stay correct.
@@ -15,7 +16,7 @@ test.describe("#92 wiki search returns correct results", () => {
     const results = page.locator("a.rounded-lg.border");
     const result = results.filter({ hasText: "Dining on Campus" });
     await expect(result).toBeVisible();
-    await expect(result).toHaveAttribute("href", "/wiki/campus-life/dining");
+    await expect(result).toHaveAttribute("href", `/wiki/${PAGE_IDS.dining}`);
   });
 
   test("content query finds the page with a highlighted snippet", async ({
@@ -42,6 +43,6 @@ test.describe("#92 wiki search returns correct results", () => {
     const result = page.getByRole("option", { name: /Dining on Campus/ });
     await expect(result).toBeVisible();
     await result.click();
-    await expect(page).toHaveURL(/\/wiki\/campus-life\/dining$/);
+    await expect(page).toHaveURL(`/wiki/${PAGE_IDS.dining}`);
   });
 });
