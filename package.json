@@ -23,7 +23,9 @@
     "generate:handbook:spark": "node --import tsx scripts/generate-handbook-reference.ts",
     "oracle:check": "node --import tsx scripts/oracle-check.ts",
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
-    "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run"
+    "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run",
+    "wiki-links:check": "node --import tsx scripts/wiki-links-integrity.ts",
+    "wiki-links:repair": "node --import tsx scripts/wiki-links-integrity.ts --repair"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",

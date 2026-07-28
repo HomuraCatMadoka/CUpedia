@@ -23,7 +23,7 @@ import { requireAdmin, requireEditor } from "@/lib/auth-guard";
 import { assertContributorComplete } from "@/lib/contributor-account";
 import { searchPages } from "@/lib/search";
 import { extractText } from "@/lib/plate-utils";
-import { extractWikiLinkTargets } from "@/lib/wiki-links";
+import { extractWikiLinkTargets, isWikiPageId } from "@/lib/wiki-links";
 import { threeWayMergeContent } from "@/lib/merge-content";
 import { normalizeWikiIcon } from "@/lib/wiki-icon";
 import {
@@ -99,9 +99,6 @@ async function assertValidWikiParent(tx: Tx, pageId: string, parentId: string) {
 // `revalidateSearchCorpus()` for immediate, high-value freshness.
 const SEARCH_CORPUS_TAG = "wiki-search-corpus";
 const SEARCH_CORPUS_REVALIDATE_SECONDS = 5 * 60;
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function revalidateSearchCorpus() {
   revalidateTag(SEARCH_CORPUS_TAG, "max");
 }
@@ -113,23 +110,23 @@ async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
     (id) => id !== sourceId,
   );
   if (targets.length === 0) return;
-  const live = await tx
+  const existing = await tx
     .select({ id: wikiPages.id })
     .from(wikiPages)
-    .where(and(inArray(wikiPages.id, targets), isNull(wikiPages.deletedAt)));
-  const valid = new Set(live.map((p) => p.id));
+    .where(inArray(wikiPages.id, targets));
+  const valid = new Set(existing.map((p) => p.id));
   const rows = targets
     .filter((id) => valid.has(id))
     .map((targetId) => ({ sourceId, targetId }));
   if (rows.length > 0) await tx.insert(wikiLinks).values(rows);
 }
 
-const getCachedWikiPage = unstable_cache(
+const getCachedWikiPageState = unstable_cache(
   async (pageId: string) => {
-    if (!UUID_PATTERN.test(pageId)) return null;
+    if (!isWikiPageId(pageId)) return null;
     return (
       (await db.query.wikiPages.findFirst({
-        where: and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)),
+        where: eq(wikiPages.id, pageId),
         with: {
           createdByUser: { columns: { nickname: true } },
           updatedByUser: { columns: { nickname: true } },
@@ -142,13 +139,21 @@ const getCachedWikiPage = unstable_cache(
 );
 
 export async function getWikiPage(pageId: string) {
-  return getCachedWikiPage(pageId);
+  const page = await getCachedWikiPageState(pageId);
+  return page?.deletedAt ? null : page;
+}
+
+export async function getWikiPageState(pageId: string) {
+  const page = await getCachedWikiPageState(pageId);
+  if (!page) return null;
+  if (page.deletedAt) return { id: page.id, deletedAt: page.deletedAt };
+  return { ...page, deletedAt: null };
 }
 
 // Editing needs an authoritative optimistic-lock baseline. A stale cached
 // version or updatedAt turns the next legitimate save into a false conflict.
 export async function getWikiPageForEdit(pageId: string) {
-  if (!UUID_PATTERN.test(pageId)) return null;
+  if (!isWikiPageId(pageId)) return null;
   return db.query.wikiPages.findFirst({
     where: and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)),
   });
