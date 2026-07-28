@@ -70,6 +70,9 @@ async function deleteChildPagesExcept(parentId: string, retainedIds: string[]) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
+    await client.query("delete from wiki_drafts where parent_id = $1", [
+      parentId,
+    ]);
     await client.query(
       "delete from wiki_pages where parent_id = $1 and not (id = any($2::uuid[]))",
       [parentId, retainedIds],
@@ -558,7 +561,10 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
 
       await addChild.click();
       await expect(page).toHaveURL(
-        /\/wiki\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        new RegExp(
+          `/wiki/[0-9a-f-]+\\?draft=1&parent=${PAGE_IDS.campusLife}$`,
+          "i",
+        ),
         { timeout: 30_000 },
       );
       await expect(

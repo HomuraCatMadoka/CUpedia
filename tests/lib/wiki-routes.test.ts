@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
+import {
+  isCanonicalWikiPageId,
+  isFocusedWikiEditorRoute,
+} from "@/lib/wiki-routes";
 
 describe("isFocusedWikiEditorRoute", () => {
   it("uses the focused shell for canonical UUID page routes", () => {
@@ -16,5 +19,15 @@ describe("isFocusedWikiEditorRoute", () => {
         "/wiki/history/019c58f4-09d3-4db8-862a-468e26724409",
       ),
     ).toBe(false);
+  });
+});
+
+describe("isCanonicalWikiPageId", () => {
+  it("accepts only a canonical UUID page id", () => {
+    expect(isCanonicalWikiPageId("019c58f4-09d3-4db8-862a-468e26724409")).toBe(
+      true,
+    );
+    expect(isCanonicalWikiPageId("search")).toBe(false);
+    expect(isCanonicalWikiPageId("../admin")).toBe(false);
   });
 });

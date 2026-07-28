@@ -104,6 +104,29 @@ export const wikiPages = pgTable(
   (table) => [index("wiki_pages_parent_id_idx").on(table.parentId)],
 );
 
+export const wikiDrafts = pgTable(
+  "wiki_drafts",
+  {
+    id: uuid("id").primaryKey(),
+    title: text("title").notNull().default(""),
+    icon: text("icon"),
+    content: text("content").notNull().default(""),
+    // May reference either a public page or another owner-private draft.
+    // Publishing validates that the parent is public before promotion.
+    parentId: uuid("parent_id"),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    version: integer("version").default(1).notNull(),
+  },
+  (table) => [
+    index("wiki_drafts_created_by_idx").on(table.createdBy),
+    index("wiki_drafts_parent_id_idx").on(table.parentId),
+  ],
+);
+
 export const wikiRevisions = pgTable(
   "wiki_revisions",
   {

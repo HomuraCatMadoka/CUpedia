@@ -47,6 +47,7 @@ export function useWikiDraft({
   const sessionIdRef = React.useRef<string | null>(null);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const readyRef = React.useRef(false);
+  const readyPromiseRef = React.useRef<Promise<void>>(Promise.resolve());
   const suspendedRef = React.useRef(false);
   const pendingChangeRef = React.useRef(false);
   React.useEffect(() => {
@@ -64,7 +65,9 @@ export function useWikiDraft({
     clearTimer();
     const key = keyRef.current;
     const sessionId = sessionIdRef.current;
-    if (!enabled || !readyRef.current || suspendedRef.current || !key) return;
+    if (!enabled || suspendedRef.current || !key) return;
+    if (!readyRef.current) await readyPromiseRef.current;
+    if (!readyRef.current || suspendedRef.current) return;
     if (!sessionId) return;
 
     const draftSnapshot = getSnapshotRef.current();
@@ -146,6 +149,10 @@ export function useWikiDraft({
   React.useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    let resolveReady!: () => void;
+    readyPromiseRef.current = new Promise<void>((resolve) => {
+      resolveReady = resolve;
+    });
     const sessionId = getWikiDraftSessionId(userId, pageId);
     const key = createWikiDraftKey({ userId, pageId, sessionId });
     sessionIdRef.current = sessionId;
@@ -173,17 +180,20 @@ export function useWikiDraft({
       })
       .catch(() => {})
       .finally(() => {
-        if (cancelled) return;
-        readyRef.current = true;
-        if (pendingChangeRef.current && !suspendedRef.current) {
-          pendingChangeRef.current = false;
-          void flush().catch(() => {});
+        if (!cancelled) {
+          readyRef.current = true;
+          if (pendingChangeRef.current && !suspendedRef.current) {
+            pendingChangeRef.current = false;
+            void flush().catch(() => {});
+          }
         }
+        resolveReady();
       });
 
     return () => {
       cancelled = true;
       readyRef.current = false;
+      resolveReady();
     };
   }, [contentGeneration, enabled, flush, pageId, snapshot, userId, version]);
 

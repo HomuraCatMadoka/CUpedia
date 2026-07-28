@@ -73,8 +73,8 @@ test("#250 owner role governance and immediate wiki edit policy", async ({
 
   await user.goto("/wiki");
   await user.getByRole("button", { name: "新建页面" }).first().click();
-  await expect(user).toHaveURL(/\/wiki\/[0-9a-f-]{36}$/);
-  await expect(user.getByLabel("标题")).toBeVisible();
+  await expect(user).toHaveURL(/\/wiki\/[0-9a-f-]{36}\?draft=1$/);
+  await expect(user.getByLabel("页面标题")).toBeVisible();
   await user.goto(`/wiki/${PAGE_IDS.richContent}`);
   await expect(user.locator('[role="textbox"]').first()).toBeVisible();
   await user.goto(`/wiki/history/${PAGE_IDS.richContent}`);
