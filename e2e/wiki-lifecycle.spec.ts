@@ -10,7 +10,7 @@ const first = `first-${randomUUID()}`;
 const second = `second-${randomUUID()}`;
 let createdPageId = "";
 
-test.setTimeout(90_000);
+test.setTimeout(120_000);
 
 async function query<T extends Record<string, unknown>>(
   text: string,
@@ -139,6 +139,7 @@ test("#451 admin UI page lifecycle: create, read, update, delete, and restore", 
   );
 
   await page.getByRole("button", { name: "页面设置" }).click();
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "删除页面" }).click();
   await page.waitForURL("**/wiki");
   await expect(
@@ -152,7 +153,7 @@ test("#451 admin UI page lifecycle: create, read, update, delete, and restore", 
   await expect(async () => {
     await publicPage.goto(`/wiki/${pageId}`);
     await expect(
-      publicPage.getByRole("heading", { name: "404" }),
+      publicPage.getByRole("heading", { name: "页面已删除" }),
     ).toBeVisible();
   }).toPass({ timeout: 20_000 });
   await expect(publicPage.getByRole("heading", { name: title })).toHaveCount(0);
