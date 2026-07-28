@@ -32,7 +32,12 @@ async function main() {
     },
   );
   await resetData(url);
-  rmSync(path.join(root, ".next", "cache"), { recursive: true, force: true });
+  for (const cacheDir of [
+    path.join(root, ".next", "cache"),
+    path.join(root, ".next", "dev", "cache"),
+  ]) {
+    rmSync(cacheDir, { recursive: true, force: true });
+  }
   execFileSync(
     process.execPath,
     [

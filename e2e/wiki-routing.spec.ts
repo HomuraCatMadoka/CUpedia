@@ -54,17 +54,20 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
   test("shares the canonical UUID URL from the editor", async ({ page }) => {
     await page.setViewportSize({ width: 393, height: 851 });
     await page.addInitScript(() => {
-      Object.defineProperty(navigator, "share", {
+      Object.defineProperty(navigator, "clipboard", {
         configurable: true,
-        value: async ({ url }: ShareData) => {
-          sessionStorage.setItem("shared-url", url ?? "");
+        value: {
+          writeText: async (url: string) => {
+            sessionStorage.setItem("shared-url", url);
+          },
         },
       });
     });
     await loginAsAdmin(page);
     await page.goto(`/wiki/${PAGE_IDS.welcome}`);
 
-    await page.getByRole("button", { name: "分享页面" }).click();
+    await page.getByRole("button", { name: "共享" }).click();
+    await page.getByRole("button", { name: "复制链接" }).click();
 
     await expect
       .poll(() => page.evaluate(() => sessionStorage.getItem("shared-url")))

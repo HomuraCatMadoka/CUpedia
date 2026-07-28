@@ -475,9 +475,7 @@ test.describe("mobile wiki editing", () => {
     await expect(
       topbar.getByRole("button", { name: "打开导航" }),
     ).toBeVisible();
-    await expect(
-      topbar.getByRole("button", { name: "分享页面" }),
-    ).toBeVisible();
+    await expect(topbar.getByRole("button", { name: "共享" })).toBeVisible();
     await expect(topbar.getByRole("link", { name: "返回 Wiki" })).toHaveCount(
       0,
     );
@@ -498,10 +496,7 @@ test.describe("mobile wiki editing", () => {
         .getByRole("button", { name: "打开导航" })
         .locator("svg")
         .boundingBox(),
-      topbar
-        .getByRole("button", { name: "分享页面" })
-        .locator("svg")
-        .boundingBox(),
+      topbar.getByRole("button", { name: "共享" }).locator("svg").boundingBox(),
       topbar
         .getByRole("button", { name: "页面设置" })
         .locator("svg")
@@ -511,7 +506,7 @@ test.describe("mobile wiki editing", () => {
         .evaluate((element) =>
           Number.parseFloat(getComputedStyle(element).fontSize),
         ),
-      topbar.getByRole("button", { name: "分享页面" }).boundingBox(),
+      topbar.getByRole("button", { name: "共享" }).boundingBox(),
       topbar.getByRole("button", { name: "页面设置" }).boundingBox(),
     ]);
     expect(menuIcon!.width).toBeGreaterThanOrEqual(22);

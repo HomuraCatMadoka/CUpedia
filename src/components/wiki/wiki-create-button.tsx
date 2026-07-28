@@ -1,37 +1,51 @@
 "use client";
 
-import { useRef, useState, type ComponentProps } from "react";
-import { useRouter } from "next/navigation";
-import { toast } from "sonner";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
-import { Button } from "@/components/ui/button";
-import { createWikiPage } from "@/lib/wiki-actions";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
+import { preloadWikiEditor } from "@/components/wiki/wiki-editor-lazy";
+import { cn } from "@/lib/utils";
 
-type WikiCreateButtonProps = Omit<ComponentProps<typeof Button>, "onClick"> & {
-  parentId?: string | null;
-  onCreated?: () => void;
-};
+type WikiCreateButtonProps = Omit<ComponentProps<"a">, "href" | "onClick"> &
+  Pick<ComponentProps<typeof Button>, "variant" | "size"> & {
+    parentId?: string | null;
+    onCreated?: () => void;
+    disabled?: boolean;
+  };
 
 export function WikiCreateButton({
   parentId,
   onCreated,
   disabled,
   children,
+  variant = "default",
+  size = "default",
+  className,
   ...props
 }: WikiCreateButtonProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const wikiTree = useOptionalWikiTree();
   const { ensureContributorSetup } = useContributorSetup();
-  const retryId = useRef<string | null>(null);
-  const [isPending, setIsPending] = useState(false);
+  const pendingRef = useRef(false);
+  const [pendingPath, setPendingPath] = useState<string | null>(null);
+  const isPending = pendingPath !== null && pendingPath !== pathname;
+  const fallbackQuery = new URLSearchParams({ draft: "1" });
+  if (parentId) fallbackQuery.set("parent", parentId);
+  const fallbackHref = `/wiki/new?${fallbackQuery}`;
+
+  useEffect(() => {
+    preloadWikiEditor();
+  }, []);
 
   const create = async () => {
-    if (isPending || !(await ensureContributorSetup())) return;
+    if (pendingRef.current && pendingPath !== pathname) return;
+    pendingRef.current = true;
 
-    const id = retryId.current ?? crypto.randomUUID();
-    retryId.current = id;
-    setIsPending(true);
+    const contributorReady = ensureContributorSetup();
+    const id = crypto.randomUUID();
     const mutationToken =
       wikiTree?.projectUpsert({
         id,
@@ -39,41 +53,58 @@ export function WikiCreateButton({
         icon: null,
         parentId: parentId ?? null,
       }) ?? null;
-    try {
-      const page = await createWikiPage({ id, parentId });
-      wikiTree?.confirm(mutationToken, {
-        id: page.id,
-        title: page.title,
-        icon: page.icon,
-        parentId: page.parentId,
-        sortOrder: page.sortOrder,
-      });
-      retryId.current = null;
-      onCreated?.();
-      const destination = `/wiki/${id}`;
-      window.dispatchEvent(
-        new CustomEvent("cupedia:editor-navigation-bypass", {
-          detail: destination,
-        }),
-      );
-      router.push(destination);
-    } catch {
+    onCreated?.();
+
+    const query = new URLSearchParams({ draft: "1" });
+    if (parentId) query.set("parent", parentId);
+    const destination = `/wiki/${id}?${query}`;
+    setPendingPath(`/wiki/${id}`);
+    const persistDraft = contributorReady
+      .then(async (ready) => {
+        if (!ready) return false;
+        const response = await fetch("/api/wiki-drafts", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, parentId: parentId ?? null }),
+          keepalive: true,
+        });
+        return response.ok;
+      })
+      .catch(() => false);
+    window.dispatchEvent(
+      new CustomEvent("cupedia:editor-navigation-bypass", {
+        detail: destination,
+      }),
+    );
+    router.push(destination);
+
+    if (await persistDraft) {
+      wikiTree?.confirm(mutationToken);
+    } else {
       wikiTree?.rollback(mutationToken);
-      toast.error("创建页面失败，请重试");
-    } finally {
-      setIsPending(false);
+      pendingRef.current = false;
+      setPendingPath(null);
     }
   };
 
   return (
-    <Button
-      type="button"
-      disabled={disabled || isPending}
+    <a
+      href={fallbackHref}
+      role="button"
+      aria-disabled={disabled || isPending}
       aria-busy={isPending}
-      onClick={create}
+      className={cn(
+        buttonVariants({ variant, size, className }),
+        (disabled || isPending) && "pointer-events-none opacity-50",
+      )}
+      onClick={(event) => {
+        event.preventDefault();
+        if (disabled || isPending) return;
+        void create();
+      }}
       {...props}
     >
       {children}
-    </Button>
+    </a>
   );
 }

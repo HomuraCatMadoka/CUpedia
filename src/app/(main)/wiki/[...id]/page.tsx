@@ -18,21 +18,73 @@ import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
 import { resolveWikiLinkUrls } from "@/lib/wiki-links";
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
+import { isCanonicalWikiPageId } from "@/lib/wiki-routes";
+import { getOwnWikiDraft } from "@/lib/wiki-draft-actions";
 
 export default async function WikiReadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string[] }>;
+  searchParams: Promise<{ draft?: string; parent?: string }>;
 }) {
   const { id: idParts } = await params;
+  const draftParams = await searchParams;
   const identifier = idParts.map(decodeURIComponent).join("/");
-  const [page, pages, { user, canEdit }] = await Promise.all([
+  const [page, { user, canEdit }] = await Promise.all([
     getWikiPage(identifier),
-    getWikiTree(),
     getViewerEditContext(),
   ]);
 
-  if (!page) notFound();
+  if (identifier === "new" && draftParams.draft === "1" && canEdit && user) {
+    const id = crypto.randomUUID();
+    const query = new URLSearchParams({ draft: "1" });
+    if (
+      typeof draftParams.parent === "string" &&
+      isCanonicalWikiPageId(draftParams.parent)
+    ) {
+      query.set("parent", draftParams.parent);
+    }
+    redirect(`/wiki/${id}?${query}`);
+  }
+
+  if (!page) {
+    const draft =
+      canEdit && user && isCanonicalWikiPageId(identifier)
+        ? await getOwnWikiDraft(identifier)
+        : null;
+    if (
+      canEdit &&
+      user &&
+      isCanonicalWikiPageId(identifier) &&
+      (draft || draftParams.draft === "1")
+    ) {
+      const parentId =
+        draft?.parentId ??
+        (typeof draftParams.parent === "string" &&
+        isCanonicalWikiPageId(draftParams.parent)
+          ? draftParams.parent
+          : null);
+      const { WikiDraftPageEditor } =
+        await import("@/components/wiki/wiki-page-editor");
+      return (
+        <WikiDraftPageEditor
+          pageId={identifier}
+          parentId={parentId}
+          draft={draft}
+          pages={[]}
+          userId={user.id}
+        />
+      );
+    }
+    notFound();
+  }
+
+  if (draftParams.draft === "1") {
+    redirect(`/wiki/${page.id}`);
+  }
+
+  const pages = await getWikiTree();
 
   if (canEdit) {
     const { WikiPageEditor } =
