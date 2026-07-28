@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
@@ -23,7 +24,12 @@ import {
 } from "@/components/ui/dialog";
 import { CommandSearch } from "@/components/layout/command-search";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
-import { NotificationCenter } from "@/components/layout/notification-center";
+
+const NotificationCenter = dynamic(() =>
+  import("@/components/layout/notification-center").then(
+    (module) => module.NotificationCenter,
+  ),
+);
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const router = useRouter();

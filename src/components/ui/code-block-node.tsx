@@ -13,6 +13,7 @@ import {
 } from "platejs/react";
 import { useEditorRef, useElement, useReadOnly } from "platejs/react";
 
+import { isCodeBlockLanguageSupported } from "@/components/editor/code-block-lowlight";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -82,7 +83,7 @@ function CodeBlockCombobox() {
 
   const items = React.useMemo(
     () =>
-      languages.filter(
+      supportedLanguages.filter(
         (language) =>
           !searchValue ||
           language.label.toLowerCase().includes(searchValue.toLowerCase()),
@@ -289,3 +290,7 @@ const languages: { label: string; value: string }[] = [
   { label: "XML", value: "xml" },
   { label: "YAML", value: "yaml" },
 ];
+
+const supportedLanguages = languages.filter(({ value }) =>
+  isCodeBlockLanguageSupported(value),
+);
