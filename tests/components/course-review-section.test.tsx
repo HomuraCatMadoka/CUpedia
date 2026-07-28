@@ -15,6 +15,8 @@ const {
   refresh,
   search,
   submit,
+  deleteSubmission,
+  getDeletionImpact,
   createReply,
   getReplies,
   toggleLike,
@@ -24,6 +26,8 @@ const {
   refresh: vi.fn(),
   search: vi.fn(),
   submit: vi.fn(),
+  deleteSubmission: vi.fn(),
+  getDeletionImpact: vi.fn(),
   createReply: vi.fn(),
   getReplies: vi.fn(),
   toggleLike: vi.fn(),
@@ -41,7 +45,10 @@ vi.mock("sonner", () => ({
 vi.mock("@/lib/course-review-actions", () => ({
   createCourseReviewReply: (...args: unknown[]) => createReply(...args),
   deleteCourseReviewReply: vi.fn(),
-  deleteCourseReviewSubmission: vi.fn(),
+  deleteCourseReviewSubmission: (...args: unknown[]) =>
+    deleteSubmission(...args),
+  getCourseReviewDeletionImpact: (...args: unknown[]) =>
+    getDeletionImpact(...args),
   getCourseReviewReplies: (...args: unknown[]) => getReplies(...args),
   searchProfessors: (...args: unknown[]) => search(...args),
   submitCourseReview: (...args: unknown[]) => submit(...args),
@@ -169,6 +176,97 @@ describe("CourseReviewSection", () => {
       expect(like.textContent).toContain("3");
       expect(toastError).toHaveBeenCalledWith("取消点赞失败，请重试");
     });
+  });
+
+  it("管理员删除评论时编辑器保持可用", async () => {
+    let finishDelete: () => void = () => {};
+    getDeletionImpact.mockResolvedValue({ kind: "none" });
+    deleteSubmission.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishDelete = resolve;
+      }),
+    );
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[{ ...REVIEW, canAdminDelete: true }]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    fireEvent.change(screen.getByLabelText("学年"), {
+      target: { value: "2025-26" },
+    });
+    fireEvent.change(screen.getByLabelText("学期"), {
+      target: { value: "Term 1" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
+
+    const submitButton = screen.getByRole("button", { name: "提交测评" });
+    fireEvent.click(screen.getByTitle("删除整条投稿"));
+
+    await waitFor(() => expect(deleteSubmission).toHaveBeenCalled());
+    expect((submitButton as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: "点赞" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    finishDelete();
+    confirm.mockRestore();
+  });
+
+  it("编辑器保存时评论交互保持可用", async () => {
+    let finishSubmit: (result: {
+      newAchievementNotices: [];
+    }) => void = () => {};
+    submit.mockReturnValue(
+      new Promise<{ newAchievementNotices: [] }>((resolve) => {
+        finishSubmit = resolve;
+      }),
+    );
+
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[{ ...REVIEW, canAdminDelete: true }]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    fireEvent.change(screen.getByLabelText("学年"), {
+      target: { value: "2025-26" },
+    });
+    fireEvent.change(screen.getByLabelText("学期"), {
+      target: { value: "Term 1" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "保存中…" })).toBeTruthy(),
+    );
+    expect(
+      (screen.getByTitle("删除整条投稿") as HTMLButtonElement).disabled,
+    ).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: "点赞" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false);
+
+    finishSubmit({ newAchievementNotices: [] });
   });
 
   it("展示并互斥选择考勤要求标签", () => {
