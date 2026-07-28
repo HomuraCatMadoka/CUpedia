@@ -110,23 +110,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - project: chromium
+          - project: chromium-general
             browser: chromium
-            shard: 1
-            total_shards: 2
-          - project: chromium
+          - project: chromium-wiki
             browser: chromium
-            shard: 2
-            total_shards: 2
           - project: webkit-mobile
             browser: webkit
-            shard: 1
-            total_shards: 1
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
       AUTH_URL: http://localhost:3100
-      E2E_SHARDING: "1"
+      E2E_CI_GROUPS: "1"
       MINIO_ENDPOINT: localhost
       MINIO_PORT: "9000"
       MINIO_REGION: us-east-1
@@ -169,13 +163,13 @@ jobs:
         run: pnpm exec playwright install --with-deps --only-shell ${{ matrix.browser }}
 
       - name: Run e2e
-        run: pnpm test:e2e --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.total_shards }}
+        run: pnpm test:e2e --project=${{ matrix.project }}
 
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.project }}-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.project }}
           path: |
             playwright-report/
             test-results/

@@ -32,6 +32,10 @@ const baseURL = `http://localhost:${PORT}`;
 const E2E_DATABASE_URL = runtime.databaseUrl;
 const node = JSON.stringify(process.execPath);
 const useDevServer = process.env.E2E_SERVER_MODE === "dev";
+const useCiGroups = process.env.E2E_CI_GROUPS === "1";
+const mobileWebKitTest = /wiki-edit\.mobile-webkit\.spec\.ts$/;
+const wikiDesktopTest =
+  /wiki-(?!edit\.mobile(?:-webkit)?\.spec\.ts$).*\.spec\.ts$/;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with
@@ -40,9 +44,8 @@ if (E2E_DATABASE_URL) process.env.DATABASE_URL = E2E_DATABASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
-  // A worker owns one isolated database. CI shards individual tests across
-  // separate jobs/databases instead of racing shared fixtures in one process.
-  fullyParallel: process.env.E2E_SHARDING === "1",
+  // A worker owns one isolated database. CI splits files across separate
+  // jobs/databases instead of racing shared fixtures in one process.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
@@ -54,14 +57,29 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    {
-      name: "chromium",
-      testIgnore: /wiki-edit\.mobile-webkit\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"] },
-    },
+    ...(useCiGroups
+      ? [
+          {
+            name: "chromium-general",
+            testIgnore: [wikiDesktopTest, mobileWebKitTest],
+            use: { ...devices["Desktop Chrome"] },
+          },
+          {
+            name: "chromium-wiki",
+            testMatch: wikiDesktopTest,
+            use: { ...devices["Desktop Chrome"] },
+          },
+        ]
+      : [
+          {
+            name: "chromium",
+            testIgnore: mobileWebKitTest,
+            use: { ...devices["Desktop Chrome"] },
+          },
+        ]),
     {
       name: "webkit-mobile",
-      testMatch: /wiki-edit\.mobile-webkit\.spec\.ts/,
+      testMatch: mobileWebKitTest,
       use: { ...devices["iPhone 13"] },
     },
   ],
