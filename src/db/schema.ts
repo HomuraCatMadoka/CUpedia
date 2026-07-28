@@ -2,6 +2,7 @@ import {
   pgTable,
   text,
   timestamp,
+  date,
   uuid,
   boolean,
   integer,
@@ -83,7 +84,6 @@ export const wikiPages = pgTable(
   "wiki_pages",
   {
     id: uuid("id").defaultRandom().primaryKey(),
-    slug: text("slug").notNull().unique(),
     title: text("title").notNull(),
     icon: text("icon"),
     content: text("content").notNull().default(""),
@@ -99,11 +99,9 @@ export const wikiPages = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     version: integer("version").default(1).notNull(),
+    contentGeneration: integer("content_generation").default(0).notNull(),
   },
-  (table) => [
-    index("wiki_pages_parent_id_idx").on(table.parentId),
-    index("wiki_pages_slug_idx").on(table.slug),
-  ],
+  (table) => [index("wiki_pages_parent_id_idx").on(table.parentId)],
 );
 
 export const wikiRevisions = pgTable(
@@ -122,18 +120,6 @@ export const wikiRevisions = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
-);
-
-export const wikiPageAliases = pgTable(
-  "wiki_page_aliases",
-  {
-    slug: text("slug").primaryKey(),
-    pageId: uuid("page_id")
-      .notNull()
-      .references(() => wikiPages.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [index("wiki_page_aliases_page_id_idx").on(table.pageId)],
 );
 
 export const wikiLinks = pgTable(
@@ -205,17 +191,7 @@ export const wikiLinksRelations = relations(wikiLinks, ({ one }) => ({
   }),
 }));
 
-export const wikiPageAliasesRelations = relations(
-  wikiPageAliases,
-  ({ one }) => ({
-    page: one(wikiPages, {
-      fields: [wikiPageAliases.pageId],
-      references: [wikiPages.id],
-    }),
-  }),
-);
-
-export const wikiPagesRelations = relations(wikiPages, ({ one, many }) => ({
+export const wikiPagesRelations = relations(wikiPages, ({ one }) => ({
   createdByUser: one(users, {
     fields: [wikiPages.createdBy],
     references: [users.id],
@@ -226,7 +202,6 @@ export const wikiPagesRelations = relations(wikiPages, ({ one, many }) => ({
     references: [users.id],
     relationName: "updatedBy",
   }),
-  aliases: many(wikiPageAliases),
 }));
 
 export const wikiRevisionsRelations = relations(wikiRevisions, ({ one }) => ({
@@ -1271,6 +1246,7 @@ export const canteensRelations = relations(canteens, ({ many }) => ({
   menuItems: many(canteenMenuItems),
   importDrafts: many(menuImportDrafts),
   danmakuMessages: many(canteenDanmakuMessages),
+  shameVotes: many(canteenShameVotes),
 }));
 
 export const canteenMenuItemsRelations = relations(
@@ -1362,6 +1338,56 @@ export const canteenDishVotes = pgTable(
       )`,
     ),
   ],
+);
+
+/** Append-only 食堂踩票；票永久保留，榜单按 voteDate（港时自然日）过滤展示。 */
+export const canteenShameVotes = pgTable(
+  "canteen_shame_votes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, {
+      onDelete: "restrict",
+    }),
+    anonymousSessionId: uuid("anonymous_session_id"),
+    /** Asia/Hong_Kong calendar date (YYYY-MM-DD) at insert time. */
+    voteDate: date("vote_date").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("canteen_shame_votes_date_canteen_idx").on(
+      table.voteDate,
+      table.canteenId,
+    ),
+    index("canteen_shame_votes_date_anon_idx").on(
+      table.voteDate,
+      table.anonymousSessionId,
+    ),
+    index("canteen_shame_votes_canteen_id_idx").on(table.canteenId),
+    check(
+      "canteen_shame_votes_identity_chk",
+      sql`(
+        (${table.userId} IS NOT NULL AND ${table.anonymousSessionId} IS NULL) OR
+        (${table.userId} IS NULL AND ${table.anonymousSessionId} IS NOT NULL)
+      )`,
+    ),
+  ],
+);
+
+export const canteenShameVotesRelations = relations(
+  canteenShameVotes,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [canteenShameVotes.canteenId],
+      references: [canteens.id],
+    }),
+    user: one(users, {
+      fields: [canteenShameVotes.userId],
+      references: [users.id],
+    }),
+  }),
 );
 
 export const canteenDishVotesRelations = relations(

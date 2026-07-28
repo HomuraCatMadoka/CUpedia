@@ -10,10 +10,11 @@ import { RevisionList } from "@/components/wiki/revision-list";
 import { RevisionDiff } from "@/components/wiki/revision-diff";
 import { WikiRenderer } from "@/components/wiki/wiki-renderer";
 import { WikiStaticContent } from "@/components/wiki/wiki-static-content";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { getViewerEditContext } from "@/lib/auth-guard";
 import { redirect } from "next/navigation";
 import { parseContent, toMarkdown } from "@/lib/plate-utils";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 function ContentShell({ children }: { children: React.ReactNode }) {
   return (
@@ -29,14 +30,15 @@ export default async function HistoryPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ slug: string[] }>;
+  params: Promise<{ id: string[] }>;
   searchParams: Promise<{ view?: string; diff?: string; with?: string }>;
 }) {
-  const { slug: slugParts } = await params;
-  const slug = slugParts.map(decodeURIComponent).join("/");
+  const { id: idParts } = await params;
+  const identifier = idParts.map(decodeURIComponent).join("/");
   const sp = await searchParams;
-  const page = await getWikiPage(slug);
+  const page = await getWikiPage(identifier);
   if (!page) notFound();
+  const pageId = page.id;
 
   const { canEdit } = await getViewerEditContext();
 
@@ -49,15 +51,15 @@ export default async function HistoryPage({
       try {
         await rollbackToRevision(page!.id, sp.view!);
       } catch {
-        redirect(`/wiki/history/${slug}?view=${sp.view}`);
+        redirect(`/wiki/history/${pageId}?view=${sp.view}`);
       }
-      redirect(`/wiki/${slug}`);
+      redirect(`/wiki/${pageId}`);
     }
 
     return (
       <ContentShell>
         <Link
-          href={`/wiki/history/${slug}`}
+          href={`/wiki/history/${pageId}`}
           className="text-sm text-blue-600 hover:underline"
         >
           &larr; 返回历史
@@ -95,7 +97,7 @@ export default async function HistoryPage({
     return (
       <ContentShell>
         <Link
-          href={`/wiki/history/${slug}`}
+          href={`/wiki/history/${pageId}`}
           className="text-sm text-blue-600 hover:underline"
         >
           &larr; 返回历史
@@ -116,14 +118,17 @@ export default async function HistoryPage({
   return (
     <ContentShell>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">编辑历史：{page.title}</h1>
-        <Link href={`/wiki/${slug}`}>
-          <Button variant="outline" size="sm">
-            返回页面
-          </Button>
+        <h1 className="text-xl font-bold">
+          编辑历史：{getWikiDisplayTitle(page.title)}
+        </h1>
+        <Link
+          href={`/wiki/${pageId}`}
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          返回页面
         </Link>
       </div>
-      <RevisionList revisions={revisions} slug={slug} />
+      <RevisionList revisions={revisions} pageId={pageId} />
     </ContentShell>
   );
 }

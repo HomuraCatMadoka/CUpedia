@@ -1,13 +1,31 @@
 import { expect, test } from "@playwright/test";
+import { Client } from "pg";
 
 import { loginAsAdmin } from "./helpers/auth";
+import { createUntitledWikiPage } from "./helpers/wiki";
 
 test.describe("mobile WebKit editor interactions", () => {
+  let createdPageId: string | null = null;
+
+  test.afterEach(async () => {
+    if (!createdPageId) return;
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    try {
+      await client.query("delete from wiki_pages where id = $1", [
+        createdPageId,
+      ]);
+    } finally {
+      createdPageId = null;
+      await client.end();
+    }
+  });
+
   test("iPhone taps run insert, turn-into, and mention toolbar actions", async ({
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/new");
+    createdPageId = await createUntitledWikiPage(page);
 
     expect(await page.evaluate(() => navigator.userAgent)).toContain("iPhone");
 
@@ -55,7 +73,7 @@ test.describe("mobile WebKit editor interactions", () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto("/wiki/new");
+    createdPageId = await createUntitledWikiPage(page);
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.tap();

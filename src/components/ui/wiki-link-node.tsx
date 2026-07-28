@@ -9,6 +9,7 @@ import {
   PlateElement,
 } from "platejs/react";
 import { FileTextIcon } from "lucide-react";
+import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
 import {
   InlineCombobox,
@@ -22,7 +23,6 @@ import {
 
 export type WikiLinkPage = {
   id: string;
-  slug: string;
   title: string;
   icon?: string | null;
 };
@@ -54,7 +54,7 @@ function insertWikiLink(editor: PlateEditor, page: WikiLinkPage) {
   }
   editor.tf.insertNodes({
     type: KEYS.link,
-    url: `/wiki/${page.slug}`,
+    url: `/wiki/${page.id}`,
     pageId: page.id,
     children: [{ text: page.title }],
   });
@@ -94,8 +94,7 @@ export function WikiLinkInputElement(
             {pages.map((page) => (
               <InlineComboboxItem
                 key={page.id}
-                value={page.title}
-                keywords={[page.slug]}
+                value={getWikiDisplayTitle(page.title)}
                 onClick={() => insertWikiLink(editor, page)}
                 className="mx-[10px] h-11 gap-3 rounded-md px-3 text-[16px] transition-none data-[active-item=true]:bg-black/[0.075] dark:data-[active-item=true]:bg-white/10"
               >
@@ -106,7 +105,9 @@ export function WikiLinkInputElement(
                 >
                   {page.icon ? page.icon : <FileTextIcon className="size-5" />}
                 </span>
-                <span className="truncate">{page.title}</span>
+                <span className="truncate">
+                  {getWikiDisplayTitle(page.title)}
+                </span>
               </InlineComboboxItem>
             ))}
           </InlineComboboxGroup>

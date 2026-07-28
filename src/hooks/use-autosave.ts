@@ -110,7 +110,7 @@ export function useAutosave({
       const request = saveRequest
         .then((result) => {
           if (result?.error) {
-            if (result.haltAutosave && reason === "autosave") {
+            if (result.haltAutosave) {
               haltedRef.current = true;
             }
             setStatus("error");

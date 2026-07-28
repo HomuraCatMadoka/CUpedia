@@ -1,0 +1,1 @@
+ALTER TABLE "wiki_pages" ADD COLUMN "content_generation" integer DEFAULT 0 NOT NULL;

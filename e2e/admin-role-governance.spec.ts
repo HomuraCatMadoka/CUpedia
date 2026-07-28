@@ -1,6 +1,7 @@
 import { Client } from "pg";
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
+import { PAGE_IDS } from "../scripts/seed-data";
 
 const promotedEmail = "contributor@test.com";
 
@@ -55,11 +56,9 @@ test("#250 owner role governance and immediate wiki edit policy", async ({
   const userContext = await browser.newContext();
   const user = await userContext.newPage();
   await loginWithPassword(user, "user@test.com", "password123");
-  await user.goto("/wiki/new");
-  await expect(user).toHaveURL(/\/wiki$/);
-  await user.goto("/wiki/edit/rich-content-demo");
-  await expect(user).toHaveURL(/\/wiki$/);
-  await user.goto("/wiki/history/rich-content-demo");
+  await user.goto(`/wiki/${PAGE_IDS.richContent}`);
+  await expect(user.locator('[role="textbox"]')).toHaveCount(0);
+  await user.goto(`/wiki/history/${PAGE_IDS.richContent}`);
   await user.getByRole("link", { name: "查看" }).first().click();
   await expect(user.getByRole("button", { name: "回滚到此版本" })).toHaveCount(
     0,
@@ -72,11 +71,13 @@ test("#250 owner role governance and immediate wiki edit policy", async ({
     manager.getByText("当前：所有登录用户均可创建、编辑和回滚页面"),
   ).toBeVisible();
 
-  await user.goto("/wiki/new");
+  await user.goto("/wiki");
+  await user.getByRole("button", { name: "新建页面" }).first().click();
+  await expect(user).toHaveURL(/\/wiki\/[0-9a-f-]{36}$/);
   await expect(user.getByLabel("标题")).toBeVisible();
-  await user.goto("/wiki/edit/rich-content-demo");
+  await user.goto(`/wiki/${PAGE_IDS.richContent}`);
   await expect(user.locator('[role="textbox"]').first()).toBeVisible();
-  await user.goto("/wiki/history/rich-content-demo");
+  await user.goto(`/wiki/history/${PAGE_IDS.richContent}`);
   await user.getByRole("link", { name: "查看" }).first().click();
   await expect(
     user.getByRole("button", { name: "回滚到此版本" }),

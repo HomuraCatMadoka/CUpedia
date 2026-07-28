@@ -19,6 +19,7 @@ import {
   mockCreateCanteen,
   mockCreateMenuItem,
   mockDeleteCanteen,
+  mockDeleteAllMenuItems,
   mockDeleteMenuItem,
   mockDeleteImpactForCanteen,
   mockDeleteImpactForMenuItem,
@@ -725,4 +726,36 @@ export async function deleteMenuItem(
 
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);
+}
+
+/** Hard-delete all menu items for a canteen (votes/comments cascade). */
+export async function deleteAllMenuItems(
+  canteenId: string,
+): Promise<{ deletedCount: number }> {
+  await requireAdmin();
+  if (isCanteenMockMode()) {
+    const result = mockDeleteAllMenuItems(canteenId);
+    revalidatePath(`/admin/canteens/${canteenId}`);
+    revalidatePath(`/api/canteens/${canteenId}/menu`);
+    revalidatePath(`/canteen/${canteenId}`);
+    revalidatePath("/canteen");
+    return result;
+  }
+
+  const existing = await db.query.canteens.findFirst({
+    where: eq(canteens.id, canteenId),
+    columns: { id: true },
+  });
+  if (!existing) throw new Error("CANTEEN_NOT_FOUND");
+
+  const deleted = await db
+    .delete(canteenMenuItems)
+    .where(eq(canteenMenuItems.canteenId, canteenId))
+    .returning({ id: canteenMenuItems.id });
+
+  revalidatePath(`/admin/canteens/${canteenId}`);
+  revalidatePath(`/api/canteens/${canteenId}/menu`);
+  revalidatePath(`/canteen/${canteenId}`);
+  revalidatePath("/canteen");
+  return { deletedCount: deleted.length };
 }

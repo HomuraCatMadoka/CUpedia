@@ -14,7 +14,6 @@ export async function getCategoryCards() {
   return db
     .select({
       id: wikiPages.id,
-      slug: wikiPages.slug,
       title: wikiPages.title,
       childCount: sql<number>`${children.cnt}`.as("childCount"),
     })
@@ -33,7 +32,6 @@ export async function getRecentPages(limit = 8) {
     limit,
     columns: {
       id: true,
-      slug: true,
       title: true,
       updatedAt: true,
       parentId: true,

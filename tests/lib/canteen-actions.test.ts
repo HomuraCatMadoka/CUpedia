@@ -21,7 +21,7 @@ describe("canteen-actions (mock mode)", () => {
   it("lists canteens without touching the database", async () => {
     const { getCanteens } = await import("@/lib/canteen-actions");
     const canteens = await getCanteens();
-    expect(canteens).toHaveLength(1);
+    expect(canteens).toHaveLength(20);
     expect(canteens.every((c) => c.name.length > 0)).toBe(true);
   });
 
@@ -32,11 +32,8 @@ describe("canteen-actions (mock mode)", () => {
   });
 
   it("returns menu items sorted by meal period then sort order", async () => {
-    const { getCanteens, getCanteenMenuItems } = await import(
-      "@/lib/canteen-actions"
-    );
-    const canteen = (await getCanteens())[0];
-    const items = await getCanteenMenuItems(canteen.id);
+    const { getCanteenMenuItems } = await import("@/lib/canteen-actions");
+    const items = await getCanteenMenuItems("mock-canteen-demo");
     expect(items.length).toBeGreaterThan(0);
     const { primaryMealPeriodSortKey } = await import("@/lib/canteen-types");
     for (let i = 1; i < items.length; i++) {

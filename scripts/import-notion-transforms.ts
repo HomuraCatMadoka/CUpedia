@@ -72,7 +72,7 @@ export function encodeNotionLinkParens(content: string): string {
 export function convertLinks(
   content: string,
   relativeDir: string,
-  pathToSlug: Map<string, string>,
+  pathToPageId: Map<string, string>,
 ): string {
   const tree = unified()
     .use(remarkParse)
@@ -119,10 +119,10 @@ export function convertLinks(
 
     const resolved = path.posix.join(relativeDir, decoded);
     const normalized = path.posix.normalize(resolved);
-    const slug = pathToSlug.get(normalized);
+    const pageId = pathToPageId.get(normalized);
 
-    if (slug) {
-      node.url = `/wiki/${slug}`;
+    if (pageId) {
+      node.url = `/wiki/${pageId}`;
     } else {
       console.warn(`Unresolved internal link: ${decoded}`);
     }

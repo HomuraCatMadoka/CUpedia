@@ -235,7 +235,6 @@ type RevisionSource = {
 
 type SeedPageSource = {
   id: string;
-  slug: string;
   title: string;
   parentId: string | null;
   sortOrder: number;
@@ -248,7 +247,6 @@ type SeedPageSource = {
 const SEED_PAGE_SOURCES: SeedPageSource[] = [
   {
     id: PAGE_IDS.welcome,
-    slug: "welcome",
     title: "Welcome to CUpedia",
     parentId: null,
     sortOrder: 0,
@@ -268,7 +266,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
   },
   {
     id: PAGE_IDS.gettingStarted,
-    slug: "getting-started",
     title: "Getting Started",
     parentId: null,
     sortOrder: 1,
@@ -288,7 +285,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
   },
   {
     id: PAGE_IDS.campusLife,
-    slug: "campus-life",
     title: "Campus Life",
     parentId: null,
     sortOrder: 2,
@@ -308,7 +304,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
   },
   {
     id: PAGE_IDS.dining,
-    slug: "campus-life/dining",
     title: "Dining on Campus",
     parentId: PAGE_IDS.campusLife,
     sortOrder: 0,
@@ -329,7 +324,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
   {
     // Depth-3 hierarchy: campus-life → dining → dining/united
     id: PAGE_IDS.diningUnited,
-    slug: "campus-life/dining/united",
     title: "United College Canteen",
     parentId: PAGE_IDS.dining,
     sortOrder: 0,
@@ -350,7 +344,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
   {
     // Rich content: markdown body + hand-authored TOC, equation, callout.
     id: PAGE_IDS.richContent,
-    slug: "rich-content-demo",
     title: "Rich Content Demo",
     parentId: null,
     sortOrder: 3,
@@ -371,7 +364,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
   {
     // Multi-revision history: 3 revisions by distinct editors.
     id: PAGE_IDS.history,
-    slug: "history-demo",
     title: "Editing History Demo",
     parentId: null,
     sortOrder: 4,
@@ -407,7 +399,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
   {
     // Soft-deleted page for the admin restore panel.
     id: PAGE_IDS.deleted,
-    slug: "deleted-demo",
     title: "Deleted Page Demo",
     parentId: null,
     sortOrder: 5,
@@ -429,7 +420,6 @@ const SEED_PAGE_SOURCES: SeedPageSource[] = [
 
 export type SeedPage = {
   id: string;
-  slug: string;
   title: string;
   content: string;
   parentId: string | null;
@@ -478,7 +468,6 @@ export async function buildSeedData(): Promise<SeedData> {
     const contents = await Promise.all(src.revisions.map(resolveContent));
     pages.push({
       id: src.id,
-      slug: src.slug,
       title: src.title,
       content: contents[contents.length - 1],
       parentId: src.parentId,

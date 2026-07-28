@@ -6,12 +6,12 @@ import {
   wikiRevisions,
   sessions,
   wikiLinks,
-  wikiPageAliases,
   canteens,
   canteenMenuItems,
   canteenMenuItemPrices,
   canteenDishVotes,
   canteenDishComments,
+  canteenShameVotes,
   adminAuditLogs,
   menuImportDrafts,
   danmakuMessages,
@@ -32,13 +32,15 @@ describe("schema", () => {
 
   it("wikiPages table has required fields", () => {
     const cols = getTableColumns(wikiPages);
-    expect(cols.slug).toBeDefined();
+    expect("slug" in cols).toBe(false);
     expect(cols.title).toBeDefined();
     expect(cols.content).toBeDefined();
     expect(cols.parentId).toBeDefined();
     expect(cols.deletedAt).toBeDefined();
     expect(cols.createdBy).toBeDefined();
     expect(cols.updatedBy).toBeDefined();
+    expect(cols.version).toBeDefined();
+    expect(cols.contentGeneration).toBeDefined();
   });
 
   it("wikiRevisions table has required fields", () => {
@@ -54,13 +56,6 @@ describe("schema", () => {
     const cols = getTableColumns(wikiLinks);
     expect(cols.sourceId).toBeDefined();
     expect(cols.targetId).toBeDefined();
-  });
-
-  it("wikiPageAliases keeps old slugs mapped to stable page IDs", () => {
-    const cols = getTableColumns(wikiPageAliases);
-    expect(cols.slug).toBeDefined();
-    expect(cols.pageId).toBeDefined();
-    expect(cols.createdAt).toBeDefined();
   });
 
   it("sessions table has required Better Auth fields", () => {
@@ -107,6 +102,16 @@ describe("schema", () => {
     expect(cols.userId).toBeDefined();
     expect(cols.anonymousSessionId).toBeDefined();
     expect(cols.vote).toBeDefined();
+  });
+
+  it("canteenShameVotes table is append-only with HKT voteDate", () => {
+    const cols = getTableColumns(canteenShameVotes);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.userId).toBeDefined();
+    expect(cols.anonymousSessionId).toBeDefined();
+    expect(cols.voteDate).toBeDefined();
+    expect(cols.createdAt).toBeDefined();
+    expect("vote" in cols).toBe(false);
   });
 
   it("canteenDishComments table has required fields", () => {

@@ -22,7 +22,8 @@ describe("canteen-preview-actions", () => {
   });
 
   it("creates a canteen in preview without admin auth", async () => {
-    const { previewCreateCanteen } = await import("@/lib/canteen-preview-actions");
+    const { previewCreateCanteen } =
+      await import("@/lib/canteen-preview-actions");
     const { getCanteens } = await import("@/lib/canteen-actions");
 
     const created = await previewCreateCanteen({
@@ -38,21 +39,18 @@ describe("canteen-preview-actions", () => {
 
   it("rejects preview actions outside development", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    const { previewCreateCanteen } = await import("@/lib/canteen-preview-actions");
+    const { previewCreateCanteen } =
+      await import("@/lib/canteen-preview-actions");
 
-    await expect(
-      previewCreateCanteen({ name: "非法" }),
-    ).rejects.toThrow("PREVIEW_UNAVAILABLE");
+    await expect(previewCreateCanteen({ name: "非法" })).rejects.toThrow(
+      "PREVIEW_UNAVAILABLE",
+    );
   });
 
   it("reports delete impact for canteen menu items", async () => {
-    const { previewGetCanteenDeleteImpact } = await import(
-      "@/lib/canteen-preview-actions"
-    );
-    const { getCanteens } = await import("@/lib/canteen-actions");
-
-    const canteen = (await getCanteens())[0];
-    const impact = await previewGetCanteenDeleteImpact(canteen.id);
+    const { previewGetCanteenDeleteImpact } =
+      await import("@/lib/canteen-preview-actions");
+    const impact = await previewGetCanteenDeleteImpact("mock-canteen-demo");
 
     expect(impact.menuItemCount).toBeGreaterThan(0);
     expect(impact.voteCount).toBe(0);

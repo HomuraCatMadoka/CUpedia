@@ -223,6 +223,11 @@
   color: #fff;
 }
 
+.canteen-zone .canteen-shame-entry:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
+}
+
 .canteen-zone .canteen-section-chip {
   display: inline-flex;
   min-height: 2.25rem;
@@ -343,6 +348,41 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .canteen-shame-poop-hit {
+    animation: canteen-shame-poop-hit 280ms ease-out both;
+    transform-origin: center bottom;
+  }
+
+  @keyframes canteen-shame-poop-hit {
+    0% {
+      transform: translateY(0) rotate(0deg) scale(1);
+    }
+    45% {
+      transform: translateY(-0.45rem) rotate(-10deg) scale(1.18);
+    }
+    100% {
+      transform: translateY(0) rotate(0deg) scale(1);
+    }
+  }
+
+  .canteen-shame-feedback {
+    animation: canteen-shame-feedback 600ms ease-out both;
+  }
+
+  @keyframes canteen-shame-feedback {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, 0);
+    }
+    25% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -1.5rem);
+    }
+  }
+
   .canteen-fade-in {
     animation: canteen-fade-in 0.45s ease-out both;
   }

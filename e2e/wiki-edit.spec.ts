@@ -1,6 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
 import { Client } from "pg";
+import { randomUUID } from "node:crypto";
 import { loginAsAdmin } from "./helpers/auth";
+import { PAGE_IDS } from "../scripts/seed-data";
+import { wikiPageUrl } from "./helpers/wiki";
 
 /**
  * Wiki editor reliability and conflict handling.
@@ -19,9 +22,9 @@ import { loginAsAdmin } from "./helpers/auth";
  *      calls `preventDefault()` while dirty, so a tab close / reload prompts.
  */
 
-const CONFLICT_SLUG = "campus-life";
+const CONFLICT_PAGE_ID = PAGE_IDS.campusLife;
 
-async function insertPageWithMicrosecondTimestamp(slug: string) {
+async function insertPageWithMicrosecondTimestamp() {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is required");
 
@@ -38,15 +41,16 @@ async function insertPageWithMicrosecondTimestamp(slug: string) {
     const content = JSON.stringify([
       { type: "p", children: [{ text: "Imported baseline" }] },
     ]);
+    const pageId = randomUUID();
     const { rows: pages } = await client.query<{ id: string; version: number }>(
       `insert into wiki_pages (
-        slug, title, content, created_by, updated_by, updated_at
+        id, title, content, created_by, updated_by, updated_at
       ) values (
         $1, $2, $3, $4, $4,
         date_trunc('milliseconds', clock_timestamp()) + interval '456 microseconds'
       )
       returning id, version`,
-      [slug, "Imported timestamp page", content, admin.id],
+      [pageId, "Imported timestamp page", content, admin.id],
     );
     const inserted = pages[0];
     if (!inserted) throw new Error("Page insert failed");
@@ -57,12 +61,13 @@ async function insertPageWithMicrosecondTimestamp(slug: string) {
        values ($1, $2, $3, $4)`,
       [inserted.id, "Imported timestamp page", content, admin.id],
     );
+    return inserted.id;
   } finally {
     await client.end();
   }
 }
 
-async function updatePageAsLegacyDeployment(slug: string) {
+async function updatePageAsLegacyDeployment(pageId: string) {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is required");
 
@@ -75,9 +80,9 @@ async function updatePageAsLegacyDeployment(slug: string) {
     const { rows } = await client.query<{ version: number }>(
       `update wiki_pages
        set content = $2, updated_at = updated_at + interval '1 second'
-       where slug = $1
+       where id = $1
        returning version`,
-      [slug, content],
+      [pageId, content],
     );
     const updated = rows[0];
     if (!updated) throw new Error("Legacy page update failed");
@@ -103,7 +108,7 @@ test.describe("#94 editor reliability", () => {
   });
 
   test("autosave shows 已保存 after debounce", async ({ page }) => {
-    await page.goto("/wiki/edit/welcome");
+    await page.goto(`/wiki/${PAGE_IDS.welcome}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -125,15 +130,14 @@ test.describe("#94 editor reliability", () => {
   test("page with a database microsecond timestamp saves without a false conflict", async ({
     page,
   }) => {
-    const slug = `db-timestamp-${Date.now()}`;
-    await insertPageWithMicrosecondTimestamp(slug);
+    const pageId = await insertPageWithMicrosecondTimestamp();
 
-    await page.goto(`/wiki/edit/${slug}`);
+    await page.goto(`/wiki/${pageId}`);
     const marker = `first-save-${Date.now()}`;
     await typeMarker(page, marker);
-    await page.getByRole("button", { name: "完成" }).click();
+    await page.keyboard.press("Control+s");
 
-    await expect(page).toHaveURL(new RegExp(`/wiki/${slug}$`), {
+    await expect(page).toHaveURL(wikiPageUrl(pageId), {
       timeout: 15_000,
     });
     await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
@@ -142,14 +146,13 @@ test.describe("#94 editor reliability", () => {
   test("a legacy deployment write invalidates the new editor baseline", async ({
     page,
   }) => {
-    const slug = `legacy-writer-${Date.now()}`;
-    await insertPageWithMicrosecondTimestamp(slug);
-    await page.goto(`/wiki/edit/${slug}`);
+    const pageId = await insertPageWithMicrosecondTimestamp();
+    await page.goto(`/wiki/${pageId}`);
     await expect(page.locator('[role="textbox"]').first()).toBeVisible();
 
-    await updatePageAsLegacyDeployment(slug);
+    await updatePageAsLegacyDeployment(pageId);
     await typeMarker(page, `new-client-${Date.now()}`);
-    await page.getByRole("button", { name: "完成" }).click();
+    await page.keyboard.press("Control+s");
 
     const dialog = page.getByRole("dialog", { name: "编辑冲突" });
     await expect(dialog).toBeVisible({ timeout: 15_000 });
@@ -159,13 +162,7 @@ test.describe("#94 editor reliability", () => {
   test("in-app navigation flushes a dirty draft before leaving", async ({
     page,
   }) => {
-    // Warm the reader cache before editing so this covers the real prefetch
-    // path: leaving the editor must not render the pre-save cached document.
-    await page.goto("/wiki/campus-life");
-    await expect(
-      page.getByRole("heading", { name: "Campus Life" }),
-    ).toBeVisible();
-    await page.goto("/wiki/edit/campus-life");
+    await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -174,13 +171,18 @@ test.describe("#94 editor reliability", () => {
     await page.keyboard.type(` ${marker}`);
     await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
-    await page.getByRole("link", { name: "返回 Wiki" }).click();
-    await expect(page).toHaveURL(/\/wiki\/campus-life$/);
-    await expect(page.getByText(new RegExp(marker)).first()).toBeVisible();
+    await page
+      .getByRole("link", { name: "Welcome to CUpedia", exact: true })
+      .click();
+    await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.welcome));
+    await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
+    await expect(page.locator('[role="textbox"]').first()).toContainText(
+      marker,
+    );
   });
 
   test("Cmd/Ctrl+S triggers a save", async ({ page }) => {
-    await page.goto("/wiki/edit/getting-started");
+    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
 
@@ -201,7 +203,7 @@ test.describe("#94 editor reliability", () => {
   });
 
   test("unsaved changes arm the beforeunload guard", async ({ page }) => {
-    await page.goto("/wiki/edit/welcome");
+    await page.goto(`/wiki/${PAGE_IDS.welcome}`);
     // Type and wait until dirty so use-autosave has attached its beforeunload
     // listener (it only registers while `isDirty`).
     await typeMarker(page, "beforeunload-" + Date.now());
@@ -220,7 +222,8 @@ test.describe("#94 editor reliability", () => {
  * same region on its now-stale baseline and saves. Because the changes overlap,
  * the three-way merge cannot auto-resolve, so the manual-resolution dialog
  * (reusing RevisionDiff) must appear — never a bare "refresh and lose your
- * draft" dead-end. "Keep mine" then re-saves against the latest revision.
+ * draft" dead-end. The server remains authoritative: the user can copy the
+ * local version, then continue from the latest server result.
  */
 test.describe("#96 edit conflict merge flow", () => {
   test("overlapping concurrent edit opens the manual resolution dialog", async ({
@@ -230,25 +233,25 @@ test.describe("#96 edit conflict merge flow", () => {
     const ctxA = await browser.newContext();
     const pageA = await ctxA.newPage();
     await loginAsAdmin(pageA);
-    await pageA.goto(`/wiki/edit/${CONFLICT_SLUG}`);
+    await pageA.goto(`/wiki/${CONFLICT_PAGE_ID}`);
     await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
 
     const ctxB = await browser.newContext();
     const pageB = await ctxB.newPage();
     await loginAsAdmin(pageB);
-    await pageB.goto(`/wiki/edit/${CONFLICT_SLUG}`);
+    await pageB.goto(`/wiki/${CONFLICT_PAGE_ID}`);
 
     // Session B commits an overlapping change, advancing the server copy past
     // A's baseline.
     await typeMarker(pageB, "BBB");
-    await pageB.getByRole("button", { name: "完成" }).click();
-    await expect(pageB).toHaveURL(new RegExp(`/wiki/${CONFLICT_SLUG}$`), {
+    await pageB.keyboard.press("Control+s");
+    await expect(pageB).toHaveURL(wikiPageUrl(PAGE_IDS.campusLife), {
       timeout: 15_000,
     });
 
     // Session A edits the same region on its now-stale baseline and saves.
     await typeMarker(pageA, "ZZZ");
-    await pageA.getByRole("button", { name: "完成" }).click();
+    await pageA.keyboard.press("Control+s");
 
     // No silent loss + no bare "refresh" dead-end: the merge dialog shows.
     const dialog = pageA.getByRole("dialog", { name: "编辑冲突" });
@@ -256,15 +259,32 @@ test.describe("#96 edit conflict merge flow", () => {
     await expect(dialog.getByText("我的版本", { exact: true })).toBeVisible();
     await expect(dialog.getByText("服务器最新版本")).toBeVisible();
 
-    // "Keep mine" re-saves against the latest revision and navigates to read.
-    await dialog.getByRole("button", { name: "保留我的版本另存" }).click();
-    await expect(pageA).toHaveURL(new RegExp(`/wiki/${CONFLICT_SLUG}$`), {
+    await expect(
+      dialog.getByRole("button", { name: "复制我的内容" }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /保留我的版本/ }),
+    ).toHaveCount(0);
+    await dialog.getByRole("button", { name: "返回编辑最终结果" }).click();
+    await expect(dialog).toHaveCount(0, {
       timeout: 15_000,
     });
+    await expect(pageA.locator('[role="textbox"]').first()).toContainText(
+      "BBB",
+    );
+    await expect(pageA.locator('[role="textbox"]').first()).not.toContainText(
+      "ZZZ",
+    );
+
+    const finalMarker = `FINAL-${Date.now()}`;
+    await typeMarker(pageA, finalMarker);
+    await pageA.keyboard.press("Control+s");
+    await expect(pageA.getByText("已保存")).toBeVisible({ timeout: 15_000 });
     await pageA.reload();
-    await expect(pageA.getByText(/ZZZ/).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    const finalEditor = pageA.locator('[role="textbox"]').first();
+    await expect(finalEditor).toContainText("BBB", { timeout: 15_000 });
+    await expect(finalEditor).toContainText(finalMarker, { timeout: 15_000 });
+    await expect(finalEditor).not.toContainText("ZZZ");
 
     await ctxA.close();
     await ctxB.close();

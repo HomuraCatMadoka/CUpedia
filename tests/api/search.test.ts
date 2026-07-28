@@ -24,7 +24,6 @@ describe("GET /api/search", () => {
     mockSearchWikiPages.mockResolvedValue([
       {
         id: "1",
-        slug: "衣",
         title: "衣",
         snippet: "穿<mark>正装</mark>的场合",
       },
