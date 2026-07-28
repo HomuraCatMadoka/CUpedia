@@ -178,8 +178,8 @@ test("#294 published submission can be edited, cleared, deleted, and moderated",
   const like = contributedReview.getByTitle("点赞");
   await like.click();
   await expect(like).toContainText("1");
-  await contributorContext.close();
   await expect.poll(() => countRows("course_review_likes")).toBe(1);
+  await contributorContext.close();
 
   const adminContext = await browser.newContext();
   const admin = await adminContext.newPage();
