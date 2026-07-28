@@ -380,6 +380,7 @@ export interface UpdateConflict {
   theirSlug: string;
   theirParentId: string | null;
   theirVersion: number;
+  theirContentGeneration: number;
   theirUpdatedAt: string;
 }
 
@@ -394,6 +395,7 @@ function toUpdateConflict(page: WikiPageRow): UpdateConflict {
     theirSlug: page.slug,
     theirParentId: page.parentId,
     theirVersion: page.version,
+    theirContentGeneration: page.contentGeneration ?? 0,
     theirUpdatedAt: new Date(page.updatedAt).toISOString(),
   };
 }
@@ -425,6 +427,7 @@ async function writeWikiPage(
     editSummary?: string;
     parentId?: string | null;
     expectedVersion: number;
+    expectedContentGeneration: number;
     expectedUpdatedAt: string;
   },
   userId: string,
@@ -438,6 +441,8 @@ async function writeWikiPage(
   if (
     !Number.isInteger(data.expectedVersion) ||
     data.expectedVersion < 1 ||
+    !Number.isInteger(data.expectedContentGeneration) ||
+    data.expectedContentGeneration < 0 ||
     Number.isNaN(expectedUpdatedAt.getTime())
   ) {
     throw new Error("Invalid edit baseline");
@@ -493,6 +498,7 @@ async function writeWikiPage(
         and(
           eq(wikiPages.id, pageId),
           eq(wikiPages.version, data.expectedVersion),
+          eq(wikiPages.contentGeneration, data.expectedContentGeneration),
           // Compatibility guard for pre-version deployments: old writers do
           // not advance `version`, but they do move `updatedAt`. Compare the
           // millisecond window visible to JavaScript so PostgreSQL microseconds
@@ -566,6 +572,7 @@ export async function updateWikiPage(data: {
   editSummary?: string;
   parentId?: string | null;
   expectedVersion: number;
+  expectedContentGeneration?: number;
   expectedUpdatedAt: string;
   /** Ancestor title for scalar three-way merge. */
   baseTitle?: string;
@@ -583,8 +590,12 @@ export async function updateWikiPage(data: {
   if (!validateSlug(nextSlug)) throw new Error("Invalid slug");
   const normalizedIcon =
     data.icon === undefined ? undefined : normalizeWikiIcon(data.icon);
-  const normalizedData =
-    data.icon === undefined ? data : { ...data, icon: normalizedIcon };
+  const expectedContentGeneration = data.expectedContentGeneration ?? 0;
+  const normalizedData = {
+    ...data,
+    expectedContentGeneration,
+    ...(data.icon === undefined ? {} : { icon: normalizedIcon }),
+  };
 
   const existing = await db.query.wikiPages.findFirst({
     where: and(
@@ -630,6 +641,10 @@ export async function updateWikiPage(data: {
   });
   if (!latest) throw new Error("Page not found");
   const theirUpdatedAt = new Date(latest.updatedAt).toISOString();
+  const latestContentGeneration = latest.contentGeneration ?? 0;
+  if (latestContentGeneration !== expectedContentGeneration) {
+    return toUpdateConflict(latest);
+  }
 
   if (data.baseContent !== undefined) {
     let mergedTitle = data.title;
@@ -692,6 +707,7 @@ export async function updateWikiPage(data: {
             title: mergedTitle,
             content: merged.content,
             expectedVersion: latest.version,
+            expectedContentGeneration: latestContentGeneration,
             expectedUpdatedAt: theirUpdatedAt,
           },
           user.id,
@@ -766,6 +782,7 @@ export async function deleteWikiPage(pageId: string) {
       .set({
         deletedAt: now,
         version: sql`${wikiPages.version} + 1`,
+        contentGeneration: sql`${wikiPages.contentGeneration} + 1`,
       })
       .where(and(inArray(wikiPages.id, ids), isNull(wikiPages.deletedAt)));
     return true;
@@ -868,6 +885,7 @@ export async function rollbackToRevision(pageId: string, revisionId: string) {
         updatedBy: user.id,
         updatedAt: new Date(),
         version: sql`${wikiPages.version} + 1`,
+        contentGeneration: sql`${wikiPages.contentGeneration} + 1`,
       })
       .where(eq(wikiPages.id, pageId));
 

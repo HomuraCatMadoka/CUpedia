@@ -941,10 +941,16 @@ describe("search corpus refresh — structural vs content", () => {
       slug: "test",
       title: "Current",
     });
+    const rollbackTx = makeWriteTx();
     mockDbTransaction.mockImplementation(
-      async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx()),
+      async (fn: (...a: unknown[]) => unknown) => fn(rollbackTx),
     );
     await rollbackToRevision("1", "rev-1");
+    expect(rollbackTx.update.mock.results[0].value.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentGeneration: expect.anything(),
+      }),
+    );
     expect(mockRevalidateTag).toHaveBeenCalledWith(CORPUS, "max");
   });
 
@@ -1074,6 +1080,55 @@ describe("search corpus refresh — structural vs content", () => {
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
     expect(mockRevalidateTag).not.toHaveBeenCalledWith(CORPUS, "max");
+  });
+
+  it("does not semantically merge a draft from before a rollback generation", async () => {
+    const pages = [
+      {
+        id: "1",
+        slug: "test",
+        title: "A",
+        content: PLATE("shared"),
+        parentId: null,
+        updatedAt: new Date("2024-01-01"),
+        version: 1,
+        contentGeneration: 0,
+      },
+      {
+        id: "1",
+        slug: "test",
+        title: "A",
+        icon: null,
+        content: PLATE("rolled back"),
+        parentId: null,
+        updatedAt: new Date("2024-01-02"),
+        version: 2,
+        contentGeneration: 1,
+      },
+    ];
+    mockDbQueryWikiPages.findFirst.mockImplementation(async () =>
+      pages.shift(),
+    );
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => fn(makeConflictTx()),
+    );
+
+    const result = await updateWikiPage({
+      slug: "test",
+      title: "A",
+      content: PLATE("my old-generation edit"),
+      baseContent: PLATE("shared"),
+      expectedVersion: 1,
+      expectedContentGeneration: 0,
+      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    expect("conflict" in result && result.conflict).toBe(true);
+    expect(mockDbTransaction).toHaveBeenCalledTimes(1);
+    if ("conflict" in result) {
+      expect(result.theirContentGeneration).toBe(1);
+      expect(result.theirContent).toBe(PLATE("rolled back"));
+    }
   });
 
   it("returns the newest conflict payload when the clean-merge CAS also loses", async () => {

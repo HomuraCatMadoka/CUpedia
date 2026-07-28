@@ -100,6 +100,7 @@ export const wikiPages = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     version: integer("version").default(1).notNull(),
+    contentGeneration: integer("content_generation").default(0).notNull(),
   },
   (table) => [
     index("wiki_pages_parent_id_idx").on(table.parentId),

@@ -43,6 +43,14 @@ async function isDeleted(pageId: string) {
   return result.rows[0]?.deleted ?? false;
 }
 
+async function contentGeneration(pageId: string) {
+  const result = await query<{ content_generation: number }>(
+    "select content_generation from wiki_pages where id = $1",
+    [pageId],
+  );
+  return result.rows[0]?.content_generation ?? 0;
+}
+
 test.afterAll(async () => {
   if (createdPageId) {
     await query("delete from wiki_pages where id = $1", [createdPageId]);
@@ -105,8 +113,10 @@ test("page lifecycle: create, edit, rollback, delete, and restore", async ({
   await page.getByRole("link", { name: /返回历史/ }).click();
   await page.goto(`/wiki/history/${pageId}?view=${firstRevisionId}`);
   await expect(page.getByText(first)).toBeVisible();
+  const generationBeforeRollback = await contentGeneration(pageId);
   await page.getByRole("button", { name: "回滚到此版本" }).click();
   await page.waitForURL(wikiPageUrl(pageId));
+  expect(await contentGeneration(pageId)).toBe(generationBeforeRollback + 1);
   expect(await revisionCount(pageId)).toBe(4);
   await expect(page.locator('[role="textbox"]').first()).toContainText(first);
   await expect(page.locator('[role="textbox"]').first()).not.toContainText(

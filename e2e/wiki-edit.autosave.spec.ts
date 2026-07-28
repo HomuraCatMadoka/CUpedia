@@ -260,6 +260,18 @@ test.describe("#432 latest draft convergence", () => {
     await expect(page.getByRole("alert", { name: "保存错误" })).toContainText(
       "保存失败，请检查网络后重试",
     );
+    await page.reload();
+    await waitForHydratedWikiEditor(page);
+    const recovery = page.getByRole("dialog", { name: "恢复本地草稿" });
+    await expect(recovery).toBeVisible();
+    await expect(recovery).toContainText(draftTitle);
+    await expect(
+      recovery.getByRole("button", { name: "复制我的内容" }),
+    ).toBeVisible();
+    await recovery.getByRole("button", { name: "返回编辑最终结果" }).click();
+    await expect(recovery).toHaveCount(0);
+    await expect(page.getByLabel("标题")).not.toHaveValue(draftTitle);
+
     await page.unroute(`**${editPath}`);
     const recoveredTitle = `${draftTitle} recovered`;
     await page.getByLabel("标题").fill(recoveredTitle);
