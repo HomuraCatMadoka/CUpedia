@@ -91,8 +91,9 @@ is about 317 MB. Local compression took 17.73 seconds and extraction took 1.75
 seconds. CI now restores this directory using an exact source/config key with a
 dependency-level fallback. Only the build job writes the cache; the two E2E
 shards use the restore-only action so they cannot each upload another 400 MB.
-Actual GitHub cache transfer time and hit rate need a real Actions run before
-the CI wall-time benefit can be claimed.
+In the first PR run, cache restore was below one second, the build step took 33
+seconds, and the post-cache step took 3 seconds. More runs are still needed to
+establish a representative hit rate.
 
 ### Retained optimization: remove build-time font downloads
 
@@ -231,8 +232,14 @@ validation round, without sharing mutable test state.
 
 The matrix still duplicates dependency installation, browser installation, and
 service provisioning on a second runner. The production build is now shared
-through one artifact. The complete GitHub Actions wall-time improvement must be
-checked on a real CI run.
+through one artifact.
+
+The first real PR run completed in 7 minutes 30 seconds, versus 8 minutes 51
+seconds for the latest successful `main` run on the previous workflow: a
+one-sample wall-time improvement of 1 minute 21 seconds (15%). Its critical path
+still serialized the build after lint/test, delaying both E2E shards by about
+70 seconds. The workflow now starts build, lint/test, and typecheck together;
+E2E waits for all three gates before starting.
 
 ## Dependency graph optimization
 
@@ -240,11 +247,11 @@ Next 16's production analyzer showed that the editor graph was dominated by two
 over-broad imports rather than Plate core:
 
 - `react-player` recursively exposed DASH, HLS, Mux, and other provider players
-  even though this application only used it for a raw video URL. The editor now
-  uses the same native `<video>` element as uploads and the static renderer.
-  Provider URLs are normalized to the existing `mediaEmbed` node at the URL
-  insertion boundary, so YouTube/Vimeo rendering does not depend on
-  `react-player`.
+  even though the active application flow only needs uploaded or direct video
+  files. The editor now uses the same native `<video>` element as uploads and
+  the static renderer. Provider page URLs are outside the current product
+  boundary; existing `mediaEmbed` nodes continue to use their dedicated
+  renderer.
 - Both code-block kits registered `lowlight(all)`. They now use lowlight's
   curated `common` grammar set instead of compiling every Highlight.js grammar.
   The language picker is derived from the same registry, so it no longer offers
@@ -301,8 +308,9 @@ search chunks are intentionally excluded.
 1. The uncached build is split almost evenly between Turbopack and TypeScript.
    Repeated builds were needlessly paying the Turbopack cost because the
    production filesystem cache was disabled.
-2. The editor's 3.68 MiB first-load graph is a bundle target; its contribution
-   to Turbopack build time still needs package-level A/B evidence.
+2. Before the route-consolidation merge, the editor exposed a 3.68 MiB
+   first-load graph. The current wiki read route is 493.3 KiB and the editor is
+   async, so first-load and async editor budgets should remain separate.
 3. E2E is serial because of shared test state, not because the application or
    database cannot handle two workers.
 4. Two isolated CI shards are the shortest stable path to parallelism and
@@ -324,33 +332,18 @@ search chunks are intentionally excluded.
 
 ## Recommended sequence
 
-1. Keep the production Turbopack filesystem cache and measure its real CI hit
-   rate and transfer time.
+1. Keep the production Turbopack filesystem cache and collect more CI runs for
+   a representative hit rate.
 2. Keep one worker per database and parallelize through isolated CI shards.
-3. Measure the typecheck job, artifact transfer, and cache hit on a real GitHub
-   Actions run.
+3. Re-measure the parallel gate topology on GitHub Actions.
 4. Review the slow editor E2E files for duplicate state-matrix coverage before
    changing the editor bundle.
 5. Analyze package-level editor bundle contribution, then lazy-load optional UI
    only where Plate does not require eager plugin registration.
 
-## Raw artifacts
+## Local raw artifacts
 
-- `e2e-w1.json`
-- `e2e-w2.json`
-- `e2e-w4.json`
-- `baseline-e2e-w2-r1.json`
-- `baseline-e2e-w2-r2.json`
-- `baseline-e2e-w2-r3.json`
-- `optimized-e2e-shard1.json`
-- `optimized-e2e-shard2.json`
-- `optimized-e2e-balanced-shard1.json`
-- `optimized-e2e-balanced-shard2.json`
-- `optimized-e2e-balanced-shard1-r2.json`
-- `optimized-e2e-balanced-shard2-r2.json`
-- `optimized-e2e-balanced-shard1-r2.json`
-- `optimized-e2e-balanced-shard2-r2.json`
-- `.next/trace`
-- `.next/diagnostics/route-bundle-stats.json`
-- `.next/cpu-profiles/build-turbopack-2026-07-28T03-32-31.cpuprofile`
-- `.next/cpu-profiles/build-main-2026-07-28T03-32-56.cpuprofile`
+Raw Playwright JSON and temporary TypeScript profiling configurations remain
+local because they are 3.3 MB of runner-specific diagnostic output. The
+reproducible commands and aggregate measurements needed to evaluate the changes
+are recorded above.
