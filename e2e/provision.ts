@@ -32,7 +32,14 @@ async function main() {
     },
   );
   await resetData(url);
-  rmSync(path.join(root, ".next", "cache"), { recursive: true, force: true });
+  const distDir = path.resolve(root, process.env.NEXT_DIST_DIR ?? ".next");
+  if (path.dirname(distDir) !== root) {
+    throw new Error("NEXT_DIST_DIR must be a direct child of the project root");
+  }
+  rmSync(path.join(distDir, "cache", "fetch-cache"), {
+    recursive: true,
+    force: true,
+  });
   execFileSync(
     process.execPath,
     [

@@ -22,7 +22,14 @@ for (const budget of budgets) {
   const context = { globalThis: {} };
   vm.runInNewContext(fs.readFileSync(budget.manifest, "utf8"), context);
   const manifest = Object.values(context.globalThis.__RSC_MANIFEST)[0];
-  const chunks = new Set(Object.values(manifest.entryJSFiles).flat());
+  const chunks = new Set(
+    manifest.entryJSFiles
+      ? Object.values(manifest.entryJSFiles).flat()
+      : Object.values(manifest.clientModules)
+          .flatMap((module) => module.chunks)
+          .filter((chunk) => chunk.endsWith(".js"))
+          .map(decodeURIComponent),
+  );
   const bytes = [...chunks].reduce(
     (total, chunk) => total + fs.statSync(path.join(".next", chunk)).size,
     0,

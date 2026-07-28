@@ -92,7 +92,7 @@ export default defineConfig({
       ? `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next start --port ${PORT}`
       : useDevServer
         ? `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next dev --port ${PORT}`
-        : `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next build && ${node} node_modules/next/dist/bin/next start --port ${PORT}`,
+        : `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next build --webpack && ${node} node_modules/next/dist/bin/next start --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 10 * 60_000,
@@ -108,6 +108,12 @@ export default defineConfig({
     // PORT keeps the declared origin honest wherever e2e runs.
     env: {
       E2E_TEST: "1",
+      // Keep local E2E output away from the developer's `.next`; sharing one
+      // dist directory across dev and production modes invalidates caches.
+      ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }),
+      // Typecheck is an independent Ready/CI gate. Repeating it inside the
+      // production build more than doubles this editor-heavy E2E startup.
+      NEXT_BUILD_SKIP_TYPECHECK: "1",
       BREVO_API_KEY: "",
       SKIP_EMAIL_WHITELIST: "false",
       CANTEEN_MOCK_DATA: "false",
