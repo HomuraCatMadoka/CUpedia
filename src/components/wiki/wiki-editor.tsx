@@ -15,6 +15,7 @@ import { Plate, usePlateEditor } from "platejs/react";
 import { toast } from "sonner";
 
 import { useAutosave, type AutosaveSaveReason } from "@/hooks/use-autosave";
+import { useWikiDraft } from "@/hooks/use-wiki-draft";
 
 import { BasicNodesKit } from "@/components/editor/plugins/basic-nodes-kit";
 import { BlockSelectionKit } from "@/components/editor/plugins/block-selection-kit";
@@ -69,6 +70,11 @@ import {
 import type { Discussion } from "@/lib/discussion-actions";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
+import type {
+  WikiDraftClassification,
+  WikiDraftRecord,
+} from "@/lib/wiki-draft";
+import { formatWikiContentForDiff } from "@/lib/wiki-draft";
 import {
   extractText,
   normalizeInitialValue,
@@ -78,6 +84,7 @@ import {
 
 interface WikiSubmitResult {
   error?: string;
+  haltAutosave?: boolean;
   id?: string;
   slug?: string;
   parentId?: string | null;
@@ -85,6 +92,7 @@ interface WikiSubmitResult {
   icon?: string | null;
   content?: string;
   version?: number;
+  contentGeneration?: number;
   updatedAt?: string;
   conflict?: boolean;
   theirContent?: string;
@@ -93,17 +101,20 @@ interface WikiSubmitResult {
   theirSlug?: string;
   theirParentId?: string | null;
   theirVersion?: number;
+  theirContentGeneration?: number;
   theirUpdatedAt?: string;
 }
 
 export interface WikiEditorProps {
   mode: "create" | "edit";
+  userId?: string;
   pageId?: string;
   initialTitle?: string;
   initialIcon?: string | null;
   initialValue?: PlateValue;
   initialSlug?: string;
   expectedVersion?: number;
+  expectedContentGeneration?: number;
   expectedUpdatedAt?: string;
   parentId?: string | null;
   linkablePages?: WikiLinkPage[];
@@ -118,6 +129,7 @@ export interface WikiEditorProps {
     editSummary?: string;
     parentId?: string | null;
     expectedVersion?: number;
+    expectedContentGeneration?: number;
     expectedUpdatedAt?: string;
     baseTitle?: string;
     baseIcon?: string | null;
@@ -149,6 +161,7 @@ interface ConflictFallback {
   slug: string;
   parentId: string | null;
   version: number | undefined;
+  contentGeneration: number;
   updatedAt: string | undefined;
 }
 
@@ -172,6 +185,8 @@ function buildConflictFromResult(
         ? result.theirParentId
         : fallback.parentId,
     theirVersion,
+    theirContentGeneration:
+      result.theirContentGeneration ?? fallback.contentGeneration,
     theirUpdatedAt,
   };
 }
@@ -182,6 +197,22 @@ function serializeDraftSnapshot(snapshot: WikiDraftSnapshot) {
 
 function parseDraftSnapshot(snapshot: string): WikiDraftSnapshot {
   return JSON.parse(snapshot) as WikiDraftSnapshot;
+}
+
+function tryParseDraftSnapshot(snapshot: string) {
+  try {
+    return parseDraftSnapshot(snapshot);
+  } catch {
+    return null;
+  }
+}
+
+function draftSnapshotCopyText(snapshot: string) {
+  const draft = tryParseDraftSnapshot(snapshot);
+  if (!draft) return snapshot;
+  return [draft.title || "未命名", extractText(draft.content)]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 interface AppNavigateEvent extends Event {
@@ -199,12 +230,14 @@ interface AppNavigation {
 
 export function WikiEditor({
   mode,
+  userId,
   pageId,
   initialTitle = "",
   initialIcon = null,
   initialValue,
   initialSlug = "",
   expectedVersion,
+  expectedContentGeneration = 0,
   expectedUpdatedAt,
   parentId,
   linkablePages = [],
@@ -252,6 +285,10 @@ export function WikiEditor({
   const [submitting, setSubmitting] = useState(false);
   const [conflict, setConflict] = useState<EditConflict | null>(null);
   const [autosaveConflict, setAutosaveConflict] = useState(false);
+  const [draftRecovery, setDraftRecovery] = useState<{
+    record: WikiDraftRecord;
+    classification: Exclude<WikiDraftClassification, "none">;
+  } | null>(null);
   const [mobileEditorFocused, setMobileEditorFocused] = useState(false);
   const markEditorHydrated = useCallback((element: HTMLDivElement | null) => {
     if (element) element.dataset.editorHydrated = "true";
@@ -287,7 +324,11 @@ export function WikiEditor({
   const selectedParent = linkablePages.find(
     (page) => page.id === selectedParentId,
   );
+  const recoveredDraft = draftRecovery
+    ? tryParseDraftSnapshot(draftRecovery.record.draftSnapshot)
+    : null;
   const versionBaselineRef = useRef(expectedVersion);
+  const contentGenerationRef = useRef(expectedContentGeneration);
   const updatedAtBaselineRef = useRef(expectedUpdatedAt);
   const baseTitleRef = useRef(initialTitle);
   const baseIconRef = useRef(initialIcon);
@@ -346,6 +387,30 @@ export function WikiEditor({
     ],
     value: normalizedInitialValue,
   });
+  const getCurrentDraftSnapshot = useCallback(
+    () =>
+      serializeDraftSnapshot({
+        slug: slugRef.current,
+        title: titleRef.current,
+        icon: iconRef.current,
+        content: serializeContentWithoutDraftComments(editor.children),
+        parentId: parentIdRef.current || null,
+        editSummary: editSummaryRef.current,
+      }),
+    [editor],
+  );
+  const wikiDraft = useWikiDraft({
+    enabled: autosaveEnabled && Boolean(userId && pageId),
+    userId: userId ?? "",
+    pageId: pageId ?? "",
+    version: expectedVersion ?? 0,
+    contentGeneration: expectedContentGeneration,
+    snapshot: initialDraftSnapshot,
+    getSnapshot: getCurrentDraftSnapshot,
+    onRecovery: (record, classification) => {
+      setDraftRecovery({ record, classification });
+    },
+  });
   const cancelMobileCommentDraft = useCallback(() => {
     clearDraftCommentMarks(editor);
     requestAnimationFrame(() => {
@@ -358,6 +423,7 @@ export function WikiEditor({
   const save = useCallback(
     async (nextSnapshot: string, reason: AutosaveSaveReason = "explicit") => {
       const next = parseDraftSnapshot(nextSnapshot);
+      await wikiDraft.flush().catch(() => {});
       const mutationToken =
         pageId && wikiTree
           ? wikiTree.projectUpsert({
@@ -378,6 +444,7 @@ export function WikiEditor({
           editSummary: next.editSummary || undefined,
           parentId: next.parentId,
           expectedVersion: versionBaselineRef.current,
+          expectedContentGeneration: contentGenerationRef.current,
           expectedUpdatedAt: updatedAtBaselineRef.current,
           baseTitle: baseTitleRef.current,
           baseIcon: baseIconRef.current,
@@ -429,6 +496,8 @@ export function WikiEditor({
           versionBaselineRef.current = result.version;
           updatedAtBaselineRef.current = result.updatedAt;
         }
+        contentGenerationRef.current =
+          result.contentGeneration ?? contentGenerationRef.current;
 
         if (!titleDrifted) {
           titleRef.current = authoritativeTitle;
@@ -483,16 +552,25 @@ export function WikiEditor({
           icon: authoritativeIcon,
           parentId: authoritativeParentId,
         });
+        const authoritativeSnapshot = serializeDraftSnapshot({
+          slug: authoritativeSlug,
+          title: authoritativeTitle,
+          icon: authoritativeIcon,
+          content: authoritativeContent,
+          parentId: authoritativeParentId,
+          editSummary: next.editSummary,
+        });
+        await wikiDraft
+          .acknowledge(nextSnapshot, {
+            version: result.version,
+            contentGeneration:
+              result.contentGeneration ?? contentGenerationRef.current,
+            snapshot: authoritativeSnapshot,
+          })
+          .catch(() => {});
         return {
           ...result,
-          content: serializeDraftSnapshot({
-            slug: authoritativeSlug,
-            title: authoritativeTitle,
-            icon: authoritativeIcon,
-            content: authoritativeContent,
-            parentId: authoritativeParentId,
-            editSummary: next.editSummary,
-          }),
+          content: authoritativeSnapshot,
         };
       }
       if (result.conflict) {
@@ -504,6 +582,7 @@ export function WikiEditor({
           slug: next.slug,
           parentId: next.parentId,
           version: versionBaselineRef.current,
+          contentGeneration: contentGenerationRef.current,
           updatedAt: updatedAtBaselineRef.current,
         });
         if (!nextConflict) {
@@ -528,30 +607,35 @@ export function WikiEditor({
           haltAutosave: true,
         };
       }
-      if (result.error) wikiTree?.rollback(mutationToken);
-      else wikiTree?.confirm(mutationToken);
+      if (result.error) {
+        wikiTree?.rollback(mutationToken);
+        if (
+          result.error === "EDIT_PERMISSION_DENIED" ||
+          result.error === "Page not found"
+        ) {
+          return { ...result, haltAutosave: true };
+        }
+      } else {
+        wikiTree?.confirm(mutationToken);
+      }
       return result;
     },
-    [editor, onSubmit, pageId, wikiTree],
+    [editor, onSubmit, pageId, wikiDraft, wikiTree],
   );
 
   // Serialize the document only when a save fires, never per keystroke — the
   // editor holds the source of truth in `editor.children` and the hook pulls it
   // lazily. This keeps typing off the React render path (#205).
   const autosave = useAutosave({
-    getContent: () =>
-      serializeDraftSnapshot({
-        slug: slugRef.current,
-        title: titleRef.current,
-        icon: iconRef.current,
-        content: serializeContentWithoutDraftComments(editor.children),
-        parentId: parentIdRef.current || null,
-        editSummary: editSummaryRef.current,
-      }),
+    getContent: getCurrentDraftSnapshot,
     onSave: save,
     initialContent: initialDraftSnapshot,
     enabled: autosaveEnabled,
   });
+  const notifyChange = useCallback(() => {
+    wikiDraft.notifyChange();
+    autosave.notifyChange();
+  }, [autosave, wikiDraft]);
   // Stable across renders (memoized inside the hook); safe as an effect/callback dep.
   const { resetBaseline: resetAutosaveBaseline } = autosave;
   const { flush: flushAutosave } = autosave;
@@ -565,7 +649,11 @@ export function WikiEditor({
   }, [autosave.isDirty, mode]);
   const surfaceAutosaveFailure = useCallback((saveError: string) => {
     if (saveError === "EDIT_PERMISSION_DENIED") {
-      setError("编辑权限不足，请联系管理员。");
+      setError("编辑权限已失效。本地草稿仍保留，可复制后联系管理员。");
+      return;
+    }
+    if (saveError === "Page not found") {
+      setError("页面已被删除。本地草稿仍保留，可复制后另行保存。");
       return;
     }
     if (saveError === "EDIT_CONFLICT") {
@@ -714,85 +802,65 @@ export function WikiEditor({
     surfaceAutosaveFailure,
   ]);
 
-  const keepMine = useCallback(async () => {
-    if (!conflict) return;
-    if (!(await ensureContributorSetup())) return;
-    setError("");
-    setSubmitting(true);
-    versionBaselineRef.current = conflict.theirVersion;
-    updatedAtBaselineRef.current = conflict.theirUpdatedAt;
-    baseTitleRef.current = conflict.theirTitle;
-    baseIconRef.current = conflict.theirIcon;
-    baseContentRef.current = conflict.theirContent;
-    baseSlugRef.current = conflict.theirSlug;
-    baseParentIdRef.current = conflict.theirParentId;
-    const nextSnapshot = serializeDraftSnapshot({
-      slug: slugRef.current,
-      title: titleRef.current,
-      icon: iconRef.current,
-      content: serializeContentWithoutDraftComments(editor.children),
-      parentId: parentIdRef.current || null,
-      editSummary: editSummaryRef.current,
-    });
-    const result = await save(nextSnapshot);
-    if (result.error) {
-      surfaceAutosaveFailure(result.error);
-      setSubmitting(false);
-      return;
+  const copyLocalSnapshot = useCallback(async (snapshot: string) => {
+    try {
+      await navigator.clipboard.writeText(draftSnapshotCopyText(snapshot));
+      toast.success("本地内容已复制");
+    } catch {
+      toast.error("复制失败，请从对比内容中手动复制");
     }
-    pendingConflictRef.current = null;
-    setAutosaveConflict(false);
-    resetAutosaveBaseline(result.content ?? nextSnapshot);
-    setConflict(null);
-    setSubmitting(false);
-    bypassNavigationUrlRef.current = new URL(
-      `/wiki/${pageId}`,
-      window.location.origin,
-    ).href;
-    router.push(`/wiki/${pageId}`);
-  }, [
-    conflict,
-    pageId,
-    save,
-    editor,
-    router,
-    ensureContributorSetup,
-    resetAutosaveBaseline,
-    surfaceAutosaveFailure,
-  ]);
+  }, []);
 
-  const discardMine = useCallback(() => {
-    if (!conflict) return;
-    editor.tf.setValue(parseContent(conflict.theirContent));
-    titleRef.current = conflict.theirTitle;
-    iconRef.current = conflict.theirIcon;
-    setTitle(conflict.theirTitle);
-    setIcon(conflict.theirIcon);
-    versionBaselineRef.current = conflict.theirVersion;
-    updatedAtBaselineRef.current = conflict.theirUpdatedAt;
-    baseTitleRef.current = conflict.theirTitle;
-    baseIconRef.current = conflict.theirIcon;
-    baseContentRef.current = conflict.theirContent;
-    baseSlugRef.current = conflict.theirSlug;
-    baseParentIdRef.current = conflict.theirParentId;
-    slugRef.current = conflict.theirSlug;
-    parentIdRef.current = conflict.theirParentId ?? "";
-    setSlug(conflict.theirSlug);
-    setSelectedParentId(conflict.theirParentId ?? "");
-    pendingConflictRef.current = null;
-    setAutosaveConflict(false);
-    resetAutosaveBaseline(
-      serializeDraftSnapshot({
+  const adoptConflictServer = useCallback(
+    async (discardLocal: boolean) => {
+      if (!conflict) return;
+      wikiDraft.suspend();
+      const serverSnapshot = serializeDraftSnapshot({
         slug: conflict.theirSlug,
         title: conflict.theirTitle,
         icon: conflict.theirIcon,
         content: conflict.theirContent,
         parentId: conflict.theirParentId,
         editSummary: editSummaryRef.current,
-      }),
-    );
-    setConflict(null);
-  }, [conflict, editor, resetAutosaveBaseline]);
+      });
+      if (discardLocal) {
+        await wikiDraft.discard();
+      } else {
+        await wikiDraft
+          .rebase({
+            version: conflict.theirVersion,
+            contentGeneration: conflict.theirContentGeneration,
+            snapshot: serverSnapshot,
+          })
+          .catch(() => {});
+      }
+      editor.tf.setValue(parseContent(conflict.theirContent));
+      titleRef.current = conflict.theirTitle;
+      iconRef.current = conflict.theirIcon;
+      setTitle(conflict.theirTitle);
+      setIcon(conflict.theirIcon);
+      versionBaselineRef.current = conflict.theirVersion;
+      contentGenerationRef.current = conflict.theirContentGeneration;
+      updatedAtBaselineRef.current = conflict.theirUpdatedAt;
+      baseTitleRef.current = conflict.theirTitle;
+      baseIconRef.current = conflict.theirIcon;
+      baseContentRef.current = conflict.theirContent;
+      baseSlugRef.current = conflict.theirSlug;
+      baseParentIdRef.current = conflict.theirParentId;
+      slugRef.current = conflict.theirSlug;
+      parentIdRef.current = conflict.theirParentId ?? "";
+      setSlug(conflict.theirSlug);
+      setSelectedParentId(conflict.theirParentId ?? "");
+      pendingConflictRef.current = null;
+      setAutosaveConflict(false);
+      resetAutosaveBaseline(serverSnapshot);
+      setConflict(null);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => wikiDraft.resume());
+      });
+    },
+    [conflict, editor, resetAutosaveBaseline, wikiDraft],
+  );
 
   const handleDeletePage = useCallback(async () => {
     if (!pageId || !onDelete || submitting) return;
@@ -1006,7 +1074,7 @@ export function WikiEditor({
     <Plate
       editor={editor}
       onValueChange={() => {
-        if (!editor.api.isComposing()) autosave.notifyChange();
+        if (!editor.api.isComposing()) notifyChange();
       }}
     >
       <WikiLinkPagesProvider pages={linkablePages}>
@@ -1121,7 +1189,7 @@ export function WikiEditor({
                         onChange={(event) => {
                           parentIdRef.current = event.target.value;
                           setSelectedParentId(event.target.value);
-                          autosave.notifyChange();
+                          notifyChange();
                         }}
                         className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8"
                       >
@@ -1141,7 +1209,7 @@ export function WikiEditor({
                         onChange={(event) => {
                           editSummaryRef.current = event.target.value;
                           setEditSummary(event.target.value);
-                          autosave.notifyChange();
+                          notifyChange();
                         }}
                         placeholder="简要描述你的修改"
                         rows={3}
@@ -1207,7 +1275,7 @@ export function WikiEditor({
                         onIconChange={(nextIcon) => {
                           iconRef.current = nextIcon;
                           setIcon(nextIcon);
-                          autosave.notifyChange();
+                          notifyChange();
                         }}
                       />
                     </div>
@@ -1218,7 +1286,7 @@ export function WikiEditor({
                       onChange={(e) => {
                         titleRef.current = e.target.value;
                         setTitle(e.target.value);
-                        autosave.notifyChange();
+                        notifyChange();
                       }}
                       placeholder="无标题"
                       className="block h-[38px] min-w-0 flex-1 rounded-none border-0 bg-transparent px-0 py-0 text-[32px]! leading-[38px] font-bold tracking-[-0.025em] shadow-none focus-visible:border-transparent focus-visible:ring-0 md:h-[48px] md:text-[40px]! md:leading-[48px] dark:bg-transparent"
@@ -1236,19 +1304,29 @@ export function WikiEditor({
                         placeholder="开始编辑..."
                         onFocus={() => setMobileEditorFocused(true)}
                         onBlur={handleMobileEditorBlur}
-                        onCompositionEnd={() => autosave.notifyChange()}
+                        onCompositionEnd={notifyChange}
                       />
                     </EditorContainer>
                   </div>
 
                   {error && (
-                    <p
+                    <div
                       role="alert"
                       aria-label="保存错误"
-                      className="mt-4 text-sm text-red-500"
+                      className="mt-4 flex flex-wrap items-center gap-2 text-sm text-red-500"
                     >
-                      {error}
-                    </p>
+                      <span>{error}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void copyLocalSnapshot(getCurrentDraftSnapshot())
+                        }
+                      >
+                        复制本地内容
+                      </Button>
+                    </div>
                   )}
                   {autosaveConflict && !conflict && (
                     <div
@@ -1318,17 +1396,76 @@ export function WikiEditor({
                       )?.title ?? (conflict.theirParentId ? "其他页面" : "无"),
                   },
                 ].filter((field) => field.mine !== field.theirs)}
-                mineText={extractText(
+                mineText={formatWikiContentForDiff(
                   serializeContentWithoutDraftComments(editor.children),
                 )}
-                theirText={extractText(conflict.theirContent)}
+                theirText={formatWikiContentForDiff(conflict.theirContent)}
                 saving={submitting}
-                onKeepMine={() => void keepMine()}
-                onDiscard={discardMine}
-                onCancel={() => {
-                  setError("");
-                  setConflict(null);
-                  setAutosaveConflict(Boolean(pendingConflictRef.current));
+                onCopy={() => void copyLocalSnapshot(getCurrentDraftSnapshot())}
+                onReturn={() => void adoptConflictServer(false)}
+                onDiscard={() => void adoptConflictServer(true)}
+              />
+            )}
+            {draftRecovery && !conflict && (
+              <EditConflictDialog
+                ariaLabel="恢复本地草稿"
+                title="发现未发送的本地草稿"
+                description={
+                  draftRecovery.classification === "stale-generation"
+                    ? "服务器正文已回滚到新的内容代际，旧草稿不会自动合并。你可以复制需要的内容，再基于服务器版本继续编辑。"
+                    : "这份内容尚未被服务器确认。服务器公开版本保持不变；请对比后决定是否保留其中的内容。"
+                }
+                fields={
+                  recoveredDraft
+                    ? [
+                        {
+                          label: "标题",
+                          mine: recoveredDraft.title || "未命名",
+                          theirs: initialTitle || "未命名",
+                        },
+                        {
+                          label: "图标",
+                          mine: recoveredDraft.icon ?? "无",
+                          theirs: initialIcon ?? "无",
+                        },
+                        {
+                          label: "URL 路径",
+                          mine: recoveredDraft.slug,
+                          theirs: initialSlug,
+                        },
+                        {
+                          label: "父页面",
+                          mine:
+                            linkablePages.find(
+                              (page) => page.id === recoveredDraft.parentId,
+                            )?.title ??
+                            (recoveredDraft.parentId ? "其他页面" : "无"),
+                          theirs:
+                            linkablePages.find((page) => page.id === parentId)
+                              ?.title ?? (parentId ? "其他页面" : "无"),
+                        },
+                      ].filter((field) => field.mine !== field.theirs)
+                    : []
+                }
+                mineText={
+                  recoveredDraft
+                    ? formatWikiContentForDiff(recoveredDraft.content)
+                    : draftRecovery.record.draftSnapshot
+                }
+                theirText={formatWikiContentForDiff(initialContent)}
+                saving={false}
+                onCopy={() =>
+                  void copyLocalSnapshot(draftRecovery.record.draftSnapshot)
+                }
+                onReturn={() => {
+                  wikiDraft.resume();
+                  setDraftRecovery(null);
+                }}
+                onDiscard={() => {
+                  void wikiDraft.discard().then(() => {
+                    wikiDraft.resume();
+                    setDraftRecovery(null);
+                  });
                 }}
               />
             )}

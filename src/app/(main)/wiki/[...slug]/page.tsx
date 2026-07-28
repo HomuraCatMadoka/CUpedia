@@ -44,6 +44,7 @@ export default async function WikiReadPage({
       <WikiPageEditor
         page={editablePage}
         pages={pages}
+        userId={user!.id}
         canDelete={user?.role === "admin"}
       />
     );

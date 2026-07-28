@@ -40,6 +40,8 @@ describe("schema", () => {
     expect(cols.deletedAt).toBeDefined();
     expect(cols.createdBy).toBeDefined();
     expect(cols.updatedBy).toBeDefined();
+    expect(cols.version).toBeDefined();
+    expect(cols.contentGeneration).toBeDefined();
   });
 
   it("wikiRevisions table has required fields", () => {

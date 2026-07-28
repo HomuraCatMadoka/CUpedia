@@ -20,9 +20,9 @@ describe("EditConflictDialog", () => {
         mineText="my body"
         theirText="their body"
         saving={false}
-        onKeepMine={vi.fn()}
+        onCopy={vi.fn()}
         onDiscard={vi.fn()}
-        onCancel={vi.fn()}
+        onReturn={vi.fn()}
       />,
     );
 
@@ -30,5 +30,7 @@ describe("EditConflictDialog", () => {
     expect(html).toContain("URL 路径");
     expect(html).toContain("theirs");
     expect(html).toContain("mine");
+    expect(html).toContain("复制我的内容");
+    expect(html).not.toContain("保留我的版本");
   });
 });

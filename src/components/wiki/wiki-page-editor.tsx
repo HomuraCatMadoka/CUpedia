@@ -43,10 +43,12 @@ function collectDescendantIds(
 export async function WikiPageEditor({
   page,
   pages,
+  userId,
   canDelete = false,
 }: {
   page: EditablePage;
   pages: WikiTree;
+  userId: string;
   canDelete?: boolean;
 }) {
   const pageId = page.id;
@@ -62,6 +64,7 @@ export async function WikiPageEditor({
     editSummary?: string;
     parentId?: string | null;
     expectedVersion?: number;
+    expectedContentGeneration?: number;
     expectedUpdatedAt?: string;
     baseTitle?: string;
     baseIcon?: string | null;
@@ -81,6 +84,7 @@ export async function WikiPageEditor({
         editSummary: data.editSummary,
         parentId: data.parentId,
         expectedVersion: data.expectedVersion!,
+        expectedContentGeneration: data.expectedContentGeneration!,
         expectedUpdatedAt: data.expectedUpdatedAt!,
         baseTitle: data.baseTitle,
         baseIcon: data.baseIcon,
@@ -97,6 +101,7 @@ export async function WikiPageEditor({
           theirSlug: updated.theirSlug,
           theirParentId: updated.theirParentId,
           theirVersion: updated.theirVersion,
+          theirContentGeneration: updated.theirContentGeneration,
           theirUpdatedAt: updated.theirUpdatedAt,
         };
       }
@@ -108,6 +113,7 @@ export async function WikiPageEditor({
         icon: updated.icon,
         content: updated.content,
         version: updated.version,
+        contentGeneration: updated.contentGeneration,
         updatedAt: new Date(updated.updatedAt).toISOString(),
       };
     } catch (error: unknown) {
@@ -125,6 +131,7 @@ export async function WikiPageEditor({
   return (
     <WikiEditorLazy
       mode="edit"
+      userId={userId}
       pageId={pageId}
       initialTitle={page.title}
       initialIcon={page.icon}
@@ -135,6 +142,7 @@ export async function WikiPageEditor({
       initialSlug={page.slug}
       parentId={page.parentId}
       expectedVersion={page.version}
+      expectedContentGeneration={page.contentGeneration}
       expectedUpdatedAt={new Date(page.updatedAt).toISOString()}
       linkablePages={pages
         .filter((candidate) => !excludedParentIds.has(candidate.id))

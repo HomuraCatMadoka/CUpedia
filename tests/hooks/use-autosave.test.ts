@@ -159,6 +159,26 @@ describe("useAutosave", () => {
     expect(onSave).toHaveBeenNthCalledWith(2, "c", "explicit");
   });
 
+  it("keeps a terminal explicit-save failure halted", async () => {
+    const onSave = vi.fn<SaveFn>().mockResolvedValue({
+      error: "EDIT_PERMISSION_DENIED",
+      haltAutosave: true,
+    });
+    const h = setup({ initial: "a", onSave });
+
+    h.type("b");
+    await act(async () => {
+      await h.result.current.flush();
+    });
+    h.type("c");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(h.result.current.status).toBe("error");
+  });
+
   it("does not save again when content reverts to the saved baseline", async () => {
     const h = setup({ initial: "a" });
 

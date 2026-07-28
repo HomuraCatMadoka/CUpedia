@@ -222,7 +222,8 @@ test.describe("#94 editor reliability", () => {
  * same region on its now-stale baseline and saves. Because the changes overlap,
  * the three-way merge cannot auto-resolve, so the manual-resolution dialog
  * (reusing RevisionDiff) must appear — never a bare "refresh and lose your
- * draft" dead-end. "Keep mine" then re-saves against the latest revision.
+ * draft" dead-end. The server remains authoritative: the user can copy the
+ * local version, then continue from the latest server result.
  */
 test.describe("#96 edit conflict merge flow", () => {
   test("overlapping concurrent edit opens the manual resolution dialog", async ({
@@ -258,17 +259,32 @@ test.describe("#96 edit conflict merge flow", () => {
     await expect(dialog.getByText("我的版本", { exact: true })).toBeVisible();
     await expect(dialog.getByText("服务器最新版本")).toBeVisible();
 
-    // "Keep mine" re-saves against the latest revision in the canonical
-    // editor. The URL no longer changes, so wait for the dialog to close
-    // instead of treating an already-matching URL as save completion.
-    await dialog.getByRole("button", { name: "保留我的版本另存" }).click();
+    await expect(
+      dialog.getByRole("button", { name: "复制我的内容" }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /保留我的版本/ }),
+    ).toHaveCount(0);
+    await dialog.getByRole("button", { name: "返回编辑最终结果" }).click();
     await expect(dialog).toHaveCount(0, {
       timeout: 15_000,
     });
+    await expect(pageA.locator('[role="textbox"]').first()).toContainText(
+      "BBB",
+    );
+    await expect(pageA.locator('[role="textbox"]').first()).not.toContainText(
+      "ZZZ",
+    );
+
+    const finalMarker = `FINAL-${Date.now()}`;
+    await typeMarker(pageA, finalMarker);
+    await pageA.keyboard.press("Control+s");
+    await expect(pageA.getByText("已保存")).toBeVisible({ timeout: 15_000 });
     await pageA.reload();
-    await expect(pageA.getByText(/ZZZ/).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    const finalEditor = pageA.locator('[role="textbox"]').first();
+    await expect(finalEditor).toContainText("BBB", { timeout: 15_000 });
+    await expect(finalEditor).toContainText(finalMarker, { timeout: 15_000 });
+    await expect(finalEditor).not.toContainText("ZZZ");
 
     await ctxA.close();
     await ctxB.close();
