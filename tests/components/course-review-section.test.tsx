@@ -576,13 +576,240 @@ describe("CourseReviewSection", () => {
     expect(authorIdentity?.contains(authorAchievements)).toBe(true);
     expect(authorAchievements.className).toContain("mt-1");
     expect(authorAchievements.className).toContain("items-end");
+    expect(authorAchievements.className).toContain("gap-1");
     expect(authorIdentity?.children[0]?.contains(aliceLink)).toBe(true);
-    expect(authorIdentity?.children[1]).toBe(authorAchievements);
     expect(
       [...authorAchievements.querySelectorAll("svg")].map((badge) =>
         badge.getAttribute("data-badge-tier"),
       ),
     ).toEqual(["gold", "silver", "bronze"]);
+  });
+
+  it("顶层测评保持原有头像身份 UI", () => {
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "titled-author",
+            content: "佩戴称号的评论",
+            authorNickname: "陈同学",
+            authorShowcaseId: "00000000-0000-4000-a000-000000000101",
+            authorEquippedTitle: {
+              displayName: "山城夜行观察家",
+              badgeCode: "NEWT",
+            },
+          },
+          {
+            ...REVIEW,
+            id: "untitled-author",
+            content: "没有称号的评论",
+            authorNickname: "黄同学",
+            authorShowcaseId: "00000000-0000-4000-a000-000000000102",
+            authorEquippedTitle: null,
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated={false}
+        professorOptional={false}
+      />,
+    );
+
+    const titledCard = screen.getByText("佩戴称号的评论").closest("li");
+    const untitledCard = screen.getByText("没有称号的评论").closest("li");
+    expect(
+      titledCard?.querySelector('[data-slot="avatar"]')?.className,
+    ).toContain("size-20");
+    expect(
+      untitledCard?.querySelector('[data-slot="avatar"]')?.className,
+    ).toContain("size-11");
+  });
+
+  it("顶层测评保持原有卡片结构", () => {
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "forum-layout",
+            content: "正文从固定内容栏开始",
+            authorNickname: "林同学",
+            authorShowcaseId: "00000000-0000-4000-a000-000000000103",
+            authorEquippedTitle: {
+              displayName: "跨学科探索者",
+              badgeCode: "EXPL",
+            },
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated={false}
+        professorOptional={false}
+      />,
+    );
+
+    const body = screen.getByText("正文从固定内容栏开始");
+    const card = body.closest("li");
+    const authorIdentity = card?.querySelector('[data-comment-level="review"]');
+
+    expect(card?.className).not.toContain("grid-cols");
+    expect(card?.className).toContain("p-5");
+    expect(authorIdentity).toBeTruthy();
+    expect(card?.contains(body)).toBe(true);
+  });
+
+  it("回复只展示昵称，不渲染头像、称号或成就", async () => {
+    getReplies.mockResolvedValue({
+      replies: [
+        {
+          id: "signed-reply",
+          reviewId: "review-with-replies",
+          content: "回复保留完整身份",
+          createdAt: new Date().toISOString(),
+          authorNickname: "郭同学",
+          authorShowcaseId: "00000000-0000-4000-a000-000000000104",
+          canDelete: false,
+        },
+        {
+          id: "anonymous-reply",
+          reviewId: "review-with-replies",
+          content: "匿名原作者回复",
+          createdAt: new Date().toISOString(),
+          authorNickname: null,
+          authorShowcaseId: null,
+          canDelete: false,
+        },
+        {
+          id: "untitled-reply",
+          reviewId: "review-with-replies",
+          content: "署名但未佩戴称号的回复",
+          createdAt: new Date().toISOString(),
+          authorNickname: "何同学",
+          authorShowcaseId: "00000000-0000-4000-a000-000000000106",
+          canDelete: false,
+        },
+      ],
+      hasMore: false,
+    });
+
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "review-with-replies",
+            replyCount: 3,
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "回复 3" }));
+    const replies = await screen.findByRole("region", { name: "评论回复" });
+    expect(replies.querySelector('[data-slot="avatar"]')).toBeNull();
+    expect(within(replies).queryByRole("img")).toBeNull();
+    expect(
+      within(replies)
+        .getByRole("link", { name: "郭同学" })
+        .getAttribute("href"),
+    ).toBe(
+      "/courses/achievements/showcase/00000000-0000-4000-a000-000000000104",
+    );
+    expect(within(replies).getByText("匿名用户")).toBeTruthy();
+    expect(within(replies).queryByLabelText("回复者成就")).toBeNull();
+    for (const reply of within(replies).getAllByRole("listitem")) {
+      expect(reply.className).toContain("py-2");
+    }
+  });
+
+  it("桌面回复使用紧凑身份行和单栏正文", async () => {
+    const replyBody = "reply-without-breaks-".repeat(20);
+    getReplies.mockResolvedValue({
+      replies: [
+        {
+          id: "forum-reply",
+          reviewId: "review-for-reply-layout",
+          content: replyBody,
+          createdAt: new Date().toISOString(),
+          authorNickname: "周同学",
+          authorShowcaseId: "00000000-0000-4000-a000-000000000105",
+          canDelete: false,
+        },
+      ],
+      hasMore: false,
+    });
+
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "review-for-reply-layout",
+            replyCount: 1,
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "回复 1" }));
+    const body = await screen.findByText(replyBody);
+    const reply = body.closest("li");
+    const authorRegion = reply?.querySelector('[data-slot="reply-author"]');
+    const contentRegion = reply?.querySelector('[data-slot="reply-content"]');
+
+    expect(reply?.className).not.toContain("grid-cols");
+    expect(authorRegion).toBeTruthy();
+    expect(contentRegion?.contains(body)).toBe(true);
+    expect(body.className).toContain("[overflow-wrap:anywhere]");
+  });
+
+  it("长评论在正文栏断行且原生交互控件保留键盘焦点", () => {
+    const longContent = "course-review-without-breaks-".repeat(20);
+    render(
+      <CourseReviewSection
+        code="MATH1010"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "long-content",
+            content: longContent,
+            canAdminDelete: true,
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+      />,
+    );
+
+    const body = screen.getByText(longContent);
+    const like = screen.getByRole("button", { name: "点赞" });
+    const reply = screen.getByRole("button", { name: "回复 0" });
+    const remove = screen.getByTitle("删除整条投稿");
+
+    expect(body.className).toContain("[overflow-wrap:anywhere]");
+    expect(like.className).toContain("focus-visible:ring-2");
+    expect(reply.className).toContain("focus-visible:ring-2");
+    expect(remove.className).toContain("focus-visible:ring-2");
   });
 
   it("loads one-level replies only after expanding the reply count", async () => {
@@ -595,9 +822,6 @@ describe("CourseReviewSection", () => {
           createdAt: new Date().toISOString(),
           authorNickname: "Bob",
           authorShowcaseId: null,
-          authorAchievements: [],
-          authorAvatarUrl: null,
-          authorEquippedTitle: null,
           canDelete: false,
         },
       ],
@@ -657,9 +881,6 @@ describe("CourseReviewSection", () => {
             createdAt: new Date().toISOString(),
             authorNickname: "TestUser",
             authorShowcaseId: null,
-            authorAchievements: [],
-            authorAvatarUrl: null,
-            authorEquippedTitle: null,
             canDelete: true,
           },
         ],
@@ -718,9 +939,6 @@ describe("CourseReviewSection", () => {
       createdAt: new Date().toISOString(),
       authorNickname: "TestUser",
       authorShowcaseId: null,
-      authorAchievements: [],
-      authorAvatarUrl: null,
-      authorEquippedTitle: null,
       canDelete: false,
     });
     getReplies

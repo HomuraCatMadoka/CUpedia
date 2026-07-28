@@ -71,6 +71,34 @@ async function reviewIdForContent(content: string): Promise<string> {
   }
 }
 
+async function createIdentityLayoutFixture(
+  reviewContent: string,
+  replyContent: string,
+) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const review = await client.query<{ id: string }>(
+      `insert into course_reviews
+         (course_code, user_id, content, academic_year, term, score, is_anonymous)
+       select 'CSCI1130', id, $1, '2025-26', 'Term 2', 4.5, false
+       from users
+       where email = 'user@test.com'
+       returning id`,
+      [reviewContent],
+    );
+    await client.query(
+      `insert into course_review_replies (review_id, user_id, content)
+       select $1, id, $2
+       from users
+       where email = 'contributor@test.com'`,
+      [review.rows[0].id, replyContent],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 test.afterEach(cleanup);
 
 test("#445 course review replies stay one level, preserve anonymity, and cascade", async ({
@@ -144,4 +172,51 @@ test("#445 course review replies stay one level, preserve anonymity, and cascade
   await page.getByTestId("delete-own-course-review").click();
   await expect(editedReview).toHaveCount(0);
   await expect.poll(() => replyCountForReview(edited)).toBe(0);
+});
+
+test("#462 review UI stays intact while replies use a compact identity row", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const reviewContent = `identity-layout-${randomUUID()}`;
+  const replyContent = `identity-reply-${randomUUID()}`;
+  reviewContents.push(reviewContent);
+
+  await createIdentityLayoutFixture(reviewContent, replyContent);
+  await page.goto("/courses/CSCI1130");
+
+  const review = page.getByRole("listitem").filter({ hasText: reviewContent });
+  await expect(review).toBeVisible();
+  await review.getByRole("button", { name: "回复 1" }).click();
+  const replies = review.getByRole("region", { name: "评论回复" });
+  const reply = replies.getByRole("listitem").filter({ hasText: replyContent });
+  await expect(reply).toBeVisible();
+
+  const replyAuthor = reply.locator('[data-slot="reply-author"]');
+  const replyContentRegion = reply.locator('[data-slot="reply-content"]');
+  const [desktopReplyAuthor, desktopReplyContent] = await Promise.all([
+    replyAuthor.boundingBox(),
+    replyContentRegion.boundingBox(),
+  ]);
+
+  expect(desktopReplyAuthor).not.toBeNull();
+  expect(desktopReplyContent).not.toBeNull();
+  expect(desktopReplyContent!.x).toBe(desktopReplyAuthor!.x);
+  await expect(review.locator('[data-slot="avatar"]')).toHaveCount(1);
+  await expect(replies.locator('[data-slot="avatar"]')).toHaveCount(0);
+
+  await page.setViewportSize({ width: 393, height: 851 });
+  const [mobileReplyAuthor, mobileReplyContent] = await Promise.all([
+    replyAuthor.boundingBox(),
+    replyContentRegion.boundingBox(),
+  ]);
+
+  expect(mobileReplyContent!.x).toBe(mobileReplyAuthor!.x);
+  for (const region of [review, reply]) {
+    const widths = await region.evaluate((element) => ({
+      client: element.clientWidth,
+      scroll: element.scrollWidth,
+    }));
+    expect(widths.scroll).toBeLessThanOrEqual(widths.client);
+  }
 });
