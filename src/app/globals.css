@@ -7,6 +7,104 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@keyframes course-like-pop {
+  0% {
+    transform: scale(0.78) rotate(-8deg);
+  }
+  52% {
+    transform: scale(1.28) rotate(5deg);
+  }
+  76% {
+    transform: scale(0.94) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes course-like-unlike {
+  0% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes course-like-burst {
+  0% {
+    opacity: 0.7;
+    transform: scale(0.45);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2);
+  }
+}
+
+@keyframes course-like-count {
+  0% {
+    opacity: 0.45;
+    transform: translateY(3px) scale(0.88);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1.16);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes course-like-plus {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(0.8);
+  }
+  28% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(1.05);
+  }
+}
+
+.course-like-pop {
+  animation: course-like-pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.4) both;
+}
+
+.course-like-unlike {
+  animation: course-like-unlike 180ms ease-out both;
+}
+
+.course-like-burst {
+  animation: course-like-burst 440ms ease-out both;
+}
+
+.course-like-count {
+  animation: course-like-count 320ms ease-out both;
+}
+
+.course-like-plus {
+  animation: course-like-plus 520ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-like-pop,
+  .course-like-unlike,
+  .course-like-burst,
+  .course-like-count,
+  .course-like-plus {
+    animation: none;
+  }
+
+  .course-like-plus {
+    display: none;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

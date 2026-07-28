@@ -40,6 +40,99 @@ import {
 
 const INITIAL_REVIEW_LIMIT = 10;
 
+function CourseReviewLikeButton({
+  reviewId,
+  initialCount,
+  initialLiked,
+  isAuthenticated,
+}: {
+  reviewId: string;
+  initialCount: number;
+  initialLiked: boolean;
+  isAuthenticated: boolean;
+}) {
+  const [count, setCount] = useState(initialCount);
+  const [liked, setLiked] = useState(initialLiked);
+  const [feedbackId, setFeedbackId] = useState(0);
+  const [pending, startLike] = useTransition();
+
+  function handleLike() {
+    const nextLiked = !liked;
+    const nextCount = Math.max(0, count + (nextLiked ? 1 : -1));
+
+    setLiked(nextLiked);
+    setCount(nextCount);
+    setFeedbackId((current) => current + 1);
+    startLike(async () => {
+      try {
+        setCount(await toggleLike(reviewId));
+      } catch {
+        setLiked(liked);
+        setCount(count);
+        toast.error(nextLiked ? "点赞失败，请重试" : "取消点赞失败，请重试");
+      }
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label={isAuthenticated ? "点赞" : "登录后可点赞"}
+      aria-pressed={liked}
+      aria-busy={pending}
+      onClick={handleLike}
+      disabled={!isAuthenticated || pending}
+      className={cn(
+        "relative inline-flex min-h-11 items-center gap-1.5 overflow-visible rounded-full border px-3.5 text-xs font-medium tabular-nums transition-colors active:translate-y-px disabled:cursor-wait sm:min-h-9",
+        liked
+          ? "border-primary/25 bg-primary/5 text-primary hover:bg-primary/10"
+          : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-primary",
+        !isAuthenticated && "cursor-not-allowed opacity-60",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      )}
+      title={isAuthenticated ? "点赞" : "登录后可点赞"}
+    >
+      <span
+        key={feedbackId}
+        className={cn(
+          "relative flex size-4 items-center justify-center",
+          feedbackId > 0
+            ? liked
+              ? "course-like-pop"
+              : "course-like-unlike"
+            : undefined,
+        )}
+      >
+        {feedbackId > 0 && liked ? (
+          <span
+            className="course-like-burst absolute -inset-1 rounded-full bg-primary/20"
+            aria-hidden="true"
+          />
+        ) : null}
+        <ThumbsUpIcon
+          className={cn("relative z-10 size-4", liked && "fill-current")}
+          aria-hidden="true"
+        />
+      </span>
+      <span
+        key={`count-${feedbackId}`}
+        className={feedbackId > 0 ? "course-like-count" : undefined}
+      >
+        {count}
+      </span>
+      {feedbackId > 0 && liked ? (
+        <span
+          key={`plus-${feedbackId}`}
+          className="course-like-plus pointer-events-none absolute -top-2 right-0 text-[10px] font-semibold text-primary"
+          aria-hidden="true"
+        >
+          +1
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const minutes = Math.floor(diff / 60000);
@@ -273,18 +366,6 @@ export function CourseReviewSection({
             ? "自定义标签包含敏感词，请修改后重试"
             : message,
         );
-      }
-    });
-  }
-
-  function handleLike(id: string) {
-    setBusyId(id);
-    startSubmit(async () => {
-      try {
-        await toggleLike(id);
-        router.refresh();
-      } finally {
-        setBusyId(null);
       }
     });
   }
@@ -1117,26 +1198,13 @@ export function CourseReviewSection({
               {review.content}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => isAuthenticated && handleLike(review.id)}
-                disabled={
-                  !isAuthenticated || (submitting && busyId === review.id)
-                }
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors",
-                  review.likedByMe
-                    ? "bg-primary/10 text-primary"
-                    : "bg-secondary text-muted-foreground hover:bg-accent",
-                  !isAuthenticated && "cursor-not-allowed opacity-60",
-                )}
-                title={isAuthenticated ? "点赞" : "登录后可点赞"}
-              >
-                <ThumbsUpIcon
-                  className={cn("size-3.5", review.likedByMe && "fill-current")}
-                />
-                {review.likeCount}
-              </button>
+              <CourseReviewLikeButton
+                key={`${review.id}:${review.likeCount}:${review.likedByMe}`}
+                reviewId={review.id}
+                initialCount={review.likeCount}
+                initialLiked={review.likedByMe}
+                isAuthenticated={isAuthenticated}
+              />
               <CourseReviewReplies
                 key={
                   review.id === targetReviewId && targetReplyId
