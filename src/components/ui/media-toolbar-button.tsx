@@ -17,6 +17,7 @@ import { useEditorRef } from "platejs/react";
 import { toast } from "sonner";
 import { useFilePicker } from "use-file-picker";
 
+import { buildMediaUrlNode } from "@/components/editor/media-url";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -176,12 +177,7 @@ function MediaUrlDialogContent({
     if (!isUrl(url)) return toast.error("Invalid URL");
 
     setOpen(false);
-    editor.tf.insertNodes({
-      children: [{ text: "" }],
-      name: nodeType === KEYS.file ? url.split("/").pop() : undefined,
-      type: nodeType,
-      url,
-    });
+    editor.tf.insertNodes(buildMediaUrlNode(nodeType, url));
   }, [url, editor, nodeType, setOpen]);
 
   return (
