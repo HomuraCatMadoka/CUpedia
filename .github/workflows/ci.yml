@@ -112,10 +112,13 @@ jobs:
         include:
           - project: chromium-general
             browser: chromium
+            install_args: --only-shell
           - project: chromium-wiki
             browser: chromium
+            install_args: --only-shell
           - project: webkit-mobile
             browser: webkit
+            install_args: --with-deps --only-shell
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
@@ -160,7 +163,7 @@ jobs:
       # + migrate + seed), so no separate migrate step is needed here.
 
       - name: Install Playwright browser
-        run: pnpm exec playwright install --only-shell ${{ matrix.browser }}
+        run: pnpm exec playwright install ${{ matrix.install_args }} ${{ matrix.browser }}
 
       - name: Run e2e
         run: pnpm test:e2e --project=${{ matrix.project }}
