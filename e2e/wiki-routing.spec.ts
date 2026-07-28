@@ -99,8 +99,6 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
         );
       }, `/wiki/${TOMBSTONE_LINK_CHILD_ID}`);
       await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
-      await page.getByLabel("标题").fill("Tombstone Link Parent (edited)");
-      await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
       const link = page
         .getByTestId("wiki-editor-canvas")
         .getByRole("link", { name: "Deleted target" });
@@ -108,7 +106,54 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
         "href",
         `/wiki/${TOMBSTONE_LINK_CHILD_ID}`,
       );
-      await link.click();
+      await expect(link).toHaveAttribute("data-wiki-link", "true");
+      const linkIcon = link.getByTestId("wiki-link-icon");
+      await expect(linkIcon).toBeVisible();
+
+      await link.hover();
+      await expect
+        .poll(() =>
+          link.evaluate((element) => getComputedStyle(element).backgroundColor),
+        )
+        .not.toBe("rgba(0, 0, 0, 0)");
+      const hoverBackground = await link.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      );
+
+      const box = await link.boundingBox();
+      expect(box).not.toBeNull();
+      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+      await page.mouse.down();
+      await expect
+        .poll(() =>
+          link.evaluate((element) => getComputedStyle(element).backgroundColor),
+        )
+        .not.toBe(hoverBackground);
+      await page.mouse.move(0, 0);
+      await page.mouse.up();
+
+      let saveStartedResolve!: () => void;
+      let saveRelease!: () => void;
+      const saveStarted = new Promise<void>((resolve) => {
+        saveStartedResolve = resolve;
+      });
+      const saveGate = new Promise<void>((resolve) => {
+        saveRelease = resolve;
+      });
+      await page.route(`**/wiki/${TOMBSTONE_LINK_PARENT_ID}`, async (route) => {
+        if (route.request().method() === "POST") {
+          saveStartedResolve();
+          await saveGate;
+        }
+        await route.continue();
+      });
+      await page.getByLabel("标题").fill("Tombstone Link Parent (edited)");
+      await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
+
+      const navigation = linkIcon.click();
+      await saveStarted;
+      saveRelease();
+      await navigation;
 
       await expect(page).toHaveURL(
         new RegExp(`/wiki/${TOMBSTONE_LINK_CHILD_ID}$`),
@@ -124,6 +169,24 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
       await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
       await expect(page.getByLabel("标题")).toHaveValue(
         "Tombstone Link Parent (edited)",
+      );
+
+      await page.context().clearCookies();
+      await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
+      const publicLink = page.getByRole("link", { name: "Deleted target" });
+      await expect(publicLink).toHaveAttribute("data-wiki-link", "true");
+      await expect(publicLink.getByTestId("wiki-link-icon")).toBeVisible();
+      await publicLink.hover();
+      await expect
+        .poll(() =>
+          publicLink.evaluate(
+            (element) => getComputedStyle(element).backgroundColor,
+          ),
+        )
+        .not.toBe("rgba(0, 0, 0, 0)");
+      await publicLink.click();
+      await expect(page).toHaveURL(
+        new RegExp(`/wiki/${TOMBSTONE_LINK_CHILD_ID}$`),
       );
     } finally {
       await client.query("delete from wiki_pages where id in ($1, $2)", [
