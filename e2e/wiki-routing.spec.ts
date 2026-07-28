@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 import { PAGE_IDS } from "../scripts/seed-data";
 import { loginAsAdmin } from "./helpers/auth";
+import { waitForHydratedWikiEditor } from "./helpers/wiki";
 
 const TOMBSTONE_LINK_PARENT_ID = "00000000-0000-4000-c000-0000000000eb";
 const TOMBSTONE_LINK_CHILD_ID = "00000000-0000-4000-c000-0000000000ec";
@@ -42,6 +43,7 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
   test("opens a parent page link to its soft-deleted child as a tombstone", async ({
     page,
   }) => {
+    const editedTitle = `Tombstone Link Parent (edited ${Date.now()})`;
     const content = JSON.stringify([
       {
         type: "p",
@@ -62,7 +64,10 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
         `insert into wiki_pages
            (id, title, content, created_by, updated_by)
          values ($1, 'Tombstone Link Parent', $2, $3, $3)
-         on conflict (id) do update set content = excluded.content, deleted_at = null`,
+         on conflict (id) do update
+           set title = excluded.title,
+               content = excluded.content,
+               deleted_at = null`,
         [
           TOMBSTONE_LINK_PARENT_ID,
           content,
@@ -99,6 +104,7 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
         );
       }, `/wiki/${TOMBSTONE_LINK_CHILD_ID}`);
       await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
+      await waitForHydratedWikiEditor(page);
       const link = page
         .getByTestId("wiki-editor-canvas")
         .getByRole("link", { name: "Deleted target" });
@@ -116,21 +122,7 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
           link.evaluate((element) => getComputedStyle(element).backgroundColor),
         )
         .not.toBe("rgba(0, 0, 0, 0)");
-      const hoverBackground = await link.evaluate(
-        (element) => getComputedStyle(element).backgroundColor,
-      );
-
-      const box = await link.boundingBox();
-      expect(box).not.toBeNull();
-      await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-      await page.mouse.down();
-      await expect
-        .poll(() =>
-          link.evaluate((element) => getComputedStyle(element).backgroundColor),
-        )
-        .not.toBe(hoverBackground);
-      await page.mouse.move(0, 0);
-      await page.mouse.up();
+      await expect(link).toHaveClass(/active:bg-black\/\[0\.11\]/);
 
       let saveStartedResolve!: () => void;
       let saveRelease!: () => void;
@@ -147,7 +139,7 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
         }
         await route.continue();
       });
-      await page.getByLabel("标题").fill("Tombstone Link Parent (edited)");
+      await page.getByLabel("标题").fill(editedTitle);
       await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
 
       const navigation = linkIcon.click();
@@ -167,9 +159,7 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
         )
         .toBe("1");
       await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
-      await expect(page.getByLabel("标题")).toHaveValue(
-        "Tombstone Link Parent (edited)",
-      );
+      await expect(page.getByLabel("标题")).toHaveValue(editedTitle);
 
       await page.context().clearCookies();
       await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);

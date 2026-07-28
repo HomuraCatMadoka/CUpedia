@@ -27,6 +27,7 @@ function isPlainLeftClick(event: React.MouseEvent) {
 export function LinkElement(props: PlateElementProps<TLinkElement>) {
   const router = useRouter();
   const prefetched = React.useRef(false);
+  const linkAttributes = getLinkAttributes(props.editor, props.element);
   const pageId = isWikiPageId(
     (props.element as TLinkElement & { pageId?: unknown }).pageId,
   )
@@ -52,7 +53,8 @@ export function LinkElement(props: PlateElementProps<TLinkElement>) {
       )}
       attributes={{
         ...props.attributes,
-        ...getLinkAttributes(props.editor, props.element),
+        ...linkAttributes,
+        href: wikiHref ?? linkAttributes.href,
         "data-wiki-link": pageId ? "true" : undefined,
         onFocus: prefetchWikiPage,
         onMouseEnter: prefetchWikiPage,

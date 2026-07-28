@@ -11,9 +11,11 @@ import { inlineSuggestionVariants } from "@/lib/suggestion";
 import { isWikiPageId } from "@/lib/wiki-links";
 
 export function LinkElementStatic(props: SlateElementProps<TLinkElement>) {
-  const pageId = isWikiPageId(
-    (props.element as TLinkElement & { pageId?: unknown }).pageId,
-  );
+  const linkAttributes = getLinkAttributes(props.editor, props.element);
+  const rawPageId = (props.element as TLinkElement & { pageId?: unknown })
+    .pageId;
+  const pageId = isWikiPageId(rawPageId) ? rawPageId : null;
+  const wikiHref = pageId ? `/wiki/${pageId}` : null;
 
   return (
     <SlateElement
@@ -27,7 +29,8 @@ export function LinkElementStatic(props: SlateElementProps<TLinkElement>) {
       )}
       attributes={{
         ...props.attributes,
-        ...getLinkAttributes(props.editor, props.element),
+        ...linkAttributes,
+        href: wikiHref ?? linkAttributes.href,
         "data-wiki-link": pageId ? "true" : undefined,
       }}
     >
