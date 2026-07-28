@@ -105,11 +105,23 @@ jobs:
   # to required once it proves stable.
   e2e:
     runs-on: ubuntu-latest
-    needs: [lint-and-test, typecheck, build]
+    needs: build
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        include:
+          - project: chromium
+            browser: chromium
+            shard: 1
+            total_shards: 2
+          - project: chromium
+            browser: chromium
+            shard: 2
+            total_shards: 2
+          - project: webkit-mobile
+            browser: webkit
+            shard: 1
+            total_shards: 1
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
@@ -154,16 +166,16 @@ jobs:
       # + migrate + seed), so no separate migrate step is needed here.
 
       - name: Install Playwright browser
-        run: pnpm exec playwright install --with-deps chromium webkit
+        run: pnpm exec playwright install --with-deps --only-shell ${{ matrix.browser }}
 
       - name: Run e2e
-        run: pnpm test:e2e --shard=${{ matrix.shard }}/2
+        run: pnpm test:e2e --project=${{ matrix.project }} --shard=${{ matrix.shard }}/${{ matrix.total_shards }}
 
       - name: Upload Playwright artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ matrix.shard }}
+          name: playwright-report-${{ matrix.project }}-${{ matrix.shard }}
           path: |
             playwright-report/
             test-results/
