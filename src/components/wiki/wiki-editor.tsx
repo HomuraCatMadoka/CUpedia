@@ -352,12 +352,12 @@ export function WikiEditor({
     draftProjectedRef.current = true;
     const mutationToken = wikiTree.projectUpsert({
       id: pageId,
-      title: "",
-      icon: null,
+      title: initialTitle,
+      icon: initialIcon,
       parentId: parentId ?? null,
     });
     wikiTree.confirm(mutationToken);
-  }, [draftMode, pageId, parentId, wikiTree]);
+  }, [draftMode, initialIcon, initialTitle, pageId, parentId, wikiTree]);
   const copyPageLink = useCallback(async () => {
     if (mode !== "edit" || !pageId) return;
 

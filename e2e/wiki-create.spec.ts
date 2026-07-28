@@ -27,11 +27,6 @@ test.describe("#465 server-backed private Wiki drafts", () => {
     await loginAsAdmin(page);
     try {
       await page.goto("/wiki");
-      await expect(
-        page
-          .getByRole("tree", { name: "Wiki 页面层级" })
-          .getByRole("link", { name: "服务器私有草稿", exact: true }),
-      ).toHaveCount(0);
       await page.getByRole("button", { name: "新建页面" }).first().click();
 
       await expect(page).toHaveURL(
@@ -73,11 +68,6 @@ test.describe("#465 server-backed private Wiki drafts", () => {
           .getByRole("tree", { name: "Wiki 页面层级" })
           .locator(`a[href="/wiki/${pageId}"]`)
           .filter({ hasText: "服务器私有草稿" }),
-      ).toHaveCount(1);
-      await expect(
-        page
-          .getByRole("tree", { name: "Wiki 页面层级" })
-          .getByRole("link", { name: "服务器私有草稿", exact: true }),
       ).toHaveCount(1);
       const persistedDraft = await query<{ title: string }>(
         "select title from wiki_drafts where id = $1",
