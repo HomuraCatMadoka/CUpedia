@@ -357,7 +357,7 @@ export function CanteenMenuView({
 
   return (
     <div className="min-w-0 space-y-4 sm:space-y-6">
-      <div className="sticky top-[var(--navbar-height)] z-10 -mx-3 min-w-0 space-y-2 border-b border-[var(--canteen-line)] bg-[var(--canteen-cream)]/95 px-3 py-2 backdrop-blur-md sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
+      <div className="sticky top-[var(--navbar-height)] z-10 -mx-3 min-w-0 space-y-2.5 canteen-toolbar px-3 py-2.5 sm:-mx-6 sm:space-y-3 sm:px-6 sm:py-3">
         <CanteenPeriodTabs
           value={selection.period}
           onChange={handlePeriodChange}
@@ -404,7 +404,7 @@ export function CanteenMenuView({
         {showHintNow ? (
           <p
             role="status"
-            className="border border-[var(--canteen-noon)]/25 bg-[var(--canteen-noon)]/10 px-2.5 py-1.5 text-xs text-[var(--canteen-ink)] sm:px-3 sm:py-2 sm:text-sm"
+            className="rounded-xl border border-[var(--canteen-line)] bg-[var(--canteen-tray)] px-2.5 py-1.5 text-xs text-[var(--canteen-ink)] sm:px-3 sm:py-2 sm:text-sm"
           >
             {AFTERNOON_HINT_TEXT}
           </p>

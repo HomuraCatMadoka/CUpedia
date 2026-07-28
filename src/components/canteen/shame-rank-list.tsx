@@ -47,7 +47,7 @@ export function ShameRankEntryLink() {
   return (
     <Link
       href="/canteen/shit-rank"
-      className="canteen-shame-entry inline-flex items-center border border-[var(--canteen-line)] bg-[var(--canteen-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--canteen-ink)] transition-colors hover:border-[var(--canteen-evening)]/50 hover:bg-[var(--canteen-evening)]/8 sm:px-3 sm:py-2 sm:text-sm"
+      className="canteen-shame-entry inline-flex items-center rounded-full border border-[var(--canteen-line)] bg-[var(--canteen-tray)] px-3 py-1.5 text-xs font-semibold tracking-tight text-[var(--canteen-ink)] transition-colors hover:bg-[var(--canteen-fill-strong)] sm:px-3.5 sm:py-2 sm:text-sm"
     >
       💩堂榜
     </Link>

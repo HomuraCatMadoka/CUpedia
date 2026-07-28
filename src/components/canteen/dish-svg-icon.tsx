@@ -92,7 +92,7 @@ export function DishSvgIcon({
   return (
     <div
       className={cn(
-        "flex size-12 shrink-0 items-center justify-center rounded-md bg-[var(--canteen-tray)]/70 ring-1 ring-[var(--canteen-line)]",
+        "flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--canteen-tray)] ring-1 ring-[var(--canteen-line)]",
         className,
       )}
       aria-hidden

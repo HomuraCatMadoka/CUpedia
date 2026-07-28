@@ -1,75 +1,52 @@
 "use client";
 
+import Image from "next/image";
 import Link, { useLinkStatus } from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties } from "react";
 import type { Canteen } from "@/lib/canteen-types";
+import { mockCanteenIcon } from "@/lib/canteen-icon-mock";
 import { cn } from "@/lib/utils";
 
-function CanteenCardSurface({
+function CanteenIconOrb({
   canteen,
-  itemCount,
-  children,
+  iconSrc,
+  pending,
 }: {
   canteen: Canteen;
-  itemCount?: number;
-  children: ReactNode;
+  iconSrc?: string | null;
+  pending: boolean;
 }) {
-  const { pending } = useLinkStatus();
+  const { fill, initials } = mockCanteenIcon(canteen.id, canteen.name);
+  const hasPhoto = Boolean(iconSrc);
 
   return (
     <span
       className={cn(
-        "canteen-ledger-row group flex w-full touch-manipulation items-center gap-3 px-1 py-2.5 sm:gap-6 sm:py-4",
-        pending && "bg-white/60",
+        "canteen-icon-orb",
+        hasPhoto ? "canteen-icon-orb--photo" : "canteen-icon-orb--fallback",
       )}
-      aria-busy={pending || undefined}
+      style={
+        hasPhoto
+          ? undefined
+          : ({ "--canteen-icon-fill": fill } as CSSProperties)
+      }
+      aria-hidden
     >
-      <span
-        className={cn(
-          "h-8 w-0.5 shrink-0 bg-[var(--canteen-purple)] opacity-70 transition-opacity group-hover:opacity-100 sm:h-10",
-          pending && "opacity-100 group-hover:opacity-100",
-        )}
-        aria-hidden
-      />
-      <span className="min-w-0 flex-1">
-        <h2
-          className={cn(
-            "canteen-display text-base font-semibold text-[var(--canteen-ink)] sm:text-xl",
-            pending
-              ? "text-[var(--canteen-purple)]"
-              : "group-hover:text-[var(--canteen-purple)]",
-          )}
-        >
-          {canteen.name}
-        </h2>
-        {canteen.location ? (
-          <p className="mt-0.5 text-xs text-[var(--canteen-muted)] sm:mt-1 sm:text-sm">
-            {canteen.location}
-          </p>
-        ) : null}
-      </span>
-      {itemCount !== undefined ? (
-        <span className="shrink-0 font-mono text-xs tabular-nums tracking-wide text-[var(--canteen-muted)] sm:text-sm">
-          {itemCount > 0 ? (
-            <>
-              <span className="text-[var(--canteen-ink)]">
-                {String(itemCount).padStart(2, "0")}
-              </span>{" "}
-              道菜
-            </>
-          ) : (
-            "暂无菜单"
-          )}
-        </span>
+      {iconSrc ? (
+        <Image
+          src={iconSrc}
+          alt=""
+          fill
+          sizes="(min-width: 640px) 88px, 76px"
+          className="canteen-icon-photo"
+          unoptimized
+        />
+      ) : !pending ? (
+        <span className="canteen-icon-initials">{initials}</span>
       ) : null}
       {pending ? (
-        <span
-          className="size-4 shrink-0 animate-spin rounded-full border-2 border-[var(--canteen-line)] border-t-[var(--canteen-purple)]"
-          aria-hidden
-        />
-      ) : (
-        children
-      )}
+        <span className="canteen-icon-pending" />
+      ) : null}
     </span>
   );
 }
@@ -78,29 +55,62 @@ export function CanteenCard({
   canteen,
   itemCount,
   href,
+  iconSrc,
   className,
 }: {
   canteen: Canteen;
+  /** Kept for call-site compatibility; icon launcher omits counts. */
   itemCount?: number;
   href: string;
+  /** `/assets/canteen-icons/<id>.ext` when file exists; omit for mock. */
+  iconSrc?: string | null;
   className?: string;
 }) {
+  const accessibleName = [canteen.name, canteen.location]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <Link
       href={href}
-      className={cn(
-        "block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--canteen-purple)]",
-        className,
-      )}
+      className={cn("canteen-icon-link", className)}
+      aria-label={accessibleName}
     >
-      <CanteenCardSurface canteen={canteen} itemCount={itemCount}>
-        <span
-          className="shrink-0 text-[var(--canteen-muted)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--canteen-purple)]"
-          aria-hidden
-        >
-          →
-        </span>
-      </CanteenCardSurface>
+      <CanteenCardSurface
+        canteen={canteen}
+        itemCount={itemCount}
+        iconSrc={iconSrc}
+      />
     </Link>
+  );
+}
+
+function CanteenCardSurface({
+  canteen,
+  itemCount,
+  iconSrc,
+}: {
+  canteen: Canteen;
+  itemCount?: number;
+  iconSrc?: string | null;
+}) {
+  const { pending } = useLinkStatus();
+
+  return (
+    <span
+      className="group flex w-full flex-col items-center gap-2 touch-manipulation"
+      aria-busy={pending || undefined}
+    >
+      <CanteenIconOrb canteen={canteen} iconSrc={iconSrc} pending={pending} />
+      <span className="canteen-icon-label canteen-display">{canteen.name}</span>
+      {canteen.location ? (
+        <span className="sr-only">{canteen.location}</span>
+      ) : null}
+      {itemCount !== undefined ? (
+        <span className="sr-only">
+          {itemCount > 0 ? `${itemCount} 道菜` : "暂无菜单"}
+        </span>
+      ) : null}
+    </span>
   );
 }

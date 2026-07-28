@@ -8,30 +8,38 @@ import {
 import { getCommentCountsForCanteen } from "@/lib/canteen-comment-actions";
 import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
+import { CanteenQrBadge } from "@/components/canteen/canteen-qr-badge";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
+import { resolveCanteenQrSrc } from "@/lib/canteen-assets";
 import { listCurrentMonthCanteenDanmaku } from "@/lib/danmaku-actions";
 import { db } from "@/db";
 import { users } from "@/db/schema";
+import { isPgPermissionDenied, isPgSoftFail } from "@/lib/pg-errors";
 
 export const dynamic = "force-dynamic";
 
 async function getDanmakuViewer() {
-  const sessionUser = await getOptionalUser();
-  if (!sessionUser?.id) return { kind: "guest" as const };
+  try {
+    const sessionUser = await getOptionalUser();
+    if (!sessionUser?.id) return { kind: "guest" as const };
 
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.id, sessionUser.id),
-    columns: { id: true, nickname: true, banned: true },
-  });
-  if (!dbUser) return { kind: "guest" as const };
-  if (dbUser.banned) return { kind: "banned" as const };
-  return {
-    kind: "member" as const,
-    userId: dbUser.id,
-    nickname: dbUser.nickname,
-  };
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, sessionUser.id),
+      columns: { id: true, nickname: true, banned: true },
+    });
+    if (!dbUser) return { kind: "guest" as const };
+    if (dbUser.banned) return { kind: "banned" as const };
+    return {
+      kind: "member" as const,
+      userId: dbUser.id,
+      nickname: dbUser.nickname,
+    };
+  } catch (error) {
+    if (isPgSoftFail(error)) return { kind: "guest" as const };
+    throw error;
+  }
 }
 
 export default async function CanteenMenuPage({
@@ -44,6 +52,10 @@ export default async function CanteenMenuPage({
   if (!canteen) notFound();
 
   const mock = isCanteenMockMode();
+  const softEmpty = <T,>(fallback: T) => (error: unknown) => {
+    if (isPgSoftFail(error)) return fallback;
+    throw error;
+  };
   const [
     items,
     voteCounts,
@@ -54,11 +66,18 @@ export default async function CanteenMenuPage({
     danmakuViewer,
   ] = await Promise.all([
     getCanteenMenuItems(id),
-    getMenuItemVoteCounts(id),
-    getMyVotesForCanteen(id),
-    getCommentCountsForCanteen(id),
-    mock ? Promise.resolve(null) : getSessionVoterUser(),
-    mock ? Promise.resolve([]) : listCurrentMonthCanteenDanmaku(id),
+    getMenuItemVoteCounts(id).catch(softEmpty({})),
+    getMyVotesForCanteen(id).catch(softEmpty({})),
+    getCommentCountsForCanteen(id).catch(softEmpty({})),
+    mock
+      ? Promise.resolve(null)
+      : getSessionVoterUser().catch(softEmpty(null)),
+    mock
+      ? Promise.resolve([])
+      : listCurrentMonthCanteenDanmaku(id).catch((error) => {
+          if (isPgSoftFail(error) || isPgPermissionDenied(error)) return [];
+          throw error;
+        }),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
   ]);
   const currentUserId =
@@ -72,6 +91,12 @@ export default async function CanteenMenuPage({
       title={canteen.name}
       subtitle={canteen.location ?? undefined}
       announcement={canteen.announcement}
+      action={
+        <CanteenQrBadge
+          src={resolveCanteenQrSrc(id, canteen.name)}
+          canteenName={canteen.name}
+        />
+      }
     >
       <div className="mb-3 sm:mb-8">
         <DanmakuBanner
