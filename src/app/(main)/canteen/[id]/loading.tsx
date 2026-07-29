@@ -8,7 +8,7 @@ export default function Loading() {
     <div
       role="status"
       aria-label="加载中"
-      className="mx-auto w-full min-w-0 max-w-5xl animate-pulse px-4 py-8 motion-reduce:animate-none sm:px-6 sm:py-10"
+      className="mx-auto w-full min-w-0 max-w-5xl animate-pulse px-4 py-8 sm:px-6 sm:py-10"
     >
       <span className="sr-only">加载中</span>
       <div className="mb-4 h-11 w-11 rounded bg-[var(--canteen-line)]" />

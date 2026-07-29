@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,11 @@ export function DanmakuBanner({
   }, []);
 
   const flyItems = useMemo(() => messagesForFlyover(messages), [messages]);
+  const integrated = appearance === "hero";
+  /** Match `.danmaku-item` / `.danmaku-hero .danmaku-item` font sizes for width estimates. */
+  const fontPx = integrated
+    ? Math.min(18.4, Math.max(15.2, screenWidth * 0.02))
+    : 14;
 
   const scheduled = useMemo(
     () =>
@@ -83,9 +88,10 @@ export function DanmakuBanner({
           trackCount,
           screenWidth,
           duration: DANMAKU_SCROLL_DURATION_SEC,
+          fontPx,
         },
       ),
-    [flyItems, screenWidth, trackCount],
+    [flyItems, fontPx, screenWidth, trackCount],
   );
 
   const byTrack = useMemo(() => {
@@ -101,7 +107,6 @@ export function DanmakuBanner({
 
   /** Wider flyover on desktop → taller layer and more vertical track spacing. */
   const compact = trackCount <= 3;
-  const integrated = appearance === "hero";
   const trackStepRem =
     screenWidth >= 640 ? (compact ? 2.6 : 3.0) : compact ? 2.0 : 2.2;
   const trackOffsetRem =
@@ -170,6 +175,11 @@ export function DanmakuBanner({
                 : "h-32 sm:h-40"
               : "h-48 sm:h-60",
         )}
+        style={
+          {
+            "--danmaku-stage": `${screenWidth}px`,
+          } as CSSProperties
+        }
         data-ready={mounted ? "true" : undefined}
       >
         {messages.length === 0 ? (

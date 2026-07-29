@@ -1,6 +1,13 @@
-/** Deterministic fallback styling until real assets exist under public/assets/canteen-icons. */
+/** Deterministic mock icon art until real assets exist under public/assets/canteen-icons. */
 
-const FILLS = ["#4f6272", "#5f645d", "#6c5f66"] as const;
+const FILLS = [
+  "#ebebf0",
+  "#e8e8ed",
+  "#f0f0f5",
+  "#e5e5ea",
+  "#ededf2",
+  "#e9e9ef",
+] as const;
 
 function hashSeed(input: string): number {
   let h = 0;
@@ -10,35 +17,38 @@ function hashSeed(input: string): number {
   return Math.abs(h);
 }
 
-function canteenWordmark(name: string): string {
+/** Short label for empty-state app icon (no emoji). */
+export function canteenIconInitials(name: string): string {
   const trimmed = name.trim();
-  const trailingNumber = trimmed.match(/(\d{1,2})$/)?.[1];
-  if (trailingNumber) return trailingNumber.padStart(2, "0");
+  if (!trimmed) return "?";
 
-  const normalized = trimmed.replace(
-    /学生|學生|食堂|饭堂|飯堂|膳堂|餐厅|餐廳|书院|書院/g,
-    "",
-  );
-  const chinese = normalized.match(/[\u3400-\u9fff]/g);
-  if (chinese?.length) {
-    return chinese.length === 1
-      ? chinese[0]!
-      : `${chinese[0]}${chinese[chinese.length - 1]}`;
+  if (/[\u4e00-\u9fff]/.test(trimmed)) {
+    return trimmed.slice(0, 1);
   }
 
-  const words = normalized.split(/[\s_-]+/).filter(Boolean);
-  return words.length > 1
-    ? words
-        .slice(0, 2)
-        .map((word) => word[0]!.toUpperCase())
-        .join("")
-    : normalized.slice(0, 2).toUpperCase() || "?";
+  const hyphenParts = trimmed.split(/[-_]+/).filter(Boolean);
+  if (hyphenParts.length >= 2) {
+    return hyphenParts
+      .slice(0, 2)
+      .map((part) => part[0]!.toUpperCase())
+      .join("");
+  }
+
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return words
+      .slice(0, 2)
+      .map((word) => word[0]!.toUpperCase())
+      .join("");
+  }
+
+  return trimmed.slice(0, 2).toUpperCase();
 }
 
 export function mockCanteenIcon(canteenId: string, name: string) {
   const seed = hashSeed(`${canteenId}:${name}`);
   return {
     fill: FILLS[seed % FILLS.length]!,
-    initials: canteenWordmark(name),
+    initials: canteenIconInitials(name),
   };
 }

@@ -24,8 +24,9 @@
   background: rgb(0 0 0 / 0.06);
   font-size: 0.875rem;
   line-height: 1.5;
-  /* Park off-screen before animation / stylesheet settle to avoid a left-edge flash. */
-  transform: translateX(100vw);
+  /* Park off-screen before animation / stylesheet settle to avoid a left-edge flash.
+     Travel distance must match the scheduler's screenWidth (not 100vw). */
+  transform: translateX(var(--danmaku-stage, 100%));
   will-change: transform;
   animation: danmaku-fly linear infinite both;
 }
@@ -62,7 +63,7 @@
 
 @keyframes danmaku-fly {
   from {
-    transform: translateX(100vw);
+    transform: translateX(var(--danmaku-stage, 100%));
   }
   to {
     transform: translateX(-100%);

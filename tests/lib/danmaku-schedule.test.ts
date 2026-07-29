@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   earliestNonOverlappingStart,
   estimateDanmakuWidth,
+  fitsCircularLane,
   scheduleScrollingDanmaku,
 } from "@/lib/danmaku-schedule";
 
@@ -13,9 +14,7 @@ describe("danmaku-schedule (bilibili-style lanes)", () => {
   });
 
   it("first bullet on an empty lane starts at 0", () => {
-    expect(
-      earliestNonOverlappingStart(null, 100, 720, 12),
-    ).toBe(0);
+    expect(earliestNonOverlappingStart(null, 100, 720, 12)).toBe(0);
   });
 
   it("schedules multiple bullets across parallel tracks without one-per-lane packing", () => {
@@ -46,11 +45,54 @@ describe("danmaku-schedule (bilibili-style lanes)", () => {
       screenWidth: 720,
       duration: 12,
     });
+    expect(scheduled.length).toBeGreaterThanOrEqual(1);
     for (let i = 1; i < scheduled.length; i++) {
-      expect(scheduled[i].start).toBeGreaterThanOrEqual(scheduled[i - 1].start);
-      expect(scheduled[i].start).toBeGreaterThanOrEqual(
-        scheduled[i - 1].start + 0.05 - 1e-9,
-      );
+      expect(scheduled[i].start).toBeGreaterThan(scheduled[i - 1].start);
+    }
+  });
+
+  it("keeps circular same-lane packs non-overlapping within one animation period", () => {
+    const duration = 12;
+    const screenWidth = 720;
+    const gap = 0.45;
+    const items = Array.from({ length: 20 }, (_, i) => ({
+      id: `d-${i}`,
+      content: i % 2 === 0 ? "短弹幕" : "稍微长一点的食堂弹幕内容",
+    }));
+    const scheduled = scheduleScrollingDanmaku(items, {
+      trackCount: 3,
+      screenWidth,
+      duration,
+      gap,
+    });
+
+    const byTrack = new Map<number, typeof scheduled>();
+    for (const item of scheduled) {
+      const list = byTrack.get(item.track) ?? [];
+      list.push(item);
+      byTrack.set(item.track, list);
+    }
+
+    for (const lane of byTrack.values()) {
+      const occupants = lane.map((s) => ({
+        start: s.start,
+        width: s.width,
+        visible: s.start + (duration * s.width) / (screenWidth + s.width) + gap,
+        end: s.start + duration,
+      }));
+      for (let i = 0; i < occupants.length; i++) {
+        const rest = occupants.filter((_, j) => j !== i);
+        expect(
+          fitsCircularLane(
+            rest,
+            occupants[i].start,
+            occupants[i].width,
+            screenWidth,
+            duration,
+            gap,
+          ),
+        ).toBe(true);
+      }
     }
   });
 });

@@ -37,14 +37,16 @@ function CanteenIconOrb({
           src={iconSrc}
           alt=""
           fill
-          sizes="(min-width: 640px) 88px, 68px"
+          sizes="(min-width: 640px) 88px, 76px"
           className="canteen-icon-photo"
           unoptimized
         />
       ) : !pending ? (
         <span className="canteen-icon-initials">{initials}</span>
       ) : null}
-      {pending ? <span className="canteen-icon-pending" /> : null}
+      {pending ? (
+        <span className="canteen-icon-pending" />
+      ) : null}
     </span>
   );
 }
@@ -102,7 +104,7 @@ function CanteenCardSurface({
       <CanteenIconOrb canteen={canteen} iconSrc={iconSrc} pending={pending} />
       <span className="canteen-icon-label canteen-display">{canteen.name}</span>
       {canteen.location ? (
-        <span className="canteen-icon-location">{canteen.location}</span>
+        <span className="sr-only">{canteen.location}</span>
       ) : null}
       {itemCount !== undefined ? (
         <span className="sr-only">
