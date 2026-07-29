@@ -1,51 +1,59 @@
 .canteen-zone {
-  /* Cold ledger palette — cool paper / steel / single teal accent */
-  --canteen-rice: #e6ecf2;
-  --canteen-cream: #e6ecf2;
-  --canteen-tray: #d0d8e2;
-  --canteen-bamboo: #8494a6;
-  --canteen-purple: #2a6b78;
-  --canteen-morning: #5b7c99;
-  --canteen-noon: #2f6f7e;
-  --canteen-evening: #3d4f6b;
-  --canteen-ink: #1a2332;
-  --canteen-muted: #5c6b7a;
-  --canteen-surface: rgba(245, 248, 251, 0.92);
-  --canteen-line: rgba(26, 35, 50, 0.12);
+  /*
+   * Fused Apple white: iOS system gray canvas + soft glass icons +
+   * SF-like type + grouped lists. No cold blue/teal.
+   */
+  --canteen-rice: #ffffff;
+  --canteen-cream: #f5f5f7;
+  --canteen-tray: #f2f2f7;
+  --canteen-bamboo: #aeaeb2;
+  --canteen-purple: #1d1d1f;
+  --canteen-morning: #8e8e93;
+  --canteen-noon: #ff3b30;
+  --canteen-evening: #3a3a3c;
+  --canteen-ink: #1d1d1f;
+  --canteen-muted: #6e6e73;
+  --canteen-surface: rgba(255, 255, 255, 0.78);
+  --canteen-line: rgba(0, 0, 0, 0.08);
+  --canteen-glass: rgba(255, 255, 255, 0.55);
+  --canteen-glass-edge: rgba(255, 255, 255, 0.85);
+  --canteen-fill: rgba(120, 120, 128, 0.12);
+  --canteen-fill-strong: rgba(120, 120, 128, 0.2);
 
-  font-family: var(--font-canteen-body), system-ui, sans-serif;
+  font-family:
+    var(--font-canteen-body),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    system-ui,
+    sans-serif;
   color: var(--canteen-ink);
-  background:
-    radial-gradient(
-      ellipse 90% 55% at 0% 0%,
-      rgba(42, 107, 120, 0.1),
-      transparent 55%
-    ),
-    radial-gradient(
-      ellipse 70% 45% at 100% 10%,
-      rgba(61, 79, 107, 0.08),
-      transparent 50%
-    ),
-    linear-gradient(180deg, var(--canteen-rice) 0%, #dce4ec 100%);
+  background: var(--canteen-rice);
 }
 
 .canteen-zone h1,
 .canteen-zone h2,
 .canteen-zone .canteen-display {
   font-family:
-    var(--font-canteen-display), var(--font-canteen-body), system-ui, sans-serif;
-  letter-spacing: -0.02em;
+    var(--font-canteen-display), var(--font-canteen-body), -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
+  letter-spacing: -0.03em;
 }
 
 .canteen-zone .canteen-brand {
   font-family:
-    var(--font-canteen-display), var(--font-canteen-body), system-ui, sans-serif;
+    var(--font-canteen-display), var(--font-canteen-body), -apple-system,
+    BlinkMacSystemFont, system-ui, sans-serif;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: -0.04em;
 }
 
 .canteen-zone .canteen-ledger {
-  border-top: 1px solid var(--canteen-line);
+  border: none;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 0 0 1px var(--canteen-line);
+  overflow: hidden;
 }
 
 .canteen-zone .canteen-ledger-row {
@@ -54,13 +62,252 @@
   transition: background-color 160ms ease;
 }
 
+.canteen-zone .canteen-ledger-row:last-child {
+  border-bottom: none;
+}
+
 .canteen-zone .canteen-ledger-row:hover {
-  background: rgba(255, 255, 255, 0.45);
+  background: var(--canteen-fill);
 }
 
 .canteen-zone a:active .canteen-ledger-row,
 .canteen-zone .canteen-ledger-row:active {
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--canteen-fill-strong);
+}
+
+/* iOS-style squircle launcher icons on white canvas */
+.canteen-zone .canteen-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem 0.85rem;
+  padding: 0.85rem 0.35rem 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .canteen-zone .canteen-icon-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 2rem 1.35rem;
+    padding: 1.1rem 0.6rem 2rem;
+  }
+}
+
+@media (min-width: 900px) {
+  .canteen-zone .canteen-icon-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.canteen-zone .canteen-icon-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.canteen-zone .canteen-icon-orb {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 4.75rem;
+  height: 4.75rem;
+  /* ~iOS continuous corner */
+  border-radius: 22.5%;
+  overflow: hidden;
+  isolation: isolate;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.03),
+    0 6px 16px rgba(0, 0, 0, 0.06);
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 180ms ease;
+}
+
+@media (min-width: 640px) {
+  .canteen-zone .canteen-icon-orb {
+    width: 5.5rem;
+    height: 5.5rem;
+  }
+}
+
+.canteen-zone .canteen-icon-orb--fallback {
+  background: var(--canteen-icon-fill, var(--canteen-tray));
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+.canteen-zone .canteen-icon-orb--photo {
+  background: #fff;
+}
+
+.canteen-zone .canteen-icon-photo {
+  object-fit: contain;
+  padding: 12%;
+}
+
+.canteen-zone .canteen-icon-initials {
+  position: relative;
+  z-index: 1;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: rgba(29, 29, 31, 0.55);
+  user-select: none;
+}
+
+@media (min-width: 640px) {
+  .canteen-zone .canteen-icon-initials {
+    font-size: 1.55rem;
+  }
+}
+
+.canteen-zone .canteen-icon-pending {
+  position: relative;
+  z-index: 2;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 9999px;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-top-color: var(--canteen-ink);
+  animation: canteen-icon-spin 0.7s linear infinite;
+}
+
+@keyframes canteen-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.canteen-zone .canteen-icon-link:hover .canteen-icon-orb,
+.canteen-zone .canteen-icon-link:focus-visible .canteen-icon-orb {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+.canteen-zone .canteen-icon-link:active .canteen-icon-orb {
+  transform: scale(0.96);
+}
+
+.canteen-zone .canteen-icon-label {
+  max-width: 6.75rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  color: var(--canteen-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (min-width: 640px) {
+  .canteen-zone .canteen-icon-label {
+    max-width: 7.5rem;
+    font-size: 0.8rem;
+  }
+}
+
+.canteen-zone .canteen-icon-link:focus-visible {
+  outline: none;
+}
+
+.canteen-zone .canteen-icon-link:focus-visible .canteen-icon-orb {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 3px;
+}
+
+/* iOS-style segmented control */
+.canteen-zone .canteen-segmented {
+  display: flex;
+  min-width: 0;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border-radius: 0.65rem;
+  background: var(--canteen-fill);
+}
+
+.canteen-zone .canteen-segmented-tab {
+  flex: 1;
+  min-height: 2.35rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: transparent;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  color: var(--canteen-ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    color 160ms ease;
+}
+
+.canteen-zone .canteen-segmented-tab[data-active="true"] {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+}
+
+.canteen-zone .canteen-segmented-tab:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
+}
+
+.canteen-zone .canteen-view-pill {
+  display: inline-flex;
+  min-height: 2.25rem;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  color: var(--canteen-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.canteen-zone .canteen-view-pill[data-active="true"] {
+  background: var(--canteen-fill-strong);
+  color: var(--canteen-ink);
+}
+
+.canteen-zone .canteen-view-pill[data-tone="recommend"][data-active="true"] {
+  background: rgba(255, 59, 48, 0.12);
+  color: #d70015;
+}
+
+.canteen-zone .canteen-view-pill[data-tone="avoid"][data-active="true"] {
+  background: rgba(0, 0, 0, 0.08);
+  color: #1d1d1f;
+}
+
+.canteen-zone .canteen-view-pill:focus-visible {
+  outline: 2px solid var(--canteen-purple);
+  outline-offset: 2px;
+}
+
+.canteen-zone .canteen-toolbar {
+  border: none;
+  border-bottom: 1px solid var(--canteen-line);
+  background: rgba(245, 245, 247, 0.86);
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
 }
 
 /* Vote chips: bordered controls so “赞 / 踩” read as tappable, not plain text */
@@ -72,12 +319,13 @@
   justify-content: center;
   gap: 0.3rem;
   border: 1px solid var(--canteen-line);
-  background: var(--canteen-surface);
+  border-radius: 0.65rem;
+  background: var(--canteen-tray);
   padding: 0.35rem 0.65rem;
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--canteen-ink);
-  box-shadow: 0 1px 0 rgba(26, 35, 50, 0.06);
+  box-shadow: none;
   transition:
     background-color 160ms ease,
     border-color 160ms ease,
@@ -93,13 +341,14 @@
   align-items: center;
   gap: 0.3rem;
   border: 1px solid var(--canteen-line);
-  background: var(--canteen-surface);
+  border-radius: 0.55rem;
+  background: var(--canteen-tray);
   padding: 0.2rem 0.65rem;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--canteen-ink);
-  box-shadow: 0 1px 0 rgba(26, 35, 50, 0.06);
+  box-shadow: none;
   cursor: pointer;
   touch-action: manipulation;
   transition:
@@ -110,7 +359,7 @@
 }
 
 .canteen-zone .canteen-comment-toggle:hover {
-  border-color: rgba(42, 107, 120, 0.45);
+  border-color: rgba(0, 0, 0, 0.45);
   background: #fff;
   color: var(--canteen-purple);
   box-shadow: 0 2px 0 rgba(26, 35, 50, 0.08);
@@ -127,8 +376,8 @@
 }
 
 .canteen-zone .canteen-comment-toggle-on {
-  border-color: rgba(42, 107, 120, 0.4);
-  background: rgba(42, 107, 120, 0.12);
+  border-color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.12);
   color: var(--canteen-purple);
   box-shadow: none;
 }
@@ -157,18 +406,19 @@
   min-height: 2.5rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(42, 107, 120, 0.35);
-  background: rgba(42, 107, 120, 0.1);
+  border: 1px solid transparent;
+  border-radius: 0.65rem;
+  background: var(--canteen-ink);
   padding: 0.35rem 0.9rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: var(--canteen-purple);
+  color: #fff;
   cursor: pointer;
   touch-action: manipulation;
 }
 
 .canteen-zone .canteen-comment-submit:hover:not(:disabled) {
-  background: rgba(42, 107, 120, 0.18);
+  background: #000;
 }
 
 .canteen-zone .canteen-comment-submit:focus-visible {
@@ -177,7 +427,7 @@
 }
 
 .canteen-zone .canteen-vote-btn:hover:not(:disabled) {
-  border-color: rgba(42, 107, 120, 0.45);
+  border-color: rgba(0, 0, 0, 0.45);
   background: #fff;
   box-shadow: 0 2px 0 rgba(26, 35, 50, 0.08);
 }
@@ -206,7 +456,7 @@
 
 .canteen-zone .canteen-vote-btn-like-on:hover:not(:disabled) {
   border-color: var(--canteen-noon);
-  background: #255a66;
+  background: #d70015;
   color: #fff;
 }
 
@@ -219,7 +469,7 @@
 
 .canteen-zone .canteen-vote-btn-dislike-on:hover:not(:disabled) {
   border-color: var(--canteen-evening);
-  background: #324257;
+  background: #1d1d1f;
   color: #fff;
 }
 
@@ -233,11 +483,12 @@
   min-height: 2.25rem;
   align-items: center;
   gap: 0.35rem;
-  border: 1px solid var(--canteen-line);
-  background: var(--canteen-surface);
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  background: var(--canteen-tray);
   padding: 0.25rem 0.75rem;
   font-size: 0.8125rem;
-  font-weight: 600;
+  font-weight: 560;
   color: var(--canteen-ink);
   white-space: nowrap;
   touch-action: manipulation;
@@ -246,13 +497,13 @@
 }
 
 .canteen-zone .canteen-section-chip:hover:not(.canteen-section-chip-on) {
-  border-color: rgba(42, 107, 120, 0.4);
+  border-color: rgba(0, 0, 0, 0.4);
   background: #fff;
 }
 
 .canteen-zone .canteen-section-chip:active:not(.canteen-section-chip-on) {
   border-color: var(--canteen-purple);
-  background: rgba(42, 107, 120, 0.16);
+  background: rgba(0, 0, 0, 0.16);
   color: var(--canteen-purple);
 }
 
@@ -262,15 +513,15 @@
 }
 
 .canteen-zone .canteen-section-chip-on {
-  border-color: var(--canteen-purple);
-  background: rgba(42, 107, 120, 0.28);
-  color: var(--canteen-purple);
-  font-weight: 700;
+  border-color: transparent;
+  background: var(--canteen-ink);
+  color: #fff;
+  font-weight: 650;
 }
 
 .canteen-zone .canteen-section-chip-on .font-mono {
-  color: var(--canteen-purple);
-  opacity: 0.85;
+  color: rgba(255, 255, 255, 0.72);
+  opacity: 1;
 }
 
 .canteen-zone .canteen-price-option {
