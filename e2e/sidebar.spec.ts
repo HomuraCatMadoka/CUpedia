@@ -123,7 +123,7 @@ async function restoreChildPages(
 
   const retainedPage = retained[0];
   if (!retainedPage) return;
-  await page.goto(`/wiki/${parentId}`);
+  await page.goto(`/wiki/${retainedPage.id}`);
   const row = page
     .locator(`[data-wiki-tree-node-id="${retainedPage.id}"]`)
     .locator(":scope > .wiki-tree-row");
@@ -359,19 +359,19 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
       name: "Campus Life 页面操作",
     });
     await expect(pageActions).toBeVisible();
-    await pageActions.getByRole("button", { name: "隐藏子页面" }).click();
+    await pageActions.getByRole("button", { name: "显示子页面" }).click();
     await expect(
       drawer.getByRole("link", { name: "Dining on Campus" }),
-    ).toBeHidden();
+    ).toBeVisible();
 
     await longPress(campusRow);
     await page
       .getByRole("dialog", { name: "Campus Life 页面操作" })
-      .getByRole("button", { name: "显示子页面" })
+      .getByRole("button", { name: "隐藏子页面" })
       .click();
     await expect(
       drawer.getByRole("link", { name: "Dining on Campus" }),
-    ).toBeVisible();
+    ).toBeHidden();
 
     await drawer.getByRole("link", { name: "Getting Started" }).click();
     await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.gettingStarted));
@@ -508,6 +508,10 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     await page.goto(`/wiki/${PAGE_IDS.dining}`);
 
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
+    await tree
+      .getByRole("treeitem", { name: "Dining on Campus" })
+      .getByRole("button", { name: "展开 Dining on Campus", exact: true })
+      .click();
     const labelX = (name: string) =>
       tree
         .getByRole("link", { name, exact: true })
@@ -730,6 +734,10 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
           .getByRole("article")
           .getByRole("link", { name: "Dining on Campus", exact: true }),
       ).toHaveCount(1);
+      await page
+        .getByRole("treeitem", { name: "Campus Life" })
+        .getByRole("button", { name: "展开 Campus Life", exact: true })
+        .click();
       const childRow = page
         .getByRole("treeitem", { name: "Movable Campus Child" })
         .locator(":scope > .wiki-tree-row");
@@ -784,6 +792,12 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
 
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
     const campus = tree.getByRole("treeitem", { name: "Campus Life" });
+    await expect(
+      tree.getByRole("link", { name: "Dining on Campus", exact: true }),
+    ).toBeHidden();
+    await campus
+      .getByRole("button", { name: "展开 Campus Life", exact: true })
+      .click();
     await campus
       .getByRole("button", { name: "折叠 Campus Life", exact: true })
       .click();
@@ -831,13 +845,18 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
 
     await expect(campus).toHaveAttribute("aria-level", "1");
     await expect(dining).toHaveAttribute("aria-level", "2");
-    await expect(canteen).toHaveAttribute("aria-level", "3");
+    await expect(dining).toHaveAttribute("aria-expanded", "false");
+    await expect(canteen).toBeHidden();
 
     await campus.focus();
     await page.keyboard.press("ArrowRight");
     await expect(firstCampusChild).toBeFocused();
 
     await dining.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(dining).toHaveAttribute("aria-expanded", "true");
+    await expect(canteen).toHaveAttribute("aria-level", "3");
+
     await page.keyboard.press("ArrowLeft");
     await expect(dining).toBeFocused();
     await expect(dining).toHaveAttribute("aria-expanded", "false");
