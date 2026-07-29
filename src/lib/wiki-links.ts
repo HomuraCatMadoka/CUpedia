@@ -17,7 +17,7 @@ type ResolvableNode = {
 const WIKI_PAGE_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const WIKI_PAGE_URL_PATTERN =
-  /^\/wiki\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[?#].*)?$/i;
+  /^(?:https:\/\/(?:www\.)?cupedia\.org)?\/wiki\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[?#].*)?$/i;
 
 export function isWikiPageId(value: unknown): value is string {
   return typeof value === "string" && WIKI_PAGE_ID_PATTERN.test(value);
