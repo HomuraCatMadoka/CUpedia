@@ -61,7 +61,7 @@ const STORAGE_KEY = "wiki-sidebar-collapsed";
 const NAVIGATION_FEEDBACK_DELAY_MS = 180;
 const MOBILE_LONG_PRESS_MS = 500;
 const MOBILE_LONG_PRESS_MOVE_TOLERANCE = 10;
-const EMPTY_COLLAPSED_SNAPSHOT = "[]";
+const DEFAULT_COLLAPSED_SNAPSHOT = "";
 const collapsedSubscribers = new Set<() => void>();
 
 type NavigateToPage = (
@@ -125,9 +125,9 @@ function parseCollapsed(snapshot: string): Set<string> {
 
 function getCollapsedSnapshot() {
   try {
-    return localStorage.getItem(STORAGE_KEY) ?? EMPTY_COLLAPSED_SNAPSHOT;
+    return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_COLLAPSED_SNAPSHOT;
   } catch {
-    return EMPTY_COLLAPSED_SNAPSHOT;
+    return DEFAULT_COLLAPSED_SNAPSHOT;
   }
 }
 
@@ -1042,11 +1042,18 @@ export function WikiSidebar({
   const collapsedSnapshot = useSyncExternalStore(
     subscribeCollapsed,
     getCollapsedSnapshot,
-    () => EMPTY_COLLAPSED_SNAPSHOT,
+    () => DEFAULT_COLLAPSED_SNAPSHOT,
   );
   const collapsedIds = useMemo(
-    () => parseCollapsed(collapsedSnapshot),
-    [collapsedSnapshot],
+    () =>
+      collapsedSnapshot === DEFAULT_COLLAPSED_SNAPSHOT
+        ? new Set(
+            projectedPages
+              .map((page) => page.parentId)
+              .filter((id): id is string => id !== null),
+          )
+        : parseCollapsed(collapsedSnapshot),
+    [collapsedSnapshot, projectedPages],
   );
   const [manualCollapseState, setManualCollapseState] = useState<{
     pathname: string;

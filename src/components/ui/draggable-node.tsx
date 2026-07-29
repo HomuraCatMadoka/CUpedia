@@ -3,10 +3,11 @@
 import type { TElement } from "platejs";
 import type { PlateElementProps, RenderNodeWrapper } from "platejs/react";
 
-import { useDraggable, useDropLine } from "@platejs/dnd";
+import { DndPlugin, useDraggable, useDropLine } from "@platejs/dnd";
 import { useBlockSelected } from "@platejs/selection/react";
 import { PlusIcon } from "lucide-react";
 import { useEditorRef, usePath } from "platejs/react";
+import { useEffect } from "react";
 
 import { insertSlashCommandAfterBlock } from "@/components/editor/transforms";
 import { cn } from "@/lib/utils";
@@ -38,6 +39,46 @@ function DraggableBlockNode({
   const { dropLine } = useDropLine({ id: element.id as string });
   const isBlockSelected = useBlockSelected(element.id as string);
 
+  useEffect(() => {
+    const node = nodeRef?.current;
+    if (!node || !isTopLevel) return;
+    let dropTargetTimer: number | undefined;
+
+    const showDropLineImmediately = (event: DragEvent) => {
+      const draggingId = editor.getOption(DndPlugin, "draggingId");
+      if (
+        (Array.isArray(draggingId)
+          ? draggingId
+          : draggingId
+            ? [draggingId]
+            : []
+        ).includes(element.id as string)
+      ) {
+        return;
+      }
+
+      const rect = node.getBoundingClientRect();
+      const line =
+        event.clientY < rect.top + rect.height / 2 ? "top" : "bottom";
+      const dropTarget = {
+        id: element.id as string,
+        line,
+      } as const;
+
+      window.clearTimeout(dropTargetTimer);
+      dropTargetTimer = window.setTimeout(() => {
+        editor.setOption(DndPlugin, "dropTarget", dropTarget);
+      }, 0);
+    };
+
+    node.addEventListener("dragenter", showDropLineImmediately);
+
+    return () => {
+      window.clearTimeout(dropTargetTimer);
+      node.removeEventListener("dragenter", showDropLineImmediately);
+    };
+  }, [editor, element.id, isTopLevel, nodeRef]);
+
   if (!isTopLevel) return <>{children}</>;
 
   return (
@@ -62,7 +103,7 @@ function DraggableBlockNode({
         contentEditable={false}
         data-testid="wiki-block-gutter"
         className={cn(
-          "pointer-events-none absolute top-1.5 -left-15 z-20 hidden w-12 items-center gap-0.5 opacity-0 transition-opacity duration-100 motion-reduce:transition-none md:flex",
+          "pointer-events-none absolute top-1.5 -left-15 z-20 hidden w-12 items-center gap-0.5 opacity-0 md:flex",
           "focus-within:pointer-events-auto focus-within:opacity-100 group-data-[block-selected=true]/block:pointer-events-auto group-data-[block-selected=true]/block:opacity-100",
           "[@media(hover:hover)_and_(pointer:fine)]:group-hover/block:pointer-events-auto [@media(hover:hover)_and_(pointer:fine)]:group-hover/block:opacity-100",
         )}

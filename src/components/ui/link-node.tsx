@@ -47,8 +47,8 @@ export function LinkElement(props: PlateElementProps<TLinkElement>) {
       as="a"
       className={cn(
         pageId
-          ? "-mx-0.5 rounded-[3px] px-0.5 font-medium text-primary underline decoration-primary/50 underline-offset-[3px] transition-[background-color,color,text-decoration-color] duration-100 hover:bg-black/[0.055] hover:decoration-primary active:bg-black/[0.11] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none dark:hover:bg-white/[0.08] dark:active:bg-white/[0.14]"
-          : "font-medium text-primary underline decoration-primary underline-offset-4",
+          ? "-mx-0.5 cursor-pointer rounded-[3px] px-0.5 font-medium text-primary underline decoration-primary/50 underline-offset-[3px] transition-[background-color,color,text-decoration-color] duration-100 hover:bg-black/[0.055] hover:decoration-primary active:bg-black/[0.11] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none dark:hover:bg-white/[0.08] dark:active:bg-white/[0.14]"
+          : "cursor-pointer font-medium text-primary underline decoration-primary underline-offset-4",
         inlineSuggestionVariants(),
       )}
       attributes={{
