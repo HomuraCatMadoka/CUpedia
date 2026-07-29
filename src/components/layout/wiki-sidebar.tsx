@@ -1,7 +1,9 @@
 "use client";
 
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -17,17 +19,21 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Drawer } from "@base-ui/react/drawer";
 import {
+  ArrowDownIcon,
+  ArrowUpIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   EllipsisIcon,
   FileTextIcon,
+  GripVerticalIcon,
   HomeIcon,
   LoaderCircleIcon,
   PlusIcon,
   SearchIcon,
   XIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
@@ -41,6 +47,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { WikiCreateButton } from "@/components/wiki/wiki-create-button";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
+import { reorderWikiPage, type WikiPageMove } from "@/lib/wiki-actions";
 
 type TreeNode = {
   id: string;
@@ -63,6 +70,24 @@ type NavigateToPage = (
 ) => void;
 
 type OpenMobilePageActions = (node: TreeNode, trigger: HTMLElement) => void;
+
+interface WikiTreeReorderContextValue {
+  draggedPage: Pick<TreeNode, "id" | "parentId"> | null;
+  moving: boolean;
+  movePage: (pageId: string, move: WikiPageMove) => void;
+  setDraggedPage: (page: Pick<TreeNode, "id" | "parentId"> | null) => void;
+}
+
+const WikiTreeReorderContext =
+  createContext<WikiTreeReorderContextValue | null>(null);
+
+function useWikiTreeReorder() {
+  const context = useContext(WikiTreeReorderContext);
+  if (!context) {
+    throw new Error("Wiki tree reorder context is unavailable");
+  }
+  return context;
+}
 
 function buildTree(
   pages: {
@@ -233,6 +258,14 @@ function PageTreeItem({
   const pending = pendingHref === href;
   const showFeedback = feedbackHref === href;
   const [pageMenuOpen, setPageMenuOpen] = useState(false);
+  const { draggedPage, moving, movePage, setDraggedPage } =
+    useWikiTreeReorder();
+  const [dropTarget, setDropTarget] = useState<{
+    draggedPage: Pick<TreeNode, "id" | "parentId">;
+    placement: "before" | "after";
+  } | null>(null);
+  const dropPlacement =
+    dropTarget?.draggedPage === draggedPage ? dropTarget.placement : null;
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -324,7 +357,9 @@ function PageTreeItem({
       aria-expanded={hasChildren ? !collapsed : undefined}
       aria-current={active ? "page" : undefined}
       aria-selected={active}
-      aria-keyshortcuts="Shift+F10"
+      aria-keyshortcuts={
+        canEdit ? "Alt+ArrowUp Alt+ArrowDown Shift+F10" : "Shift+F10"
+      }
       data-wiki-tree-node-id={node.id}
       tabIndex={rovingId === node.id ? 0 : -1}
       onFocus={(event) => {
@@ -346,6 +381,43 @@ function PageTreeItem({
       className="group/tree-item outline-none"
     >
       <div
+        onDragOver={(event) => {
+          if (
+            !draggedPage ||
+            draggedPage.id === node.id ||
+            draggedPage.parentId !== node.parentId
+          ) {
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          event.dataTransfer.dropEffect = "move";
+          const bounds = event.currentTarget.getBoundingClientRect();
+          setDropTarget({
+            draggedPage,
+            placement:
+              event.clientY < bounds.top + bounds.height / 2
+                ? "before"
+                : "after",
+          });
+        }}
+        onDragLeave={(event) => {
+          if (
+            !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
+            setDropTarget(null);
+          }
+        }}
+        onDrop={(event) => {
+          if (!draggedPage || !dropPlacement) return;
+          event.preventDefault();
+          event.stopPropagation();
+          movePage(draggedPage.id, {
+            targetPageId: node.id,
+            placement: dropPlacement,
+          });
+          setDropTarget(null);
+        }}
         onPointerDown={startLongPress}
         onPointerMove={moveLongPress}
         onPointerUp={clearLongPress}
@@ -368,6 +440,16 @@ function PageTreeItem({
           paddingRight: "4px",
         }}
       >
+        {dropPlacement && (
+          <span
+            aria-hidden="true"
+            data-testid={`wiki-drop-indicator-${dropPlacement}`}
+            className={cn(
+              "pointer-events-none absolute right-1 left-1 z-10 h-0.5 rounded-full bg-blue-500",
+              dropPlacement === "before" ? "top-0" : "bottom-0",
+            )}
+          />
+        )}
         {hasChildren ? (
           <button
             type="button"
@@ -437,7 +519,7 @@ function PageTreeItem({
           className={cn(
             "flex min-h-11 min-w-0 flex-1 touch-manipulation items-center truncate rounded py-1 pr-2 text-sm font-medium text-[#5f5e5a] transition-[color,transform,padding] hover:text-[#2c2c2b] active:scale-[0.99] focus-visible:outline-none md:min-h-[30px] md:px-2",
             canEdit
-              ? "md:group-focus-within/row:pr-11 md:group-hover/row:pr-11"
+              ? "md:group-focus-within/row:pr-16 md:group-hover/row:pr-16"
               : "md:group-focus-within/row:pr-6 md:group-hover/row:pr-6",
             focusedEditor &&
               "rounded-md px-2 py-0 text-sm normal-case tracking-normal",
@@ -465,6 +547,28 @@ function PageTreeItem({
           data-testid="wiki-tree-row-actions"
           className="pointer-events-none absolute right-1 hidden items-center gap-0.5 opacity-0 transition-opacity group-focus-within/row:pointer-events-auto group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:opacity-100 md:flex"
         >
+          {canEdit && (
+            <button
+              type="button"
+              tabIndex={-1}
+              draggable={!moving}
+              aria-label={`拖动 ${displayTitle} 调整顺序`}
+              aria-grabbed={draggedPage?.id === node.id}
+              onDragStart={(event) => {
+                event.stopPropagation();
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", node.id);
+                setDraggedPage({ id: node.id, parentId: node.parentId });
+              }}
+              onDragEnd={() => {
+                setDraggedPage(null);
+                setDropTarget(null);
+              }}
+              className="flex size-5 cursor-grab items-center justify-center rounded text-[#787774] hover:bg-black/[0.06] hover:text-[#37352f] active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+            >
+              <GripVerticalIcon aria-hidden="true" className="size-3.5" />
+            </button>
+          )}
           {canEdit && (
             <WikiCreateButton
               parentId={node.id}
@@ -495,16 +599,32 @@ function PageTreeItem({
                 打开页面
               </DropdownMenuItem>
               {canEdit && (
-                <WikiCreateButton
-                  parentId={node.id}
-                  variant="ghost"
-                  role="menuitem"
-                  onCreated={() => setPageMenuOpen(false)}
-                  className="h-auto w-full justify-start rounded-sm px-2 py-1.5 font-normal"
-                >
-                  <PlusIcon aria-hidden="true" />
-                  新建子页面
-                </WikiCreateButton>
+                <>
+                  <DropdownMenuItem
+                    disabled={moving}
+                    onClick={() => movePage(node.id, { direction: "up" })}
+                  >
+                    <ArrowUpIcon aria-hidden="true" />
+                    上移
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={moving}
+                    onClick={() => movePage(node.id, { direction: "down" })}
+                  >
+                    <ArrowDownIcon aria-hidden="true" />
+                    下移
+                  </DropdownMenuItem>
+                  <WikiCreateButton
+                    parentId={node.id}
+                    variant="ghost"
+                    role="menuitem"
+                    onCreated={() => setPageMenuOpen(false)}
+                    className="h-auto w-full justify-start rounded-sm px-2 py-1.5 font-normal"
+                  >
+                    <PlusIcon aria-hidden="true" />
+                    新建子页面
+                  </WikiCreateButton>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -566,6 +686,7 @@ function PageTree({
   feedbackHref: string | null;
 }) {
   const treeRef = useRef<HTMLUListElement>(null);
+  const { movePage } = useWikiTreeReorder();
   const firstNodeId = tree[0]?.id ?? null;
   const [rovingState, setRovingState] = useState<{
     pathname: string;
@@ -601,6 +722,18 @@ function PageTree({
 
   const handleTreeItemKeyDown = useCallback<TreeItemKeyDown>(
     (event, node, collapsed) => {
+      if (
+        canEdit &&
+        event.altKey &&
+        (event.key === "ArrowUp" || event.key === "ArrowDown")
+      ) {
+        event.preventDefault();
+        movePage(node.id, {
+          direction: event.key === "ArrowUp" ? "up" : "down",
+        });
+        return;
+      }
+
       const current = event.currentTarget;
       const items = Array.from(
         treeRef.current?.querySelectorAll<HTMLElement>('[role="treeitem"]') ??
@@ -661,7 +794,7 @@ function PageTree({
       event.preventDefault();
       focusTreeItem(target);
     },
-    [focusTreeItem, handleToggle],
+    [canEdit, focusTreeItem, handleToggle, movePage],
   );
 
   return (
@@ -717,6 +850,7 @@ function MobilePageActionsSheet({
   onNavigate: NavigateToPage;
 }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const { moving, movePage } = useWikiTreeReorder();
 
   if (!node) return null;
 
@@ -808,6 +942,36 @@ function MobilePageActionsSheet({
                 )}
                 {canEdit && (
                   <>
+                    <button
+                      type="button"
+                      disabled={moving}
+                      onClick={() => {
+                        movePage(node.id, { direction: "up" });
+                        onClose();
+                      }}
+                      className="flex min-h-12 w-full touch-manipulation items-center gap-3 rounded-lg px-3 text-left text-sm font-medium hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:hover:bg-white/10"
+                    >
+                      <ArrowUpIcon
+                        aria-hidden="true"
+                        className="size-[18px] text-[#787774]"
+                      />
+                      上移
+                    </button>
+                    <button
+                      type="button"
+                      disabled={moving}
+                      onClick={() => {
+                        movePage(node.id, { direction: "down" });
+                        onClose();
+                      }}
+                      className="flex min-h-12 w-full touch-manipulation items-center gap-3 rounded-lg px-3 text-left text-sm font-medium hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:hover:bg-white/10"
+                    >
+                      <ArrowDownIcon
+                        aria-hidden="true"
+                        className="size-[18px] text-[#787774]"
+                      />
+                      下移
+                    </button>
                     <WikiCreateButton
                       parentId={node.id}
                       variant="ghost"
@@ -868,6 +1032,12 @@ export function WikiSidebar({
   const [mobileActionNode, setMobileActionNode] = useState<TreeNode | null>(
     null,
   );
+  const [draggedPage, setDraggedPage] = useState<Pick<
+    TreeNode,
+    "id" | "parentId"
+  > | null>(null);
+  const [moving, startMoveTransition] = useTransition();
+  const [reorderAnnouncement, setReorderAnnouncement] = useState("");
 
   const collapsedSnapshot = useSyncExternalStore(
     subscribeCollapsed,
@@ -941,6 +1111,34 @@ export function WikiSidebar({
     setMobileActionNode(null);
   }, []);
 
+  const movePage = useCallback(
+    (pageId: string, move: WikiPageMove) => {
+      startMoveTransition(async () => {
+        try {
+          await reorderWikiPage(pageId, move);
+          router.refresh();
+          setReorderAnnouncement("页面顺序已更新");
+        } catch {
+          toast.error("调整页面顺序失败，请重试");
+          setReorderAnnouncement("页面顺序更新失败");
+        } finally {
+          setDraggedPage(null);
+        }
+      });
+    },
+    [router],
+  );
+
+  const reorderContextValue = useMemo<WikiTreeReorderContextValue>(
+    () => ({
+      draggedPage,
+      moving,
+      movePage,
+      setDraggedPage,
+    }),
+    [draggedPage, movePage, moving],
+  );
+
   const onNavigate = useCallback<NavigateToPage>(
     (event, href) => {
       if (
@@ -993,7 +1191,10 @@ export function WikiSidebar({
   const mobileOpen = state === "mobile-open";
 
   return (
-    <>
+    <WikiTreeReorderContext.Provider value={reorderContextValue}>
+      <p className="sr-only" aria-live="polite">
+        {reorderAnnouncement}
+      </p>
       {state === "expanded" && (
         <nav
           aria-label="Wiki 页面树"
@@ -1235,6 +1436,6 @@ export function WikiSidebar({
           </Drawer.Viewport>
         </Drawer.Portal>
       </Drawer.Root>
-    </>
+    </WikiTreeReorderContext.Provider>
   );
 }
