@@ -15,14 +15,13 @@ test.describe("#315 global Header navigation ownership", () => {
       "href",
       "/",
     );
-    await header.getByRole("button", { name: "打开主导航" }).click();
-    await expect(page.getByRole("menuitem", { name: "分院帽" })).toBeVisible();
+    await expect(header.getByRole("link", { name: "分院帽" })).toHaveAttribute(
+      "href",
+      "/college-picker",
+    );
     await expect(
-      page.getByRole("menuitem", { name: "课程测评" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("menuitem", { name: "食堂", exact: true }),
-    ).toHaveAttribute("href", "/canteen");
+      header.getByRole("link", { name: "课程测评" }),
+    ).toHaveAttribute("href", "/courses");
     await expect(header.getByRole("link", { name: "选课技能树" })).toHaveCount(
       0,
     );
@@ -46,7 +45,8 @@ test.describe("#315 global Header navigation ownership", () => {
       page.getByRole("button", { name: "打开导航" }),
       page.getByRole("button", { name: "搜索 (⌘K)" }),
       page.getByRole("link", { name: "登录" }),
-      page.getByRole("button", { name: "打开主导航" }),
+      page.getByRole("link", { name: "分院帽" }),
+      page.getByRole("link", { name: "课程测评" }),
     ];
 
     for (const target of targets) {

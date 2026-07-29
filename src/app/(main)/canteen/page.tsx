@@ -87,7 +87,7 @@ export default async function CanteenBrowsePage() {
             <DanmakuBanner
               initialMessages={danmaku}
               viewer={danmakuViewer}
-              title="校园正在聊"
+              title="本月弹幕"
               trackCount={3}
               appearance="hero"
             />
