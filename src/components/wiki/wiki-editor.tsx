@@ -56,6 +56,8 @@ import {
   serializeContentWithoutDraftComments,
 } from "@/components/wiki/discussion-draft";
 import { WikiIconPicker } from "@/components/wiki/wiki-icon-picker";
+import { WikiChildPages } from "@/components/wiki/wiki-child-pages";
+import { cn } from "@/lib/utils";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
 import { MobileWikiEditorToolbar } from "@/components/wiki/mobile-wiki-editor-toolbar";
 import { SidebarMobileToggle } from "@/components/layout/sidebar-mobile-toggle";
@@ -115,9 +117,13 @@ export interface WikiEditorProps {
   expectedUpdatedAt?: string;
   parentId?: string | null;
   linkablePages?: WikiLinkPage[];
+  childPages?: WikiLinkPage[];
   initialDiscussions?: Discussion[];
+  draftMode?: boolean;
   canDelete?: boolean;
   onDelete?: () => Promise<void>;
+  onInitialize?: () => Promise<WikiSubmitResult>;
+  onPublish?: () => Promise<WikiSubmitResult>;
   onSubmit: (data: {
     title: string;
     icon?: string | null;
@@ -232,9 +238,13 @@ export function WikiEditor({
   expectedUpdatedAt,
   parentId,
   linkablePages = [],
+  childPages = [],
   initialDiscussions = [],
+  draftMode = false,
   canDelete = false,
   onDelete,
+  onInitialize,
+  onPublish,
   onSubmit,
 }: WikiEditorProps) {
   // Stabilize node ids across the SSR render and the client hydration of this
@@ -272,6 +282,8 @@ export function WikiEditor({
   const [editSummary, setEditSummary] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [publishingPageId, setPublishingPageId] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const [conflict, setConflict] = useState<EditConflict | null>(null);
   const [autosaveConflict, setAutosaveConflict] = useState(false);
   const [draftRecovery, setDraftRecovery] = useState<{
@@ -287,6 +299,10 @@ export function WikiEditor({
     mobileFileDialogOpenRef.current = open;
   }, []);
   const pendingConflictRef = useRef<EditConflict | null>(null);
+  const draftProjectedRef = useRef(false);
+  const draftFallbackGuardRef = useRef<string | null>(null);
+  const collapsingDraftGuardRef = useRef(false);
+  const publishingRef = useRef<string | null>(null);
   const router = useRouter();
   const wikiTree = useOptionalWikiTree();
   const { ensureContributorSetup } = useContributorSetup();
@@ -310,12 +326,21 @@ export function WikiEditor({
     },
     [],
   );
-  const selectedParent = linkablePages.find(
+  const editorLinkablePages =
+    draftMode && wikiTree
+      ? wikiTree.pages.filter((page) => page.id !== pageId)
+      : linkablePages;
+  const selectedParent = editorLinkablePages.find(
     (page) => page.id === selectedParentId,
   );
   const recoveredDraft = draftRecovery
     ? tryParseDraftSnapshot(draftRecovery.record.draftSnapshot)
     : null;
+  const canAutoRecoverDraft =
+    draftMode &&
+    recoveredDraft !== null &&
+    draftRecovery?.record.baseVersion === expectedVersion &&
+    draftRecovery?.record.baseSnapshot === initialDraftSnapshot;
   const versionBaselineRef = useRef(expectedVersion);
   const contentGenerationRef = useRef(expectedContentGeneration);
   const updatedAtBaselineRef = useRef(expectedUpdatedAt);
@@ -327,31 +352,35 @@ export function WikiEditor({
   const iconRef = useRef(initialIcon);
   const parentIdRef = useRef(parentId ?? "");
   const editSummaryRef = useRef("");
+  const initializationRef = useRef<Promise<WikiSubmitResult | null> | null>(
+    null,
+  );
   const autosaveEnabled = mode === "edit" && Boolean(pageId);
-  const sharePage = useCallback(async () => {
+  const publishing = draftMode && publishingPageId === pageId;
+  useEffect(() => {
+    if (!draftMode || !pageId || !wikiTree || draftProjectedRef.current) {
+      return;
+    }
+    draftProjectedRef.current = true;
+    const mutationToken = wikiTree.projectUpsert({
+      id: pageId,
+      title: initialTitle,
+      icon: initialIcon,
+      parentId: parentId ?? null,
+    });
+    wikiTree.confirm(mutationToken);
+  }, [draftMode, initialIcon, initialTitle, pageId, parentId, wikiTree]);
+  const copyPageLink = useCallback(async () => {
     if (mode !== "edit" || !pageId) return;
 
     const url = new URL(`/wiki/${pageId}`, window.location.origin).href;
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: title || "未命名",
-          url,
-        });
-        return;
-      }
       await navigator.clipboard.writeText(url);
       toast.success("页面链接已复制");
-    } catch (shareError) {
-      if (
-        shareError instanceof DOMException &&
-        shareError.name === "AbortError"
-      ) {
-        return;
-      }
-      toast.error("无法分享页面");
+    } catch {
+      toast.error("无法复制页面链接");
     }
-  }, [mode, pageId, title]);
+  }, [mode, pageId]);
 
   const editor = usePlateEditor({
     plugins: [
@@ -385,6 +414,47 @@ export function WikiEditor({
       }),
     [editor],
   );
+  const initializeDraft = useCallback(() => {
+    if (!onInitialize) return Promise.resolve(null);
+    if (initializationRef.current) return initializationRef.current;
+
+    const request = onInitialize()
+      .then((result) => {
+        if (result.error) {
+          initializationRef.current = null;
+          return result;
+        }
+        if (result.version !== undefined && result.updatedAt) {
+          versionBaselineRef.current = result.version;
+          contentGenerationRef.current = result.contentGeneration ?? 0;
+          updatedAtBaselineRef.current = result.updatedAt;
+          baseTitleRef.current = result.title ?? initialTitle;
+          baseIconRef.current =
+            result.icon !== undefined ? result.icon : initialIcon;
+          baseContentRef.current = result.content ?? initialContent;
+          baseParentIdRef.current =
+            result.parentId !== undefined
+              ? result.parentId
+              : (parentId ?? null);
+        }
+        return result;
+      })
+      .catch((error: unknown) => {
+        initializationRef.current = null;
+        throw error;
+      });
+    initializationRef.current = request;
+    return request;
+  }, [initialContent, initialIcon, initialTitle, onInitialize, parentId]);
+  useEffect(() => {
+    if (!draftMode || !onInitialize) return;
+    const surfaceInitializationFailure = () => {
+      setError("私有草稿尚未同步，内容会保留并在下次保存时重试。");
+    };
+    void initializeDraft().then((result) => {
+      if (result?.error) surfaceInitializationFailure();
+    }, surfaceInitializationFailure);
+  }, [draftMode, initializeDraft, onInitialize]);
   const wikiDraft = useWikiDraft({
     enabled: autosaveEnabled && Boolean(userId && pageId),
     userId: userId ?? "",
@@ -397,6 +467,39 @@ export function WikiEditor({
       setDraftRecovery({ record, classification });
     },
   });
+  const { flush: flushWikiDraft, rebase: rebaseWikiDraft } = wikiDraft;
+  useEffect(() => {
+    if (!draftMode || !onInitialize) return;
+    void initializeDraft().then(
+      (result) => {
+        if (!result?.version || !result.updatedAt) return;
+        void rebaseWikiDraft({
+          version: result.version,
+          contentGeneration: result.contentGeneration ?? 0,
+          snapshot: serializeDraftSnapshot({
+            title: result.title ?? initialTitle,
+            icon: result.icon !== undefined ? result.icon : initialIcon,
+            content: result.content ?? initialContent,
+            parentId:
+              result.parentId !== undefined
+                ? result.parentId
+                : (parentId ?? null),
+            editSummary: "",
+          }),
+        }).catch(() => {});
+      },
+      () => {},
+    );
+  }, [
+    draftMode,
+    initialContent,
+    initialIcon,
+    initialTitle,
+    initializeDraft,
+    onInitialize,
+    parentId,
+    rebaseWikiDraft,
+  ]);
   const cancelMobileCommentDraft = useCallback(() => {
     clearDraftCommentMarks(editor);
     requestAnimationFrame(() => {
@@ -421,6 +524,8 @@ export function WikiEditor({
           : null;
       let result: WikiSubmitResult;
       try {
+        const initialization = await initializeDraft();
+        if (initialization?.error) return initialization;
         result = await onSubmit({
           title: next.title,
           icon: next.icon,
@@ -589,7 +694,7 @@ export function WikiEditor({
       }
       return result;
     },
-    [editor, onSubmit, pageId, wikiDraft, wikiTree],
+    [editor, initializeDraft, onSubmit, pageId, wikiDraft, wikiTree],
   );
 
   // Serialize the document only when a save fires, never per keystroke — the
@@ -608,6 +713,35 @@ export function WikiEditor({
   // Stable across renders (memoized inside the hook); safe as an effect/callback dep.
   const { resetBaseline: resetAutosaveBaseline } = autosave;
   const { flush: flushAutosave } = autosave;
+  useEffect(() => {
+    if (!canAutoRecoverDraft || !recoveredDraft) return;
+
+    const frame = requestAnimationFrame(() => {
+      titleRef.current = recoveredDraft.title;
+      iconRef.current = recoveredDraft.icon;
+      parentIdRef.current = recoveredDraft.parentId ?? "";
+      editSummaryRef.current = recoveredDraft.editSummary;
+      setTitle(recoveredDraft.title);
+      setIcon(recoveredDraft.icon);
+      setSelectedParentId(recoveredDraft.parentId ?? "");
+      setEditSummary(recoveredDraft.editSummary);
+      editor.tf.setValue(parseContent(recoveredDraft.content));
+
+      wikiDraft.resume();
+      setDraftRecovery(null);
+      resetAutosaveBaseline(initialDraftSnapshot);
+      notifyChange();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    canAutoRecoverDraft,
+    editor,
+    initialDraftSnapshot,
+    notifyChange,
+    recoveredDraft,
+    resetAutosaveBaseline,
+    wikiDraft,
+  ]);
   const autosaveDirtyRef = useRef(autosave.isDirty);
   useEffect(() => {
     autosaveDirtyRef.current = autosave.isDirty;
@@ -687,8 +821,29 @@ export function WikiEditor({
       if (!createDraftDirtyRef.current) return true;
       return window.confirm("此页面尚未保存，确定要离开并放弃这些更改吗？");
     }
+    if (draftMode) {
+      try {
+        await flushWikiDraft();
+      } catch {
+        setError("本地草稿保存失败，请重试。");
+        return false;
+      }
+      void flushAutosave().then((outcome) => {
+        if (outcome.status === "error") {
+          surfaceAutosaveFailure(outcome.error);
+        }
+      });
+      return true;
+    }
     return flushBeforeNavigation();
-  }, [flushBeforeNavigation, mode]);
+  }, [
+    draftMode,
+    flushAutosave,
+    flushBeforeNavigation,
+    flushWikiDraft,
+    mode,
+    surfaceAutosaveFailure,
+  ]);
   // Install the history guard for the full editor lifetime. Mobile overlays
   // add their own temporary history entries, so mounting this guard only after
   // the first dirty change can put it above an already-open overlay and make
@@ -769,6 +924,83 @@ export function WikiEditor({
     surfaceAutosaveFailure,
   ]);
 
+  const handlePublish = useCallback(async () => {
+    if (!pageId || !onPublish || publishingRef.current === pageId) return;
+    publishingRef.current = pageId;
+    setError("");
+    let contributorReady: boolean;
+    try {
+      contributorReady = await ensureContributorSetup();
+    } catch {
+      publishingRef.current = null;
+      setPublishingPageId(null);
+      setError("发布失败，请检查网络后重试。");
+      return;
+    }
+    if (!contributorReady) {
+      publishingRef.current = null;
+      return;
+    }
+    setPublishingPageId(pageId);
+
+    const outcome = await flushAutosave();
+    if (outcome.status === "error") {
+      publishingRef.current = null;
+      setPublishingPageId(null);
+      surfaceAutosaveFailure(outcome.error);
+      return;
+    }
+
+    let result: WikiSubmitResult;
+    try {
+      result = await onPublish();
+    } catch {
+      publishingRef.current = null;
+      setPublishingPageId(null);
+      setError("发布失败，请检查网络后重试。");
+      return;
+    }
+    if (result.error) {
+      publishingRef.current = null;
+      setPublishingPageId(null);
+      setError(result.error);
+      return;
+    }
+
+    setShareOpen(false);
+    void wikiDraft.discard().catch(() => {});
+    const destination = `/wiki/${result.id ?? pageId}`;
+    const hasFallbackGuard = Boolean(draftFallbackGuardRef.current);
+    if (hasFallbackGuard) {
+      collapsingDraftGuardRef.current = true;
+      await new Promise<void>((resolve) => {
+        window.addEventListener("popstate", () => resolve(), { once: true });
+        window.history.back();
+      });
+      collapsingDraftGuardRef.current = false;
+      draftFallbackGuardRef.current = null;
+    }
+    if (hasFallbackGuard) {
+      window.location.replace(destination);
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent("cupedia:editor-navigation-bypass", {
+        detail: destination,
+      }),
+    );
+    router.replace(destination);
+    router.refresh();
+  }, [
+    ensureContributorSetup,
+    flushAutosave,
+    onPublish,
+    pageId,
+    router,
+    surfaceAutosaveFailure,
+    wikiDraft,
+  ]);
+
   const copyLocalSnapshot = useCallback(async (snapshot: string) => {
     try {
       await navigator.clipboard.writeText(draftSnapshotCopyText(snapshot));
@@ -827,6 +1059,13 @@ export function WikiEditor({
 
   const handleDeletePage = useCallback(async () => {
     if (!pageId || !onDelete || submitting) return;
+    if (
+      !window.confirm(
+        "此页面及其子页面将移至回收站。指向它们的链接会保留，并显示“页面已删除”。确定继续吗？",
+      )
+    ) {
+      return;
+    }
     const mutationToken = wikiTree?.projectDelete(pageId) ?? null;
     setSubmitting(true);
     try {
@@ -915,25 +1154,61 @@ export function WikiEditor({
     };
     document.addEventListener("click", handleAnchorClick, true);
 
+    const navigation = (window as Window & { navigation?: AppNavigation })
+      .navigation;
+    const supportsNavigationInterception = Boolean(
+      navigation &&
+      "NavigateEvent" in window &&
+      "NavigationPrecommitController" in window,
+    );
     // Keep one same-URL entry in front of the editor. A Back gesture first
     // lands on the editor's base entry, where popstate can await persistence
     // (or ask before abandoning a new page) before allowing the real traversal.
     // This is also the safety path for browsers without Navigation API.
-    const guardToken = crypto.randomUUID();
-    window.history.pushState(
-      {
-        ...window.history.state,
-        cupediaEditorNavigationGuardToken: guardToken,
-      },
-      "",
-      window.location.href,
-    );
+    const guardToken =
+      draftMode && supportsNavigationInterception ? null : crypto.randomUUID();
+    draftFallbackGuardRef.current = draftMode ? guardToken : null;
+    if (guardToken) {
+      window.history.pushState(
+        {
+          ...window.history.state,
+          cupediaEditorNavigationGuardToken: guardToken,
+        },
+        "",
+        window.location.href,
+      );
+    }
     const guardedEditorUrl = window.location.href;
     let handlingGuardTraversal = false;
     let allowNextNavigation = false;
     let traversingAfterPrepare = false;
 
     const handleGuardPopState = (event: PopStateEvent) => {
+      if (draftMode) {
+        if (collapsingDraftGuardRef.current) return;
+        if (!guardToken) {
+          void prepareForNavigation();
+          return;
+        }
+        if (handlingGuardTraversal) return;
+        handlingGuardTraversal = true;
+        void prepareForNavigation().then((ready) => {
+          if (!ready) {
+            window.history.pushState(
+              {
+                ...window.history.state,
+                cupediaEditorNavigationGuardToken: guardToken,
+              },
+              "",
+              window.location.href,
+            );
+            handlingGuardTraversal = false;
+            return;
+          }
+          window.history.back();
+        });
+        return;
+      }
       if (traversingAfterPrepare) {
         if (window.location.href === guardedEditorUrl) {
           allowNextNavigation = true;
@@ -969,14 +1244,8 @@ export function WikiEditor({
     };
     window.addEventListener("popstate", handleGuardPopState);
 
-    const navigation = (window as Window & { navigation?: AppNavigation })
-      .navigation;
     let handleNavigate: ((rawEvent: Event) => void) | null = null;
-    if (
-      navigation &&
-      "NavigateEvent" in window &&
-      "NavigationPrecommitController" in window
-    ) {
+    if (navigation && supportsNavigationInterception) {
       handleNavigate = (rawEvent: Event) => {
         const event = rawEvent as AppNavigateEvent;
         if (allowNextNavigation) {
@@ -1030,8 +1299,11 @@ export function WikiEditor({
       }
       window.removeEventListener("popstate", handleGuardPopState);
       document.removeEventListener("click", handleAnchorClick, true);
+      if (draftFallbackGuardRef.current === guardToken) {
+        draftFallbackGuardRef.current = null;
+      }
     };
-  }, [navigationProtectionEnabled, prepareForNavigation, router]);
+  }, [draftMode, navigationProtectionEnabled, prepareForNavigation, router]);
 
   return (
     <Plate
@@ -1040,7 +1312,7 @@ export function WikiEditor({
         if (!editor.api.isComposing()) notifyChange();
       }}
     >
-      <WikiLinkPagesProvider pages={linkablePages}>
+      <WikiLinkPagesProvider pages={editorLinkablePages}>
         <DiscussionProvider
           pageId={pageId ?? ""}
           initialDiscussions={initialDiscussions}
@@ -1049,6 +1321,8 @@ export function WikiEditor({
             ref={markEditorHydrated}
             data-testid="wiki-editor-shell"
             data-autosave-status={autosave.status}
+            aria-busy={publishing || undefined}
+            inert={publishing}
             className="flex min-h-dvh min-w-0 flex-1 flex-col bg-background dark:bg-[#191919]"
           >
             <header
@@ -1108,19 +1382,76 @@ export function WikiEditor({
                     </span>
                   )}
                 {mode === "edit" && pageId && (
-                  <button
-                    type="button"
-                    aria-label="分享页面"
-                    onClick={() => void sharePage()}
-                    className="flex size-11 touch-manipulation items-center justify-center rounded-md text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:hidden"
-                  >
-                    <ShareIcon
-                      aria-hidden="true"
-                      className="size-6 stroke-[1.8]"
-                    />
-                  </button>
+                  <Popover open={shareOpen} onOpenChange={setShareOpen}>
+                    <PopoverTrigger
+                      aria-label="共享"
+                      className={buttonVariants({
+                        variant: "ghost",
+                        size: "sm",
+                        className:
+                          "h-11 min-w-11 px-2.5 font-medium text-foreground md:h-8 md:min-w-0",
+                      })}
+                    >
+                      <ShareIcon
+                        aria-hidden="true"
+                        className="size-6 stroke-[1.8] md:hidden"
+                      />
+                      <span className="hidden md:inline">共享</span>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      aria-label="共享此页面"
+                      align="end"
+                      sideOffset={8}
+                      className="w-[min(22rem,calc(100vw-1rem))] gap-3 p-3"
+                    >
+                      <PopoverHeader className="px-1">
+                        <PopoverTitle>共享此页面</PopoverTitle>
+                      </PopoverHeader>
+                      {draftMode && onPublish ? (
+                        <div className="space-y-3 rounded-md bg-muted/55 p-3">
+                          <div>
+                            <div className="text-sm font-medium">
+                              仅自己可见
+                            </div>
+                            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                              页面已自动保存。发布后，所有人都能在 Wiki 中查看。
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => void handlePublish()}
+                            disabled={publishing || submitting || !title.trim()}
+                          >
+                            {publishing ? "发布中…" : "发布到 Wiki"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 rounded-md bg-muted/55 p-3">
+                          <div>
+                            <div className="text-sm font-medium">
+                              Wiki 中的所有人
+                            </div>
+                            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
+                              任何人都可以查看此页面。
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => void copyPageLink()}
+                          >
+                            复制链接
+                          </Button>
+                        </div>
+                      )}
+                    </PopoverContent>
+                  </Popover>
                 )}
-                {mode === "edit" && pageId && (
+                {mode === "edit" && !draftMode && pageId && (
                   <div className="hidden md:block">
                     <DiscussionPanelTrigger compact />
                   </div>
@@ -1157,7 +1488,7 @@ export function WikiEditor({
                         className="h-11 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:h-8"
                       >
                         <option value="">无父页面</option>
-                        {linkablePages.map((page) => (
+                        {editorLinkablePages.map((page) => (
                           <option key={page.id} value={page.id}>
                             {getWikiDisplayTitle(page.title)}
                           </option>
@@ -1180,20 +1511,23 @@ export function WikiEditor({
                     </div>
                     {mode === "edit" && pageId && (
                       <div className="flex items-center justify-between border-t pt-3">
-                        <Link
-                          href={`/wiki/history/${pageId}`}
-                          className={buttonVariants({
-                            variant: "ghost",
-                            size: "sm",
-                          })}
-                        >
-                          历史记录
-                        </Link>
+                        {!draftMode && (
+                          <Link
+                            href={`/wiki/history/${pageId}`}
+                            className={buttonVariants({
+                              variant: "ghost",
+                              size: "sm",
+                            })}
+                          >
+                            历史记录
+                          </Link>
+                        )}
                         {canDelete && onDelete && (
                           <Button
                             type="button"
                             variant="destructive"
                             size="sm"
+                            className={draftMode ? "ml-auto" : undefined}
                             disabled={submitting}
                             onClick={() => void handleDeletePage()}
                           >
@@ -1204,16 +1538,18 @@ export function WikiEditor({
                     )}
                   </PopoverContent>
                 </Popover>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleSubmit}
-                  disabled={submitting}
-                  className={mode === "edit" ? "md:hidden" : undefined}
-                >
-                  {submitting ? "完成中…" : "完成"}
-                </Button>
+                {!draftMode && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className={mode === "edit" ? "md:hidden" : undefined}
+                  >
+                    {submitting ? "完成中…" : "完成"}
+                  </Button>
+                )}
               </div>
             </header>
 
@@ -1245,10 +1581,20 @@ export function WikiEditor({
                     <Input
                       id="title"
                       aria-label="页面标题"
+                      disabled={publishing}
                       value={title}
                       onChange={(e) => {
                         titleRef.current = e.target.value;
                         setTitle(e.target.value);
+                        if (draftMode && pageId && wikiTree) {
+                          const mutationToken = wikiTree.projectUpsert({
+                            id: pageId,
+                            title: e.target.value,
+                            icon: iconRef.current,
+                            parentId: parentIdRef.current || null,
+                          });
+                          wikiTree.confirm(mutationToken);
+                        }
                         notifyChange();
                       }}
                       placeholder="无标题"
@@ -1258,12 +1604,20 @@ export function WikiEditor({
 
                   <div
                     data-testid="wiki-editor-canvas"
-                    className="mt-[26px] min-h-[50dvh] md:mt-[30px]"
+                    className={cn(
+                      "mt-[26px] md:mt-[30px]",
+                      childPages.length === 0 && "min-h-[50dvh]",
+                    )}
                   >
                     <EditorContainer className="overflow-visible">
                       <Editor
                         variant="none"
-                        className="min-h-[50dvh] rounded-none pb-24 text-base leading-6 lg:overflow-x-visible"
+                        className={cn(
+                          "rounded-none text-base leading-6 lg:overflow-x-visible",
+                          childPages.length > 0
+                            ? "min-h-40 pb-8"
+                            : "min-h-[50dvh] pb-24",
+                        )}
                         placeholder="开始编辑..."
                         onFocus={() => setMobileEditorFocused(true)}
                         onBlur={handleMobileEditorBlur}
@@ -1271,6 +1625,8 @@ export function WikiEditor({
                       />
                     </EditorContainer>
                   </div>
+
+                  <WikiChildPages pages={childPages} />
 
                   {error && (
                     <div
@@ -1349,7 +1705,7 @@ export function WikiEditor({
                     label: "父页面",
                     mine: selectedParent?.title ?? "无",
                     theirs:
-                      linkablePages.find(
+                      editorLinkablePages.find(
                         (page) => page.id === conflict.theirParentId,
                       )?.title ?? (conflict.theirParentId ? "其他页面" : "无"),
                   },
@@ -1364,7 +1720,7 @@ export function WikiEditor({
                 onDiscard={() => void adoptConflictServer(true)}
               />
             )}
-            {draftRecovery && !conflict && (
+            {draftRecovery && !conflict && !canAutoRecoverDraft && (
               <EditConflictDialog
                 ariaLabel="恢复本地草稿"
                 title="发现未发送的本地草稿"
@@ -1389,13 +1745,14 @@ export function WikiEditor({
                         {
                           label: "父页面",
                           mine:
-                            linkablePages.find(
+                            editorLinkablePages.find(
                               (page) => page.id === recoveredDraft.parentId,
                             )?.title ??
                             (recoveredDraft.parentId ? "其他页面" : "无"),
                           theirs:
-                            linkablePages.find((page) => page.id === parentId)
-                              ?.title ?? (parentId ? "其他页面" : "无"),
+                            editorLinkablePages.find(
+                              (page) => page.id === parentId,
+                            )?.title ?? (parentId ? "其他页面" : "无"),
                         },
                       ].filter((field) => field.mine !== field.theirs)
                     : []

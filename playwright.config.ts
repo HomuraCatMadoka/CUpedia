@@ -32,6 +32,10 @@ const baseURL = `http://localhost:${PORT}`;
 const E2E_DATABASE_URL = runtime.databaseUrl;
 const node = JSON.stringify(process.execPath);
 const useDevServer = process.env.E2E_SERVER_MODE === "dev";
+const useCiGroups = process.env.E2E_CI_GROUPS === "1";
+const mobileWebKitTest = /wiki-edit\.mobile-webkit\.spec\.ts$/;
+const wikiDesktopTest =
+  /wiki-(?!edit\.mobile(?:-webkit)?\.spec\.ts$).*\.spec\.ts$/;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with
@@ -40,10 +44,8 @@ if (E2E_DATABASE_URL) process.env.DATABASE_URL = E2E_DATABASE_URL;
 
 export default defineConfig({
   testDir: "./e2e",
-  // Run serially: better-auth rate-limits /sign-in to 3 req / 10s per IP, so
-  // parallel workers signing in at once trip a shared 429. One worker spaces
-  // logins out and keeps the auth-dependent specs deterministic.
-  fullyParallel: false,
+  // A worker owns one isolated database. CI splits files across separate
+  // jobs/databases instead of racing shared fixtures in one process.
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
@@ -55,14 +57,29 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [
-    {
-      name: "chromium",
-      testIgnore: /wiki-edit\.mobile-webkit\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"] },
-    },
+    ...(useCiGroups
+      ? [
+          {
+            name: "chromium-general",
+            testIgnore: [wikiDesktopTest, mobileWebKitTest],
+            use: { ...devices["Desktop Chrome"] },
+          },
+          {
+            name: "chromium-wiki",
+            testMatch: wikiDesktopTest,
+            use: { ...devices["Desktop Chrome"] },
+          },
+        ]
+      : [
+          {
+            name: "chromium",
+            testIgnore: mobileWebKitTest,
+            use: { ...devices["Desktop Chrome"] },
+          },
+        ]),
     {
       name: "webkit-mobile",
-      testMatch: /wiki-edit\.mobile-webkit\.spec\.ts/,
+      testMatch: mobileWebKitTest,
       use: { ...devices["iPhone 13"] },
     },
   ],
@@ -75,7 +92,7 @@ export default defineConfig({
       ? `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next start --port ${PORT}`
       : useDevServer
         ? `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next dev --port ${PORT}`
-        : `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next build && ${node} node_modules/next/dist/bin/next start --port ${PORT}`,
+        : `${node} --import tsx e2e/provision.ts && ${node} node_modules/next/dist/bin/next build --webpack && ${node} node_modules/next/dist/bin/next start --port ${PORT}`,
     url: baseURL,
     reuseExistingServer: false,
     timeout: 10 * 60_000,
@@ -91,6 +108,12 @@ export default defineConfig({
     // PORT keeps the declared origin honest wherever e2e runs.
     env: {
       E2E_TEST: "1",
+      // Keep local E2E output away from the developer's `.next`; sharing one
+      // dist directory across dev and production modes invalidates caches.
+      ...(process.env.CI ? {} : { NEXT_DIST_DIR: ".next-e2e" }),
+      // Typecheck is an independent Ready/CI gate. Repeating it inside the
+      // production build more than doubles this editor-heavy E2E startup.
+      NEXT_BUILD_SKIP_TYPECHECK: "1",
       BREVO_API_KEY: "",
       SKIP_EMAIL_WHITELIST: "false",
       CANTEEN_MOCK_DATA: "false",

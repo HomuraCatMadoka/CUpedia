@@ -4,14 +4,16 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then drizzle-kit migrate; fi && next build",
+    "build": "next build --webpack",
+    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then drizzle-kit migrate; fi && next build --webpack",
     "start": "next start",
     "bootstrap": "tsx scripts/setup.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "typecheck": "next typegen && tsc --noEmit",
+    "bundle:check": "node scripts/check-client-bundle-budget.mjs",
     "seed": "node --import tsx --import ./scripts/css-stub.mjs scripts/seed.ts",
     "ingest:courses": "node --import tsx scripts/ingest-courses.ts",
     "ingest:professors": "node --import tsx scripts/ingest-professors.ts",
@@ -21,7 +23,9 @@
     "generate:handbook:spark": "node --import tsx scripts/generate-handbook-reference.ts",
     "oracle:check": "node --import tsx scripts/oracle-check.ts",
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
-    "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run"
+    "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run",
+    "wiki-links:check": "node --import tsx scripts/wiki-links-integrity.ts",
+    "wiki-links:repair": "node --import tsx scripts/wiki-links-integrity.ts --repair"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",
@@ -81,7 +85,6 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "19.2.4",
     "react-lite-youtube-embed": "^3.5.1",
-    "react-player": "^3.4.0",
     "react-tweet": "^3.3.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",

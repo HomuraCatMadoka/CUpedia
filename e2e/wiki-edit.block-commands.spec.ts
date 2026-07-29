@@ -142,7 +142,7 @@ test.describe("wiki editor block commands", () => {
     await expect(editor).toContainText("删除后仍可编辑");
   });
 
-  test("the grip preserves drag feedback and desktop block reordering", async ({
+  test("the grip starts from a short pointer move and reorders immediately", async ({
     page,
   }) => {
     await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
@@ -150,13 +150,39 @@ test.describe("wiki editor block commands", () => {
     const blocks = page.getByTestId("wiki-editor-block");
     const source = blocks.filter({ hasText: "Registration" }).first();
     const target = blocks.filter({ hasText: "New to CUHK?" }).first();
-    await source.hover();
-
+    const gutter = source.getByTestId("wiki-block-gutter");
     const grip = source.getByLabel("打开块菜单");
-    await expect(grip).toHaveAttribute("draggable", "true");
-    await grip.dragTo(target, {
-      targetPosition: { x: 24, y: 2 },
-    });
+    await expect(source).toBeVisible();
+    await expect(target).toBeVisible();
+    const sourceBox = await source.boundingBox();
+    const targetBox = await target.boundingBox();
+    expect(sourceBox).not.toBeNull();
+    expect(targetBox).not.toBeNull();
+
+    await page.mouse.move(0, 0);
+    await page.mouse.move(
+      sourceBox!.x + sourceBox!.width / 2,
+      sourceBox!.y + sourceBox!.height / 2,
+    );
+    expect(
+      Number(
+        await gutter.evaluate((element) => getComputedStyle(element).opacity),
+      ),
+    ).toBeGreaterThan(0.95);
+
+    const gripBox = await grip.boundingBox();
+    expect(gripBox).not.toBeNull();
+    await page.mouse.move(
+      gripBox!.x + gripBox!.width / 2,
+      gripBox!.y + gripBox!.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(gripBox!.x + gripBox!.width / 2, gripBox!.y - 4);
+    await expect(source).toHaveCSS("opacity", "0.5");
+
+    await page.mouse.move(targetBox!.x + 24, targetBox!.y + 2);
+    await expect(page.getByTestId("wiki-block-drop-line")).toBeVisible();
+    await page.mouse.up();
     await expect(page.getByRole("menu", { name: "打开块菜单" })).toHaveCount(0);
 
     const blockTexts = await blocks.allTextContents();

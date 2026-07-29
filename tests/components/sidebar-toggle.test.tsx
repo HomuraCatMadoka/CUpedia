@@ -7,6 +7,7 @@ import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/wiki",
   useRouter: () => ({ push: vi.fn() }),
 }));
 

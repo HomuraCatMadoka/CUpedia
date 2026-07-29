@@ -35,13 +35,12 @@ function ssr(props: Parameters<typeof WikiSidebar>[0]) {
 }
 
 describe("WikiSidebar is tree-only (ADR 0010)", () => {
-  it("renders the full page hierarchy from the pages prop", () => {
+  it("collapses child pages by default", () => {
     const html = ssr({ pages: PAGES });
     expect(html).toContain("校园指南");
-    expect(html).toContain("食堂攻略");
+    expect(html).not.toContain("食堂攻略");
     expect(html).toContain("🏫");
     expect(html).toContain('href="/wiki/1"');
-    expect(html).toContain('href="/wiki/2"');
     expect(html).not.toContain('href="/wiki/guide"');
   });
 

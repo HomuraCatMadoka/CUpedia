@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { Client } from "pg";
 import { PAGE_IDS } from "../scripts/seed-data";
 import { loginAsAdmin } from "./helpers/auth";
+import { waitForHydratedWikiEditor } from "./helpers/wiki";
+
+const TOMBSTONE_LINK_PARENT_ID = "00000000-0000-4000-c000-0000000000eb";
+const TOMBSTONE_LINK_CHILD_ID = "00000000-0000-4000-c000-0000000000ec";
 
 test.describe("UUID canonical wiki routing (ref #447)", () => {
   test("serves existing pages by UUID and rejects a legacy slug", async ({
@@ -21,6 +26,199 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
 
     await page.goto("/wiki/history/welcome");
     await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
+  });
+
+  test("serves a tombstone for a soft-deleted page UUID", async ({ page }) => {
+    await page.goto(`/wiki/${PAGE_IDS.deleted}`);
+
+    await expect(page).toHaveURL(new RegExp(`/wiki/${PAGE_IDS.deleted}$`));
+    await expect(
+      page.getByRole("heading", { name: "页面已删除" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("wiki-page-tombstone")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "404" })).toHaveCount(0);
+    await expect(page.getByText("Deleted Page Demo")).toHaveCount(0);
+  });
+
+  test("opens a parent page link to its soft-deleted child as a tombstone", async ({
+    page,
+  }) => {
+    const editedTitle = `Tombstone Link Parent (edited ${Date.now()})`;
+    const content = JSON.stringify([
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            pageId: TOMBSTONE_LINK_CHILD_ID,
+            url: "/wiki/legacy-slug",
+            children: [{ text: "Deleted target" }],
+          },
+          { text: " " },
+          {
+            type: "a",
+            url: "https://example.com",
+            children: [{ text: "External target" }],
+          },
+        ],
+      },
+    ]);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    try {
+      await client.query(
+        `insert into wiki_pages
+           (id, title, content, created_by, updated_by)
+         values ($1, 'Tombstone Link Parent', $2, $3, $3)
+         on conflict (id) do update
+           set title = excluded.title,
+               content = excluded.content,
+               deleted_at = null`,
+        [
+          TOMBSTONE_LINK_PARENT_ID,
+          content,
+          "00000000-0000-4000-a000-000000000001",
+        ],
+      );
+      await client.query(
+        `insert into wiki_pages
+           (id, title, content, parent_id, created_by, updated_by, deleted_at)
+         values ($1, 'Tombstone Link Child', '[]', $2, $3, $3, now())
+         on conflict (id) do update
+           set parent_id = excluded.parent_id, deleted_at = excluded.deleted_at`,
+        [
+          TOMBSTONE_LINK_CHILD_ID,
+          TOMBSTONE_LINK_PARENT_ID,
+          "00000000-0000-4000-a000-000000000001",
+        ],
+      );
+
+      await loginAsAdmin(page);
+      await page.addInitScript((targetHref) => {
+        document.addEventListener(
+          "click",
+          (event) => {
+            const anchor =
+              event.target instanceof Element
+                ? event.target.closest<HTMLAnchorElement>("a[href]")
+                : null;
+            if (anchor?.getAttribute("href") !== targetHref) return;
+            const count = Number(sessionStorage.getItem("target-clicks") ?? 0);
+            sessionStorage.setItem("target-clicks", String(count + 1));
+          },
+          true,
+        );
+      }, `/wiki/${TOMBSTONE_LINK_CHILD_ID}`);
+      await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
+      await waitForHydratedWikiEditor(page);
+      const link = page
+        .getByTestId("wiki-editor-canvas")
+        .getByRole("link", { name: "Deleted target" });
+      await expect(link).toHaveAttribute(
+        "href",
+        `/wiki/${TOMBSTONE_LINK_CHILD_ID}`,
+      );
+      await expect(link).toHaveAttribute("data-wiki-link", "true");
+      const linkIcon = link.getByTestId("wiki-link-icon");
+      await expect(linkIcon).toBeVisible();
+
+      await link.hover();
+      await expect
+        .poll(() =>
+          link.evaluate((element) => getComputedStyle(element).cursor),
+        )
+        .toBe("pointer");
+      const externalLink = page
+        .getByTestId("wiki-editor-canvas")
+        .getByRole("link", { name: "External target" });
+      await expect
+        .poll(() =>
+          externalLink.evaluate((element) => getComputedStyle(element).cursor),
+        )
+        .toBe("pointer");
+      await expect
+        .poll(() =>
+          link.evaluate((element) => getComputedStyle(element).backgroundColor),
+        )
+        .not.toBe("rgba(0, 0, 0, 0)");
+      await expect(link).toHaveClass(/active:bg-black\/\[0\.11\]/);
+
+      let saveStartedResolve!: () => void;
+      let saveRelease!: () => void;
+      const saveStarted = new Promise<void>((resolve) => {
+        saveStartedResolve = resolve;
+      });
+      const saveGate = new Promise<void>((resolve) => {
+        saveRelease = resolve;
+      });
+      await page.route(`**/wiki/${TOMBSTONE_LINK_PARENT_ID}`, async (route) => {
+        if (route.request().method() === "POST") {
+          saveStartedResolve();
+          await saveGate;
+        }
+        await route.continue();
+      });
+      await page.getByLabel("标题").fill(editedTitle);
+      await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
+
+      const navigation = linkIcon.click();
+      await saveStarted;
+      saveRelease();
+      await navigation;
+
+      await expect(page).toHaveURL(
+        new RegExp(`/wiki/${TOMBSTONE_LINK_CHILD_ID}$`),
+      );
+      await expect(
+        page.getByRole("heading", { name: "页面已删除" }),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          page.evaluate(() => sessionStorage.getItem("target-clicks")),
+        )
+        .toBe("1");
+      await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
+      await expect(page.getByLabel("标题")).toHaveValue(editedTitle);
+
+      await page.context().clearCookies();
+      await page.goto(`/wiki/${TOMBSTONE_LINK_PARENT_ID}`);
+      const publicLink = page.getByRole("link", { name: "Deleted target" });
+      await expect(publicLink).toHaveAttribute("data-wiki-link", "true");
+      await expect(publicLink.getByTestId("wiki-link-icon")).toBeVisible();
+      await publicLink.hover();
+      await expect
+        .poll(() =>
+          publicLink.evaluate((element) => getComputedStyle(element).cursor),
+        )
+        .toBe("pointer");
+      const publicExternalLink = page.getByRole("link", {
+        name: "External target",
+      });
+      await expect
+        .poll(() =>
+          publicExternalLink.evaluate(
+            (element) => getComputedStyle(element).cursor,
+          ),
+        )
+        .toBe("pointer");
+      await expect
+        .poll(() =>
+          publicLink.evaluate(
+            (element) => getComputedStyle(element).backgroundColor,
+          ),
+        )
+        .not.toBe("rgba(0, 0, 0, 0)");
+      await publicLink.click();
+      await expect(page).toHaveURL(
+        new RegExp(`/wiki/${TOMBSTONE_LINK_CHILD_ID}$`),
+      );
+    } finally {
+      await client.query("delete from wiki_pages where id in ($1, $2)", [
+        TOMBSTONE_LINK_CHILD_ID,
+        TOMBSTONE_LINK_PARENT_ID,
+      ]);
+      await client.end();
+    }
   });
 
   test("emits UUID links from navigation, search, and page history", async ({
@@ -54,17 +252,20 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
   test("shares the canonical UUID URL from the editor", async ({ page }) => {
     await page.setViewportSize({ width: 393, height: 851 });
     await page.addInitScript(() => {
-      Object.defineProperty(navigator, "share", {
+      Object.defineProperty(navigator, "clipboard", {
         configurable: true,
-        value: async ({ url }: ShareData) => {
-          sessionStorage.setItem("shared-url", url ?? "");
+        value: {
+          writeText: async (url: string) => {
+            sessionStorage.setItem("shared-url", url);
+          },
         },
       });
     });
     await loginAsAdmin(page);
     await page.goto(`/wiki/${PAGE_IDS.welcome}`);
 
-    await page.getByRole("button", { name: "分享页面" }).click();
+    await page.getByRole("button", { name: "共享" }).click();
+    await page.getByRole("button", { name: "复制链接" }).click();
 
     await expect
       .poll(() => page.evaluate(() => sessionStorage.getItem("shared-url")))

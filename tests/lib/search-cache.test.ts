@@ -140,6 +140,7 @@ import {
   searchWikiPages,
   getWikiTree,
   getWikiPage,
+  getWikiPageState,
   getBacklinks,
   createWikiPage,
   updateWikiPage,
@@ -283,6 +284,11 @@ describe("cache invalidation — revalidateTag called", () => {
             .fn()
             .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rows: [{ slugTaken: false }] }),
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn((values: unknown) => {
               insertedValues.push(values);
@@ -368,6 +374,11 @@ describe("cache invalidation — revalidateTag called", () => {
             .fn()
             .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rows: [{ slugTaken: false }] }),
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockReturnValue({
               returning: vi
@@ -395,7 +406,10 @@ describe("cache invalidation — revalidateTag called", () => {
   // "most recent revision" select returns; the update/insert spies let a test
   // assert whether the write coalesced (updates the revision) or inserted a new
   // one. See ADR 0009.
-  function makeWriteTx(latestRevision: unknown) {
+  function makeWriteTx(
+    latestRevision: unknown,
+    existingLinkTargets: string[] = [],
+  ) {
     const set = vi.fn().mockReturnValue({
       where: vi.fn().mockReturnValue({
         returning: vi.fn().mockResolvedValue([
@@ -419,23 +433,37 @@ describe("cache invalidation — revalidateTag called", () => {
         };
       }),
     });
+    let selectCall = 0;
     const tx = {
       update,
       insert,
       delete: vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue(undefined),
       }),
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockResolvedValue([]),
-            orderBy: vi.fn().mockReturnValue({
-              limit: vi
-                .fn()
-                .mockResolvedValue(latestRevision ? [latestRevision] : []),
+      select: vi.fn().mockImplementation(() => {
+        selectCall += 1;
+        if (selectCall === 1) {
+          return {
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockReturnValue({
+                orderBy: vi.fn().mockReturnValue({
+                  limit: vi
+                    .fn()
+                    .mockResolvedValue(latestRevision ? [latestRevision] : []),
+                }),
+              }),
             }),
+          };
+        }
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(
+              existingLinkTargets.map((id) => ({
+                id,
+              })),
+            ),
           }),
-        }),
+        };
       }),
     };
     return { tx, update, insert, insertedValues, set };
@@ -459,6 +487,51 @@ describe("cache invalidation — revalidateTag called", () => {
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
+  });
+
+  it("keeps outgoing link rows for existing soft-deleted targets", async () => {
+    const targetId = "22222222-2222-4222-8222-222222222222";
+    const content = JSON.stringify([
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            pageId: targetId,
+            url: `/wiki/${targetId}`,
+            children: [{ text: "Deleted target" }],
+          },
+        ],
+      },
+    ]);
+    mockDbQueryWikiPages.findFirst.mockResolvedValue({
+      id: "1",
+      title: "Test",
+      updatedAt: new Date("2024-01-01"),
+      version: 1,
+    });
+    let spies!: ReturnType<typeof makeWriteTx>;
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => {
+        spies = makeWriteTx(null, [targetId]);
+        return fn(spies.tx);
+      },
+    );
+
+    await updateWikiPage({
+      pageId: "1",
+      title: "Test",
+      content,
+      expectedVersion: 1,
+      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    expect(spies.insertedValues).toContainEqual([{ sourceId: "1", targetId }]);
+    // One live-page guard for the initial read and one for the CAS update.
+    // A third call would mean syncWikiLinks filtered deleted targets again.
+    expect(
+      mockIsNull.mock.calls.filter(([column]) => column === "deletedAt"),
+    ).toHaveLength(2);
   });
 
   it("uses the integer version for CAS and advances it atomically", async () => {
@@ -738,6 +811,11 @@ describe("search corpus refresh — structural vs content", () => {
             .fn()
             .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rows: [{ slugTaken: false }] }),
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockReturnValue({
               returning: vi
@@ -1126,6 +1204,22 @@ describe("read caching — getWikiTree & getWikiPage", () => {
     mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
     const result = await getWikiPage("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
     expect(result).toBeNull();
+  });
+
+  it("exposes only tombstone metadata for a deleted page", async () => {
+    const pageId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const deletedPage = {
+      ...pageData,
+      id: pageId,
+      deletedAt: new Date("2026-07-23T08:00:00Z"),
+    };
+    mockDbQueryWikiPages.findFirst.mockResolvedValue(deletedPage);
+
+    await expect(getWikiPage(pageId)).resolves.toBeNull();
+    await expect(getWikiPageState(pageId)).resolves.toEqual({
+      id: pageId,
+      deletedAt: deletedPage.deletedAt,
+    });
   });
 
   it("getBacklinks is wrapped with unstable_cache tagged wiki-pages", () => {

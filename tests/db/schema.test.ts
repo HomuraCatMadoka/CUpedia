@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { getTableColumns } from "drizzle-orm";
 import {
   users,
+  wikiDrafts,
   wikiPages,
   wikiRevisions,
   sessions,
@@ -41,6 +42,17 @@ describe("schema", () => {
     expect(cols.updatedBy).toBeDefined();
     expect(cols.version).toBeDefined();
     expect(cols.contentGeneration).toBeDefined();
+  });
+
+  it("wikiDrafts stores owner-private autosave state separately from public pages", () => {
+    const cols = getTableColumns(wikiDrafts);
+    expect(cols.title).toBeDefined();
+    expect(cols.content).toBeDefined();
+    expect(cols.icon).toBeDefined();
+    expect(cols.parentId).toBeDefined();
+    expect(cols.createdBy).toBeDefined();
+    expect(cols.version).toBeDefined();
+    expect(cols.updatedAt).toBeDefined();
   });
 
   it("wikiRevisions table has required fields", () => {

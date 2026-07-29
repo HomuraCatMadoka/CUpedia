@@ -16,6 +16,7 @@ import { revalidatePath, unstable_cache } from "next/cache";
 
 import { db } from "@/db";
 import {
+  achievementProfiles,
   courseRatings,
   courseRatingProfessors,
   courseEnrollments,
@@ -159,9 +160,6 @@ export type CreatedCourseReviewReply = {
 export type CourseReviewReplyView = CreatedCourseReviewReply & {
   authorNickname: string | null;
   authorShowcaseId: string | null;
-  authorAchievements: PublicAchievementSummary[];
-  authorAvatarUrl: string | null;
-  authorEquippedTitle: EquippedPersonTitle | null;
   canDelete: boolean;
 };
 
@@ -1271,9 +1269,14 @@ export async function getCourseReviewReplies(
       content: courseReviewReplies.content,
       createdAt: courseReviewReplies.createdAt,
       authorNickname: users.nickname,
+      authorShowcaseId: achievementProfiles.showcaseId,
     })
     .from(courseReviewReplies)
     .innerJoin(users, eq(courseReviewReplies.userId, users.id))
+    .leftJoin(
+      achievementProfiles,
+      eq(courseReviewReplies.userId, achievementProfiles.userId),
+    )
     .where(eq(courseReviewReplies.reviewId, reviewId))
     .orderBy(asc(courseReviewReplies.createdAt), asc(courseReviewReplies.id))
     .limit(21)
@@ -1281,28 +1284,17 @@ export async function getCourseReviewReplies(
   const pageRows = rows.slice(0, 20);
   const hidesIdentity = (userId: string) =>
     review.isAnonymous && review.userId === userId;
-  const authorAchievements = await getAchievementSummariesForAuthors(
-    pageRows
-      .filter((row) => !hidesIdentity(row.userId))
-      .map((row) => row.userId),
-  );
 
   return {
     replies: pageRows.map((row) => {
       const anonymousOriginalAuthor = hidesIdentity(row.userId);
-      const author = anonymousOriginalAuthor
-        ? undefined
-        : authorAchievements.get(row.userId);
       return {
         id: row.id,
         reviewId: row.reviewId,
         content: row.content,
         createdAt: row.createdAt.toISOString(),
         authorNickname: anonymousOriginalAuthor ? null : row.authorNickname,
-        authorShowcaseId: author?.showcaseId ?? null,
-        authorAchievements: author?.achievements ?? [],
-        authorAvatarUrl: author?.avatarUrl ?? null,
-        authorEquippedTitle: author?.equippedTitle ?? null,
+        authorShowcaseId: anonymousOriginalAuthor ? null : row.authorShowcaseId,
         canDelete:
           viewer?.id === row.userId ||
           (viewer?.role === "admin" && viewer.id !== row.userId),
