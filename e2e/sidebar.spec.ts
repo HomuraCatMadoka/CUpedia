@@ -52,21 +52,55 @@ async function longPress(locator: Locator) {
   await locator.dispatchEvent("pointerdown", pointer);
 }
 
-async function childPageIds(parentId: string) {
+async function childPageOrder(parentId: string) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
-    const result = await client.query<{ id: string }>(
-      "select id from wiki_pages where parent_id = $1",
+    const result = await client.query<{ id: string; sortOrder: number }>(
+      `select id, sort_order as "sortOrder"
+       from wiki_pages
+       where parent_id = $1
+       order by sort_order, created_at, id`,
       [parentId],
     );
-    return result.rows.map((row) => row.id);
+    return result.rows;
   } finally {
     await client.end();
   }
 }
 
-async function deleteChildPagesExcept(parentId: string, retainedIds: string[]) {
+async function readWikiContent(pageId: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query<{ content: string }>(
+      "select content from wiki_pages where id = $1",
+      [pageId],
+    );
+    return result.rows[0]?.content ?? "";
+  } finally {
+    await client.end();
+  }
+}
+
+async function restoreWikiContent(pageId: string, content: string) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query("update wiki_pages set content = $1 where id = $2", [
+      content,
+      pageId,
+    ]);
+  } finally {
+    await client.end();
+  }
+}
+
+async function restoreChildPages(
+  page: Page,
+  parentId: string,
+  retained: { id: string; sortOrder: number }[],
+) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {
@@ -75,11 +109,41 @@ async function deleteChildPagesExcept(parentId: string, retainedIds: string[]) {
     ]);
     await client.query(
       "delete from wiki_pages where parent_id = $1 and not (id = any($2::uuid[]))",
-      [parentId, retainedIds],
+      [parentId, retained.map((page) => page.id)],
     );
+    for (const page of retained) {
+      await client.query(
+        "update wiki_pages set sort_order = $1 where id = $2",
+        [page.sortOrder, page.id],
+      );
+    }
   } finally {
     await client.end();
   }
+
+  const retainedPage = retained[0];
+  if (!retainedPage) return;
+  await page.goto(`/wiki/${retainedPage.id}`);
+  const row = page
+    .locator(`[data-wiki-tree-node-id="${retainedPage.id}"]`)
+    .locator(":scope > .wiki-tree-row");
+  await row.hover();
+  await row.getByRole("button", { name: /打开 .* 的页面菜单/ }).click();
+  await page.getByRole("menuitem", { name: "上移" }).click();
+  await expect(page.getByText("页面顺序已更新")).toBeVisible();
+}
+
+async function publishCurrentWikiDraft(page: Page, title: string) {
+  await expect(page).toHaveURL(/\?draft=1&parent=[0-9a-f-]{36}$/i, {
+    timeout: 30_000,
+  });
+  await page.getByLabel("页面标题").fill(title);
+  await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "共享", exact: true }).click();
+  await page.getByRole("button", { name: "发布到 Wiki" }).click();
+  await expect(page).toHaveURL(/\/wiki\/[0-9a-f-]{36}$/i, {
+    timeout: 15_000,
+  });
 }
 
 test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
@@ -244,9 +308,14 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     await expect
       .poll(() =>
         page
-          .locator("main")
+          .getByRole("heading", {
+            name: "你的中大百科全书",
+            level: 1,
+            includeHidden: true,
+          })
           .evaluate(
-            (element) => element.closest('[aria-hidden="true"]') !== null,
+            (element) =>
+              element.closest('[inert], [aria-hidden="true"]') !== null,
           ),
       )
       .toBe(true);
@@ -290,19 +359,19 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
       name: "Campus Life 页面操作",
     });
     await expect(pageActions).toBeVisible();
-    await pageActions.getByRole("button", { name: "隐藏子页面" }).click();
+    await pageActions.getByRole("button", { name: "显示子页面" }).click();
     await expect(
       drawer.getByRole("link", { name: "Dining on Campus" }),
-    ).toBeHidden();
+    ).toBeVisible();
 
     await longPress(campusRow);
     await page
       .getByRole("dialog", { name: "Campus Life 页面操作" })
-      .getByRole("button", { name: "显示子页面" })
+      .getByRole("button", { name: "隐藏子页面" })
       .click();
     await expect(
       drawer.getByRole("link", { name: "Dining on Campus" }),
-    ).toBeVisible();
+    ).toBeHidden();
 
     await drawer.getByRole("link", { name: "Getting Started" }).click();
     await expect(page).toHaveURL(wikiPageUrl(PAGE_IDS.gettingStarted));
@@ -439,6 +508,10 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
     await page.goto(`/wiki/${PAGE_IDS.dining}`);
 
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
+    await tree
+      .getByRole("treeitem", { name: "Dining on Campus" })
+      .getByRole("button", { name: "展开 Dining on Campus", exact: true })
+      .click();
     const labelX = (name: string) =>
       tree
         .getByRole("link", { name, exact: true })
@@ -533,7 +606,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
   test("offers real hover actions and carries the parent into a new child page", async ({
     page,
   }) => {
-    const retainedChildIds = await childPageIds(PAGE_IDS.campusLife);
+    const retainedChildren = await childPageOrder(PAGE_IDS.campusLife);
     await loginAsAdmin(page);
     try {
       await page.goto(`/wiki/${PAGE_IDS.dining}`);
@@ -582,7 +655,132 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
           .locator("option:checked"),
       ).toHaveText("Campus Life");
     } finally {
-      await deleteChildPagesExcept(PAGE_IDS.campusLife, retainedChildIds);
+      await restoreChildPages(page, PAGE_IDS.campusLife, retainedChildren);
+    }
+  });
+
+  test("shows child pages as links in the parent document", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
+
+    await expect(
+      page
+        .getByRole("article")
+        .getByRole("link", { name: "Dining on Campus", exact: true }),
+    ).toHaveAttribute("href", `/wiki/${PAGE_IDS.dining}`);
+  });
+
+  test("appends a newly created child after its existing siblings", async ({
+    page,
+  }) => {
+    const retainedChildren = await childPageOrder(PAGE_IDS.campusLife);
+    await loginAsAdmin(page);
+    try {
+      await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
+      const campusRow = page
+        .getByRole("treeitem", { name: "Campus Life" })
+        .locator(":scope > .wiki-tree-row");
+      await campusRow.hover();
+      await campusRow
+        .getByRole("button", { name: "在 Campus Life 下新建页面" })
+        .click();
+
+      await publishCurrentWikiDraft(page, "Newest Campus Child");
+
+      await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
+      await expect(
+        page.getByRole("region", { name: "子页面" }).getByRole("link"),
+      ).toHaveText(["Dining on Campus", "Newest Campus Child"]);
+    } finally {
+      await restoreChildPages(page, PAGE_IDS.campusLife, retainedChildren);
+    }
+  });
+
+  test("moves a child up and persists the sibling order", async ({ page }) => {
+    const retainedChildren = await childPageOrder(PAGE_IDS.campusLife);
+    const originalContent = await readWikiContent(PAGE_IDS.campusLife);
+    const contentWithImportedChildLink = JSON.stringify([
+      ...(JSON.parse(originalContent) as unknown[]),
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            url: `/wiki/${PAGE_IDS.dining}`,
+            children: [{ text: "Dining on Campus" }],
+          },
+        ],
+      },
+    ]);
+    await restoreWikiContent(PAGE_IDS.campusLife, contentWithImportedChildLink);
+    await loginAsAdmin(page);
+    try {
+      await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
+      const campusRow = page
+        .getByRole("treeitem", { name: "Campus Life" })
+        .locator(":scope > .wiki-tree-row");
+      await campusRow.hover();
+      await campusRow
+        .getByRole("button", { name: "在 Campus Life 下新建页面" })
+        .click();
+
+      await publishCurrentWikiDraft(page, "Movable Campus Child");
+
+      await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
+      await expect(
+        page
+          .getByRole("article")
+          .getByRole("link", { name: "Dining on Campus", exact: true }),
+      ).toHaveCount(1);
+      await page
+        .getByRole("treeitem", { name: "Campus Life" })
+        .getByRole("button", { name: "展开 Campus Life", exact: true })
+        .click();
+      const childRow = page
+        .getByRole("treeitem", { name: "Movable Campus Child" })
+        .locator(":scope > .wiki-tree-row");
+      await childRow.hover();
+      const dragHandle = childRow.getByRole("button", {
+        name: "拖动 Movable Campus Child 调整顺序",
+      });
+      const diningRow = page
+        .getByRole("treeitem", { name: "Dining on Campus" })
+        .locator(":scope > .wiki-tree-row");
+      await dragHandle.dragTo(diningRow, {
+        targetPosition: { x: 40, y: 2 },
+      });
+
+      const childLinks = page
+        .getByRole("region", { name: "子页面" })
+        .getByRole("link");
+      await expect(childLinks).toHaveText([
+        "Movable Campus Child",
+        "Dining on Campus",
+      ]);
+      await expect(
+        page
+          .getByRole("treeitem", { name: "Campus Life" })
+          .locator(
+            ':scope > [role="group"] > [role="treeitem"] > .wiki-tree-row > [data-wiki-tree-link]',
+          ),
+      ).toHaveText(["Movable Campus Child", "Dining on Campus"]);
+
+      await page.reload();
+      await expect(
+        page.getByRole("region", { name: "子页面" }).getByRole("link"),
+      ).toHaveText(["Movable Campus Child", "Dining on Campus"]);
+      await expect(
+        page
+          .getByRole("treeitem", { name: "Campus Life" })
+          .locator(
+            ':scope > [role="group"] > [role="treeitem"] > .wiki-tree-row > [data-wiki-tree-link]',
+          ),
+      ).toHaveText(["Movable Campus Child", "Dining on Campus"]);
+    } finally {
+      await restoreWikiContent(PAGE_IDS.campusLife, originalContent);
+      await restoreChildPages(page, PAGE_IDS.campusLife, retainedChildren);
     }
   });
 
@@ -594,6 +792,12 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
 
     const tree = page.getByRole("tree", { name: "Wiki 页面层级" });
     const campus = tree.getByRole("treeitem", { name: "Campus Life" });
+    await expect(
+      tree.getByRole("link", { name: "Dining on Campus", exact: true }),
+    ).toBeHidden();
+    await campus
+      .getByRole("button", { name: "展开 Campus Life", exact: true })
+      .click();
     await campus
       .getByRole("button", { name: "折叠 Campus Life", exact: true })
       .click();
@@ -641,13 +845,18 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
 
     await expect(campus).toHaveAttribute("aria-level", "1");
     await expect(dining).toHaveAttribute("aria-level", "2");
-    await expect(canteen).toHaveAttribute("aria-level", "3");
+    await expect(dining).toHaveAttribute("aria-expanded", "false");
+    await expect(canteen).toBeHidden();
 
     await campus.focus();
     await page.keyboard.press("ArrowRight");
     await expect(firstCampusChild).toBeFocused();
 
     await dining.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(dining).toHaveAttribute("aria-expanded", "true");
+    await expect(canteen).toHaveAttribute("aria-level", "3");
+
     await page.keyboard.press("ArrowLeft");
     await expect(dining).toBeFocused();
     await expect(dining).toHaveAttribute("aria-expanded", "false");

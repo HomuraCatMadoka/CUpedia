@@ -1,4 +1,12 @@
-type Node = { pageId?: string; children?: Node[] };
+import type { PlateValue } from "@/lib/plate-utils";
+
+type Node = {
+  type?: unknown;
+  text?: unknown;
+  pageId?: unknown;
+  url?: unknown;
+  children?: Node[];
+};
 type ResolvableNode = {
   pageId?: unknown;
   url?: unknown;
@@ -8,16 +16,23 @@ type ResolvableNode = {
 
 const WIKI_PAGE_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const WIKI_PAGE_URL_PATTERN =
+  /^\/wiki\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[?#].*)?$/i;
 
 export function isWikiPageId(value: unknown): value is string {
   return typeof value === "string" && WIKI_PAGE_ID_PATTERN.test(value);
 }
 
+function getWikiPageId(node: Pick<Node, "pageId" | "url">) {
+  if (isWikiPageId(node.pageId)) return node.pageId;
+  if (typeof node.url !== "string") return null;
+  return node.url.match(WIKI_PAGE_URL_PATTERN)?.[1] ?? null;
+}
+
 function walk(nodes: Node[], targets: Set<string>): void {
   for (const node of nodes) {
-    if (isWikiPageId(node.pageId)) {
-      targets.add(node.pageId);
-    }
+    const pageId = getWikiPageId(node);
+    if (pageId) targets.add(pageId);
     if (node.children) walk(node.children, targets);
   }
 }
@@ -34,6 +49,30 @@ export function extractWikiLinkTargets(content: string): string[] {
   const targets = new Set<string>();
   walk(nodes, targets);
   return Array.from(targets);
+}
+
+/**
+ * Remove legacy Notion-style paragraphs that contain only a direct child link.
+ * The canonical child region renders those pages in persisted sibling order.
+ */
+export function stripLegacyChildPageLinks(
+  value: PlateValue,
+  childPageIds: ReadonlySet<string>,
+): PlateValue {
+  const filtered = value.filter((block) => {
+    const node = block as Node;
+    if (node.type !== "p" || !Array.isArray(node.children)) return true;
+    const meaningfulChildren = node.children.filter(
+      (child) => !(typeof child.text === "string" && child.text.length === 0),
+    );
+    if (meaningfulChildren.length !== 1) return true;
+    const targetId = getWikiPageId(meaningfulChildren[0]);
+    return !targetId || !childPageIds.has(targetId);
+  });
+
+  return filtered.length > 0
+    ? (filtered as PlateValue)
+    : ([{ type: "p", children: [{ text: "" }] }] as PlateValue);
 }
 
 export function buildWikiLinkRows(

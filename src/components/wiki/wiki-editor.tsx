@@ -56,6 +56,8 @@ import {
   serializeContentWithoutDraftComments,
 } from "@/components/wiki/discussion-draft";
 import { WikiIconPicker } from "@/components/wiki/wiki-icon-picker";
+import { WikiChildPages } from "@/components/wiki/wiki-child-pages";
+import { cn } from "@/lib/utils";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
 import { MobileWikiEditorToolbar } from "@/components/wiki/mobile-wiki-editor-toolbar";
 import { SidebarMobileToggle } from "@/components/layout/sidebar-mobile-toggle";
@@ -115,6 +117,7 @@ export interface WikiEditorProps {
   expectedUpdatedAt?: string;
   parentId?: string | null;
   linkablePages?: WikiLinkPage[];
+  childPages?: WikiLinkPage[];
   initialDiscussions?: Discussion[];
   draftMode?: boolean;
   canDelete?: boolean;
@@ -235,6 +238,7 @@ export function WikiEditor({
   expectedUpdatedAt,
   parentId,
   linkablePages = [],
+  childPages = [],
   initialDiscussions = [],
   draftMode = false,
   canDelete = false,
@@ -1600,12 +1604,20 @@ export function WikiEditor({
 
                   <div
                     data-testid="wiki-editor-canvas"
-                    className="mt-[26px] min-h-[50dvh] md:mt-[30px]"
+                    className={cn(
+                      "mt-[26px] md:mt-[30px]",
+                      childPages.length === 0 && "min-h-[50dvh]",
+                    )}
                   >
                     <EditorContainer className="overflow-visible">
                       <Editor
                         variant="none"
-                        className="min-h-[50dvh] rounded-none pb-24 text-base leading-6 lg:overflow-x-visible"
+                        className={cn(
+                          "rounded-none text-base leading-6 lg:overflow-x-visible",
+                          childPages.length > 0
+                            ? "min-h-40 pb-8"
+                            : "min-h-[50dvh] pb-24",
+                        )}
                         placeholder="开始编辑..."
                         onFocus={() => setMobileEditorFocused(true)}
                         onBlur={handleMobileEditorBlur}
@@ -1613,6 +1625,8 @@ export function WikiEditor({
                       />
                     </EditorContainer>
                   </div>
+
+                  <WikiChildPages pages={childPages} />
 
                   {error && (
                     <div

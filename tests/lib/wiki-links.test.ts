@@ -3,7 +3,9 @@ import {
   buildWikiLinkRows,
   extractWikiLinkTargets,
   resolveWikiLinkUrls,
+  stripLegacyChildPageLinks,
 } from "@/lib/wiki-links";
+import type { PlateValue } from "@/lib/plate-utils";
 
 const link = (pageId: string, text: string) => ({
   type: "a",
@@ -70,6 +72,66 @@ describe("extractWikiLinkTargets", () => {
       PAGE_ONE,
       PAGE_TWO,
     ]);
+  });
+
+  it("recognizes canonical URL-only links from Notion imports", () => {
+    const content = JSON.stringify([
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            url: `/wiki/${PAGE_ONE}`,
+            children: [{ text: "2026" }],
+          },
+        ],
+      },
+    ]);
+
+    expect(extractWikiLinkTargets(content)).toEqual([PAGE_ONE]);
+  });
+});
+
+describe("stripLegacyChildPageLinks", () => {
+  it("removes standalone child links but preserves inline mentions", () => {
+    const standalone = {
+      type: "p",
+      children: [{ type: "a", pageId: PAGE_ONE, children: [{ text: "2026" }] }],
+    };
+    const inline = {
+      type: "p",
+      children: [
+        { text: "See " },
+        { type: "a", pageId: PAGE_ONE, children: [{ text: "2026" }] },
+        { text: " for details." },
+      ],
+    };
+
+    expect(
+      stripLegacyChildPageLinks(
+        [standalone, inline] as PlateValue,
+        new Set([PAGE_ONE]),
+      ),
+    ).toEqual([inline]);
+  });
+
+  it("removes URL-only standalone child links from Notion imports", () => {
+    const value = [
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            url: `/wiki/${PAGE_ONE}`,
+            children: [{ text: "2026" }],
+          },
+        ],
+      },
+    ];
+
+    expect(
+      stripLegacyChildPageLinks(value as PlateValue, new Set([PAGE_ONE])),
+    ).toEqual([{ type: "p", children: [{ text: "" }] }]);
   });
 });
 
