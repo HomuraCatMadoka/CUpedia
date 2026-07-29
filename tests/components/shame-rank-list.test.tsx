@@ -238,21 +238,27 @@ describe("ShameRankList", () => {
     fireEvent.click(voteButton);
     fireEvent.click(voteButton);
 
-    expect(voteButton.querySelector(".mt-1")?.textContent).toBe("1");
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("1");
     expect(screen.getByRole("status").textContent).toContain("3 票提交中");
 
     await act(async () => {
       second.resolve({ ok: true, canteenId: "a", voteDate: "2026-07-27" });
       await second.promise;
     });
-    expect(voteButton.querySelector(".mt-1")?.textContent).toBe("2");
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("2");
     expect(screen.getByRole("status").textContent).toContain("2 票提交中");
 
     await act(async () => {
       first.resolve({ ok: false, code: "RATE_LIMIT_EXCEEDED" });
       await first.promise;
     });
-    expect(voteButton.querySelector(".mt-1")?.textContent).toBe("2");
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("2");
     expect(screen.getByRole("status").textContent).toContain("1 票提交中");
     expect(screen.getByRole("alert").textContent).toContain("1 票未计入");
 
@@ -260,8 +266,10 @@ describe("ShameRankList", () => {
       third.resolve({ ok: true, canteenId: "a", voteDate: "2026-07-27" });
       await third.promise;
     });
-    expect(voteButton.querySelector(".mt-1")?.textContent).toBe("3");
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("3");
+    expect(screen.getByRole("status").textContent).toBe("");
     expect(screen.getByRole("alert").textContent).toContain("1 票未计入");
   });
 

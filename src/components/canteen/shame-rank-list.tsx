@@ -129,7 +129,10 @@ function ShameRankRow({
             💩
           </span>
         </span>
-        <span className="mt-1 font-mono text-sm font-semibold tabular-nums">
+        <span
+          className="mt-1 font-mono text-sm font-semibold tabular-nums"
+          data-testid="shame-vote-count"
+        >
           {entry.dislikes}
         </span>
         {pendingCount > 0 ? (
@@ -141,21 +144,22 @@ function ShameRankRow({
           </span>
         ) : null}
       </button>
-      {pendingCount > 0 || failure ? (
-        <div className="col-span-2 col-start-2 flex flex-wrap gap-x-3 gap-y-1 text-xs sm:col-span-3">
-          {pendingCount > 0 ? (
-            <p className="text-[#74777c]" role="status">
-              {pendingCount} 票提交中
-            </p>
-          ) : null}
-          {failure ? (
-            <p className="text-destructive" role="alert">
-              {failure.count} 票未计入；最近原因：
-              {shameErrorMessage(failure.code)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      <div
+        className={cn(
+          "col-span-2 col-start-2 flex flex-wrap gap-x-3 gap-y-1 text-xs sm:col-span-3",
+          pendingCount === 0 && !failure && "hidden",
+        )}
+      >
+        <p className="text-[#74777c]" role="status">
+          {pendingCount > 0 ? `${pendingCount} 票提交中` : ""}
+        </p>
+        {failure ? (
+          <p className="text-destructive" role="alert">
+            {failure.count} 票未计入；最近原因：
+            {shameErrorMessage(failure.code)}
+          </p>
+        ) : null}
+      </div>
     </li>
   );
 }
