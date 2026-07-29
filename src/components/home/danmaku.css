@@ -28,7 +28,10 @@
      Travel distance must match the scheduler's screenWidth (not 100vw). */
   transform: translateX(var(--danmaku-stage, 100%));
   will-change: transform;
-  animation: danmaku-fly linear infinite both;
+  animation-name: danmaku-fly;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
 }
 
 .danmaku-hero .danmaku-track-layer--hero {

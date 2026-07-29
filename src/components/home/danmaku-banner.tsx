@@ -75,10 +75,8 @@ export function DanmakuBanner({
 
   const flyItems = useMemo(() => messagesForFlyover(messages), [messages]);
   const integrated = appearance === "hero";
-  /** Match `.danmaku-item` / `.danmaku-hero .danmaku-item` font sizes for width estimates. */
-  const fontPx = integrated
-    ? Math.min(18.4, Math.max(15.2, screenWidth * 0.02))
-    : 14;
+  /** Use clamp() max so width estimates never undershoot hero glyphs. */
+  const fontPx = integrated ? 18.4 : 14;
 
   const scheduled = useMemo(
     () =>
@@ -94,6 +92,23 @@ export function DanmakuBanner({
     [flyItems, fontPx, screenWidth, trackCount],
   );
 
+  const cycleEndSec = useMemo(() => {
+    if (scheduled.length === 0) return DANMAKU_SCROLL_DURATION_SEC;
+    return (
+      Math.max(...scheduled.map((s) => s.start + s.duration)) + 0.75
+    );
+  }, [scheduled]);
+
+  const [epoch, setEpoch] = useState(0);
+  useEffect(() => {
+    if (!mounted || scheduled.length === 0) return;
+    const id = window.setTimeout(
+      () => setEpoch((value) => value + 1),
+      cycleEndSec * 1000,
+    );
+    return () => window.clearTimeout(id);
+  }, [mounted, scheduled, cycleEndSec, epoch]);
+
   const byTrack = useMemo(() => {
     const tracks: ScheduledDanmaku[][] = Array.from(
       { length: trackCount },
@@ -108,9 +123,19 @@ export function DanmakuBanner({
   /** Wider flyover on desktop → taller layer and more vertical track spacing. */
   const compact = trackCount <= 3;
   const trackStepRem =
-    screenWidth >= 640 ? (compact ? 2.6 : 3.0) : compact ? 2.0 : 2.2;
+    screenWidth >= 640
+      ? compact
+        ? integrated
+          ? 3.1
+          : 2.6
+        : 3.0
+      : compact
+        ? integrated
+          ? 2.4
+          : 2.0
+        : 2.2;
   const trackOffsetRem =
-    screenWidth >= 640 ? (compact ? 0.4 : 0.5) : compact ? 0.3 : 0.35;
+    screenWidth >= 640 ? (compact ? 0.35 : 0.5) : compact ? 0.25 : 0.35;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -171,7 +196,7 @@ export function DanmakuBanner({
               : "h-24 sm:h-28"
             : compact
               ? integrated
-                ? "h-28 sm:h-36"
+                ? "h-32 sm:h-40"
                 : "h-32 sm:h-40"
               : "h-48 sm:h-60",
         )}
@@ -191,7 +216,7 @@ export function DanmakuBanner({
         ) : (
           byTrack.map((track, trackIndex) => (
             <div
-              key={trackIndex}
+              key={`${epoch}-track-${trackIndex}`}
               className="danmaku-track"
               style={{
                 top: `${trackIndex * trackStepRem + trackOffsetRem}rem`,
@@ -199,11 +224,11 @@ export function DanmakuBanner({
             >
               {track.map((item) => (
                 <span
-                  key={item.id}
+                  key={`${epoch}-${item.id}`}
                   className="danmaku-item text-foreground"
                   style={{
                     animationDuration: `${item.duration}s`,
-                    animationDelay: `${-item.start}s`,
+                    animationDelay: `${item.start}s`,
                   }}
                 >
                   {item.content}

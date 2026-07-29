@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  assertLaneNonOverlapping,
   earliestNonOverlappingStart,
   estimateDanmakuWidth,
-  fitsCircularLane,
   scheduleScrollingDanmaku,
 } from "@/lib/danmaku-schedule";
 
@@ -30,7 +30,6 @@ describe("danmaku-schedule (bilibili-style lanes)", () => {
     expect(scheduled.length).toBe(12);
     const tracksUsed = new Set(scheduled.map((s) => s.track));
     expect(tracksUsed.size).toBeGreaterThan(1);
-    // Early bullets should share near-zero starts across different tracks.
     const early = scheduled.filter((s) => s.start < 0.01);
     expect(early.length).toBeGreaterThanOrEqual(4);
   });
@@ -45,25 +44,23 @@ describe("danmaku-schedule (bilibili-style lanes)", () => {
       screenWidth: 720,
       duration: 12,
     });
-    expect(scheduled.length).toBeGreaterThanOrEqual(1);
+    expect(scheduled.length).toBe(8);
     for (let i = 1; i < scheduled.length; i++) {
       expect(scheduled[i].start).toBeGreaterThan(scheduled[i - 1].start);
     }
   });
 
-  it("keeps circular same-lane packs non-overlapping within one animation period", () => {
-    const duration = 12;
+  it("never lets same-lane bullets share horizontal space in the cycle", () => {
     const screenWidth = 720;
-    const gap = 0.45;
-    const items = Array.from({ length: 20 }, (_, i) => ({
+    const items = Array.from({ length: 40 }, (_, i) => ({
       id: `d-${i}`,
-      content: i % 2 === 0 ? "短弹幕" : "稍微长一点的食堂弹幕内容",
+      content: i % 2 === 0 ? "短弹幕" : "稍微长一点的食堂弹幕内容测试",
     }));
     const scheduled = scheduleScrollingDanmaku(items, {
       trackCount: 3,
       screenWidth,
-      duration,
-      gap,
+      duration: 12,
+      fontPx: 18.4,
     });
 
     const byTrack = new Map<number, typeof scheduled>();
@@ -74,25 +71,7 @@ describe("danmaku-schedule (bilibili-style lanes)", () => {
     }
 
     for (const lane of byTrack.values()) {
-      const occupants = lane.map((s) => ({
-        start: s.start,
-        width: s.width,
-        visible: s.start + (duration * s.width) / (screenWidth + s.width) + gap,
-        end: s.start + duration,
-      }));
-      for (let i = 0; i < occupants.length; i++) {
-        const rest = occupants.filter((_, j) => j !== i);
-        expect(
-          fitsCircularLane(
-            rest,
-            occupants[i].start,
-            occupants[i].width,
-            screenWidth,
-            duration,
-            gap,
-          ),
-        ).toBe(true);
-      }
+      expect(assertLaneNonOverlapping(lane, screenWidth)).toBe(true);
     }
   });
 });
