@@ -308,9 +308,14 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     await expect
       .poll(() =>
         page
-          .locator("main")
+          .getByRole("heading", {
+            name: "你的中大百科全书",
+            level: 1,
+            includeHidden: true,
+          })
           .evaluate(
-            (element) => element.closest('[aria-hidden="true"]') !== null,
+            (element) =>
+              element.closest('[inert], [aria-hidden="true"]') !== null,
           ),
       )
       .toBe(true);
