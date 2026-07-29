@@ -35,10 +35,12 @@ async function main() {
       stdio: "inherit",
     },
   );
-  rmSync(path.join(distDir, "cache", "fetch-cache"), {
-    recursive: true,
-    force: true,
-  });
+  for (const cacheDir of [
+    path.join(distDir, "cache", "fetch-cache"),
+    path.join(distDir, "dev", "cache", "fetch-cache"),
+  ]) {
+    rmSync(cacheDir, { recursive: true, force: true });
+  }
   await resetData(url);
   execFileSync(
     process.execPath,

@@ -17,10 +17,14 @@ import { getDiscussions } from "@/lib/discussion-actions";
 import { extractHeadings, stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import { Backlinks } from "@/components/wiki/backlinks";
-import { resolveWikiLinkUrls } from "@/lib/wiki-links";
+import {
+  resolveWikiLinkUrls,
+  stripLegacyChildPageLinks,
+} from "@/lib/wiki-links";
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
 import { isCanonicalWikiPageId } from "@/lib/wiki-routes";
 import { getOwnWikiDraft } from "@/lib/wiki-draft-actions";
+import { WikiChildPages } from "@/components/wiki/wiki-child-pages";
 
 function WikiPageTombstone({
   pageId,
@@ -166,9 +170,17 @@ export default async function WikiReadPage({
     );
   }
 
+  const childPages = pages.filter(
+    (candidate) => candidate.parentId === page.id,
+  );
   const headings = extractHeadings(page.content);
   const plateValue = stripTitleHeading(
-    resolveWikiLinkUrls(parseContent(page.content)),
+    resolveWikiLinkUrls(
+      stripLegacyChildPageLinks(
+        parseContent(page.content),
+        new Set(childPages.map((child) => child.id)),
+      ),
+    ),
     page.title,
   );
   const [discussions, backlinks] = await Promise.all([
@@ -236,6 +248,7 @@ export default async function WikiReadPage({
             >
               <WikiStaticContent value={plateValue} />
             </WikiRenderer>
+            <WikiChildPages pages={childPages} />
             <Backlinks links={backlinks} />
           </div>
         </div>

@@ -14,7 +14,10 @@ import {
 } from "@/lib/wiki-draft-actions";
 import { stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
-import { resolveWikiLinkUrls } from "@/lib/wiki-links";
+import {
+  resolveWikiLinkUrls,
+  stripLegacyChildPageLinks,
+} from "@/lib/wiki-links";
 import { WikiEditorLazy } from "@/components/wiki/wiki-editor-lazy";
 
 type EditablePage = NonNullable<Awaited<ReturnType<typeof getWikiPageForEdit>>>;
@@ -61,6 +64,7 @@ export async function WikiPageEditor({
   const pageId = page.id;
   const discussions = await getDiscussions(pageId);
   const excludedParentIds = collectDescendantIds(pages, pageId);
+  const childPages = pages.filter((candidate) => candidate.parentId === pageId);
 
   async function handleUpdate(data: {
     title: string;
@@ -135,7 +139,12 @@ export async function WikiPageEditor({
       initialTitle={page.title}
       initialIcon={page.icon}
       initialValue={stripTitleHeading(
-        resolveWikiLinkUrls(parseContent(page.content)),
+        resolveWikiLinkUrls(
+          stripLegacyChildPageLinks(
+            parseContent(page.content),
+            new Set(childPages.map((child) => child.id)),
+          ),
+        ),
         page.title,
       )}
       parentId={page.parentId}
@@ -149,6 +158,11 @@ export async function WikiPageEditor({
           title: candidate.title,
           icon: candidate.icon,
         }))}
+      childPages={childPages.map((candidate) => ({
+        id: candidate.id,
+        title: candidate.title,
+        icon: candidate.icon,
+      }))}
       initialDiscussions={discussions}
       canDelete={canDelete}
       onDelete={canDelete ? handleDelete : undefined}

@@ -284,6 +284,11 @@ describe("cache invalidation — revalidateTag called", () => {
             .fn()
             .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rows: [{ slugTaken: false }] }),
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn((values: unknown) => {
               insertedValues.push(values);
@@ -369,6 +374,11 @@ describe("cache invalidation — revalidateTag called", () => {
             .fn()
             .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rows: [{ slugTaken: false }] }),
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockReturnValue({
               returning: vi
@@ -801,6 +811,11 @@ describe("search corpus refresh — structural vs content", () => {
             .fn()
             .mockResolvedValueOnce({ rows: [] })
             .mockResolvedValueOnce({ rows: [{ slugTaken: false }] }),
+          select: vi.fn().mockReturnValue({
+            from: vi.fn().mockReturnValue({
+              where: vi.fn().mockResolvedValue([{ value: 1 }]),
+            }),
+          }),
           insert: vi.fn().mockReturnValue({
             values: vi.fn().mockReturnValue({
               returning: vi
