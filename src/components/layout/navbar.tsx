@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MenuIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +25,13 @@ import {
 import { CommandSearch } from "@/components/layout/command-search";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
 import { NotificationCenter } from "@/components/layout/notification-center";
+
+const PRODUCT_LINKS = [
+  { href: "/college-picker", label: "分院帽" },
+  { href: "/canteen", label: "食堂" },
+  { href: "/canteen/shit-rank", label: "💩堂榜" },
+  { href: "/courses", label: "课程测评" },
+] as const;
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const router = useRouter();
@@ -90,7 +98,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   return (
     <>
       <header className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-white">
-        <div className="grid h-full grid-cols-[1fr_auto] grid-rows-[3.5rem_2.75rem] px-4 md:flex md:items-center md:justify-between">
+        <div className="flex h-full items-center justify-between px-4">
           <div className="flex items-center gap-3">
             {leading}
             <Link
@@ -100,33 +108,18 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               CUpedia
             </Link>
           </div>
-          <div className="col-span-2 row-start-2 flex items-center justify-center gap-1 md:order-none md:col-span-1 md:justify-start md:gap-3">
-            <Link
-              href="/college-picker"
-              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              分院帽
-            </Link>
-            <Link
-              href="/canteen"
-              className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              食堂
-            </Link>
-            <Link
-              href="/canteen/shit-rank"
-              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              💩堂榜
-            </Link>
-            <Link
-              href="/courses"
-              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              课程测评
-            </Link>
+          <div className="hidden items-center gap-3 md:flex">
+            {PRODUCT_LINKS.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="flex items-center rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
-          <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
+          <nav className="flex items-center gap-1 md:gap-4">
             <CommandSearch />
             {mounted && session?.user ? (
               <>
@@ -174,6 +167,25 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                 登录
               </Link>
             )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="flex size-11 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-95 active:bg-accent data-popup-open:bg-accent data-popup-open:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:hidden"
+                aria-label="打开主导航"
+              >
+                <MenuIcon className="size-5" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-40 md:hidden">
+                {PRODUCT_LINKS.map((item) => (
+                  <DropdownMenuItem
+                    key={item.href}
+                    render={<Link href={item.href} />}
+                    className="min-h-11"
+                  >
+                    {item.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
         </div>
       </header>

@@ -50,12 +50,15 @@ export default async function CanteenMenuPage({
   const { id } = await params;
   const canteen = await getCanteenById(id);
   if (!canteen) notFound();
+  const qrSrc = resolveCanteenQrSrc(id, canteen.name);
 
   const mock = isCanteenMockMode();
-  const softEmpty = <T,>(fallback: T) => (error: unknown) => {
-    if (isPgSoftFail(error)) return fallback;
-    throw error;
-  };
+  const softEmpty =
+    <T,>(fallback: T) =>
+    (error: unknown) => {
+      if (isPgSoftFail(error)) return fallback;
+      throw error;
+    };
   const [
     items,
     voteCounts,
@@ -69,9 +72,7 @@ export default async function CanteenMenuPage({
     getMenuItemVoteCounts(id).catch(softEmpty({})),
     getMyVotesForCanteen(id).catch(softEmpty({})),
     getCommentCountsForCanteen(id).catch(softEmpty({})),
-    mock
-      ? Promise.resolve(null)
-      : getSessionVoterUser().catch(softEmpty(null)),
+    mock ? Promise.resolve(null) : getSessionVoterUser().catch(softEmpty(null)),
     mock
       ? Promise.resolve([])
       : listCurrentMonthCanteenDanmaku(id).catch((error) => {
@@ -92,10 +93,9 @@ export default async function CanteenMenuPage({
       subtitle={canteen.location ?? undefined}
       announcement={canteen.announcement}
       action={
-        <CanteenQrBadge
-          src={resolveCanteenQrSrc(id, canteen.name)}
-          canteenName={canteen.name}
-        />
+        qrSrc ? (
+          <CanteenQrBadge src={qrSrc} canteenName={canteen.name} />
+        ) : undefined
       }
     >
       <div className="mb-3 sm:mb-8">

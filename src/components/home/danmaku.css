@@ -30,6 +30,36 @@
   animation: danmaku-fly linear infinite both;
 }
 
+.danmaku-hero .danmaku-track-layer--hero {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+
+.danmaku-hero .danmaku-item {
+  padding: 0.15rem 0.75rem;
+  background: transparent;
+  color: var(--canteen-muted);
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.danmaku-hero .danmaku-track:nth-child(even) .danmaku-item {
+  color: color-mix(in srgb, var(--canteen-muted) 72%, white);
+}
+
 @keyframes danmaku-fly {
   from {
     transform: translateX(100vw);

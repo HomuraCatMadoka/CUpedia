@@ -50,7 +50,13 @@ describe("CanteenCard", () => {
     expect(link.getAttribute("href")).toBe("/canteen/c1");
     expect(link.className).toContain("canteen-icon-link");
     expect(link.querySelector(".canteen-icon-orb")).toBeTruthy();
+    expect(link.querySelector(".canteen-icon-initials")?.textContent).toBe(
+      "演示",
+    );
     expect(screen.getByText("演示食堂")).toBeTruthy();
+    expect(screen.getByText("演示区域").className).toContain(
+      "canteen-icon-location",
+    );
     expect(screen.queryByText("道菜")).toBeNull();
   });
 

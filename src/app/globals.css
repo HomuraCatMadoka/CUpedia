@@ -223,7 +223,7 @@
 
 @layer base {
   :root {
-    --navbar-height: 6.25rem;
+    --navbar-height: 3.5rem;
     --sidebar-width: 260px;
     --toc-width: 220px;
     --sidebar-collapsed-width: 44px;
@@ -233,11 +233,6 @@
     --sidebar-active-border: #3b82f6;
     --sidebar-transition: 200ms ease;
     --content-max-width: 720px;
-  }
-  @media (min-width: 48rem) {
-    :root {
-      --navbar-height: 3.5rem;
-    }
   }
   * {
     @apply border-border outline-ring/50;
