@@ -54,6 +54,12 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
             url: "/wiki/legacy-slug",
             children: [{ text: "Deleted target" }],
           },
+          { text: " " },
+          {
+            type: "a",
+            url: "https://example.com",
+            children: [{ text: "External target" }],
+          },
         ],
       },
     ]);
@@ -119,6 +125,19 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
       await link.hover();
       await expect
         .poll(() =>
+          link.evaluate((element) => getComputedStyle(element).cursor),
+        )
+        .toBe("pointer");
+      const externalLink = page
+        .getByTestId("wiki-editor-canvas")
+        .getByRole("link", { name: "External target" });
+      await expect
+        .poll(() =>
+          externalLink.evaluate((element) => getComputedStyle(element).cursor),
+        )
+        .toBe("pointer");
+      await expect
+        .poll(() =>
           link.evaluate((element) => getComputedStyle(element).backgroundColor),
         )
         .not.toBe("rgba(0, 0, 0, 0)");
@@ -167,6 +186,21 @@ test.describe("UUID canonical wiki routing (ref #447)", () => {
       await expect(publicLink).toHaveAttribute("data-wiki-link", "true");
       await expect(publicLink.getByTestId("wiki-link-icon")).toBeVisible();
       await publicLink.hover();
+      await expect
+        .poll(() =>
+          publicLink.evaluate((element) => getComputedStyle(element).cursor),
+        )
+        .toBe("pointer");
+      const publicExternalLink = page.getByRole("link", {
+        name: "External target",
+      });
+      await expect
+        .poll(() =>
+          publicExternalLink.evaluate(
+            (element) => getComputedStyle(element).cursor,
+          ),
+        )
+        .toBe("pointer");
       await expect
         .poll(() =>
           publicLink.evaluate(
