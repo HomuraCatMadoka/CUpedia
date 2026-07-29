@@ -194,7 +194,7 @@ const getCachedWikiTree = unstable_cache(
       })
       .from(wikiPages)
       .where(isNull(wikiPages.deletedAt))
-      .orderBy(wikiPages.sortOrder);
+      .orderBy(wikiPages.sortOrder, wikiPages.createdAt, wikiPages.id);
     return pages;
   },
   ["wiki-tree"],
@@ -238,11 +238,24 @@ export async function createWikiPage(data: {
   let page: WikiPageRow;
   try {
     page = await db.transaction(async (tx) => {
+      await lockWikiTree(tx);
       if (data.parentId) {
-        await lockWikiTree(tx);
         await assertLiveWikiParent(tx, data.parentId);
       }
 
+      const [nextOrder] = await tx
+        .select({
+          value: sql<number>`coalesce(max(${wikiPages.sortOrder}), -1) + 1`,
+        })
+        .from(wikiPages)
+        .where(
+          and(
+            data.parentId
+              ? eq(wikiPages.parentId, data.parentId)
+              : isNull(wikiPages.parentId),
+            isNull(wikiPages.deletedAt),
+          ),
+        );
       const now = new Date();
       const [p] = await tx
         .insert(wikiPages)
@@ -252,6 +265,7 @@ export async function createWikiPage(data: {
           icon,
           content,
           parentId: data.parentId ?? null,
+          sortOrder: nextOrder.value,
           createdBy: user.id,
           updatedBy: user.id,
           createdAt: now,
@@ -298,6 +312,80 @@ export async function createWikiPage(data: {
   updateTag("wiki-pages");
   revalidateSearchCorpus();
   return page;
+}
+
+export type WikiPageMove =
+  | { direction: "up" | "down" }
+  | {
+      targetPageId: string;
+      placement: "before" | "after";
+    };
+
+export async function reorderWikiPage(pageId: string, move: WikiPageMove) {
+  await assertContributorComplete(await requireEditor());
+  if (
+    !isWikiPageId(pageId) ||
+    ("targetPageId" in move && !isWikiPageId(move.targetPageId))
+  ) {
+    throw new Error("Invalid page move");
+  }
+
+  await db.transaction(async (tx) => {
+    await lockWikiTree(tx);
+    const [page] = await tx
+      .select({ id: wikiPages.id, parentId: wikiPages.parentId })
+      .from(wikiPages)
+      .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)))
+      .limit(1);
+    if (!page) throw new Error("Page not found");
+
+    const siblings = await tx
+      .select({ id: wikiPages.id, sortOrder: wikiPages.sortOrder })
+      .from(wikiPages)
+      .where(
+        and(
+          page.parentId
+            ? eq(wikiPages.parentId, page.parentId)
+            : isNull(wikiPages.parentId),
+          isNull(wikiPages.deletedAt),
+        ),
+      )
+      .orderBy(wikiPages.sortOrder, wikiPages.createdAt, wikiPages.id);
+
+    const sourceIndex = siblings.findIndex((sibling) => sibling.id === pageId);
+    if (sourceIndex < 0) throw new Error("Page not found");
+
+    let targetPageId: string;
+    let placement: "before" | "after";
+    if ("direction" in move) {
+      const targetIndex = sourceIndex + (move.direction === "up" ? -1 : 1);
+      if (targetIndex < 0 || targetIndex >= siblings.length) return;
+      targetPageId = siblings[targetIndex].id;
+      placement = move.direction === "up" ? "before" : "after";
+    } else {
+      targetPageId = move.targetPageId;
+      placement = move.placement;
+    }
+
+    if (targetPageId === pageId) return;
+    const [source] = siblings.splice(sourceIndex, 1);
+    const targetIndex = siblings.findIndex(
+      (sibling) => sibling.id === targetPageId,
+    );
+    if (targetIndex < 0) throw new Error("Pages must be siblings");
+    siblings.splice(targetIndex + (placement === "after" ? 1 : 0), 0, source);
+
+    for (const [sortOrder, sibling] of siblings.entries()) {
+      if (sibling.sortOrder === sortOrder) continue;
+      await tx
+        .update(wikiPages)
+        .set({ sortOrder })
+        .where(eq(wikiPages.id, sibling.id));
+    }
+  });
+
+  revalidateTag("wiki-pages", "max");
+  updateTag("wiki-pages");
 }
 
 export interface UpdateConflict {
