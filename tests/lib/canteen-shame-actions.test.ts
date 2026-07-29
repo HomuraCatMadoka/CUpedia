@@ -47,11 +47,13 @@ describe("canteen-shame-actions (mock mode)", () => {
   const prevMock = process.env.CANTEEN_MOCK_DATA;
   const prevSecret = process.env.AUTH_SECRET;
   const prevDaily = process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
+  const prevRate = process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN;
 
   beforeEach(() => {
     process.env.CANTEEN_MOCK_DATA = "true";
     process.env.AUTH_SECRET = "test-secret";
     delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
+    delete process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN;
     resetCanteenMockState();
     resetVoteRateLimitForTests();
     mockGetSession.mockResolvedValue(null);
@@ -66,6 +68,9 @@ describe("canteen-shame-actions (mock mode)", () => {
     if (prevDaily === undefined)
       delete process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT;
     else process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = prevDaily;
+    if (prevRate === undefined)
+      delete process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN;
+    else process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN = prevRate;
     resetCanteenMockState();
     resetVoteRateLimitForTests();
   });
@@ -103,9 +108,10 @@ describe("canteen-shame-actions (mock mode)", () => {
   });
 
   it("rejects unknown canteen", async () => {
-    await expect(appendShameVote("missing-canteen")).rejects.toThrow(
-      "CANTEEN_NOT_FOUND",
-    );
+    await expect(appendShameVote("missing-canteen")).resolves.toEqual({
+      ok: false,
+      code: "CANTEEN_NOT_FOUND",
+    });
   });
 
   it("caps anonymous stomps per HKT day", async () => {
@@ -113,11 +119,21 @@ describe("canteen-shame-actions (mock mode)", () => {
     await appendShameVote(DEMO_CANTEEN_ID);
     await appendShameVote(DEMO_CANTEEN_ID);
     await appendShameVote(DEMO_CANTEEN_ID);
-    await expect(appendShameVote(DEMO_CANTEEN_ID)).rejects.toThrow(
-      "DAILY_LIMIT_EXCEEDED",
-    );
+    await expect(appendShameVote(DEMO_CANTEEN_ID)).resolves.toEqual({
+      ok: false,
+      code: "DAILY_LIMIT_EXCEEDED",
+    });
     const counts = await getShameVoteCountsForDate(hktCalendarDate());
     expect(counts[DEMO_CANTEEN_ID]).toBe(3);
+  });
+
+  it("keeps the per-minute rate limit for anonymous voters", async () => {
+    process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN = "1";
+    await appendShameVote(DEMO_CANTEEN_ID);
+    await expect(appendShameVote(DEMO_CANTEEN_ID)).resolves.toEqual({
+      ok: false,
+      code: "RATE_LIMIT_EXCEEDED",
+    });
   });
 
   it("keeps concurrent anonymous stomps within the daily cap", async () => {
@@ -133,16 +149,18 @@ describe("canteen-shame-actions (mock mode)", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-01T16:00:00Z"));
     try {
-      await expect(appendShameVote(DEMO_CANTEEN_ID)).rejects.toThrow(
-        "SHAME_VOTING_CLOSED",
-      );
+      await expect(appendShameVote(DEMO_CANTEEN_ID)).resolves.toEqual({
+        ok: false,
+        code: "SHAME_VOTING_CLOSED",
+      });
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("does not apply daily cap to logged-in mock voters", async () => {
+  it("does not apply rate limits to logged-in mock voters", async () => {
     process.env.CANTEEN_SHAME_ANON_DAILY_LIMIT = "2";
+    process.env.CANTEEN_VOTE_RATE_LIMIT_PER_MIN = "1";
     mockGetSession.mockResolvedValue({
       user: { id: "user-1", email: "a@link.cuhk.edu.hk" },
     });
