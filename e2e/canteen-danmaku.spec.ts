@@ -35,7 +35,9 @@ test.describe("canteen danmaku", () => {
   test("visitor sees danmaku section and cannot post", async ({ page }) => {
     await page.goto("/canteen");
     await expect(page.getByRole("region", { name: "本月弹幕" })).toBeVisible();
-    await expect(page.getByText("登录后即可发送弹幕")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "登录后发弹幕" }),
+    ).toBeVisible();
 
     const res = await page.request.post("/api/danmaku", {
       data: { content: "匿名弹幕" },
