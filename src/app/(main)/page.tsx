@@ -21,6 +21,11 @@ export default function HomePage() {
       description: "还有食堂能吃吗",
       disabled: false,
     },
+    {
+      title: "通勤食图",
+      href: "/food-map",
+      description: "按港铁车程找饭并打卡",
+    },
     { title: "生活", href: "/life", description: "生活指南", disabled: true },
     {
       title: "交换",
