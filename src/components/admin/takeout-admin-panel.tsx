@@ -29,9 +29,9 @@ import { cn } from "@/lib/utils";
 
 function formatDeleteImpact(impact: DeleteImpact) {
   if (impact.menuItemCount > 0) {
-    return `??? ${impact.menuItemCount} ?????????`;
+    return `将删除 ${impact.menuItemCount} 道菜品。不可恢复。`;
   }
-  return "?????????????????????";
+  return "将删除该外卖店（暂无关联菜品）。不可恢复。";
 }
 
 export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
@@ -69,7 +69,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
         setAnnouncement("");
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : "????");
+        alert(err instanceof Error ? err.message : "创建失败");
       }
     });
   }
@@ -94,7 +94,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
         setEditTarget(null);
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : "????");
+        alert(err instanceof Error ? err.message : "更新失败");
       }
     });
   }
@@ -108,23 +108,23 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
         setDeleteImpact(null);
         router.refresh();
       } catch (err) {
-        alert(err instanceof Error ? err.message : "????");
+        alert(err instanceof Error ? err.message : "删除失败");
       }
     });
   }
 
   return (
     <CanteenShell
-      eyebrow="??"
-      title="????"
-      subtitle="??????????????????????????"
+      eyebrow="管理"
+      title="外卖管理"
+      subtitle="添加外卖店、维护各店菜单。删除前会显示关联数据数量。"
     >
       <form
         onSubmit={handleCreate}
         className="canteen-fade-in mb-8 rounded-2xl border border-[var(--canteen-bamboo)]/25 bg-white/70 p-5 backdrop-blur-sm"
       >
         <p className="mb-4 text-sm font-medium text-[var(--canteen-ink)]">
-          ?????
+          添加外卖店
         </p>
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[12rem] flex-1 space-y-1">
@@ -132,7 +132,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
               className="text-xs font-medium text-[var(--canteen-muted)]"
               htmlFor="takeout-name"
             >
-              ??
+              店名
             </label>
             <Input
               id="takeout-name"
@@ -148,7 +148,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
               className="text-xs font-medium text-[var(--canteen-muted)]"
               htmlFor="takeout-location"
             >
-              ??????
+              位置（可选）
             </label>
             <Input
               id="takeout-location"
@@ -164,14 +164,14 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
             className="text-xs font-medium text-[var(--canteen-muted)]"
             htmlFor="takeout-announcement"
           >
-            ??????
+            公告（可选）
           </label>
           <Textarea
             id="takeout-announcement"
             value={announcement}
             onChange={(e) => setAnnouncement(e.target.value)}
             maxLength={500}
-            placeholder="????????? � ??????"
+            placeholder="例如：满三十免配送 · 午市排队较长"
             className="min-h-16 border-[var(--canteen-bamboo)]/30 bg-white/90"
           />
         </div>
@@ -181,14 +181,14 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
             disabled={isPending}
             className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
           >
-            ?????
+            添加外卖店
           </Button>
         </div>
       </form>
 
       {takeouts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--canteen-bamboo)]/40 bg-white/50 px-6 py-16 text-center">
-          <p className="text-[var(--canteen-muted)]">????????????</p>
+          <p className="text-[var(--canteen-muted)]">暂无外卖店，请在上方添加</p>
         </div>
       ) : (
         <div className="canteen-icon-grid sm:!grid-cols-2 md:!grid-cols-3">
@@ -206,7 +206,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
                     "rounded-full",
                   )}
                 >
-                  ????
+                  管理菜单
                 </Link>
                 <Button
                   variant="outline"
@@ -215,7 +215,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
                   disabled={isPending}
                   onClick={() => openEditDialog(takeout)}
                 >
-                  ??
+                  编辑
                 </Button>
                 <Button
                   variant="destructive"
@@ -224,7 +224,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
                   disabled={isPending}
                   onClick={() => openDeleteDialog(takeout)}
                 >
-                  ??
+                  删除
                 </Button>
               </div>
             </div>
@@ -244,18 +244,18 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              ?????{deleteTarget?.name}??
+              确认删除「{deleteTarget?.name}」？
             </AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget && deleteImpact
                 ? formatDeleteImpact(deleteImpact)
-                : "????"}
+                : "加载中…"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>??</AlertDialogCancel>
+            <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={isPending}>
-              ??
+              删除
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -270,12 +270,12 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
         <AlertDialogContent>
           <form onSubmit={handleEdit}>
             <AlertDialogHeader>
-              <AlertDialogTitle>?????</AlertDialogTitle>
+              <AlertDialogTitle>编辑外卖店</AlertDialogTitle>
             </AlertDialogHeader>
             <div className="grid gap-3 py-4">
               <div className="space-y-1">
                 <label className="text-sm font-medium" htmlFor="edit-takeout-name">
-                  ??
+                  名称
                 </label>
                 <Input
                   id="edit-takeout-name"
@@ -290,7 +290,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
                   className="text-sm font-medium"
                   htmlFor="edit-takeout-location"
                 >
-                  ??
+                  位置
                 </label>
                 <Input
                   id="edit-takeout-location"
@@ -304,22 +304,22 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
                   className="text-sm font-medium"
                   htmlFor="edit-takeout-announcement"
                 >
-                  ??
+                  公告
                 </label>
                 <Textarea
                   id="edit-takeout-announcement"
                   value={editAnnouncement}
                   onChange={(e) => setEditAnnouncement(e.target.value)}
                   maxLength={500}
-                  placeholder="????????? � ??????"
+                  placeholder="例如：满三十免配送 · 午市排队较长"
                   className="min-h-16"
                 />
               </div>
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel type="button">??</AlertDialogCancel>
+              <AlertDialogCancel type="button">取消</AlertDialogCancel>
               <AlertDialogAction type="submit" disabled={isPending}>
-                ??
+                保存
               </AlertDialogAction>
             </AlertDialogFooter>
           </form>

@@ -170,7 +170,7 @@ export function DanmakuBanner({
           createdAt: new Date(created.createdAt),
         };
         setMessages((prev) => [...prev, publicMessage]);
-        setFlyItems((prev) => [...prev, publicMessage]);
+        setFlyItems((prev) => messagesForFlyover([...prev, publicMessage]));
         setContent("");
       } catch {
         setError("发送失败，请重试。");

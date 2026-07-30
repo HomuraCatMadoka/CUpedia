@@ -157,8 +157,7 @@ function PriceOptionsEditor({
   );
 }
 
-function formatDeleteImpact(impact: DeleteImpact) {
-  if (impact.menuItemCount <= 0) return "将删除该菜品。不可恢复。";
+function formatDeleteImpact() {
   return "将删除该菜品。不可恢复。";
 }
 
@@ -468,13 +467,14 @@ export function TakeoutMenuAdmin({
           <AlertDialogHeader>
             <AlertDialogTitle>删除菜品？</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteImpact ? formatDeleteImpact(deleteImpact) : "加载中…"}
+              {deleteImpact ? formatDeleteImpact() : "加载中…"}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
+              disabled={isPending}
               className="bg-destructive text-white hover:bg-destructive/90"
             >
               删除

@@ -125,6 +125,16 @@ export default async function CanteenBrowsePage() {
   ]);
   const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
 
+  const canteenGrid = (
+    <VenueGrid
+      venues={canteens}
+      hrefFor={(id) => `/canteen/${id}`}
+      iconSrcFor={resolveCanteenIconSrc}
+      emptyTitle="暂无食堂"
+      emptyHint="管理员录入后将在此展示"
+    />
+  );
+
   return (
     <CanteenShell
       brandTitle
@@ -146,13 +156,7 @@ export default async function CanteenBrowsePage() {
       </div>
 
       {takeouts.length === 0 ? (
-        <VenueGrid
-          venues={canteens}
-          hrefFor={(id) => `/canteen/${id}`}
-          iconSrcFor={resolveCanteenIconSrc}
-          emptyTitle="暂无食堂"
-          emptyHint="管理员录入后将在此展示"
-        />
+        canteenGrid
       ) : (
         <>
           <section
@@ -167,13 +171,7 @@ export default async function CanteenBrowsePage() {
                 食堂区
               </h2>
             </header>
-            <VenueGrid
-              venues={canteens}
-              hrefFor={(id) => `/canteen/${id}`}
-              iconSrcFor={resolveCanteenIconSrc}
-              emptyTitle="暂无食堂"
-              emptyHint="管理员录入后将在此展示"
-            />
+            {canteenGrid}
           </section>
 
           <section
