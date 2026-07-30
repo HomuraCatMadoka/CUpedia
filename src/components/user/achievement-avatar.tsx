@@ -17,7 +17,7 @@ export function AchievementAvatar({
   const avatarDimensions = {
     xs: "size-7 rounded-md after:rounded-md",
     sm: cn(
-      hasTitle ? "size-20" : "size-11",
+      "size-20",
       hasTitle ? "rounded-xl after:rounded-xl" : "rounded-lg after:rounded-lg",
     ),
     md: cn(hasTitle ? "size-20" : "size-16", "rounded-xl after:rounded-xl"),
