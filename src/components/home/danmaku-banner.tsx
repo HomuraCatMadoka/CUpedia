@@ -199,11 +199,6 @@ export function DanmakuBanner({
         >
           {title}
         </h2>
-        {integrated && viewer.kind === "guest" ? (
-          <Link href="/login" className="danmaku-hero-action">
-            登录后发弹幕
-          </Link>
-        ) : null}
       </div>
 
       <div
@@ -282,7 +277,22 @@ export function DanmakuBanner({
 
       <div className="relative z-10 mx-auto max-w-md">
         {viewer.kind === "guest" ? (
-          integrated ? null : (
+          <div className="space-y-1">
+            <div className="flex gap-1.5 sm:gap-2">
+              <Input
+                disabled
+                aria-label="弹幕内容"
+                placeholder="发个友善的弹幕见证当下"
+                className="h-9 border-[rgba(26,35,50,0.32)] bg-[var(--canteen-surface)] placeholder:text-[var(--canteen-muted)] sm:h-10"
+              />
+              <Button
+                type="button"
+                disabled
+                className="h-9 px-3 sm:h-10 sm:px-4"
+              >
+                发送
+              </Button>
+            </div>
             <p className="text-center text-xs text-muted-foreground sm:text-sm">
               <Link
                 href="/login"
@@ -292,7 +302,7 @@ export function DanmakuBanner({
               </Link>
               后即可发送弹幕
             </p>
-          )
+          </div>
         ) : viewer.kind === "banned" ? (
           <p
             className="text-center text-xs text-destructive sm:text-sm"

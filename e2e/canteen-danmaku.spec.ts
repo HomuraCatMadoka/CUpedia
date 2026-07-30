@@ -34,9 +34,11 @@ async function submitDanmaku(page: Page, text: string) {
 test.describe("canteen danmaku", () => {
   test("visitor sees danmaku section and cannot post", async ({ page }) => {
     await page.goto("/canteen");
-    await expect(page.getByRole("region", { name: "本月弹幕" })).toBeVisible();
+    const danmakuRegion = page.getByRole("region", { name: "本月弹幕" });
+    await expect(danmakuRegion).toBeVisible();
+    await expect(danmakuRegion.getByLabel("弹幕内容")).toBeDisabled();
     await expect(
-      page.getByRole("link", { name: "登录后发弹幕" }),
+      danmakuRegion.getByRole("link", { name: "登录" }),
     ).toBeVisible();
 
     const res = await page.request.post("/api/danmaku", {

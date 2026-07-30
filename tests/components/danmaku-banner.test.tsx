@@ -51,6 +51,9 @@ describe("DanmakuBanner", () => {
       screen.getByRole("heading", { level: 2, name: "校园正在聊" })
         .parentElement?.className,
     ).toContain("danmaku-hero-label");
-    expect(screen.getByRole("link", { name: "登录后发弹幕" })).toBeTruthy();
+    expect(screen.getByLabelText("弹幕内容").hasAttribute("disabled")).toBe(
+      true,
+    );
+    expect(screen.getByRole("link", { name: "登录" })).toBeTruthy();
   });
 });

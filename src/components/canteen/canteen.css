@@ -1309,14 +1309,6 @@
   letter-spacing: 0.08em;
 }
 
-.canteen-zone .canteen-detail-live .danmaku-hero-action {
-  display: inline-flex;
-  min-height: 2.75rem;
-  align-items: center;
-  color: var(--canteen-link);
-  letter-spacing: 0;
-}
-
 .canteen-zone .canteen-detail-page .danmaku-track-layer--hero {
   height: 3rem;
 }
