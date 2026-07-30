@@ -9,6 +9,7 @@ export function CanteenShell({
   title,
   subtitle,
   announcement,
+  topContent,
   children,
   action,
   className,
@@ -21,6 +22,8 @@ export function CanteenShell({
   subtitle?: string;
   /** Plain notice under the title (no border/box). */
   announcement?: string | null;
+  /** Optional live content between the back control and page identity. */
+  topContent?: React.ReactNode;
   children: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
@@ -53,83 +56,91 @@ export function CanteenShell({
           </Link>
         </div>
       ) : null}
-      <header className="canteen-fade-in mb-3 sm:mb-6">
-        <div
+      <div className={cn(topContent && "canteen-detail-hero")}>
+        <header
           className={cn(
-            "flex min-w-0 items-start gap-3 sm:gap-4",
-            brandTitle ? "sm:items-center" : null,
+            "canteen-fade-in",
+            topContent ? "canteen-detail-identity" : "mb-3 sm:mb-6",
           )}
         >
-          <div className="min-w-0 flex-1">
-            {eyebrow ? (
-              typeof eyebrow === "string" ? (
-                <p className="mb-1 text-xs font-medium tracking-[0.18em] text-[var(--canteen-muted)]">
-                  {eyebrow}
-                </p>
-              ) : (
-                <div className="mb-1 text-sm text-[var(--canteen-muted)]">
-                  {eyebrow}
-                </div>
-              )
-            ) : null}
-            <div className="flex min-w-0 items-center gap-1 sm:gap-2">
-              {backHref ? (
-                <div className="shrink-0 sm:hidden">
-                  <Link
-                    href={backHref}
-                    className="canteen-back-link"
-                    aria-label={backLabel}
-                  >
-                    <ArrowLeft
-                      className="size-5 shrink-0"
-                      strokeWidth={2.25}
-                      aria-hidden
-                    />
-                    <span className="sr-only">{backLabel}</span>
-                  </Link>
-                </div>
+          <div
+            className={cn(
+              "flex min-w-0 items-start gap-3 sm:gap-4",
+              brandTitle ? "sm:items-center" : null,
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              {eyebrow ? (
+                typeof eyebrow === "string" ? (
+                  <p className="mb-1 text-xs font-medium tracking-[0.18em] text-[var(--canteen-muted)]">
+                    {eyebrow}
+                  </p>
+                ) : (
+                  <div className="mb-1 text-sm text-[var(--canteen-muted)]">
+                    {eyebrow}
+                  </div>
+                )
               ) : null}
-              <h1
-                className={cn(
-                  "min-w-0 truncate text-[var(--canteen-ink)] sm:overflow-visible sm:whitespace-normal",
-                  brandTitle
-                    ? "canteen-brand text-2xl leading-tight sm:text-5xl sm:leading-tight"
-                    : "canteen-display text-2xl font-semibold tracking-tight leading-tight sm:text-4xl sm:leading-tight",
-                )}
-              >
-                {title}
-              </h1>
+              <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                {backHref ? (
+                  <div className="shrink-0 sm:hidden">
+                    <Link
+                      href={backHref}
+                      className="canteen-back-link"
+                      aria-label={backLabel}
+                    >
+                      <ArrowLeft
+                        className="size-5 shrink-0"
+                        strokeWidth={2.25}
+                        aria-hidden
+                      />
+                      <span className="sr-only">{backLabel}</span>
+                    </Link>
+                  </div>
+                ) : null}
+                <h1
+                  className={cn(
+                    "min-w-0 truncate text-[var(--canteen-ink)] sm:overflow-visible sm:whitespace-normal",
+                    brandTitle
+                      ? "canteen-brand text-2xl leading-tight sm:text-5xl sm:leading-tight"
+                      : "canteen-display text-2xl font-semibold tracking-tight leading-tight sm:text-4xl sm:leading-tight",
+                  )}
+                >
+                  {title}
+                </h1>
+              </div>
+              {subtitle ? (
+                <p
+                  className={cn(
+                    "max-w-xl leading-snug text-[var(--canteen-muted)]",
+                    backHref ? "max-sm:pl-10" : null,
+                    brandTitle
+                      ? "mt-2 text-xs sm:mt-3 sm:text-lg"
+                      : "mt-2 text-xs sm:mt-2.5 sm:text-base",
+                  )}
+                >
+                  {subtitle}
+                </p>
+              ) : null}
+              {announcement ? (
+                <p
+                  role="status"
+                  className={cn(
+                    "mt-1.5 max-w-xl whitespace-pre-wrap text-xs leading-snug text-[var(--canteen-ink)]/80 sm:mt-2 sm:text-sm sm:leading-snug",
+                    backHref ? "max-sm:pl-10" : null,
+                  )}
+                >
+                  {announcement}
+                </p>
+              ) : null}
             </div>
-            {subtitle ? (
-              <p
-                className={cn(
-                  "max-w-xl leading-snug text-[var(--canteen-muted)]",
-                  backHref ? "max-sm:pl-10" : null,
-                  brandTitle
-                    ? "mt-2 text-xs sm:mt-3 sm:text-lg"
-                    : "mt-2 text-xs sm:mt-2.5 sm:text-base",
-                )}
-              >
-                {subtitle}
-              </p>
-            ) : null}
-            {announcement ? (
-              <p
-                role="status"
-                className={cn(
-                  "mt-1.5 max-w-xl whitespace-pre-wrap text-xs leading-snug text-[var(--canteen-ink)]/80 sm:mt-2 sm:text-sm sm:leading-snug",
-                  backHref ? "max-sm:pl-10" : null,
-                )}
-              >
-                {announcement}
-              </p>
-            ) : null}
+            {action ? <div className="shrink-0 pt-0.5">{action}</div> : null}
           </div>
-          {action ? (
-            <div className="shrink-0 pt-0.5">{action}</div>
-          ) : null}
-        </div>
-      </header>
+        </header>
+        {topContent ? (
+          <div className="canteen-detail-live">{topContent}</div>
+        ) : null}
+      </div>
       {children}
     </div>
   );
@@ -151,19 +162,19 @@ export function PreviewBanner() {
       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
         <Link
           href="/admin/canteens"
-          className="text-[var(--canteen-purple)] underline underline-offset-2"
+          className="text-[var(--canteen-link)] underline underline-offset-2"
         >
           食堂 / 公告
         </Link>
         <Link
           href="/admin/comments"
-          className="text-[var(--canteen-purple)] underline underline-offset-2"
+          className="text-[var(--canteen-link)] underline underline-offset-2"
         >
           评论管理
         </Link>
         <Link
           href="/admin/danmaku"
-          className="text-[var(--canteen-purple)] underline underline-offset-2"
+          className="text-[var(--canteen-link)] underline underline-offset-2"
         >
           弹幕管理
         </Link>

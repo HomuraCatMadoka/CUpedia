@@ -8,7 +8,7 @@ import {
 import { getCommentCountsForCanteen } from "@/lib/canteen-comment-actions";
 import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
-import { CanteenQrBadge } from "@/components/canteen/canteen-qr-badge";
+import { CanteenQrAction } from "@/components/canteen/canteen-qr-badge";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
@@ -20,6 +20,22 @@ import { isPgPermissionDenied, isPgSoftFail } from "@/lib/pg-errors";
 import { messagesForFlyover, shuffleArray } from "@/lib/danmaku-types";
 
 export const dynamic = "force-dynamic";
+
+const MOCK_DANMAKU = [
+  "咖喱鸡今天很稳",
+  "烧味窗口排得有点久",
+  "两点后人少很多",
+  "冻奶茶可以少甜",
+] as const;
+
+const MOCK_VOTE_COUNTS = {
+  "mock-item-bf-noodle": { likes: 8, dislikes: 1 },
+  "mock-item-bf-egg": { likes: 1, dislikes: 7 },
+  "mock-item-ln-rice-2": { likes: 12, dislikes: 2 },
+  "mock-item-ln-fish": { likes: 2, dislikes: 9 },
+  "mock-item-dn-rice": { likes: 11, dislikes: 2 },
+  "mock-item-dn-noodle": { likes: 1, dislikes: 8 },
+} as const;
 
 async function getDanmakuViewer() {
   try {
@@ -53,10 +69,12 @@ export default async function CanteenMenuPage({
   if (!canteen) notFound();
 
   const mock = isCanteenMockMode();
-  const softEmpty = <T,>(fallback: T) => (error: unknown) => {
-    if (isPgSoftFail(error)) return fallback;
-    throw error;
-  };
+  const softEmpty =
+    <T,>(fallback: T) =>
+    (error: unknown) => {
+      if (isPgSoftFail(error)) return fallback;
+      throw error;
+    };
   const [
     items,
     voteCounts,
@@ -70,11 +88,19 @@ export default async function CanteenMenuPage({
     getMenuItemVoteCounts(id).catch(softEmpty({})),
     getMyVotesForCanteen(id).catch(softEmpty({})),
     getCommentCountsForCanteen(id).catch(softEmpty({})),
+    mock ? Promise.resolve(null) : getSessionVoterUser().catch(softEmpty(null)),
     mock
-      ? Promise.resolve(null)
-      : getSessionVoterUser().catch(softEmpty(null)),
-    mock
-      ? Promise.resolve([])
+      ? Promise.resolve(
+          MOCK_DANMAKU.map((content, index) => {
+            const createdAt = new Date();
+            return {
+              id: `mock-canteen-danmaku-${index + 1}`,
+              content,
+              month: createdAt.toISOString().slice(0, 7),
+              createdAt,
+            };
+          }),
+        )
       : listCurrentMonthCanteenDanmaku(id).catch((error) => {
           if (isPgSoftFail(error) || isPgPermissionDenied(error)) return [];
           throw error;
@@ -85,6 +111,10 @@ export default async function CanteenMenuPage({
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
   const commentBlocked = sessionUser?.banned ? ("banned" as const) : null;
   const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
+  const qrSrc = resolveCanteenQrSrc(id, canteen.name);
+  const displayedVoteCounts = mock
+    ? { ...voteCounts, ...MOCK_VOTE_COUNTS }
+    : voteCounts;
 
   return (
     <CanteenShell
@@ -93,26 +123,23 @@ export default async function CanteenMenuPage({
       title={canteen.name}
       subtitle={canteen.location ?? undefined}
       announcement={canteen.announcement}
-      action={
-        <CanteenQrBadge
-          src={resolveCanteenQrSrc(id, canteen.name)}
-          canteenName={canteen.name}
-        />
-      }
-    >
-      <div className="mb-3 sm:mb-8">
+      className="canteen-detail-page"
+      action={<CanteenQrAction src={qrSrc} canteenName={canteen.name} />}
+      topContent={
         <DanmakuBanner
           initialMessages={danmaku}
           initialFlyMessages={danmakuFly}
           viewer={danmakuViewer}
-          title={`${canteen.name}本月弹幕`}
+          title="本月弹幕"
           apiPath={`/api/canteen/${id}/danmaku`}
-          trackCount={3}
+          trackCount={1}
+          appearance="hero"
         />
-      </div>
+      }
+    >
       <CanteenMenuView
         items={items}
-        voteCounts={voteCounts}
+        voteCounts={displayedVoteCounts}
         myVotes={myVotes}
         commentCounts={commentCounts}
         currentUserId={currentUserId}

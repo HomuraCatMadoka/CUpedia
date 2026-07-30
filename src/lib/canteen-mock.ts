@@ -26,6 +26,7 @@ import type {
   DishCommentDeleteAuditDetails,
 } from "@/lib/admin-audit-types";
 import { DISH_COMMENT_DELETE_AUDIT_ACTION } from "@/lib/admin-audit-types";
+import { PRODUCTION_MENU_FIXTURE } from "@/lib/canteen-production-fixture";
 
 /** Dev/demo mode: in-memory canteen data, no PostgreSQL required. */
 export function isCanteenMockMode(): boolean {
@@ -154,6 +155,28 @@ function seedState(): MockState {
       updatedAt: t,
     };
   }
+
+  const productionFixtureItems: CanteenMenuItem[] = PRODUCTION_MENU_FIXTURE.map(
+    (item, itemIndex) => {
+      const id = `mock-item-production-${String(itemIndex + 1).padStart(3, "0")}`;
+      return {
+        id,
+        canteenId: demo.id,
+        name: item.name,
+        pricing: {
+          options: item.priceOptions.map((price, priceIndex) => ({
+            id: `${id}-price-${priceIndex + 1}`,
+            ...price,
+          })),
+        },
+        mealPeriods: item.mealPeriods,
+        sortOrder: item.sortOrder + 100,
+        svgKey: item.svgKey,
+        createdAt: t,
+        updatedAt: t,
+      };
+    },
+  );
 
   const items: CanteenMenuItem[] = [
     // Keep stable IDs used by unit tests.
@@ -328,6 +351,7 @@ function seedState(): MockState {
       "default",
       6,
     ),
+    ...productionFixtureItems,
 
     dish(
       "mock-item-b-ln-1",

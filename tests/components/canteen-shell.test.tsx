@@ -48,4 +48,33 @@ describe("CanteenShell announcement", () => {
     expect(screen.getByRole("link", { name: "每日💩堂榜" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "山城食记" })).toBeTruthy();
   });
+
+  it("keeps the page title before visually promoted live content in the DOM", () => {
+    render(
+      <CanteenShell
+        title="善衡书院食堂"
+        topContent={
+          <section aria-label="本月弹幕">
+            <h2>本月弹幕</h2>
+          </section>
+        }
+      >
+        <div>菜单</div>
+      </CanteenShell>,
+    );
+
+    const title = screen.getByRole("heading", {
+      level: 1,
+      name: "善衡书院食堂",
+    });
+    const liveHeading = screen.getByRole("heading", {
+      level: 2,
+      name: "本月弹幕",
+    });
+
+    expect(
+      title.compareDocumentPosition(liveHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
 });

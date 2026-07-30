@@ -47,5 +47,10 @@ describe("DanmakuBanner", () => {
     expect(region.className).toContain("danmaku-hero");
     expect(layer?.className).toContain("danmaku-track-layer--hero");
     expect(layer?.className).not.toContain("border");
+    expect(
+      screen.getByRole("heading", { level: 2, name: "校园正在聊" })
+        .parentElement?.className,
+    ).toContain("danmaku-hero-label");
+    expect(screen.getByRole("link", { name: "登录后发弹幕" })).toBeTruthy();
   });
 });

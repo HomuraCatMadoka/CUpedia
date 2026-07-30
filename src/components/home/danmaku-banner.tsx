@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type CSSProperties,
+} from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,9 +109,7 @@ export function DanmakuBanner({
 
   const cycleEndSec = useMemo(() => {
     if (scheduled.length === 0) return DANMAKU_SCROLL_DURATION_SEC;
-    return (
-      Math.max(...scheduled.map((s) => s.start + s.duration)) + 0.75
-    );
+    return Math.max(...scheduled.map((s) => s.start + s.duration)) + 0.75;
   }, [scheduled]);
 
   const [epoch, setEpoch] = useState(0);
@@ -186,8 +191,19 @@ export function DanmakuBanner({
       )}
       aria-label={title}
     >
-      <div className={integrated ? "sr-only" : "text-center"}>
-        <h2 className="text-sm font-semibold sm:text-lg">{title}</h2>
+      <div className={integrated ? "danmaku-hero-label" : "text-center"}>
+        <h2
+          className={
+            integrated ? undefined : "text-sm font-semibold sm:text-lg"
+          }
+        >
+          {title}
+        </h2>
+        {integrated && viewer.kind === "guest" ? (
+          <Link href="/login" className="danmaku-hero-action">
+            登录后发弹幕
+          </Link>
+        ) : null}
       </div>
 
       <div
@@ -266,15 +282,17 @@ export function DanmakuBanner({
 
       <div className="relative z-10 mx-auto max-w-md">
         {viewer.kind === "guest" ? (
-          <p className="text-center text-xs text-muted-foreground sm:text-sm">
-            <Link
-              href="/login"
-              className="inline-flex min-h-11 items-center px-1 underline underline-offset-2"
-            >
-              登录
-            </Link>
-            后即可发送弹幕
-          </p>
+          integrated ? null : (
+            <p className="text-center text-xs text-muted-foreground sm:text-sm">
+              <Link
+                href="/login"
+                className="inline-flex min-h-11 items-center px-1 underline underline-offset-2"
+              >
+                登录
+              </Link>
+              后即可发送弹幕
+            </p>
+          )
         ) : viewer.kind === "banned" ? (
           <p
             className="text-center text-xs text-destructive sm:text-sm"

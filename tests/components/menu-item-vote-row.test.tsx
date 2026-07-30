@@ -84,6 +84,7 @@ function VoteRowHarness({
       counts={counts}
       myVote={myVote}
       onVoteChange={handleVoteChange}
+      onOpenDetails={vi.fn()}
     />
   );
 }
@@ -98,12 +99,13 @@ afterEach(() => {
 });
 
 describe("MenuItemVoteRow", () => {
-  it("renders generic labelled price options", () => {
+  it("summarizes multiple prices in the menu row", () => {
     render(<VoteRowHarness />);
-    expect(screen.getByText("熱")).toBeTruthy();
-    expect(screen.getByText("$11")).toBeTruthy();
-    expect(screen.getByText("凍")).toBeTruthy();
-    expect(screen.getByText("$13")).toBeTruthy();
+    expect(screen.getByText("$11 起")).toBeTruthy();
+    expect(screen.queryByText("· 2 种选择")).toBeNull();
+    expect(screen.queryByText("熱")).toBeNull();
+    expect(screen.queryByText("$13")).toBeNull();
+    expect(screen.getByText("暂无评价")).toBeTruthy();
   });
 
   it("optimistically increments like count on click", async () => {

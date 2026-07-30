@@ -1,14 +1,14 @@
 "use client";
 
+import { memo } from "react";
+import { ChevronRight } from "lucide-react";
 import type {
   CanteenMenuItem,
   MenuItemVoteCounts,
   VoteChoice,
 } from "@/lib/canteen-types";
-import { DishSvgIcon } from "./dish-svg-icon";
 import { DishVoteButtons } from "./dish-vote-buttons";
 import { MealPeriodsBadges } from "./meal-period-badge";
-import { MenuItemCommentPanel } from "./menu-item-comment-panel";
 import { MenuItemPrice } from "./menu-item-price";
 import { useDishVote } from "./use-dish-vote";
 import { cn } from "@/lib/utils";
@@ -22,69 +22,94 @@ type MenuItemVoteRowProps = {
     prevVote: VoteChoice,
     nextVote: VoteChoice,
   ) => void;
-  currentUserId?: string | null;
-  commentBlocked?: "banned" | null;
   initialCommentCount?: number;
   showPeriodBadge?: boolean;
+  onOpenDetails: (item: CanteenMenuItem) => void;
 };
 
-export function MenuItemVoteRow({
+export const MenuItemVoteRow = memo(function MenuItemVoteRow({
   item,
   counts,
   myVote,
   onVoteChange,
-  currentUserId = null,
-  commentBlocked = null,
   initialCommentCount = 0,
   showPeriodBadge = true,
+  onOpenDetails,
 }: MenuItemVoteRowProps) {
   const { error, pending, handleVote } = useDishVote(
     item.id,
     myVote,
     onVoteChange,
   );
+  const showSpecialPeriod =
+    showPeriodBadge &&
+    (item.mealPeriods.includes("allday") || item.mealPeriods.length > 1);
 
   return (
     <li
-      className={cn(
-        "canteen-ledger-row flex flex-wrap items-center gap-2 px-1 py-2 sm:flex-nowrap sm:gap-4 sm:py-3",
-        pending && "opacity-80",
-      )}
+      id={`canteen-menu-item-${item.id}`}
+      data-menu-item-id={item.id}
+      tabIndex={-1}
+      className={cn("canteen-menu-item px-3", pending && "opacity-80")}
     >
-      <DishSvgIcon svgKey={item.svgKey} className="size-9 rounded-md sm:size-11" />
-      <div className="min-w-0 flex-1">
-        <p className="min-w-0 break-words text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
-          {item.name}
-        </p>
-        {showPeriodBadge ? (
-          <MealPeriodsBadges
-            periods={item.mealPeriods}
-            className="mt-0.5 sm:mt-1"
-          />
-        ) : null}
+      <div className="canteen-menu-item-body min-w-0">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-describedby={`canteen-menu-meta-${item.id}`}
+          onClick={() => onOpenDetails(item)}
+          className="canteen-dish-trigger block w-full min-w-0 text-left"
+        >
+          <span className="flex min-w-0 items-center justify-between gap-3">
+            <span className="min-w-0 flex-1 text-pretty break-words text-[0.9375rem] font-semibold leading-5 text-[var(--canteen-ink)]">
+              {item.name}
+            </span>
+            <span className="flex shrink-0 items-center gap-0.5">
+              <MenuItemPrice
+                pricing={item.pricing}
+                variant="summary"
+                showOptionCount={false}
+                className="justify-end text-sm font-semibold tabular-nums text-[var(--canteen-ink)]"
+              />
+              <ChevronRight
+                className="size-3.5 text-[var(--canteen-muted)]"
+                strokeWidth={1.75}
+                aria-hidden
+              />
+            </span>
+          </span>
+          {showSpecialPeriod ? (
+            <MealPeriodsBadges
+              periods={item.mealPeriods}
+              className="mt-0.5 sm:mt-1"
+            />
+          ) : null}
+          <span className="sr-only">打开详情</span>
+        </button>
         {error ? (
           <p className="mt-1 text-xs text-red-700" role="alert">
             {error}
           </p>
         ) : null}
-        <MenuItemCommentPanel
-          menuItemId={item.id}
-          currentUserId={currentUserId}
-          commentBlocked={commentBlocked}
-          initialCommentCount={initialCommentCount}
-        />
+        <div className="canteen-menu-item-footer">
+          <span
+            id={`canteen-menu-meta-${item.id}`}
+            aria-label={`评论 ${initialCommentCount}`}
+            className="text-xs leading-[1.125rem] text-[var(--canteen-muted)]"
+          >
+            {initialCommentCount > 0
+              ? `${initialCommentCount} 条评价`
+              : "暂无评价"}
+          </span>
+          <DishVoteButtons
+            counts={counts}
+            myVote={myVote}
+            pending={pending}
+            onVote={handleVote}
+            className="canteen-menu-votes w-auto gap-0 sm:ml-0"
+          />
+        </div>
       </div>
-      <MenuItemPrice
-        pricing={item.pricing}
-        className="shrink-0 self-center justify-end font-mono text-xs font-medium tabular-nums text-[var(--canteen-ink)] sm:max-w-52 sm:text-sm"
-      />
-      <DishVoteButtons
-        counts={counts}
-        myVote={myVote}
-        pending={pending}
-        onVote={handleVote}
-        className="gap-1.5 sm:ml-0 sm:gap-2"
-      />
     </li>
   );
-}
+});
