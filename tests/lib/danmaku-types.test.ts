@@ -4,6 +4,7 @@ import {
   DANMAKU_MAX_LENGTH,
   distributeDanmakuToTracks,
   messagesForFlyover,
+  shuffleArray,
   validateDanmakuContent,
 } from "@/lib/danmaku-types";
 
@@ -35,5 +36,14 @@ describe("danmaku-types", () => {
     expect(capped).toHaveLength(DANMAKU_FLY_MAX);
     expect(capped[0]).toBe(10);
     expect(capped.at(-1)).toBe(DANMAKU_FLY_MAX + 9);
+  });
+
+  it("shuffleArray returns a permutation without mutating the source", () => {
+    const items = [1, 2, 3, 4, 5, 6, 7, 8];
+    const copy = items.slice();
+    const shuffled = shuffleArray(items);
+    expect(items).toEqual(copy);
+    expect(shuffled).toHaveLength(items.length);
+    expect([...shuffled].sort((a, b) => a - b)).toEqual(items);
   });
 });

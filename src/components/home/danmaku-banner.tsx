@@ -13,6 +13,7 @@ import {
 } from "@/lib/danmaku-schedule";
 import {
   messagesForFlyover,
+  shuffleArray,
   type PublicDanmakuMessage,
 } from "@/lib/danmaku-types";
 import { cn } from "@/lib/utils";
@@ -55,6 +56,7 @@ export function DanmakuBanner({
   appearance?: "card" | "hero";
 }) {
   const [messages, setMessages] = useState(initialMessages);
+  const [flyQueue, setFlyQueue] = useState<PublicDanmakuMessage[] | null>(null);
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -73,7 +75,12 @@ export function DanmakuBanner({
     return () => ro.disconnect();
   }, []);
 
-  const flyItems = useMemo(() => messagesForFlyover(messages), [messages]);
+  /** Randomize flyover order once per load; keep list chronological in `messages`. */
+  useEffect(() => {
+    setFlyQueue(shuffleArray(messagesForFlyover(initialMessages)));
+  }, [initialMessages]);
+
+  const flyItems = flyQueue ?? messagesForFlyover(messages);
   const integrated = appearance === "hero";
   /** Use clamp() max so width estimates never undershoot hero glyphs. */
   const fontPx = integrated ? 18.4 : 14;
@@ -157,13 +164,14 @@ export function DanmakuBanner({
           return;
         }
         const created = data.message!;
-        setMessages((prev) => [
-          ...prev,
-          {
-            ...created,
-            createdAt: new Date(created.createdAt),
-          },
-        ]);
+        const publicMessage: PublicDanmakuMessage = {
+          ...created,
+          createdAt: new Date(created.createdAt),
+        };
+        setMessages((prev) => [...prev, publicMessage]);
+        setFlyQueue((prev) =>
+          prev ? [...prev, publicMessage] : [publicMessage],
+        );
         setContent("");
       } catch {
         setError("发送失败，请重试。");
