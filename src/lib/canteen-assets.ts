@@ -53,3 +53,10 @@ export function resolveCanteenIconSrc(
 ): string | null {
   return resolvePublicAssetSrc("canteen-icons", ...keys);
 }
+
+/** Public URL for a takeout launcher icon (shared icons folder). */
+export function resolveTakeoutIconSrc(
+  ...keys: Array<string | null | undefined>
+): string | null {
+  return resolvePublicAssetSrc("canteen-icons", ...keys);
+}

@@ -35,3 +35,8 @@ export function isPgTooManyConnections(error: unknown): boolean {
 export function isPgSoftFail(error: unknown): boolean {
   return isPgPermissionDenied(error) || isPgTooManyConnections(error);
 }
+
+/** Relation missing (migration not applied yet). */
+export function isPgUndefinedTable(error: unknown): boolean {
+  return walkPgCodes(error).includes("42P01");
+}

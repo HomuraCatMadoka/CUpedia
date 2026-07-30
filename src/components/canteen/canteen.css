@@ -97,6 +97,46 @@
   }
 }
 
+/* Quiet iOS group labels — not slide section titles */
+.canteen-zone .canteen-zone-section {
+  margin-top: 0.15rem;
+}
+
+.canteen-zone .canteen-zone-section--takeout {
+  margin-top: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .canteen-zone .canteen-zone-section--takeout {
+    margin-top: 1.25rem;
+  }
+}
+
+.canteen-zone .canteen-zone-section-header {
+  padding: 0 0.65rem;
+}
+
+.canteen-zone .canteen-zone-section-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  color: var(--canteen-muted);
+}
+
+.canteen-zone .canteen-zone-section .canteen-icon-grid {
+  padding-top: 0.35rem;
+  padding-bottom: 0.85rem;
+}
+
+@media (min-width: 640px) {
+  .canteen-zone .canteen-zone-section .canteen-icon-grid {
+    padding-top: 0.45rem;
+    padding-bottom: 1.1rem;
+  }
+}
+
 .canteen-zone .canteen-icon-link {
   display: flex;
   flex-direction: column;

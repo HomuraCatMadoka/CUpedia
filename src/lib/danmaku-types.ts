@@ -57,6 +57,18 @@ export function messagesForFlyover<T>(items: T[]): T[] {
   return items.slice(-DANMAKU_FLY_MAX);
 }
 
+/** Fisher–Yates copy — used so each page load can schedule bullets in a fresh order. */
+export function shuffleArray<T>(items: readonly T[]): T[] {
+  const next = items.slice();
+  for (let i = next.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = next[i]!;
+    next[i] = next[j]!;
+    next[j] = tmp;
+  }
+  return next;
+}
+
 /** Round-robin helper kept for unit tests of even spreading. */
 export function distributeDanmakuToTracks<T>(
   items: T[],
