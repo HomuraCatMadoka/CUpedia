@@ -17,6 +17,7 @@ import { listCurrentMonthCanteenDanmaku } from "@/lib/danmaku-actions";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { isPgPermissionDenied, isPgSoftFail } from "@/lib/pg-errors";
+import { messagesForFlyover, shuffleArray } from "@/lib/danmaku-types";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +84,7 @@ export default async function CanteenMenuPage({
   const currentUserId =
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
   const commentBlocked = sessionUser?.banned ? ("banned" as const) : null;
+  const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
 
   return (
     <CanteenShell
@@ -101,6 +103,7 @@ export default async function CanteenMenuPage({
       <div className="mb-3 sm:mb-8">
         <DanmakuBanner
           initialMessages={danmaku}
+          initialFlyMessages={danmakuFly}
           viewer={danmakuViewer}
           title={`${canteen.name}本月弹幕`}
           apiPath={`/api/canteen/${id}/danmaku`}

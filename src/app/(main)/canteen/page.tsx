@@ -15,6 +15,7 @@ import { getOptionalUser } from "@/lib/auth-guard";
 import { listCurrentMonthDanmaku } from "@/lib/danmaku-actions";
 import { isPgSoftFail, isPgUndefinedTable } from "@/lib/pg-errors";
 import type { Canteen } from "@/lib/canteen-types";
+import { messagesForFlyover, shuffleArray } from "@/lib/danmaku-types";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +123,7 @@ export default async function CanteenBrowsePage() {
         }),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
   ]);
+  const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
 
   return (
     <CanteenShell
@@ -135,6 +137,7 @@ export default async function CanteenBrowsePage() {
       <div className="-mx-1 mb-3 sm:-mx-2 sm:mb-8">
         <DanmakuBanner
           initialMessages={danmaku}
+          initialFlyMessages={danmakuFly}
           viewer={danmakuViewer}
           title="本月弹幕"
           trackCount={3}
