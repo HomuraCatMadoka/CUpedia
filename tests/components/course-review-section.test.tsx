@@ -585,7 +585,7 @@ describe("CourseReviewSection", () => {
     ).toEqual(["gold", "silver", "bronze"]);
   });
 
-  it("顶层测评保持原有头像身份 UI", () => {
+  it("顶层测评的头像大小不受称号影响", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
@@ -625,7 +625,7 @@ describe("CourseReviewSection", () => {
     ).toContain("size-20");
     expect(
       untitledCard?.querySelector('[data-slot="avatar"]')?.className,
-    ).toContain("size-11");
+    ).toContain("size-20");
   });
 
   it("顶层测评保持原有卡片结构", () => {
