@@ -720,9 +720,9 @@ describe("CourseReviewSection", () => {
     expect(replies.querySelector('[data-slot="avatar"]')).toBeNull();
     expect(within(replies).queryByRole("img")).toBeNull();
     expect(
-      within(replies)
-        .getByRole("link", { name: "郭同学" })
-        .getAttribute("href"),
+      (
+        await within(replies).findByRole("link", { name: "郭同学" })
+      ).getAttribute("href"),
     ).toBe(
       "/courses/achievements/showcase/00000000-0000-4000-a000-000000000104",
     );
