@@ -170,7 +170,15 @@ export function DanmakuBanner({
           createdAt: new Date(created.createdAt),
         };
         setMessages((prev) => [...prev, publicMessage]);
-        setFlyItems((prev) => messagesForFlyover([...prev, publicMessage]));
+        // Prepend so the scheduler places it at start≈0, then remount the
+        // cycle so it begins flying immediately instead of waiting in queue.
+        setFlyItems((prev) =>
+          messagesForFlyover([
+            publicMessage,
+            ...prev.filter((m) => m.id !== publicMessage.id),
+          ]),
+        );
+        setEpoch((value) => value + 1);
         setContent("");
       } catch {
         setError("发送失败，请重试。");
