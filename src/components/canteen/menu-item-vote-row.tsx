@@ -8,7 +8,6 @@ import type {
   VoteChoice,
 } from "@/lib/canteen-types";
 import { DishVoteButtons } from "./dish-vote-buttons";
-import { MealPeriodsBadges } from "./meal-period-badge";
 import { MenuItemPrice } from "./menu-item-price";
 import { useDishVote } from "./use-dish-vote";
 import { cn } from "@/lib/utils";
@@ -23,7 +22,6 @@ type MenuItemVoteRowProps = {
     nextVote: VoteChoice,
   ) => void;
   initialCommentCount?: number;
-  showPeriodBadge?: boolean;
   onOpenDetails: (item: CanteenMenuItem) => void;
 };
 
@@ -33,7 +31,6 @@ export const MenuItemVoteRow = memo(function MenuItemVoteRow({
   myVote,
   onVoteChange,
   initialCommentCount = 0,
-  showPeriodBadge = true,
   onOpenDetails,
 }: MenuItemVoteRowProps) {
   const { error, pending, handleVote } = useDishVote(
@@ -41,10 +38,6 @@ export const MenuItemVoteRow = memo(function MenuItemVoteRow({
     myVote,
     onVoteChange,
   );
-  const showSpecialPeriod =
-    showPeriodBadge &&
-    (item.mealPeriods.includes("allday") || item.mealPeriods.length > 1);
-
   return (
     <li
       id={`canteen-menu-item-${item.id}`}
@@ -78,12 +71,6 @@ export const MenuItemVoteRow = memo(function MenuItemVoteRow({
               />
             </span>
           </span>
-          {showSpecialPeriod ? (
-            <MealPeriodsBadges
-              periods={item.mealPeriods}
-              className="mt-0.5 sm:mt-1"
-            />
-          ) : null}
           <span className="sr-only">打开详情</span>
         </button>
         {error ? (

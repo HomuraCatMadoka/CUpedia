@@ -118,7 +118,6 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
   period,
   view,
   menuDataByPeriod,
-  showPeriodBadge,
   liveVoteCounts,
   liveMyVotes,
   commentCounts,
@@ -128,7 +127,6 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
   period: MealPeriod;
   view: CanteenViewMode;
   menuDataByPeriod: MenuDataByPeriod;
-  showPeriodBadge: boolean;
   liveVoteCounts: Record<string, MenuItemVoteCounts>;
   liveMyVotes: Record<string, VoteChoice>;
   commentCounts: Record<string, number>;
@@ -215,7 +213,6 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
                   myVote={liveMyVotes[item.id] ?? null}
                   onVoteChange={onVoteChange}
                   initialCommentCount={commentCounts[item.id] ?? 0}
-                  showPeriodBadge={showPeriodBadge}
                   onOpenDetails={onOpenDetails}
                 />
               ))}
@@ -405,7 +402,6 @@ export function CanteenMenuView({
 }: CanteenMenuViewProps) {
   const servedPeriods = useMemo(() => availableMealPeriods(items), [items]);
   const servedPeriodsKey = servedPeriods.join(",");
-  const showPeriodBadge = servedPeriods.length > 1;
   const [period, setPeriod] = useState<MealPeriod>("lunch");
   const [expandedPeriod, setExpandedPeriod] = useState<MealPeriod | null>(
     "lunch",
@@ -807,7 +803,6 @@ export function CanteenMenuView({
               period={period}
               view={view}
               menuDataByPeriod={menuDataByPeriod}
-              showPeriodBadge={showPeriodBadge}
               liveVoteCounts={liveVoteCounts}
               liveMyVotes={liveMyVotes}
               commentCounts={liveCommentCounts}

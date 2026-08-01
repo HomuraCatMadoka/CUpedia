@@ -24,7 +24,7 @@
   --canteen-fill: rgba(120, 120, 128, 0.12);
   --canteen-fill-strong: rgba(120, 120, 128, 0.2);
   --canteen-toolbar-height: 2.75rem;
-  --canteen-section-title-height: 1.875rem;
+  --canteen-section-title-height: 2.75rem;
 
   font-family:
     var(--font-canteen-body),
@@ -919,21 +919,28 @@
 
 .canteen-zone .canteen-menu-section-title {
   display: flex;
-  min-height: 2rem;
+  min-height: var(--canteen-section-title-height);
   scroll-margin-top: calc(var(--navbar-height) + var(--canteen-toolbar-height));
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   border-bottom: 1px solid var(--canteen-divider);
-  padding: 0 0.25rem 0.35rem;
+  padding: 0 0.75rem;
   color: var(--canteen-ink);
-  font-size: 0.8125rem;
-  line-height: 1.125rem;
-  font-weight: 600;
+  font-size: 0.9375rem;
+  line-height: 1.25rem;
+  font-weight: 650;
   letter-spacing: 0;
   background: #fff;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+}
+
+.canteen-zone
+  .canteen-menu-section
+  + .canteen-menu-section
+  .canteen-menu-section-title {
+  border-top: 1px solid var(--canteen-divider);
 }
 
 .canteen-zone .canteen-menu-list {
