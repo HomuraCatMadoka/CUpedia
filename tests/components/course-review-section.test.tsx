@@ -585,7 +585,7 @@ describe("CourseReviewSection", () => {
     ).toEqual(["gold", "silver", "bronze"]);
   });
 
-  it("顶层测评保持原有头像身份 UI", () => {
+  it("顶层测评的头像大小不受称号影响", () => {
     render(
       <CourseReviewSection
         code="MATH1010"
@@ -625,7 +625,7 @@ describe("CourseReviewSection", () => {
     ).toContain("size-20");
     expect(
       untitledCard?.querySelector('[data-slot="avatar"]')?.className,
-    ).toContain("size-11");
+    ).toContain("size-20");
   });
 
   it("顶层测评保持原有卡片结构", () => {
@@ -720,9 +720,9 @@ describe("CourseReviewSection", () => {
     expect(replies.querySelector('[data-slot="avatar"]')).toBeNull();
     expect(within(replies).queryByRole("img")).toBeNull();
     expect(
-      within(replies)
-        .getByRole("link", { name: "郭同学" })
-        .getAttribute("href"),
+      (
+        await within(replies).findByRole("link", { name: "郭同学" })
+      ).getAttribute("href"),
     ).toBe(
       "/courses/achievements/showcase/00000000-0000-4000-a000-000000000104",
     );

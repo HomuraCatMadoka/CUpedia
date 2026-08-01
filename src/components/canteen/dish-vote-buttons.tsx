@@ -20,7 +20,7 @@ export function DishVoteButtons({
   return (
     <div
       className={cn(
-        "flex w-full shrink-0 items-center justify-end gap-2 sm:ml-auto sm:w-auto",
+        "canteen-vote-group flex w-full shrink-0 items-center justify-end sm:ml-auto sm:w-auto",
         className,
       )}
       role="group"
@@ -42,7 +42,7 @@ export function DishVoteButtons({
           strokeWidth={myVote === "like" ? 2.4 : 2}
           aria-hidden
         />
-        <span className="font-mono tabular-nums">{counts.likes}</span>
+        <span className="tabular-nums">{counts.likes}</span>
       </button>
       <button
         type="button"
@@ -60,7 +60,7 @@ export function DishVoteButtons({
           strokeWidth={myVote === "dislike" ? 2.4 : 2}
           aria-hidden
         />
-        <span className="font-mono tabular-nums">{counts.dislikes}</span>
+        <span className="tabular-nums">{counts.dislikes}</span>
       </button>
     </div>
   );

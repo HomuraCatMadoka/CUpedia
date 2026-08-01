@@ -32,6 +32,40 @@ import { getCanteenShameVoteEndDate } from "@/lib/site-settings";
 
 type VoterIdentity = { userId: string } | { anonymousSessionId: string };
 
+export type ShameVoteErrorCode =
+  | "ANON_SESSION_REQUIRED"
+  | "USER_BANNED"
+  | "RATE_LIMIT_EXCEEDED"
+  | "DAILY_LIMIT_EXCEEDED"
+  | "SHAME_VOTING_CLOSED"
+  | "CANTEEN_NOT_FOUND";
+
+export type ShameVoteResult =
+  | {
+      ok: true;
+      canteenId: string;
+      voteDate: string;
+    }
+  | {
+      ok: false;
+      code: ShameVoteErrorCode;
+    };
+
+function expectedShameVoteError(error: unknown): ShameVoteErrorCode | null {
+  if (!(error instanceof Error)) return null;
+  switch (error.message) {
+    case "ANON_SESSION_REQUIRED":
+    case "USER_BANNED":
+    case "RATE_LIMIT_EXCEEDED":
+    case "DAILY_LIMIT_EXCEEDED":
+    case "SHAME_VOTING_CLOSED":
+    case "CANTEEN_NOT_FOUND":
+      return error.message;
+    default:
+      return null;
+  }
+}
+
 async function readAnonSessionId(): Promise<string | null> {
   const cookieStore = await cookies();
   return parseAnonSessionCookie(
@@ -66,12 +100,6 @@ async function resolveVoterIdentityForWrite(): Promise<VoterIdentity> {
 
   const anonId = (await readAnonSessionId()) ?? (await ensureAnonSession());
   return { anonymousSessionId: anonId };
-}
-
-function rateLimitKey(identity: VoterIdentity): string {
-  return "userId" in identity
-    ? `user:${identity.userId}`
-    : `anon:${identity.anonymousSessionId}`;
 }
 
 async function syncMockVoterFromSession(): Promise<{
@@ -126,9 +154,9 @@ export async function getShameVoteCounts(): Promise<Record<string, number>> {
 }
 
 /** Append one dislike. Never cancels; repeat clicks add more votes. */
-export async function appendShameVote(
+async function appendShameVoteOrThrow(
   canteenId: string,
-): Promise<{ canteenId: string; voteDate: string }> {
+): Promise<ShameVoteResult> {
   const voteDate = hktCalendarDate();
   const [, votingEndDate] = await Promise.all([
     assertCanteenExists(canteenId),
@@ -142,23 +170,21 @@ export async function appendShameVote(
     const sessionUser = await syncMockVoterFromSession();
     if (sessionUser?.banned) throw new Error("USER_BANNED");
     const anonId = sessionUser ? null : mockEnsureAnonSession();
-    const key = mockGetRateLimitKey();
-    if (!key) throw new Error("ANON_SESSION_REQUIRED");
-    if (!checkVoteRateLimit(key)) throw new Error("RATE_LIMIT_EXCEEDED");
-    if (
-      anonId &&
-      mockCountAnonShameVotesForDate(anonId, voteDate) >=
+    if (anonId) {
+      const key = mockGetRateLimitKey();
+      if (!key) throw new Error("ANON_SESSION_REQUIRED");
+      if (!checkVoteRateLimit(key)) throw new Error("RATE_LIMIT_EXCEEDED");
+      if (
+        mockCountAnonShameVotesForDate(anonId, voteDate) >=
         getAnonShameDailyLimit()
-    ) {
-      throw new Error("DAILY_LIMIT_EXCEEDED");
+      ) {
+        throw new Error("DAILY_LIMIT_EXCEEDED");
+      }
     }
-    return mockAppendShameVote(canteenId, voteDate);
+    return { ok: true, ...mockAppendShameVote(canteenId, voteDate) };
   }
 
   const identity = await resolveVoterIdentityForWrite();
-  if (!checkVoteRateLimit(rateLimitKey(identity))) {
-    throw new Error("RATE_LIMIT_EXCEEDED");
-  }
   if ("userId" in identity) {
     await db.insert(canteenShameVotes).values({
       canteenId,
@@ -167,6 +193,9 @@ export async function appendShameVote(
       anonymousSessionId: null,
     });
   } else {
+    if (!checkVoteRateLimit(`anon:${identity.anonymousSessionId}`)) {
+      throw new Error("RATE_LIMIT_EXCEEDED");
+    }
     await appendAnonymousShameVote({
       canteenId,
       anonymousSessionId: identity.anonymousSessionId,
@@ -175,5 +204,17 @@ export async function appendShameVote(
     });
   }
 
-  return { canteenId, voteDate };
+  return { ok: true, canteenId, voteDate };
+}
+
+export async function appendShameVote(
+  canteenId: string,
+): Promise<ShameVoteResult> {
+  try {
+    return await appendShameVoteOrThrow(canteenId);
+  } catch (error) {
+    const code = expectedShameVoteError(error);
+    if (code) return { ok: false, code };
+    throw error;
+  }
 }

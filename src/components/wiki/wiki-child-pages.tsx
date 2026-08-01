@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileTextIcon } from "lucide-react";
 
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
@@ -20,7 +21,13 @@ export function WikiChildPages({ pages }: { pages: ChildPage[] }) {
               href={`/wiki/${page.id}`}
               className="inline-flex items-center gap-2 underline underline-offset-4"
             >
-              {page.icon && <span aria-hidden="true">{page.icon}</span>}
+              <span
+                aria-hidden="true"
+                data-testid="wiki-child-page-icon"
+                className="inline-flex size-4 items-center justify-center"
+              >
+                {page.icon ?? <FileTextIcon className="size-4" />}
+              </span>
               {getWikiDisplayTitle(page.title)}
             </Link>
           </li>

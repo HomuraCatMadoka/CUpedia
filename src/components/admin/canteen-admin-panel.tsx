@@ -209,11 +209,11 @@ export function CanteenAdminPanel({
           <p className="text-[var(--canteen-muted)]">暂无食堂，请在上方添加</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="canteen-icon-grid sm:!grid-cols-2 md:!grid-cols-3">
           {canteens.map((canteen, i) => (
             <div key={canteen.id} className={`canteen-fade-in ${i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}`}>
               <CanteenCard canteen={canteen} href={`${basePath}/${canteen.id}`} />
-              <div className="mt-2 flex justify-end gap-2 px-1">
+              <div className="mt-2 flex flex-wrap justify-center gap-2 px-1">
                 <Link
                   href={`${basePath}/${canteen.id}`}
                   className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-full")}

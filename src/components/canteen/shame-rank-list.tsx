@@ -8,7 +8,10 @@ import {
   rankShameCanteens,
   type ShameRankEntry,
 } from "@/lib/canteen-shame-rank";
-import { appendShameVote } from "@/lib/canteen-shame-actions";
+import {
+  appendShameVote,
+  type ShameVoteErrorCode,
+} from "@/lib/canteen-shame-actions";
 import {
   usePinnedWindowScroll,
   useRestorePinnedWindowScrollOnMount,
@@ -16,11 +19,11 @@ import {
 } from "@/lib/pin-window-scroll";
 import { cn } from "@/lib/utils";
 
-function shameErrorMessage(code: string): string {
+function shameErrorMessage(code: ShameVoteErrorCode | "VOTE_FAILED"): string {
   if (code === "ANON_SESSION_REQUIRED") return "投票需允许 Cookie";
   if (code === "USER_BANNED") return "账号已封禁，无法投票";
-  if (code === "RATE_LIMIT_EXCEEDED") return "操作太频繁，请稍后再试";
-  if (code === "DAILY_LIMIT_EXCEEDED") return "今日投票已达上限";
+  if (code === "RATE_LIMIT_EXCEEDED") return "匿名投票太频繁，请稍后再试";
+  if (code === "DAILY_LIMIT_EXCEEDED") return "匿名投票已达上限，登录后可继续";
   if (code === "SHAME_VOTING_CLOSED") return "投票已截止";
   if (code === "CANTEEN_NOT_FOUND") return "食堂不存在";
   return "投票失败，请重试";
@@ -43,11 +46,16 @@ function rankMovement(
   return "－";
 }
 
+type ShameVoteFailure = {
+  count: number;
+  code: ShameVoteErrorCode | "VOTE_FAILED";
+};
+
 export function ShameRankEntryLink() {
   return (
     <Link
       href="/canteen/shit-rank"
-      className="canteen-shame-entry inline-flex items-center border border-[var(--canteen-line)] bg-[var(--canteen-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--canteen-ink)] transition-colors hover:border-[var(--canteen-evening)]/50 hover:bg-[var(--canteen-evening)]/8 sm:px-3 sm:py-2 sm:text-sm"
+      className="canteen-shame-entry inline-flex items-center rounded-full border border-[var(--canteen-line)] bg-[var(--canteen-tray)] px-3 py-1.5 text-xs font-semibold tracking-tight text-[var(--canteen-ink)] transition-colors hover:bg-[var(--canteen-fill-strong)] sm:px-3.5 sm:py-2 sm:text-sm"
     >
       💩堂榜
     </Link>
@@ -59,39 +67,18 @@ function ShameRankRow({
   entry,
   context,
   onStomp,
+  pendingCount,
+  failure,
   disabled,
 }: {
   rank: number | null;
   entry: ShameRankEntry;
   context: React.ReactNode;
   onStomp: (canteenId: string) => Promise<void>;
+  pendingCount: number;
+  failure: ShameVoteFailure | null;
   disabled: boolean;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [feedbackKey, setFeedbackKey] = useState(0);
-  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    },
-    [],
-  );
-
-  async function handleStomp() {
-    if (disabled) return;
-    setError(null);
-    setFeedbackKey((value) => value + 1);
-    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
-    feedbackTimer.current = setTimeout(() => setFeedbackKey(0), 500);
-    try {
-      await onStomp(entry.canteen.id);
-    } catch (err) {
-      const code = err instanceof Error ? err.message : "VOTE_FAILED";
-      setError(shameErrorMessage(code));
-    }
-  }
-
   return (
     <li
       className={cn(
@@ -125,45 +112,54 @@ function ShameRankRow({
         type="button"
         aria-label={`投 💩 给 ${entry.canteen.name}`}
         onClick={() => {
-          void handleStomp();
+          if (!disabled) void onStomp(entry.canteen.id);
         }}
         disabled={disabled}
         className={cn(
           "canteen-shame-vote relative inline-flex min-h-12 min-w-[4.75rem] touch-manipulation flex-col items-center justify-center overflow-visible rounded-xl border border-[#d8b7a3] bg-[#f7ece5] px-3 py-1 text-[#623d2a] transition-[background-color,border-color,color,transform] hover:border-[#b98261] hover:bg-[#efdacd] active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7a452d] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-[#d7d9dc] disabled:bg-[#eef0f2] disabled:text-[#8a8d91] disabled:opacity-100 sm:min-w-[5.5rem]",
-          feedbackKey > 0 && "border-[#7a452d] bg-[#7a452d] text-white",
+          pendingCount > 0 && "border-[#7a452d] bg-[#7a452d] text-white",
         )}
       >
         <span className="flex items-center gap-1 text-[0.7rem] font-semibold leading-none">
           投
           <span
-            key={`poop-${feedbackKey}`}
-            className={cn(feedbackKey > 0 && "canteen-shame-poop-hit")}
+            className={cn(pendingCount > 0 && "canteen-shame-poop-hit")}
             aria-hidden
           >
             💩
           </span>
         </span>
-        <span className="mt-1 font-mono text-sm font-semibold tabular-nums">
+        <span
+          className="mt-1 font-mono text-sm font-semibold tabular-nums"
+          data-testid="shame-vote-count"
+        >
           {entry.dislikes}
         </span>
-        {feedbackKey > 0 ? (
+        {pendingCount > 0 ? (
           <span
-            key={feedbackKey}
             className="canteen-shame-feedback pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 font-sans text-xs font-semibold text-[#7a452d]"
             aria-hidden
           >
-            +{feedbackKey}
+            +{pendingCount}
           </span>
         ) : null}
       </button>
-      {error ? (
-        <p
-          className="col-span-2 col-start-2 text-xs text-destructive sm:col-span-3"
-          role="alert"
-        >
-          {error}
+      <div
+        className={cn(
+          "col-span-2 col-start-2 flex flex-wrap gap-x-3 gap-y-1 text-xs sm:col-span-3",
+          pendingCount === 0 && !failure && "hidden",
+        )}
+      >
+        <p className="text-[#74777c]" role="status">
+          {pendingCount > 0 ? `${pendingCount} 票提交中` : ""}
         </p>
-      ) : null}
+        {failure ? (
+          <p className="text-destructive" role="alert">
+            {failure.count} 票未计入；最近原因：
+            {shameErrorMessage(failure.code)}
+          </p>
+        ) : null}
+      </div>
     </li>
   );
 }
@@ -194,6 +190,13 @@ export function ShameRankList({
     useState(initialTodayCounts);
   const [rankingAllTimeCounts, setRankingAllTimeCounts] =
     useState(initialAllTimeCounts);
+  const [pendingCounts, setPendingCounts] = useState<Record<string, number>>(
+    {},
+  );
+  const pendingCountsRef = useRef<Record<string, number>>({});
+  const [failures, setFailures] = useState<
+    Record<string, ShameVoteFailure | undefined>
+  >({});
   const todayCountsRef = useRef(todayCounts);
   const allTimeCountsRef = useRef(allTimeCounts);
   const rankingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -255,39 +258,76 @@ export function ShameRankList({
     }, 650);
   }
 
-  async function onStomp(canteenId: string) {
-    const scrollPin = pin();
-    setTodayCounts((prev) => ({
-      ...prev,
-      [canteenId]: (prev[canteenId] ?? 0) + 1,
+  async function onStomp(canteenId: string): Promise<void> {
+    const currentPending = pendingCountsRef.current[canteenId] ?? 0;
+    const nextPending = currentPending + 1;
+    pendingCountsRef.current = {
+      ...pendingCountsRef.current,
+      [canteenId]: nextPending,
+    };
+    setPendingCounts((previous) => ({
+      ...previous,
+      [canteenId]: nextPending,
     }));
-    setAllTimeCounts((prev) => ({
-      ...prev,
-      [canteenId]: (prev[canteenId] ?? 0) + 1,
-    }));
-    scheduleRankingUpdate();
+    if (currentPending === 0) {
+      setFailures((previous) => ({
+        ...previous,
+        [canteenId]: undefined,
+      }));
+    }
+
     try {
       const result = await appendShameVote(canteenId);
-      if (result.voteDate !== voteDate) {
-        setTodayCounts((prev) => ({
-          ...prev,
-          [canteenId]: Math.max(0, (prev[canteenId] ?? 0) - 1),
+      if (!result.ok) {
+        setFailures((previous) => ({
+          ...previous,
+          [canteenId]: {
+            count: (previous[canteenId]?.count ?? 0) + 1,
+            code: result.code,
+          },
         }));
-        router.refresh();
+        return;
       }
-    } catch (err) {
-      setTodayCounts((prev) => ({
-        ...prev,
-        [canteenId]: Math.max(0, (prev[canteenId] ?? 0) - 1),
+
+      const scrollPin = pin();
+      setAllTimeCounts((previous) => ({
+        ...previous,
+        [canteenId]: (previous[canteenId] ?? 0) + 1,
       }));
-      setAllTimeCounts((prev) => ({
-        ...prev,
-        [canteenId]: Math.max(0, (prev[canteenId] ?? 0) - 1),
+      try {
+        if (result.voteDate === voteDate) {
+          setTodayCounts((previous) => ({
+            ...previous,
+            [canteenId]: (previous[canteenId] ?? 0) + 1,
+          }));
+        } else {
+          router.refresh();
+        }
+        scheduleRankingUpdate();
+      } finally {
+        release(scrollPin);
+      }
+    } catch {
+      setFailures((previous) => ({
+        ...previous,
+        [canteenId]: {
+          count: (previous[canteenId]?.count ?? 0) + 1,
+          code: "VOTE_FAILED",
+        },
       }));
-      scheduleRankingUpdate();
-      throw err;
     } finally {
-      release(scrollPin);
+      const remaining = Math.max(
+        0,
+        (pendingCountsRef.current[canteenId] ?? 1) - 1,
+      );
+      pendingCountsRef.current = {
+        ...pendingCountsRef.current,
+        [canteenId]: remaining,
+      };
+      setPendingCounts((previous) => ({
+        ...previous,
+        [canteenId]: remaining,
+      }));
     }
   }
 
@@ -365,6 +405,8 @@ export function ShameRankList({
                     entry={entry}
                     context={context}
                     onStomp={onStomp}
+                    pendingCount={pendingCounts[entry.canteen.id] ?? 0}
+                    failure={failures[entry.canteen.id] ?? null}
                     disabled={!votingOpen}
                   />
                 );
@@ -389,6 +431,8 @@ export function ShameRankList({
                     entry={entry}
                     context="—"
                     onStomp={onStomp}
+                    pendingCount={pendingCounts[entry.canteen.id] ?? 0}
+                    failure={failures[entry.canteen.id] ?? null}
                     disabled={!votingOpen}
                   />
                 ))}

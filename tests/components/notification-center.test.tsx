@@ -140,7 +140,9 @@ describe("NotificationCenter", () => {
     );
 
     await waitFor(() => expect(markAll).toHaveBeenCalledOnce());
-    expect(screen.queryByTestId("notification-badge")).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByTestId("notification-badge")).toBeNull(),
+    );
     expect(screen.queryByText("全部通知已标为已读")).toBeNull();
   });
 
