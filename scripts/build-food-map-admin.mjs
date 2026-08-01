@@ -1,0 +1,193 @@
+/**
+ * 一次性数据管道：从 OSM 香港 18 区行政边界（admin_level=6 relations）
+ * 生成 hk-geometry.ts。取代 GeoAtlas 版（其海岸归属与内陆边界均有错误）。
+ *
+ * 数据获取：
+ *   curl -X POST https://overpass-api.de/api/interpreter \
+ *     --data 'data=[out:json];relation["boundary"="administrative"]["admin_level"="6"](22.1,113.8,22.65,114.5);out geom;'
+ *
+ * 用法：node scripts/build-food-map-admin.mjs <admin.json> <out.ts>
+ */
+import { readFileSync, writeFileSync } from "node:fs";
+
+const [inputPath, outputPath] = process.argv.slice(2);
+if (!inputPath || !outputPath) {
+  console.error("usage: node scripts/build-food-map-admin.mjs <in.json> <out.ts>");
+  process.exit(1);
+}
+
+// 投影参数（与 geo-projection.ts 一致）
+const LNG0 = 114.05;
+const LAT_TOP = 22.56;
+const K = 1991;
+const COS = Math.cos((22.4 * Math.PI) / 180);
+const project = ([lng, lat]) => [
+  Math.round((lng - LNG0) * COS * K * 2) / 2,
+  Math.round((LAT_TOP - lat) * K * 2) / 2,
+];
+
+const DISTRICT_IDS = new Map([
+  ["中西區", "cw"],
+  ["灣仔區", "wc"],
+  ["東區", "ed"],
+  ["南區", "sd"],
+  ["油尖旺區", "ytm"],
+  ["深水埗區", "ssp"],
+  ["九龍城區", "ktc"],
+  ["黃大仙區", "wts"],
+  ["觀塘區", "kt"],
+  ["葵青區", "kc"],
+  ["荃灣區", "tw"],
+  ["屯門區", "tm"],
+  ["元朗區", "yl"],
+  ["北區", "nc"],
+  ["大埔區", "tp"],
+  ["沙田區", "st"],
+  ["西貢區", "sk"],
+  ["離島區", "is"],
+]);
+
+const data = JSON.parse(readFileSync(inputPath, "utf8"));
+const relations = data.elements.filter((e) => e.type === "relation");
+
+const nameOf = (relation) =>
+  relation.tags?.["name:zh-Hant"] ?? relation.tags?.["name:zh"] ?? relation.tags?.name;
+
+/** 把 role 相同的 way 成员按共享端点接成环（outer/inner 各自处理）。 */
+function assembleRings(members) {
+  const chains = members.map((m) => ({
+    nodes: m.geometry.map((g) => `${g.lon},${g.lat}`),
+    coords: m.geometry.map((g) => [g.lon, g.lat]),
+  }));
+  let merged = true;
+  while (merged) {
+    merged = false;
+    outer: for (let i = 0; i < chains.length; i += 1) {
+      for (let j = i + 1; j < chains.length; j += 1) {
+        const a = chains[i];
+        const b = chains[j];
+        const tryJoin = () => {
+          if (a.nodes[a.nodes.length - 1] === b.nodes[0]) {
+            a.nodes.push(...b.nodes.slice(1));
+            a.coords.push(...b.coords.slice(1));
+            return true;
+          }
+          if (a.nodes[a.nodes.length - 1] === b.nodes[b.nodes.length - 1]) {
+            a.nodes.push(...b.nodes.reverse().slice(1));
+            a.coords.push(...b.coords.reverse().slice(1));
+            return true;
+          }
+          if (a.nodes[0] === b.nodes[b.nodes.length - 1]) {
+            a.nodes.unshift(...b.nodes.slice(0, -1));
+            a.coords.unshift(...b.coords.slice(0, -1));
+            return true;
+          }
+          if (a.nodes[0] === b.nodes[0]) {
+            a.nodes.unshift(...b.nodes.reverse().slice(0, -1));
+            a.coords.unshift(...b.coords.reverse().slice(0, -1));
+            return true;
+          }
+          return false;
+        };
+        if (tryJoin()) {
+          chains.splice(j, 1);
+          merged = true;
+          continue outer;
+        }
+      }
+    }
+  }
+  return chains
+    .filter((c) => c.nodes[0] === c.nodes[c.nodes.length - 1])
+    .map((c) => c.coords);
+}
+
+function ringCentroid(rings) {
+  // 最大环的顶点均值（近似质心，够用做区名锚点）
+  const largest = rings.reduce((a, b) => (b.length > a.length ? b : a));
+  const n = largest.length;
+  return [
+    largest.reduce((s, c) => s + c[0], 0) / n,
+    largest.reduce((s, c) => s + c[1], 0) / n,
+  ];
+}
+
+const districts = [];
+for (const relation of relations) {
+  const name = nameOf(relation);
+  const id = name ? DISTRICT_IDS.get(name) : undefined;
+  if (!id) continue;
+  const outerMembers = relation.members.filter(
+    (m) => m.type === "way" && (m.role === "outer" || m.role === ""),
+  );
+  const innerMembers = relation.members.filter(
+    (m) => m.type === "way" && m.role === "inner",
+  );
+  const outers = assembleRings(outerMembers);
+  const inners = assembleRings(innerMembers);
+  if (outers.length === 0) {
+    console.error(`no outer rings for ${name}`);
+    process.exit(1);
+  }
+  districts.push({ id, name, outers, inners });
+}
+
+if (districts.length !== 18) {
+  console.error(`expected 18 districts, got ${districts.length}`);
+  console.error("found:", districts.map((d) => d.name).join("、"));
+  process.exit(1);
+}
+
+function ringToPath(ring) {
+  const pts = [];
+  for (const coord of ring) {
+    const p = project(coord);
+    const last = pts[pts.length - 1];
+    if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < 1) continue;
+    pts.push(p);
+  }
+  if (pts.length < 3) return "";
+  return "M" + pts.map((p) => `${p[0]} ${p[1]}`).join("L") + "Z";
+}
+
+const output = districts.map((district) => {
+  const [clng, clat] = ringCentroid(district.outers);
+  const [cx, cy] = project([clng, clat]);
+  return {
+    id: district.id,
+    name: district.name,
+    centroid: { x: cx, y: cy },
+    path:
+      district.outers.map(ringToPath).join("") +
+      district.inners.map(ringToPath).join(""),
+  };
+});
+
+const ts = `/**
+ * GENERATED by scripts/build-food-map-admin.mjs — 请勿手改。
+ * 来源：OpenStreetMap admin_level=6 区议会分区边界（© OpenStreetMap contributors, ODbL），
+ * 已投影到通勤食图画布。path 采用 evenodd 规则（飞地/镂空为反向子路径）。
+ */
+
+export interface HkDistrictGeometry {
+  id: string;
+  name: string;
+  centroid: { x: number; y: number };
+  path: string;
+}
+
+export const HK_CANVAS = { x: 0, y: 0, width: 460, height: 637 } as const;
+
+export const HK_DISTRICT_GEOMETRY: readonly HkDistrictGeometry[] = ${JSON.stringify(output, null, 2)};
+`;
+writeFileSync(outputPath, ts);
+console.log(
+  `wrote ${outputPath}: ${output.length} districts, ${ts.length} bytes`,
+);
+console.log(
+  "exclaves:",
+  districts
+    .filter((d) => d.outers.length > 1)
+    .map((d) => `${d.name}(${d.outers.length}块)`)
+    .join("、"),
+);

@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import {
   FOOD_MAP_BUDGETS,
@@ -12,9 +18,33 @@ import {
   getRestaurantsForStation,
   type FoodMapBudget,
   type MtrLineId,
+  type MtrSegment,
   type MtrStation,
   type MtrStationId,
 } from "@/lib/food-map/data";
+import {
+  getHkDistrict,
+  HK_DISTRICTS,
+  type HkDistrictId,
+} from "@/lib/food-map/districts";
+import { projectLngLat } from "@/lib/food-map/geo-projection";
+import {
+  HK_CANVAS,
+  HK_DISTRICT_GEOMETRY,
+} from "@/lib/food-map/hk-geometry";
+import {
+  HK_CONTINENT_LAND_PATH,
+  HK_ISLAND_LAND_PATH,
+  HK_LAND_PATHS,
+  HK_MAINLAND_LAND_PATHS,
+} from "@/lib/food-map/hk-land";
+import {
+  HK_SHAMCHUN_COVER_PATHS,
+  HK_SHENZHEN_BORDER_PATHS,
+  HK_SHENZHEN_LAND_PATHS,
+} from "@/lib/food-map/hk-border";
+import { HK_RIVER_LINE_PATHS } from "@/lib/food-map/hk-rivers";
+import { AREA_ANCHORS, DISTRICT_LABEL_ANCHORS } from "@/lib/food-map/station-geo";
 import {
   FOOD_MAP_CHECKINS_STORAGE_KEY,
   emptyFoodMapCheckinStore,
@@ -68,58 +98,41 @@ function routeSummary(stationId: MtrStationId) {
   return parts.join("，");
 }
 
-const MAP_VIEWS: Record<
-  FoodMapBudget,
-  {
-    viewBox: string;
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    labelSize: number;
-  }
-> = {
-  10: {
-    viewBox: "100 125 320 330",
-    x: 100,
-    y: 125,
-    width: 320,
-    height: 330,
-    labelSize: 14,
-  },
-  20: {
-    viewBox: "20 40 400 700",
-    x: 20,
-    y: 40,
-    width: 400,
-    height: 700,
-    labelSize: 17,
-  },
-  30: {
-    viewBox: "-20 -20 500 885",
-    x: -20,
-    y: -20,
-    width: 500,
-    height: 885,
-    labelSize: 20,
-  },
-};
-
 const SCOPE_COUNTS: Record<FoodMapBudget, string> = {
   10: "5 个日常目的地 + 马场特别班次",
   20: "15 个日常目的地 + 马场特别班次",
   30: "41 个日常目的地 + 马场特别班次",
 };
 
-const TRANSFER_STUBS: readonly {
-  budget: FoodMapBudget;
-  lineId: MtrLineId;
-  path: string;
-}[] = [
-  { budget: 10, lineId: "TML", path: "M205 415 H255" },
-  { budget: 20, lineId: "KTL", path: "M230 485 H258" },
-  { budget: 20, lineId: "KTL", path: "M332 485 H368" },
-];
+const SEA_COLOR = "#cfe5f0";
+const LAND_COLOR = "#e3e6df";
+const HARBOUR_LABEL = projectLngLat({ lng: 114.183, lat: 22.2895 });
+const SHENZHEN_LABEL = projectLngLat({ lng: 114.1, lat: 22.545 });
+
+/** 全图视野下仍显示站名标签的站点（其余站放大后显示）。 */
+const MAJOR_LABEL_STATIONS: ReadonlySet<MtrStationId> = new Set([
+  "UNI",
+  "RAC",
+  "LOW",
+  "LMC",
+  "MOS",
+  "KOB",
+  "LCK",
+  "JOR",
+  "ADM",
+  "AUS",
+]);
+
+const SHOW_ALL_LABELS_BELOW_WIDTH = 300;
+
+/** 九龙城区片：区界只许落在主大陆环上（不含港内小岛）。 */
+const URBAN_KOWLOON_DISTRICTS: ReadonlySet<string> = new Set([
+  "ssp",
+  "ytm",
+  "ktc",
+  "wts",
+  "kt",
+]);
 
 function CommuteFilter({
   budget,
@@ -183,12 +196,44 @@ function MapLegend() {
   );
 }
 
+function DistrictLegend({
+  stations,
+}: {
+  stations: readonly MtrStation[];
+}) {
+  const visibleDistricts = useMemo(() => {
+    const ids = new Set(stations.map((station) => station.districtId));
+    return HK_DISTRICTS.filter((district) => ids.has(district.id));
+  }, [stations]);
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+      role="group"
+      aria-label="地区图例"
+    >
+      {visibleDistricts.map((district) => (
+        <span key={district.id} className="inline-flex items-center gap-1.5">
+          <span
+            className="h-2.5 w-2.5 rounded-full opacity-60"
+            style={{ backgroundColor: district.color }}
+            aria-hidden="true"
+          />
+          {district.nameZh}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function StationNode({
   station,
   selected,
+  scale,
 }: {
   station: MtrStation;
   selected: boolean;
+  scale: number;
 }) {
   const line = lineById.get(station.lineIds[0] ?? "EAL");
   const interchange = station.lineIds.length > 1;
@@ -199,58 +244,141 @@ function StationNode({
         <circle
           cx={station.position.x}
           cy={station.position.y}
-          r={interchange ? 13 : 11}
+          r={(interchange ? 7.5 : 6.5) * scale}
           fill="none"
           stroke="var(--food-map-cu)"
-          strokeWidth="2.2"
+          strokeWidth="2"
           vectorEffect="non-scaling-stroke"
         />
       ) : null}
       {station.id === ORIGIN_ID ? (
         <>
           <rect
-            x={station.position.x - 10}
-            y={station.position.y - 10}
-            width="20"
-            height="20"
-            rx="5"
+            x={station.position.x - 6 * scale}
+            y={station.position.y - 6 * scale}
+            width={12 * scale}
+            height={12 * scale}
+            rx={3 * scale}
             fill="var(--food-map-cu)"
             stroke="var(--background)"
-            strokeWidth="2.5"
+            strokeWidth="2"
             vectorEffect="non-scaling-stroke"
           />
           <circle
             cx={station.position.x}
             cy={station.position.y}
-            r="3"
+            r={2 * scale}
             fill="var(--food-map-cu-foreground)"
           />
         </>
       ) : station.service === "special-event" ? (
         <rect
-          x={station.position.x - 6}
-          y={station.position.y - 6}
-          width="12"
-          height="12"
+          x={station.position.x - 4 * scale}
+          y={station.position.y - 4 * scale}
+          width={8 * scale}
+          height={8 * scale}
           transform={`rotate(45 ${station.position.x} ${station.position.y})`}
           fill="var(--background)"
           stroke={line?.color}
-          strokeWidth="2.2"
+          strokeWidth="1.8"
           vectorEffect="non-scaling-stroke"
         />
       ) : (
         <circle
           cx={station.position.x}
           cy={station.position.y}
-          r={interchange ? 8 : 5.5}
+          r={(interchange ? 4.5 : 3.2) * scale}
           fill="var(--background)"
           stroke={interchange ? "var(--foreground)" : line?.color}
-          strokeWidth={interchange ? 2.2 : 2}
+          strokeWidth={interchange ? 1.8 : 1.5}
           vectorEffect="non-scaling-stroke"
         />
       )}
     </g>
   );
+}
+
+interface MapFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+const FULL_FRAME: MapFrame = {
+  x: HK_CANVAS.x - 10,
+  y: HK_CANVAS.y - 10,
+  width: HK_CANVAS.width + 20,
+  height: HK_CANVAS.height + 20,
+};
+const MAX_ZOOM = 8;
+
+function clampFrame(frame: MapFrame, aspect: number): MapFrame {
+  const width = Math.min(
+    Math.max(frame.width, FULL_FRAME.width / MAX_ZOOM),
+    FULL_FRAME.width,
+  );
+  const height = width / aspect;
+  const maxX = FULL_FRAME.x + FULL_FRAME.width - width;
+  const maxY = FULL_FRAME.y + FULL_FRAME.height - height;
+  const x =
+    maxX < FULL_FRAME.x
+      ? FULL_FRAME.x + (FULL_FRAME.width - width) / 2
+      : Math.min(Math.max(frame.x, FULL_FRAME.x), maxX);
+  const y =
+    maxY < FULL_FRAME.y
+      ? FULL_FRAME.y + (FULL_FRAME.height - height) / 2
+      : Math.min(Math.max(frame.y, FULL_FRAME.y), maxY);
+  return { x, y, width, height };
+}
+
+/** 按可达站投影坐标的 bbox + padding 计算初始取景。 */
+function presetFrameFor(stations: readonly MtrStation[]): MapFrame {
+  const xs = stations.map((station) => station.position.x);
+  const ys = stations.map((station) => station.position.y);
+  const pad = 58;
+  let x = Math.min(...xs) - pad;
+  let y = Math.min(...ys) - pad;
+  let width = Math.max(...xs) - Math.min(...xs) + pad * 2;
+  let height = Math.max(...ys) - Math.min(...ys) + pad * 2;
+  if (width < 190) {
+    x -= (190 - width) / 2;
+    width = 190;
+  }
+  if (height < 190) {
+    y -= (190 - height) / 2;
+    height = 190;
+  }
+  return clampFrame({ x, y, width, height }, width / height);
+}
+
+function frameViewBox(frame: MapFrame) {
+  return `${frame.x} ${frame.y} ${frame.width} ${frame.height}`;
+}
+
+/** 共线区段渲染路径：分离距按 textScale 补偿，任何缩放下保持屏幕恒定（仿港铁官方图）。 */
+const PARALLEL_SCREEN_SEPARATION = 7;
+
+function segmentRenderPath(segment: MtrSegment, scale: number): string {
+  if (!segment.parallel) return segment.path;
+  const from = stationById.get(segment.from);
+  const to = stationById.get(segment.to);
+  if (!from || !to) return segment.path;
+  // 统一按规范化方向算法向，避免两条线行驶方向相反时偏到同一侧
+  const [canonicalFrom, canonicalTo] = [segment.from, segment.to].sort();
+  const a = stationById.get(canonicalFrom as MtrStationId);
+  const b = stationById.get(canonicalTo as MtrStationId);
+  if (!a || !b) return segment.path;
+  const length =
+    Math.hypot(b.position.x - a.position.x, b.position.y - a.position.y) || 1;
+  const offset =
+    (segment.parallel.index - (segment.parallel.count - 1) / 2) *
+    PARALLEL_SCREEN_SEPARATION *
+    scale;
+  const offsetX = (-(b.position.y - a.position.y) / length) * offset;
+  const offsetY = ((b.position.x - a.position.x) / length) * offset;
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  return `M${round1(from.position.x + offsetX)} ${round1(from.position.y + offsetY)} L${round1(to.position.x + offsetX)} ${round1(to.position.y + offsetY)}`;
 }
 
 function MtrSchematic({
@@ -264,11 +392,141 @@ function MtrSchematic({
   onSelectStation: (stationId: MtrStationId) => void;
   onClearSelection: () => void;
 }) {
-  const view = MAP_VIEWS[budget];
   const reachableStations = useMemo(
     () => getReachableStations(budget),
     [budget],
   );
+  const preset = useMemo(
+    () => presetFrameFor(reachableStations),
+    [reachableStations],
+  );
+  const aspect = preset.width / preset.height;
+  const [frame, setFrame] = useState<MapFrame>(() => preset);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const svg = svgRef.current;
+    if (!container || !svg) return;
+    const onWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const px = rect.width ? (event.clientX - rect.left) / rect.width : 0.5;
+      const py = rect.height ? (event.clientY - rect.top) / rect.height : 0.5;
+      const factor = event.deltaY < 0 ? 0.85 : 1 / 0.85;
+      setFrame((prev) => {
+        const width = prev.width * factor;
+        const scale = width / prev.width;
+        const anchorX = prev.x + px * prev.width;
+        const anchorY = prev.y + py * prev.height;
+        return clampFrame(
+          {
+            x: anchorX - (anchorX - prev.x) * scale,
+            y: anchorY - (anchorY - prev.y) * scale,
+            width,
+            height: prev.height * scale,
+          },
+          aspect,
+        );
+      });
+    };
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => container.removeEventListener("wheel", onWheel);
+  }, [aspect]);
+
+  function handlePointerDown(event: ReactPointerEvent<SVGSVGElement>) {
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    const pointers = pointersRef.current;
+    const previous = pointers.get(event.pointerId);
+    if (!previous) return;
+    const rect = svgRef.current?.getBoundingClientRect();
+
+    if (pointers.size === 1) {
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (!rect || !rect.width || !rect.height) return;
+      setFrame((prev) => {
+        const dx = ((event.clientX - previous.x) / rect.width) * prev.width;
+        const dy = ((event.clientY - previous.y) / rect.height) * prev.height;
+        return clampFrame({ ...prev, x: prev.x - dx, y: prev.y - dy }, aspect);
+      });
+      return;
+    }
+
+    if (pointers.size === 2 && rect && rect.width && rect.height) {
+      const [idA, idB] = [...pointers.keys()];
+      const oldA = idA === event.pointerId ? previous : pointers.get(idA)!;
+      const oldB = idB === event.pointerId ? previous : pointers.get(idB)!;
+      const oldDist = Math.hypot(oldA.x - oldB.x, oldA.y - oldB.y);
+      const oldMidX = (oldA.x + oldB.x) / 2;
+      const oldMidY = (oldA.y + oldB.y) / 2;
+
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      const newA = pointers.get(idA)!;
+      const newB = pointers.get(idB)!;
+      const newDist = Math.hypot(newA.x - newB.x, newA.y - newB.y);
+      if (!oldDist || !newDist) return;
+      const newMidX = (newA.x + newB.x) / 2;
+      const newMidY = (newA.y + newB.y) / 2;
+
+      const factor = oldDist / newDist;
+      setFrame((prev) => {
+        const width = prev.width * factor;
+        const scale = width / prev.width;
+        const fx = (oldMidX - rect.left) / rect.width;
+        const fy = (oldMidY - rect.top) / rect.height;
+        const anchorX = prev.x + fx * prev.width;
+        const anchorY = prev.y + fy * prev.height;
+        const panX = ((newMidX - oldMidX) / rect.width) * prev.width;
+        const panY = ((newMidY - oldMidY) / rect.height) * prev.height;
+        return clampFrame(
+          {
+            x: anchorX - (anchorX - prev.x) * scale - panX,
+            y: anchorY - (anchorY - prev.y) * scale - panY,
+            width,
+            height: prev.height * scale,
+          },
+          aspect,
+        );
+      });
+      return;
+    }
+
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  }
+
+  function handlePointerEnd(event: ReactPointerEvent<SVGSVGElement>) {
+    pointersRef.current.delete(event.pointerId);
+  }
+
+  /** 以取景中心为锚点按比例缩放（+/- 按钮用，不依赖手势）。 */
+  function zoomBy(factor: number) {
+    setFrame((prev) => {
+      const width = prev.width * factor;
+      const scale = width / prev.width;
+      const centerX = prev.x + prev.width / 2;
+      const centerY = prev.y + prev.height / 2;
+      return clampFrame(
+        {
+          x: centerX - (centerX - prev.x) * scale,
+          y: centerY - (centerY - prev.y) * scale,
+          width,
+          height: prev.height * scale,
+        },
+        aspect,
+      );
+    });
+  }
+
   const reachableIds = useMemo(
     () => new Set(reachableStations.map((station) => station.id)),
     [reachableStations],
@@ -284,41 +542,304 @@ function MtrSchematic({
       segmentKey(segment.from, segment.to, segment.lineId),
     ) ?? [],
   );
+  const showAllLabels = frame.width <= SHOW_ALL_LABELS_BELOW_WIDTH;
+  const originStation = stationById.get(ORIGIN_ID) ?? MTR_STATIONS[0];
+  // 文字保持恒定屏幕大小：以全图（30 分钟）取景宽度为绝对基准做反向补偿，
+  // 任何 budget、任何缩放级别下文字屏幕尺寸一致
+  const referenceWidth = useMemo(() => presetFrameFor(MTR_STATIONS).width, []);
+  const textScale = frame.width / referenceWidth;
+  const shownLabelStations = reachableStations.filter(
+    (station) =>
+      showAllLabels ||
+      MAJOR_LABEL_STATIONS.has(station.id) ||
+      station.lineIds.length > 1 ||
+      selectedStationId === station.id,
+  );
+  // 统一标签防重叠：站名标签与小地区气泡进入同一优先级队列，
+  // 全图视野用大间距（稀疏），放大后用小间距（全量）
+  interface LabelItem {
+    kind: "station" | "area";
+    x: number;
+    y: number;
+    priority: number;
+    station?: (typeof shownLabelStations)[number];
+    anchor?: { name: string };
+  }
+  const labelItems: LabelItem[] = [
+    ...shownLabelStations.map((station) => ({
+      kind: "station" as const,
+      x:
+        station.position.x +
+        (station.label.x - station.position.x) * textScale,
+      y:
+        station.position.y +
+        (station.label.y - station.position.y) * textScale,
+      priority:
+        (selectedStationId === station.id ? 4 : 0) +
+        (MAJOR_LABEL_STATIONS.has(station.id) ? 2 : 0) +
+        (station.lineIds.length > 1 ? 1 : 0),
+      station,
+    })),
+    ...AREA_ANCHORS.map((anchor) => {
+      const point = projectLngLat(anchor);
+      return { kind: "area" as const, x: point.x, y: point.y, priority: 0, anchor };
+    }),
+  ].sort((a, b) => b.priority - a.priority);
+
+  const labelSpacing = (showAllLabels ? 15 : 26) * textScale;
+  const keptLabels: LabelItem[] = [];
+  for (const item of labelItems) {
+    const collides = keptLabels.some(
+      (kept) => Math.hypot(kept.x - item.x, kept.y - item.y) < labelSpacing,
+    );
+    if (!collides) keptLabels.push(item);
+  }
+  const declutteredStations = keptLabels
+    .filter((item) => item.kind === "station")
+    .map((item) => item.station!);
+  const visibleAreaAnchors = keptLabels
+    .filter((item) => item.kind === "area")
+    .map((item) => ({
+      anchor: item.anchor!,
+      point: { x: item.x, y: item.y },
+    }));
+  const selectedStation = selectedStationId
+    ? (stationById.get(selectedStationId) ?? null)
+    : null;
+  // 全图视野站点密集，触控按钮缩小避免互相遮挡；放大后恢复 44px
+  const hitSize = frame.width > SHOW_ALL_LABELS_BELOW_WIDTH ? 26 : 44;
 
   return (
     <div
-      className="relative mx-auto w-full max-w-[29rem]"
+      ref={containerRef}
+      className="relative mx-auto w-full max-w-[29rem] select-none"
       onDoubleClick={(event) => {
         if ((event.target as Element).closest("[data-station-id]")) return;
         onClearSelection();
       }}
     >
       <svg
-        className="pointer-events-none block h-auto w-full overflow-visible text-foreground"
-        viewBox={view.viewBox}
+        ref={svgRef}
+        className="block h-auto w-full touch-none cursor-grab text-foreground active:cursor-grabbing"
+        viewBox={frameViewBox(frame)}
         role="img"
-        aria-label={`以大学站为中心的港铁通勤图。大学站${budget}分钟内可达的${reachableStations.length}个车站。`}
+        aria-label={`以大学站为中心的港铁通勤图。大学站${budget}分钟内可达的${reachableStations.length}个车站。滚轮或双指缩放，拖拽平移。`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        onPointerCancel={handlePointerEnd}
       >
+        <defs>
+          <clipPath id="hk-land-clip">
+            {HK_LAND_PATHS.map((path, index) => (
+              <path key={index} d={path} />
+            ))}
+          </clipPath>
+          <clipPath id="hk-mainland-clip">
+            {HK_MAINLAND_LAND_PATHS.map((path, index) => (
+              <path key={index} d={path} />
+            ))}
+          </clipPath>
+          <clipPath id="hk-island-clip">
+            <path d={HK_ISLAND_LAND_PATH} />
+          </clipPath>
+          <clipPath id="hk-continent-clip">
+            <path d={HK_CONTINENT_LAND_PATH} />
+          </clipPath>
+          <clipPath id="hk-districts-clip">
+            {HK_DISTRICT_GEOMETRY.map((geometry) => (
+              <path key={geometry.id} d={geometry.path} />
+            ))}
+          </clipPath>
+        </defs>
+        {/* 海（画布底色） */}
         <rect
-          x={view.x}
-          y={view.y}
-          width={view.width}
-          height={view.height}
-          fill="transparent"
+          x={FULL_FRAME.x}
+          y={FULL_FRAME.y}
+          width={FULL_FRAME.width}
+          height={FULL_FRAME.height}
+          fill={SEA_COLOR}
         />
+        {/* 陆地底色：按真实海岸线（OSM）裁剪 */}
+        <g clipPath="url(#hk-land-clip)">
+          <rect
+            x={FULL_FRAME.x}
+            y={FULL_FRAME.y}
+            width={FULL_FRAME.width}
+            height={FULL_FRAME.height}
+            fill={LAND_COLOR}
+          />
+        </g>
+        {/* 深圳侧陆块（OSM 海岸线按河口走，边界以北需单独补陆） */}
+        {HK_SHENZHEN_LAND_PATHS.map((path, index) => (
+          <path key={index} d={path} fill={LAND_COLOR} aria-hidden="true" />
+        ))}
+        {/* 分区：九龙城区片只画在主大陆环，港岛各区只画在港岛；
+            南区/离岛区被画布边缘切断，按用户决定不渲染（边缘裁净） */}
+        {HK_DISTRICT_GEOMETRY.filter(
+          (geometry) => geometry.id !== "sd" && geometry.id !== "is",
+        ).map((geometry) => {
+          const district = getHkDistrict(geometry.id as HkDistrictId);
+          const clipId = ["wc", "cw", "ed"].includes(geometry.id)
+            ? "hk-island-clip"
+            : URBAN_KOWLOON_DISTRICTS.has(geometry.id)
+              ? "hk-continent-clip"
+              : "hk-mainland-clip";
+          return (
+            <g key={geometry.id} clipPath={`url(#${clipId})`}>
+              <path
+                data-district-polygon={geometry.id}
+                d={geometry.path}
+                fill={district.color}
+                fillOpacity={selectedRoute ? 0.06 : 0.15}
+                stroke="#9aa7b4"
+                strokeOpacity="0.55"
+                strokeWidth="1"
+                vectorEffect="non-scaling-stroke"
+                aria-hidden="true"
+              />
+            </g>
+          );
+        })}
+        {/* 内陆河流（稍深一点的蓝色以便与海区分开；按 18 区区界裁剪） */}
+        <g clipPath="url(#hk-districts-clip)">
+          {HK_RIVER_LINE_PATHS.map((path, index) => (
+            <path
+              key={index}
+              d={path}
+              fill="none"
+              stroke="#93c4e0"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            />
+          ))}
+        </g>
+        {/* 深圳河河道不显示：涂成北区绿混合色到界线，虚线压上（用户决定） */}
+        {HK_SHAMCHUN_COVER_PATHS.map((path, index) => (
+          <path
+            key={index}
+            d={path}
+            fill="none"
+            stroke="#d8e0d1"
+            strokeWidth="7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          />
+        ))}
+        {/* 香港—深圳陆界（深圳河）与深圳标注 */}
+        {HK_SHENZHEN_BORDER_PATHS.map((path, index) => (
+          <path
+            key={index}
+            d={path}
+            fill="none"
+            stroke="#8a94a0"
+            strokeWidth="1.5"
+            strokeDasharray="6 4"
+            vectorEffect="non-scaling-stroke"
+            aria-hidden="true"
+          />
+        ))}
+        <text
+          x={SHENZHEN_LABEL.x}
+          y={SHENZHEN_LABEL.y}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={12 * textScale}
+          fill="#8a94a0"
+          aria-hidden="true"
+        >
+          深圳
+        </text>
+        {/* 区名 */}
+        {HK_DISTRICT_GEOMETRY.filter(
+          (geometry) => geometry.id !== "sd" && geometry.id !== "is",
+        ).map((geometry) => {
+          const district = getHkDistrict(geometry.id as HkDistrictId);
+          const anchor = DISTRICT_LABEL_ANCHORS[geometry.id];
+          const point = anchor ? projectLngLat(anchor) : geometry.centroid;
+          return (
+            <text
+              key={`district-name-${geometry.id}`}
+              x={point.x}
+              y={point.y}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize={13 * textScale}
+              fontWeight="500"
+              fill={district.color}
+              stroke="var(--background)"
+              strokeWidth={3 * textScale}
+              strokeLinejoin="round"
+              paintOrder="stroke fill"
+              opacity={selectedRoute ? 0.3 : 0.75}
+              aria-hidden="true"
+            >
+              {geometry.name}
+            </text>
+          );
+        })}
+        {/* 小地区气泡 */}
+        {visibleAreaAnchors.map(({ anchor, point }) => {
+          const fontSize = 9.5 * textScale;
+          const bubbleWidth = anchor.name.length * fontSize + 8 * textScale;
+          const bubbleHeight = 15 * textScale;
+          return (
+            <g key={anchor.name} aria-hidden="true" opacity={selectedRoute ? 0.35 : 1}>
+              <rect
+                x={point.x - bubbleWidth / 2}
+                y={point.y - bubbleHeight / 2}
+                width={bubbleWidth}
+                height={bubbleHeight}
+                rx={4 * textScale}
+                fill="var(--background)"
+                fillOpacity="0.88"
+                stroke="#b8c4d8"
+                strokeWidth={1 * textScale}
+              />
+              <text
+                x={point.x}
+                y={point.y}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize={fontSize}
+                fill="#4a5a75"
+              >
+                {anchor.name}
+              </text>
+            </g>
+          );
+        })}
+        <text
+          x={HARBOUR_LABEL.x}
+          y={HARBOUR_LABEL.y}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={11 * textScale}
+          fill="#5a8fa8"
+          stroke={SEA_COLOR}
+          strokeWidth={3 * textScale}
+          strokeLinejoin="round"
+          paintOrder="stroke fill"
+          aria-hidden="true"
+        >
+          维多利亚港
+        </text>
 
         {visibleSegments.map((segment) => {
           const line = lineById.get(segment.lineId);
           return (
             <path
               key={`${segment.from}|${segment.to}|${segment.lineId}`}
-              d={segment.path}
+              d={segmentRenderPath(segment, textScale)}
               fill="none"
               stroke={line?.color}
-              strokeWidth="7"
+              strokeWidth="3.5"
               strokeLinecap={segment.special ? "butt" : "round"}
               strokeLinejoin="round"
-              strokeDasharray={segment.special ? "5 5" : undefined}
+              strokeDasharray={segment.special ? "4 4" : undefined}
               opacity={
                 selectedRoute
                   ? selectedEdgeKeys.has(
@@ -333,19 +854,6 @@ function MtrSchematic({
           );
         })}
 
-        {TRANSFER_STUBS.filter((stub) => stub.budget === budget).map((stub) => (
-          <path
-            key={`${stub.budget}-${stub.path}`}
-            d={stub.path}
-            fill="none"
-            stroke={lineById.get(stub.lineId)?.color}
-            strokeWidth="7"
-            strokeLinecap="round"
-            opacity={selectedRoute ? 0.24 : 0.82}
-            vectorEffect="non-scaling-stroke"
-          />
-        ))}
-
         {selectedRoute?.segments.map((routeSegment) => {
           const key = segmentKey(
             routeSegment.from,
@@ -359,23 +867,23 @@ function MtrSchematic({
           return (
             <g key={`route-${key}`} aria-hidden="true">
               <path
-                d={segment.path}
+                d={segmentRenderPath(segment, textScale)}
                 fill="none"
                 stroke="var(--background)"
-                strokeWidth="13"
+                strokeWidth="7"
                 strokeLinecap={segment.special ? "butt" : "round"}
                 strokeLinejoin="round"
-                strokeDasharray={segment.special ? "5 5" : undefined}
+                strokeDasharray={segment.special ? "4 4" : undefined}
                 vectorEffect="non-scaling-stroke"
               />
               <path
-                d={segment.path}
+                d={segmentRenderPath(segment, textScale)}
                 fill="none"
                 stroke={line.color}
-                strokeWidth="8"
+                strokeWidth="4.5"
                 strokeLinecap={segment.special ? "butt" : "round"}
                 strokeLinejoin="round"
-                strokeDasharray={segment.special ? "5 5" : undefined}
+                strokeDasharray={segment.special ? "4 4" : undefined}
                 vectorEffect="non-scaling-stroke"
               />
             </g>
@@ -387,39 +895,43 @@ function MtrSchematic({
             key={station.id}
             station={station}
             selected={selectedStationId === station.id}
+            scale={textScale}
           />
         ))}
 
-        {reachableStations.map((station) => (
+        {declutteredStations.map((station) => (
           <text
             key={`label-${station.id}`}
-            x={station.label.x}
-            y={station.label.y}
+            x={station.position.x + (station.label.x - station.position.x) * textScale}
+            y={station.position.y + (station.label.y - station.position.y) * textScale}
             textAnchor={station.label.anchor}
             dominantBaseline="middle"
             fill="var(--foreground)"
-            stroke="var(--background)"
-            strokeWidth="4"
+            stroke={SEA_COLOR}
+            strokeWidth={3 * textScale}
             strokeLinejoin="round"
             paintOrder="stroke fill"
-            fontSize={view.labelSize}
+            fontSize={12 * textScale}
             fontWeight={selectedStationId === station.id ? 500 : 400}
+            opacity={
+              selectedRoute && selectedStationId !== station.id ? 0.35 : 1
+            }
           >
             {station.nameZh}
           </text>
         ))}
 
         <text
-          x="252"
-          y="239"
-          textAnchor="start"
+          x={originStation.position.x - 16 * textScale}
+          y={originStation.position.y - 12 * textScale}
+          textAnchor="end"
           dominantBaseline="middle"
           fill="var(--food-map-cu)"
-          stroke="var(--background)"
-          strokeWidth="4"
+          stroke={SEA_COLOR}
+          strokeWidth={3 * textScale}
           strokeLinejoin="round"
           paintOrder="stroke fill"
-          fontSize={view.labelSize * 0.78}
+          fontSize={11 * textScale}
           fontWeight="500"
         >
           中大起点
@@ -438,18 +950,78 @@ function MtrSchematic({
             data-station-id={station.id}
             aria-current={selectedStationId === station.id ? "true" : undefined}
             aria-label={`${station.nameZh}，${
-              station.minutes === 0 ? "0" : station.minutes
-            } 分钟${station.service === "special-event" ? "，特别班次" : ""}`}
+              getHkDistrict(station.districtId).nameZh
+            }，${station.minutes} 分钟${
+              station.service === "special-event" ? "，特别班次" : ""
+            }`}
             onClick={() => onSelectStation(station.id)}
             className={[
-              "pointer-events-auto absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
+              "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
               "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/45",
             ].join(" ")}
             style={{
-              left: `${((station.position.x - view.x) / view.width) * 100}%`,
-              top: `${((station.position.y - view.y) / view.height) * 100}%`,
+              width: hitSize,
+              height: hitSize,
+              left: `${((station.position.x - frame.x) / frame.width) * 100}%`,
+              top: `${((station.position.y - frame.y) / frame.height) * 100}%`,
             }}
           />
+        ))}
+      </div>
+
+      {selectedStation ? (
+        <div
+          className="pointer-events-none absolute z-10"
+          role="status"
+          aria-label="选中车站"
+          style={{
+            left: `${((selectedStation.position.x - frame.x) / frame.width) * 100}%`,
+            top: `${((selectedStation.position.y - frame.y) / frame.height) * 100}%`,
+          }}
+        >
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
+            <div className="rounded-xl border border-border bg-background px-3 py-1.5 text-center shadow-lg">
+              <p className="whitespace-nowrap text-sm font-medium">
+                {selectedStation.nameZh}
+                <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                  {selectedStation.minutes} 分钟
+                </span>
+              </p>
+              <p className="whitespace-nowrap text-xs text-muted-foreground">
+                {getHkDistrict(selectedStation.districtId).nameZh} ·{" "}
+                {selectedStation.areaZh}
+              </p>
+            </div>
+            <div className="mx-auto h-2 w-2 -translate-y-px rotate-45 border-b border-r border-border bg-background" />
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className="absolute right-2 top-2 flex flex-col gap-1.5"
+        role="group"
+        aria-label="缩放控制"
+      >
+        {(
+          [
+            { label: "放大", text: "+", action: () => zoomBy(0.7) },
+            { label: "缩小", text: "−", action: () => zoomBy(1 / 0.7) },
+            { label: "重置视野", text: "⌂", action: () => setFrame(preset) },
+          ] as const
+        ).map((control) => (
+          <button
+            key={control.label}
+            type="button"
+            aria-label={control.label}
+            onClick={control.action}
+            className={[
+              "h-11 w-11 touch-manipulation rounded-lg border border-border bg-background/90 text-base font-medium shadow-sm",
+              "transition-[background-color,transform] motion-reduce:transition-none active:scale-[0.95]",
+              "hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+            ].join(" ")}
+          >
+            {control.text}
+          </button>
         ))}
       </div>
     </div>
@@ -484,6 +1056,9 @@ function DetailPanel({
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           {stationId ? routeSummary(stationId) : notice || "校内起点"}
+        </p>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {getHkDistrict(station.districtId).nameZh} · {station.areaZh}
         </p>
         <p className="mt-1 truncate text-sm">
           {restaurant.name}，{restaurant.cuisine}
@@ -629,9 +1204,13 @@ export function FoodMapView() {
       <div className="mt-2">
         <MapLegend />
       </div>
+      <div className="mt-1.5">
+        <DistrictLegend stations={getReachableStations(budget)} />
+      </div>
 
       <div className="mt-2">
         <MtrSchematic
+          key={budget}
           budget={budget}
           selectedStationId={selectedStationId}
           onSelectStation={selectStation}

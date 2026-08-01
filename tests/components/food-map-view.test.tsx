@@ -40,7 +40,7 @@ describe("FoodMapView", () => {
     expect(within(stationPicker).getAllByRole("button")).toHaveLength(43);
     expect(
       within(stationPicker).getByRole("button", {
-        name: "佐敦，30 分钟",
+        name: "佐敦，油尖旺区，30 分钟",
       }),
     ).toBeTruthy();
     expect(screen.getByText("观塘线")).toBeTruthy();
@@ -56,12 +56,12 @@ describe("FoodMapView", () => {
     expect(within(stationPicker).getAllByRole("button")).toHaveLength(7);
     expect(
       within(stationPicker).getByRole("button", {
-        name: "马场，8 分钟，特别班次",
+        name: "马场，沙田区，8 分钟，特别班次",
       }),
     ).toBeTruthy();
     expect(
       within(stationPicker).queryByRole("button", {
-        name: "九龙塘，14 分钟",
+        name: "九龙塘，九龙城区，14 分钟",
       }),
     ).toBeNull();
     expect(screen.getByText("5 个日常目的地 + 马场特别班次")).toBeTruthy();
@@ -71,17 +71,17 @@ describe("FoodMapView", () => {
     expect(within(stationPicker).getAllByRole("button")).toHaveLength(17);
     expect(
       within(stationPicker).getByRole("button", {
-        name: "钻石山，20 分钟",
+        name: "钻石山，黄大仙区，20 分钟",
       }),
     ).toBeTruthy();
     expect(
       within(stationPicker).queryByRole("button", {
-        name: "乐富，21 分钟",
+        name: "乐富，黄大仙区，21 分钟",
       }),
     ).toBeNull();
     expect(
       within(stationPicker).queryByRole("button", {
-        name: "石门，21 分钟",
+        name: "石门，沙田区，21 分钟",
       }),
     ).toBeNull();
   });
@@ -90,7 +90,7 @@ describe("FoodMapView", () => {
     render(<FoodMapView />);
 
     fireEvent.click(screen.getByRole("button", { name: "20 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，20 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }));
 
     expect(screen.getByText("大学 → 钻石山 · 20 分钟")).toBeTruthy();
     expect(screen.getByText("东铁线，在大围换乘屯马线")).toBeTruthy();
@@ -112,10 +112,10 @@ describe("FoodMapView", () => {
   it("keeps the Kwun Tong and Tsuen Wan paths distinct", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "油麻地，26 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "油麻地，油尖旺区，26 分钟" }));
     expect(screen.getByText("旺角到油麻地，观塘线")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "佐敦，30 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "佐敦，油尖旺区，30 分钟" }));
     expect(
       screen.getByText("东铁线，在九龙塘换乘观塘线，在旺角换乘荃湾线"),
     ).toBeTruthy();
@@ -127,7 +127,7 @@ describe("FoodMapView", () => {
     render(<FoodMapView />);
 
     const kowloonTong = screen.getByRole("button", {
-      name: "九龙塘，14 分钟",
+      name: "九龙塘，九龙城区，14 分钟",
     });
     fireEvent.click(kowloonTong);
     expect(screen.getByText("大学 → 九龙塘 · 14 分钟")).toBeTruthy();
@@ -141,8 +141,8 @@ describe("FoodMapView", () => {
   it("clears the route when University is clicked", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "九龙塘，14 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "大学，0 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "九龙塘，九龙城区，14 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "大学，沙田区，0 分钟" }));
 
     expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
@@ -151,7 +151,7 @@ describe("FoodMapView", () => {
   it("clears the route when the map background is double-clicked", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "九龙塘，14 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "九龙塘，九龙城区，14 分钟" }));
     fireEvent.dblClick(
       screen.getByRole("img", {
         name: /大学站30分钟内可达的43个车站/,
@@ -165,13 +165,93 @@ describe("FoodMapView", () => {
   it("explains when a smaller budget clears the selected station", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "佐敦，30 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "佐敦，油尖旺区，30 分钟" }));
     fireEvent.click(screen.getByRole("button", { name: "20 分钟" }));
 
     expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
     expect(screen.getByText("佐敦不在20分钟范围内")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "佐敦，30 分钟" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "佐敦，油尖旺区，30 分钟" })).toBeNull();
+  });
+
+  it("shows district context on the map, legend and detail panel", () => {
+    render(<FoodMapView />);
+
+    const legend = screen.getByRole("group", { name: "地区图例" });
+    expect(within(legend).getByText("沙田区")).toBeTruthy();
+    expect(within(legend).getByText("九龙城区")).toBeTruthy();
+    expect(within(legend).getByText("中西区")).toBeTruthy();
+
+    const map = screen.getByRole("img", {
+      name: /大学站30分钟内可达的43个车站/,
+    });
+    expect(map.querySelectorAll("[data-district-polygon]")).toHaveLength(16);
+    expect(map.querySelector('[data-district-polygon="ktc"]')).toBeTruthy();
+    // 南区/离岛区被画布边缘切断，按用户决定不渲染（边缘裁净）
+    expect(map.querySelector('[data-district-polygon="sd"]')).toBeNull();
+    expect(map.querySelector('[data-district-polygon="is"]')).toBeNull();
+    expect(screen.getByText("维多利亚港")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "何文田，九龙城区，25 分钟" }),
+    );
+    expect(screen.getAllByText("九龙城区 · 何文田").length).toBeGreaterThan(0);
+    expect(screen.getByText("大学 → 何文田 · 25 分钟")).toBeTruthy();
+
+    const popup = screen.getByRole("status", { name: "选中车站" });
+    expect(within(popup).getByText("何文田")).toBeTruthy();
+    expect(within(popup).getByText(/九龙城区 · 何文田/)).toBeTruthy();
+    expect(within(popup).getByText(/25 分钟/)).toBeTruthy();
+  });
+
+  it("reveals sub-district bubbles after zooming in", () => {
+    render(<FoodMapView />);
+
+    // 小地区气泡已全部下线（用户反馈与站名重合挡视线）
+    const map = screen.getByRole("img", {
+      name: /大学站30分钟内可达的43个车站/,
+    });
+    const mapTexts = [...map.querySelectorAll("text")].map(
+      (node) => node.textContent,
+    );
+    expect(mapTexts).not.toContain("马料水");
+    expect(mapTexts).not.toContain("湾仔北");
+    expect(mapTexts).not.toContain("尖沙咀");
+  });
+
+  it("zooms with the wheel and reframes on budget change", () => {
+    render(<FoodMapView />);
+
+    const map = screen.getByRole("img", {
+      name: /大学站30分钟内可达的43个车站/,
+    });
+    const initial = map.getAttribute("viewBox") ?? "";
+    expect(initial).not.toBe("");
+    const initialWidth = Number(initial.split(" ")[2]);
+    expect(initialWidth).toBeGreaterThan(0);
+
+    fireEvent.wheel(map, { deltaY: -100 });
+    const zoomed = (map.getAttribute("viewBox") ?? "").split(" ").map(Number);
+    expect(zoomed[2]).toBeLessThan(initialWidth);
+
+    fireEvent.wheel(map, { deltaY: 100 });
+    const filter = screen.getByRole("group", { name: "通勤时间" });
+    fireEvent.click(within(filter).getByRole("button", { name: "20 分钟" }));
+    const reframed = screen.getByRole("img", {
+      name: /大学站20分钟内可达的17个车站/,
+    });
+    expect(reframed.getAttribute("viewBox")).not.toBe(initial);
+  });
+
+  it("narrows the district legend with the commute budget", () => {
+    render(<FoodMapView />);
+
+    fireEvent.click(screen.getByRole("button", { name: "10 分钟" }));
+    const legend = screen.getByRole("group", { name: "地区图例" });
+    expect(within(legend).getByText("沙田区")).toBeTruthy();
+    expect(within(legend).getByText("大埔区")).toBeTruthy();
+    expect(within(legend).queryByText("中西区")).toBeNull();
+    expect(within(legend).queryByText("油尖旺区")).toBeNull();
   });
 
   it("stores a one-tap check-in for today", async () => {
@@ -196,7 +276,7 @@ describe("FoodMapView", () => {
   it("keeps a station check-in while changing budget and selection", async () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，20 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }));
     const checkIn = await screen.findByRole("button", { name: "今天吃过" });
     await waitFor(() =>
       expect((checkIn as HTMLButtonElement).disabled).toBe(false),
@@ -205,7 +285,7 @@ describe("FoodMapView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "10 分钟" }));
     fireEvent.click(screen.getByRole("button", { name: "30 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，20 分钟" }));
+    fireEvent.click(screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }));
 
     expect(
       screen
