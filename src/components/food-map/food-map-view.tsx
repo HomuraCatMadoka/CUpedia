@@ -670,10 +670,6 @@ function MtrSchematic({
             fill={LAND_COLOR}
           />
         </g>
-        {/* 深圳侧陆块（OSM 海岸线按河口走，边界以北需单独补陆） */}
-        {HK_SHENZHEN_LAND_PATHS.map((path, index) => (
-          <path key={index} d={path} fill={LAND_COLOR} aria-hidden="true" />
-        ))}
         {/* 分区：九龙城区片只画在主大陆环，港岛各区只画在港岛；
             南区/离岛区被画布边缘切断，按用户决定不渲染（边缘裁净） */}
         {HK_DISTRICT_GEOMETRY.filter(
@@ -701,6 +697,11 @@ function MtrSchematic({
             </g>
           );
         })}
+        {/* 深圳侧陆块：画在涂色层之上，边界以北的涂色溢出与海楔子一律盖掉，
+            虚线边界成为唯一分界 */}
+        {HK_SHENZHEN_LAND_PATHS.map((path, index) => (
+          <path key={index} d={path} fill={LAND_COLOR} aria-hidden="true" />
+        ))}
         {/* 内陆河流（稍深一点的蓝色以便与海区分开；按 18 区区界裁剪） */}
         <g clipPath="url(#hk-districts-clip)">
           {HK_RIVER_LINE_PATHS.map((path, index) => (
