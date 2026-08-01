@@ -52,10 +52,11 @@
 }
 
 .danmaku-hero .danmaku-item {
-  padding: 0.15rem 0.75rem;
+  padding: 0.1rem 0.625rem;
   background: transparent;
   color: var(--canteen-muted);
-  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
   font-weight: 500;
   letter-spacing: -0.015em;
 }
@@ -75,6 +76,13 @@
 
 .danmaku-static-list {
   display: none;
+}
+
+@media (min-width: 640px) {
+  .danmaku-hero .danmaku-item {
+    font-size: 1rem;
+    line-height: 1.375rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

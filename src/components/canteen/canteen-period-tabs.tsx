@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, type KeyboardEvent } from "react";
 import type { MealPeriod } from "@/lib/canteen-types";
 import { mealPeriodLabel } from "@/components/canteen/meal-period-badge";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,7 @@ export function CanteenPeriodTabs({
 
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label="餐段"
       className={cn("canteen-segmented", className)}
     >
@@ -28,13 +29,12 @@ export function CanteenPeriodTabs({
         <button
           key={period}
           type="button"
-          role="tab"
-          aria-selected={value === period}
+          aria-pressed={value === period}
           data-active={value === period}
           onClick={() => onChange(period)}
           className="canteen-segmented-tab"
         >
-          {mealPeriodLabel[period]}
+          <span>{mealPeriodLabel[period]}</span>
         </button>
       ))}
     </div>
@@ -44,10 +44,12 @@ export function CanteenPeriodTabs({
 export type CanteenViewMode = "menu" | "recommend" | "avoid";
 
 const VIEW_LABELS: Record<CanteenViewMode, string> = {
+  menu: "菜单",
   recommend: "红榜",
   avoid: "黑榜",
-  menu: "菜单",
 };
+
+const VIEW_MODES: CanteenViewMode[] = ["menu", "recommend", "avoid"];
 
 export function CanteenViewTabs({
   value,
@@ -56,23 +58,53 @@ export function CanteenViewTabs({
   value: CanteenViewMode;
   onChange: (mode: CanteenViewMode) => void;
 }) {
-  const modes: CanteenViewMode[] = ["recommend", "avoid", "menu"];
+  const tabRefs = useRef<Record<CanteenViewMode, HTMLButtonElement | null>>({
+    menu: null,
+    recommend: null,
+    avoid: null,
+  });
+
+  function handleKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    mode: CanteenViewMode,
+  ) {
+    const currentIndex = VIEW_MODES.indexOf(mode);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % VIEW_MODES.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + VIEW_MODES.length) % VIEW_MODES.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = VIEW_MODES.length - 1;
+    }
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextMode = VIEW_MODES[nextIndex]!;
+    onChange(nextMode);
+    tabRefs.current[nextMode]?.focus();
+  }
+
   return (
-    <div
-      role="tablist"
-      aria-label="视图"
-      className="flex flex-wrap gap-1.5 sm:gap-2"
-    >
-      {modes.map((mode) => (
+    <div role="tablist" aria-label="菜单视图" className="canteen-view-tabs">
+      {VIEW_MODES.map((mode) => (
         <button
           key={mode}
+          ref={(element) => {
+            tabRefs.current[mode] = element;
+          }}
+          id={`canteen-view-tab-${mode}`}
           type="button"
           role="tab"
           aria-selected={value === mode}
+          aria-controls={`canteen-view-panel-${mode}`}
+          tabIndex={value === mode ? 0 : -1}
           data-active={value === mode}
           data-tone={mode}
           onClick={() => onChange(mode)}
-          className="canteen-view-pill"
+          onKeyDown={(event) => handleKeyDown(event, mode)}
+          className="canteen-view-tab"
         >
           {VIEW_LABELS[mode]}
         </button>
