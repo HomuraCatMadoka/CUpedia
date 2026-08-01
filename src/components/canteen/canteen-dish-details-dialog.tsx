@@ -104,20 +104,22 @@ export function CanteenDishDetailsDialog({
           </DialogHeader>
 
           <div className="overscroll-contain overflow-y-auto px-4 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-            <section aria-labelledby="canteen-dish-price-heading">
-              <h3
-                id="canteen-dish-price-heading"
-                className="text-[0.8125rem] font-semibold text-[var(--canteen-ink)]"
-              >
-                价格与搭配
-              </h3>
-              <MenuItemPrice
-                pricing={item.pricing}
-                variant="list"
-                listCollapsedAfter={4}
-                className="canteen-dish-price-list mt-2"
-              />
-            </section>
+            {item.pricing && item.pricing.options.length > 1 ? (
+              <section aria-labelledby="canteen-dish-price-heading">
+                <h3
+                  id="canteen-dish-price-heading"
+                  className="text-[0.8125rem] font-semibold text-[var(--canteen-ink)]"
+                >
+                  价格选项
+                </h3>
+                <MenuItemPrice
+                  pricing={item.pricing}
+                  variant="list"
+                  listCollapsedAfter={4}
+                  className="canteen-dish-price-list mt-2"
+                />
+              </section>
+            ) : null}
 
             <section
               aria-labelledby="canteen-dish-reputation-heading"
@@ -151,6 +153,7 @@ export function CanteenDishDetailsDialog({
                 commentBlocked={commentBlocked}
                 initialCommentCount={initialCommentCount}
                 onCountChange={onCommentCountChange}
+                expanded
               />
             </section>
           </div>

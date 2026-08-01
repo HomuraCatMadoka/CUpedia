@@ -95,7 +95,10 @@ export const MenuItemVoteRow = memo(function MenuItemVoteRow({
           <span
             id={`canteen-menu-meta-${item.id}`}
             aria-label={`评论 ${initialCommentCount}`}
-            className="text-xs leading-[1.125rem] text-[var(--canteen-muted)]"
+            className={cn(
+              "text-xs leading-[1.125rem] text-[var(--canteen-muted)]",
+              initialCommentCount === 0 && "sr-only",
+            )}
           >
             {initialCommentCount > 0
               ? `${initialCommentCount} 条评价`

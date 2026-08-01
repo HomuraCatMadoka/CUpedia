@@ -77,4 +77,22 @@ describe("CanteenShell announcement", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
+
+  it("compacts location and announcement beside the detail title", () => {
+    render(
+      <CanteenShell
+        title="演示食堂"
+        subtitle="演示区域 A"
+        announcement="外带加 $1 · 随餐饮品加 $3"
+        topContent={<div>本月弹幕</div>}
+      >
+        <div>菜单</div>
+      </CanteenShell>,
+    );
+
+    const status = screen.getByRole("status");
+    expect(status.classList.contains("canteen-detail-meta")).toBe(true);
+    expect(status.textContent).toContain("演示区域 A");
+    expect(status.textContent).toContain("外带加 $1 · 随餐饮品加 $3");
+  });
 });

@@ -53,7 +53,7 @@ export const CanteenRankingRow = memo(function CanteenRankingRow({
           "canteen-rank-number flex h-9 items-center justify-center font-mono text-sm font-semibold tabular-nums",
           isTop
             ? emphasis === "recommend"
-              ? "text-[#d70015]"
+              ? "text-[var(--canteen-accent)]"
               : "text-[var(--canteen-ink)]"
             : "text-[var(--canteen-muted)]",
         )}
@@ -95,7 +95,10 @@ export const CanteenRankingRow = memo(function CanteenRankingRow({
           <span
             id={`canteen-ranking-meta-${item.id}`}
             aria-label={`评论 ${initialCommentCount}`}
-            className="text-xs leading-[1.125rem] text-[var(--canteen-muted)]"
+            className={cn(
+              "text-xs leading-[1.125rem] text-[var(--canteen-muted)]",
+              initialCommentCount === 0 && "sr-only",
+            )}
           >
             {initialCommentCount > 0
               ? `${initialCommentCount} 条评价`

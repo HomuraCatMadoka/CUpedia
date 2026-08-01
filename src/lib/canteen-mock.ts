@@ -26,7 +26,6 @@ import type {
   DishCommentDeleteAuditDetails,
 } from "@/lib/admin-audit-types";
 import { DISH_COMMENT_DELETE_AUDIT_ACTION } from "@/lib/admin-audit-types";
-import { PRODUCTION_MENU_FIXTURE } from "@/lib/canteen-production-fixture";
 
 /** Dev/demo mode: in-memory canteen data, no PostgreSQL required. */
 export function isCanteenMockMode(): boolean {
@@ -156,28 +155,6 @@ function seedState(): MockState {
     };
   }
 
-  const productionFixtureItems: CanteenMenuItem[] = PRODUCTION_MENU_FIXTURE.map(
-    (item, itemIndex) => {
-      const id = `mock-item-production-${String(itemIndex + 1).padStart(3, "0")}`;
-      return {
-        id,
-        canteenId: demo.id,
-        name: item.name,
-        pricing: {
-          options: item.priceOptions.map((price, priceIndex) => ({
-            id: `${id}-price-${priceIndex + 1}`,
-            ...price,
-          })),
-        },
-        mealPeriods: item.mealPeriods,
-        sortOrder: item.sortOrder + 100,
-        svgKey: item.svgKey,
-        createdAt: t,
-        updatedAt: t,
-      };
-    },
-  );
-
   const items: CanteenMenuItem[] = [
     // Keep stable IDs used by unit tests.
     dish(
@@ -189,7 +166,36 @@ function seedState(): MockState {
       "bowl",
       0,
     ),
-    dish("mock-item-demo", demo.id, "演示菜品", "lunch", 1000, "default", 0),
+    {
+      ...dish(
+        "mock-item-demo",
+        demo.id,
+        "演示菜品",
+        "lunch",
+        1000,
+        "default",
+        0,
+      ),
+      pricing: {
+        options: [
+          {
+            id: "mock-item-demo-price-standard",
+            label: "标准",
+            amountMinor: 1000,
+            currency: "HKD",
+            sortOrder: 0,
+          },
+          {
+            id: "mock-item-demo-price-extra",
+            label: "加配",
+            amountMinor: 1400,
+            currency: "HKD",
+            sortOrder: 1,
+          },
+        ],
+      },
+      mealPeriods: ["lunch", "dinner"],
+    },
     dish(
       "mock-item-dinner",
       demo.id,
@@ -203,7 +209,7 @@ function seedState(): MockState {
     dish(
       "mock-item-bf-egg",
       demo.id,
-      "演示煎蛋多士",
+      "演示早餐菜品 A",
       "breakfast",
       1200,
       "default",
@@ -212,7 +218,7 @@ function seedState(): MockState {
     dish(
       "mock-item-bf-noodle",
       demo.id,
-      "演示早餐面",
+      "演示早餐菜品 B",
       "breakfast",
       1500,
       "noodle",
@@ -221,18 +227,26 @@ function seedState(): MockState {
     dish(
       "mock-item-bf-drink",
       demo.id,
-      "演示豆浆",
+      "演示早餐饮品 A",
       "breakfast",
       600,
       "drink",
       3,
     ),
 
-    dish("mock-item-ln-rice", demo.id, "演示叉烧饭", "lunch", 2800, "rice", 1),
+    dish(
+      "mock-item-ln-rice",
+      demo.id,
+      "演示午餐菜品 A",
+      "lunch",
+      2800,
+      "rice",
+      1,
+    ),
     dish(
       "mock-item-ln-rice-2",
       demo.id,
-      "演示咖喱鸡饭",
+      "演示午餐菜品 B",
       "lunch",
       3000,
       "rice",
@@ -241,7 +255,7 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-bowl",
       demo.id,
-      "演示番茄蛋汤",
+      "演示午餐菜品 C",
       "lunch",
       1200,
       "bowl",
@@ -250,7 +264,7 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-noodle",
       demo.id,
-      "演示牛肉面",
+      "演示午餐菜品 D",
       "lunch",
       3200,
       "noodle",
@@ -259,7 +273,7 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-noodle-2",
       demo.id,
-      "演示云吞面",
+      "演示午餐菜品 E",
       "lunch",
       2800,
       "noodle",
@@ -268,7 +282,7 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-drink",
       demo.id,
-      "演示柠檬茶",
+      "演示午餐饮品 A",
       "lunch",
       1000,
       "drink",
@@ -277,7 +291,7 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-drink-2",
       demo.id,
-      "演示奶茶",
+      "演示午餐饮品 B",
       "lunch",
       1200,
       "drink",
@@ -286,7 +300,7 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-dessert",
       demo.id,
-      "演示双皮奶",
+      "演示午餐甜品 A",
       "lunch",
       1500,
       "dessert",
@@ -295,17 +309,25 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-snack",
       demo.id,
-      "演示炸鸡块",
+      "演示午餐菜品 F",
       "lunch",
       1800,
       "default",
       9,
     ),
-    dish("mock-item-ln-veg", demo.id, "演示青菜", "lunch", 800, "default", 10),
+    dish(
+      "mock-item-ln-veg",
+      demo.id,
+      "演示午餐菜品 G",
+      "lunch",
+      800,
+      "default",
+      10,
+    ),
     dish(
       "mock-item-ln-fish",
       demo.id,
-      "演示蒸鱼",
+      "演示午餐菜品 H",
       "lunch",
       3500,
       "default",
@@ -314,29 +336,53 @@ function seedState(): MockState {
     dish(
       "mock-item-ln-tofu",
       demo.id,
-      "演示麻婆豆腐",
+      "演示午餐菜品 I",
       "lunch",
       1600,
       "bowl",
       12,
     ),
 
-    dish("mock-item-dn-rice", demo.id, "演示烧鸭饭", "dinner", 3200, "rice", 1),
+    dish(
+      "mock-item-dn-rice",
+      demo.id,
+      "演示晚餐菜品 A",
+      "dinner",
+      3200,
+      "rice",
+      1,
+    ),
     dish(
       "mock-item-dn-noodle",
       demo.id,
-      "演示炒河粉",
+      "演示晚餐菜品 B",
       "dinner",
       2800,
       "noodle",
       2,
     ),
-    dish("mock-item-dn-bowl", demo.id, "演示例汤", "dinner", 1000, "bowl", 3),
-    dish("mock-item-dn-drink", demo.id, "演示汽水", "dinner", 800, "drink", 4),
+    dish(
+      "mock-item-dn-bowl",
+      demo.id,
+      "演示晚餐菜品 C",
+      "dinner",
+      1000,
+      "bowl",
+      3,
+    ),
+    dish(
+      "mock-item-dn-drink",
+      demo.id,
+      "演示晚餐饮品 A",
+      "dinner",
+      800,
+      "drink",
+      4,
+    ),
     dish(
       "mock-item-dn-dessert",
       demo.id,
-      "演示红豆沙",
+      "演示晚餐甜品 A",
       "dinner",
       1200,
       "dessert",
@@ -345,14 +391,12 @@ function seedState(): MockState {
     dish(
       "mock-item-dn-snack",
       demo.id,
-      "演示春卷",
+      "演示晚餐菜品 D",
       "dinner",
       1400,
       "default",
       6,
     ),
-    ...productionFixtureItems,
-
     dish(
       "mock-item-b-ln-1",
       demoB.id,

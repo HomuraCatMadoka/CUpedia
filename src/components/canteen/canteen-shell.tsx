@@ -109,30 +109,61 @@ export function CanteenShell({
                   {title}
                 </h1>
               </div>
-              {subtitle ? (
+              {topContent && (subtitle || announcement) ? (
                 <p
+                  role={announcement ? "status" : undefined}
                   className={cn(
-                    "max-w-xl leading-snug text-[var(--canteen-muted)]",
-                    backHref ? "max-sm:pl-10" : null,
-                    brandTitle
-                      ? "mt-2 text-xs sm:mt-3 sm:text-lg"
-                      : "mt-2 text-xs sm:mt-2.5 sm:text-base",
-                  )}
-                >
-                  {subtitle}
-                </p>
-              ) : null}
-              {announcement ? (
-                <p
-                  role="status"
-                  className={cn(
-                    "mt-1.5 max-w-xl whitespace-pre-wrap text-xs leading-snug text-[var(--canteen-ink)]/80 sm:mt-2 sm:text-sm sm:leading-snug",
+                    "canteen-detail-meta mt-1 flex min-w-0 max-w-xl items-start gap-1.5 text-xs leading-5",
                     backHref ? "max-sm:pl-10" : null,
                   )}
                 >
-                  {announcement}
+                  {subtitle ? (
+                    <span className="shrink-0 font-medium text-[var(--canteen-muted)]">
+                      {subtitle}
+                    </span>
+                  ) : null}
+                  {subtitle && announcement ? (
+                    <span
+                      aria-hidden
+                      className="text-[var(--canteen-muted)]/55"
+                    >
+                      ·
+                    </span>
+                  ) : null}
+                  {announcement ? (
+                    <span className="line-clamp-2 min-w-0 text-[var(--canteen-ink)]/75 sm:line-clamp-1">
+                      {announcement}
+                    </span>
+                  ) : null}
                 </p>
-              ) : null}
+              ) : (
+                <>
+                  {subtitle ? (
+                    <p
+                      className={cn(
+                        "max-w-xl leading-snug text-[var(--canteen-muted)]",
+                        backHref ? "max-sm:pl-10" : null,
+                        brandTitle
+                          ? "mt-2 text-xs sm:mt-3 sm:text-lg"
+                          : "mt-2 text-xs sm:mt-2.5 sm:text-base",
+                      )}
+                    >
+                      {subtitle}
+                    </p>
+                  ) : null}
+                  {announcement ? (
+                    <p
+                      role="status"
+                      className={cn(
+                        "mt-1.5 max-w-xl whitespace-pre-wrap text-xs leading-snug text-[var(--canteen-ink)]/80 sm:mt-2 sm:text-sm sm:leading-snug",
+                        backHref ? "max-sm:pl-10" : null,
+                      )}
+                    >
+                      {announcement}
+                    </p>
+                  ) : null}
+                </>
+              )}
             </div>
             {action ? <div className="shrink-0 pt-0.5">{action}</div> : null}
           </div>

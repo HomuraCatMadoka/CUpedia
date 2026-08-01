@@ -41,9 +41,9 @@ describe("canteen-mock", () => {
       canteens.every((canteen) => canteen.name.startsWith("演示食堂")),
     ).toBe(true);
     const items = mockListMenuItems("mock-canteen-demo");
-    expect(items.length).toBeGreaterThanOrEqual(100);
+    expect(items.length).toBeGreaterThanOrEqual(20);
     expect(items.some((i) => i.id === "mock-item-demo")).toBe(true);
-    expect(items.some((i) => (i.pricing?.options.length ?? 0) >= 5)).toBe(true);
+    expect(items.some((i) => (i.pricing?.options.length ?? 0) >= 2)).toBe(true);
     expect(items.some((i) => i.mealPeriods.length > 1)).toBe(true);
     expect(new Set(items.flatMap((i) => i.mealPeriods))).toEqual(
       new Set(["breakfast", "lunch", "dinner"]),

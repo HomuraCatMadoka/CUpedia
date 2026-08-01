@@ -169,7 +169,12 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
 
   if (periodItems.length === 0) {
     return (
-      <div className="px-1 py-10 text-center sm:py-16">
+      <div
+        id={`canteen-view-panel-${view}`}
+        role="tabpanel"
+        aria-labelledby={`canteen-view-tab-${view}`}
+        className="px-1 py-10 text-center sm:py-16"
+      >
         <p className="text-[var(--canteen-muted)]">该餐段菜单待更新</p>
       </div>
     );
@@ -470,10 +475,6 @@ export function CanteenMenuView({
     );
   }, [getStickyToolbarBottom]);
 
-  const getStickyStackHeight = useCallback(() => {
-    return getStickyContentTop();
-  }, [getStickyContentTop]);
-
   const getSectionElement = useCallback((svgKey: string) => {
     return Array.from(
       contentRef.current?.querySelectorAll<HTMLElement>(
@@ -568,14 +569,14 @@ export function CanteenMenuView({
         if (sectionKey) setActiveSection(sectionKey);
       },
       {
-        rootMargin: `-${Math.round(getStickyStackHeight())}px 0px -70% 0px`,
+        rootMargin: `-${Math.round(getStickyContentTop())}px 0px -70% 0px`,
         threshold: 0,
       },
     );
 
     sections.forEach((section) => sectionObserver.observe(section));
     return () => sectionObserver.disconnect();
-  }, [getStickyStackHeight, selectedSections, view]);
+  }, [getStickyContentTop, selectedSections, view]);
 
   const handleVoteChange = useCallback(
     (itemId: string, prevVote: VoteChoice, nextVote: VoteChoice) => {
@@ -695,8 +696,6 @@ export function CanteenMenuView({
     if (nextPeriod === period && sidebarScrollYRef.current == null) {
       sidebarScrollYRef.current = window.scrollY;
     }
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement) activeElement.blur();
     if (view !== "menu") {
       setExpandedPeriod(nextPeriod);
       if (nextPeriod !== period) handlePeriodChange(nextPeriod);
@@ -747,10 +746,10 @@ export function CanteenMenuView({
   const showHintNow = showAfternoonHint && period === "lunch";
 
   return (
-    <div className="min-w-0">
+    <div className="mx-auto min-w-0 w-full max-w-[52rem]">
       <div
         ref={toolbarRef}
-        className="canteen-toolbar sticky top-[var(--navbar-height)] z-20 -mx-3 sm:-mx-6"
+        className="canteen-toolbar sticky top-[var(--navbar-height)] z-20 -mx-3 sm:mx-0"
       >
         <div className="canteen-toolbar-primary">
           <CanteenViewTabs value={view} onChange={handleViewChange} />
@@ -770,7 +769,11 @@ export function CanteenMenuView({
         </div>
       </div>
 
-      <div className="canteen-order-workspace">
+      <div
+        className={`canteen-order-workspace${
+          view === "menu" ? "" : " canteen-order-workspace--ranking"
+        }`}
+      >
         <aside className="canteen-order-sidebar" aria-label="菜单分类">
           <CanteenMealSidebar
             periods={servedPeriods}

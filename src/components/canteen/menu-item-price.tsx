@@ -21,7 +21,17 @@ export function MenuItemPrice({
     return empty == null ? null : <span className={className}>{empty}</span>;
   }
 
-  if (variant === "summary" && pricing.options.length > 1) {
+  if (variant === "summary") {
+    if (pricing.options.length === 1) {
+      const [only] = pricing.options;
+      return (
+        <span className={cn("whitespace-nowrap", className)}>
+          <span className="tabular-nums">
+            {formatPriceAmount(only.amountMinor, only.currency)}
+          </span>
+        </span>
+      );
+    }
     const lowest = pricing.options.reduce((current, option) =>
       option.amountMinor < current.amountMinor ? option : current,
     );

@@ -51,9 +51,36 @@ describe("DanmakuBanner", () => {
       screen.getByRole("heading", { level: 2, name: "校园正在聊" })
         .parentElement?.className,
     ).toContain("danmaku-hero-label");
-    expect(screen.getByLabelText("弹幕内容").hasAttribute("disabled")).toBe(
-      true,
+    expect(
+      (screen.getByLabelText("弹幕内容") as HTMLInputElement).disabled,
+    ).toBe(true);
+    expect(screen.getByRole("link", { name: "登录后发送" })).toBeTruthy();
+  });
+
+  it("keeps the borderless canteen hero as a three-lane danmaku board", () => {
+    const messages = ["今天出餐很稳", "饮品可以少甜", "两点后人少很多"].map(
+      (content, index) => ({
+        id: `message-${index}`,
+        content,
+        month: "2026-07",
+        createdAt: new Date("2026-07-31T00:00:00Z"),
+      }),
     );
-    expect(screen.getByRole("link", { name: "登录" })).toBeTruthy();
+
+    render(
+      <DanmakuBanner
+        initialMessages={messages}
+        viewer={{ kind: "guest" }}
+        trackCount={3}
+        appearance="hero"
+      />,
+    );
+
+    const region = screen.getByRole("region", { name: "本月弹幕" });
+    expect(region.querySelectorAll(".danmaku-track")).toHaveLength(3);
+    expect(region.querySelector(".danmaku-track-layer")?.className).toContain(
+      "h-32",
+    );
+    expect(region.querySelector(".danmaku-composer")).toBeTruthy();
   });
 });

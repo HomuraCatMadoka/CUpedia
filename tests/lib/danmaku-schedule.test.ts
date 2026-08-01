@@ -50,6 +50,19 @@ describe("danmaku-schedule (bilibili-style lanes)", () => {
     }
   });
 
+  it("uses the measured width on narrow embedded boards", () => {
+    const screenWidth = 280;
+    const scheduled = scheduleScrollingDanmaku(
+      Array.from({ length: 12 }, (_, index) => ({
+        id: `narrow-${index}`,
+        content: `演示弹幕 ${index}`,
+      })),
+      { trackCount: 1, screenWidth, duration: 12 },
+    );
+
+    expect(assertLaneNonOverlapping(scheduled, screenWidth)).toBe(true);
+  });
+
   it("never lets same-lane bullets share horizontal space in the cycle", () => {
     const screenWidth = 720;
     const items = Array.from({ length: 40 }, (_, i) => ({

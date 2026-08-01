@@ -38,7 +38,7 @@ test.describe("canteen danmaku", () => {
     await expect(danmakuRegion).toBeVisible();
     await expect(danmakuRegion.getByLabel("弹幕内容")).toBeDisabled();
     await expect(
-      danmakuRegion.getByRole("link", { name: "登录" }),
+      danmakuRegion.getByRole("link", { name: "登录后发送" }),
     ).toBeVisible();
 
     const res = await page.request.post("/api/danmaku", {

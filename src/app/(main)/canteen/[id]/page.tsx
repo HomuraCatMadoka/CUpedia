@@ -22,10 +22,10 @@ import { messagesForFlyover, shuffleArray } from "@/lib/danmaku-types";
 export const dynamic = "force-dynamic";
 
 const MOCK_DANMAKU = [
-  "咖喱鸡今天很稳",
-  "烧味窗口排得有点久",
+  "今天出餐很稳",
+  "热门窗口排得有点久",
   "两点后人少很多",
-  "冻奶茶可以少甜",
+  "饮品可以少甜",
 ] as const;
 
 const MOCK_VOTE_COUNTS = {
@@ -88,7 +88,7 @@ export default async function CanteenMenuPage({
     getMenuItemVoteCounts(id).catch(softEmpty({})),
     getMyVotesForCanteen(id).catch(softEmpty({})),
     getCommentCountsForCanteen(id).catch(softEmpty({})),
-    mock ? Promise.resolve(null) : getSessionVoterUser().catch(softEmpty(null)),
+    getSessionVoterUser().catch(softEmpty(null)),
     mock
       ? Promise.resolve(
           MOCK_DANMAKU.map((content, index) => {
@@ -132,7 +132,7 @@ export default async function CanteenMenuPage({
           viewer={danmakuViewer}
           title="本月弹幕"
           apiPath={`/api/canteen/${id}/danmaku`}
-          trackCount={1}
+          trackCount={3}
           appearance="hero"
         />
       }

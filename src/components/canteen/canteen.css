@@ -452,8 +452,39 @@
 
 .canteen-zone .canteen-order-sidebar {
   min-width: 0;
+  max-height: calc(
+    100dvh - var(--navbar-height) - var(--canteen-toolbar-height)
+  );
   background: var(--canteen-surface-muted);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   overflow-anchor: none;
+  scrollbar-width: none;
+}
+
+.canteen-zone .canteen-order-sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+.canteen-zone .canteen-order-workspace--ranking .canteen-order-sidebar {
+  min-height: 0;
+  max-height: none;
+  border-right: 0;
+  border-bottom: 1px solid var(--canteen-divider);
+  overflow: visible;
+}
+
+.canteen-zone .canteen-order-workspace--ranking .canteen-meal-nav {
+  display: flex;
+  padding: 0;
+}
+
+.canteen-zone .canteen-order-workspace--ranking .canteen-meal-nav-group {
+  flex: 1;
+}
+
+.canteen-zone .canteen-order-workspace--ranking .canteen-meal-period-button {
+  justify-content: center;
 }
 
 .canteen-zone .canteen-order-content {
@@ -539,7 +570,7 @@
   height: 0.25rem;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: currentColor;
+  background: currentcolor;
   content: "";
   opacity: 0;
 }
@@ -1017,6 +1048,7 @@
   --canteen-muted: #6e6e73;
   --canteen-line: rgba(0, 0, 0, 0.08);
   --canteen-fill: rgba(120, 120, 128, 0.12);
+  --canteen-focus: #0071e3;
 
   font-family:
     var(--font-canteen-body),
@@ -1276,9 +1308,9 @@
 .canteen-zone .canteen-detail-hero {
   display: grid;
   grid-template-areas:
-    "live"
-    "identity";
-  gap: 0.25rem;
+    "identity"
+    "live";
+  gap: 0.5rem;
   margin: 0 -0.75rem 0.75rem;
   padding: 0.5rem 0.75rem 0.75rem;
   background: linear-gradient(
@@ -1298,7 +1330,7 @@
 
 .canteen-zone .canteen-detail-live .danmaku-hero-label {
   display: flex;
-  min-height: 2.75rem;
+  min-height: 1.5rem;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -1306,11 +1338,24 @@
   color: var(--canteen-muted);
   font-size: 0.6875rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
 }
 
-.canteen-zone .canteen-detail-page .danmaku-track-layer--hero {
-  height: 3rem;
+.canteen-zone .canteen-detail-live .danmaku-composer {
+  margin-top: 0.25rem;
+}
+
+.canteen-zone .canteen-detail-live .danmaku-composer-control:focus-within {
+  border-radius: 0.625rem;
+  outline: 2px solid var(--canteen-focus);
+  outline-offset: 1px;
+}
+
+.canteen-zone
+  .canteen-detail-live
+  .danmaku-composer-control
+  .danmaku-input:focus-visible {
+  outline: none;
 }
 
 .canteen-zone .canteen-price-option {
@@ -1373,6 +1418,15 @@
     border-right: 1px solid var(--canteen-line);
   }
 
+  .canteen-zone .canteen-order-workspace--ranking {
+    display: block;
+  }
+
+  .canteen-zone .canteen-order-workspace--ranking .canteen-order-sidebar {
+    min-height: 0;
+    border-right: 0;
+  }
+
   .canteen-zone .canteen-menu-section-title {
     position: sticky;
     z-index: 7;
@@ -1388,14 +1442,30 @@
 }
 
 @media (min-width: 640px) {
+  .canteen-zone.canteen-dish-dialog {
+    translate: none;
+  }
+
+  .canteen-zone .canteen-view-tabs {
+    flex: 0 1 24rem;
+  }
+
+  .canteen-zone .canteen-toolbar-search {
+    margin-left: auto;
+  }
+
+  .canteen-zone .canteen-order-content {
+    max-width: 48rem;
+  }
+
   .canteen-zone .canteen-detail-hero {
     gap: 0.5rem;
     margin: 0 0 1.25rem;
     padding: 0.75rem 0 1rem;
   }
 
-  .canteen-zone .canteen-detail-page .danmaku-track-layer--hero {
-    height: 3.5rem;
+  .canteen-zone .canteen-detail-live .danmaku-composer {
+    margin-top: 0.5rem;
   }
 }
 
@@ -1414,6 +1484,15 @@
     );
     align-self: start;
     border-right: 1px solid var(--canteen-line);
+  }
+
+  .canteen-zone .canteen-order-workspace--ranking {
+    display: block;
+  }
+
+  .canteen-zone .canteen-order-workspace--ranking .canteen-order-sidebar {
+    min-height: 0;
+    border-right: 0;
   }
 
   .canteen-zone .canteen-menu-section-title {

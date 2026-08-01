@@ -29,9 +29,15 @@ vi.mock("@/lib/canteen-vote-actions", () => ({
 vi.mock("@/components/canteen/menu-item-comment-panel", () => ({
   MenuItemCommentPanel: ({
     initialCommentCount = 0,
+    expanded,
   }: {
     initialCommentCount?: number;
-  }) => <button type="button">{`评论 (${initialCommentCount})`}</button>,
+    expanded?: boolean;
+  }) => (
+    <button type="button" data-expanded={expanded ? "true" : "false"}>
+      {`评论 (${initialCommentCount})`}
+    </button>
+  ),
 }));
 
 function item(
@@ -203,7 +209,10 @@ describe("CanteenMenuView", () => {
     expect(breakfast.getAttribute("aria-expanded")).toBe("true");
     expect(lunch.getAttribute("aria-expanded")).toBe("false");
 
+    breakfast.focus();
     fireEvent.click(breakfast);
+    expect(document.activeElement).toBe(breakfast);
+
     expect(breakfast.getAttribute("aria-expanded")).toBe("false");
   });
 
@@ -320,9 +329,9 @@ describe("CanteenMenuView", () => {
 
   it("renders directional red and black ranking views", async () => {
     const lunchItems = [
-      item("good", "lunch", "叉烧饭", "rice"),
-      item("bad", "lunch", "焗饭", "rice"),
-      item("mixed", "lunch", "争议菜", "rice"),
+      item("good", "lunch", "演示菜品 A", "rice"),
+      item("bad", "lunch", "演示菜品 B", "rice"),
+      item("mixed", "lunch", "演示菜品 C", "rice"),
     ];
     render(
       <CanteenMenuView
@@ -336,17 +345,17 @@ describe("CanteenMenuView", () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByText("叉烧饭")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("演示菜品 A")).toBeTruthy());
     fireEvent.click(screen.getByRole("tab", { name: "红榜" }));
     const red = screen.getByRole("tabpanel", { name: "红榜" });
-    expect(red.textContent).toContain("叉烧饭");
-    expect(red.textContent).not.toContain("焗饭");
-    expect(red.textContent).not.toContain("争议菜");
+    expect(red.textContent).toContain("演示菜品 A");
+    expect(red.textContent).not.toContain("演示菜品 B");
+    expect(red.textContent).not.toContain("演示菜品 C");
 
     fireEvent.click(screen.getByRole("tab", { name: "黑榜" }));
     const black = screen.getByRole("tabpanel", { name: "黑榜" });
-    expect(black.textContent).toContain("焗饭");
-    expect(black.textContent).not.toContain("叉烧饭");
+    expect(black.textContent).toContain("演示菜品 B");
+    expect(black.textContent).not.toContain("演示菜品 A");
   });
 
   it("shows an empty ranking state when votes are insufficient", async () => {
@@ -365,12 +374,12 @@ describe("CanteenMenuView", () => {
 
   it("uses the finder for search and category jumps without filtering the menu", async () => {
     const mixed = [
-      item("rice-1", "lunch", "叉烧饭", "rice"),
-      item("drink-1", "lunch", "奶茶", "drink"),
-      item("noodle-1", "lunch", "牛肉面", "noodle"),
+      item("rice-1", "lunch", "演示菜品 A", "rice"),
+      item("drink-1", "lunch", "演示菜品 B", "drink"),
+      item("noodle-1", "lunch", "演示菜品 C", "noodle"),
     ];
     render(<CanteenMenuView items={mixed} voteCounts={{}} myVotes={{}} />);
-    await waitFor(() => expect(screen.getByText("叉烧饭")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("演示菜品 A")).toBeTruthy());
 
     fireEvent.click(screen.getByRole("button", { name: "查找菜品" }));
     const finder = screen.getByRole("dialog");
@@ -379,14 +388,14 @@ describe("CanteenMenuView", () => {
     expect(within(finder).getByRole("button", { name: /饮品/ })).toBeTruthy();
 
     fireEvent.change(screen.getByRole("searchbox", { name: "搜索菜品" }), {
-      target: { value: "奶茶" },
+      target: { value: "演示菜品 B" },
     });
     expect(screen.getByText("找到 1 道菜")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "奶茶" }));
+    fireEvent.click(screen.getByRole("button", { name: "演示菜品 B" }));
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-    expect(screen.getByText("叉烧饭")).toBeTruthy();
-    expect(screen.getByText("牛肉面")).toBeTruthy();
+    expect(screen.getByText("演示菜品 A")).toBeTruthy();
+    expect(screen.getByText("演示菜品 C")).toBeTruthy();
     await waitFor(() =>
       expect(
         window.scrollTo as unknown as ReturnType<typeof vi.fn>,
@@ -448,12 +457,38 @@ describe("CanteenMenuView", () => {
 
     const dialog = screen.getByRole("dialog");
     expect(dialog.textContent).toContain("2 种选择");
-    expect(dialog.textContent).toContain("价格与搭配");
+    expect(dialog.textContent).toContain("价格选项");
     expect(dialog.textContent).toContain("热饮");
     expect(dialog.textContent).toContain("$38");
     expect(dialog.textContent).toContain("特饮");
     expect(dialog.textContent).toContain("$46");
     expect(dialog.textContent).toContain("评论");
+    expect(
+      within(dialog).getByRole("button", { name: "评论 (3)" }).dataset.expanded,
+    ).toBe("true");
+  });
+
+  it("does not repeat a single price inside the details body", async () => {
+    const priced = item("single-price", "lunch", "净云吞");
+    priced.pricing = {
+      options: [
+        {
+          id: "regular",
+          label: null,
+          amountMinor: 1800,
+          currency: "HKD",
+          sortOrder: 0,
+        },
+      ],
+    };
+
+    render(<CanteenMenuView items={[priced]} voteCounts={{}} myVotes={{}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /净云吞.*打开详情/ }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("$18")).toBeTruthy();
+    expect(within(dialog).queryByText("价格选项")).toBeNull();
   });
 
   it("keeps all-day dishes in the available specific period", async () => {

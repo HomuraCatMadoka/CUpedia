@@ -105,7 +105,9 @@ describe("MenuItemVoteRow", () => {
     expect(screen.queryByText("· 2 种选择")).toBeNull();
     expect(screen.queryByText("熱")).toBeNull();
     expect(screen.queryByText("$13")).toBeNull();
-    expect(screen.getByText("暂无评价")).toBeTruthy();
+    expect(screen.getByText("暂无评价").classList.contains("sr-only")).toBe(
+      true,
+    );
   });
 
   it("optimistically increments like count on click", async () => {
