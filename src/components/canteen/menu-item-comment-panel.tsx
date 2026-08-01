@@ -86,11 +86,9 @@ export function MenuItemCommentPanel({
       if (!(await ensureContributorSetup())) return;
       try {
         const created = await createDishComment(menuItemId, content);
-        setComments((prev) => {
-          const next = [...(prev ?? []), created];
-          onCountChange?.(next.length);
-          return next;
-        });
+        const nextCount = (comments?.length ?? 0) + 1;
+        setComments((prev) => [...(prev ?? []), created]);
+        onCountChange?.(nextCount);
         setDraft("");
         setError(null);
       } catch (err) {
@@ -134,11 +132,9 @@ export function MenuItemCommentPanel({
     startTransition(async () => {
       try {
         await deleteDishComment(commentId);
-        setComments((prev) => {
-          const next = (prev ?? []).filter((c) => c.id !== commentId);
-          onCountChange?.(next.length);
-          return next;
-        });
+        const nextCount = Math.max(0, (comments?.length ?? 0) - 1);
+        setComments((prev) => (prev ?? []).filter((c) => c.id !== commentId));
+        onCountChange?.(nextCount);
         setError(null);
       } catch {
         setError("删除失败");
