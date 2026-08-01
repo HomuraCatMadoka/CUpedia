@@ -63,44 +63,6 @@ export const STATION_GEO: Record<MtrStationId, StationGeo> = {
   JOR: { lng: 114.1717, lat: 22.3049, labelSide: "left" },
 };
 
-/** 小地区文字锚点（muted，不上色）。 */
-export interface AreaAnchor {
-  name: string;
-  lng: number;
-  lat: number;
-}
-
-/**
- * 维多利亚港 + 九龙湾水面多边形（WGS84 环）。
- * GeoAtlas 区界把海域划进了沿岸各区，导致海渲染不出来；
- * 在区界之上叠这块水面把海「还」回来。手描自官方海岸线，仅作示意。
- */
-export const HARBOUR_WATER: readonly { lng: number; lat: number }[] = [
-  // 九龙岸线（西 → 东）
-  { lng: 114.149, lat: 22.296 }, // 西九文化区海旁
-  { lng: 114.162, lat: 22.295 }, // 尖沙咀西
-  { lng: 114.172, lat: 22.293 }, // 尖沙咀咀尖
-  { lng: 114.18, lat: 22.296 }, // 尖东
-  { lng: 114.187, lat: 22.3 }, // 红磡湾
-  { lng: 114.194, lat: 22.305 }, // 土瓜湾海旁
-  { lng: 114.202, lat: 22.311 }, // 启德跑道根
-  { lng: 114.218, lat: 22.307 }, // 启德跑道尖
-  { lng: 114.223, lat: 22.313 }, // 九龙湾北岸
-  { lng: 114.228, lat: 22.306 }, // 观塘海旁
-  { lng: 114.238, lat: 22.295 }, // 油塘/茶果岭
-  { lng: 114.255, lat: 22.292 }, // 鲤鱼门（画布东缘）
-  // 港岛北岸（东 → 西）
-  { lng: 114.255, lat: 22.28 }, // 爱秩序湾
-  { lng: 114.235, lat: 22.284 }, // 西湾河
-  { lng: 114.22, lat: 22.286 }, // 鲗鱼涌
-  { lng: 114.2, lat: 22.29 }, // 北角
-  { lng: 114.185, lat: 22.287 }, // 炮台山
-  { lng: 114.172, lat: 22.281 }, // 会展/湾仔北
-  { lng: 114.162, lat: 22.285 }, // 金钟/中环
-  { lng: 114.15, lat: 22.287 }, // 上环/西营盘
-  { lng: 114.14, lat: 22.288 }, // 坚尼地城（西面开口即西面海港）
-];
-
 /** 区名标注锚点（缺省用区界质心；密集区手调到空地）。 */
 export const DISTRICT_LABEL_ANCHORS: Partial<
   Record<string, { lng: number; lat: number }>
@@ -114,5 +76,3 @@ export const DISTRICT_LABEL_ANCHORS: Partial<
   cw: { lng: 114.15, lat: 22.281 },
   sd: { lng: 114.158, lat: 22.252 },
 };
-
-export const AREA_ANCHORS: readonly AreaAnchor[] = [];

@@ -111,26 +111,11 @@ function frameArc(a, b, clockwise) {
     if (p[1] === BBOX.maxLat) return 2; // 顶边
     return 3; // 左边
   };
-  const posOnEdge = (p) => {
-    const e = edges(p);
-    if (e === 0) return p[0] - BBOX.minLng;
-    if (e === 1) return p[1] - BBOX.minLat;
-    if (e === 2) return BBOX.maxLng - p[0];
-    return BBOX.maxLat - p[1];
-  };
   const cornerPoint = (i) => CORNERS[(i + 4) % 4];
   const arc = [];
   let e = edges(a);
-  let pos = posOnEdge(a);
   const dir = clockwise ? 1 : -1;
-  const edgeLen = [
-    BBOX.maxLng - BBOX.minLng,
-    BBOX.maxLat - BBOX.minLat,
-    BBOX.maxLng - BBOX.minLng,
-    BBOX.maxLat - BBOX.minLat,
-  ];
   const bEdge = edges(b);
-  const bPos = posOnEdge(b);
   // 逐角前进直到抵达 b 所在边
   for (let steps = 0; steps < 8; steps += 1) {
     const nextE = (e + (dir === 1 ? 1 : 3)) % 4;
@@ -138,10 +123,7 @@ function frameArc(a, b, clockwise) {
     if (nextE === bEdge || e === bEdge) break;
     arc.push(corner);
     e = nextE;
-    pos = 0;
   }
-  void pos;
-  void edgeLen;
   return arc;
 }
 
@@ -185,8 +167,17 @@ const openCandidates = openChains.map((chain) => [
   closeChain(chain, false),
 ]);
 
-let best = null;
+// 组合枚举上限：1<<N 在 N 过大时溢出，超过即中止并报上下文
+const MAX_COMBOS = 1 << 20;
 const totalCombos = 1 << openCandidates.length;
+if (openCandidates.length > 20 || totalCombos > MAX_COMBOS) {
+  console.error(
+    `too many open-chain candidates: ${openCandidates.length} (combo limit ${MAX_COMBOS})`,
+  );
+  process.exit(1);
+}
+
+let best = null;
 for (let mask = 0; mask < totalCombos; mask += 1) {
   const rings = [
     ...closedRings,
@@ -212,11 +203,9 @@ if (best.score < PROBES.length) {
   process.exit(1);
 }
 const landRings = best.rings;
-const onLand = (lng, lat) => landRings.some((ring) => inRing(lng, lat, ring));
-void onLand;
 
 // 4. 拆分港岛环与大陆环（九龙侧区界只许画在大陆，港岛两区只许画在港岛，
-// 防止 GeoAtlas 区界跨越维港把颜色带到对岸）
+// 防止区界跨越维港把颜色带到对岸）
 const CENTRAL_PROBE = [114.158, 22.283];
 const islandIndex = landRings.findIndex((ring) =>
   inRing(CENTRAL_PROBE[0], CENTRAL_PROBE[1], ring),
@@ -227,13 +216,25 @@ if (islandIndex < 0) {
 }
 const islandRing = landRings[islandIndex];
 const mainlandRings = landRings.filter((_, i) => i !== islandIndex);
+if (mainlandRings.length === 0) {
+  console.error("no mainland rings after splitting the island ring");
+  process.exit(1);
+}
 // 主大陆环（九龙+新界+深圳所在的最大陆块）：九龙城区片只允许画在它上面，
-// 防止 GeoAtlas 区界压到港内小岛
+// 防止区界压到港内小岛
 const continentRing = mainlandRings.reduce((largest, ring) =>
   Math.abs(signedArea(ring)) > Math.abs(signedArea(largest)) ? ring : largest,
 );
 
 // 5. 投影 + 抽稀 + 输出
+const signedProjectedArea = (pts) => {
+  let area = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    area += pts[j][0] * pts[i][1] - pts[i][0] * pts[j][1];
+  }
+  return Math.abs(area / 2);
+};
+
 function ringToPath(ring) {
   const pts = [];
   for (const coord of ring) {
@@ -242,7 +243,8 @@ function ringToPath(ring) {
     if (last && Math.hypot(p[0] - last[0], p[1] - last[1]) < 1) continue;
     pts.push(p);
   }
-  if (pts.length < 3) return "";
+  // 退化环（面积 < 1 投影单位）直接丢弃
+  if (pts.length < 3 || signedProjectedArea(pts) < 1) return "";
   return "M" + pts.map((p) => `${p[0]} ${p[1]}`).join("L") + "Z";
 }
 

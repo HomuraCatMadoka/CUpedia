@@ -204,7 +204,7 @@ describe("FoodMapView", () => {
     expect(within(popup).getByText(/25 分钟/)).toBeTruthy();
   });
 
-  it("reveals sub-district bubbles after zooming in", () => {
+  it("does not render sub-district bubbles", () => {
     render(<FoodMapView />);
 
     // 小地区气泡已全部下线（用户反馈与站名重合挡视线）

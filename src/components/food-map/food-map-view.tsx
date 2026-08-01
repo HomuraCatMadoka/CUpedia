@@ -44,7 +44,7 @@ import {
   HK_SHENZHEN_LAND_PATHS,
 } from "@/lib/food-map/hk-border";
 import { HK_RIVER_LINE_PATHS } from "@/lib/food-map/hk-rivers";
-import { AREA_ANCHORS, DISTRICT_LABEL_ANCHORS } from "@/lib/food-map/station-geo";
+import { DISTRICT_LABEL_ANCHORS } from "@/lib/food-map/station-geo";
 import {
   FOOD_MAP_CHECKINS_STORAGE_KEY,
   emptyFoodMapCheckinStore,
@@ -53,7 +53,10 @@ import {
   serializeFoodMapCheckinStore,
   toggleFoodMapCheckin,
 } from "@/lib/food-map/checkins";
-import { getUniversityRoute } from "@/lib/food-map/university-journey-times";
+import {
+  getUniversityRoute,
+  UNIVERSITY_JOURNEY_TIME_COUNTS,
+} from "@/lib/food-map/university-journey-times";
 
 const DEFAULT_BUDGET: FoodMapBudget = 30;
 const ORIGIN_ID = FOOD_MAP_ORIGIN_STATION_ID;
@@ -98,11 +101,16 @@ function routeSummary(stationId: MtrStationId) {
   return parts.join("，");
 }
 
-const SCOPE_COUNTS: Record<FoodMapBudget, string> = {
-  10: "5 个日常目的地 + 马场特别班次",
-  20: "15 个日常目的地 + 马场特别班次",
-  30: "41 个日常目的地 + 马场特别班次",
-};
+const SCOPE_COUNTS: Record<FoodMapBudget, string> = Object.fromEntries(
+  FOOD_MAP_BUDGETS.map((budget) => [
+    budget,
+    `${
+      UNIVERSITY_JOURNEY_TIME_COUNTS.regularServiceIncludingOrigin[
+        `within${budget}`
+      ] - 1
+    } 个日常目的地 + 马场特别班次`,
+  ]),
+) as Record<FoodMapBudget, string>;
 
 const SEA_COLOR = "#cfe5f0";
 const LAND_COLOR = "#e3e6df";
@@ -555,19 +563,16 @@ function MtrSchematic({
       station.lineIds.length > 1 ||
       selectedStationId === station.id,
   );
-  // 统一标签防重叠：站名标签与小地区气泡进入同一优先级队列，
+  // 统一标签防重叠：站名标签进入同一优先级队列，
   // 全图视野用大间距（稀疏），放大后用小间距（全量）
   interface LabelItem {
-    kind: "station" | "area";
     x: number;
     y: number;
     priority: number;
-    station?: (typeof shownLabelStations)[number];
-    anchor?: { name: string };
+    station: (typeof shownLabelStations)[number];
   }
-  const labelItems: LabelItem[] = [
-    ...shownLabelStations.map((station) => ({
-      kind: "station" as const,
+  const labelItems: LabelItem[] = shownLabelStations
+    .map((station) => ({
       x:
         station.position.x +
         (station.label.x - station.position.x) * textScale,
@@ -579,30 +584,21 @@ function MtrSchematic({
         (MAJOR_LABEL_STATIONS.has(station.id) ? 2 : 0) +
         (station.lineIds.length > 1 ? 1 : 0),
       station,
-    })),
-    ...AREA_ANCHORS.map((anchor) => {
-      const point = projectLngLat(anchor);
-      return { kind: "area" as const, x: point.x, y: point.y, priority: 0, anchor };
-    }),
-  ].sort((a, b) => b.priority - a.priority);
+    }))
+    .sort((a, b) => b.priority - a.priority);
 
   const labelSpacing = (showAllLabels ? 15 : 26) * textScale;
-  const keptLabels: LabelItem[] = [];
+  const declutteredStations: (typeof shownLabelStations)[number][] = [];
   for (const item of labelItems) {
-    const collides = keptLabels.some(
-      (kept) => Math.hypot(kept.x - item.x, kept.y - item.y) < labelSpacing,
-    );
-    if (!collides) keptLabels.push(item);
+    const collides = declutteredStations.some((kept) => {
+      const keptX =
+        kept.position.x + (kept.label.x - kept.position.x) * textScale;
+      const keptY =
+        kept.position.y + (kept.label.y - kept.position.y) * textScale;
+      return Math.hypot(keptX - item.x, keptY - item.y) < labelSpacing;
+    });
+    if (!collides) declutteredStations.push(item.station);
   }
-  const declutteredStations = keptLabels
-    .filter((item) => item.kind === "station")
-    .map((item) => item.station!);
-  const visibleAreaAnchors = keptLabels
-    .filter((item) => item.kind === "area")
-    .map((item) => ({
-      anchor: item.anchor!,
-      point: { x: item.x, y: item.y },
-    }));
   const selectedStation = selectedStationId
     ? (stationById.get(selectedStationId) ?? null)
     : null;
@@ -687,6 +683,7 @@ function MtrSchematic({
                 data-district-polygon={geometry.id}
                 d={geometry.path}
                 fill={district.color}
+                fillRule="evenodd"
                 fillOpacity={selectedRoute ? 0.06 : 0.15}
                 stroke="#9aa7b4"
                 strokeOpacity="0.55"
@@ -780,37 +777,6 @@ function MtrSchematic({
             >
               {geometry.name}
             </text>
-          );
-        })}
-        {/* 小地区气泡 */}
-        {visibleAreaAnchors.map(({ anchor, point }) => {
-          const fontSize = 9.5 * textScale;
-          const bubbleWidth = anchor.name.length * fontSize + 8 * textScale;
-          const bubbleHeight = 15 * textScale;
-          return (
-            <g key={anchor.name} aria-hidden="true" opacity={selectedRoute ? 0.35 : 1}>
-              <rect
-                x={point.x - bubbleWidth / 2}
-                y={point.y - bubbleHeight / 2}
-                width={bubbleWidth}
-                height={bubbleHeight}
-                rx={4 * textScale}
-                fill="var(--background)"
-                fillOpacity="0.88"
-                stroke="#b8c4d8"
-                strokeWidth={1 * textScale}
-              />
-              <text
-                x={point.x}
-                y={point.y}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize={fontSize}
-                fill="#4a5a75"
-              >
-                {anchor.name}
-              </text>
-            </g>
           );
         })}
         <text
@@ -1104,6 +1070,7 @@ export function FoodMapView() {
   const [today, setToday] = useState(hktDateKey);
   const [checkins, setCheckins] = useState(emptyFoodMapCheckinStore);
   const [checkinsReady, setCheckinsReady] = useState(false);
+  const legendStations = useMemo(() => getReachableStations(budget), [budget]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -1176,6 +1143,7 @@ export function FoodMapView() {
       setToday(activeToday);
       setCheckins(next);
     } catch {
+      setNotice("打卡记录保存失败，请检查浏览器存储权限");
       return;
     }
   }
@@ -1206,7 +1174,7 @@ export function FoodMapView() {
         <MapLegend />
       </div>
       <div className="mt-1.5">
-        <DistrictLegend stations={getReachableStations(budget)} />
+        <DistrictLegend stations={legendStations} />
       </div>
 
       <div className="mt-2">

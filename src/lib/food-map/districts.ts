@@ -1,7 +1,7 @@
 /**
  * 香港区议会分区（民政事务总署 18 区口径）。
  * 11 个通勤范围内的区用鲜明色，范围外 7 区用低饱和衬托色。
- * 区界几何在 hk-geometry.ts（GeoAtlas 数据，真实海岸线裁剪见 hk-land.ts）。
+ * 区界几何在 hk-geometry.ts（OSM admin_level=6，真实海岸线裁剪见 hk-land.ts）。
  */
 
 export type HkDistrictId =

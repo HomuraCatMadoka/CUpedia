@@ -1,7 +1,8 @@
 /**
  * 通勤食图投影：WGS84 经纬度 → 画布坐标。
  * 等距投影带纬度修正，香港尺度（<50km）误差可忽略。
- * 参数必须与 scripts/build-food-map-geo.mjs 一致。
+ * 参数必须与 scripts/build-food-map-admin.mjs、build-food-map-coastline.mjs、
+ * build-food-map-rivers.mjs 一致。
  */
 
 const LNG0 = 114.05;

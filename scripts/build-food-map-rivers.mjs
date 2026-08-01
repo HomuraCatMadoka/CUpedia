@@ -14,6 +14,8 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 
+import { assembleRings } from "./lib/osm-rings.mjs";
+
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
   console.error("usage: node scripts/build-food-map-rivers.mjs <in.json> <out.ts>");
@@ -45,55 +47,6 @@ function coordsToPath(coords, close) {
   return "M" + pts.map((p) => `${p[0]} ${p[1]}`).join("L") + (close ? "Z" : "");
 }
 
-/** relation 的 outer way 接环（与 build-food-map-admin 同逻辑）。 */
-function assembleRings(members) {
-  const chains = members.map((m) => ({
-    nodes: m.geometry.map((g) => `${g.lon},${g.lat}`),
-    coords: m.geometry.map((g) => [g.lon, g.lat]),
-  }));
-  let merged = true;
-  while (merged) {
-    merged = false;
-    outer: for (let i = 0; i < chains.length; i += 1) {
-      for (let j = i + 1; j < chains.length; j += 1) {
-        const a = chains[i];
-        const b = chains[j];
-        const tryJoin = () => {
-          if (a.nodes[a.nodes.length - 1] === b.nodes[0]) {
-            a.nodes.push(...b.nodes.slice(1));
-            a.coords.push(...b.coords.slice(1));
-            return true;
-          }
-          if (a.nodes[a.nodes.length - 1] === b.nodes[b.nodes.length - 1]) {
-            a.nodes.push(...b.nodes.reverse().slice(1));
-            a.coords.push(...b.coords.reverse().slice(1));
-            return true;
-          }
-          if (a.nodes[0] === b.nodes[b.nodes.length - 1]) {
-            a.nodes.unshift(...b.nodes.slice(0, -1));
-            a.coords.unshift(...b.coords.slice(0, -1));
-            return true;
-          }
-          if (a.nodes[0] === b.nodes[0]) {
-            a.nodes.unshift(...b.nodes.reverse().slice(0, -1));
-            a.coords.unshift(...b.coords.reverse().slice(0, -1));
-            return true;
-          }
-          return false;
-        };
-        if (tryJoin()) {
-          chains.splice(j, 1);
-          merged = true;
-          continue outer;
-        }
-      }
-    }
-  }
-  return chains
-    .filter((c) => c.nodes[0] === c.nodes[c.nodes.length - 1])
-    .map((c) => c.coords);
-}
-
 const areaPaths = [];
 for (const relation of relations) {
   const outers = assembleRings(
@@ -120,15 +73,32 @@ for (const way of ways) {
 }
 
 const linePaths = [];
+let shenzhenRiverExcluded = 0;
 for (const way of ways) {
   if (way.tags?.waterway !== "river") continue;
   // 深圳河为界河，已由虚线边界表达，不再画水系蓝（用户决定）
-  if (/深圳河|Sham Chun|Shenzhen River/i.test(way.tags?.name ?? "")) continue;
+  const name = [
+    way.tags?.name,
+    way.tags?.["name:zh"],
+    way.tags?.["name:zh-Hant"],
+    way.tags?.["name:en"],
+  ]
+    .filter(Boolean)
+    .join(" ");
+  if (/深圳河|Sham Chun|Shenzhen River/i.test(name)) {
+    shenzhenRiverExcluded += 1;
+    continue;
+  }
   const path = coordsToPath(
     way.geometry.map((g) => [g.lon, g.lat]),
     false,
   );
   if (path) linePaths.push(path);
+}
+if (shenzhenRiverExcluded === 0) {
+  console.warn(
+    "warning: no Shenzhen River way matched the exclusion patterns — naming may have changed upstream",
+  );
 }
 
 const ts = `/**
