@@ -21,7 +21,7 @@ if (!inputPath || !outputPath) {
 }
 
 const LNG0 = 114.05;
-const LAT_TOP = 22.56;
+const LAT_TOP = 22.62;
 const K = 1991;
 const COS = Math.cos((22.4 * Math.PI) / 180);
 const project = ([lng, lat]) => [

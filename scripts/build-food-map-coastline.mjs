@@ -22,7 +22,7 @@ const BBOX = { minLat: 22.1, maxLat: 22.65, minLng: 113.9, maxLng: 114.5 };
 
 // 投影参数（与 geo-projection.ts 一致）
 const LNG0 = 114.05;
-const LAT_TOP = 22.56;
+const LAT_TOP = 22.62;
 const K = 1991;
 const COS = Math.cos((22.4 * Math.PI) / 180);
 const project = ([lng, lat]) => [

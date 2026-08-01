@@ -18,7 +18,7 @@ if (!inputPath || !outputPath) {
 
 // 投影参数（与 geo-projection.ts 一致）
 const LNG0 = 114.05;
-const LAT_TOP = 22.56;
+const LAT_TOP = 22.62;
 const K = 1991;
 const COS = Math.cos((22.4 * Math.PI) / 180);
 const project = ([lng, lat]) => [
@@ -176,7 +176,7 @@ export interface HkDistrictGeometry {
   path: string;
 }
 
-export const HK_CANVAS = { x: 0, y: 0, width: 460, height: 637 } as const;
+export const HK_CANVAS = { x: 0, y: 0, width: 460, height: 757 } as const;
 
 export const HK_DISTRICT_GEOMETRY: readonly HkDistrictGeometry[] = ${JSON.stringify(output, null, 2)};
 `;
