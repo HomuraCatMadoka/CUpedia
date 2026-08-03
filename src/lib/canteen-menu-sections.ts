@@ -1,5 +1,6 @@
 import {
   DISH_SVG_KEYS,
+  resolveStoredSectionKey,
   type DishSvgKey,
 } from "@/lib/canteen-svg-keys";
 import type { CanteenMenuItem } from "@/lib/canteen-types";
@@ -39,7 +40,7 @@ export type MenuSection = {
 };
 
 export function menuSectionLabel(svgKey: string): string {
-  const key = svgKey.trim() || "default";
+  const key = resolveStoredSectionKey(svgKey);
   if ((DISH_SVG_KEYS as readonly string[]).includes(key)) {
     return SECTION_LABELS[key as DishSvgKey];
   }
@@ -53,7 +54,7 @@ export function groupMenuItemsBySvgKey(
   const buckets = new Map<string, CanteenMenuItem[]>();
   const firstSeen: string[] = [];
   for (const item of items) {
-    const key = item.svgKey.trim() || "default";
+    const key = resolveStoredSectionKey(item.svgKey);
     const list = buckets.get(key);
     if (list) list.push(item);
     else {

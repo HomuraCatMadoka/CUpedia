@@ -31,8 +31,18 @@ const CATEGORY_ICON_ALIASES: Record<string, DishSvgKey> = {
   零食: "default",
 };
 
+/** Collapse surrounding/internal whitespace for section keys. */
+export function collapseSectionKeyWhitespace(raw: string): string {
+  return raw.trim().replace(/\s+/g, " ");
+}
+
 export function normalizeSectionKey(raw: string): string {
-  return raw.trim().replace(/\s+/g, " ").slice(0, SVG_KEY_MAX_LENGTH);
+  return collapseSectionKeyWhitespace(raw).slice(0, SVG_KEY_MAX_LENGTH);
+}
+
+/** Stored keys for grouping/labels: empty collapses to `default`. */
+export function resolveStoredSectionKey(raw: string): string {
+  return normalizeSectionKey(raw) || "default";
 }
 
 /**

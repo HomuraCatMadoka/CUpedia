@@ -1,10 +1,12 @@
 import { describe, it, expect } from "vitest";
 import {
   DISH_SVG_KEYS,
+  collapseSectionKeyWhitespace,
   inferDishSvgKeyFromName,
   resolveDishIconKey,
   resolveDishSvgKey,
   resolveMenuSectionKey,
+  resolveStoredSectionKey,
   SVG_KEY_MAX_LENGTH,
 } from "@/lib/canteen-svg-keys";
 import { validateSvgKey } from "@/lib/canteen-types";
@@ -32,6 +34,13 @@ describe("dish svg keys", () => {
     expect(validateSvgKey("unknown-category")).toBe("unknown-category");
     expect(validateSvgKey("")).toBe("default");
     expect(validateSvgKey("x".repeat(SVG_KEY_MAX_LENGTH + 1))).toBe("default");
+  });
+
+  it("shares whitespace collapse between validateSvgKey and normalize helpers", () => {
+    expect(collapseSectionKeyWhitespace("  a   b  ")).toBe("a b");
+    expect(resolveStoredSectionKey("   ")).toBe("default");
+    expect(resolveStoredSectionKey("  飯類  ")).toBe("飯類");
+    expect(validateSvgKey("  a   b  ")).toBe("a b");
   });
 
   it("resolveMenuSectionKey prefers store category over name inference", () => {

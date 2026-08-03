@@ -5,7 +5,7 @@ import {
   type MealPeriod,
   type MealPeriodAssignment,
 } from "@/db/schema";
-import { SVG_KEY_MAX_LENGTH } from "@/lib/canteen-svg-keys";
+import { SVG_KEY_MAX_LENGTH, collapseSectionKeyWhitespace } from "@/lib/canteen-svg-keys";
 import {
   compareMealPeriodAssignments,
   mealPeriodsFromRow,
@@ -356,7 +356,7 @@ export function validateSortOrder(sortOrder: unknown): number {
 
 export function validateSvgKey(svgKey: unknown): string {
   if (typeof svgKey !== "string") return "default";
-  const trimmed = svgKey.trim().replace(/\s+/g, " ");
-  if (!trimmed || trimmed.length > SVG_KEY_MAX_LENGTH) return "default";
-  return trimmed;
+  const normalized = collapseSectionKeyWhitespace(svgKey);
+  if (!normalized || normalized.length > SVG_KEY_MAX_LENGTH) return "default";
+  return normalized;
 }
