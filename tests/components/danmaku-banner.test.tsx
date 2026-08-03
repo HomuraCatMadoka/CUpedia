@@ -91,14 +91,11 @@ describe("DanmakuBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
 
     await waitFor(() => {
-      const items = document.querySelectorAll(
-        ".danmaku-track-layer .danmaku-item",
+      const live = document.querySelector(
+        ".danmaku-track-layer [data-live-danmaku]",
       );
-      const sent = Array.from(items).find(
-        (el) => el.textContent === "我刚发的",
-      );
-      expect(sent).toBeTruthy();
-      expect(sent?.getAttribute("style") ?? "").toMatch(
+      expect(live?.textContent).toBe("我刚发的");
+      expect(live?.getAttribute("style") ?? "").toMatch(
         /animation-delay:\s*0s/i,
       );
     });
