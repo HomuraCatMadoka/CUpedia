@@ -4,6 +4,7 @@ import {
   ALLDAY_MEAL_PERIOD,
   primaryMealPeriodSortKey,
   type MealPeriod,
+  type MealPeriodAssignment,
 } from "../src/lib/canteen-types";
 
 const STORE_ID = "112891";
@@ -36,7 +37,7 @@ type AigensCategory = {
 type MenuRow = {
   externalKey: string;
   name: string;
-  mealPeriod: MealPeriod;
+  mealPeriod: MealPeriodAssignment;
   sortOrder: number;
   svgKey: string;
   pricing: {
