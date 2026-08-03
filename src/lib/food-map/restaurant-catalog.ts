@@ -5,7 +5,8 @@ export type RestaurantOpeningState = "open" | "closed" | "unknown";
 export interface RestaurantSourceMetadata {
   provider: "openrice";
   externalId: string;
-  url: string;
+  url: string | null;
+  imageUrls: readonly string[];
   acquiredAt: string;
   updatedAt: string;
 }
@@ -38,16 +39,24 @@ const SNAPSHOT_TIME = "2026-07-31T08:00:00+08:00";
 function mockRestaurant(
   id: string,
   externalId: string,
-  stationId: "SHT" | "TAP",
+  stationId: MtrStationId,
   sourceFacts: RestaurantSourceFacts,
   foodleFacts: Omit<FoodleRestaurantFacts, "stationId">,
+  sourceOptions: {
+    url?: string | null;
+    imageUrls?: readonly string[];
+  } = {},
 ): FoodleRestaurant {
   return {
     id,
     source: {
       provider: "openrice",
       externalId,
-      url: `https://www.openrice.com/zh/hongkong/r/${externalId}`,
+      url:
+        sourceOptions.url === undefined
+          ? `https://www.openrice.com/zh/hongkong/r/${externalId}`
+          : sourceOptions.url,
+      imageUrls: sourceOptions.imageUrls ?? [],
       acquiredAt: SNAPSHOT_TIME,
       updatedAt: SNAPSHOT_TIME,
     },
@@ -74,6 +83,12 @@ export const FOODLE_RESTAURANTS: readonly FoodleRestaurant[] = [
       uniqueVisitors: 31,
       totalCheckins: 58,
     },
+    {
+      imageUrls: [
+        "/foodle-sketch/cha-chaan-teng-meal.svg",
+        "/foodle-sketch/cha-chaan-teng-shop.svg",
+      ],
+    },
   ),
   mockRestaurant(
     "foodle-sht-002",
@@ -92,6 +107,7 @@ export const FOODLE_RESTAURANTS: readonly FoodleRestaurant[] = [
       uniqueVisitors: 46,
       totalCheckins: 83,
     },
+    { imageUrls: ["/foodle-sketch/noodle-bowl.svg"] },
   ),
   mockRestaurant(
     "foodle-sht-003",
@@ -199,6 +215,97 @@ export const FOODLE_RESTAURANTS: readonly FoodleRestaurant[] = [
       averageScore: null,
       uniqueVisitors: 3,
       totalCheckins: 5,
+    },
+  ),
+  mockRestaurant(
+    "foodle-kot-001",
+    "mock-kot-001",
+    "KOT",
+    {
+      name: "九龙塘拉面所",
+      cuisines: ["日本菜", "拉面"],
+      priceRange: "HK$51 至 100",
+      openingState: "open",
+      openingLabel: "营业中，22:00 关门",
+    },
+    {
+      walkMinutes: 6,
+      averageScore: 4.5,
+      uniqueVisitors: 37,
+      totalCheckins: 66,
+    },
+    { url: null },
+  ),
+  mockRestaurant(
+    "foodle-kot-002",
+    "mock-kot-002",
+    "KOT",
+    {
+      name: "达之路冰室",
+      cuisines: ["港式", "茶餐厅"],
+      priceRange: "HK$50 以下",
+      openingState: "open",
+      openingLabel: "营业中，21:30 关门",
+    },
+    {
+      walkMinutes: 5,
+      averageScore: 4.1,
+      uniqueVisitors: 24,
+      totalCheckins: 39,
+    },
+  ),
+  mockRestaurant(
+    "foodle-kot-003",
+    "mock-kot-003",
+    "KOT",
+    {
+      name: "又一城咖喱屋",
+      cuisines: ["东南亚菜", "咖喱"],
+      priceRange: "HK$101 至 200",
+      openingState: "closed",
+      openingLabel: "已休息，明日 11:30 营业",
+    },
+    {
+      walkMinutes: 8,
+      averageScore: 4.3,
+      uniqueVisitors: 19,
+      totalCheckins: 28,
+    },
+  ),
+  mockRestaurant(
+    "foodle-jor-001",
+    "mock-jor-001",
+    "JOR",
+    {
+      name: "佐敦车仔面",
+      cuisines: ["港式", "车仔面"],
+      priceRange: "HK$50 以下",
+      openingState: "open",
+      openingLabel: "营业中，23:00 关门",
+    },
+    {
+      walkMinutes: 4,
+      averageScore: 4.4,
+      uniqueVisitors: 43,
+      totalCheckins: 71,
+    },
+  ),
+  mockRestaurant(
+    "foodle-jor-002",
+    "mock-jor-002",
+    "JOR",
+    {
+      name: "庙街小馆",
+      cuisines: ["粤菜", "小菜"],
+      priceRange: "HK$51 至 100",
+      openingState: "unknown",
+      openingLabel: null,
+    },
+    {
+      walkMinutes: 7,
+      averageScore: 4.0,
+      uniqueVisitors: 16,
+      totalCheckins: 23,
     },
   ),
 ];

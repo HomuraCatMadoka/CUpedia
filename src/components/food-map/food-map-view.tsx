@@ -280,13 +280,11 @@ function MtrSchematic({
   selectedStationId,
   onSelectStation,
   onClearSelection,
-  mobileDiscoveryFocused,
 }: {
   budget: FoodMapBudget;
   selectedStationId: MtrStationId | null;
   onSelectStation: (stationId: MtrStationId) => void;
   onClearSelection: () => void;
-  mobileDiscoveryFocused: boolean;
 }) {
   const view = MAP_VIEWS[budget];
   const reachableStations = useMemo(
@@ -465,9 +463,6 @@ function MtrSchematic({
           const className = [
             "pointer-events-auto absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
             "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/45",
-            mobileDiscoveryFocused && station.position.y > 450
-              ? "max-md:invisible"
-              : "",
           ].join(" ");
           const style = {
             left: `${((station.position.x - view.x) / view.width) * 100}%`,
@@ -598,10 +593,6 @@ export function FoodMapView() {
     () => new Set(checkins.byDate[today] ?? []),
     [checkins, today],
   );
-  const mobileDiscoveryFocused = Boolean(
-    selectedStationId && hasFoodleRestaurants(selectedStationId),
-  );
-
   function changeBudget(nextBudget: FoodMapBudget) {
     setBudget(nextBudget);
     const selected = selectedStationId
@@ -672,26 +663,17 @@ export function FoodMapView() {
       </div>
 
       <div className="mt-3 grid min-w-0 gap-x-6 gap-y-3 md:grid-cols-[minmax(0,32rem)_minmax(20rem,1fr)] md:items-start lg:gap-x-9">
-        <div
-          className={[
-            "min-w-0",
-            mobileDiscoveryFocused
-              ? "max-md:max-h-[22rem] max-md:overflow-hidden max-md:border-b"
-              : "",
-          ].join(" ")}
-        >
+        <div className="min-w-0">
           <MtrSchematic
             budget={budget}
             selectedStationId={selectedStationId}
             onSelectStation={selectStation}
             onClearSelection={clearSelection}
-            mobileDiscoveryFocused={mobileDiscoveryFocused}
           />
         </div>
 
         <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:sticky md:top-[calc(var(--navbar-height)+1.5rem)]">
           <RestaurantDiscoveryPanel
-            key={selectedStationId ?? "no-station"}
             station={
               selectedStationId
                 ? (stationById.get(selectedStationId) ?? null)

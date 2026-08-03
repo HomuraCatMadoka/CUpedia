@@ -18,14 +18,36 @@ describe("Foodle restaurant catalog", () => {
     expect(ids.size).toBe(FOODLE_RESTAURANTS.length);
   });
 
+  it("seeds later commute bands with station-specific restaurant pools", () => {
+    expect(getFoodleRestaurantsForStation("KOT")).toHaveLength(3);
+    expect(getFoodleRestaurantsForStation("JOR")).toHaveLength(2);
+  });
+
   it("keeps source metadata separate from Foodle commute and community facts", () => {
     for (const restaurant of FOODLE_RESTAURANTS) {
       expect(restaurant.source.provider).toBe("openrice");
       expect(restaurant.source.externalId).toMatch(/^mock-/u);
-      expect(restaurant.source.url).toContain(restaurant.source.externalId);
+      if (restaurant.source.url) {
+        expect(restaurant.source.url).toContain(restaurant.source.externalId);
+      }
       expect(restaurant.sourceFacts.name.length).toBeGreaterThan(0);
-      expect(["SHT", "TAP"]).toContain(restaurant.foodle.stationId);
+      expect(["SHT", "TAP", "KOT", "JOR"]).toContain(
+        restaurant.foodle.stationId,
+      );
     }
+  });
+
+  it("covers no-image, single-image, gallery and missing-URL source states", () => {
+    const imageCounts = FOODLE_RESTAURANTS.map(
+      (restaurant) => restaurant.source.imageUrls.length,
+    );
+
+    expect(imageCounts).toContain(0);
+    expect(imageCounts).toContain(1);
+    expect(imageCounts).toContain(2);
+    expect(
+      FOODLE_RESTAURANTS.some((restaurant) => !restaurant.source.url),
+    ).toBe(true);
   });
 
   it("includes explicit missing-field fixture coverage", () => {

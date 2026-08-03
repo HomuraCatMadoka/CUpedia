@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 540" role="img" aria-labelledby="title">
+  <title id="title">茶餐厅店铺简笔插画</title>
+  <rect width="720" height="540" fill="#e9e7df"/>
+  <path d="M118 445V174h484v271" fill="#fffaf2" stroke="#2d2630" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M92 174h536l-42-74H134z" fill="#672d7e" stroke="#2d2630" stroke-width="10" stroke-linejoin="round"/>
+  <path d="M160 174v62m80-62v62m80-62v62m80-62v62m80-62v62m80-62v62" stroke="#fffaf2" stroke-width="20"/>
+  <path d="M170 285h190v160H170zm235 0h125v160H405z" fill="#dce9e7" stroke="#2d2630" stroke-width="10"/>
+  <path d="M215 334h96m-96 45h96m238-39v47" stroke="#2d2630" stroke-width="10" stroke-linecap="round"/>
+  <path d="M250 132h220" stroke="#fffaf2" stroke-width="12" stroke-linecap="round"/>
+</svg>
