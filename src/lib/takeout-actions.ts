@@ -1,7 +1,11 @@
 "use server";
 
 import { db } from "@/db";
-import { takeoutMenuItemPrices, takeoutMenuItems, takeouts } from "@/db/schema";
+import {
+  takeoutMenuItemPrices,
+  takeoutMenuItems,
+  takeouts,
+} from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
 import { primaryMealPeriodSortKey } from "@/lib/canteen-types";

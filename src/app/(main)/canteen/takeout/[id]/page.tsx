@@ -44,10 +44,7 @@ export default async function TakeoutMenuPage({
                 i % 2 === 1 ? "canteen-fade-in-delay-1" : ""
               }`}
             >
-              <DishSvgIcon
-                svgKey={item.svgKey}
-                className="size-10 rounded-xl"
-              />
+              <DishSvgIcon svgKey={item.svgKey} className="size-10 rounded-xl" />
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-[var(--canteen-ink)]">
                   {item.name}

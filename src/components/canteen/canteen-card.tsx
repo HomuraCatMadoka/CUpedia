@@ -44,7 +44,9 @@ function CanteenIconOrb({
       ) : !pending ? (
         <span className="canteen-icon-initials">{initials}</span>
       ) : null}
-      {pending ? <span className="canteen-icon-pending" /> : null}
+      {pending ? (
+        <span className="canteen-icon-pending" />
+      ) : null}
     </span>
   );
 }

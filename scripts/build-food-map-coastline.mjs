@@ -14,9 +14,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
-  console.error(
-    "usage: node scripts/build-food-map-coastline.mjs <in.json> <out.ts>",
-  );
+  console.error("usage: node scripts/build-food-map-coastline.mjs <in.json> <out.ts>");
   process.exit(1);
 }
 
@@ -52,10 +50,7 @@ while (merged) {
       const b = chains[j];
       const pairs = [
         [a[a.length - 1] === b[0], () => a.push(...b.slice(1))],
-        [
-          a[a.length - 1] === b[b.length - 1],
-          () => a.push(...b.reverse().slice(1)),
-        ],
+        [a[a.length - 1] === b[b.length - 1], () => a.push(...b.reverse().slice(1))],
         [a[0] === b[b.length - 1], () => a.unshift(...b.slice(0, -1))],
         [a[0] === b[0], () => a.unshift(...b.reverse().slice(0, -1))],
       ];
@@ -78,9 +73,7 @@ for (const chain of chains) {
   if (chain[0] === chain[chain.length - 1]) closedRings.push(coords);
   else openChains.push(coords);
 }
-console.log(
-  `ways ${ways.length} → chains ${chains.length} (closed ${closedRings.length}, open ${openChains.length})`,
-);
+console.log(`ways ${ways.length} → chains ${chains.length} (closed ${closedRings.length}, open ${openChains.length})`);
 
 // 2. 开放链沿 bbox 边框闭合（两种方向），用有向面积选陆地侧
 const signedArea = (ring) => {
@@ -152,10 +145,7 @@ function inRing(lng, lat, ring) {
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const [xi, yi] = ring[i];
     const [xj, yj] = ring[j];
-    if (
-      yi > lat !== yj > lat &&
-      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi
-    )
+    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi)
       inside = !inside;
   }
   return inside;
@@ -202,16 +192,12 @@ for (let mask = 0; mask < totalCombos; mask += 1) {
     best = { score, mask, rings };
   }
 }
-console.log(
-  `best closure combo: mask=${best.mask}, probes ${best.score}/${PROBES.length}`,
-);
+console.log(`best closure combo: mask=${best.mask}, probes ${best.score}/${PROBES.length}`);
 if (best.score < PROBES.length) {
   for (const [lng, lat, expectLand, name] of PROBES) {
     const land = best.rings.some((ring) => inRing(lng, lat, ring));
     if (land !== expectLand)
-      console.log(
-        `probe FAIL ${name}: expect ${expectLand ? "land" : "water"}, got ${land ? "land" : "water"}`,
-      );
+      console.log(`probe FAIL ${name}: expect ${expectLand ? "land" : "water"}, got ${land ? "land" : "water"}`);
   }
   console.error("probe failures, aborting");
   process.exit(1);
@@ -280,6 +266,4 @@ export const HK_CONTINENT_LAND_PATH: string = ${JSON.stringify(ringToPath(contin
 export const HK_MAINLAND_LAND_PATHS: readonly string[] = ${JSON.stringify(mainlandRings.map(ringToPath).filter(Boolean), null, 2)};
 `;
 writeFileSync(outputPath, ts);
-console.log(
-  `wrote ${outputPath}: ${paths.length} land rings, ${ts.length} bytes`,
-);
+console.log(`wrote ${outputPath}: ${paths.length} land rings, ${ts.length} bytes`);

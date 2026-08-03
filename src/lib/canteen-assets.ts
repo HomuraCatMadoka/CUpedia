@@ -5,7 +5,10 @@ const IMAGE_EXTENSIONS = ["png", "webp", "jpg", "jpeg", "svg"] as const;
 
 function isSafeAssetKey(key: string): boolean {
   return Boolean(
-    key && !key.includes("..") && !key.includes("/") && !key.includes("\\"),
+    key &&
+      !key.includes("..") &&
+      !key.includes("/") &&
+      !key.includes("\\"),
   );
 }
 

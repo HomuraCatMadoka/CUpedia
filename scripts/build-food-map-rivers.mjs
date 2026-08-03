@@ -18,9 +18,7 @@ import { assembleRings } from "./lib/osm-rings.mjs";
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
-  console.error(
-    "usage: node scripts/build-food-map-rivers.mjs <in.json> <out.ts>",
-  );
+  console.error("usage: node scripts/build-food-map-rivers.mjs <in.json> <out.ts>");
   process.exit(1);
 }
 

@@ -16,11 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  CanteenCard,
-  CanteenShell,
-  PreviewBanner,
-} from "@/components/canteen/canteen-shell";
+import { CanteenCard, CanteenShell, PreviewBanner } from "@/components/canteen/canteen-shell";
 import type { Canteen, DeleteImpact } from "@/lib/canteen-types";
 import * as liveActions from "@/lib/canteen-admin-actions";
 import * as previewActions from "@/lib/canteen-preview-actions";
@@ -150,15 +146,10 @@ export function CanteenAdminPanel({
         onSubmit={handleCreate}
         className="canteen-fade-in mb-8 rounded-2xl border border-[var(--canteen-bamboo)]/25 bg-white/70 p-5 backdrop-blur-sm"
       >
-        <p className="mb-4 text-sm font-medium text-[var(--canteen-ink)]">
-          添加食堂
-        </p>
+        <p className="mb-4 text-sm font-medium text-[var(--canteen-ink)]">添加食堂</p>
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[12rem] flex-1 space-y-1">
-            <label
-              className="text-xs font-medium text-[var(--canteen-muted)]"
-              htmlFor="canteen-name"
-            >
+            <label className="text-xs font-medium text-[var(--canteen-muted)]" htmlFor="canteen-name">
               食堂名称
             </label>
             <Input
@@ -220,21 +211,12 @@ export function CanteenAdminPanel({
       ) : (
         <div className="canteen-icon-grid sm:!grid-cols-2 md:!grid-cols-3">
           {canteens.map((canteen, i) => (
-            <div
-              key={canteen.id}
-              className={`canteen-fade-in ${i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}`}
-            >
-              <CanteenCard
-                canteen={canteen}
-                href={`${basePath}/${canteen.id}`}
-              />
+            <div key={canteen.id} className={`canteen-fade-in ${i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}`}>
+              <CanteenCard canteen={canteen} href={`${basePath}/${canteen.id}`} />
               <div className="mt-2 flex flex-wrap justify-center gap-2 px-1">
                 <Link
                   href={`${basePath}/${canteen.id}`}
-                  className={cn(
-                    buttonVariants({ variant: "outline", size: "sm" }),
-                    "rounded-full",
-                  )}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-full")}
                 >
                   管理菜单
                 </Link>
@@ -273,9 +255,7 @@ export function CanteenAdminPanel({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              确认删除「{deleteTarget?.name}」？
-            </AlertDialogTitle>
+            <AlertDialogTitle>确认删除「{deleteTarget?.name}」？</AlertDialogTitle>
             <AlertDialogDescription>
               {deleteTarget && deleteImpact
                 ? formatDeleteImpact(deleteImpact, "canteen")
@@ -304,10 +284,7 @@ export function CanteenAdminPanel({
             </AlertDialogHeader>
             <div className="grid gap-3 py-4">
               <div className="space-y-1">
-                <label
-                  className="text-sm font-medium"
-                  htmlFor="edit-canteen-name"
-                >
+                <label className="text-sm font-medium" htmlFor="edit-canteen-name">
                   名称
                 </label>
                 <Input
@@ -319,10 +296,7 @@ export function CanteenAdminPanel({
                 />
               </div>
               <div className="space-y-1">
-                <label
-                  className="text-sm font-medium"
-                  htmlFor="edit-canteen-location"
-                >
+                <label className="text-sm font-medium" htmlFor="edit-canteen-location">
                   位置
                 </label>
                 <Input

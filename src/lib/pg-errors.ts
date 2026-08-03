@@ -13,7 +13,9 @@ function walkPgCodes(error: unknown): string[] {
       codes.push((current as { code: string }).code);
     }
     current =
-      typeof current === "object" && current !== null && "cause" in current
+      typeof current === "object" &&
+      current !== null &&
+      "cause" in current
         ? (current as { cause: unknown }).cause
         : null;
   }

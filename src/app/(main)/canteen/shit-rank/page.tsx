@@ -50,8 +50,7 @@ export default async function CanteenShitRankPage() {
           <section className="rounded-2xl border border-[#e3e5e7] bg-white px-4 py-10 text-center shadow-[0_2px_8px_rgba(32,33,36,0.06)] sm:px-6">
             <h1 className="text-2xl font-semibold tracking-tight">💩堂榜</h1>
             <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#74777c]">
-              当前数据库账号没有{" "}
-              <code className="text-[#623d2a]">canteen_shame_votes</code>{" "}
+              当前数据库账号没有 <code className="text-[#623d2a]">canteen_shame_votes</code>{" "}
               的读取权限，榜单暂时无法加载。请给只读账号补
               <code className="text-[#623d2a]"> GRANT SELECT </code>
               后再试。

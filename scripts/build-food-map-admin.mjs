@@ -14,9 +14,7 @@ import { assembleRings } from "./lib/osm-rings.mjs";
 
 const [inputPath, outputPath] = process.argv.slice(2);
 if (!inputPath || !outputPath) {
-  console.error(
-    "usage: node scripts/build-food-map-admin.mjs <in.json> <out.ts>",
-  );
+  console.error("usage: node scripts/build-food-map-admin.mjs <in.json> <out.ts>");
   process.exit(1);
 }
 
@@ -55,9 +53,7 @@ const data = JSON.parse(readFileSync(inputPath, "utf8"));
 const relations = data.elements.filter((e) => e.type === "relation");
 
 const nameOf = (relation) =>
-  relation.tags?.["name:zh-Hant"] ??
-  relation.tags?.["name:zh"] ??
-  relation.tags?.name;
+  relation.tags?.["name:zh-Hant"] ?? relation.tags?.["name:zh"] ?? relation.tags?.name;
 
 function ringCentroid(rings) {
   // 最大环的顶点均值（近似质心，够用做区名锚点）
