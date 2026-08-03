@@ -1333,7 +1333,7 @@ export function WikiEditor({
               <div className="flex min-w-0 items-center gap-1">
                 <SidebarMobileToggle editor />
                 <Link
-                  href={mode === "edit" ? `/wiki/${pageId}` : "/wiki"}
+                  href="/wiki"
                   aria-label="返回 Wiki"
                   className={buttonVariants({
                     variant: "ghost",
