@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { RestaurantDiscoveryPanel } from "@/components/food-map/restaurant-discovery-panel";
 import {
   FOOD_MAP_BUDGETS,
   FOOD_MAP_ORIGIN_STATION_ID,
@@ -24,6 +25,7 @@ import {
   toggleFoodMapCheckin,
 } from "@/lib/food-map/checkins";
 import { getUniversityRoute } from "@/lib/food-map/university-journey-times";
+import { hasFoodleRestaurants } from "@/lib/food-map/restaurant-catalog";
 
 const DEFAULT_BUDGET: FoodMapBudget = 30;
 const ORIGIN_ID = FOOD_MAP_ORIGIN_STATION_ID;
@@ -179,6 +181,13 @@ function MapLegend() {
         />
         马场特别班次
       </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="h-2.5 w-2.5 rounded-full border-2 border-[#672d7e] dark:border-[#c48fda]"
+          aria-hidden="true"
+        />
+        已有餐厅候选
+      </span>
     </div>
   );
 }
@@ -186,15 +195,28 @@ function MapLegend() {
 function StationNode({
   station,
   selected,
+  restaurantMapAvailable,
 }: {
   station: MtrStation;
   selected: boolean;
+  restaurantMapAvailable: boolean;
 }) {
   const line = lineById.get(station.lineIds[0] ?? "EAL");
   const interchange = station.lineIds.length > 1;
 
   return (
     <g aria-hidden="true">
+      {restaurantMapAvailable ? (
+        <circle
+          cx={station.position.x}
+          cy={station.position.y}
+          r={interchange ? 14 : 11}
+          fill="var(--background)"
+          stroke="var(--food-map-cu)"
+          strokeWidth="2.4"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
       {selected ? (
         <circle
           cx={station.position.x}
@@ -258,11 +280,13 @@ function MtrSchematic({
   selectedStationId,
   onSelectStation,
   onClearSelection,
+  mobileDiscoveryFocused,
 }: {
   budget: FoodMapBudget;
   selectedStationId: MtrStationId | null;
   onSelectStation: (stationId: MtrStationId) => void;
   onClearSelection: () => void;
+  mobileDiscoveryFocused: boolean;
 }) {
   const view = MAP_VIEWS[budget];
   const reachableStations = useMemo(
@@ -387,6 +411,7 @@ function MtrSchematic({
             key={station.id}
             station={station}
             selected={selectedStationId === station.id}
+            restaurantMapAvailable={hasFoodleRestaurants(station.id)}
           />
         ))}
 
@@ -431,26 +456,39 @@ function MtrSchematic({
         role="group"
         aria-label="选择目的地"
       >
-        {reachableStations.map((station) => (
-          <button
-            key={station.id}
-            type="button"
-            data-station-id={station.id}
-            aria-current={selectedStationId === station.id ? "true" : undefined}
-            aria-label={`${station.nameZh}，${
-              station.minutes === 0 ? "0" : station.minutes
-            } 分钟${station.service === "special-event" ? "，特别班次" : ""}`}
-            onClick={() => onSelectStation(station.id)}
-            className={[
-              "pointer-events-auto absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
-              "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/45",
-            ].join(" ")}
-            style={{
-              left: `${((station.position.x - view.x) / view.width) * 100}%`,
-              top: `${((station.position.y - view.y) / view.height) * 100}%`,
-            }}
-          />
-        ))}
+        {reachableStations.map((station) => {
+          const label = `${station.nameZh}，${
+            station.minutes === 0 ? "0" : station.minutes
+          } 分钟${station.service === "special-event" ? "，特别班次" : ""}${
+            hasFoodleRestaurants(station.id) ? "，已有餐厅候选" : ""
+          }`;
+          const className = [
+            "pointer-events-auto absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
+            "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/45",
+            mobileDiscoveryFocused && station.position.y > 450
+              ? "max-md:invisible"
+              : "",
+          ].join(" ");
+          const style = {
+            left: `${((station.position.x - view.x) / view.width) * 100}%`,
+            top: `${((station.position.y - view.y) / view.height) * 100}%`,
+          };
+
+          return (
+            <button
+              key={station.id}
+              type="button"
+              data-station-id={station.id}
+              aria-current={
+                selectedStationId === station.id ? "true" : undefined
+              }
+              aria-label={label}
+              onClick={() => onSelectStation(station.id)}
+              className={className}
+              style={style}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -560,6 +598,9 @@ export function FoodMapView() {
     () => new Set(checkins.byDate[today] ?? []),
     [checkins, today],
   );
+  const mobileDiscoveryFocused = Boolean(
+    selectedStationId && hasFoodleRestaurants(selectedStationId),
+  );
 
   function changeBudget(nextBudget: FoodMapBudget) {
     setBudget(nextBudget);
@@ -606,7 +647,7 @@ export function FoodMapView() {
 
   return (
     <section
-      className="mx-auto mt-6 w-full max-w-[32rem] min-w-0 [--food-map-cu-foreground:#ffffff] [--food-map-cu:#672d7e] dark:[--food-map-cu-foreground:#211225] dark:[--food-map-cu:#c48fda]"
+      className="mx-auto mt-6 w-full max-w-[68rem] min-w-0 [--food-map-cu-foreground:#ffffff] [--food-map-cu:#672d7e] dark:[--food-map-cu-foreground:#211225] dark:[--food-map-cu:#c48fda]"
       aria-label="通勤食图"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -623,29 +664,54 @@ export function FoodMapView() {
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 max-w-[32rem]">
         <CommuteFilter budget={budget} onChange={changeBudget} />
       </div>
-      <div className="mt-2">
+      <div className="mt-2 max-w-[32rem]">
         <MapLegend />
       </div>
 
-      <div className="mt-2">
-        <MtrSchematic
-          budget={budget}
-          selectedStationId={selectedStationId}
-          onSelectStation={selectStation}
-          onClearSelection={clearSelection}
-        />
-      </div>
+      <div className="mt-3 grid min-w-0 gap-x-6 gap-y-3 md:grid-cols-[minmax(0,32rem)_minmax(20rem,1fr)] md:items-start lg:gap-x-9">
+        <div
+          className={[
+            "min-w-0",
+            mobileDiscoveryFocused
+              ? "max-md:max-h-[22rem] max-md:overflow-hidden max-md:border-b"
+              : "",
+          ].join(" ")}
+        >
+          <MtrSchematic
+            budget={budget}
+            selectedStationId={selectedStationId}
+            onSelectStation={selectStation}
+            onClearSelection={clearSelection}
+            mobileDiscoveryFocused={mobileDiscoveryFocused}
+          />
+        </div>
 
-      <DetailPanel
-        stationId={selectedStationId}
-        notice={notice}
-        checkedIds={checkedIds}
-        ready={checkinsReady}
-        onToggleCheckIn={toggleCheckIn}
-      />
+        <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:sticky md:top-[calc(var(--navbar-height)+1.5rem)]">
+          <RestaurantDiscoveryPanel
+            key={selectedStationId ?? "no-station"}
+            station={
+              selectedStationId
+                ? (stationById.get(selectedStationId) ?? null)
+                : null
+            }
+            budget={budget}
+            notice={notice}
+          />
+        </div>
+
+        <div className="min-w-0 md:col-start-1 md:row-start-2">
+          <DetailPanel
+            stationId={selectedStationId}
+            notice={notice}
+            checkedIds={checkedIds}
+            ready={checkinsReady}
+            onToggleCheckIn={toggleCheckIn}
+          />
+        </div>
+      </div>
 
       <p className="sr-only" aria-live="polite">
         今天已打卡 {checkedIds.size} 家餐厅

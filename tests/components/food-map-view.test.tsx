@@ -86,6 +86,22 @@ describe("FoodMapView", () => {
     ).toBeNull();
   });
 
+  it("opens restaurant discovery from Sha Tin without changing scope", () => {
+    render(<FoodMapView />);
+
+    const shaTin = screen.getByRole("button", {
+      name: "沙田，7 分钟，已有餐厅候选",
+    });
+    fireEvent.click(shaTin);
+
+    expect(shaTin.getAttribute("aria-current")).toBe("true");
+    expect(screen.getByText("沙田站附近")).toBeTruthy();
+    expect(
+      screen.getByText("30 分钟范围 · 港铁 7 分钟 · 4 家餐厅"),
+    ).toBeTruthy();
+    expect(screen.getAllByText("新城市茶冰厅").length).toBeGreaterThan(0);
+  });
+
   it("shows the official shortest route to Diamond Hill", () => {
     render(<FoodMapView />);
 
@@ -169,7 +185,7 @@ describe("FoodMapView", () => {
     fireEvent.click(screen.getByRole("button", { name: "20 分钟" }));
 
     expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
-    expect(screen.getByText("佐敦不在20分钟范围内")).toBeTruthy();
+    expect(screen.getAllByText("佐敦不在20分钟范围内")).toHaveLength(2);
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
     expect(screen.queryByRole("button", { name: "佐敦，30 分钟" })).toBeNull();
   });
