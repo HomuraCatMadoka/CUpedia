@@ -73,10 +73,16 @@ export async function listCanteenDanmaku(
 }
 
 /** @deprecated Use listDanmaku — kept for call-site migration. */
-export const listCurrentMonthDanmaku = listDanmaku;
+export async function listCurrentMonthDanmaku(): Promise<PublicDanmakuMessage[]> {
+  return listDanmaku();
+}
 
 /** @deprecated Use listCanteenDanmaku — kept for call-site migration. */
-export const listCurrentMonthCanteenDanmaku = listCanteenDanmaku;
+export async function listCurrentMonthCanteenDanmaku(
+  canteenId: string,
+): Promise<PublicDanmakuMessage[]> {
+  return listCanteenDanmaku(canteenId);
+}
 
 export async function adminListDanmakuHistory(): Promise<AdminDanmakuMessage[]> {
   const [hubRows, canteenRows] = await Promise.all([
@@ -126,4 +132,8 @@ export async function adminListDanmakuHistory(): Promise<AdminDanmakuMessage[]> 
 }
 
 /** @deprecated Use adminListDanmakuHistory. */
-export const adminListCurrentMonthDanmaku = adminListDanmakuHistory;
+export async function adminListCurrentMonthDanmaku(): Promise<
+  AdminDanmakuMessage[]
+> {
+  return adminListDanmakuHistory();
+}
