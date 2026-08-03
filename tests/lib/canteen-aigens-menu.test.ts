@@ -50,7 +50,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
     ]);
     expect(payload.items[0]).toMatchObject({
       name: "麻辣 雞飯",
-      svgKey: "rice",
+      svgKey: "飯類",
       priceOptions: [{ amountMinor: 3800 }],
     });
   });
@@ -70,7 +70,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
     ).toThrow("INVALID_AIGENS_PRICE");
   });
 
-  it("matches dish icons by complete keywords", () => {
+  it("preserves store category as section key instead of name inference", () => {
     const payload = buildShhoMenuSyncPayload({
       data: {
         menu: {
@@ -84,7 +84,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
         },
       },
     });
-    expect(payload.items[0].svgKey).toBe("default");
+    expect(payload.items[0].svgKey).toBe("小食");
   });
 
   it("defaults products without meal periods to all-day", () => {
@@ -106,6 +106,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
       {
         externalKey: "42:allday",
         mealPeriods: ["allday"],
+        svgKey: "飯類",
       },
     ]);
   });

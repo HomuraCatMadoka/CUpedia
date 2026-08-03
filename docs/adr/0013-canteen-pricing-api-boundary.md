@@ -23,7 +23,7 @@ be merged merely because their labels look alike.
    options and does not interpret labels such as `凍` or `熱`.
 3. Keep `canteen_menu_items.price` temporarily as a legacy read column. The
    mapping layer converts it to one HKD option when no normalized rows exist.
-4. New writes use the normalized table. Legacy JSON/OCR integer prices are
+4. New writes use the normalized table. Legacy JSON integer prices are
    accepted at the input boundary and converted to minor units.
 5. Set-meal surcharges remain separate source products until the ordering model
    represents contextual modifiers explicitly.

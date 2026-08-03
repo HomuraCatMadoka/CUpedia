@@ -1,4 +1,4 @@
-import { inferDishSvgKeyFromName } from "@/lib/canteen-svg-keys";
+import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import {
   ALLDAY_MEAL_PERIOD,
   primaryMealPeriodSortKey,
@@ -78,6 +78,10 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
       if (!backendId) continue;
       const name = item.name.trim().replace(/\s+/g, " ");
       const amountMinor = parseAigensPrice(item.price);
+      const svgKey = resolveMenuSectionKey({
+        categoryName: category.name,
+        dishName: name,
+      });
       for (const mealPeriod of periods) {
         const externalKey = `${backendId}:${mealPeriod}`;
         if (items.has(externalKey)) continue;
@@ -89,7 +93,7 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
           ],
           mealPeriods: [mealPeriod],
           sortOrder: 0,
-          svgKey: inferDishSvgKeyFromName(name),
+          svgKey,
         });
       }
     }

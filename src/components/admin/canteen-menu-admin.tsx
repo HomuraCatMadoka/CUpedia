@@ -17,7 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CanteenMenuImportPanel } from "@/components/admin/canteen-menu-import-panel";
 import { CanteenMenuJsonImportPanel } from "@/components/admin/canteen-menu-json-import-panel";
 import {
   CanteenShell,
@@ -352,11 +351,7 @@ export function CanteenMenuAdmin({
     >
       {previewMode ? <PreviewBanner /> : null}
 
-      <div className="mb-8 grid gap-6 lg:grid-cols-2">
-        <CanteenMenuImportPanel
-          canteenId={canteen.id}
-          previewMode={previewMode}
-        />
+      <div className="mb-8">
         <CanteenMenuJsonImportPanel
           canteenId={canteen.id}
           previewMode={previewMode}

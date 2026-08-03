@@ -5,7 +5,7 @@ import {
   type MealPeriod,
   type MealPeriodAssignment,
 } from "@/db/schema";
-import { DISH_SVG_KEYS } from "@/lib/canteen-svg-keys";
+import { SVG_KEY_MAX_LENGTH } from "@/lib/canteen-svg-keys";
 import {
   compareMealPeriodAssignments,
   mealPeriodsFromRow,
@@ -113,13 +113,7 @@ export type AdminDishComment = CanteenDishComment & {
 
 export const ADMIN_DISH_COMMENT_LIST_LIMIT = 200;
 
-export const MENU_IMPORT_DRAFT_STATUSES = [
-  "ready",
-  "failed",
-  "published",
-] as const;
-export type MenuImportDraftStatus = (typeof MENU_IMPORT_DRAFT_STATUSES)[number];
-
+/** Kept for legacy `menu_import_drafts` column typing; OCR import path removed. */
 export type MenuImportDraftItem = {
   tempId: string;
   name: string;
@@ -127,38 +121,6 @@ export type MenuImportDraftItem = {
   mealPeriods: MealPeriodAssignment[];
   sortOrder: number;
 };
-
-export type MenuImportDraft = {
-  id: string;
-  canteenId: string;
-  sourceImageUrl: string;
-  ocrRawText: string | null;
-  items: MenuImportDraftItem[];
-  status: MenuImportDraftStatus;
-  errorMessage: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-export function validateMenuImportDraftItems(
-  input: unknown,
-): MenuImportDraftItem[] {
-  if (!Array.isArray(input)) throw new Error("INVALID_DRAFT_ITEMS");
-  return input.map((row, index) => {
-    if (!row || typeof row !== "object") throw new Error("INVALID_DRAFT_ITEMS");
-    const r = row as Record<string, unknown>;
-    const tempId =
-      typeof r.tempId === "string" && r.tempId.trim()
-        ? r.tempId.trim()
-        : `draft-${index}`;
-    const name = validateMenuItemName(r.name);
-    const price = validatePrice(r.price);
-    const mealPeriods = mealPeriodsFromRow(r);
-    if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
-    const sortOrder = validateSortOrder(r.sortOrder ?? index);
-    return { tempId, name, price, mealPeriods, sortOrder };
-  });
-}
 
 export const MENU_JSON_MAX_ROWS = 500;
 
@@ -394,7 +356,7 @@ export function validateSortOrder(sortOrder: unknown): number {
 
 export function validateSvgKey(svgKey: unknown): string {
   if (typeof svgKey !== "string") return "default";
-  const trimmed = svgKey.trim();
-  if (!(DISH_SVG_KEYS as readonly string[]).includes(trimmed)) return "default";
+  const trimmed = svgKey.trim().replace(/\s+/g, " ");
+  if (!trimmed || trimmed.length > SVG_KEY_MAX_LENGTH) return "default";
   return trimmed;
 }

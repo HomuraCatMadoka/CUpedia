@@ -4,8 +4,6 @@ import type {
   CanteenDishComment,
   CanteenMenuItem,
   MealPeriod,
-  MenuImportDraft,
-  MenuImportDraftItem,
   MenuItemVoteCounts,
   VoteChoice,
 } from "@/lib/canteen-types";
@@ -67,7 +65,6 @@ type MockState = {
   shameVotes: MockShameVote[];
   comments: MockComment[];
   auditLogs: AdminAuditLog[];
-  importDrafts: MenuImportDraft[];
   anonSessionId: string | null;
   mockUserId: string | null;
 };
@@ -443,7 +440,6 @@ function seedState(): MockState {
     shameVotes: [],
     comments: [],
     auditLogs: [],
-    importDrafts: [],
     anonSessionId: null,
     mockUserId: null,
   };
@@ -524,7 +520,6 @@ export function mockDeleteCanteen(id: string): void {
   s.votes = s.votes.filter((v) => !removedItemIds.has(v.menuItemId));
   s.comments = s.comments.filter((c) => !removedItemIds.has(c.menuItemId));
   s.shameVotes = s.shameVotes.filter((v) => v.canteenId !== id);
-  s.importDrafts = s.importDrafts.filter((d) => d.canteenId !== id);
 }
 
 export function mockCreateMenuItem(
@@ -1010,99 +1005,6 @@ export function mockDeleteImpactForMenuItem(itemId: string) {
     voteCount: mockCountVotesForMenuItem(itemId),
     commentCount: mockCountCommentsForMenuItem(itemId),
   };
-}
-
-export function mockCreateMenuImportDraft(input: {
-  canteenId: string;
-  sourceImageUrl: string;
-  ocrRawText: string | null;
-  items: MenuImportDraftItem[];
-  status: MenuImportDraft["status"];
-  errorMessage?: string | null;
-}): MenuImportDraft {
-  if (!mockGetCanteen(input.canteenId)) throw new Error("CANTEEN_NOT_FOUND");
-  const t = now();
-  const row: MenuImportDraft = {
-    id: crypto.randomUUID(),
-    canteenId: input.canteenId,
-    sourceImageUrl: input.sourceImageUrl,
-    ocrRawText: input.ocrRawText,
-    items: input.items,
-    status: input.status,
-    errorMessage: input.errorMessage ?? null,
-    createdAt: t,
-    updatedAt: t,
-  };
-  getState().importDrafts.push(row);
-  return { ...row, items: [...row.items] };
-}
-
-export function mockGetMenuImportDraft(
-  canteenId: string,
-  draftId: string,
-): MenuImportDraft | null {
-  const row = getState().importDrafts.find(
-    (d) => d.id === draftId && d.canteenId === canteenId,
-  );
-  return row ? { ...row, items: [...row.items] } : null;
-}
-
-export function mockUpdateMenuImportDraft(
-  canteenId: string,
-  draftId: string,
-  items: MenuImportDraftItem[],
-): MenuImportDraft {
-  const s = getState();
-  const idx = s.importDrafts.findIndex(
-    (d) => d.id === draftId && d.canteenId === canteenId,
-  );
-  if (idx < 0) throw new Error("IMPORT_DRAFT_NOT_FOUND");
-  const row = s.importDrafts[idx];
-  if (row.status === "published")
-    throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
-  row.items = items;
-  row.status = "ready";
-  row.errorMessage = null;
-  row.updatedAt = now();
-  return { ...row, items: [...row.items] };
-}
-
-export function mockPublishMenuImportDraft(
-  canteenId: string,
-  draftId: string,
-): CanteenMenuItem[] {
-  const draft = mockGetMenuImportDraft(canteenId, draftId);
-  if (!draft) throw new Error("IMPORT_DRAFT_NOT_FOUND");
-  if (draft.status === "published")
-    throw new Error("IMPORT_DRAFT_ALREADY_PUBLISHED");
-  if (draft.items.length === 0) throw new Error("IMPORT_DRAFT_EMPTY");
-
-  const created = draft.items.map((item) =>
-    mockCreateMenuItem(canteenId, {
-      name: item.name,
-      price: item.price,
-      mealPeriods: item.mealPeriods,
-      sortOrder: item.sortOrder,
-    }),
-  );
-
-  const s = getState();
-  const idx = s.importDrafts.findIndex((d) => d.id === draftId);
-  s.importDrafts[idx].status = "published";
-  s.importDrafts[idx].updatedAt = now();
-  return created;
-}
-
-export function mockDeleteMenuImportDraft(
-  canteenId: string,
-  draftId: string,
-): void {
-  const s = getState();
-  const idx = s.importDrafts.findIndex(
-    (d) => d.id === draftId && d.canteenId === canteenId,
-  );
-  if (idx < 0) throw new Error("IMPORT_DRAFT_NOT_FOUND");
-  s.importDrafts.splice(idx, 1);
 }
 
 /** Reset for tests */
