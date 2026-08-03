@@ -1,9 +1,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { parseAigensMenuProducts } from "../src/lib/canteen-aigens-parse";
 import {
-  primaryMealPeriodSortKey,
-  type MealPeriodAssignment,
-} from "../src/lib/canteen-types";
+  assignMealPeriodSortOrder,
+  parseAigensMenuProducts,
+} from "../src/lib/canteen-aigens-parse";
+import type { MealPeriodAssignment } from "../src/lib/canteen-types";
 
 const STORE_ID = "112891";
 const ENDPOINT = `https://aigensstoreapp.appspot.com/api/v1/menu/store/${STORE_ID}.json?locale=default&open=true&menu=prekiosk&groupId=1000&country=hk`;
@@ -50,8 +50,8 @@ export function buildCucafeMenu(input: unknown): {
     excludedCategories: EXCLUDED_CATEGORIES,
   });
 
-  const items: MenuRow[] = products
-    .map((product) => ({
+  const items = assignMealPeriodSortOrder(
+    products.map((product) => ({
       externalKey: `${product.backendId}:${product.periods[0]}`,
       name: product.name,
       mealPeriod: product.periods[0]!,
@@ -67,17 +67,9 @@ export function buildCucafeMenu(input: unknown): {
           },
         ],
       },
-    }))
-    .sort(
-      (a, b) =>
-        primaryMealPeriodSortKey([a.mealPeriod]) -
-          primaryMealPeriodSortKey([b.mealPeriod]) ||
-        a.name.localeCompare(b.name, "zh-HK"),
-    );
-
-  items.forEach((item, index) => {
-    item.sortOrder = index;
-  });
+    })),
+    (item) => [item.mealPeriod],
+  );
 
   return {
     source: `aigens:${STORE_ID}`,

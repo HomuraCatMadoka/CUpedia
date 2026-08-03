@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   canteenDanmakuMessages,
@@ -6,10 +6,11 @@ import {
   danmakuMessages,
   users,
 } from "@/db/schema";
-import type {
-  AdminDanmakuMessage,
-  DanmakuMessage,
-  PublicDanmakuMessage,
+import {
+  DANMAKU_FLY_MAX,
+  type AdminDanmakuMessage,
+  type DanmakuMessage,
+  type PublicDanmakuMessage,
 } from "@/lib/danmaku-types";
 
 function mapRow(row: {
@@ -39,7 +40,10 @@ function mapPublicRow(row: PublicDanmakuMessage): PublicDanmakuMessage {
   };
 }
 
-/** Hub danmaku history (all months). Flyover caps via messagesForFlyover. */
+/**
+ * Hub danmaku history (all months), newest `DANMAKU_FLY_MAX` rows.
+ * Returned oldest→newest for flyover / list rendering.
+ */
 export async function listDanmaku(): Promise<PublicDanmakuMessage[]> {
   const rows = await db
     .select({
@@ -49,12 +53,16 @@ export async function listDanmaku(): Promise<PublicDanmakuMessage[]> {
       createdAt: danmakuMessages.createdAt,
     })
     .from(danmakuMessages)
-    .orderBy(asc(danmakuMessages.createdAt));
+    .orderBy(desc(danmakuMessages.createdAt))
+    .limit(DANMAKU_FLY_MAX);
 
-  return rows.map(mapPublicRow);
+  return rows.reverse().map(mapPublicRow);
 }
 
-/** Per-canteen danmaku history (all months). */
+/**
+ * Per-canteen danmaku history (all months), newest `DANMAKU_FLY_MAX` rows.
+ * Returned oldest→newest for flyover / list rendering.
+ */
 export async function listCanteenDanmaku(
   canteenId: string,
 ): Promise<PublicDanmakuMessage[]> {
@@ -67,9 +75,10 @@ export async function listCanteenDanmaku(
     })
     .from(canteenDanmakuMessages)
     .where(eq(canteenDanmakuMessages.canteenId, canteenId))
-    .orderBy(asc(canteenDanmakuMessages.createdAt));
+    .orderBy(desc(canteenDanmakuMessages.createdAt))
+    .limit(DANMAKU_FLY_MAX);
 
-  return rows.map(mapPublicRow);
+  return rows.reverse().map(mapPublicRow);
 }
 
 /** @deprecated Use listDanmaku — kept for call-site migration. */

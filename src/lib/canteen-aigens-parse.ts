@@ -1,6 +1,7 @@
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import {
   ALLDAY_MEAL_PERIOD,
+  primaryMealPeriodSortKey,
   type MealPeriod,
   type MealPeriodAssignment,
 } from "@/lib/canteen-types";
@@ -131,4 +132,25 @@ export function parseAigensMenuProducts(
   }
 
   return products;
+}
+
+/**
+ * Sort by primary meal period then zh-HK name, then assign sequential sortOrder.
+ */
+export function assignMealPeriodSortOrder<
+  T extends { name: string; sortOrder: number },
+>(
+  items: T[],
+  mealPeriodsOf: (item: T) => readonly MealPeriodAssignment[],
+): T[] {
+  const sorted = items.slice().sort(
+    (a, b) =>
+      primaryMealPeriodSortKey(mealPeriodsOf(a)) -
+        primaryMealPeriodSortKey(mealPeriodsOf(b)) ||
+      a.name.localeCompare(b.name, "zh-HK"),
+  );
+  sorted.forEach((item, index) => {
+    item.sortOrder = index;
+  });
+  return sorted;
 }

@@ -17,6 +17,7 @@ import {
   listCanteenDanmaku,
   listDanmaku,
 } from "@/lib/danmaku-queries";
+import { DANMAKU_FLY_MAX } from "@/lib/danmaku-types";
 
 describe("danmaku-queries", () => {
   beforeEach(() => {
@@ -29,7 +30,8 @@ describe("danmaku-queries", () => {
       from: vi.fn().mockReturnThis(),
       innerJoin: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockResolvedValue([
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
         {
           id: "dm-1",
           userId: "u1",
@@ -49,6 +51,7 @@ describe("danmaku-queries", () => {
     expect(rows[0]).not.toHaveProperty("authorNickname");
     expect(chain.where).not.toHaveBeenCalled();
     expect(chain.orderBy).toHaveBeenCalled();
+    expect(chain.limit).toHaveBeenCalledWith(DANMAKU_FLY_MAX);
   });
 
   it("listCanteenDanmaku filters by canteen only", async () => {
@@ -57,7 +60,8 @@ describe("danmaku-queries", () => {
       from: vi.fn().mockReturnThis(),
       innerJoin: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockResolvedValue([
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
         {
           id: "cdm-1",
           userId: "u1",
@@ -78,6 +82,7 @@ describe("danmaku-queries", () => {
     expect(chain.where).toHaveBeenCalledWith(
       eq(canteenDanmakuMessages.canteenId, "canteen-1"),
     );
+    expect(chain.limit).toHaveBeenCalledWith(DANMAKU_FLY_MAX);
   });
 
   it("adminListDanmakuHistory includes hub and canteen stores across months", async () => {
