@@ -70,6 +70,21 @@ describe("MenuItemCommentPanel", () => {
     expect(mockGetCommentsForMenuItem).not.toHaveBeenCalled();
   });
 
+  it("loads comments immediately when embedded in the details dialog", async () => {
+    mockGetCommentsForMenuItem.mockResolvedValue([]);
+    render(
+      <MenuItemCommentPanel
+        menuItemId="item-1"
+        currentUserId={null}
+        expanded
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText("暂无评论")).toBeTruthy());
+    expect(screen.queryByRole("button", { name: /评论/ })).toBeNull();
+    expect(mockGetCommentsForMenuItem).toHaveBeenCalledWith("item-1");
+  });
+
   it("renders comment text as plain text without executing HTML", async () => {
     mockGetCommentsForMenuItem.mockResolvedValue([
       {
@@ -116,12 +131,14 @@ describe("MenuItemCommentPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /评论/ }));
 
     await waitFor(() => {
-      expect(screen.getByRole("status").textContent).toContain("账号已封禁");
+      const bannedStatus = screen.getByText("账号已封禁，无法发表评论");
+      expect(bannedStatus.getAttribute("role")).toBe("status");
     });
     expect(screen.queryByRole("link", { name: "登录" })).toBeNull();
   });
 
   it("lets logged-in users post and keeps comments after collapse", async () => {
+    const onCountChange = vi.fn();
     mockGetCommentsForMenuItem.mockResolvedValue([]);
     mockCreateDishComment.mockResolvedValue({
       id: "c-new",
@@ -133,7 +150,13 @@ describe("MenuItemCommentPanel", () => {
       updatedAt: new Date(),
     });
 
-    render(<MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />);
+    render(
+      <MenuItemCommentPanel
+        menuItemId="item-1"
+        currentUserId="user-1"
+        onCountChange={onCountChange}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /评论/ }));
 
     await waitFor(() => {
@@ -149,6 +172,7 @@ describe("MenuItemCommentPanel", () => {
       expect(screen.getByText("味道不错")).toBeTruthy();
       expect(screen.getByRole("button", { name: "评论 1" })).toBeTruthy();
     });
+    expect(onCountChange).toHaveBeenLastCalledWith(1);
 
     fireEvent.click(screen.getByRole("button", { name: "评论 1" }));
     expect(screen.queryByText("味道不错")).toBeNull();
@@ -206,6 +230,7 @@ describe("MenuItemCommentPanel", () => {
   });
 
   it("lets authors delete their comments", async () => {
+    const onCountChange = vi.fn();
     mockGetCommentsForMenuItem.mockResolvedValue([
       {
         id: "c1",
@@ -218,8 +243,15 @@ describe("MenuItemCommentPanel", () => {
       },
     ]);
     mockDeleteDishComment.mockResolvedValue(undefined);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<MenuItemCommentPanel menuItemId="item-1" currentUserId="user-1" />);
+    render(
+      <MenuItemCommentPanel
+        menuItemId="item-1"
+        currentUserId="user-1"
+        onCountChange={onCountChange}
+      />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /评论/ }));
 
     await waitFor(() => {
@@ -241,5 +273,6 @@ describe("MenuItemCommentPanel", () => {
       expect(screen.getByText("暂无评论")).toBeTruthy();
     });
     expect(screen.getByRole("button", { name: "评论 0" })).toBeTruthy();
+    expect(onCountChange).toHaveBeenLastCalledWith(0);
   });
 });

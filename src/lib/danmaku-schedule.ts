@@ -141,7 +141,7 @@ export function scheduleScrollingDanmaku(
   },
 ): ScheduledDanmaku[] {
   const trackCount = options?.trackCount ?? DANMAKU_TRACK_COUNT;
-  const screenWidth = Math.max(320, options?.screenWidth ?? 720);
+  const screenWidth = Math.max(1, options?.screenWidth ?? 720);
   const duration = options?.duration ?? DANMAKU_SCROLL_DURATION_SEC;
   const fontPx = options?.fontPx ?? 14;
   const gap = options?.gap ?? DANMAKU_NEXT_GAP_SEC;
@@ -174,13 +174,7 @@ export function scheduleScrollingDanmaku(
 
     if (bestTrack < 0 || bestStart > maxScheduleSec) continue;
 
-    const occupant = occupantAt(
-      bestStart,
-      width,
-      screenWidth,
-      duration,
-      gap,
-    );
+    const occupant = occupantAt(bestStart, width, screenWidth, duration, gap);
     lanes[bestTrack] = occupant;
     scheduled.push({
       id: item.id,

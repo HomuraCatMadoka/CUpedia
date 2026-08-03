@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type CSSProperties,
+} from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,7 +92,7 @@ export function DanmakuBanner({
   useEffect(() => {
     const el = layerRef.current;
     if (!el) return;
-    const update = () => setScreenWidth(Math.max(320, el.clientWidth));
+    const update = () => setScreenWidth(Math.max(1, el.clientWidth));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -94,7 +101,7 @@ export function DanmakuBanner({
 
   const integrated = appearance === "hero";
   /** Use clamp() max so width estimates never undershoot hero glyphs. */
-  const fontPx = integrated ? 18.4 : 14;
+  const fontPx = integrated ? (screenWidth >= 640 ? 16 : 14) : 14;
 
   const scheduled = useMemo(
     () =>
@@ -112,9 +119,7 @@ export function DanmakuBanner({
 
   const cycleEndSec = useMemo(() => {
     if (scheduled.length === 0) return DANMAKU_SCROLL_DURATION_SEC;
-    return (
-      Math.max(...scheduled.map((s) => s.start + s.duration)) + 0.75
-    );
+    return Math.max(...scheduled.map((s) => s.start + s.duration)) + 0.75;
   }, [scheduled]);
 
   const [epoch, setEpoch] = useState(0);
@@ -215,12 +220,18 @@ export function DanmakuBanner({
     <section
       className={cn(
         "relative",
-        integrated ? "danmaku-hero space-y-1" : "space-y-2 sm:space-y-4",
+        integrated ? "danmaku-hero grid gap-1" : "space-y-2 sm:space-y-4",
       )}
       aria-label={title}
     >
-      <div className={integrated ? "sr-only" : "text-center"}>
-        <h2 className="text-sm font-semibold sm:text-lg">{title}</h2>
+      <div className={integrated ? "danmaku-hero-label" : "text-center"}>
+        <h2
+          className={
+            integrated ? undefined : "text-sm font-semibold sm:text-lg"
+          }
+        >
+          {title}
+        </h2>
       </div>
 
       <div
@@ -326,17 +337,22 @@ export function DanmakuBanner({
         )}
       </ul>
 
-      <div className="relative z-10 mx-auto max-w-md">
+      <div className="danmaku-composer relative z-10 mx-auto w-full max-w-md">
         {viewer.kind === "guest" ? (
-          <p className="text-center text-xs text-muted-foreground sm:text-sm">
+          <div className="danmaku-composer-control relative">
+            <Input
+              disabled
+              aria-label="弹幕内容"
+              placeholder="发个友善的弹幕见证当下"
+              className="danmaku-input h-11 rounded-[0.625rem] border-[rgba(60,60,67,0.12)] bg-white/55 pr-24 text-sm placeholder:text-[#8e8e93] disabled:cursor-default disabled:bg-white/55 disabled:opacity-100"
+            />
             <Link
               href="/login"
-              className="inline-flex min-h-11 items-center px-1 underline underline-offset-2"
+              className="absolute inset-y-0 right-1 inline-flex min-h-11 items-center rounded-lg px-2.5 text-[0.8125rem] font-medium whitespace-nowrap text-[var(--canteen-link)] hover:underline"
             >
-              登录
+              登录后发送
             </Link>
-            后即可发送弹幕
-          </p>
+          </div>
         ) : viewer.kind === "banned" ? (
           <p
             className="text-center text-xs text-destructive sm:text-sm"
@@ -347,18 +363,20 @@ export function DanmakuBanner({
         ) : (
           <form onSubmit={handleSubmit} className="flex gap-1.5 sm:gap-2">
             <Input
+              name="danmaku"
+              autoComplete="off"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="发个友善的弹幕见证当下"
               maxLength={100}
               disabled={pending}
               aria-label="弹幕内容"
-              className="h-9 border-[rgba(26,35,50,0.32)] bg-[var(--canteen-surface)] placeholder:text-[var(--canteen-muted)] focus-visible:border-[var(--canteen-purple)] sm:h-10"
+              className="danmaku-input h-11 rounded-[0.625rem] border-[rgba(60,60,67,0.12)] bg-white/55 text-sm placeholder:text-[#8e8e93] focus-visible:border-[var(--canteen-focus)]"
             />
             <Button
               type="submit"
               disabled={pending || !content.trim()}
-              className="h-9 px-3 sm:h-10 sm:px-4"
+              className="danmaku-send h-11 px-3 text-[0.8125rem] disabled:bg-[rgba(120,120,128,0.12)] disabled:text-[#6e6e73] disabled:opacity-100"
             >
               {pending ? "发送中…" : "发送"}
             </Button>

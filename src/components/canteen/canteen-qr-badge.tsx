@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { ChevronDown, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function CanteenQrBadge({
@@ -53,11 +54,46 @@ export function CanteenQrBadge({
   );
 }
 
+export function CanteenQrAction({
+  src,
+  canteenName,
+}: {
+  src: string | null;
+  canteenName: string;
+}) {
+  if (!src) return null;
+
+  return (
+    <>
+      <CanteenQrBadge
+        src={src}
+        canteenName={canteenName}
+        className="hidden sm:flex"
+      />
+      <details className="canteen-mobile-qr sm:hidden">
+        <summary aria-label="查看点单码">
+          <QrCode className="size-5" aria-hidden />
+        </summary>
+        <div className="canteen-mobile-qr-sheet">
+          <div className="flex items-center justify-between gap-3">
+            <p className="canteen-display font-semibold">扫码点单</p>
+            <ChevronDown
+              className="size-4 text-[var(--canteen-muted)]"
+              aria-hidden
+            />
+          </div>
+          <CanteenQrBadge src={src} canteenName={canteenName} />
+        </div>
+      </details>
+    </>
+  );
+}
+
 function QrPlaceholderGlyph() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="size-5 text-[var(--canteen-purple)] sm:size-6"
+      className="size-5 text-[var(--canteen-ink)] sm:size-6"
       fill="currentColor"
       aria-hidden
     >

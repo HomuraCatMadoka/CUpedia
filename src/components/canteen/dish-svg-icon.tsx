@@ -99,7 +99,7 @@ export function DishSvgIcon({
       data-svg-key={key}
     >
       <Icon
-        className="size-6 text-[var(--canteen-purple)]"
+        className="size-6 text-[var(--canteen-ink)]"
         strokeWidth={2}
         absoluteStrokeWidth
       />

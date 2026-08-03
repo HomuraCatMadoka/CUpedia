@@ -60,9 +60,11 @@ const ITEM: CanteenMenuItem = {
 };
 
 function VoteRowHarness({
+  item = ITEM,
   initialCounts = { likes: 0, dislikes: 0 },
   initialVote = null as VoteChoice,
 }: {
+  item?: CanteenMenuItem;
   initialCounts?: MenuItemVoteCounts;
   initialVote?: VoteChoice;
 }) {
@@ -80,10 +82,11 @@ function VoteRowHarness({
 
   return (
     <MenuItemVoteRow
-      item={ITEM}
+      item={item}
       counts={counts}
       myVote={myVote}
       onVoteChange={handleVoteChange}
+      onOpenDetails={vi.fn()}
     />
   );
 }
@@ -98,12 +101,27 @@ afterEach(() => {
 });
 
 describe("MenuItemVoteRow", () => {
-  it("renders generic labelled price options", () => {
+  it("summarizes multiple prices in the menu row", () => {
     render(<VoteRowHarness />);
-    expect(screen.getByText("熱")).toBeTruthy();
-    expect(screen.getByText("$11")).toBeTruthy();
-    expect(screen.getByText("凍")).toBeTruthy();
-    expect(screen.getByText("$13")).toBeTruthy();
+    expect(screen.getByText("$11 起")).toBeTruthy();
+    expect(screen.queryByText("· 2 种选择")).toBeNull();
+    expect(screen.queryByText("熱")).toBeNull();
+    expect(screen.queryByText("$13")).toBeNull();
+    expect(screen.getByText("暂无评价").classList.contains("sr-only")).toBe(
+      true,
+    );
+  });
+
+  it("keeps meal-period metadata out of the compact menu row", () => {
+    render(
+      <VoteRowHarness item={{ ...ITEM, mealPeriods: ["lunch", "dinner"] }} />,
+    );
+
+    const detailsButton = screen.getByRole("button", {
+      name: /演示菜品.*打开详情/,
+    });
+    expect(detailsButton.textContent).not.toContain("午餐");
+    expect(detailsButton.textContent).not.toContain("晚餐");
   });
 
   it("optimistically increments like count on click", async () => {
