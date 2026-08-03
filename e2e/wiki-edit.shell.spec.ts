@@ -41,6 +41,9 @@ test.describe("focused wiki editor shell", () => {
       page.getByRole("button", { name: "完成", exact: true }),
     ).toBeHidden();
 
+    await page.getByRole("link", { name: "返回 Wiki" }).click();
+    await expect(page).toHaveURL(/\/wiki$/);
+
     await page.goto("/wiki/new");
     await expect(page).toHaveURL(/\/wiki\/new$/);
     await expect(page.getByRole("heading", { name: "404" })).toBeVisible();
