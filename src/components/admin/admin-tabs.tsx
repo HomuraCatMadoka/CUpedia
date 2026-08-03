@@ -7,6 +7,7 @@ const tabs = [
   { href: "/admin/deleted", label: "已删除页面" },
   { href: "/admin/users", label: "用户管理" },
   { href: "/admin/canteens", label: "食堂管理" },
+  { href: "/admin/takeouts", label: "外卖管理" },
   { href: "/admin/danmaku", label: "弹幕管理" },
   { href: "/admin/comments", label: "评论管理" },
   { href: "/admin/achievement-rules", label: "成就规则" },

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { HK_DISTRICTS, getHkDistrict } from "@/lib/food-map/districts";
+import { HK_DISTRICT_GEOMETRY } from "@/lib/food-map/hk-geometry";
 import {
   FOOD_MAP_BUDGETS,
   FOOD_MAP_ORIGIN_STATION_ID,
@@ -9,6 +11,7 @@ import {
   MTR_STATIONS,
   getReachableStations,
   getRestaurantsForStation,
+  type MtrStationId,
 } from "@/lib/food-map/data";
 
 describe("food map data", () => {
@@ -86,6 +89,50 @@ describe("food map data", () => {
     }
   });
 
+  it("assigns every station a valid district and area", () => {
+    const districtIds = new Set(HK_DISTRICTS.map((district) => district.id));
+    expect(districtIds.size).toBe(HK_DISTRICTS.length);
+
+    expect(HK_DISTRICT_GEOMETRY).toHaveLength(HK_DISTRICTS.length);
+    for (const geometry of HK_DISTRICT_GEOMETRY) {
+      expect(districtIds.has(geometry.id as never), geometry.id).toBe(true);
+      expect(geometry.path.startsWith("M"), geometry.id).toBe(true);
+    }
+
+    for (const station of MTR_STATIONS) {
+      expect(districtIds.has(station.districtId), station.id).toBe(true);
+      expect(station.areaZh.length, station.id).toBeGreaterThan(0);
+      expect(getHkDistrict(station.districtId).nameZh).toMatch(/区$/u);
+    }
+
+    const byId = new Map(MTR_STATIONS.map((station) => [station.id, station]));
+    expect(byId.get("HOM")?.districtId).toBe("ktc");
+    expect(byId.get("HOM")?.areaZh).toBe("何文田");
+    expect(byId.get("UNI")?.districtId).toBe("st");
+    expect(byId.get("UNI")?.areaZh).toBe("马料水");
+    expect(byId.get("ADM")?.districtId).toBe("cw");
+    expect(byId.get("LMC")?.districtId).toBe("yl");
+    expect(byId.get("EXC")?.districtId).toBe("wc");
+    // 车公庙站在沙田头，第一城站在沙田第一城（不可互换）
+    expect(byId.get("CKT")?.areaZh).toBe("沙田头");
+    expect(byId.get("CIO")?.areaZh).toBe("沙田第一城");
+  });
+
+  it("places stations at geographically sane projected positions", () => {
+    const byId = new Map(MTR_STATIONS.map((station) => [station.id, station]));
+    const north = (a: MtrStationId, b: MtrStationId) =>
+      expect(byId.get(a)!.position.y).toBeLessThan(byId.get(b)!.position.y);
+    const west = (a: MtrStationId, b: MtrStationId) =>
+      expect(byId.get(a)!.position.x).toBeLessThan(byId.get(b)!.position.x);
+
+    north("LOW", "FAN"); // 罗湖在粉岭以北
+    north("FAN", "UNI"); // 粉岭在大学以北
+    north("HUH", "ADM"); // 红磡在金钟以北（港岛在南）
+    west("LCK", "MOK"); // 荔枝角在旺角以西
+    west("MOK", "MOS"); // 旺角在马鞍山以西
+    west("LMC", "LOW"); // 落马洲在罗湖以西
+  });
+
   it("gives every station contextual mock restaurant data", () => {
     for (const station of MTR_STATIONS) {
       const restaurants = getRestaurantsForStation(station.id);
@@ -107,6 +154,8 @@ describe("food map data", () => {
       "https://www.mtr.com.hk/ch/customer/services/system_map.html",
       "https://data.gov.hk/en-data/dataset/mtr-data-routes-fares-barrier-free-facilities",
       "https://www.mtr.com.hk/ch/customer/main/jp_cust_notice.html",
+      "https://www.had.gov.hk",
+      "https://www.openstreetmap.org/copyright",
     ]);
     expect(
       FOOD_MAP_SOURCES.every((source) => source.accessedOn === "2026-07-30"),
@@ -119,7 +168,12 @@ describe("food map data", () => {
         source.scope,
       ]),
       ...MTR_LINES.flatMap((line) => [line.nameZh, line.nameEn]),
-      ...MTR_STATIONS.flatMap((station) => [station.nameZh, station.nameEn]),
+      ...MTR_STATIONS.flatMap((station) => [
+        station.nameZh,
+        station.nameEn,
+        station.areaZh,
+      ]),
+      ...HK_DISTRICTS.map((district) => district.nameZh),
       ...MOCK_RESTAURANTS.flatMap((restaurant) => [
         restaurant.name,
         restaurant.cuisine,

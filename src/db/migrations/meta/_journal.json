@@ -421,6 +421,13 @@
       "when": 1785222758857,
       "tag": "0059_little_doctor_octopus",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785310097762,
+      "tag": "0060_takeouts",
+      "breakpoints": true
     }
   ]
 }

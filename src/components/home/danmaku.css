@@ -24,15 +24,50 @@
   background: rgb(0 0 0 / 0.06);
   font-size: 0.875rem;
   line-height: 1.5;
-  /* Park off-screen before animation / stylesheet settle to avoid a left-edge flash. */
-  transform: translateX(100vw);
+  /* Park off-screen before animation / stylesheet settle to avoid a left-edge flash.
+     Travel distance must match the scheduler's screenWidth (not 100vw). */
+  transform: translateX(var(--danmaku-stage, 100%));
   will-change: transform;
-  animation: danmaku-fly linear infinite both;
+  animation-name: danmaku-fly;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+  animation-iteration-count: 1;
+}
+
+.danmaku-hero .danmaku-track-layer--hero {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 8%,
+    #000 92%,
+    transparent
+  );
+}
+
+.danmaku-hero .danmaku-item {
+  padding: 0.1rem 0.625rem;
+  background: transparent;
+  color: var(--canteen-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.danmaku-hero .danmaku-track:nth-child(even) .danmaku-item {
+  color: color-mix(in srgb, var(--canteen-muted) 72%, white);
 }
 
 @keyframes danmaku-fly {
   from {
-    transform: translateX(100vw);
+    transform: translateX(var(--danmaku-stage, 100%));
   }
   to {
     transform: translateX(-100%);
@@ -41,6 +76,13 @@
 
 .danmaku-static-list {
   display: none;
+}
+
+@media (min-width: 640px) {
+  .danmaku-hero .danmaku-item {
+    font-size: 1rem;
+    line-height: 1.375rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, type KeyboardEvent } from "react";
 import type { MealPeriod } from "@/lib/canteen-types";
 import { mealPeriodLabel } from "@/components/canteen/meal-period-badge";
 import { cn } from "@/lib/utils";
@@ -20,29 +21,20 @@ export function CanteenPeriodTabs({
 
   return (
     <div
-      role="tablist"
+      role="group"
       aria-label="餐段"
-      className={cn(
-        "flex min-w-0 gap-0 border-b border-[var(--canteen-line)]",
-        className,
-      )}
+      className={cn("canteen-segmented", className)}
     >
       {periods.map((period) => (
         <button
           key={period}
           type="button"
-          role="tab"
-          aria-selected={value === period}
+          aria-pressed={value === period}
           data-active={value === period}
           onClick={() => onChange(period)}
-          className={cn(
-            "min-h-11 flex-1 touch-manipulation border-b-2 px-2 text-sm font-medium transition-colors sm:px-4",
-            value === period
-              ? "border-[var(--canteen-purple)] text-[var(--canteen-ink)]"
-              : "border-transparent text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]",
-          )}
+          className="canteen-segmented-tab"
         >
-          {mealPeriodLabel[period]}
+          <span>{mealPeriodLabel[period]}</span>
         </button>
       ))}
     </div>
@@ -52,22 +44,12 @@ export function CanteenPeriodTabs({
 export type CanteenViewMode = "menu" | "recommend" | "avoid";
 
 const VIEW_LABELS: Record<CanteenViewMode, string> = {
+  menu: "菜单",
   recommend: "红榜",
   avoid: "黑榜",
-  menu: "菜单",
 };
 
-const VIEW_TAB_COLOR: Record<CanteenViewMode, string> = {
-  recommend: "text-red-600",
-  avoid: "text-black",
-  menu: "text-[var(--canteen-muted)]",
-};
-
-const VIEW_TAB_ACTIVE: Record<CanteenViewMode, string> = {
-  recommend: "text-red-600 underline",
-  avoid: "text-black underline",
-  menu: "text-[var(--canteen-purple)] underline",
-};
+const VIEW_MODES: CanteenViewMode[] = ["menu", "recommend", "avoid"];
 
 export function CanteenViewTabs({
   value,
@@ -76,29 +58,53 @@ export function CanteenViewTabs({
   value: CanteenViewMode;
   onChange: (mode: CanteenViewMode) => void;
 }) {
-  const modes: CanteenViewMode[] = ["recommend", "avoid", "menu"];
+  const tabRefs = useRef<Record<CanteenViewMode, HTMLButtonElement | null>>({
+    menu: null,
+    recommend: null,
+    avoid: null,
+  });
+
+  function handleKeyDown(
+    event: KeyboardEvent<HTMLButtonElement>,
+    mode: CanteenViewMode,
+  ) {
+    const currentIndex = VIEW_MODES.indexOf(mode);
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") {
+      nextIndex = (currentIndex + 1) % VIEW_MODES.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (currentIndex - 1 + VIEW_MODES.length) % VIEW_MODES.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = VIEW_MODES.length - 1;
+    }
+    if (nextIndex === null) return;
+    event.preventDefault();
+    const nextMode = VIEW_MODES[nextIndex]!;
+    onChange(nextMode);
+    tabRefs.current[nextMode]?.focus();
+  }
+
   return (
-    <div
-      role="tablist"
-      aria-label="视图"
-      className="flex flex-wrap gap-x-3 gap-y-1 sm:gap-x-4 sm:gap-y-2"
-    >
-      {modes.map((mode) => (
+    <div role="tablist" aria-label="菜单视图" className="canteen-view-tabs">
+      {VIEW_MODES.map((mode) => (
         <button
           key={mode}
+          ref={(element) => {
+            tabRefs.current[mode] = element;
+          }}
+          id={`canteen-view-tab-${mode}`}
           type="button"
           role="tab"
           aria-selected={value === mode}
+          aria-controls={`canteen-view-panel-${mode}`}
+          tabIndex={value === mode ? 0 : -1}
+          data-active={value === mode}
+          data-tone={mode}
           onClick={() => onChange(mode)}
-          className={cn(
-            "min-h-11 touch-manipulation text-sm font-medium underline-offset-4 transition-colors",
-            value === mode ? VIEW_TAB_ACTIVE[mode] : VIEW_TAB_COLOR[mode],
-            value !== mode &&
-              mode === "menu" &&
-              "hover:text-[var(--canteen-ink)]",
-            value !== mode && mode === "recommend" && "hover:text-red-700",
-            value !== mode && mode === "avoid" && "hover:text-neutral-800",
-          )}
+          onKeyDown={(event) => handleKeyDown(event, mode)}
+          className="canteen-view-tab"
         >
           {VIEW_LABELS[mode]}
         </button>

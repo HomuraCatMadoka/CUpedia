@@ -22,9 +22,10 @@ test.describe("canteen menu OCR import", () => {
     await page.getByRole("button", { name: "添加食堂" }).click();
     await expect(page.getByText(canteenName)).toBeVisible();
 
+    // Icon cards use a label span (not a heading); scope via the fade-in wrapper.
     await page
-      .getByRole("heading", { name: canteenName, exact: true })
-      .locator('xpath=ancestor::div[contains(@class, "canteen-fade-in")][1]')
+      .locator("div.canteen-fade-in")
+      .filter({ hasText: canteenName })
       .getByRole("link", { name: "管理菜单" })
       .click();
     await expect(

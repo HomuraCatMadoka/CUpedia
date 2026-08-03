@@ -54,13 +54,13 @@ describe("AchievementAvatar", () => {
     expect(title.classList.contains("items-center")).toBe(true);
   });
 
-  it("keeps an untitled small avatar at its original size", () => {
+  it("keeps untitled and titled small avatars the same size", () => {
     render(<AchievementAvatar image="/avatar.png" size="sm" />);
 
     const avatar = screen.getByText("CU").parentElement;
 
-    expect(avatar?.classList.contains("size-11")).toBe(true);
-    expect(avatar?.classList.contains("size-20")).toBe(false);
+    expect(avatar?.classList.contains("size-20")).toBe(true);
+    expect(avatar?.classList.contains("size-11")).toBe(false);
   });
 
   it("keeps titles from one through fourteen characters complete and wrappable", () => {

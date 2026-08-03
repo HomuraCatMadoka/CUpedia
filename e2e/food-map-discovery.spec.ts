@@ -39,7 +39,7 @@ test.describe("#500 Foodle restaurant discovery", () => {
       .getByRole("button", { name: "20 分钟", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "沙田，7 分钟，已有餐厅候选" })
+      .getByRole("button", { name: "沙田，沙田区，7 分钟，已有餐厅候选" })
       .click();
 
     await expect(
@@ -146,7 +146,7 @@ test.describe("#500 Foodle restaurant discovery", () => {
   }) => {
     await page.goto("/food-map");
     await page
-      .getByRole("button", { name: "沙田，7 分钟，已有餐厅候选" })
+      .getByRole("button", { name: "沙田，沙田区，7 分钟，已有餐厅候选" })
       .click();
     await openFoodle(page);
     await expect(
@@ -157,7 +157,9 @@ test.describe("#500 Foodle restaurant discovery", () => {
 
     await page.getByRole("button", { name: "返回通勤地图" }).click();
     await page
-      .getByRole("button", { name: "九龙塘，14 分钟，已有餐厅候选" })
+      .getByRole("button", {
+        name: "九龙塘，九龙城区，14 分钟，已有餐厅候选",
+      })
       .click();
     await openFoodle(page);
     await expect(
@@ -172,7 +174,7 @@ test.describe("#500 Foodle restaurant discovery", () => {
 
     await page.getByRole("button", { name: "返回通勤地图" }).click();
     await page
-      .getByRole("button", { name: "大埔墟，7 分钟，已有餐厅候选" })
+      .getByRole("button", { name: "大埔墟，大埔区，7 分钟，已有餐厅候选" })
       .click();
     await openFoodle(page);
     for (let index = 0; index < 3; index += 1) {
@@ -193,11 +195,11 @@ test.describe("#500 Foodle restaurant discovery", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/food-map");
     await page
-      .getByRole("button", { name: "沙田，7 分钟，已有餐厅候选" })
+      .getByRole("button", { name: "沙田，沙田区，7 分钟，已有餐厅候选" })
       .click();
 
     const jordan = page.getByRole("button", {
-      name: "佐敦，30 分钟，已有餐厅候选",
+      name: "佐敦，油尖旺区，30 分钟，已有餐厅候选",
     });
     await expect(jordan).toBeAttached();
     expect(

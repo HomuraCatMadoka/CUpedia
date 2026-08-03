@@ -2,7 +2,13 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from "@testing-library/react";
 import {
   ShameRankEntryLink,
   ShameRankList,
@@ -19,9 +25,20 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: refreshMock }),
 }));
 
-import { appendShameVote } from "@/lib/canteen-shame-actions";
+import {
+  appendShameVote,
+  type ShameVoteResult,
+} from "@/lib/canteen-shame-actions";
 
 const appendMock = vi.mocked(appendShameVote);
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
 
 function canteen(id: string, name: string): Canteen {
   const t = new Date("2026-07-27T00:00:00Z");
@@ -48,6 +65,7 @@ describe("ShameRankList", () => {
     appendMock.mockReset();
     refreshMock.mockReset();
     appendMock.mockResolvedValue({
+      ok: true,
       canteenId: "a",
       voteDate: "2026-07-27",
     });
@@ -158,8 +176,11 @@ describe("ShameRankList", () => {
     ).toBe(true);
   });
 
-  it("rolls back optimistic count when appendShameVote fails", async () => {
-    appendMock.mockRejectedValueOnce(new Error("RATE_LIMIT_EXCEEDED"));
+  it("keeps failed votes out of the confirmed count", async () => {
+    appendMock.mockResolvedValueOnce({
+      ok: false,
+      code: "RATE_LIMIT_EXCEEDED",
+    });
 
     render(
       <ShameRankList
@@ -184,10 +205,77 @@ describe("ShameRankList", () => {
         screen.getByRole("button", { name: "投 💩 给 甲食堂" }).textContent,
       ).toContain("1");
     });
+    expect(screen.getByRole("alert").textContent).toContain(
+      "1 票未计入；最近原因：匿名投票太频繁",
+    );
+  });
+
+  it("settles concurrent votes independently when responses arrive out of order", async () => {
+    const first = deferred<ShameVoteResult>();
+    const second = deferred<ShameVoteResult>();
+    const third = deferred<ShameVoteResult>();
+    appendMock
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise)
+      .mockImplementationOnce(() => third.promise);
+
+    render(
+      <ShameRankList
+        canteens={[canteen("a", "甲食堂")]}
+        initialTodayCounts={{ a: 1 }}
+        initialAllTimeCounts={{ a: 11 }}
+        previousCounts={{}}
+        voteDate="2026-07-27"
+        votingEndDate="2026-09-01"
+        votingOpen
+      />,
+    );
+
+    const voteButton = screen.getByRole("button", {
+      name: "投 💩 给 甲食堂",
+    });
+    fireEvent.click(voteButton);
+    fireEvent.click(voteButton);
+    fireEvent.click(voteButton);
+
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("1");
+    expect(screen.getByRole("status").textContent).toContain("3 票提交中");
+
+    await act(async () => {
+      second.resolve({ ok: true, canteenId: "a", voteDate: "2026-07-27" });
+      await second.promise;
+    });
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("2");
+    expect(screen.getByRole("status").textContent).toContain("2 票提交中");
+
+    await act(async () => {
+      first.resolve({ ok: false, code: "RATE_LIMIT_EXCEEDED" });
+      await first.promise;
+    });
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("2");
+    expect(screen.getByRole("status").textContent).toContain("1 票提交中");
+    expect(screen.getByRole("alert").textContent).toContain("1 票未计入");
+
+    await act(async () => {
+      third.resolve({ ok: true, canteenId: "a", voteDate: "2026-07-27" });
+      await third.promise;
+    });
+    expect(
+      voteButton.querySelector('[data-testid="shame-vote-count"]')?.textContent,
+    ).toBe("3");
+    expect(screen.getByRole("status").textContent).toBe("");
+    expect(screen.getByRole("alert").textContent).toContain("1 票未计入");
   });
 
   it("refreshes instead of adding a new-day vote to the old ranking", async () => {
     appendMock.mockResolvedValueOnce({
+      ok: true,
       canteenId: "a",
       voteDate: "2026-07-28",
     });
