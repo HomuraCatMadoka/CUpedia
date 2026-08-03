@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { canteenDanmakuMessages } from "@/db/schema";
-import { currentMonthHkt } from "@/lib/hkt-datetime";
 
 const { mockDbSelect } = vi.hoisted(() => ({
   mockDbSelect: vi.fn(),
@@ -14,77 +13,79 @@ vi.mock("@/db", () => ({
 }));
 
 import {
-  adminListCurrentMonthDanmaku,
-  listCurrentMonthCanteenDanmaku,
-  listCurrentMonthDanmaku,
+  adminListDanmakuHistory,
+  listCanteenDanmaku,
+  listDanmaku,
 } from "@/lib/danmaku-queries";
+import { DANMAKU_FLY_MAX } from "@/lib/danmaku-types";
 
 describe("danmaku-queries", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("listCurrentMonthDanmaku filters by HKT month", async () => {
-    const july = new Date("2026-07-15T12:00:00Z");
+  it("listDanmaku returns public history without month filter", async () => {
+    const createdAt = new Date("2026-07-15T12:00:00Z");
     const chain = {
       from: vi.fn().mockReturnThis(),
       innerJoin: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockResolvedValue([
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
         {
           id: "dm-1",
           userId: "u1",
-          content: "七月弹幕",
+          content: "历史弹幕",
           month: "2026-07",
-          createdAt: july,
+          createdAt,
           authorNickname: "Alice",
         },
       ]),
     };
     mockDbSelect.mockReturnValue(chain);
 
-    const rows = await listCurrentMonthDanmaku(july);
+    const rows = await listDanmaku();
     expect(rows).toHaveLength(1);
     expect(rows[0].month).toBe("2026-07");
     expect(rows[0]).not.toHaveProperty("userId");
     expect(rows[0]).not.toHaveProperty("authorNickname");
-    expect(chain.where).toHaveBeenCalled();
+    expect(chain.where).not.toHaveBeenCalled();
+    expect(chain.orderBy).toHaveBeenCalled();
+    expect(chain.limit).toHaveBeenCalledWith(DANMAKU_FLY_MAX);
   });
 
-  it("listCurrentMonthCanteenDanmaku filters by canteen and month", async () => {
-    const july = new Date("2026-07-15T12:00:00Z");
-    const month = currentMonthHkt(july);
+  it("listCanteenDanmaku filters by canteen only", async () => {
+    const createdAt = new Date("2026-07-15T12:00:00Z");
     const chain = {
       from: vi.fn().mockReturnThis(),
       innerJoin: vi.fn().mockReturnThis(),
       where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockResolvedValue([
+      orderBy: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockResolvedValue([
         {
           id: "cdm-1",
           userId: "u1",
           content: "食堂弹幕",
-          month,
-          createdAt: july,
+          month: "2026-01",
+          createdAt,
           authorNickname: "Bob",
         },
       ]),
     };
     mockDbSelect.mockReturnValue(chain);
 
-    const rows = await listCurrentMonthCanteenDanmaku("canteen-1", july);
+    const rows = await listCanteenDanmaku("canteen-1");
     expect(rows).toHaveLength(1);
     expect(rows[0].content).toBe("食堂弹幕");
     expect(rows[0]).not.toHaveProperty("userId");
     expect(rows[0]).not.toHaveProperty("authorNickname");
     expect(chain.where).toHaveBeenCalledWith(
-      and(
-        eq(canteenDanmakuMessages.canteenId, "canteen-1"),
-        eq(canteenDanmakuMessages.month, month),
-      ),
+      eq(canteenDanmakuMessages.canteenId, "canteen-1"),
     );
+    expect(chain.limit).toHaveBeenCalledWith(DANMAKU_FLY_MAX);
   });
 
-  it("adminListCurrentMonthDanmaku includes hub and canteen stores", async () => {
+  it("adminListDanmakuHistory includes hub and canteen stores across months", async () => {
     const createdAt = new Date("2026-07-15T12:00:00Z");
     const hubChain = {
       from: vi.fn().mockReturnThis(),
@@ -113,7 +114,7 @@ describe("danmaku-queries", () => {
           id: "cdm-1",
           userId: "u2",
           content: "食堂弹幕",
-          month: "2026-07",
+          month: "2026-01",
           createdAt,
           authorNickname: "Bob",
           scope: "canteen",
@@ -126,8 +127,10 @@ describe("danmaku-queries", () => {
       .mockReturnValueOnce(hubChain)
       .mockReturnValueOnce(canteenChain);
 
-    const rows = await adminListCurrentMonthDanmaku();
+    const rows = await adminListDanmakuHistory();
 
+    expect(hubChain.where).not.toHaveBeenCalled();
+    expect(canteenChain.where).not.toHaveBeenCalled();
     expect(rows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: "dm-1", scope: "hub" }),

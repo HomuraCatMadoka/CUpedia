@@ -25,12 +25,10 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 
 **菜品评论**: 仅登录用户可发/改/删自己的短评（纯文本，≤500 字，拒绝 HTML）；匿名不可发。发即展示，无审核队列。评论不影响赞踩排行。Admin 可浏览全站评论时间线并删除任意评论；封禁用户走用户管理，不在评论页内完成。
 
-**OCR 菜单导入**: Admin 上传菜单图片 → 单一云 OCR 调用点（Google Vision，可 mock）→ 尽力解析为草稿 → 校对（含餐段/价格）→ 批量发布到 `canteen_menu_items`。走专用 Admin import API（非 `/api/upload`），内部复用 MinIO `uploadFile`。OCR 失败不阻断，可降级手工录入。图片上限 5MB。草稿默认餐段为全天。
+**JSON 菜单输入**: 菜品输入字段含 name、pricing.options、mealPeriods（或旧 mealPeriod）、sortOrder、svgKey。`svgKey` 存分区键：爬虫来源有店家分类时写入原文分类名；无分类时才按菜名推断为旧版 `rice`/`noodle`/…。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。旧 append-only action 仅为兼容保留，不用于周期性来源同步。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
 
-**JSON 菜单输入**: 菜品输入字段含 name、pricing.options、mealPeriods（或旧 mealPeriod）、sortOrder、svgKey。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。旧 append-only action 仅为兼容保留，不用于周期性来源同步。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
-
-**外部菜单同步**: Admin 粘贴含 `source`、`items[].externalKey` 的完整来源快照，必须先 dry-run 再应用。匹配优先使用外部身份；首次可用规范化菜名 + 餐段集合接管唯一旧菜。来源中消失的菜改为 `isAvailable = false`，不删除 UUID、投票或评论。Aigens 仍可按来源餐段拆成多行（`backendId:lunch` 等）；Admin 多餐段赋值则共享同一 UUID 的赞踩。`takeOverLegacyItems: true` 只用于经过预览确认的首次全量接管。善衡生成器为 `scripts/generate-shho-menu-sync.ts`，当前快照见 [`data/shho-menu-sync.json`](data/shho-menu-sync.json)，审核结果见 [`data/shho-menu-sync-report.md`](data/shho-menu-sync-report.md)。
-_Avoid_: 用菜名作为长期同步 key；先清空菜单再导入；把普通追加导入当全量来源快照；无 dry-run 直接接管 legacy 菜品。
+**外部菜单同步**: Admin 粘贴含 `source`、`items[].externalKey` 的完整来源快照，必须先 dry-run 再应用。匹配优先使用外部身份；首次可用规范化菜名 + 餐段集合接管唯一旧菜。来源中消失的菜改为 `isAvailable = false`，不删除 UUID、投票或评论。Aigens 仍可按来源餐段拆成多行（`backendId:lunch` 等）；Admin 多餐段赋值则共享同一 UUID 的赞踩。`takeOverLegacyItems: true` 只用于经过预览确认的首次全量接管。有分类时保留店家分类作 `svgKey`，不以菜名重分类。善衡生成器为 `scripts/generate-shho-menu-sync.ts`，当前快照见 [`data/shho-menu-sync.json`](data/shho-menu-sync.json)，审核结果见 [`data/shho-menu-sync-report.md`](data/shho-menu-sync-report.md)。
+_Avoid_: 用菜名作为长期同步 key；先清空菜单再导入；把普通追加导入当全量来源快照；无 dry-run 直接接管 legacy 菜品；有店家分类时再按菜名重分。
 
 **硬删除（Hard delete）**: 食堂与菜品无 `deletedAt`；删除行时 DB `ON DELETE CASCADE` 清理关联 votes 与 comments。
 _Avoid_: 沿用 wiki 的软删除模式。
@@ -38,12 +36,12 @@ _Avoid_: 沿用 wiki 的软删除模式。
 **Mock 模式（`CANTEEN_MOCK_DATA=true`）**: 仅开发用内存数据；种子只允许极简演示（如「演示食堂 / 演示菜品」），禁止写死真实食堂菜名。
 _Avoid_: 把 mock 数据当作生产 seed。
 
-**首页入口**: `src/app/(main)/page.tsx` 食堂模块卡片已启用（无「即将上线」），链接 `/canteen`。公开区品牌为「山城食记」，副标题「还有食堂能吃吗」；视觉为冷色账本风，菜品图仅 SVG（`DishSvgIcon`），不做真实菜品摄影。标题同行右侧入口「每日💩堂榜」→ `/canteen/shit-rank`。浏览页分 **食堂区**（`canteens`）与 **外卖区**（`takeouts`，独立表）；外卖详情 `/canteen/takeout/{id}`。Admin「外卖管理」`/admin/takeouts` 平行于食堂管理（店家 + 菜单 CRUD；无赞踩/OCR/同步）。
+**首页入口**: `src/app/(main)/page.tsx` 食堂模块卡片已启用（无「即将上线」），链接 `/canteen`。公开区品牌为「山城食记」，副标题「还有食堂能吃吗」；视觉为冷色账本风，菜品图仅 SVG（`DishSvgIcon`），不做真实菜品摄影。标题同行右侧入口「每日💩堂榜」→ `/canteen/shit-rank`。浏览页分 **食堂区**（`canteens`）与 **外卖区**（`takeouts`，独立表）；外卖详情 `/canteen/takeout/{id}`。Admin「外卖管理」`/admin/takeouts` 平行于食堂管理（店家 + 菜单 CRUD；无赞踩/同步）。
 
 **每日💩堂榜（Shame rank）**: 对**食堂**的 append-only 点踩日榜（非菜品）。票写入 `canteen_shame_votes` 永久保留；页面只聚合展示当日 `voteDate`（`Asia/Hong_Kong` 自然日）。访客可踩（ADR 0009 匿名 cookie）；截止前每日均可参与，可对多个食堂踩，同一食堂可连踩；不可取消，再点再加一票。匿名访客港时自然日最多 50 次踩，额度检查与插入在数据库事务中串行化。排行按当日踩数降序。管理员在站点设置维护包含当天的截止日期，缺省为 `2026-09-01`。实现见 `canteen-shame-rank.ts`、`canteen-shame-actions.ts`。
 _Avoid_: 与菜品赞踩表混用；把日榜做成 upsert/可取消。
 
-**菜品 SVG 图标**: `src/lib/canteen-svg-keys.ts` 定义品类 key（`default`、`rice`、`bowl`、`noodle`、`drink`、`dessert`）；`DishSvgIcon` 在菜单行展示，`data-svg-key` 供 e2e 断言。未知 key 回退 `default`；写入经 `validateSvgKey()` 白名单校验。菜单视图按 `svgKey` 分组展示（饭类→粉面→煲汤→小食→甜品→饮品），可用顶部分类 chips 筛选；排行榜仍为扁平列表。
+**菜品分区 / SVG 图标**: `svg_key` 存分区键（店家原文分类或旧版 `rice`/`drink` 等）。菜单按该键分组；已知英文 key 用固定中文标签与顺序，其余 key 用自身作标签排在其后。`DishSvgIcon` 经 `resolveDishIconKey` 映射常见中文分类名到图标，未知回退 `default`。`validateSvgKey()` 接受非空限长字符串，不再把未知值折成 `default`。
 
 **E2E 种子**: `scripts/seed-data.ts` 含固定 UUID 的「演示食堂」与午餐菜品（`rice`/`bowl` svgKey），供 `e2e/canteen-menu-votes.spec.ts` 投票路径；`e2e/canteen-danmaku.spec.ts` 覆盖食堂页弹幕（#192）。命名遵循 [ADR 0007](../adr/0007-e2e-tests-named-by-feature.md)（按功能而非 issue 号）。
 

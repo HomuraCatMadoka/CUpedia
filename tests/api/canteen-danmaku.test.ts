@@ -33,7 +33,7 @@ vi.mock("@/lib/danmaku-mutations", () => ({
 }));
 
 vi.mock("@/lib/danmaku-queries", () => ({
-  listCurrentMonthCanteenDanmaku: (...args: unknown[]) => mockList(...args),
+  listCanteenDanmaku: (...args: unknown[]) => mockList(...args),
 }));
 
 import { GET, POST } from "@/app/api/canteen/[id]/danmaku/route";

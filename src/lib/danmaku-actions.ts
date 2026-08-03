@@ -7,14 +7,28 @@ import { canteenDanmakuMessages, danmakuMessages } from "@/db/schema";
 import { requireAdmin, requireAuth } from "@/lib/auth-guard";
 import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
 import {
-  adminListCurrentMonthDanmaku,
-  listCurrentMonthCanteenDanmaku,
-  listCurrentMonthDanmaku,
+  adminListDanmakuHistory,
+  listCanteenDanmaku as queryListCanteenDanmaku,
+  listDanmaku as queryListDanmaku,
 } from "@/lib/danmaku-queries";
-import type { AdminDanmakuMessage, DanmakuMessage } from "@/lib/danmaku-types";
+import type {
+  AdminDanmakuMessage,
+  DanmakuMessage,
+  PublicDanmakuMessage,
+} from "@/lib/danmaku-types";
 import { assertContributorComplete } from "@/lib/contributor-account";
 
-export { listCurrentMonthDanmaku, listCurrentMonthCanteenDanmaku };
+/** Hub danmaku history — async wrapper required for "use server" exports. */
+export async function listDanmaku(): Promise<PublicDanmakuMessage[]> {
+  return queryListDanmaku();
+}
+
+/** Per-canteen danmaku history — async wrapper required for "use server" exports. */
+export async function listCanteenDanmaku(
+  canteenId: string,
+): Promise<PublicDanmakuMessage[]> {
+  return queryListCanteenDanmaku(canteenId);
+}
 
 export async function createDanmaku(
   contentInput: unknown,
@@ -30,7 +44,7 @@ export async function createDanmaku(
 
 export async function adminListDanmaku(): Promise<AdminDanmakuMessage[]> {
   await requireAdmin();
-  return adminListCurrentMonthDanmaku();
+  return adminListDanmakuHistory();
 }
 
 export async function adminDeleteDanmaku(

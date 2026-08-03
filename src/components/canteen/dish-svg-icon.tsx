@@ -7,7 +7,7 @@ import {
   UtensilsCrossedIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveDishSvgKey, type DishSvgKey } from "@/lib/canteen-svg-keys";
+import { resolveDishIconKey, type DishSvgKey } from "@/lib/canteen-svg-keys";
 
 type DishIcon = ComponentType<LucideProps>;
 
@@ -87,7 +87,7 @@ export function DishSvgIcon({
   svgKey?: string;
   className?: string;
 }) {
-  const key = resolveDishSvgKey(svgKey);
+  const key = resolveDishIconKey(svgKey);
   const Icon = DISH_ICONS[key];
   return (
     <div

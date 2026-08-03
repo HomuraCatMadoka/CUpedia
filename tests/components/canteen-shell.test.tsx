@@ -54,8 +54,8 @@ describe("CanteenShell announcement", () => {
       <CanteenShell
         title="善衡书院食堂"
         topContent={
-          <section aria-label="本月弹幕">
-            <h2>本月弹幕</h2>
+          <section aria-label="弹幕">
+            <h2>弹幕</h2>
           </section>
         }
       >
@@ -69,7 +69,7 @@ describe("CanteenShell announcement", () => {
     });
     const liveHeading = screen.getByRole("heading", {
       level: 2,
-      name: "本月弹幕",
+      name: "弹幕",
     });
 
     expect(
@@ -84,7 +84,7 @@ describe("CanteenShell announcement", () => {
         title="演示食堂"
         subtitle="演示区域 A"
         announcement="外带加 $1 · 随餐饮品加 $3"
-        topContent={<div>本月弹幕</div>}
+        topContent={<div>弹幕</div>}
       >
         <div>菜单</div>
       </CanteenShell>,
