@@ -7,14 +7,17 @@ import { canteenDanmakuMessages, danmakuMessages } from "@/db/schema";
 import { requireAdmin, requireAuth } from "@/lib/auth-guard";
 import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
 import {
-  adminListCurrentMonthDanmaku,
-  listCurrentMonthCanteenDanmaku,
-  listCurrentMonthDanmaku,
+  adminListDanmakuHistory,
 } from "@/lib/danmaku-queries";
 import type { AdminDanmakuMessage, DanmakuMessage } from "@/lib/danmaku-types";
 import { assertContributorComplete } from "@/lib/contributor-account";
 
-export { listCurrentMonthDanmaku, listCurrentMonthCanteenDanmaku };
+export {
+  listDanmaku,
+  listCanteenDanmaku,
+  listCurrentMonthDanmaku,
+  listCurrentMonthCanteenDanmaku,
+} from "@/lib/danmaku-queries";
 
 export async function createDanmaku(
   contentInput: unknown,
@@ -30,7 +33,7 @@ export async function createDanmaku(
 
 export async function adminListDanmaku(): Promise<AdminDanmakuMessage[]> {
   await requireAdmin();
-  return adminListCurrentMonthDanmaku();
+  return adminListDanmakuHistory();
 }
 
 export async function adminDeleteDanmaku(

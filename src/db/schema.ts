@@ -1525,7 +1525,7 @@ export const menuImportDraftsRelations = relations(
   }),
 );
 
-// ── Canteen-scoped monthly danmaku (separate from hub danmaku_messages) ──
+// ── Canteen-scoped danmaku (separate from hub danmaku_messages) ──
 
 export const canteenDanmakuMessages = pgTable(
   "canteen_danmaku_messages",
@@ -1564,7 +1564,7 @@ export const canteenDanmakuMessagesRelations = relations(
   }),
 );
 
-// ── Hub /canteen browse monthly danmaku (#192) ──
+// ── Hub /canteen browse danmaku (#192) ──
 
 export const danmakuMessages = pgTable(
   "danmaku_messages",

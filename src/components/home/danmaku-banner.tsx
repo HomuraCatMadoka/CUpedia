@@ -56,7 +56,7 @@ export function DanmakuBanner({
   initialMessages,
   initialFlyMessages,
   viewer,
-  title = "本月弹幕",
+  title = "弹幕",
   apiPath = "/api/danmaku",
   trackCount = DANMAKU_TRACK_COUNT,
   appearance = "card",

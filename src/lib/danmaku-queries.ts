@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   canteenDanmakuMessages,
@@ -11,7 +11,6 @@ import type {
   DanmakuMessage,
   PublicDanmakuMessage,
 } from "@/lib/danmaku-types";
-import { currentMonthHkt } from "@/lib/hkt-datetime";
 
 function mapRow(row: {
   id: string;
@@ -40,10 +39,8 @@ function mapPublicRow(row: PublicDanmakuMessage): PublicDanmakuMessage {
   };
 }
 
-export async function listCurrentMonthDanmaku(
-  now = new Date(),
-): Promise<PublicDanmakuMessage[]> {
-  const month = currentMonthHkt(now);
+/** Hub danmaku history (all months). Flyover caps via messagesForFlyover. */
+export async function listDanmaku(): Promise<PublicDanmakuMessage[]> {
   const rows = await db
     .select({
       id: danmakuMessages.id,
@@ -52,17 +49,15 @@ export async function listCurrentMonthDanmaku(
       createdAt: danmakuMessages.createdAt,
     })
     .from(danmakuMessages)
-    .where(eq(danmakuMessages.month, month))
     .orderBy(asc(danmakuMessages.createdAt));
 
   return rows.map(mapPublicRow);
 }
 
-export async function listCurrentMonthCanteenDanmaku(
+/** Per-canteen danmaku history (all months). */
+export async function listCanteenDanmaku(
   canteenId: string,
-  now = new Date(),
 ): Promise<PublicDanmakuMessage[]> {
-  const month = currentMonthHkt(now);
   const rows = await db
     .select({
       id: canteenDanmakuMessages.id,
@@ -71,21 +66,19 @@ export async function listCurrentMonthCanteenDanmaku(
       createdAt: canteenDanmakuMessages.createdAt,
     })
     .from(canteenDanmakuMessages)
-    .where(
-      and(
-        eq(canteenDanmakuMessages.canteenId, canteenId),
-        eq(canteenDanmakuMessages.month, month),
-      ),
-    )
+    .where(eq(canteenDanmakuMessages.canteenId, canteenId))
     .orderBy(asc(canteenDanmakuMessages.createdAt));
 
   return rows.map(mapPublicRow);
 }
 
-export async function adminListCurrentMonthDanmaku(): Promise<
-  AdminDanmakuMessage[]
-> {
-  const month = currentMonthHkt();
+/** @deprecated Use listDanmaku — kept for call-site migration. */
+export const listCurrentMonthDanmaku = listDanmaku;
+
+/** @deprecated Use listCanteenDanmaku — kept for call-site migration. */
+export const listCurrentMonthCanteenDanmaku = listCanteenDanmaku;
+
+export async function adminListDanmakuHistory(): Promise<AdminDanmakuMessage[]> {
   const [hubRows, canteenRows] = await Promise.all([
     db
       .select({
@@ -98,7 +91,6 @@ export async function adminListCurrentMonthDanmaku(): Promise<
       })
       .from(danmakuMessages)
       .innerJoin(users, eq(danmakuMessages.userId, users.id))
-      .where(eq(danmakuMessages.month, month))
       .orderBy(desc(danmakuMessages.createdAt)),
     db
       .select({
@@ -114,7 +106,6 @@ export async function adminListCurrentMonthDanmaku(): Promise<
       .from(canteenDanmakuMessages)
       .innerJoin(users, eq(canteenDanmakuMessages.userId, users.id))
       .innerJoin(canteens, eq(canteenDanmakuMessages.canteenId, canteens.id))
-      .where(eq(canteenDanmakuMessages.month, month))
       .orderBy(desc(canteenDanmakuMessages.createdAt)),
   ]);
 
@@ -133,3 +124,6 @@ export async function adminListCurrentMonthDanmaku(): Promise<
     })),
   ].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
+
+/** @deprecated Use adminListDanmakuHistory. */
+export const adminListCurrentMonthDanmaku = adminListDanmakuHistory;

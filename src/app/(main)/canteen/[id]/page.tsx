@@ -13,7 +13,7 @@ import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
 import { resolveCanteenQrSrc } from "@/lib/canteen-assets";
-import { listCurrentMonthCanteenDanmaku } from "@/lib/danmaku-actions";
+import { listCanteenDanmaku } from "@/lib/danmaku-actions";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { isPgPermissionDenied, isPgSoftFail } from "@/lib/pg-errors";
@@ -101,7 +101,7 @@ export default async function CanteenMenuPage({
             };
           }),
         )
-      : listCurrentMonthCanteenDanmaku(id).catch((error) => {
+      : listCanteenDanmaku(id).catch((error) => {
           if (isPgSoftFail(error) || isPgPermissionDenied(error)) return [];
           throw error;
         }),
@@ -130,7 +130,7 @@ export default async function CanteenMenuPage({
           initialMessages={danmaku}
           initialFlyMessages={danmakuFly}
           viewer={danmakuViewer}
-          title="本月弹幕"
+          title="弹幕"
           apiPath={`/api/canteen/${id}/danmaku`}
           trackCount={3}
           appearance="hero"

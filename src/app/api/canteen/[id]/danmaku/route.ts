@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getDanmakuAuthorForApi } from "@/lib/auth-guard";
 import { insertCanteenDanmakuForUser } from "@/lib/danmaku-mutations";
-import { listCurrentMonthCanteenDanmaku } from "@/lib/danmaku-queries";
+import { listCanteenDanmaku } from "@/lib/danmaku-queries";
 import {
   isUuid,
   publicDanmakuError,
@@ -18,7 +18,7 @@ export async function GET(
   if (!isUuid(canteenId)) {
     return NextResponse.json({ error: "INVALID_CANTEEN_ID" }, { status: 400 });
   }
-  const messages = await listCurrentMonthCanteenDanmaku(canteenId);
+  const messages = await listCanteenDanmaku(canteenId);
   return NextResponse.json({
     messages: messages.map(serializePublicDanmaku),
   });

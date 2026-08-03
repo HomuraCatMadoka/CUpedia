@@ -12,7 +12,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { getOptionalUser } from "@/lib/auth-guard";
-import { listCurrentMonthDanmaku } from "@/lib/danmaku-actions";
+import { listDanmaku } from "@/lib/danmaku-actions";
 import { isPgSoftFail, isPgUndefinedTable } from "@/lib/pg-errors";
 import type { Canteen } from "@/lib/canteen-types";
 import { messagesForFlyover, shuffleArray } from "@/lib/danmaku-types";
@@ -117,7 +117,7 @@ export default async function CanteenBrowsePage() {
             };
           }),
         )
-      : listCurrentMonthDanmaku().catch((error) => {
+      : listDanmaku().catch((error) => {
           if (isPgSoftFail(error)) return [];
           throw error;
         }),
@@ -149,7 +149,7 @@ export default async function CanteenBrowsePage() {
           initialMessages={danmaku}
           initialFlyMessages={danmakuFly}
           viewer={danmakuViewer}
-          title="本月弹幕"
+          title="弹幕"
           trackCount={3}
           appearance="hero"
         />

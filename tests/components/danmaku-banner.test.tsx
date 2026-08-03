@@ -80,7 +80,7 @@ describe("DanmakuBanner", () => {
       />,
     );
 
-    const region = screen.getByRole("region", { name: "本月弹幕" });
+    const region = screen.getByRole("region", { name: "弹幕" });
     expect(region.querySelectorAll(".danmaku-track")).toHaveLength(3);
     expect(region.querySelector(".danmaku-track-layer")?.className).toContain(
       "h-32",

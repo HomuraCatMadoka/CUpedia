@@ -2,7 +2,7 @@ import { assertDanmakuNotBlocked } from "@/lib/danmaku-block";
 
 export const DANMAKU_MAX_LENGTH = 100;
 
-/** Cap flyover DOM nodes; static list still shows full month history. */
+/** Cap flyover DOM nodes; static list can show fuller history. */
 export const DANMAKU_FLY_MAX = 90;
 
 export type DanmakuMessage = {
