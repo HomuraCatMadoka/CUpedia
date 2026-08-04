@@ -29,6 +29,7 @@ describe("LoginPage password sign-in", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signInEmail.mockResolvedValue({ error: null });
+    sendVerificationOtp.mockResolvedValue({ error: null });
     // Mirror the browser: SKIP_EMAIL_WHITELIST is server-only (not NEXT_PUBLIC_),
     // so isAllowedEmail("user@test.com") is false here — exactly the condition
     // that the removed client gate used to reject.
@@ -58,5 +59,21 @@ describe("LoginPage password sign-in", () => {
     );
     expect(screen.queryByText("仅支持 CUHK 邮箱")).toBeNull();
     await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
+  });
+
+  it("keeps an unregistered account on the email step", async () => {
+    sendVerificationOtp.mockResolvedValueOnce({
+      error: { message: "账号尚未注册，请先注册" },
+    });
+    render(<LoginPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "验证码登录" }));
+    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
+      target: { value: "1155123456@link.cuhk.edu.hk" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送验证码" }));
+
+    expect(await screen.findByText("账号尚未注册，请先注册")).toBeTruthy();
+    expect(screen.queryByLabelText("验证码")).toBeNull();
   });
 });
