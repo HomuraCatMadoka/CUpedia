@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getDanmakuAuthorForApi } from "@/lib/auth-guard";
 import { insertDanmakuForUser } from "@/lib/danmaku-mutations";
-import { listCurrentMonthDanmaku } from "@/lib/danmaku-queries";
+import { listDanmaku } from "@/lib/danmaku-queries";
 import { publicDanmakuError, serializePublicDanmaku } from "@/lib/danmaku-api";
 import { assertContributorComplete } from "@/lib/contributor-account";
 
 export async function GET() {
-  const messages = await listCurrentMonthDanmaku();
+  const messages = await listDanmaku();
   return NextResponse.json({
     messages: messages.map(serializePublicDanmaku),
   });

@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { adminDeleteDanmaku } from "@/lib/danmaku-actions";
 import type { AdminDanmakuMessage } from "@/lib/danmaku-types";
-import { currentMonthHkt } from "@/lib/hkt-datetime";
 
 export function DanmakuAdminPanel({
   messages,
@@ -28,7 +27,6 @@ export function DanmakuAdminPanel({
   const [deleteTarget, setDeleteTarget] = useState<AdminDanmakuMessage | null>(
     null,
   );
-  const month = currentMonthHkt();
 
   function handleDelete() {
     if (!deleteTarget) return;
@@ -56,7 +54,7 @@ export function DanmakuAdminPanel({
       <div>
         <h1 className="text-2xl font-bold">弹幕管理</h1>
         <p className="text-sm text-muted-foreground">
-          当前月份（HKT）：{month}。封禁用户请前往{" "}
+          展示全部历史弹幕。封禁用户请前往{" "}
           <Link href="/admin/users" className="underline underline-offset-2">
             用户管理
           </Link>
@@ -65,7 +63,7 @@ export function DanmakuAdminPanel({
       </div>
 
       {messages.length === 0 ? (
-        <p className="text-muted-foreground">本月暂无弹幕。</p>
+        <p className="text-muted-foreground">暂无弹幕。</p>
       ) : (
         <ul className="space-y-2">
           {messages.map((msg) => (

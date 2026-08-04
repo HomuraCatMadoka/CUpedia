@@ -44,11 +44,19 @@ type ViewerState =
   | { kind: "banned" }
   | { kind: "member"; userId: string; nickname: string };
 
+/** One-shot overlay so a just-sent bullet flies now without reshaping the queue. */
+type LiveShot = {
+  id: string;
+  content: string;
+  track: number;
+  nonce: number;
+};
+
 export function DanmakuBanner({
   initialMessages,
   initialFlyMessages,
   viewer,
-  title = "本月弹幕",
+  title = "弹幕",
   apiPath = "/api/danmaku",
   trackCount = DANMAKU_TRACK_COUNT,
   appearance = "card",
@@ -71,12 +79,14 @@ export function DanmakuBanner({
   const [flyItems, setFlyItems] = useState(
     () => initialFlyMessages ?? messagesForFlyover(initialMessages),
   );
+  const [liveShots, setLiveShots] = useState<LiveShot[]>([]);
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [screenWidth, setScreenWidth] = useState(720);
   const mounted = useMounted();
   const layerRef = useRef<HTMLDivElement>(null);
+  const liveLaneRef = useRef(0);
   const { ensureContributorSetup } = useContributorSetup();
 
   useEffect(() => {
@@ -175,13 +185,36 @@ export function DanmakuBanner({
           createdAt: new Date(created.createdAt),
         };
         setMessages((prev) => [...prev, publicMessage]);
-        setFlyItems((prev) => messagesForFlyover([...prev, publicMessage]));
+        // Keep the normal append/cap schedule (same as after refresh). A
+        // one-shot live overlay flies immediately for this send only.
+        setFlyItems((prev) =>
+          messagesForFlyover([
+            ...prev.filter((m) => m.id !== publicMessage.id),
+            publicMessage,
+          ]),
+        );
+        const track = liveLaneRef.current % trackCount;
+        liveLaneRef.current += 1;
+        setLiveShots((prev) => [
+          ...prev,
+          {
+            id: publicMessage.id,
+            content: publicMessage.content,
+            track,
+            nonce: Date.now(),
+          },
+        ]);
         setContent("");
       } catch {
         setError("发送失败，请重试。");
       }
     });
   }
+
+  const liveIds = useMemo(
+    () => new Set(liveShots.map((shot) => shot.id)),
+    [liveShots],
+  );
 
   return (
     <section
@@ -232,28 +265,57 @@ export function DanmakuBanner({
               : "暂无弹幕，来发第一条吧"}
           </p>
         ) : (
-          byTrack.map((track, trackIndex) => (
-            <div
-              key={`${epoch}-track-${trackIndex}`}
-              className="danmaku-track"
-              style={{
-                top: `${trackIndex * trackStepRem + trackOffsetRem}rem`,
-              }}
-            >
-              {track.map((item) => (
+          <>
+            {byTrack.map((track, trackIndex) => (
+              <div
+                key={`${epoch}-track-${trackIndex}`}
+                className="danmaku-track"
+                style={{
+                  top: `${trackIndex * trackStepRem + trackOffsetRem}rem`,
+                }}
+              >
+                {track.map((item) =>
+                  liveIds.has(item.id) ? null : (
+                    <span
+                      key={`${epoch}-${item.id}`}
+                      className="danmaku-item text-foreground"
+                      style={{
+                        animationDuration: `${item.duration}s`,
+                        animationDelay: `${item.start}s`,
+                      }}
+                    >
+                      {item.content}
+                    </span>
+                  ),
+                )}
+              </div>
+            ))}
+            {liveShots.map((shot) => (
+              <div
+                key={`live-${shot.nonce}`}
+                className="danmaku-track"
+                style={{
+                  top: `${shot.track * trackStepRem + trackOffsetRem}rem`,
+                }}
+              >
                 <span
-                  key={`${epoch}-${item.id}`}
+                  data-live-danmaku=""
                   className="danmaku-item text-foreground"
                   style={{
-                    animationDuration: `${item.duration}s`,
-                    animationDelay: `${item.start}s`,
+                    animationDuration: `${DANMAKU_SCROLL_DURATION_SEC}s`,
+                    animationDelay: "0s",
+                  }}
+                  onAnimationEnd={() => {
+                    setLiveShots((prev) =>
+                      prev.filter((s) => s.nonce !== shot.nonce),
+                    );
                   }}
                 >
-                  {item.content}
+                  {shot.content}
                 </span>
-              ))}
-            </div>
-          ))
+              </div>
+            ))}
+          </>
         )}
       </div>
 

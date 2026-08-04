@@ -1,7 +1,11 @@
-import { resolveDishSvgKey, type DishSvgKey } from "@/lib/canteen-svg-keys";
+import {
+  DISH_SVG_KEYS,
+  resolveStoredSectionKey,
+  type DishSvgKey,
+} from "@/lib/canteen-svg-keys";
 import type { CanteenMenuItem } from "@/lib/canteen-types";
 
-/** Display order for menu sections (mains → sides → drinks). */
+/** Display order for known legacy section keys (mains → sides → drinks). */
 const MENU_SECTION_RANK = {
   rice: 0,
   noodle: 1,
@@ -26,37 +30,52 @@ const SECTION_LABELS: Record<DishSvgKey, string> = {
   drink: "饮品",
 };
 
+const KNOWN_SECTION_KEYS = new Set<string>(DISH_SVG_KEYS);
+
 export type MenuSection = {
-  svgKey: DishSvgKey;
+  /** Stored section key (store category or legacy svg key). */
+  svgKey: string;
   label: string;
   items: CanteenMenuItem[];
 };
 
 export function menuSectionLabel(svgKey: string): string {
-  return SECTION_LABELS[resolveDishSvgKey(svgKey)];
+  const key = resolveStoredSectionKey(svgKey);
+  if ((DISH_SVG_KEYS as readonly string[]).includes(key)) {
+    return SECTION_LABELS[key as DishSvgKey];
+  }
+  return key;
 }
 
-/** Group period items by svgKey; unknown keys fold into `default`. */
+/** Group period items by stored section key; known keys keep legacy order. */
 export function groupMenuItemsBySvgKey(
   items: CanteenMenuItem[],
 ): MenuSection[] {
-  const buckets = new Map<DishSvgKey, CanteenMenuItem[]>();
+  const buckets = new Map<string, CanteenMenuItem[]>();
+  const firstSeen: string[] = [];
   for (const item of items) {
-    const key = resolveDishSvgKey(item.svgKey);
+    const key = resolveStoredSectionKey(item.svgKey);
     const list = buckets.get(key);
     if (list) list.push(item);
-    else buckets.set(key, [item]);
+    else {
+      buckets.set(key, [item]);
+      firstSeen.push(key);
+    }
   }
 
+  const knownKeys = MENU_SECTION_ORDER.filter((key) => buckets.has(key));
+  const customKeys = firstSeen.filter((key) => !KNOWN_SECTION_KEYS.has(key));
+
   const sections: MenuSection[] = [];
-  for (const svgKey of MENU_SECTION_ORDER) {
+  for (const svgKey of [...knownKeys, ...customKeys]) {
     const group = buckets.get(svgKey);
     if (!group?.length) continue;
     sections.push({
       svgKey,
-      label: SECTION_LABELS[svgKey],
+      label: menuSectionLabel(svgKey),
       items: [...group].sort(
-        (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "zh-HK"),
+        (a, b) =>
+          a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "zh-HK"),
       ),
     });
   }

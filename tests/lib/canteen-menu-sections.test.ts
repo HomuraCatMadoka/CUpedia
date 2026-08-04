@@ -41,15 +41,21 @@ describe("groupMenuItemsBySvgKey", () => {
     expect(sections[2]?.label).toBe("饮品");
   });
 
-  it("maps unknown svg keys into the default section", () => {
+  it("keeps freeform store categories as their own sections", () => {
     const sections = groupMenuItemsBySvgKey([
-      item("x1", "神秘菜", "unknown"),
+      item("x1", "神秘菜", "每日精选"),
       item("d1", "杂项", "default"),
+      item("r1", "鸡饭", "飯類"),
     ]);
-    expect(sections).toHaveLength(1);
-    expect(sections[0]?.svgKey).toBe("default");
+    expect(sections.map((s) => s.svgKey)).toEqual([
+      "default",
+      "每日精选",
+      "飯類",
+    ]);
     expect(sections[0]?.label).toBe(menuSectionLabel("default"));
-    expect(sections[0]?.items.map((i) => i.name)).toEqual(["杂项", "神秘菜"]);
+    expect(sections[1]?.label).toBe("每日精选");
+    expect(sections[2]?.label).toBe("飯類");
+    expect(sections[1]?.items.map((i) => i.name)).toEqual(["神秘菜"]);
   });
 
   it("omits empty categories", () => {
