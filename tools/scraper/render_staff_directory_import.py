@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
+import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
@@ -14,6 +17,68 @@ import scrape_staff
 
 SOURCE = "cuhk_research_portal"
 REVIEWED_PERSON_SOURCE = "reviewed_department_directory"
+ACADEMIC_TITLE = re.compile(r"\b(?:professor|lecturer|instructor)\b", re.IGNORECASE)
+
+
+def professor_catalog_id(name: str, identity_key: str | None = None) -> str:
+    """Match scripts/professor-catalog.ts so both import paths converge."""
+    normalized = unicodedata.normalize("NFKC", name).strip()
+    normalized = re.sub(r"\s*<+\s*$", "", normalized)
+    normalized = re.sub(r",\s*$", "", normalized)
+    normalized = re.sub(
+        r"^(professor|prof\.)\s+", "Professor ", normalized, flags=re.IGNORECASE
+    )
+    normalized = re.sub(
+        r"^(doctor|dr\.)\s+", "Dr. ", normalized, flags=re.IGNORECASE
+    )
+    normalized = re.sub(r"\s+", " ", normalized)
+    identity = "\0".join(
+        value.lower() for value in (normalized, identity_key) if value
+    )
+    return hashlib.sha256(identity.encode()).hexdigest()[:24]
+
+
+def build_staff_professor_catalog(
+    people: list[dict], titles: list[dict], linked_person_ids: set[str]
+) -> tuple[list[dict], list[dict]]:
+    """Create searchable professor rows for academic staff absent from timetable."""
+    academic_person_ids = {
+        item["person_id"]
+        for item in titles
+        if ACADEMIC_TITLE.search(item["title"])
+    }
+    people_by_name: dict[str, list[dict]] = defaultdict(list)
+    for person in people:
+        people_by_name[resolve_staff_pilot.name_key(person["canonical_name"])].append(
+            person
+        )
+
+    catalog = []
+    links = []
+    for person in people:
+        if person["id"] not in academic_person_ids or person["id"] in linked_person_ids:
+            continue
+        duplicate_name = len(
+            people_by_name[resolve_staff_pilot.name_key(person["canonical_name"])]
+        ) > 1
+        identity_key = (person["profile_url"] or person["id"]) if duplicate_name else None
+        professor_id = professor_catalog_id(person["canonical_name"], identity_key)
+        catalog.append(
+            {
+                "id": professor_id,
+                "name": person["canonical_name"],
+                "search_text": person["canonical_name"].lower(),
+            }
+        )
+        links.append(
+            {
+                "professor_id": professor_id,
+                "person_id": person["id"],
+                "match_method": "automatic",
+                "source_url": person["profile_url"],
+            }
+        )
+    return catalog, links
 
 
 def build_professor_links(
@@ -306,13 +371,30 @@ def build_payload(
             ),
         ),
     }
-    if professors is not None:
-        payload["professor_links"] = build_professor_links(
-            professors, payload["aliases"], payload["people"]
+    professor_links = (
+        build_professor_links(professors, payload["aliases"], payload["people"])
+        if professors
+        else []
+    )
+    professor_catalog, staff_professor_links = build_staff_professor_catalog(
+        payload["people"],
+        payload["titles"],
+        {item["person_id"] for item in professor_links},
+    )
+    professor_links.extend(staff_professor_links)
+    if professor_links:
+        payload["professor_catalog"] = sorted(
+            professor_catalog, key=lambda item: item["id"]
+        )
+        payload["professor_links"] = sorted(
+            professor_links, key=lambda item: item["professor_id"]
         )
         payload["managed_professor_ids"] = sorted(
-            professor["id"] for professor in professors
+            {item["professor_id"] for item in professor_links}
+            | {professor["id"] for professor in professors or []}
         )
+    elif professors is not None:
+        raise ValueError("Professor snapshot produced no automatic identity links")
     return payload
 
 
@@ -383,6 +465,20 @@ def render_sql(payload: dict) -> str:
     data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if "$directory$" in data:
         raise ValueError("Unexpected SQL dollar-quote marker in payload")
+    professor_catalog_sql = ""
+    if payload.get("professor_catalog"):
+        professor_catalog_sql = """insert into professors (id, name, search_text)
+select x.id, x.name, x.search_text
+from _staff_directory_import,
+     jsonb_to_recordset(payload->'professor_catalog') as x(
+       id text, name text, search_text text
+     )
+on conflict (id) do update set
+  name = excluded.name,
+  search_text = excluded.search_text,
+  updated_at = now();
+
+"""
     identity_sql = ""
     if "professor_links" in payload:
         identity_sql = render_professor_identity_sql(
@@ -569,8 +665,7 @@ on conflict (person_id, alias) do update set
   normalized_alias = excluded.normalized_alias,
   source = excluded.source;
 
-{identity_sql}
-
+{professor_catalog_sql}{identity_sql}
 update course_offering_instructors offering
 set person_id = null,
     match_status = 'unverified',

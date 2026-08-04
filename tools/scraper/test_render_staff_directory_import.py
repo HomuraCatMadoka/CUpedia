@@ -90,6 +90,89 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
             ["cuhk_research_portal", "reviewed_department_directory"],
         )
 
+    def test_academic_staff_missing_from_timetable_joins_professor_catalog(self):
+        payload = subject.build_payload(self.directory())
+
+        self.assertEqual(
+            payload["professor_catalog"],
+            [{
+                "id": "5380aaa494930fb4b64fa61c",
+                "name": "Professor Ada LOVELACE",
+                "search_text": "professor ada lovelace",
+            }],
+        )
+        self.assertEqual(
+            payload["professor_links"],
+            [{
+                "professor_id": "5380aaa494930fb4b64fa61c",
+                "person_id": "pure:9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2",
+                "match_method": "automatic",
+                "source_url": "https://example.test/ada/",
+            }],
+        )
+        self.assertEqual(
+            payload["managed_professor_ids"],
+            ["5380aaa494930fb4b64fa61c"],
+        )
+
+    def test_professor_catalog_id_matches_timetable_normalization(self):
+        self.assertEqual(
+            subject.professor_catalog_id(" Prof.  CHAN Wing Kai, "),
+            "5b9e8e2f887ab73d689406f6",
+        )
+        self.assertEqual(
+            subject.professor_catalog_id(
+                "Professor CHAN Wing Kai",
+                "https://example.test/chan/",
+            ),
+            "889a8527faa46c7271515488",
+        )
+
+    def test_same_name_academic_staff_receive_distinct_profile_ids(self):
+        people = [
+            {
+                "id": "ada-1",
+                "canonical_name": "Professor Ada LOVELACE",
+                "profile_url": "https://example.test/ada-1/",
+            },
+            {
+                "id": "ada-2",
+                "canonical_name": "Professor Ada LOVELACE",
+                "profile_url": "https://example.test/ada-2/",
+            },
+        ]
+        titles = [
+            {"person_id": person["id"], "title": "Professor"}
+            for person in people
+        ]
+
+        catalog, links = subject.build_staff_professor_catalog(
+            people, titles, set()
+        )
+
+        self.assertEqual(len(catalog), 2)
+        self.assertEqual(len({item["id"] for item in catalog}), 2)
+        self.assertEqual(len({item["professor_id"] for item in links}), 2)
+
+    def test_non_academic_staff_does_not_join_professor_catalog(self):
+        catalog, links = subject.build_staff_professor_catalog(
+            [{
+                "id": "director",
+                "canonical_name": "Director Grace HOPPER",
+                "profile_url": "https://example.test/grace/",
+            }],
+            [{
+                "person_id": "director",
+                "organisation_id": "centre",
+                "title": "Director",
+                "source_url": "https://example.test/grace/",
+            }],
+            set(),
+        )
+
+        self.assertEqual(catalog, [])
+        self.assertEqual(links, [])
+
     def test_sql_uses_two_run_inactivation(self):
         sql = subject.render_sql(subject.build_payload(self.directory()))
         self.assertIn("missing_runs + 1 < 2", sql)
@@ -276,14 +359,14 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
             },
             payload["affiliations"],
         )
-        self.assertEqual(
-            payload["professor_links"],
-            [{
+        self.assertIn(
+            {
                 "professor_id": "prof-1",
                 "person_id": person["id"],
                 "match_method": "manual_override",
                 "source_url": "https://department.example/grace/",
-            }],
+            },
+            payload["professor_links"],
         )
 
     def test_reviewed_person_rejects_existing_profile(self):
@@ -363,10 +446,14 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
         self.assertIn("on conflict (professor_id) do nothing", sql)
         self.assertNotIn("where match_method = 'manual_override'", sql)
 
-    def test_identity_sql_is_omitted_without_professor_snapshot(self):
+    def test_staff_catalog_is_inserted_before_its_identity(self):
         sql = subject.render_sql(subject.build_payload(self.directory()))
-        self.assertNotIn("delete from professor_staff_identities", sql)
-        self.assertNotIn("payload->'professor_links'", sql)
+
+        professor_position = sql.index("insert into professors")
+        identity_position = sql.index("insert into professor_staff_identities")
+        self.assertLess(professor_position, identity_position)
+        self.assertIn("payload->'professor_catalog'", sql)
+        self.assertIn("payload->'professor_links'", sql)
 
     def test_standalone_identity_sql_is_transactional(self):
         payload = subject.build_payload(
