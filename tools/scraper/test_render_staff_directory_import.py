@@ -460,9 +460,21 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
 
         professor_position = sql.index("insert into professors")
         identity_position = sql.index("insert into professor_staff_identities")
+        instructor_position = sql.index("insert into course_instructors")
         self.assertLess(professor_position, identity_position)
+        self.assertLess(identity_position, instructor_position)
         self.assertIn("payload->'professor_catalog'", sql)
         self.assertIn("payload->'professor_links'", sql)
+
+    def test_professor_identity_syncs_canonical_instructor_references(self):
+        sql = subject.render_sql(subject.build_payload(self.directory()))
+
+        self.assertIn("insert into course_instructors (person_id)", sql)
+        self.assertIn("update professor_courses course", sql)
+        self.assertIn("update course_ratings rating", sql)
+        self.assertIn("update course_rating_professors selected", sql)
+        self.assertIn("update course_reviews review", sql)
+        self.assertEqual(sql.count("is distinct from identity.person_id"), 4)
 
     def test_standalone_identity_sql_is_transactional(self):
         payload = subject.build_payload(

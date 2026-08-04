@@ -50,6 +50,20 @@ describe("searchProfessorCandidates", () => {
     ).toEqual([{ id: "p1", name: "Professor CHAN Wing Kai" }]);
   });
 
+  it("可通过人员别名找到以官方姓名展示的教授", () => {
+    expect(
+      searchProfessorCandidates(
+        [
+          {
+            ...professor("shi", "Prof. SHI Ce Matthew"),
+            searchText: "Prof. SHI Ce Matthew Shi Ce Ce Shi",
+          },
+        ],
+        "shi ce",
+      ),
+    ).toEqual([{ id: "shi", name: "Prof. SHI Ce Matthew" }]);
+  });
+
   it("容忍多词姓名中的轻微拼写错误", () => {
     expect(
       searchProfessorCandidates(

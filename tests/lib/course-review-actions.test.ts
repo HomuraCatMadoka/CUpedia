@@ -45,6 +45,7 @@ const {
     "limit",
     "orderBy",
     "groupBy",
+    "as",
     "offset",
     "values",
     "innerJoin",
@@ -497,7 +498,18 @@ describe("submitCourseReview", () => {
     mockAssertContributorComplete.mockRejectedValue(
       new Error("ACCOUNT_SETUP_REQUIRED"),
     );
-    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+    queueRows(
+      [COURSE],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
+    );
 
     await expect(
       submitCourseReview("CSCI3150", { ...SUBMISSION, isAnonymous: true }),
@@ -535,7 +547,18 @@ describe("submitCourseReview", () => {
   });
 
   it("仅评分时写入开课经历，不生成空评论", async () => {
-    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+    queueRows(
+      [COURSE],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
+    );
     await expect(submitCourseReview("CSCI3150", SUBMISSION)).resolves.toEqual({
       newAchievementNotices: [],
     });
@@ -548,6 +571,7 @@ describe("submitCourseReview", () => {
         academicYear: "2025-26",
         term: "Term 2",
         professorId: "p1",
+        instructorPersonId: "person-1",
         professorNameSnapshot: "Professor CHAN",
         isAnonymous: false,
       }),
@@ -562,8 +586,16 @@ describe("submitCourseReview", () => {
     queueRows(
       [COURSE],
       [
-        { id: "p1", name: "Professor CHAN" },
-        { id: "p2", name: "Professor WONG" },
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+        {
+          legacyProfessorId: "p2",
+          name: "Professor WONG",
+          personId: "person-2",
+        },
       ],
       [],
       [{ id: "rating-1" }],
@@ -571,21 +603,30 @@ describe("submitCourseReview", () => {
 
     await submitCourseReview("CSCI3150", {
       ...SUBMISSION,
-      professorIds: ["p1", "p2"],
+      professorIds: ["person-1", "person-2"],
       professorId: undefined,
     });
 
     expect(values()).toHaveBeenCalledWith(
       expect.objectContaining({
         professorId: "p1",
+        instructorPersonId: "person-1",
         professorNameSnapshot: "Professor CHAN",
       }),
     );
     expect(dbExecute).toHaveBeenCalledTimes(3);
     expect(sqlParameterValues(dbExecute.mock.calls[2]?.[0])).toContain(
       JSON.stringify([
-        { id: "p1", name: "Professor CHAN" },
-        { id: "p2", name: "Professor WONG" },
+        {
+          id: "person-1",
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+        },
+        {
+          id: "person-2",
+          legacyProfessorId: "p2",
+          name: "Professor WONG",
+        },
       ]),
     );
   });
@@ -654,7 +695,18 @@ describe("submitCourseReview", () => {
   });
 
   it("同一用户重复投稿是更新评分（upsert，一人一票）", async () => {
-    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+    queueRows(
+      [COURSE],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
+    );
     await submitCourseReview("CSCI3150", SUBMISSION);
     const onConflict = dbChain.onConflictDoUpdate as Mock;
     expect(onConflict).toHaveBeenCalledOnce();
@@ -670,7 +722,19 @@ describe("submitCourseReview", () => {
   });
 
   it("显式匿名时同步保存到评分与文字评论", async () => {
-    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], [], []);
+    queueRows(
+      [COURSE],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
+      [],
+    );
 
     await submitCourseReview("CSCI3150", {
       ...SUBMISSION,
@@ -699,7 +763,18 @@ describe("submitCourseReview", () => {
   });
 
   it("保存 preset 与规范化后的自定义标签", async () => {
-    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+    queueRows(
+      [COURSE],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
+    );
 
     await submitCourseReview("CSCI3150", {
       ...SUBMISSION,
@@ -789,7 +864,18 @@ describe("submitCourseReview", () => {
 
   it("允许包含课程领域常用词的自定义标签", async () => {
     resetSensitiveMatcherForTests(["考试"]);
-    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], []);
+    queueRows(
+      [COURSE],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
+    );
 
     await expect(
       submitCourseReview("CSCI3150", {
@@ -812,7 +898,19 @@ describe("submitCourseReview", () => {
   });
 
   it("含评论时原子写入评分和匿名评论快照", async () => {
-    queueRows([COURSE], [{ id: "p1", name: "Professor CHAN" }], [], [], []);
+    queueRows(
+      [COURSE],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
+      [],
+    );
     await submitCourseReview("CSCI3150", {
       ...SUBMISSION,
       content: "  很清楚  ",
@@ -832,7 +930,13 @@ describe("submitCourseReview", () => {
   it("编辑已有投稿时原位更新评论", async () => {
     queueRows(
       [COURSE],
-      [{ id: "p1", name: "Professor CHAN" }],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
       [{ id: "r1" }],
       [],
       [],
@@ -856,7 +960,13 @@ describe("submitCourseReview", () => {
   it("清空评论时保留评分并删除评论", async () => {
     queueRows(
       [COURSE],
-      [{ id: "p1", name: "Professor CHAN" }],
+      [
+        {
+          legacyProfessorId: "p1",
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
       [{ id: "r1" }],
       [],
       [],
@@ -870,6 +980,18 @@ describe("submitCourseReview", () => {
     queueRows([COURSE], []);
     await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
       /教授目录/,
+    );
+    expect(dbInsert).not.toHaveBeenCalled();
+  });
+
+  it("拒绝产生只有 legacy professor id 的新投稿", async () => {
+    queueRows(
+      [COURSE],
+      [{ legacyProfessorId: "p1", name: "Professor CHAN", personId: null }],
+    );
+
+    await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
+      /身份资料尚未完成迁移/,
     );
     expect(dbInsert).not.toHaveBeenCalled();
   });
@@ -993,6 +1115,27 @@ describe("searchProfessors", () => {
       { id: "seed", name: "测试教授 Chan" },
     ]);
   });
+
+  it("同一 person 的多个 legacy professor 记录只返回一个选项", async () => {
+    queueRows([
+      {
+        id: "person-shi",
+        name: "Prof. SHI Ce Matthew",
+        searchText: "SHI Ce Matthew",
+        courseCode: null,
+      },
+      {
+        id: "person-shi",
+        name: "Prof. SHI Ce Matthew",
+        searchText: "Shi Ce",
+        courseCode: "ECON2011",
+      },
+    ]);
+
+    await expect(searchProfessors("ECON2011", "shi ce")).resolves.toEqual([
+      { id: "person-shi", name: "Prof. SHI Ce Matthew" },
+    ]);
+  });
 });
 
 describe("getCourseProfessorStats", () => {
@@ -1078,14 +1221,14 @@ describe("getCourseProfessorStats", () => {
       ],
       [
         {
+          professorId: "p1",
           academicYear: "2025-26",
           term: "Term 1",
-          instructors: ["Professor CHAN"],
         },
         {
+          professorId: "p1",
           academicYear: "2023-24",
           term: "Summer",
-          instructors: ["Professor CHAN"],
         },
       ],
     );
@@ -1125,9 +1268,9 @@ describe("getCourseProfessorStats", () => {
     const enrollments = ["2025-26", "2024-25", "2023-24", "2022-23"].flatMap(
       (academicYear) =>
         ["Term 1", "Term 2", "Summer"].map((term) => ({
+          professorId: "p1",
           academicYear,
           term,
-          instructors: ["Professor CHAN"],
         })),
     );
     queueRows([{ id: "p1", name: "Professor CHAN" }], [], enrollments);

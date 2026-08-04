@@ -5,22 +5,27 @@ import { loginWithPassword } from "./helpers/auth";
 const PROFESSORS = [
   {
     id: "e2e-professor-legacy",
+    personId: "e2e-person-legacy",
     name: "Professor LEGACY Wong",
   },
   {
     id: "e2e-professor-chan-wing-kai",
+    personId: "e2e-person-chan-wing-kai",
     name: "Professor CHAN Wing Kai",
   },
   {
     id: "e2e-professor-kai",
+    personId: "e2e-person-kai",
     name: "Professor KAI",
   },
   {
     id: "e2e-professor-jose-garcia",
+    personId: "e2e-person-jose-garcia",
     name: "Professor José García",
   },
   {
     id: "e2e-professor-chen-weiwen",
+    personId: "e2e-person-chen-weiwen",
     name: "测试教授 陈伟文",
   },
 ] as const;
@@ -50,6 +55,25 @@ test.beforeAll(async () => {
          on conflict (id) do update set name = excluded.name, search_text = excluded.search_text`,
         [professor.id, professor.name, professor.name.toLowerCase()],
       );
+      await client.query(
+        `insert into staff_people (id, canonical_name, source, identity_kind)
+         values ($1, $2, 'e2e', 'official')
+         on conflict (id) do update set canonical_name = excluded.canonical_name`,
+        [professor.personId, professor.name],
+      );
+      await client.query(
+        `insert into professor_staff_identities
+           (professor_id, person_id, match_method, source_url)
+         values ($1, $2, 'manual_override', 'e2e')
+         on conflict (professor_id) do update set person_id = excluded.person_id`,
+        [professor.id, professor.personId],
+      );
+      await client.query(
+        `insert into course_instructors (person_id)
+         values ($1)
+         on conflict (person_id) do nothing`,
+        [professor.personId],
+      );
     }
   });
 });
@@ -70,6 +94,13 @@ test.afterAll(async () => {
     );
     await client.query("delete from professors where id = any($1::text[])", [
       PROFESSORS.map(({ id }) => id),
+    ]);
+    await client.query(
+      "delete from course_instructors where person_id = any($1::text[])",
+      [PROFESSORS.map(({ personId }) => personId)],
+    );
+    await client.query("delete from staff_people where id = any($1::text[])", [
+      PROFESSORS.map(({ personId }) => personId),
     ]);
   });
 });
@@ -125,11 +156,30 @@ test("official professor outside the course assignment can be searched and submi
     page.locator("section").filter({ hasText: "我的课程测评" }),
   ).toContainText(SECOND_PROFESSOR_NAME);
 
+  await withDatabase(async (client) => {
+    const rating = await client.query<{
+      professor_id: string;
+      instructor_person_id: string;
+    }>(
+      `select professor_id, instructor_person_id
+       from course_ratings
+       where course_code = $1
+         and user_id = (select id from users where email = $2)`,
+      [COURSE_CODE, USER_EMAIL],
+    );
+    expect(rating.rows).toEqual([
+      {
+        professor_id: PROFESSORS[0].id,
+        instructor_person_id: PROFESSORS[0].personId,
+      },
+    ]);
+  });
+
   const professorFilter = page.getByLabel("按任课教授筛选");
   await expect(
-    professorFilter.locator(`option[value="${PROFESSORS[1].id}"]`),
+    professorFilter.locator(`option[value="${PROFESSORS[1].personId}"]`),
   ).toHaveText(SECOND_PROFESSOR_NAME);
-  await professorFilter.selectOption(PROFESSORS[1].id);
+  await professorFilter.selectOption(PROFESSORS[1].personId);
   await expect(page.getByTestId("professor-rating-summary")).toContainText(
     "4.0",
   );

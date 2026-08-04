@@ -6,11 +6,13 @@ import { and, eq, like, sql } from "drizzle-orm";
 import { Pool } from "pg";
 import {
   courseEnrollments,
+  courseInstructors,
   courseOfferingInstructors,
   professorCourses,
   professorStaffIdentities,
   professors,
   staffPeople,
+  staffPersonSources,
   staffTeachingAssignments,
 } from "../src/db/schema";
 import {
@@ -65,15 +67,7 @@ async function main() {
             updatedAt: new Date(),
           },
         });
-      await tx
-        .insert(professorCourses)
-        .values(
-          professor.courses.map((courseCode) => ({
-            professorId: professor.id,
-            courseCode,
-          })),
-        )
-        .onConflictDoNothing();
+      let personId: string;
       if (professor.identityProfileUrl) {
         const [person] = await tx
           .select({ id: staffPeople.id })
@@ -84,6 +78,7 @@ async function main() {
             `Professor identity profile is missing: ${professor.identityProfileUrl}`,
           );
         }
+        personId = person.id;
         await tx
           .insert(professorStaffIdentities)
           .values({
@@ -101,7 +96,81 @@ async function main() {
               verifiedAt: new Date(),
             },
           });
+      } else {
+        const [existingIdentity] = await tx
+          .select({ personId: professorStaffIdentities.personId })
+          .from(professorStaffIdentities)
+          .where(eq(professorStaffIdentities.professorId, professor.id));
+        if (existingIdentity) {
+          personId = existingIdentity.personId;
+        } else {
+          const [existingSource] = await tx
+            .select({ personId: staffPersonSources.personId })
+            .from(staffPersonSources)
+            .where(
+              and(
+                eq(staffPersonSources.source, "cuhk_timetable"),
+                eq(staffPersonSources.sourceKey, professor.id),
+              ),
+            );
+          personId =
+            existingSource?.personId ?? `timetable-professor:${professor.id}`;
+          if (!existingSource) {
+            await tx
+              .insert(staffPeople)
+              .values({
+                id: personId,
+                canonicalName: professor.name,
+                source: "cuhk_timetable",
+                identityKind: "unverified",
+              })
+              .onConflictDoUpdate({
+                target: staffPeople.id,
+                set: {
+                  canonicalName: professor.name,
+                  lastSeenAt: new Date(),
+                  isCurrent: true,
+                  missingRuns: 0,
+                  updatedAt: new Date(),
+                },
+              });
+            await tx
+              .insert(staffPersonSources)
+              .values({
+                personId,
+                source: "cuhk_timetable",
+                sourceKey: professor.id,
+                sourceUrl:
+                  "https://rgsntl.rgs.cuhk.edu.hk/rws_prd_applx2/Public/tt_dsp_timetable.aspx",
+              })
+              .onConflictDoNothing();
+          }
+          await tx.insert(professorStaffIdentities).values({
+            professorId: professor.id,
+            personId,
+            matchMethod: "source_native",
+            sourceUrl:
+              "https://rgsntl.rgs.cuhk.edu.hk/rws_prd_applx2/Public/tt_dsp_timetable.aspx",
+          });
+        }
       }
+      await tx
+        .insert(courseInstructors)
+        .values({ personId })
+        .onConflictDoUpdate({
+          target: courseInstructors.personId,
+          set: { updatedAt: new Date() },
+        });
+      await tx
+        .insert(professorCourses)
+        .values(
+          professor.courses.map((courseCode) => ({
+            professorId: professor.id,
+            instructorPersonId: personId,
+            courseCode,
+          })),
+        )
+        .onConflictDoNothing();
     }
     for (let i = 0; i < source.enrollments.length; i += 500) {
       await tx.insert(courseEnrollments).values(
