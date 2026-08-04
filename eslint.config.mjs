@@ -31,6 +31,7 @@ const eslintConfig = defineConfig([
     ".next-e2e/**",
     "out/**",
     "build/**",
+    "public/vendor/maplibre/**",
     "next-env.d.ts",
     "CUpedia/**",
     "cu-claw/**",

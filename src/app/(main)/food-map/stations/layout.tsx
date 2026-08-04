@@ -5,10 +5,5 @@ export default function FoodMapStationsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      <link rel="preconnect" href="https://tiles.openfreemap.org" />
-      {children}
-    </>
-  );
+  return children;
 }

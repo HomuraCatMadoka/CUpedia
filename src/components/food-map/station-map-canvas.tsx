@@ -1,6 +1,11 @@
 "use client";
 
-import { Map as MapLibreMap, Marker, NavigationControl } from "maplibre-gl";
+import {
+  Map as MapLibreMap,
+  Marker,
+  NavigationControl,
+  setWorkerUrl,
+} from "maplibre-gl";
 import { useEffect, useRef, useState } from "react";
 
 import type {
@@ -11,7 +16,10 @@ import { getRestaurantHeat } from "@/lib/food-map/station-restaurant-catalog";
 
 import styles from "./station-map-canvas.module.css";
 
-const MAP_STYLE = "https://tiles.openfreemap.org/styles/positron";
+const MAP_STYLE = "/api/food-map/map/styles/positron";
+// Turbopack resolves MapLibre 6's computed worker URL to its main bundle.
+// Serve the matching package worker explicitly so vector tiles can initialize.
+const MAP_WORKER = "/vendor/maplibre/maplibre-gl-worker.mjs";
 
 type RestaurantMarker = {
   button: HTMLButtonElement;
@@ -55,6 +63,7 @@ export function StationMapCanvas({
     if (!container) return;
 
     setLoadState("loading");
+    setWorkerUrl(MAP_WORKER);
     const map = new MapLibreMap({
       container,
       style: MAP_STYLE,

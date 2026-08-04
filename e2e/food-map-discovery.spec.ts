@@ -286,6 +286,10 @@ test.describe("Foodle station restaurant maps", () => {
       page.getByRole("heading", { name: "沙田站附近" }),
     ).toBeVisible();
     await expect(page.getByText("500 米 · 4 家餐厅")).toBeVisible();
+    await expect(page.locator('[data-map-state="ready"]')).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText("地图暂时无法载入")).toHaveCount(0);
   });
 
   test("filters, synchronizes selection and records one daily visit", async ({
