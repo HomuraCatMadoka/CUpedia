@@ -77,7 +77,7 @@ export function CanteenQrAction({
         className="hidden sm:flex"
       />
       <details className="canteen-mobile-qr sm:hidden">
-        <summary aria-label="查看下单码">
+        <summary>
           <QrCode className="size-5" aria-hidden />
           <span className="canteen-mobile-qr-label">扫码下单</span>
         </summary>
