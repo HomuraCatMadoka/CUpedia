@@ -17,6 +17,8 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import type { CandidateDecisionStore } from "@/lib/food-map/candidate-decisions";
+import type { FoodleMatchResult } from "@/lib/food-map/match";
 
 // ── Better Auth core tables ──
 
@@ -78,6 +80,19 @@ export const verifications = pgTable("verifications", {
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+});
+
+export const foodleUserStates = pgTable("foodle_user_states", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  decisions: jsonb("decisions")
+    .$type<CandidateDecisionStore>()
+    .notNull()
+    .default(sql`'{"version":1,"byRestaurantId":{}}'::jsonb`),
+  matchResult: jsonb("match_result").$type<FoodleMatchResult | null>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const wikiPages = pgTable(
@@ -1589,6 +1604,95 @@ export const danmakuMessagesRelations = relations(
     user: one(users, {
       fields: [danmakuMessages.userId],
       references: [users.id],
+    }),
+  }),
+);
+
+// ── Takeout (外卖) — parallel to canteens, separate tables ──
+
+export const takeouts = pgTable("takeouts", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  location: text("location"),
+  /** Admin notice shown under the takeout name. */
+  announcement: text("announcement"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const takeoutMenuItems = pgTable(
+  "takeout_menu_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    takeoutId: uuid("takeout_id")
+      .notNull()
+      .references(() => takeouts.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    price: integer("price"),
+    mealPeriods: text("meal_periods")
+      .array()
+      .notNull()
+      .default(sql`'{allday}'`),
+    sortOrder: integer("sort_order").notNull().default(0),
+    svgKey: text("svg_key").notNull().default("default"),
+    isAvailable: boolean("is_available").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [index("takeout_menu_items_takeout_id_idx").on(table.takeoutId)],
+);
+
+export const takeoutMenuItemPrices = pgTable(
+  "takeout_menu_item_prices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    menuItemId: uuid("menu_item_id")
+      .notNull()
+      .references(() => takeoutMenuItems.id, { onDelete: "cascade" }),
+    label: text("label"),
+    amountMinor: integer("amount_minor").notNull(),
+    currency: text("currency").notNull().default("HKD"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("takeout_menu_item_prices_item_sort_idx").on(
+      table.menuItemId,
+      table.sortOrder,
+    ),
+    check(
+      "takeout_menu_item_prices_amount_chk",
+      sql`${table.amountMinor} >= 0 AND ${table.amountMinor} <= 999900`,
+    ),
+    check(
+      "takeout_menu_item_prices_currency_chk",
+      sql`${table.currency} ~ '^[A-Z]{3}$'`,
+    ),
+  ],
+);
+
+export const takeoutsRelations = relations(takeouts, ({ many }) => ({
+  menuItems: many(takeoutMenuItems),
+}));
+
+export const takeoutMenuItemsRelations = relations(
+  takeoutMenuItems,
+  ({ one, many }) => ({
+    takeout: one(takeouts, {
+      fields: [takeoutMenuItems.takeoutId],
+      references: [takeouts.id],
+    }),
+    prices: many(takeoutMenuItemPrices),
+  }),
+);
+
+export const takeoutMenuItemPricesRelations = relations(
+  takeoutMenuItemPrices,
+  ({ one }) => ({
+    menuItem: one(takeoutMenuItems, {
+      fields: [takeoutMenuItemPrices.menuItemId],
+      references: [takeoutMenuItems.id],
     }),
   }),
 );

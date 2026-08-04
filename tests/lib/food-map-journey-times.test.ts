@@ -119,14 +119,13 @@ describe("University MTR journey time snapshot", () => {
     );
 
     expect(stationCodes.size).toBe(43);
-    expect(UNIVERSITY_JOURNEY_TIMES.at(-2)).toMatchObject({
-      code: "JOR",
-      minutes: 30,
-    });
-    expect(UNIVERSITY_JOURNEY_TIMES.at(-1)).toMatchObject({
-      code: "LCK",
-      minutes: 30,
-    });
+    const within30 = UNIVERSITY_JOURNEY_TIMES.filter(
+      (station) => station.minutes === 30,
+    ).map((station) => station.code);
+    expect(within30).toEqual(expect.arrayContaining(["JOR", "LCK"]));
+    expect(
+      UNIVERSITY_JOURNEY_TIMES.every((station) => station.minutes <= 30),
+    ).toBe(true);
     expect(nextBoundaryCodes).toEqual([
       "CEN",
       "NAC",
@@ -245,5 +244,15 @@ describe("University MTR journey time snapshot", () => {
         { from: "MOK", to: "YMT", lineId: "TWL" },
       ]),
     });
+  });
+
+  it("keeps every route snapshot's segments one shorter than its stations", () => {
+    for (const station of UNIVERSITY_JOURNEY_TIMES) {
+      const route = getUniversityRoute(station.code);
+      expect(
+        route.segments.length,
+        `${station.code}: segments ${route.segments.length} vs stations ${route.stationCodes.length}`,
+      ).toBe(route.stationCodes.length - 1);
+    }
   });
 });

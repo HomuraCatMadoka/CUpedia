@@ -9,17 +9,37 @@ const USER_PASSWORD = "password123";
 const DEMO_CANTEEN_URL = `/canteen/${CANTEEN_IDS.demo}`;
 
 async function selectLunchMenu(page: Page) {
-  await page.getByRole("tab", { name: "午餐" }).click();
-  await expect(page.getByRole("tab", { name: "午餐" })).toHaveAttribute(
-    "aria-selected",
-    "true",
+  const lunch = page.getByRole("button", { name: "午餐", exact: true });
+  await expect(lunch).toBeVisible();
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+      }),
   );
-  // Default view is 红榜; menu list / category icons live under 菜单.
-  await page.getByRole("tab", { name: "菜单" }).click();
-  await expect(page.getByRole("tab", { name: "菜单" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (
+      (await lunch.getAttribute("data-current")) === "true" &&
+      (await lunch.getAttribute("aria-expanded")) === "true"
+    ) {
+      break;
+    }
+    await lunch.click();
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }),
+    );
+  }
+  await expect(lunch).toHaveAttribute("data-current", "true");
+  await expect(lunch).toHaveAttribute("aria-expanded", "true");
+
+  const menu = page.getByRole("tab", { name: "菜单", exact: true });
+  if ((await menu.getAttribute("aria-selected")) !== "true") {
+    await menu.click();
+  }
+  await expect(menu).toHaveAttribute("aria-selected", "true");
 }
 
 test.describe("canteen menu votes", () => {
@@ -54,11 +74,11 @@ test.describe("canteen menu votes", () => {
     await expect(likeAfterReload).toHaveAttribute("aria-pressed", "true");
   });
 
-  test("menu list renders category svg icons", async ({ page }) => {
+  test("menu list renders category sections", async ({ page }) => {
     await page.goto(DEMO_CANTEEN_URL);
     await selectLunchMenu(page);
-    await expect(page.locator('[data-svg-key="rice"]').first()).toBeVisible();
-    await expect(page.locator('[data-svg-key="bowl"]').first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: /饭类/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /煲汤/ })).toBeVisible();
   });
 
   test("logged-in diner can change vote from like to dislike", async ({

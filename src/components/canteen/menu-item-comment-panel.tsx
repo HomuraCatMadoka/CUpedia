@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import type { CanteenDishComment } from "@/lib/canteen-types";
 import {
   createDishComment,
@@ -18,6 +18,9 @@ type MenuItemCommentPanelProps = {
   commentBlocked?: "banned" | null;
   /** Server-rendered count so "评论 (N)" shows before expand/load. */
   initialCommentCount?: number;
+  className?: string;
+  expanded?: boolean;
+  onCountChange?: (count: number) => void;
 };
 
 function commentErrorMessage(code: string): string {
@@ -31,31 +34,48 @@ export function MenuItemCommentPanel({
   currentUserId,
   commentBlocked = null,
   initialCommentCount = 0,
+  className,
+  expanded: controlledExpanded,
+  onCountChange,
 }: MenuItemCommentPanelProps) {
-  const [expanded, setExpanded] = useState(false);
+  const [localExpanded, setLocalExpanded] = useState(false);
   const [comments, setComments] = useState<CanteenDishComment[] | null>(null);
   const [draft, setDraft] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const loadedExpandedPanelRef = useRef(false);
   const { ensureContributorSetup } = useContributorSetup();
+  const expanded = controlledExpanded ?? localExpanded;
 
   const loadComments = useCallback(() => {
     startTransition(async () => {
       try {
         const rows = await getCommentsForMenuItem(menuItemId);
         setComments(rows);
+        onCountChange?.(rows.length);
         setError(null);
       } catch {
         setError("加载评论失败");
       }
     });
-  }, [menuItemId]);
+  }, [menuItemId, onCountChange]);
+
+  useEffect(() => {
+    if (
+      controlledExpanded &&
+      !loadedExpandedPanelRef.current &&
+      comments === null
+    ) {
+      loadedExpandedPanelRef.current = true;
+      loadComments();
+    }
+  }, [comments, controlledExpanded, loadComments]);
 
   function handleToggle() {
     const next = !expanded;
-    setExpanded(next);
+    setLocalExpanded(next);
     if (next && comments === null) loadComments();
   }
 
@@ -66,7 +86,9 @@ export function MenuItemCommentPanel({
       if (!(await ensureContributorSetup())) return;
       try {
         const created = await createDishComment(menuItemId, content);
+        const nextCount = (comments?.length ?? 0) + 1;
         setComments((prev) => [...(prev ?? []), created]);
+        onCountChange?.(nextCount);
         setDraft("");
         setError(null);
       } catch (err) {
@@ -106,10 +128,13 @@ export function MenuItemCommentPanel({
   }
 
   function handleDelete(commentId: string) {
+    if (!window.confirm("确定删除这条评论？")) return;
     startTransition(async () => {
       try {
         await deleteDishComment(commentId);
+        const nextCount = Math.max(0, (comments?.length ?? 0) - 1);
         setComments((prev) => (prev ?? []).filter((c) => c.id !== commentId));
+        onCountChange?.(nextCount);
         setError(null);
       } catch {
         setError("删除失败");
@@ -120,19 +145,34 @@ export function MenuItemCommentPanel({
   const count = comments?.length ?? initialCommentCount;
 
   return (
-    <div className="w-full basis-full">
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={handleToggle}
-        className={cn(
-          "canteen-comment-toggle mt-1.5",
-          expanded && "canteen-comment-toggle-on",
-        )}
-      >
-        评论{" "}
-        <span className="font-mono tabular-nums">{count}</span>
-      </button>
+    <div
+      aria-busy={pending || (expanded && comments === null) || undefined}
+      className={cn(
+        "w-full basis-full",
+        className,
+        expanded && "canteen-comment-panel-expanded",
+      )}
+    >
+      <p className="sr-only" role="status" aria-live="polite">
+        {expanded && comments === null
+          ? "评论加载中"
+          : comments
+            ? `评论加载完成，共 ${comments.length} 条`
+            : ""}
+      </p>
+      {controlledExpanded === undefined ? (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={handleToggle}
+          className={cn(
+            "canteen-comment-toggle",
+            expanded && "canteen-comment-toggle-on",
+          )}
+        >
+          评论 <span className="font-mono tabular-nums">{count}</span>
+        </button>
+      ) : null}
 
       {expanded ? (
         <div className={cn("mt-2 space-y-3", pending && "opacity-80")}>
@@ -158,7 +198,7 @@ export function MenuItemCommentPanel({
                           type="button"
                           disabled={pending}
                           onClick={() => startEdit(comment)}
-                          className="text-xs text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]"
+                          className="canteen-comment-action text-[var(--canteen-muted)] hover:text-[var(--canteen-ink)]"
                         >
                           编辑
                         </button>
@@ -166,7 +206,7 @@ export function MenuItemCommentPanel({
                           type="button"
                           disabled={pending}
                           onClick={() => handleDelete(comment.id)}
-                          className="text-xs text-[var(--canteen-evening)] hover:underline"
+                          className="canteen-comment-action text-[var(--canteen-evening)] hover:underline"
                         >
                           删除
                         </button>
@@ -188,7 +228,7 @@ export function MenuItemCommentPanel({
                           type="button"
                           disabled={pending}
                           onClick={() => handleUpdate(comment.id)}
-                          className="text-xs font-medium text-[var(--canteen-purple)] hover:underline"
+                          className="canteen-comment-action font-medium text-[var(--canteen-link)] hover:underline"
                         >
                           保存
                         </button>
@@ -199,7 +239,7 @@ export function MenuItemCommentPanel({
                             setEditingId(null);
                             setEditDraft("");
                           }}
-                          className="text-xs text-[var(--canteen-muted)] hover:underline"
+                          className="canteen-comment-action text-[var(--canteen-muted)] hover:underline"
                         >
                           取消
                         </button>
@@ -224,6 +264,9 @@ export function MenuItemCommentPanel({
               <textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
+                aria-label="评论内容"
+                name="comment"
+                autoComplete="off"
                 placeholder="写下你的短评…"
                 maxLength={500}
                 rows={2}
@@ -242,7 +285,7 @@ export function MenuItemCommentPanel({
             <p className="text-xs text-[var(--canteen-muted)]">
               <Link
                 href="/login"
-                className="text-[var(--canteen-purple)] hover:underline"
+                className="text-[var(--canteen-link)] hover:underline"
               >
                 登录
               </Link>

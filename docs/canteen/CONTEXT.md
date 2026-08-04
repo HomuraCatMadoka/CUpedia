@@ -38,7 +38,7 @@ _Avoid_: 沿用 wiki 的软删除模式。
 **Mock 模式（`CANTEEN_MOCK_DATA=true`）**: 仅开发用内存数据；种子只允许极简演示（如「演示食堂 / 演示菜品」），禁止写死真实食堂菜名。
 _Avoid_: 把 mock 数据当作生产 seed。
 
-**首页入口**: `src/app/(main)/page.tsx` 食堂模块卡片已启用（无「即将上线」），链接 `/canteen`。公开区品牌为「山城食记」，副标题「还有食堂能吃吗」；视觉为冷色账本风，菜品图仅 SVG（`DishSvgIcon`），不做真实菜品摄影。标题同行右侧入口「每日💩堂榜」→ `/canteen/shit-rank`。
+**首页入口**: `src/app/(main)/page.tsx` 食堂模块卡片已启用（无「即将上线」），链接 `/canteen`。公开区品牌为「山城食记」，副标题「还有食堂能吃吗」；视觉为冷色账本风，菜品图仅 SVG（`DishSvgIcon`），不做真实菜品摄影。标题同行右侧入口「每日💩堂榜」→ `/canteen/shit-rank`。浏览页分 **食堂区**（`canteens`）与 **外卖区**（`takeouts`，独立表）；外卖详情 `/canteen/takeout/{id}`。Admin「外卖管理」`/admin/takeouts` 平行于食堂管理（店家 + 菜单 CRUD；无赞踩/OCR/同步）。
 
 **每日💩堂榜（Shame rank）**: 对**食堂**的 append-only 点踩日榜（非菜品）。票写入 `canteen_shame_votes` 永久保留；页面只聚合展示当日 `voteDate`（`Asia/Hong_Kong` 自然日）。访客可踩（ADR 0009 匿名 cookie）；截止前每日均可参与，可对多个食堂踩，同一食堂可连踩；不可取消，再点再加一票。匿名访客港时自然日最多 50 次踩，额度检查与插入在数据库事务中串行化。排行按当日踩数降序。管理员在站点设置维护包含当天的截止日期，缺省为 `2026-09-01`。实现见 `canteen-shame-rank.ts`、`canteen-shame-actions.ts`。
 _Avoid_: 与菜品赞踩表混用；把日榜做成 upsert/可取消。

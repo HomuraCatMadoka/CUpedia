@@ -1,24 +1,22 @@
 "use client";
 
-import { Crown } from "lucide-react";
+import { memo } from "react";
 import type { RankedDish } from "@/lib/canteen-rankings";
 import type { VoteChoice } from "@/lib/canteen-types";
 import { DishSvgIcon } from "./dish-svg-icon";
 import { DishVoteButtons } from "./dish-vote-buttons";
-import { MenuItemCommentPanel } from "./menu-item-comment-panel";
 import { MenuItemPrice } from "./menu-item-price";
 import { useDishVote } from "./use-dish-vote";
 import { cn } from "@/lib/utils";
 
-export function CanteenRankingRow({
+export const CanteenRankingRow = memo(function CanteenRankingRow({
   rank,
   entry,
   emphasis,
   myVote,
   onVoteChange,
-  currentUserId = null,
-  commentBlocked = null,
   initialCommentCount = 0,
+  onOpenDetails,
 }: {
   rank: number;
   entry: RankedDish;
@@ -29,9 +27,8 @@ export function CanteenRankingRow({
     prevVote: VoteChoice,
     nextVote: VoteChoice,
   ) => void;
-  currentUserId?: string | null;
-  commentBlocked?: "banned" | null;
   initialCommentCount?: number;
+  onOpenDetails: (item: RankedDish["item"]) => void;
 }) {
   const { item, counts } = entry;
   const { error, pending, handleVote } = useDishVote(
@@ -43,68 +40,79 @@ export function CanteenRankingRow({
 
   return (
     <li
+      id={`canteen-menu-item-${item.id}`}
+      data-menu-item-id={item.id}
+      tabIndex={-1}
       className={cn(
-        "canteen-ledger-row flex flex-wrap items-center gap-2 px-1 py-2 sm:flex-nowrap sm:gap-4 sm:py-3",
+        "canteen-ranking-row grid grid-cols-[1.5rem_2rem_minmax(0,1fr)] items-start gap-x-2 px-3 py-2",
         pending && "opacity-80",
       )}
     >
       <span
         className={cn(
-          "canteen-display relative flex size-8 shrink-0 items-center justify-center font-mono text-sm font-semibold tabular-nums",
+          "canteen-rank-number flex h-9 items-center justify-center font-mono text-sm font-semibold tabular-nums",
           isTop
             ? emphasis === "recommend"
-              ? "text-red-600"
-              : "text-black"
+              ? "text-[var(--canteen-accent)]"
+              : "text-[var(--canteen-ink)]"
             : "text-[var(--canteen-muted)]",
         )}
-        aria-hidden
+        aria-label={`第 ${rank} 名`}
       >
-        {isTop && emphasis === "recommend" ? (
-          <Crown
-            className="absolute -top-2.5 left-1/2 size-3.5 -translate-x-1/2 text-amber-500"
-            strokeWidth={2.4}
-            fill="currentColor"
-            aria-hidden
-          />
-        ) : null}
-        {isTop && emphasis === "avoid" ? (
-          <span
-            className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[0.7rem] leading-none"
-            aria-hidden
-          >
-            💩
-          </span>
-        ) : null}
         {rank}
       </span>
-      <DishSvgIcon svgKey={item.svgKey} className="size-8 rounded-md sm:size-10" />
-      <div className="min-w-0 flex-1">
-        <p className="min-w-0 text-sm font-medium text-[var(--canteen-ink)] sm:text-base">
-          {item.name}
-        </p>
+      <DishSvgIcon
+        svgKey={item.svgKey}
+        className="canteen-menu-icon mt-0.5 size-8 rounded-lg"
+      />
+      <div className="canteen-menu-item-body min-w-0">
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-describedby={`canteen-ranking-meta-${item.id}`}
+          onClick={() => onOpenDetails(item)}
+          className="canteen-dish-trigger block w-full min-w-0 text-left"
+        >
+          <span className="flex min-w-0 items-start justify-between gap-2">
+            <span className="min-w-0 flex-1 text-[0.9375rem] font-semibold leading-5 text-[var(--canteen-ink)]">
+              {item.name}
+            </span>
+            <MenuItemPrice
+              pricing={item.pricing}
+              variant="summary"
+              showOptionCount={false}
+              className="shrink-0 justify-end text-sm font-semibold tabular-nums text-[var(--canteen-ink)]"
+            />
+          </span>
+          <span className="sr-only">打开详情</span>
+        </button>
         {error ? (
           <p className="mt-1 text-xs text-red-700" role="alert">
             {error}
           </p>
         ) : null}
-        <MenuItemCommentPanel
-          menuItemId={item.id}
-          currentUserId={currentUserId}
-          commentBlocked={commentBlocked}
-          initialCommentCount={initialCommentCount}
-        />
+        <div className="canteen-menu-item-footer">
+          <span
+            id={`canteen-ranking-meta-${item.id}`}
+            aria-label={`评论 ${initialCommentCount}`}
+            className={cn(
+              "text-xs leading-[1.125rem] text-[var(--canteen-muted)]",
+              initialCommentCount === 0 && "sr-only",
+            )}
+          >
+            {initialCommentCount > 0
+              ? `${initialCommentCount} 条评价`
+              : "暂无评价"}
+          </span>
+          <DishVoteButtons
+            counts={counts}
+            myVote={myVote}
+            pending={pending}
+            onVote={handleVote}
+            className="canteen-menu-votes w-auto gap-0"
+          />
+        </div>
       </div>
-      <MenuItemPrice
-        pricing={item.pricing}
-        className="shrink-0 self-center justify-end font-mono text-xs tabular-nums text-[var(--canteen-ink)] sm:max-w-52 sm:text-sm"
-      />
-      <DishVoteButtons
-        counts={counts}
-        myVote={myVote}
-        pending={pending}
-        onVote={handleVote}
-        className="gap-1.5 sm:ml-0 sm:gap-2"
-      />
     </li>
   );
-}
+});

@@ -90,6 +90,28 @@ describe("extractWikiLinkTargets", () => {
 
     expect(extractWikiLinkTargets(content)).toEqual([PAGE_ONE]);
   });
+
+  it("recognizes absolute Cupedia links but not lookalike external links", () => {
+    const content = JSON.stringify([
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            url: `https://cupedia.org/wiki/${PAGE_ONE}`,
+            children: [{ text: "2026" }],
+          },
+          {
+            type: "a",
+            url: `https://example.com/wiki/${PAGE_TWO}`,
+            children: [{ text: "external" }],
+          },
+        ],
+      },
+    ]);
+
+    expect(extractWikiLinkTargets(content)).toEqual([PAGE_ONE]);
+  });
 });
 
 describe("stripLegacyChildPageLinks", () => {
@@ -123,6 +145,25 @@ describe("stripLegacyChildPageLinks", () => {
           {
             type: "a",
             url: `/wiki/${PAGE_ONE}`,
+            children: [{ text: "2026" }],
+          },
+        ],
+      },
+    ];
+
+    expect(
+      stripLegacyChildPageLinks(value as PlateValue, new Set([PAGE_ONE])),
+    ).toEqual([{ type: "p", children: [{ text: "" }] }]);
+  });
+
+  it("removes absolute Cupedia child links from Notion imports", () => {
+    const value = [
+      {
+        type: "p",
+        children: [
+          {
+            type: "a",
+            url: `https://cupedia.org/wiki/${PAGE_ONE}`,
             children: [{ text: "2026" }],
           },
         ],

@@ -2,22 +2,25 @@ import type { Metadata } from "next";
 
 import { FoodMapView } from "@/components/food-map/food-map-view";
 import { FOOD_MAP_SOURCES } from "@/lib/food-map/data";
+import { getFoodlePersonalSnapshot } from "@/lib/food-map/personal-state-actions";
 
 export const metadata: Metadata = {
   title: "通勤食图 | CUpedia",
   description:
-    "从大学站出发，按 10、20、30 分钟港铁车程进入站点附近的餐厅地图。",
+    "从大学站出发，按 10、20、30 分钟港铁车程发现餐厅，形成自己的想吃候选。",
 };
 
-export default function FoodMapPage() {
+export default async function FoodMapPage() {
+  const personalSnapshot = await getFoodlePersonalSnapshot();
+
   return (
     <main className="min-w-0 flex-1 bg-background">
       <div className="mx-auto w-full px-4 pt-4 pb-8 md:px-6 md:pt-6">
         <h1 className="sr-only">通勤食图</h1>
 
-        <FoodMapView />
+        <FoodMapView personalSnapshot={personalSnapshot} />
 
-        <footer className="mx-auto mt-5 w-full max-w-[64rem] border-t pt-4 text-[11px] leading-5 text-muted-foreground">
+        <footer className="mx-auto mt-5 w-full max-w-[68rem] border-t pt-4 text-[11px] leading-5 text-muted-foreground">
           <p>
             铁路资料来自香港铁路有限公司及 DATA.GOV.HK。车程采用港铁行程指南在
             2026-07-30

@@ -41,15 +41,17 @@ beforeEach(() => {
 });
 
 describe("CanteenCard", () => {
-  it("links to the canteen detail route without dish counts", () => {
+  it("links to the canteen detail route as a circular icon launcher", () => {
     render(<CanteenCard canteen={CANTEEN} href="/canteen/c1" />);
 
     const link = screen.getByRole("link", {
       name: /演示食堂.*演示区域/,
     });
     expect(link.getAttribute("href")).toBe("/canteen/c1");
+    expect(link.className).toContain("canteen-icon-link");
+    expect(link.querySelector(".canteen-icon-orb")).toBeTruthy();
+    expect(screen.getByText("演示食堂")).toBeTruthy();
     expect(screen.queryByText("道菜")).toBeNull();
-    expect(screen.queryByText("暂无菜单")).toBeNull();
   });
 
   it("shows pending feedback while navigating", () => {
@@ -61,7 +63,6 @@ describe("CanteenCard", () => {
       name: /演示食堂.*演示区域/,
     });
     expect(link.querySelector('[aria-busy="true"]')).toBeTruthy();
-    expect(link.querySelector(".animate-spin")).toBeTruthy();
-    expect(screen.queryByText("→")).toBeNull();
+    expect(link.querySelector(".canteen-icon-pending")).toBeTruthy();
   });
 });
