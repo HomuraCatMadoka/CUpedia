@@ -217,6 +217,10 @@ async function main() {
         where course.professor_id = professor.id
       )
         and not exists (
+          select 1 from professor_staff_identities identity
+          where identity.professor_id = professor.id
+        )
+        and not exists (
           select 1 from course_reviews review
           where review.professor_id = professor.id
         )
