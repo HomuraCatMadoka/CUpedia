@@ -118,6 +118,7 @@
   background: #fff7ed;
   font-size: 11px;
   line-height: 1;
+  pointer-events: none;
   box-shadow: 0 1px 4px rgb(15 23 42 / 16%);
 }
 

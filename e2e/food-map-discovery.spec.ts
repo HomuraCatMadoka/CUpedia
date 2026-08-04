@@ -267,6 +267,7 @@ test.describe("Foodle station restaurant maps", () => {
   });
 
   test("opens a station explorer from the commute map", async ({ page }) => {
+    test.setTimeout(60_000);
     const response = await page.goto("/food-map");
     expect(response?.status()).toBe(200);
 
@@ -307,22 +308,35 @@ test.describe("Foodle station restaurant maps", () => {
     });
     const newCityMarker = page.locator('[data-foodle-marker="sht-mock-meal"]');
     await newCityListItem.click();
-    await expect(
-      page.getByRole("complementary", { name: "新城市茶冰厅详情" }),
-    ).toBeVisible();
+    const details = page.getByRole("complementary", {
+      name: "新城市茶冰厅详情",
+    });
+    await expect(details).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "新城市茶冰厅", level: 2 }),
     ).toBeFocused();
     await expect(newCityMarker).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("button", { name: "记录今天到访" }).click();
+    await details.getByRole("button", { name: "想吃", exact: true }).click();
+    await expect(
+      details.getByRole("button", { name: "已想吃", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await details
+      .getByRole("button", { name: "记录到访", exact: true })
+      .click();
 
     const confirmation = page.getByRole("dialog", { name: "记录今天到访" });
     await expect(confirmation).toContainText("不可撤销或删除");
-    await confirmation.getByRole("button", { name: "确认" }).click();
+    await confirmation
+      .getByRole("button", { name: "记录到访", exact: true })
+      .click();
     await expect(
       page.getByRole("button", { name: "今天已记录" }),
     ).toBeDisabled();
-    await expect(page.getByText("我的到访 1 次")).toBeVisible();
+    await expect(details.getByText("我的到访", { exact: true })).toBeVisible();
+    await expect(details.getByText("1 次", { exact: true })).toBeVisible();
+    await expect(
+      details.getByRole("button", { name: "已想吃", exact: true }),
+    ).toHaveCount(0);
     await expect(page.getByText("累计 59 次打卡")).toBeVisible();
     await expect(newCityMarker).toHaveAccessibleName(
       "新城市茶冰厅，累计打卡 59 次",
@@ -331,6 +345,13 @@ test.describe("Foodle station restaurant maps", () => {
     await page.getByRole("button", { name: "返回餐厅列表" }).click();
     await expect(newCityListItem).toBeFocused();
     await expect(newCityListItem).toContainText("59 次");
+    await expect(newCityListItem).toContainText("去过 1 次");
+    await expect(newCityListItem).not.toContainText("想吃");
+
+    await page.getByRole("button", { name: "去过，1 家", exact: true }).click();
+    await expect(page.getByText("1 个结果")).toBeVisible();
+    await expect(newCityListItem).toBeVisible();
+    await page.getByRole("button", { name: "全部餐厅", exact: true }).click();
 
     const noodleListItem = page.getByRole("button", {
       name: /^城河米线 滇菜/u,

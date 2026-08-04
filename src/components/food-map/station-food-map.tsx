@@ -51,7 +51,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
-  FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+  FOOD_MAP_WISHLIST_STORAGE_KEY,
   clearCandidateDecision,
   decideCandidate,
   emptyCandidateDecisionStore,
@@ -797,7 +797,7 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
   const [now, setNow] = useState<Date | null>(null);
   const [checkins, setCheckins] = useState(emptyFoodMapCheckinStore);
   const [comments, setComments] = useState(emptyFoodMapCommentStore);
-  const [candidateDecisions, setCandidateDecisions] = useState(
+  const [wishlistDecisions, setWishlistDecisions] = useState(
     emptyCandidateDecisionStore,
   );
   const [storageReady, setStorageReady] = useState(false);
@@ -833,9 +833,9 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
             window.localStorage.getItem(FOOD_MAP_COMMENTS_STORAGE_KEY),
           ),
         );
-        setCandidateDecisions(
+        setWishlistDecisions(
           parseCandidateDecisionStore(
-            window.localStorage.getItem(FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY),
+            window.localStorage.getItem(FOOD_MAP_WISHLIST_STORAGE_KEY),
           ),
         );
       } catch {
@@ -844,11 +844,38 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
         setStorageReady(true);
       }
     }, 0);
+    const syncPersonalState = (event: StorageEvent) => {
+      if (event.storageArea !== window.localStorage) return;
+      if (event.key === FOOD_MAP_CHECKINS_STORAGE_KEY || event.key === null) {
+        setCheckins(
+          parseFoodMapCheckinStore(
+            window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
+          ),
+        );
+        setNow(new Date());
+      }
+      if (event.key === FOOD_MAP_COMMENTS_STORAGE_KEY || event.key === null) {
+        setComments(
+          parseFoodMapCommentStore(
+            window.localStorage.getItem(FOOD_MAP_COMMENTS_STORAGE_KEY),
+          ),
+        );
+      }
+      if (event.key === FOOD_MAP_WISHLIST_STORAGE_KEY || event.key === null) {
+        setWishlistDecisions(
+          parseCandidateDecisionStore(
+            window.localStorage.getItem(FOOD_MAP_WISHLIST_STORAGE_KEY),
+          ),
+        );
+      }
+    };
+    window.addEventListener("storage", syncPersonalState);
     const interval = window.setInterval(() => setNow(new Date()), 60_000);
 
     return () => {
       window.clearTimeout(timeout);
       window.clearInterval(interval);
+      window.removeEventListener("storage", syncPersonalState);
     };
   }, []);
 
@@ -902,12 +929,12 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
           .filter(
             (restaurant) =>
               personalVisitCounts[restaurant.id] === 0 &&
-              getCandidateDecision(candidateDecisions, restaurant.id) ===
+              getCandidateDecision(wishlistDecisions, restaurant.id) ===
                 "saved",
           )
           .map((restaurant) => restaurant.id),
       ),
-    [candidateDecisions, personalVisitCounts, restaurants],
+    [personalVisitCounts, restaurants, wishlistDecisions],
   );
   const savedCount = wishlistRestaurantIds.size;
   const visitedCount = restaurants.filter(
@@ -1049,18 +1076,21 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
 
   function toggleWishlist(restaurantId: string) {
     setStorageError(null);
-    const removing =
-      getCandidateDecision(candidateDecisions, restaurantId) === "saved";
-    const nextDecisions = removing
-      ? clearCandidateDecision(candidateDecisions, restaurantId)
-      : decideCandidate(candidateDecisions, restaurantId, "saved");
 
     try {
+      const currentDecisions = parseCandidateDecisionStore(
+        window.localStorage.getItem(FOOD_MAP_WISHLIST_STORAGE_KEY),
+      );
+      const removing =
+        getCandidateDecision(currentDecisions, restaurantId) === "saved";
+      const nextDecisions = removing
+        ? clearCandidateDecision(currentDecisions, restaurantId)
+        : decideCandidate(currentDecisions, restaurantId, "saved");
       window.localStorage.setItem(
-        FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+        FOOD_MAP_WISHLIST_STORAGE_KEY,
         serializeCandidateDecisionStore(nextDecisions),
       );
-      setCandidateDecisions(nextDecisions);
+      setWishlistDecisions(nextDecisions);
       setPersonalStateMessage(removing ? "已从想吃移除。" : "已加入想吃。");
       if (removing && personalFilter === "saved") {
         pendingPersonalFilterFocusRef.current = true;
@@ -1077,11 +1107,16 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
 
     try {
       if (composer.mode === "checkin") {
+        const currentWishlist = parseCandidateDecisionStore(
+          window.localStorage.getItem(FOOD_MAP_WISHLIST_STORAGE_KEY),
+        );
         const wasWanted =
-          getCandidateDecision(candidateDecisions, composer.restaurantId) ===
+          getCandidateDecision(currentWishlist, composer.restaurantId) ===
           "saved";
         const nextCheckins = recordFoodMapCheckin(
-          checkins,
+          parseFoodMapCheckinStore(
+            window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
+          ),
           hktDateKey(timestamp),
           composer.restaurantId,
         );
@@ -1093,15 +1128,15 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
 
         if (wasWanted) {
           const nextDecisions = clearCandidateDecision(
-            candidateDecisions,
+            currentWishlist,
             composer.restaurantId,
           );
           try {
             window.localStorage.setItem(
-              FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+              FOOD_MAP_WISHLIST_STORAGE_KEY,
               serializeCandidateDecisionStore(nextDecisions),
             );
-            setCandidateDecisions(nextDecisions);
+            setWishlistDecisions(nextDecisions);
           } catch {
             setStorageError("到访已记录，但未能从想吃移除，请稍后重试。");
           }
@@ -1118,7 +1153,9 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
 
       if (commentBody.trim()) {
         const nextComments = addFoodMapComment(
-          comments,
+          parseFoodMapCommentStore(
+            window.localStorage.getItem(FOOD_MAP_COMMENTS_STORAGE_KEY),
+          ),
           composer.restaurantId,
           commentBody,
           timestamp.toISOString(),

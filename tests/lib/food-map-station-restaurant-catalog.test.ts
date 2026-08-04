@@ -8,6 +8,7 @@ import {
   getRestaurantOpeningStatus,
   isFoodleStationId,
 } from "@/lib/food-map/station-restaurant-catalog";
+import { FOODLE_RESTAURANTS } from "@/lib/food-map/restaurant-catalog";
 
 describe("Foodle station restaurant catalog", () => {
   it("provides multiple stable records for Sha Tin and Tai Po Market", () => {
@@ -22,6 +23,28 @@ describe("Foodle station restaurant catalog", () => {
 
   it("keeps source metadata separate from Foodle-owned facts", () => {
     for (const restaurant of FOODLE_STATION_RESTAURANTS) {
+      const canonical = FOODLE_RESTAURANTS.find(
+        (item) => item.id === restaurant.id,
+      );
+      expect(canonical).toBeTruthy();
+      expect(restaurant.source).toEqual(canonical?.source);
+      expect(restaurant.sourceFacts.name).toBe(canonical?.sourceFacts.name);
+      expect(restaurant.sourceFacts.cuisines).toEqual(
+        canonical?.sourceFacts.cuisines,
+      );
+      expect(restaurant.sourceFacts.priceRange).toBe(
+        canonical?.sourceFacts.priceRange,
+      );
+      expect(restaurant.foodle.walkMinutes).toBe(canonical?.foodle.walkMinutes);
+      expect(restaurant.foodle.averageScore).toBe(
+        canonical?.foodle.averageScore,
+      );
+      expect(restaurant.foodle.uniqueVisitors).toBe(
+        canonical?.foodle.uniqueVisitors,
+      );
+      expect(restaurant.foodle.totalCheckins).toBe(
+        canonical?.foodle.totalCheckins,
+      );
       expect(restaurant.source.provider).toBe("openrice");
       expect(restaurant.source.externalId).toMatch(/^mock-/u);
       expect(restaurant.source.url).toContain(restaurant.source.externalId);

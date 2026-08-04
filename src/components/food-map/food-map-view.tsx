@@ -49,8 +49,8 @@ import {
   emptyFoodMapCheckinStore,
   hktDateKey,
   parseFoodMapCheckinStore,
+  recordFoodMapCheckin,
   serializeFoodMapCheckinStore,
-  toggleFoodMapCheckin,
 } from "@/lib/food-map/checkins";
 import { hasFoodleRestaurants } from "@/lib/food-map/restaurant-catalog";
 import { isFoodleStationId } from "@/lib/food-map/station-restaurant-catalog";
@@ -1037,13 +1037,13 @@ function DetailPanel({
   notice,
   checkedIds,
   ready,
-  onToggleCheckIn,
+  onRecordCheckIn,
 }: {
   stationId: MtrStationId | null;
   notice: string | null;
   checkedIds: ReadonlySet<string>;
   ready: boolean;
-  onToggleCheckIn: (restaurantId: string) => void;
+  onRecordCheckIn: (restaurantId: string) => void;
 }) {
   const station = stationById.get(stationId ?? ORIGIN_ID) ?? MTR_STATIONS[0];
   const restaurant = getRestaurantsForStation(station.id)[0];
@@ -1091,9 +1091,9 @@ function DetailPanel({
         ) : null}
         <button
           type="button"
-          disabled={!ready}
+          disabled={!ready || checked}
           aria-pressed={checked}
-          onClick={() => onToggleCheckIn(restaurant.id)}
+          onClick={() => onRecordCheckIn(restaurant.id)}
           className={[
             "min-h-11 touch-manipulation rounded-lg px-4 text-sm font-medium max-[420px]:w-full",
             "transition-[background-color,color,transform] motion-reduce:transition-none active:scale-[0.98]",
@@ -1103,11 +1103,7 @@ function DetailPanel({
               : "bg-foreground text-background hover:bg-foreground/85",
           ].join(" ")}
         >
-          {ready
-            ? checked
-              ? "今天已打卡"
-              : "今天吃过"
-            : "读取打卡记录"}
+          {ready ? (checked ? "今天已打卡" : "今天吃过") : "读取打卡记录"}
         </button>
       </div>
     </div>
@@ -1140,7 +1136,24 @@ export function FoodMapView({
       setCheckinsReady(true);
     }, 0);
 
-    return () => window.clearTimeout(timeout);
+    const syncCheckins = (event: StorageEvent) => {
+      if (
+        event.storageArea === window.localStorage &&
+        (event.key === FOOD_MAP_CHECKINS_STORAGE_KEY || event.key === null)
+      ) {
+        setCheckins(
+          parseFoodMapCheckinStore(
+            window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
+          ),
+        );
+      }
+    };
+    window.addEventListener("storage", syncCheckins);
+
+    return () => {
+      window.clearTimeout(timeout);
+      window.removeEventListener("storage", syncCheckins);
+    };
   }, []);
 
   useEffect(() => {
@@ -1213,11 +1226,17 @@ export function FoodMapView({
     setNotice(null);
   }
 
-  function toggleCheckIn(restaurantId: string) {
+  function recordCheckIn(restaurantId: string) {
     const activeToday = hktDateKey();
-    const next = toggleFoodMapCheckin(checkins, activeToday, restaurantId);
 
     try {
+      const next = recordFoodMapCheckin(
+        parseFoodMapCheckinStore(
+          window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
+        ),
+        activeToday,
+        restaurantId,
+      );
       window.localStorage.setItem(
         FOOD_MAP_CHECKINS_STORAGE_KEY,
         serializeFoodMapCheckinStore(next),
@@ -1291,7 +1310,7 @@ export function FoodMapView({
             notice={notice}
             checkedIds={checkedIds}
             ready={checkinsReady}
-            onToggleCheckIn={toggleCheckIn}
+            onRecordCheckIn={recordCheckIn}
           />
         </div>
       </div>

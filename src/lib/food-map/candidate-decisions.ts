@@ -1,5 +1,6 @@
 export const FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY =
   "cupedia:foodle-candidate-decisions:v1";
+export const FOOD_MAP_WISHLIST_STORAGE_KEY = "cupedia:food-map-wishlist:v1";
 
 export type CandidateDecision = "saved" | "passed";
 export type CandidateDecisionState = "unseen" | CandidateDecision;

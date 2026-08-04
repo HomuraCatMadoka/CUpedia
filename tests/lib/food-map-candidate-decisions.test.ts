@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+  FOOD_MAP_WISHLIST_STORAGE_KEY,
   clearCandidateDecision,
   decideCandidate,
   emptyCandidateDecisionStore,
@@ -10,6 +12,12 @@ import {
 } from "@/lib/food-map/candidate-decisions";
 
 describe("Foodle candidate decisions", () => {
+  it("keeps the station wishlist separate from Match migration state", () => {
+    expect(FOOD_MAP_WISHLIST_STORAGE_KEY).not.toBe(
+      FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+    );
+  });
+
   it("starts unseen and lets the latest explicit decision win", () => {
     const empty = emptyCandidateDecisionStore();
     expect(getCandidateDecision(empty, "restaurant-1")).toBe("unseen");

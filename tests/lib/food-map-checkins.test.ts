@@ -8,7 +8,6 @@ import {
   recordFoodMapCheckin,
   serializeFoodMapCheckinStore,
   countFoodMapVisits,
-  toggleFoodMapCheckin,
 } from "@/lib/food-map/checkins";
 
 describe("hktDateKey", () => {
@@ -64,16 +63,5 @@ describe("food map check-in storage", () => {
       "2026-07-28",
       "2026-07-27",
     ]);
-  });
-
-  it("keeps the legacy commute-map toggle behavior", () => {
-    const empty = emptyFoodMapCheckinStore();
-    const checked = toggleFoodMapCheckin(empty, "2026-07-27", "r1");
-
-    expect(checked.byDate).toEqual({ "2026-07-27": ["r1"] });
-    expect(empty.byDate).toEqual({});
-    expect(toggleFoodMapCheckin(checked, "2026-07-27", "r1")).toEqual(
-      emptyFoodMapCheckinStore(),
-    );
   });
 });
