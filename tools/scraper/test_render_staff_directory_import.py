@@ -147,7 +147,10 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
         ]
 
         catalog, links = subject.build_staff_professor_catalog(
-            people, titles, set()
+            people,
+            titles,
+            set(),
+            {person["id"]: person["profile_url"] for person in people},
         )
 
         self.assertEqual(len(catalog), 2)
@@ -168,6 +171,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                 "source_url": "https://example.test/grace/",
             }],
             set(),
+            {"director": "https://example.test/grace/"},
         )
 
         self.assertEqual(catalog, [])
@@ -424,6 +428,11 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
         self.assertEqual(source["source"], "reviewed_department_directory")
         self.assertEqual(source["source_key"], person["id"])
         self.assertEqual(source["source_url"], "https://department.example/roster.pdf")
+        link = next(
+            item for item in payload["professor_links"]
+            if item["person_id"] == person["id"]
+        )
+        self.assertEqual(link["source_url"], "https://department.example/roster.pdf")
 
     def test_directory_identity_sql_replaces_automatic_and_preserves_manual(self):
         payload = subject.build_payload(

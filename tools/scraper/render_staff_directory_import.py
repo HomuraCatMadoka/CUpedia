@@ -39,7 +39,10 @@ def professor_catalog_id(name: str, identity_key: str | None = None) -> str:
 
 
 def build_staff_professor_catalog(
-    people: list[dict], titles: list[dict], linked_person_ids: set[str]
+    people: list[dict],
+    titles: list[dict],
+    linked_person_ids: set[str],
+    source_urls_by_person_id: dict[str, str],
 ) -> tuple[list[dict], list[dict]]:
     """Create searchable professor rows for academic staff absent from timetable."""
     academic_person_ids = {
@@ -75,7 +78,7 @@ def build_staff_professor_catalog(
                 "professor_id": professor_id,
                 "person_id": person["id"],
                 "match_method": "automatic",
-                "source_url": person["profile_url"],
+                "source_url": source_urls_by_person_id[person["id"]],
             }
         )
     return catalog, links
@@ -380,6 +383,10 @@ def build_payload(
         payload["people"],
         payload["titles"],
         {item["person_id"] for item in professor_links},
+        {
+            item["person_id"]: item["source_url"]
+            for item in payload["person_sources"]
+        },
     )
     professor_links.extend(staff_professor_links)
     if professor_links:
