@@ -5,7 +5,7 @@ import { StationFoodMap } from "@/components/food-map/station-food-map";
 import {
   FOODLE_STATION_MAPS,
   isFoodleStationId,
-} from "@/lib/food-map/restaurant-catalog";
+} from "@/lib/food-map/station-restaurant-catalog";
 
 interface StationPageProps {
   params: Promise<{ stationId: string }>;

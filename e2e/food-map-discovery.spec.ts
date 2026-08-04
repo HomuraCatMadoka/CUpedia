@@ -1,4 +1,23 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { Client } from "pg";
+
+import { loginWithPassword } from "./helpers/auth";
+
+const FOODLE_TEST_USER = "user@test.com";
+
+async function resetFoodleTestUser() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `delete from foodle_user_states
+        where user_id = (select id from users where email = $1)`,
+      [FOODLE_TEST_USER],
+    );
+  } finally {
+    await client.end();
+  }
+}
 
 async function openFoodle(page: Page) {
   const entry = page.getByRole("button", { name: /打开 Foodle Match，/u });
@@ -28,6 +47,15 @@ async function dragCard(
 }
 
 test.describe("#500 Foodle restaurant discovery", () => {
+  test.beforeEach(async ({ page }) => {
+    await resetFoodleTestUser();
+    await loginWithPassword(page, FOODLE_TEST_USER, "password123");
+  });
+
+  test.afterEach(async () => {
+    await resetFoodleTestUser();
+  });
+
   test("enters an independent scoped deck and keeps saved candidates", async ({
     page,
   }) => {
@@ -273,9 +301,7 @@ test.describe("Foodle station restaurant maps", () => {
     const newCityListItem = page.getByRole("button", {
       name: /^新城市茶冰厅 港式/u,
     });
-    const newCityMarker = page.locator(
-      '[data-foodle-marker="sht-mock-meal"]',
-    );
+    const newCityMarker = page.locator('[data-foodle-marker="sht-mock-meal"]');
     await newCityListItem.click();
     await expect(
       page.getByRole("complementary", { name: "新城市茶冰厅详情" }),

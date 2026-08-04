@@ -6,8 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import type {
   FoodleRestaurant,
   FoodleStationMap,
-} from "@/lib/food-map/restaurant-catalog";
-import { getRestaurantHeat } from "@/lib/food-map/restaurant-catalog";
+} from "@/lib/food-map/station-restaurant-catalog";
+import { getRestaurantHeat } from "@/lib/food-map/station-restaurant-catalog";
 
 import styles from "./station-map-canvas.module.css";
 

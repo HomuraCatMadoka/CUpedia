@@ -71,7 +71,7 @@ import {
   type FoodleRestaurant,
   type FoodleStationId,
   type RestaurantOpeningStatus,
-} from "@/lib/food-map/restaurant-catalog";
+} from "@/lib/food-map/station-restaurant-catalog";
 
 const StationMapCanvas = dynamic(
   () =>
@@ -1029,12 +1029,15 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
         {mobile && mobileView === "list" ? (
           <div className="h-full overflow-y-auto px-4 py-4">
             <div className="mb-3 flex items-center justify-between gap-3">
-              <h2
-                className="text-sm font-medium"
-                role="status"
-                aria-live="polite"
-              >
-                {filteredRestaurants.length} 个结果
+              <h2 className="text-sm font-semibold">
+                餐厅
+                <span
+                  className="ml-2 font-normal text-muted-foreground"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {filteredRestaurants.length} 个结果
+                </span>
               </h2>
               <HeatLegend />
             </div>
@@ -1090,12 +1093,15 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
               ) : (
                 <div className="p-3">
                   <div className="mb-3 flex items-center justify-between gap-2 px-1">
-                    <h2
-                      className="text-sm font-medium"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      {filteredRestaurants.length} 个结果
+                    <h2 className="text-sm font-semibold">
+                      餐厅
+                      <span
+                        className="ml-2 font-normal text-muted-foreground"
+                        role="status"
+                        aria-live="polite"
+                      >
+                        {filteredRestaurants.length} 个结果
+                      </span>
                     </h2>
                     <span className="text-xs text-muted-foreground">
                       点击定位
