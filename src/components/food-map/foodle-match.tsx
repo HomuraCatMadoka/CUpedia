@@ -46,7 +46,7 @@ import {
 const stationById = new Map(
   MTR_STATIONS.map((station) => [station.id, station]),
 );
-const restaurantById = new Map(
+const bundledRestaurantById = new Map(
   FOODLE_RESTAURANTS.map((restaurant) => [restaurant.id, restaurant]),
 );
 const countFormatter = new Intl.NumberFormat("zh-HK");
@@ -262,14 +262,14 @@ function CandidateCard({
         />
         <span
           data-testid={`match-${side}-heat`}
-          className={`absolute top-2 left-2 rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${heatClass(
+          className={`absolute top-2 left-2 max-w-[calc(100%-1rem)] truncate rounded-full border px-2 py-1 text-[10px] font-semibold tabular-nums ${heatClass(
             restaurant.foodle.totalCheckins,
           )}`}
         >
           {heatLabel(restaurant)}
         </span>
         {incumbent ? (
-          <span className="absolute top-2 right-2 rounded-lg border border-white/60 bg-[#672d7e] px-2 py-1 text-[10px] font-semibold text-white dark:bg-[#c48fda] dark:text-[#211225]">
+          <span className="absolute top-10 left-2 rounded-lg border border-white/60 bg-[#672d7e] px-2 py-1 text-[10px] font-semibold text-white dark:bg-[#c48fda] dark:text-[#211225]">
             上轮胜出
           </span>
         ) : null}
@@ -342,6 +342,7 @@ function ComparisonCell({
 
 function MatchComparisonView({
   session,
+  restaurantsById,
   transitioningId,
   focusChoiceId,
   onChoose,
@@ -351,6 +352,7 @@ function MatchComparisonView({
   onPhotoChange,
 }: {
   session: FoodleMatchSession;
+  restaurantsById: ReadonlyMap<string, FoodleRestaurant>;
   transitioningId: string | null;
   focusChoiceId: string | null;
   onChoose: (restaurantId: string, keyboardActivation: boolean) => void;
@@ -361,8 +363,8 @@ function MatchComparisonView({
 }) {
   const choiceButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const pairIds = getFoodleMatchPair(session);
-  const left = pairIds ? restaurantById.get(pairIds[0]) : null;
-  const right = pairIds ? restaurantById.get(pairIds[1]) : null;
+  const left = pairIds ? restaurantsById.get(pairIds[0]) : null;
+  const right = pairIds ? restaurantsById.get(pairIds[1]) : null;
 
   useEffect(() => {
     if (!focusChoiceId) return;
@@ -534,9 +536,13 @@ function MatchComparisonView({
   );
 }
 
-function resultFact(result: FoodleMatchResult, selected: FoodleRestaurant) {
+function resultFact(
+  result: FoodleMatchResult,
+  selected: FoodleRestaurant,
+  restaurantsById: ReadonlyMap<string, FoodleRestaurant>,
+) {
   if (!result.finalOpponentId) return "";
-  const opponent = restaurantById.get(result.finalOpponentId);
+  const opponent = restaurantsById.get(result.finalOpponentId);
   if (!opponent) return "";
   const selectedStation = stationById.get(selected.foodle.stationId);
   const opponentStation = stationById.get(opponent.foodle.stationId);
@@ -554,6 +560,7 @@ function resultFact(result: FoodleMatchResult, selected: FoodleRestaurant) {
 
 function MatchResultView({
   result,
+  restaurantsById,
   reopened,
   onReselect,
   googleMapsRef,
@@ -561,17 +568,18 @@ function MatchResultView({
   onActiveImageChange,
 }: {
   result: FoodleMatchResult;
+  restaurantsById: ReadonlyMap<string, FoodleRestaurant>;
   reopened: boolean;
   onReselect: () => void;
   googleMapsRef: React.RefObject<HTMLAnchorElement | null>;
   activeImageIndex: number;
   onActiveImageChange: (index: number) => void;
 }) {
-  const restaurant = restaurantById.get(result.restaurantId);
+  const restaurant = restaurantsById.get(result.restaurantId);
   if (!restaurant) return null;
   const station = stationById.get(restaurant.foodle.stationId);
   const commute = totalCommute(restaurant);
-  const ownedFact = resultFact(result, restaurant);
+  const ownedFact = resultFact(result, restaurant, restaurantsById);
 
   return (
     <div
@@ -729,8 +737,16 @@ export function FoodleMatch({
     () => candidates.map((candidate) => candidate.id),
     [candidates],
   );
+  const restaurantsById = useMemo(
+    () =>
+      new Map([
+        ...bundledRestaurantById,
+        ...candidates.map((candidate) => [candidate.id, candidate] as const),
+      ]),
+    [candidates],
+  );
   const storedRestaurant = storedResult
-    ? restaurantById.get(storedResult.restaurantId)
+    ? restaurantsById.get(storedResult.restaurantId)
     : null;
 
   useEffect(() => {
@@ -959,6 +975,7 @@ export function FoodleMatch({
           {view?.kind === "comparison" ? (
             <MatchComparisonView
               session={view.session}
+              restaurantsById={restaurantsById}
               transitioningId={transitioningId}
               focusChoiceId={focusChoiceId}
               onChoose={choose}
@@ -970,6 +987,7 @@ export function FoodleMatch({
           ) : view?.kind === "result" ? (
             <MatchResultView
               result={view.result}
+              restaurantsById={restaurantsById}
               reopened={view.reopened}
               googleMapsRef={googleMapsRef}
               activeImageIndex={photoIndexes[view.result.restaurantId] ?? 0}
@@ -981,30 +999,30 @@ export function FoodleMatch({
               }
             />
           ) : null}
+
+          <ReadOnlyDetails
+            restaurant={detailRestaurant}
+            open={detailRestaurant !== null}
+            activeImageIndex={
+              detailRestaurant ? (photoIndexes[detailRestaurant.id] ?? 0) : 0
+            }
+            onActiveImageChange={(index) => {
+              if (detailRestaurant) changePhoto(detailRestaurant.id, index);
+            }}
+            onOpenChange={(nextOpen) => {
+              if (!nextOpen) {
+                setDetailRestaurant(null);
+                const returnFocus = detailReturnFocusRef.current;
+                detailReturnFocusRef.current = null;
+                window.setTimeout(
+                  () => returnFocus?.focus({ preventScroll: true }),
+                  0,
+                );
+              }
+            }}
+          />
         </DialogContent>
       </Dialog>
-
-      <ReadOnlyDetails
-        restaurant={detailRestaurant}
-        open={detailRestaurant !== null}
-        activeImageIndex={
-          detailRestaurant ? (photoIndexes[detailRestaurant.id] ?? 0) : 0
-        }
-        onActiveImageChange={(index) => {
-          if (detailRestaurant) changePhoto(detailRestaurant.id, index);
-        }}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) {
-            setDetailRestaurant(null);
-            const returnFocus = detailReturnFocusRef.current;
-            detailReturnFocusRef.current = null;
-            window.setTimeout(
-              () => returnFocus?.focus({ preventScroll: true }),
-              0,
-            );
-          }
-        }}
-      />
     </>
   );
 }

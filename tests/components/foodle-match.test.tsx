@@ -215,6 +215,66 @@ describe("FoodleMatch", () => {
     expect(screen.getByText("第 1 / 2 轮")).toBeTruthy();
   });
 
+  it("closes nested details with Escape without closing the active Match", async () => {
+    renderMatch(3);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "从 3 家想吃候选开始 Match" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `查看 ${candidates[0].sourceFacts.name} 详情`,
+      }),
+    );
+
+    expect(
+      screen.getByRole("dialog", { name: candidates[0].sourceFacts.name }),
+    ).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape", code: "Escape" });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: candidates[0].sourceFacts.name }),
+      ).toBeNull(),
+    );
+    expect(screen.getByRole("dialog", { name: "Foodle Match" })).toBeTruthy();
+    expect(screen.getByText("第 1 / 2 轮")).toBeTruthy();
+  });
+
+  it("renders candidate objects that are not in the bundled catalog", async () => {
+    const liveCandidates = candidates.slice(0, 2).map((restaurant, index) => ({
+      ...restaurant,
+      id: `live-provider-${index + 1}`,
+      source: {
+        ...restaurant.source,
+        externalId: `live-provider-${index + 1}`,
+      },
+      sourceFacts: {
+        ...restaurant.sourceFacts,
+        name: `实时餐厅 ${index + 1}`,
+      },
+    }));
+    render(
+      <FoodleMatch
+        candidates={liveCandidates}
+        sourceLabel="20 分钟范围"
+        ready
+        random={stableRandom}
+        initialSide="left"
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "从 2 家想吃候选开始 Match" }),
+    );
+    const dialog = screen.getByRole("dialog", { name: "Foodle Match" });
+    expect(within(dialog).getByTestId("match-left-name").textContent).toBe(
+      "实时餐厅 1",
+    );
+    expect(within(dialog).getByTestId("match-right-name").textContent).toBe(
+      "实时餐厅 2",
+    );
+  });
+
   it("shares gallery state with read-only details and returns focus to its trigger", async () => {
     renderMatch(3);
     fireEvent.click(
