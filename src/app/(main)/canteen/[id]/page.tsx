@@ -130,7 +130,6 @@ export default async function CanteenMenuPage({
           initialMessages={danmaku}
           initialFlyMessages={danmakuFly}
           viewer={danmakuViewer}
-          title="弹幕"
           apiPath={`/api/canteen/${id}/danmaku`}
           trackCount={3}
           appearance="hero"

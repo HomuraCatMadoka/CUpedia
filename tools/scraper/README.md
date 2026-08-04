@@ -143,7 +143,11 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   `staff_person_sources` stores each upstream identity separately, keyed by
   `(source, source_key)`. Source freshness and the two-run missing rule are
   maintained there; `staff_people.is_current` remains true while any source is
-  current. Directory imports only clear aliases and automatic timetable links
+  current. Academic staff whose official title contains Professor, Lecturer or
+  Instructor are also added to the searchable professor catalog when the
+  rolling undergraduate timetable no longer lists them. Their official identity
+  keeps the catalog row available for historical course reviews. Directory
+  imports only clear aliases and automatic timetable links
   owned by the sources declared in that import, so adding a department roster
   cannot reset identities maintained by another adapter. Automatic professor
   identities are reconciled only for professor IDs declared in the local

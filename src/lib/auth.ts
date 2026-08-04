@@ -4,7 +4,7 @@ import { emailOTP } from "better-auth/plugins";
 import { createAuthMiddleware, APIError } from "better-auth/api";
 import { db } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
-import { shouldRejectOtpRequest } from "@/lib/email";
+import { normalizeEmail, shouldRejectOtpRequest } from "@/lib/email";
 import { sendOtpEmail } from "@/lib/otp-email";
 import { getLocalE2eOtp, isLocalE2eRuntime } from "@/lib/e2e-otp";
 import { validateSignupNickname } from "@/lib/nickname";
@@ -65,11 +65,26 @@ export const auth = betterAuth({
     // and email-OTP boundaries — client checks are bypassable.
     before: createAuthMiddleware(async (ctx) => {
       const body = ctx.body as
-        | { email?: unknown; nickname?: unknown }
+        | { email?: unknown; nickname?: unknown; type?: unknown }
         | undefined;
       const email = body?.email;
       if (shouldRejectOtpRequest(ctx.path, email)) {
         throw new APIError("BAD_REQUEST", { message: "仅支持 CUHK 邮箱" });
+      }
+      const isOtpLogin =
+        ctx.path === "/sign-in/email-otp" ||
+        (ctx.path === "/email-otp/send-verification-otp" &&
+          body?.type === "sign-in");
+      if (
+        isOtpLogin &&
+        typeof email === "string" &&
+        !(await ctx.context.internalAdapter.findUserByEmail(
+          normalizeEmail(email),
+        ))
+      ) {
+        throw new APIError("BAD_REQUEST", {
+          message: "账号尚未注册，请先注册",
+        });
       }
       if (ctx.path === "/sign-up/email") {
         const nickname = validateSignupNickname(body?.nickname);

@@ -155,6 +155,16 @@ test("OTP login cannot implicitly create an unknown user", async ({
   request,
 }) => {
   const email = freshEmail();
+  const sendResponse = await request.post(
+    "/api/auth/email-otp/send-verification-otp",
+    { data: { email, type: "sign-in" } },
+  );
+
+  expect(sendResponse.ok()).toBe(false);
+  expect(await sendResponse.json()).toMatchObject({
+    message: "账号尚未注册，请先注册",
+  });
+
   await insertOtp(email, "sign-in", "123456");
 
   const response = await request.post("/api/auth/sign-in/email-otp", {

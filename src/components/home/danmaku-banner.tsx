@@ -56,7 +56,7 @@ export function DanmakuBanner({
   initialMessages,
   initialFlyMessages,
   viewer,
-  title = "弹幕",
+  title = "",
   apiPath = "/api/danmaku",
   trackCount = DANMAKU_TRACK_COUNT,
   appearance = "card",
@@ -222,17 +222,19 @@ export function DanmakuBanner({
         "relative",
         integrated ? "danmaku-hero grid gap-1" : "space-y-2 sm:space-y-4",
       )}
-      aria-label={title}
+      aria-label={title || "弹幕"}
     >
-      <div className={integrated ? "danmaku-hero-label" : "text-center"}>
-        <h2
-          className={
-            integrated ? undefined : "text-sm font-semibold sm:text-lg"
-          }
-        >
-          {title}
-        </h2>
-      </div>
+      {title ? (
+        <div className={integrated ? "danmaku-hero-label" : "text-center"}>
+          <h2
+            className={
+              integrated ? undefined : "text-sm font-semibold sm:text-lg"
+            }
+          >
+            {title}
+          </h2>
+        </div>
+      ) : null}
 
       <div
         ref={layerRef}

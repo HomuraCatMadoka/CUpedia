@@ -53,11 +53,7 @@ describe("CanteenShell announcement", () => {
     render(
       <CanteenShell
         title="善衡书院食堂"
-        topContent={
-          <section aria-label="弹幕">
-            <h2>弹幕</h2>
-          </section>
-        }
+        topContent={<section aria-label="弹幕">直播区</section>}
       >
         <div>菜单</div>
       </CanteenShell>,
@@ -67,14 +63,10 @@ describe("CanteenShell announcement", () => {
       level: 1,
       name: "善衡书院食堂",
     });
-    const liveHeading = screen.getByRole("heading", {
-      level: 2,
-      name: "弹幕",
-    });
+    const live = screen.getByRole("region", { name: "弹幕" });
 
     expect(
-      title.compareDocumentPosition(liveHeading) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      title.compareDocumentPosition(live) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
@@ -84,7 +76,7 @@ describe("CanteenShell announcement", () => {
         title="演示食堂"
         subtitle="演示区域 A"
         announcement="外带加 $1 · 随餐饮品加 $3"
-        topContent={<div>弹幕</div>}
+        topContent={<div>直播区</div>}
       >
         <div>菜单</div>
       </CanteenShell>,

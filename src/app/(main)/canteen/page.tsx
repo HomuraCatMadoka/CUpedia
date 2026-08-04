@@ -149,7 +149,6 @@ export default async function CanteenBrowsePage() {
           initialMessages={danmaku}
           initialFlyMessages={danmakuFly}
           viewer={danmakuViewer}
-          title="弹幕"
           trackCount={3}
           appearance="hero"
         />
