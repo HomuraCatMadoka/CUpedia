@@ -1,16 +1,20 @@
 import Image from "next/image";
-import { ChevronDown, QrCode } from "lucide-react";
+import { QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function CanteenQrBadge({
   src,
   canteenName,
   className,
+  showCaption = true,
+  caption = "扫码点单",
 }: {
   /** Public path like `/assets/canteen-qr/<id>.png`; omit for placeholder. */
   src?: string | null;
   canteenName: string;
   className?: string;
+  showCaption?: boolean;
+  caption?: string;
 }) {
   return (
     <figure
@@ -47,9 +51,11 @@ export function CanteenQrBadge({
           </div>
         )}
       </div>
-      <figcaption className="max-w-16 text-center text-[0.6rem] leading-tight text-[var(--canteen-muted)] sm:max-w-20 sm:text-[0.7rem]">
-        扫码点单
-      </figcaption>
+      {showCaption ? (
+        <figcaption className="max-w-16 text-center text-[0.6rem] leading-tight text-[var(--canteen-muted)] sm:max-w-20 sm:text-[0.7rem]">
+          {caption}
+        </figcaption>
+      ) : null}
     </figure>
   );
 }
@@ -71,18 +77,16 @@ export function CanteenQrAction({
         className="hidden sm:flex"
       />
       <details className="canteen-mobile-qr sm:hidden">
-        <summary aria-label="查看点单码">
+        <summary>
           <QrCode className="size-5" aria-hidden />
+          <span className="canteen-mobile-qr-label">扫码下单</span>
         </summary>
         <div className="canteen-mobile-qr-sheet">
-          <div className="flex items-center justify-between gap-3">
-            <p className="canteen-display font-semibold">扫码点单</p>
-            <ChevronDown
-              className="size-4 text-[var(--canteen-muted)]"
-              aria-hidden
-            />
-          </div>
-          <CanteenQrBadge src={src} canteenName={canteenName} />
+          <CanteenQrBadge
+            src={src}
+            canteenName={canteenName}
+            caption="扫码下单"
+          />
         </div>
       </details>
     </>
