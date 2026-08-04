@@ -8,7 +8,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FoodleMatch } from "@/components/food-map/foodle-match";
 import {
@@ -73,6 +73,30 @@ describe("FoodleMatch", () => {
       JSON.parse(window.localStorage.getItem(FOODLE_MATCH_STORAGE_KEY) ?? "{}")
         .result.mode,
     ).toBe("single");
+  });
+
+  it("hands an account-backed result to its owner without writing local storage", async () => {
+    const onResult = vi.fn();
+    const restaurant = candidates[0];
+    render(
+      <FoodleMatch
+        candidates={[restaurant]}
+        sourceLabel="20 分钟范围"
+        ready
+        initialResult={null}
+        onResult={onResult}
+      />,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: `选择这家：${restaurant.sourceFacts.name}`,
+      }),
+    );
+
+    await waitFor(() => expect(onResult).toHaveBeenCalledTimes(1));
+    expect(onResult.mock.calls[0][0].restaurantId).toBe(restaurant.id);
+    expect(window.localStorage.getItem(FOODLE_MATCH_STORAGE_KEY)).toBeNull();
   });
 
   it("uses one comparison round for two candidates without 1 / 1 progress", async () => {

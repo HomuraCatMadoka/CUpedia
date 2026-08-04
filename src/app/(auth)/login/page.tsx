@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
@@ -9,11 +9,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isAllowedEmail } from "@/lib/email";
+import { safeFoodleLoginReturnPath } from "@/lib/food-map/pending-intent";
 
 type Tab = "password" | "otp";
 type OtpStep = "email" | "code";
 
 const OTP_EXPIRY_SECONDS = 600;
+const subscribeToLocation = () => () => undefined;
+const noFoodleReturn = () => false;
+
+function hasFoodleReturn() {
+  return safeFoodleLoginReturnPath(
+    new URLSearchParams(window.location.search).get("next"),
+  ).startsWith("/food-map");
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -25,6 +34,19 @@ export default function LoginPage() {
   const [countdown, setCountdown] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const returningToFoodle = useSyncExternalStore(
+    subscribeToLocation,
+    hasFoodleReturn,
+    noFoodleReturn,
+  );
+
+  function finishLogin() {
+    const next = safeFoodleLoginReturnPath(
+      new URLSearchParams(window.location.search).get("next"),
+    );
+    router.push(next);
+    router.refresh();
+  }
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -49,8 +71,7 @@ export default function LoginPage() {
       if (authError) {
         setError(authError.message ?? "登录失败，请检查邮箱和密码");
       } else {
-        router.push("/");
-        router.refresh();
+        finishLogin();
       }
     } catch {
       setError("登录失败，请稍后重试");
@@ -108,8 +129,7 @@ export default function LoginPage() {
       if (authError) {
         setError(authError.message ?? "验证码无效或已过期");
       } else {
-        router.push("/");
-        router.refresh();
+        finishLogin();
       }
     } catch {
       setError("登录失败，请稍后重试");
@@ -125,21 +145,43 @@ export default function LoginPage() {
   };
 
   const tabClass = (t: Tab) =>
-    `flex-1 py-2 text-center text-sm font-medium transition-colors ${
+    `min-h-11 flex-1 px-2 text-center text-sm font-medium ${returningToFoodle ? "transition-none" : "transition-colors"} ${
       tab === t
         ? "border-b-2 border-primary text-primary"
         : "text-muted-foreground hover:text-foreground"
     }`;
 
+  const submitClass = `h-11 w-full ${returningToFoodle ? "transition-none" : ""}`;
+
   return (
-    <Card className="w-full max-w-md">
+    <Card
+      className={
+        returningToFoodle
+          ? "w-full max-w-md [--primary-foreground:#fff] [--primary:#672d7e] dark:[--primary-foreground:#211225] dark:[--primary:#c48fda]"
+          : "w-full max-w-md"
+      }
+    >
       <CardHeader>
-        <CardTitle>登录 CUpedia</CardTitle>
+        {returningToFoodle ? (
+          <p className="text-xs font-semibold tracking-[0.16em] text-[#672d7e] uppercase dark:text-[#c48fda]">
+            Foodle Match
+          </p>
+        ) : null}
+        <CardTitle>
+          <h1>{returningToFoodle ? "登录后继续" : "登录 CUpedia"}</h1>
+        </CardTitle>
+        {returningToFoodle ? (
+          <p className="text-sm text-muted-foreground">完成后回到刚才的餐厅</p>
+        ) : null}
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex border-b">
+        <div className="flex border-b" role="tablist" aria-label="登录方式">
           <button
             type="button"
+            role="tab"
+            id="password-login-tab"
+            aria-controls="password-login-panel"
+            aria-selected={tab === "password"}
             className={tabClass("password")}
             onClick={() => {
               setTab("password");
@@ -150,6 +192,10 @@ export default function LoginPage() {
           </button>
           <button
             type="button"
+            role="tab"
+            id="otp-login-tab"
+            aria-controls="otp-login-panel"
+            aria-selected={tab === "otp"}
             className={tabClass("otp")}
             onClick={() => {
               setTab("otp");
@@ -161,7 +207,13 @@ export default function LoginPage() {
         </div>
 
         {tab === "password" && (
-          <form onSubmit={handlePasswordLogin} className="space-y-4">
+          <form
+            id="password-login-panel"
+            role="tabpanel"
+            aria-label="登录表单"
+            onSubmit={handlePasswordLogin}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="email">CUHK 邮箱</Label>
               <Input
@@ -172,6 +224,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="username"
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
@@ -185,15 +238,32 @@ export default function LoginPage() {
                 required
                 minLength={8}
                 autoComplete="current-password"
+                className="h-11"
               />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className={submitClass}
+              style={
+                returningToFoodle
+                  ? {
+                      backgroundColor: "var(--primary)",
+                      color: "var(--primary-foreground)",
+                    }
+                  : undefined
+              }
+              disabled={loading}
+            >
               {loading ? "登录中..." : "登录"}
             </Button>
             <Link
               href="/reset-password"
-              className="block w-full text-center text-sm text-muted-foreground hover:text-primary"
+              className="inline-flex min-h-11 w-full items-center justify-center text-center text-sm text-muted-foreground hover:text-primary"
             >
               忘记密码？
             </Link>
@@ -207,7 +277,13 @@ export default function LoginPage() {
         )}
 
         {tab === "otp" && otpStep === "email" && (
-          <form onSubmit={handleOtpEmailSubmit} className="space-y-4">
+          <form
+            id="otp-login-panel"
+            role="tabpanel"
+            aria-label="登录表单"
+            onSubmit={handleOtpEmailSubmit}
+            className="space-y-4"
+          >
             <div className="space-y-2">
               <Label htmlFor="otp-email">CUHK 邮箱</Label>
               <Input
@@ -217,10 +293,27 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-11"
               />
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className={submitClass}
+              style={
+                returningToFoodle
+                  ? {
+                      backgroundColor: "var(--primary)",
+                      color: "var(--primary-foreground)",
+                    }
+                  : undefined
+              }
+              disabled={loading}
+            >
               {loading ? "发送中..." : "发送验证码"}
             </Button>
             <p className="text-center text-sm text-muted-foreground">
@@ -233,7 +326,13 @@ export default function LoginPage() {
         )}
 
         {tab === "otp" && otpStep === "code" && (
-          <form onSubmit={handleOtpVerify} className="space-y-4">
+          <form
+            id="otp-login-panel"
+            role="tabpanel"
+            aria-label="登录表单"
+            onSubmit={handleOtpVerify}
+            className="space-y-4"
+          >
             <p className="text-sm text-muted-foreground">
               验证码已发送至 <span className="font-medium">{email}</span>
             </p>
@@ -252,6 +351,7 @@ export default function LoginPage() {
                 }
                 required
                 autoFocus
+                className="h-11"
               />
             </div>
             <div className="flex items-center justify-between text-sm">
@@ -262,7 +362,7 @@ export default function LoginPage() {
               ) : (
                 <button
                   type="button"
-                  className="text-primary hover:underline"
+                  className="min-h-11 px-2 text-primary hover:underline"
                   onClick={sendOtp}
                   disabled={loading}
                 >
@@ -271,7 +371,7 @@ export default function LoginPage() {
               )}
               <button
                 type="button"
-                className="text-muted-foreground hover:text-foreground"
+                className="min-h-11 px-2 text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   setOtpStep("email");
                   setOtp("");
@@ -281,8 +381,24 @@ export default function LoginPage() {
                 更换邮箱
               </button>
             </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+            <Button
+              type="submit"
+              className={submitClass}
+              style={
+                returningToFoodle
+                  ? {
+                      backgroundColor: "var(--primary)",
+                      color: "var(--primary-foreground)",
+                    }
+                  : undefined
+              }
+              disabled={loading}
+            >
               {loading ? "验证中..." : "登录"}
             </Button>
           </form>

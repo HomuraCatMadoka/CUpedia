@@ -428,6 +428,13 @@
       "when": 1785310097762,
       "tag": "0060_takeouts",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1785811840157,
+      "tag": "0061_foodle_user_states",
+      "breakpoints": true
     }
   ]
 }
