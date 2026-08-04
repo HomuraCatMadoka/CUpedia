@@ -1,19 +1,11 @@
 "use client";
 
-import {
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight,
-  Heart,
-  Info,
-  Sparkles,
-  Star,
-  Utensils,
-  X,
-} from "lucide-react";
+import { ArrowLeft, Heart, Info, Sparkles, Star, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { FoodleMatch } from "@/components/food-map/foodle-match";
+import { RestaurantArtwork } from "@/components/food-map/restaurant-artwork";
 import {
   Dialog,
   DialogClose,
@@ -278,105 +270,6 @@ interface DragStart {
   x: number;
   y: number;
   cancelled: boolean;
-}
-
-function RestaurantArtwork({
-  restaurant,
-  immersive = false,
-}: {
-  restaurant: FoodleRestaurant;
-  immersive?: boolean;
-}) {
-  const [activeImage, setActiveImage] = useState(0);
-  const [brokenImages, setBrokenImages] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-  const images = restaurant.source.imageUrls.filter(
-    (url) => url && !brokenImages.has(url),
-  );
-  const safeIndex = images.length ? activeImage % images.length : 0;
-
-  if (images.length === 0) {
-    return (
-      <div
-        data-testid="restaurant-illustration-fallback"
-        className={`grid place-items-center bg-[#eee8dc] text-[#5a4c37] dark:bg-[#352f25] dark:text-[#ddcfb7] ${immersive ? "aspect-square" : "aspect-[4/3]"}`}
-      >
-        <div className="text-center">
-          <span className="mx-auto grid size-16 place-items-center rounded-full border-2 border-current/55 bg-background/65">
-            <Utensils className="size-7" strokeWidth={1.7} aria-hidden="true" />
-          </span>
-          <span className="mt-2 block text-xs font-medium">餐厅简笔插画</span>
-        </div>
-      </div>
-    );
-  }
-
-  function changeImage(step: number) {
-    setActiveImage((index) => (index + step + images.length) % images.length);
-  }
-
-  return (
-    <div
-      className={`relative overflow-hidden bg-muted ${immersive ? "aspect-square" : "aspect-[4/3]"}`}
-    >
-      {/* Source URLs are fixture data here and will be normalized by the production feed. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={images[safeIndex]}
-        alt={`${restaurant.sourceFacts.name}的餐厅插画，第 ${safeIndex + 1} 张`}
-        className="h-full w-full object-cover"
-        draggable={false}
-        onError={() => {
-          const failed = images[safeIndex];
-          setBrokenImages((current) => new Set([...current, failed]));
-          setActiveImage(0);
-        }}
-      />
-      {images.length > 1 ? (
-        <>
-          <div
-            className="absolute inset-x-3 top-2 flex gap-1"
-            aria-hidden="true"
-          >
-            {images.map((url, index) => (
-              <span
-                key={url}
-                className={`h-1 flex-1 rounded-full ${
-                  index === safeIndex ? "bg-white" : "bg-white/45"
-                }`}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            aria-label="上一张餐厅插画"
-            onClick={(event) => {
-              event.stopPropagation();
-              changeImage(-1);
-            }}
-            className="absolute inset-y-10 left-0 grid w-12 place-items-center text-[#2d2630] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-white/90"
-          >
-            <ChevronLeft className="size-6 drop-shadow-sm" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="下一张餐厅插画"
-            onClick={(event) => {
-              event.stopPropagation();
-              changeImage(1);
-            }}
-            className="absolute inset-y-10 right-0 grid w-12 place-items-center text-[#2d2630] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-white/90"
-          >
-            <ChevronRight
-              className="size-6 drop-shadow-sm"
-              aria-hidden="true"
-            />
-          </button>
-        </>
-      ) : null}
-    </div>
-  );
 }
 
 function RestaurantCard({
@@ -729,7 +622,8 @@ export function RestaurantDiscoveryPanel({
     );
   }
 
-  const inScopeSavedCount = savedRestaurants.filter(isInSnapshot).length;
+  const inScopeSavedRestaurants = savedRestaurants.filter(isInSnapshot);
+  const inScopeSavedCount = inScopeSavedRestaurants.length;
   const outsideScopeSavedCount = savedCount - inScopeSavedCount;
 
   function openDiscovery() {
@@ -845,6 +739,22 @@ export function RestaurantDiscoveryPanel({
                   <ArrowLeft className="size-4" aria-hidden="true" />
                   继续发现
                 </button>
+                <FoodleMatch
+                  candidates={inScopeSavedRestaurants}
+                  sourceLabel={snapshot.sourceLabel}
+                  ready={ready}
+                />
+                {savedCount > 0 && inScopeSavedCount === 0 ? (
+                  <div className="mb-3 grid min-h-36 place-items-center rounded-2xl border border-dashed bg-muted/20 p-5 text-center">
+                    <div>
+                      <Heart
+                        className="mx-auto size-6 text-[#672d7e] dark:text-[#c48fda]"
+                        aria-hidden="true"
+                      />
+                      <p className="mt-3 font-semibold">此范围没有想吃候选</p>
+                    </div>
+                  </div>
+                ) : null}
                 {outsideScopeSavedCount > 0 ? (
                   <p className="mb-3 rounded-xl bg-muted/55 px-3 py-2 text-xs text-muted-foreground">
                     范围外 {outsideScopeSavedCount} 家仍保留在想吃候选。

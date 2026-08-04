@@ -126,6 +126,37 @@ describe("RestaurantDiscoveryPanel", () => {
     expect(screen.getByText("想吃 1")).toBeTruthy();
   });
 
+  it("shows an explicit empty state when every saved restaurant is outside the current scope", async () => {
+    window.localStorage.setItem(
+      FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        byRestaurantId: {
+          "sht-mock-meal": {
+            decision: "saved",
+            decidedAt: "2026-08-04T00:00:00.000Z",
+          },
+        },
+      }),
+    );
+    render(
+      <RestaurantDiscoveryPanel
+        station={taiPoMarket}
+        budget={30}
+        notice={null}
+      />,
+    );
+
+    await openEntry(/打开 Foodle Match，大埔墟站 · 30 分钟范围，4 家餐厅/u);
+    fireEvent.click(screen.getByRole("button", { name: "查看想吃候选，1 家" }));
+
+    expect(screen.getByText("此范围没有想吃候选")).toBeTruthy();
+    expect(screen.getByText("范围外 1 家仍保留在想吃候选。")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: /开始 Match|从 .* 家想吃候选/u }),
+    ).toBeNull();
+  });
+
   it("maps left and right swipes to passed and saved decisions", async () => {
     render(
       <RestaurantDiscoveryPanel station={shaTin} budget={30} notice={null} />,
