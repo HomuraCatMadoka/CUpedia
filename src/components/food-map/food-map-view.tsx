@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Drawer } from "@base-ui/react/drawer";
+import { ArrowRightIcon, MapPinIcon, XIcon } from "lucide-react";
+import Link from "next/link";
+import { useMemo, useRef, useState } from "react";
 
-import { RestaurantDiscoveryPanel } from "@/components/food-map/restaurant-discovery-panel";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   FOOD_MAP_BUDGETS,
   FOOD_MAP_ORIGIN_STATION_ID,
@@ -10,22 +13,19 @@ import {
   MTR_SEGMENTS,
   MTR_STATIONS,
   getReachableStations,
-  getRestaurantsForStation,
   type FoodMapBudget,
   type MtrLineId,
   type MtrStation,
   type MtrStationId,
 } from "@/lib/food-map/data";
-import {
-  FOOD_MAP_CHECKINS_STORAGE_KEY,
-  emptyFoodMapCheckinStore,
-  hktDateKey,
-  parseFoodMapCheckinStore,
-  serializeFoodMapCheckinStore,
-  toggleFoodMapCheckin,
-} from "@/lib/food-map/checkins";
 import { getUniversityRoute } from "@/lib/food-map/university-journey-times";
-import { hasFoodleRestaurants } from "@/lib/food-map/restaurant-catalog";
+import {
+  getFoodleRestaurantsForStation,
+  getRestaurantOpeningStatus,
+  hasFoodleRestaurants,
+} from "@/lib/food-map/restaurant-catalog";
+
+const MOBILE_PREVIEW_MAX_VIEWPORT_RATIO = 0.72;
 
 const DEFAULT_BUDGET: FoodMapBudget = 30;
 const ORIGIN_ID = FOOD_MAP_ORIGIN_STATION_ID;
@@ -280,13 +280,11 @@ function MtrSchematic({
   selectedStationId,
   onSelectStation,
   onClearSelection,
-  mobileDiscoveryFocused,
 }: {
   budget: FoodMapBudget;
   selectedStationId: MtrStationId | null;
   onSelectStation: (stationId: MtrStationId) => void;
   onClearSelection: () => void;
-  mobileDiscoveryFocused: boolean;
 }) {
   const view = MAP_VIEWS[budget];
   const reachableStations = useMemo(
@@ -311,7 +309,7 @@ function MtrSchematic({
 
   return (
     <div
-      className="relative mx-auto w-full max-w-[29rem]"
+      className="relative mx-auto w-full max-w-[31.5rem]"
       onDoubleClick={(event) => {
         if ((event.target as Element).closest("[data-station-id]")) return;
         onClearSelection();
@@ -465,9 +463,6 @@ function MtrSchematic({
           const className = [
             "pointer-events-auto absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
             "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/45",
-            mobileDiscoveryFocused && station.position.y > 450
-              ? "max-md:invisible"
-              : "",
           ].join(" ");
           const style = {
             left: `${((station.position.x - view.x) / view.width) * 100}%`,
@@ -494,67 +489,194 @@ function MtrSchematic({
   );
 }
 
-function DetailPanel({
-  stationId,
+function StationSummary({
+  station,
   notice,
-  checkedIds,
-  ready,
-  onToggleCheckIn,
+  mobile = false,
 }: {
-  stationId: MtrStationId | null;
+  station: MtrStation | null;
   notice: string | null;
-  checkedIds: ReadonlySet<string>;
-  ready: boolean;
-  onToggleCheckIn: (restaurantId: string) => void;
+  mobile?: boolean;
 }) {
-  const station = stationById.get(stationId ?? ORIGIN_ID) ?? MTR_STATIONS[0];
-  const restaurant = getRestaurantsForStation(station.id)[0];
-  const checked = checkedIds.has(restaurant.id);
-  const route = stationId ? getUniversityRoute(stationId) : null;
+  if (!station) {
+    return (
+      <section
+        className="rounded-xl border bg-background p-5"
+        aria-live="polite"
+      >
+        <div className="grid size-10 place-items-center rounded-lg bg-[#672d7e]/10 text-[#672d7e] dark:bg-[#c48fda]/15 dark:text-[#c48fda]">
+          <MapPinIcon className="size-5" aria-hidden="true" />
+        </div>
+        <h2 className="mt-4 text-lg font-semibold">从地铁图选择一站</h2>
+        <p className="mt-1.5 text-sm leading-6 text-muted-foreground">
+          先看从大学站出发的车程，再进入站点附近 500 米的餐厅地图。
+        </p>
+        {notice ? (
+          <p className="mt-3 rounded-lg bg-muted px-3 py-2 text-sm">{notice}</p>
+        ) : null}
+        <p className="mt-4 border-t pt-4 text-xs text-muted-foreground">
+          首个版本收录沙田和大埔墟，校内餐厅继续留在山城食记。
+        </p>
+      </section>
+    );
+  }
+
+  const restaurants = getFoodleRestaurantsForStation(station.id);
+  const available = restaurants.length > 0;
+  const openCount = restaurants.filter(
+    (restaurant) => getRestaurantOpeningStatus(restaurant).state === "open",
+  ).length;
+  const route = getUniversityRoute(station.id);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-xl bg-muted/55 px-3 py-3 max-[420px]:grid-cols-1">
-      <div className="min-w-0" aria-live="polite">
-        <p className="font-medium">
-          {stationId
-            ? `大学 → ${station.nameZh} · ${station.minutes} 分钟`
-            : "大学 · 0 分钟"}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">
-          {stationId ? routeSummary(stationId) : notice || "校内起点"}
-        </p>
-        <p className="mt-1 truncate text-sm">
-          {restaurant.name}，{restaurant.cuisine}
-        </p>
-        {route ? (
-          <ol className="sr-only" aria-label="当前最短路线">
-            {route.segments.map((segment) => (
-              <li key={segmentKey(segment.from, segment.to, segment.lineId)}>
-                {stationById.get(segment.from)?.nameZh}到
-                {stationById.get(segment.to)?.nameZh}，
-                {lineById.get(segment.lineId)?.nameZh}
-              </li>
-            ))}
-          </ol>
+    <section
+      className={
+        mobile
+          ? "bg-background px-5 pt-1 pb-5"
+          : "rounded-xl border bg-background p-5"
+      }
+      aria-live="polite"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[#672d7e] dark:text-[#c48fda]">
+            大学 → {station.nameZh} · {station.minutes} 分钟
+          </p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight">
+            {station.nameZh}站附近餐厅
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {routeSummary(station.id)}
+          </p>
+        </div>
+        {available ? (
+          <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+            {openCount} 家营业中
+          </span>
         ) : null}
       </div>
-      <button
-        type="button"
-        disabled={!ready}
-        aria-pressed={checked}
-        onClick={() => onToggleCheckIn(restaurant.id)}
-        className={[
-          "min-h-11 touch-manipulation rounded-lg px-4 text-sm font-medium max-[420px]:w-full",
-          "transition-[background-color,color,transform] motion-reduce:transition-none active:scale-[0.98]",
-          "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-wait disabled:opacity-60",
-          checked
-            ? "bg-[#e4efe5] text-[#315b36] dark:bg-[#203427] dark:text-[#b7d3be]"
-            : "bg-foreground text-background hover:bg-foreground/85",
-        ].join(" ")}
-      >
-        {ready ? (checked ? "今天已打卡" : "今天吃过") : "读取打卡记录"}
-      </button>
-    </div>
+
+      {route.segments.length > 0 ? (
+        <ol className="sr-only" aria-label="当前最短路线">
+          {route.segments.map((segment) => (
+            <li key={segmentKey(segment.from, segment.to, segment.lineId)}>
+              {stationById.get(segment.from)?.nameZh}到
+              {stationById.get(segment.to)?.nameZh}，
+              {lineById.get(segment.lineId)?.nameZh}
+            </li>
+          ))}
+        </ol>
+      ) : null}
+
+      {available ? (
+        <>
+          <div className="mt-4 grid grid-cols-3 divide-x rounded-lg border bg-muted/20 py-3 text-center">
+            <div>
+              <p className="text-base font-semibold tabular-nums">
+                {restaurants.length}
+              </p>
+              <p className="text-[11px] text-muted-foreground">家餐厅</p>
+            </div>
+            <div>
+              <p className="text-base font-semibold tabular-nums">500m</p>
+              <p className="text-[11px] text-muted-foreground">收录范围</p>
+            </div>
+            <div>
+              <p className="text-base font-semibold tabular-nums">
+                {openCount}
+              </p>
+              <p className="text-[11px] text-muted-foreground">营业中</p>
+            </div>
+          </div>
+          <ul className="mt-4 space-y-2 text-sm">
+            {restaurants.slice(0, 3).map((restaurant) => (
+              <li
+                key={restaurant.id}
+                className="flex items-center justify-between gap-3"
+              >
+                <span className="min-w-0 truncate font-medium">
+                  {restaurant.sourceFacts.name}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {restaurant.foodle.walkMinutes
+                    ? `步行 ${restaurant.foodle.walkMinutes} 分钟`
+                    : "步行时间待补"}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href={`/food-map/stations/${station.id.toLowerCase()}`}
+            className="mt-5 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#672d7e] px-4 text-sm font-medium text-white transition-colors hover:bg-[#542267] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/40 dark:bg-[#c48fda] dark:text-[#211225] dark:hover:bg-[#d4a8e4]"
+          >
+            打开 {station.nameZh}餐厅地图
+            <ArrowRightIcon className="size-4" aria-hidden="true" />
+          </Link>
+        </>
+      ) : (
+        <div className="mt-5 rounded-lg border border-dashed bg-muted/20 px-4 py-5 text-sm leading-6 text-muted-foreground">
+          这一站暂未收录。当前只制作沙田和大埔墟，不会把校内餐厅重复放进来。
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MobileStationPreview({
+  station,
+  notice,
+  onClose,
+}: {
+  station: MtrStation;
+  notice: string | null;
+  onClose: () => void;
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  return (
+    <Drawer.Root
+      defaultOpen
+      onOpenChangeComplete={(open) => {
+        if (!open) onClose();
+      }}
+      swipeDirection="down"
+    >
+      <Drawer.Portal>
+        <Drawer.Backdrop className="fixed inset-0 z-40 bg-black/10 opacity-100 transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none" />
+        <Drawer.Viewport className="pointer-events-none fixed inset-0 z-50 flex items-end overflow-hidden">
+          <Drawer.Popup
+            data-testid="food-map-mobile-station-preview"
+            initialFocus={() => closeRef.current}
+            finalFocus={false}
+            className="pointer-events-auto max-h-[72dvh] w-full touch-manipulation overflow-y-auto overscroll-contain rounded-t-[1.25rem] border-t bg-background shadow-xl outline-none transition-transform duration-200 ease-out [transform:translateY(var(--drawer-swipe-movement-y))] data-ending-style:[transform:translateY(100%)] data-starting-style:[transform:translateY(100%)] data-swiping:transition-none motion-reduce:transition-none"
+            style={{
+              maxHeight: `${MOBILE_PREVIEW_MAX_VIEWPORT_RATIO * 100}dvh`,
+            }}
+          >
+            <div className="relative flex min-h-12 shrink-0 items-center justify-center border-b">
+              <div
+                data-testid="food-map-mobile-preview-handle"
+                className="h-1 w-10 rounded-full bg-muted-foreground/30"
+                aria-hidden="true"
+              />
+              <Drawer.Title render={<span />} className="sr-only">
+                {station.nameZh}站附近餐厅
+              </Drawer.Title>
+              <Drawer.Close
+                ref={closeRef}
+                aria-label="关闭站点摘要"
+                className="absolute right-2 grid size-11 touch-manipulation place-items-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <XIcon className="size-4" aria-hidden="true" />
+              </Drawer.Close>
+            </div>
+            <Drawer.Content>
+              <StationSummary station={station} notice={notice} mobile />
+            </Drawer.Content>
+          </Drawer.Popup>
+        </Drawer.Viewport>
+      </Drawer.Portal>
+    </Drawer.Root>
   );
 }
 
@@ -563,44 +685,10 @@ export function FoodMapView() {
   const [selectedStationId, setSelectedStationId] =
     useState<MtrStationId | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [today, setToday] = useState(hktDateKey);
-  const [checkins, setCheckins] = useState(emptyFoodMapCheckinStore);
-  const [checkinsReady, setCheckinsReady] = useState(false);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      setCheckins(
-        parseFoodMapCheckinStore(
-          window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
-        ),
-      );
-      setCheckinsReady(true);
-    }, 0);
-
-    return () => window.clearTimeout(timeout);
-  }, []);
-
-  useEffect(() => {
-    const refreshToday = () => {
-      if (document.visibilityState === "visible") setToday(hktDateKey());
-    };
-
-    window.addEventListener("focus", refreshToday);
-    document.addEventListener("visibilitychange", refreshToday);
-
-    return () => {
-      window.removeEventListener("focus", refreshToday);
-      document.removeEventListener("visibilitychange", refreshToday);
-    };
-  }, []);
-
-  const checkedIds = useMemo(
-    () => new Set(checkins.byDate[today] ?? []),
-    [checkins, today],
-  );
-  const mobileDiscoveryFocused = Boolean(
-    selectedStationId && hasFoodleRestaurants(selectedStationId),
-  );
+  const mobile = useMediaQuery("(max-width: 767px)");
+  const selectedStation = selectedStationId
+    ? (stationById.get(selectedStationId) ?? null)
+    : null;
 
   function changeBudget(nextBudget: FoodMapBudget) {
     setBudget(nextBudget);
@@ -629,30 +717,25 @@ export function FoodMapView() {
     setNotice(null);
   }
 
-  function toggleCheckIn(restaurantId: string) {
-    const activeToday = hktDateKey();
-    const next = toggleFoodMapCheckin(checkins, activeToday, restaurantId);
-
-    try {
-      window.localStorage.setItem(
-        FOOD_MAP_CHECKINS_STORAGE_KEY,
-        serializeFoodMapCheckinStore(next),
-      );
-      setToday(activeToday);
-      setCheckins(next);
-    } catch {
-      return;
-    }
+  function closeMobilePreview() {
+    const stationId = selectedStationId;
+    clearSelection();
+    requestAnimationFrame(() => {
+      if (!stationId) return;
+      document
+        .querySelector<HTMLButtonElement>(`[data-station-id="${stationId}"]`)
+        ?.focus();
+    });
   }
 
   return (
     <section
-      className="mx-auto mt-6 w-full max-w-[68rem] min-w-0 [--food-map-cu-foreground:#ffffff] [--food-map-cu:#672d7e] dark:[--food-map-cu-foreground:#211225] dark:[--food-map-cu:#c48fda]"
+      className="mx-auto mt-6 w-full max-w-[64rem] min-w-0 [--food-map-cu-foreground:#ffffff] [--food-map-cu:#672d7e] dark:[--food-map-cu-foreground:#211225] dark:[--food-map-cu:#c48fda]"
       aria-label="通勤食图"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#672d7e] text-sm font-medium text-white dark:bg-[#c48fda] dark:text-[#211225]">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#672d7e] text-xs font-semibold text-white dark:bg-[#c48fda] dark:text-[#211225]">
             CU
           </span>
           <div className="min-w-0">
@@ -671,50 +754,34 @@ export function FoodMapView() {
         <MapLegend />
       </div>
 
-      <div className="mt-3 grid min-w-0 gap-x-6 gap-y-3 md:grid-cols-[minmax(0,32rem)_minmax(20rem,1fr)] md:items-start lg:gap-x-9">
-        <div
-          className={[
-            "min-w-0",
-            mobileDiscoveryFocused
-              ? "max-md:max-h-[22rem] max-md:overflow-hidden max-md:border-b"
-              : "",
-          ].join(" ")}
-        >
+      <div className="mt-4 grid min-w-0 gap-x-6 gap-y-4 md:grid-cols-[minmax(0,33rem)_minmax(22rem,1fr)] md:items-start lg:gap-x-8">
+        <div className="min-w-0">
           <MtrSchematic
             budget={budget}
             selectedStationId={selectedStationId}
             onSelectStation={selectStation}
             onClearSelection={clearSelection}
-            mobileDiscoveryFocused={mobileDiscoveryFocused}
           />
         </div>
 
-        <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:sticky md:top-[calc(var(--navbar-height)+1.5rem)]">
-          <RestaurantDiscoveryPanel
-            key={selectedStationId ?? "no-station"}
-            station={
-              selectedStationId
-                ? (stationById.get(selectedStationId) ?? null)
-                : null
-            }
-            budget={budget}
-            notice={notice}
-          />
-        </div>
-
-        <div className="min-w-0 md:col-start-1 md:row-start-2">
-          <DetailPanel
-            stationId={selectedStationId}
-            notice={notice}
-            checkedIds={checkedIds}
-            ready={checkinsReady}
-            onToggleCheckIn={toggleCheckIn}
-          />
+        <div className="hidden min-w-0 md:sticky md:top-[calc(var(--navbar-height)+1.5rem)] md:block">
+          <StationSummary station={selectedStation} notice={notice} />
         </div>
       </div>
 
+      {mobile && selectedStation ? (
+        <MobileStationPreview
+          key={selectedStation.id}
+          station={selectedStation}
+          notice={notice}
+          onClose={closeMobilePreview}
+        />
+      ) : null}
+
       <p className="sr-only" aria-live="polite">
-        今天已打卡 {checkedIds.size} 家餐厅
+        {selectedStation
+          ? `已选择${selectedStation.nameZh}站`
+          : notice || "尚未选择目的地"}
       </p>
     </section>
   );

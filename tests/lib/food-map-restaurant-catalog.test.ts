@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   FOODLE_RESTAURANTS,
+  FOODLE_STATION_MAPS,
   getFoodleRestaurantsForStation,
+  getRestaurantHeat,
+  getRestaurantOpeningStatus,
   hasFoodleRestaurants,
+  isFoodleStationId,
 } from "@/lib/food-map/restaurant-catalog";
 
 describe("Foodle restaurant catalog", () => {
@@ -25,6 +29,9 @@ describe("Foodle restaurant catalog", () => {
       expect(restaurant.source.url).toContain(restaurant.source.externalId);
       expect(restaurant.sourceFacts.name.length).toBeGreaterThan(0);
       expect(["SHT", "TAP"]).toContain(restaurant.foodle.stationId);
+      expect(restaurant.location.distanceMeters).toBeLessThanOrEqual(
+        FOODLE_STATION_MAPS[restaurant.foodle.stationId].radiusMeters,
+      );
     }
   });
 
@@ -38,5 +45,35 @@ describe("Foodle restaurant catalog", () => {
           restaurant.foodle.averageScore === null,
       ),
     ).toBe(true);
+  });
+
+  it("derives current opening state in Hong Kong time", () => {
+    const restaurant = FOODLE_RESTAURANTS[0];
+    expect(
+      getRestaurantOpeningStatus(
+        restaurant,
+        new Date("2026-08-04T04:00:00.000Z"),
+      ),
+    ).toEqual({ state: "open", label: "营业中 · 22:00 关门" });
+    expect(
+      getRestaurantOpeningStatus(
+        restaurant,
+        new Date("2026-08-04T15:00:00.000Z"),
+      ).state,
+    ).toBe("closed");
+    expect(getRestaurantOpeningStatus(FOODLE_RESTAURANTS[3]).state).toBe(
+      "unknown",
+    );
+  });
+
+  it("uses a simple green-to-red heat scale with a fire tier", () => {
+    expect([5, 20, 60, 90].map(getRestaurantHeat)).toEqual([
+      "quiet",
+      "known",
+      "popular",
+      "hot",
+    ]);
+    expect(isFoodleStationId("SHT")).toBe(true);
+    expect(isFoodleStationId("UNI")).toBe(false);
   });
 });

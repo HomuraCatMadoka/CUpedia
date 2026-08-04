@@ -50,18 +50,6 @@ export interface MtrSegment {
   special?: boolean;
 }
 
-export type RestaurantPrice = "$" | "$$" | "$$$";
-
-export interface MockRestaurant {
-  id: string;
-  stationId: MtrStationId;
-  name: string;
-  cuisine: string;
-  price: RestaurantPrice;
-  walkMinutes: number;
-  note: string;
-}
-
 interface StationLayout {
   x: number;
   y: number;
@@ -270,110 +258,6 @@ export const MTR_SEGMENTS: readonly MtrSegment[] = [
   { from: "YMT", to: "JOR", lineId: "TWL", path: "M70 685 L30 735" },
 ];
 
-const RESTAURANT_OVERRIDES: Partial<
-  Record<MtrStationId, Omit<MockRestaurant, "stationId">>
-> = {
-  UNI: {
-    id: "university-tea-counter",
-    name: "范克廉楼",
-    cuisine: "港式两餸饭",
-    price: "$",
-    walkMinutes: 5,
-    note: "校内出发，适合快速解决一餐",
-  },
-  DIH: {
-    id: "diamond-hill-roast-rice",
-    name: "钻石山小馆",
-    cuisine: "叉烧饭",
-    price: "$$",
-    walkMinutes: 5,
-    note: "换乘后顺路，适合工作日简餐",
-  },
-  KOT: {
-    id: "kowloon-tong-curry",
-    name: "九龙塘食堂",
-    cuisine: "日式咖喱饭",
-    price: "$$",
-    walkMinutes: 6,
-    note: "邻近校园，座位较容易安排",
-  },
-  MOK: {
-    id: "mong-kok-egg-rice",
-    name: "旺角冰室",
-    cuisine: "滑蛋叉烧饭",
-    price: "$$",
-    walkMinutes: 6,
-    note: "适合放学后一起吃饭",
-  },
-  YMT: {
-    id: "yau-ma-tei-claypot-rice",
-    name: "油麻地小店",
-    cuisine: "煲仔饭",
-    price: "$$",
-    walkMinutes: 7,
-    note: "晚饭时段选择集中",
-  },
-  HUH: {
-    id: "hung-hom-set-meal",
-    name: "红磡冰室",
-    cuisine: "港式常餐",
-    price: "$",
-    walkMinutes: 5,
-    note: "路线直接，适合临时约饭",
-  },
-  ADM: {
-    id: "admiralty-chicken-rice",
-    name: "金钟小馆",
-    cuisine: "海南鸡饭",
-    price: "$$",
-    walkMinutes: 8,
-    note: "办公区午市选择集中",
-  },
-  MOS: {
-    id: "ma-on-shan-roast-meat",
-    name: "马鞍山街坊店",
-    cuisine: "烧味双拼饭",
-    price: "$$",
-    walkMinutes: 8,
-    note: "适合海滨散步后的晚餐",
-  },
-  SHT: {
-    id: "sht-mock-meal",
-    name: "新城市茶冰厅",
-    cuisine: "港式茶餐厅",
-    price: "$$",
-    walkMinutes: 4,
-    note: "沙田站附近的既有打卡示例",
-  },
-  TAP: {
-    id: "tap-mock-meal",
-    name: "墟市鱼蛋粉",
-    cuisine: "潮州粉面",
-    price: "$",
-    walkMinutes: 5,
-    note: "大埔墟站附近的既有打卡示例",
-  },
-};
-
-export const MOCK_RESTAURANTS: readonly MockRestaurant[] = MTR_STATIONS.map(
-  (station) => ({
-    stationId: station.id,
-    id: `${station.id.toLowerCase()}-mock-meal`,
-    name: `${station.nameZh}附近小店`,
-    cuisine: "今日推荐饭",
-    price: "$",
-    walkMinutes: 5,
-    note: "示例餐厅资料，之后可替换为真实饭店数据",
-    ...RESTAURANT_OVERRIDES[station.id],
-  }),
-);
-
 export function getReachableStations(budget: FoodMapBudget) {
   return MTR_STATIONS.filter((station) => station.minutes <= budget);
-}
-
-export function getRestaurantsForStation(stationId: MtrStationId) {
-  return MOCK_RESTAURANTS.filter(
-    (restaurant) => restaurant.stationId === stationId,
-  );
 }

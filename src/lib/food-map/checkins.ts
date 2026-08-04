@@ -78,7 +78,7 @@ export function serializeFoodMapCheckinStore(
   return JSON.stringify(normalizeFoodMapCheckinStore(store));
 }
 
-export function toggleFoodMapCheckin(
+export function recordFoodMapCheckin(
   store: FoodMapCheckinStore,
   date: string,
   restaurantId: string,
@@ -88,13 +88,20 @@ export function toggleFoodMapCheckin(
   if (!DATE_KEY.test(date) || !id) return current;
 
   const checked = current.byDate[date] ?? [];
-  const nextForDate = checked.includes(id)
-    ? checked.filter((candidate) => candidate !== id)
-    : [...checked, id];
-  const byDate = { ...current.byDate };
+  if (checked.includes(id)) return current;
 
-  if (nextForDate.length > 0) byDate[date] = nextForDate;
-  else delete byDate[date];
+  return {
+    version: STORE_VERSION,
+    byDate: { ...current.byDate, [date]: [...checked, id] },
+  };
+}
 
-  return { version: STORE_VERSION, byDate };
+export function countFoodMapVisits(
+  store: FoodMapCheckinStore,
+  restaurantId: string,
+) {
+  const current = normalizeFoodMapCheckinStore(store);
+  return Object.values(current.byDate).filter((ids) =>
+    ids.includes(restaurantId),
+  ).length;
 }

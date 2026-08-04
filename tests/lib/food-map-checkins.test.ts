@@ -4,8 +4,9 @@ import {
   emptyFoodMapCheckinStore,
   hktDateKey,
   parseFoodMapCheckinStore,
+  recordFoodMapCheckin,
   serializeFoodMapCheckinStore,
-  toggleFoodMapCheckin,
+  countFoodMapVisits,
 } from "@/lib/food-map/checkins";
 
 describe("hktDateKey", () => {
@@ -44,15 +45,18 @@ describe("food map check-in storage", () => {
     ).toEqual(parsed);
   });
 
-  it("toggles a restaurant on and off without mutating the input", () => {
+  it("records at most one immutable visit per restaurant each day", () => {
     const empty = emptyFoodMapCheckinStore();
-    const checked = toggleFoodMapCheckin(empty, "2026-07-27", "r1");
+    const checked = recordFoodMapCheckin(empty, "2026-07-27", "r1");
 
     expect(checked.byDate).toEqual({ "2026-07-27": ["r1"] });
     expect(empty.byDate).toEqual({});
 
-    const unchecked = toggleFoodMapCheckin(checked, "2026-07-27", "r1");
-    expect(unchecked).toEqual(emptyFoodMapCheckinStore());
+    const repeated = recordFoodMapCheckin(checked, "2026-07-27", "r1");
+    expect(repeated).toEqual(checked);
     expect(checked.byDate).toEqual({ "2026-07-27": ["r1"] });
+
+    const nextDay = recordFoodMapCheckin(checked, "2026-07-28", "r1");
+    expect(countFoodMapVisits(nextDay, "r1")).toBe(2);
   });
 });

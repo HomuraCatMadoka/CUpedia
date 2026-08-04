@@ -1,23 +1,19 @@
 // @vitest-environment jsdom
 
 import {
-  act,
   cleanup,
   fireEvent,
   render,
   screen,
-  waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { FoodMapView } from "@/components/food-map/food-map-view";
-import { FOOD_MAP_CHECKINS_STORAGE_KEY } from "@/lib/food-map/checkins";
 
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
-  vi.useRealTimers();
 });
 
 describe("FoodMapView", () => {
@@ -86,7 +82,7 @@ describe("FoodMapView", () => {
     ).toBeNull();
   });
 
-  it("opens restaurant discovery from Sha Tin without changing scope", () => {
+  it("opens the Sha Tin station summary without changing scope", () => {
     render(<FoodMapView />);
 
     const shaTin = screen.getByRole("button", {
@@ -95,11 +91,17 @@ describe("FoodMapView", () => {
     fireEvent.click(shaTin);
 
     expect(shaTin.getAttribute("aria-current")).toBe("true");
-    expect(screen.getByText("沙田站附近")).toBeTruthy();
     expect(
-      screen.getByText("30 分钟范围 · 港铁 7 分钟 · 4 家餐厅"),
+      screen.getByRole("heading", { name: "沙田站附近餐厅" }),
     ).toBeTruthy();
+    expect(screen.getByText("大学 → 沙田 · 7 分钟")).toBeTruthy();
+    expect(screen.getByText("500m")).toBeTruthy();
     expect(screen.getAllByText("新城市茶冰厅").length).toBeGreaterThan(0);
+    expect(
+      screen
+        .getByRole("link", { name: "打开 沙田餐厅地图" })
+        .getAttribute("href"),
+    ).toBe("/food-map/stations/sht");
   });
 
   it("shows the official shortest route to Diamond Hill", () => {
@@ -149,9 +151,10 @@ describe("FoodMapView", () => {
     expect(screen.getByText("大学 → 九龙塘 · 14 分钟")).toBeTruthy();
 
     fireEvent.click(kowloonTong);
-    expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "从地铁图选择一站" }),
+    ).toBeTruthy();
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "返回总览" })).toBeNull();
   });
 
   it("clears the route when University is clicked", () => {
@@ -160,7 +163,9 @@ describe("FoodMapView", () => {
     fireEvent.click(screen.getByRole("button", { name: "九龙塘，14 分钟" }));
     fireEvent.click(screen.getByRole("button", { name: "大学，0 分钟" }));
 
-    expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "从地铁图选择一站" }),
+    ).toBeTruthy();
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
   });
 
@@ -174,7 +179,9 @@ describe("FoodMapView", () => {
       }),
     );
 
-    expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "从地铁图选择一站" }),
+    ).toBeTruthy();
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
   });
 
@@ -184,71 +191,33 @@ describe("FoodMapView", () => {
     fireEvent.click(screen.getByRole("button", { name: "佐敦，30 分钟" }));
     fireEvent.click(screen.getByRole("button", { name: "20 分钟" }));
 
-    expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "从地铁图选择一站" }),
+    ).toBeTruthy();
     expect(screen.getAllByText("佐敦不在20分钟范围内")).toHaveLength(2);
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
     expect(screen.queryByRole("button", { name: "佐敦，30 分钟" })).toBeNull();
   });
 
-  it("stores a one-tap check-in for today", async () => {
+  it("keeps check-in actions out of the commute map", () => {
     render(<FoodMapView />);
 
-    const checkIn = await screen.findByRole("button", { name: "今天吃过" });
-    await waitFor(() =>
-      expect((checkIn as HTMLButtonElement).disabled).toBe(false),
-    );
-    fireEvent.click(checkIn);
-
-    expect(
-      screen
-        .getByRole("button", { name: "今天已打卡" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(
-      window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
-    ).toContain("university-tea-counter");
+    expect(screen.queryByRole("button", { name: "今天吃过" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "今天已打卡" })).toBeNull();
   });
 
-  it("keeps a station check-in while changing budget and selection", async () => {
+  it("links Tai Po Market to its own station map", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，20 分钟" }));
-    const checkIn = await screen.findByRole("button", { name: "今天吃过" });
-    await waitFor(() =>
-      expect((checkIn as HTMLButtonElement).disabled).toBe(false),
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "大埔墟，7 分钟，已有餐厅候选",
+      }),
     );
-    fireEvent.click(checkIn);
-
-    fireEvent.click(screen.getByRole("button", { name: "10 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "30 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，20 分钟" }));
-
     expect(
       screen
-        .getByRole("button", { name: "今天已打卡" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-  });
-
-  it("moves check-ins to the new Hong Kong date after midnight", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-26T15:59:59Z"));
-    render(<FoodMapView />);
-    act(() => vi.runOnlyPendingTimers());
-
-    fireEvent.click(screen.getByRole("button", { name: "今天吃过" }));
-
-    vi.setSystemTime(new Date("2026-07-26T16:00:00Z"));
-    fireEvent.focus(window);
-    fireEvent.click(screen.getByRole("button", { name: "今天吃过" }));
-
-    expect(
-      JSON.parse(
-        window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY) ?? "{}",
-      ).byDate,
-    ).toEqual({
-      "2026-07-26": ["university-tea-counter"],
-      "2026-07-27": ["university-tea-counter"],
-    });
+        .getByRole("link", { name: "打开 大埔墟餐厅地图" })
+        .getAttribute("href"),
+    ).toBe("/food-map/stations/tap");
   });
 });
