@@ -371,6 +371,22 @@ const RESTAURANT_OVERRIDES: Partial<
     walkMinutes: 8,
     note: "适合海滨散步后的晚餐",
   },
+  SHT: {
+    id: "sht-mock-meal",
+    name: "新城市茶冰厅",
+    cuisine: "港式茶餐厅",
+    price: "$$",
+    walkMinutes: 4,
+    note: "沙田站附近的既有打卡示例",
+  },
+  TAP: {
+    id: "tap-mock-meal",
+    name: "墟市鱼蛋粉",
+    cuisine: "潮州粉面",
+    price: "$",
+    walkMinutes: 5,
+    note: "大埔墟站附近的既有打卡示例",
+  },
 };
 
 export const MOCK_RESTAURANTS: readonly MockRestaurant[] = MTR_STATIONS.map(

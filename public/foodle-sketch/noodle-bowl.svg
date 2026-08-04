@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 540" role="img" aria-labelledby="title">
+  <title id="title">米线汤碗简笔插画</title>
+  <rect width="720" height="540" fill="#e8eee8"/>
+  <path d="M145 300h430c-18 122-86 183-215 183S163 422 145 300z" fill="#fffaf2" stroke="#2d2630" stroke-width="10" stroke-linejoin="round"/>
+  <ellipse cx="360" cy="300" rx="215" ry="70" fill="#dca861" stroke="#2d2630" stroke-width="10"/>
+  <path d="M220 292c44-42 89-42 135 0s92 42 140 0" fill="none" stroke="#672d7e" stroke-width="12" stroke-linecap="round"/>
+  <path d="M270 235c-16-36-6-68 30-95m72 97c-16-36-6-68 30-95m70 93c-16-36-6-68 30-95" fill="none" stroke="#2d2630" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="269" cy="314" r="26" fill="#e7d7b5" stroke="#2d2630" stroke-width="8"/>
+  <circle cx="447" cy="306" r="22" fill="#dbe6b7" stroke="#2d2630" stroke-width="8"/>
+</svg>

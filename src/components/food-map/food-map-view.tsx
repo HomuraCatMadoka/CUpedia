@@ -8,6 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
+import { RestaurantDiscoveryPanel } from "@/components/food-map/restaurant-discovery-panel";
 import {
   FOOD_MAP_BUDGETS,
   FOOD_MAP_ORIGIN_STATION_ID,
@@ -28,10 +29,7 @@ import {
   type HkDistrictId,
 } from "@/lib/food-map/districts";
 import { projectLngLat } from "@/lib/food-map/geo-projection";
-import {
-  HK_CANVAS,
-  HK_DISTRICT_GEOMETRY,
-} from "@/lib/food-map/hk-geometry";
+import { HK_CANVAS, HK_DISTRICT_GEOMETRY } from "@/lib/food-map/hk-geometry";
 import {
   HK_CONTINENT_LAND_PATH,
   HK_ISLAND_LAND_PATH,
@@ -53,6 +51,7 @@ import {
   serializeFoodMapCheckinStore,
   toggleFoodMapCheckin,
 } from "@/lib/food-map/checkins";
+import { hasFoodleRestaurants } from "@/lib/food-map/restaurant-catalog";
 import {
   getUniversityRoute,
   UNIVERSITY_JOURNEY_TIME_COUNTS,
@@ -200,15 +199,18 @@ function MapLegend() {
         />
         马场特别班次
       </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="h-2.5 w-2.5 rounded-full border-2 border-[#672d7e] dark:border-[#c48fda]"
+          aria-hidden="true"
+        />
+        已有餐厅候选
+      </span>
     </div>
   );
 }
 
-function DistrictLegend({
-  stations,
-}: {
-  stations: readonly MtrStation[];
-}) {
+function DistrictLegend({ stations }: { stations: readonly MtrStation[] }) {
   const visibleDistricts = useMemo(() => {
     const ids = new Set(stations.map((station) => station.districtId));
     return HK_DISTRICTS.filter((district) => ids.has(district.id));
@@ -237,10 +239,12 @@ function DistrictLegend({
 function StationNode({
   station,
   selected,
+  restaurantMapAvailable,
   scale,
 }: {
   station: MtrStation;
   selected: boolean;
+  restaurantMapAvailable: boolean;
   scale: number;
 }) {
   const line = lineById.get(station.lineIds[0] ?? "EAL");
@@ -248,6 +252,17 @@ function StationNode({
 
   return (
     <g aria-hidden="true">
+      {restaurantMapAvailable ? (
+        <circle
+          cx={station.position.x}
+          cy={station.position.y}
+          r={interchange ? 14 : 11}
+          fill="var(--background)"
+          stroke="var(--food-map-cu)"
+          strokeWidth="2.4"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
       {selected ? (
         <circle
           cx={station.position.x}
@@ -574,11 +589,9 @@ function MtrSchematic({
   const labelItems: LabelItem[] = shownLabelStations
     .map((station) => ({
       x:
-        station.position.x +
-        (station.label.x - station.position.x) * textScale,
+        station.position.x + (station.label.x - station.position.x) * textScale,
       y:
-        station.position.y +
-        (station.label.y - station.position.y) * textScale,
+        station.position.y + (station.label.y - station.position.y) * textScale,
       priority:
         (selectedStationId === station.id ? 4 : 0) +
         (MAJOR_LABEL_STATIONS.has(station.id) ? 2 : 0) +
@@ -862,6 +875,7 @@ function MtrSchematic({
             key={station.id}
             station={station}
             selected={selectedStationId === station.id}
+            restaurantMapAvailable={hasFoodleRestaurants(station.id)}
             scale={textScale}
           />
         ))}
@@ -869,8 +883,14 @@ function MtrSchematic({
         {declutteredStations.map((station) => (
           <text
             key={`label-${station.id}`}
-            x={station.position.x + (station.label.x - station.position.x) * textScale}
-            y={station.position.y + (station.label.y - station.position.y) * textScale}
+            x={
+              station.position.x +
+              (station.label.x - station.position.x) * textScale
+            }
+            y={
+              station.position.y +
+              (station.label.y - station.position.y) * textScale
+            }
             textAnchor={station.label.anchor}
             dominantBaseline="middle"
             fill="var(--foreground)"
@@ -910,30 +930,39 @@ function MtrSchematic({
         role="group"
         aria-label="选择目的地"
       >
-        {reachableStations.map((station) => (
-          <button
-            key={station.id}
-            type="button"
-            data-station-id={station.id}
-            aria-current={selectedStationId === station.id ? "true" : undefined}
-            aria-label={`${station.nameZh}，${
-              getHkDistrict(station.districtId).nameZh
-            }，${station.minutes} 分钟${
-              station.service === "special-event" ? "，特别班次" : ""
-            }`}
-            onClick={() => onSelectStation(station.id)}
-            className={[
-              "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
-              "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/45",
-            ].join(" ")}
-            style={{
-              width: hitSize,
-              height: hitSize,
-              left: `${((station.position.x - frame.x) / frame.width) * 100}%`,
-              top: `${((station.position.y - frame.y) / frame.height) * 100}%`,
-            }}
-          />
-        ))}
+        {reachableStations.map((station) => {
+          const restaurantMapAvailable = hasFoodleRestaurants(station.id);
+          const stationHitSize = restaurantMapAvailable ? 44 : hitSize;
+          const label = `${station.nameZh}，${
+            getHkDistrict(station.districtId).nameZh
+          }，${station.minutes} 分钟${
+            station.service === "special-event" ? "，特别班次" : ""
+          }${restaurantMapAvailable ? "，已有餐厅候选" : ""}`;
+
+          return (
+            <button
+              key={station.id}
+              type="button"
+              data-station-id={station.id}
+              aria-current={
+                selectedStationId === station.id ? "true" : undefined
+              }
+              aria-label={label}
+              onClick={() => onSelectStation(station.id)}
+              className={[
+                "pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 touch-manipulation rounded-full",
+                "focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/45",
+              ].join(" ")}
+              style={{
+                width: stationHitSize,
+                height: stationHitSize,
+                zIndex: restaurantMapAvailable ? 2 : 1,
+                left: `${((station.position.x - frame.x) / frame.width) * 100}%`,
+                top: `${((station.position.y - frame.y) / frame.height) * 100}%`,
+              }}
+            />
+          );
+        })}
       </div>
 
       {selectedStation ? (
@@ -1103,7 +1132,6 @@ export function FoodMapView() {
     () => new Set(checkins.byDate[today] ?? []),
     [checkins, today],
   );
-
   function changeBudget(nextBudget: FoodMapBudget) {
     setBudget(nextBudget);
     const selected = selectedStationId
@@ -1150,7 +1178,7 @@ export function FoodMapView() {
 
   return (
     <section
-      className="mx-auto mt-6 w-full max-w-[32rem] min-w-0 [--food-map-cu-foreground:#ffffff] [--food-map-cu:#672d7e] dark:[--food-map-cu-foreground:#211225] dark:[--food-map-cu:#c48fda]"
+      className="mx-auto mt-6 w-full max-w-[68rem] min-w-0 [--food-map-cu-foreground:#ffffff] [--food-map-cu:#672d7e] dark:[--food-map-cu-foreground:#211225] dark:[--food-map-cu:#c48fda]"
       aria-label="通勤食图"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1167,33 +1195,49 @@ export function FoodMapView() {
         </div>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 max-w-[32rem]">
         <CommuteFilter budget={budget} onChange={changeBudget} />
       </div>
-      <div className="mt-2">
+      <div className="mt-2 max-w-[32rem]">
         <MapLegend />
       </div>
       <div className="mt-1.5">
         <DistrictLegend stations={legendStations} />
       </div>
 
-      <div className="mt-2">
-        <MtrSchematic
-          key={budget}
-          budget={budget}
-          selectedStationId={selectedStationId}
-          onSelectStation={selectStation}
-          onClearSelection={clearSelection}
-        />
-      </div>
+      <div className="mt-3 grid min-w-0 gap-x-6 gap-y-3 md:grid-cols-[minmax(0,32rem)_minmax(20rem,1fr)] md:items-start lg:gap-x-9">
+        <div className="min-w-0">
+          <MtrSchematic
+            key={budget}
+            budget={budget}
+            selectedStationId={selectedStationId}
+            onSelectStation={selectStation}
+            onClearSelection={clearSelection}
+          />
+        </div>
 
-      <DetailPanel
-        stationId={selectedStationId}
-        notice={notice}
-        checkedIds={checkedIds}
-        ready={checkinsReady}
-        onToggleCheckIn={toggleCheckIn}
-      />
+        <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:sticky md:top-[calc(var(--navbar-height)+1.5rem)]">
+          <RestaurantDiscoveryPanel
+            station={
+              selectedStationId
+                ? (stationById.get(selectedStationId) ?? null)
+                : null
+            }
+            budget={budget}
+            notice={notice}
+          />
+        </div>
+
+        <div className="min-w-0 md:col-start-1 md:row-start-2">
+          <DetailPanel
+            stationId={selectedStationId}
+            notice={notice}
+            checkedIds={checkedIds}
+            ready={checkinsReady}
+            onToggleCheckIn={toggleCheckIn}
+          />
+        </div>
+      </div>
 
       <p className="sr-only" aria-live="polite">
         今天已打卡 {checkedIds.size} 家餐厅

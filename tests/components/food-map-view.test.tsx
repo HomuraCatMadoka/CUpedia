@@ -40,7 +40,7 @@ describe("FoodMapView", () => {
     expect(within(stationPicker).getAllByRole("button")).toHaveLength(43);
     expect(
       within(stationPicker).getByRole("button", {
-        name: "佐敦，油尖旺区，30 分钟",
+        name: "佐敦，油尖旺区，30 分钟，已有餐厅候选",
       }),
     ).toBeTruthy();
     expect(screen.getByText("观塘线")).toBeTruthy();
@@ -61,7 +61,7 @@ describe("FoodMapView", () => {
     ).toBeTruthy();
     expect(
       within(stationPicker).queryByRole("button", {
-        name: "九龙塘，九龙城区，14 分钟",
+        name: "九龙塘，九龙城区，14 分钟，已有餐厅候选",
       }),
     ).toBeNull();
     expect(screen.getByText("5 个日常目的地 + 马场特别班次")).toBeTruthy();
@@ -86,11 +86,76 @@ describe("FoodMapView", () => {
     ).toBeNull();
   });
 
+  it("opens an independent discovery surface and hides the map from assistive tech", async () => {
+    render(<FoodMapView />);
+
+    const shaTin = screen.getByRole("button", {
+      name: "沙田，沙田区，7 分钟，已有餐厅候选",
+    });
+    expect(shaTin.style.width).toBe("44px");
+    expect(shaTin.style.height).toBe("44px");
+    fireEvent.click(shaTin);
+
+    expect(shaTin.getAttribute("aria-current")).toBe("true");
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "打开 Foodle Match，沙田站 · 30 分钟范围，4 家餐厅",
+      }),
+    );
+    expect(
+      screen.getByRole("region", { name: "Foodle Match 餐厅发现" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "沙田站 · 30 分钟范围" }),
+    ).toBeTruthy();
+    expect(screen.getByText("本轮 4 家 · 港铁 7 分钟")).toBeTruthy();
+    expect(screen.getAllByText("新城市茶冰厅").length).toBeGreaterThan(0);
+    expect(
+      screen.queryByRole("button", {
+        name: "佐敦，油尖旺区，30 分钟，已有餐厅候选",
+      }),
+    ).toBeNull();
+    expect(document.body.children[0].getAttribute("aria-hidden")).toBe("true");
+  });
+
+  it("keeps an open discovery batch isolated from later map station changes", async () => {
+    render(<FoodMapView />);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "沙田，沙田区，7 分钟，已有餐厅候选",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "打开 Foodle Match，沙田站 · 30 分钟范围，4 家餐厅",
+      }),
+    );
+    expect(
+      screen.getByRole("heading", { name: "沙田站 · 30 分钟范围" }),
+    ).toBeTruthy();
+
+    const backgroundKowloonTong = document.querySelector<HTMLButtonElement>(
+      '[data-station-id="KOT"]',
+    );
+    expect(backgroundKowloonTong).toBeTruthy();
+    fireEvent.click(backgroundKowloonTong!);
+
+    expect(
+      screen.getByRole("region", { name: "Foodle Match 餐厅发现" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "沙田站 · 30 分钟范围" }),
+    ).toBeTruthy();
+  });
+
   it("shows the official shortest route to Diamond Hill", () => {
     render(<FoodMapView />);
 
     fireEvent.click(screen.getByRole("button", { name: "20 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }),
+    );
 
     expect(screen.getByText("大学 → 钻石山 · 20 分钟")).toBeTruthy();
     expect(screen.getByText("东铁线，在大围换乘屯马线")).toBeTruthy();
@@ -112,10 +177,16 @@ describe("FoodMapView", () => {
   it("keeps the Kwun Tong and Tsuen Wan paths distinct", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "油麻地，油尖旺区，26 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "油麻地，油尖旺区，26 分钟" }),
+    );
     expect(screen.getByText("旺角到油麻地，观塘线")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "佐敦，油尖旺区，30 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "佐敦，油尖旺区，30 分钟，已有餐厅候选",
+      }),
+    );
     expect(
       screen.getByText("东铁线，在九龙塘换乘观塘线，在旺角换乘荃湾线"),
     ).toBeTruthy();
@@ -127,7 +198,7 @@ describe("FoodMapView", () => {
     render(<FoodMapView />);
 
     const kowloonTong = screen.getByRole("button", {
-      name: "九龙塘，九龙城区，14 分钟",
+      name: "九龙塘，九龙城区，14 分钟，已有餐厅候选",
     });
     fireEvent.click(kowloonTong);
     expect(screen.getByText("大学 → 九龙塘 · 14 分钟")).toBeTruthy();
@@ -141,8 +212,14 @@ describe("FoodMapView", () => {
   it("clears the route when University is clicked", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "九龙塘，九龙城区，14 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "大学，沙田区，0 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "九龙塘，九龙城区，14 分钟，已有餐厅候选",
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "大学，沙田区，0 分钟" }),
+    );
 
     expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
@@ -151,7 +228,11 @@ describe("FoodMapView", () => {
   it("clears the route when the map background is double-clicked", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "九龙塘，九龙城区，14 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "九龙塘，九龙城区，14 分钟，已有餐厅候选",
+      }),
+    );
     fireEvent.dblClick(
       screen.getByRole("img", {
         name: /大学站30分钟内可达的43个车站/,
@@ -165,13 +246,21 @@ describe("FoodMapView", () => {
   it("explains when a smaller budget clears the selected station", () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "佐敦，油尖旺区，30 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "佐敦，油尖旺区，30 分钟，已有餐厅候选",
+      }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "20 分钟" }));
 
     expect(screen.getByText("大学 · 0 分钟")).toBeTruthy();
-    expect(screen.getByText("佐敦不在20分钟范围内")).toBeTruthy();
+    expect(screen.getAllByText("佐敦不在20分钟范围内")).toHaveLength(2);
     expect(screen.queryByRole("list", { name: "当前最短路线" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "佐敦，油尖旺区，30 分钟" })).toBeNull();
+    expect(
+      screen.queryByRole("button", {
+        name: "佐敦，油尖旺区，30 分钟，已有餐厅候选",
+      }),
+    ).toBeNull();
   });
 
   it("shows district context on the map, legend and detail panel", () => {
@@ -276,7 +365,9 @@ describe("FoodMapView", () => {
   it("keeps a station check-in while changing budget and selection", async () => {
     render(<FoodMapView />);
 
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }),
+    );
     const checkIn = await screen.findByRole("button", { name: "今天吃过" });
     await waitFor(() =>
       expect((checkIn as HTMLButtonElement).disabled).toBe(false),
@@ -285,7 +376,9 @@ describe("FoodMapView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "10 分钟" }));
     fireEvent.click(screen.getByRole("button", { name: "30 分钟" }));
-    fireEvent.click(screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "钻石山，黄大仙区，20 分钟" }),
+    );
 
     expect(
       screen
