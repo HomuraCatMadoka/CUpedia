@@ -12,7 +12,10 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FoodMapView } from "@/components/food-map/food-map-view";
-import { FOOD_MAP_CHECKINS_STORAGE_KEY } from "@/lib/food-map/checkins";
+import {
+  FOOD_MAP_CHECKINS_STORAGE_KEY,
+  hktDateKey,
+} from "@/lib/food-map/checkins";
 import {
   FOODLE_PENDING_INTENT_STORAGE_KEY,
   serializeFoodlePendingIntent,
@@ -141,6 +144,11 @@ describe("FoodMapView", () => {
     fireEvent.click(shaTin);
 
     expect(shaTin.getAttribute("aria-current")).toBe("true");
+    expect(
+      screen
+        .getByRole("link", { name: "打开 沙田餐厅地图" })
+        .getAttribute("href"),
+    ).toBe("/food-map/stations/sht");
     fireEvent.click(
       await screen.findByRole("button", {
         name: "打开 Foodle Match，沙田站 · 30 分钟范围，4 家餐厅",
@@ -402,8 +410,37 @@ describe("FoodMapView", () => {
         .getAttribute("aria-pressed"),
     ).toBe("true");
     expect(
+      (
+        screen.getByRole("button", {
+          name: "今天已打卡",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
       window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
     ).toContain("university-tea-counter");
+  });
+
+  it("merges a newer local check-in before writing", async () => {
+    render(<FoodMapView />);
+
+    const checkIn = await screen.findByRole("button", { name: "今天吃过" });
+    await waitFor(() =>
+      expect((checkIn as HTMLButtonElement).disabled).toBe(false),
+    );
+    const today = hktDateKey();
+    window.localStorage.setItem(
+      FOOD_MAP_CHECKINS_STORAGE_KEY,
+      JSON.stringify({ version: 1, byDate: { [today]: ["other-restaurant"] } }),
+    );
+
+    fireEvent.click(checkIn);
+
+    expect(
+      JSON.parse(
+        window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY) ?? "{}",
+      ).byDate[today],
+    ).toEqual(["other-restaurant", "university-tea-counter"]);
   });
 
   it("keeps a station check-in while changing budget and selection", async () => {

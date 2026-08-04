@@ -1,5 +1,6 @@
 export const FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY =
   "cupedia:foodle-candidate-decisions:v1";
+export const FOOD_MAP_WISHLIST_STORAGE_KEY = "cupedia:food-map-wishlist:v1";
 
 export type CandidateDecision = "saved" | "passed";
 export type CandidateDecisionState = "unseen" | CandidateDecision;
@@ -87,4 +88,16 @@ export function decideCandidate(
       [restaurantId]: { decision, decidedAt },
     },
   };
+}
+
+export function clearCandidateDecision(
+  store: CandidateDecisionStore,
+  restaurantId: string,
+): CandidateDecisionStore {
+  const id = restaurantId.trim();
+  if (!id || !store.byRestaurantId[id]) return store;
+
+  const byRestaurantId = { ...store.byRestaurantId };
+  delete byRestaurantId[id];
+  return { version: 1, byRestaurantId };
 }

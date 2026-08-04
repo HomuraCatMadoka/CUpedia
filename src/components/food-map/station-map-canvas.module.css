@@ -1,0 +1,162 @@
+.canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.mapStatus,
+.mapError {
+  position: absolute;
+  z-index: 2;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: color-mix(in oklab, var(--background) 94%, transparent);
+  color: var(--foreground);
+  box-shadow: 0 4px 16px rgb(15 23 42 / 10%);
+  backdrop-filter: blur(10px);
+}
+
+.mapStatus {
+  top: 1rem;
+  left: 50%;
+  padding: 0.625rem 0.875rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  transform: translateX(-50%);
+}
+
+.mapError {
+  top: 1rem;
+  right: 1rem;
+  width: min(20rem, calc(100% - 2rem));
+  padding: 1rem;
+  pointer-events: none;
+  text-align: left;
+}
+
+.mapError button {
+  pointer-events: auto;
+}
+
+.markerWrap {
+  position: relative;
+  width: 44px;
+  height: 50px;
+}
+
+.markerButton {
+  position: absolute;
+  inset: 0 0 auto;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 999px;
+  color: white;
+  font:
+    700 11px/1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 22%);
+  outline: none;
+  touch-action: manipulation;
+}
+
+.markerButton::after {
+  position: absolute;
+  bottom: -5px;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid white;
+  border-bottom: 2px solid white;
+  background: inherit;
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.markerButton:focus-visible,
+.markerButton[data-selected="true"],
+.markerButton[data-highlighted="true"] {
+  box-shadow:
+    0 0 0 3px rgb(255 255 255 / 95%),
+    0 0 0 6px rgb(103 45 126 / 78%);
+}
+
+@media (hover: hover) {
+  .markerButton:hover {
+    box-shadow:
+      0 0 0 3px rgb(255 255 255 / 95%),
+      0 0 0 6px rgb(103 45 126 / 78%);
+  }
+}
+
+.quiet {
+  background: #26734a;
+}
+
+.known {
+  background: #96500a;
+}
+
+.popular,
+.hot {
+  background: #c83f3f;
+}
+
+.fire {
+  position: absolute;
+  top: -8px;
+  right: -7px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 999px;
+  background: #fff7ed;
+  font-size: 11px;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 1px 4px rgb(15 23 42 / 16%);
+}
+
+.canvas :global(.maplibregl-ctrl-group button) {
+  width: 44px;
+  height: 44px;
+}
+
+.stationMarker {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 3px solid white;
+  border-radius: 8px;
+  background: #672d7e;
+  color: white;
+  font:
+    700 10px/1 ui-sans-serif,
+    system-ui,
+    sans-serif;
+  box-shadow: 0 2px 8px rgb(15 23 42 / 20%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .markerButton:focus-visible,
+  .markerButton[data-selected="true"],
+  .markerButton[data-highlighted="true"] {
+    box-shadow:
+      0 0 0 3px rgb(30 30 30 / 95%),
+      0 0 0 6px rgb(196 143 218 / 82%);
+  }
+
+  @media (hover: hover) {
+    .markerButton:hover {
+      box-shadow:
+        0 0 0 3px rgb(30 30 30 / 95%),
+        0 0 0 6px rgb(196 143 218 / 82%);
+    }
+  }
+}

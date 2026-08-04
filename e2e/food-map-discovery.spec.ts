@@ -1,4 +1,23 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { Client } from "pg";
+
+import { loginWithPassword } from "./helpers/auth";
+
+const FOODLE_TEST_USER = "user@test.com";
+
+async function resetFoodleTestUser() {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    await client.query(
+      `delete from foodle_user_states
+        where user_id = (select id from users where email = $1)`,
+      [FOODLE_TEST_USER],
+    );
+  } finally {
+    await client.end();
+  }
+}
 
 async function openFoodle(page: Page) {
   const entry = page.getByRole("button", { name: /打开 Foodle Match，/u });
@@ -28,6 +47,15 @@ async function dragCard(
 }
 
 test.describe("#500 Foodle restaurant discovery", () => {
+  test.beforeEach(async ({ page }) => {
+    await resetFoodleTestUser();
+    await loginWithPassword(page, FOODLE_TEST_USER, "password123");
+  });
+
+  test.afterEach(async () => {
+    await resetFoodleTestUser();
+  });
+
   test("enters an independent scoped deck and keeps saved candidates", async ({
     page,
   }) => {
@@ -230,5 +258,151 @@ test.describe("#500 Foodle restaurant discovery", () => {
           document.documentElement.clientWidth,
       ),
     ).toBe(true);
+  });
+});
+
+test.describe("Foodle station restaurant maps", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => window.localStorage.clear());
+  });
+
+  test("opens a station explorer from the commute map", async ({ page }) => {
+    test.setTimeout(60_000);
+    const response = await page.goto("/food-map");
+    expect(response?.status()).toBe(200);
+
+    await page
+      .getByRole("button", {
+        name: "沙田，沙田区，7 分钟，已有餐厅候选",
+      })
+      .click();
+    const stationMapLink = page.getByRole("link", {
+      name: "打开 沙田餐厅地图",
+    });
+    await expect(stationMapLink).toBeVisible();
+    await stationMapLink.click();
+
+    await expect(page).toHaveURL(/\/food-map\/stations\/sht$/u);
+    await expect(
+      page.getByRole("heading", { name: "沙田站附近" }),
+    ).toBeVisible();
+    await expect(page.getByText("500 米 · 4 家餐厅")).toBeVisible();
+    await expect(page.locator('[data-map-state="ready"]')).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText("地图暂时无法载入")).toHaveCount(0);
+  });
+
+  test("filters, synchronizes selection and records one daily visit", async ({
+    page,
+  }) => {
+    await page.goto("/food-map/stations/sht");
+
+    await page.getByPlaceholder("搜索餐厅或菜系").fill("米线");
+    await expect(page.getByText("1 个结果")).toBeVisible();
+    await expect(page.getByRole("button", { name: /城河米线/u })).toBeVisible();
+    await page.getByPlaceholder("搜索餐厅或菜系").clear();
+
+    const newCityListItem = page.getByRole("button", {
+      name: /^新城市茶冰厅 港式/u,
+    });
+    const newCityMarker = page.locator('[data-foodle-marker="sht-mock-meal"]');
+    await newCityListItem.click();
+    const details = page.getByRole("complementary", {
+      name: "新城市茶冰厅详情",
+    });
+    await expect(details).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "新城市茶冰厅", level: 2 }),
+    ).toBeFocused();
+    await expect(newCityMarker).toHaveAttribute("aria-pressed", "true");
+    await details.getByRole("button", { name: "想吃", exact: true }).click();
+    await expect(
+      details.getByRole("button", { name: "已想吃", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await details
+      .getByRole("button", { name: "记录到访", exact: true })
+      .click();
+
+    const confirmation = page.getByRole("dialog", { name: "记录今天到访" });
+    await expect(confirmation).toContainText("不可撤销或删除");
+    await confirmation
+      .getByRole("button", { name: "记录到访", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "今天已记录" }),
+    ).toBeDisabled();
+    await expect(details.getByText("我的到访", { exact: true })).toBeVisible();
+    await expect(details.getByText("1 次", { exact: true })).toBeVisible();
+    await expect(
+      details.getByRole("button", { name: "已想吃", exact: true }),
+    ).toHaveCount(0);
+    await expect(page.getByText("累计 59 次打卡")).toBeVisible();
+    await expect(newCityMarker).toHaveAccessibleName(
+      "新城市茶冰厅，累计打卡 59 次",
+    );
+
+    await page.getByRole("button", { name: "返回餐厅列表" }).click();
+    await expect(newCityListItem).toBeFocused();
+    await expect(newCityListItem).toContainText("59 次");
+    await expect(newCityListItem).toContainText("去过 1 次");
+    await expect(newCityListItem).not.toContainText("想吃");
+
+    await page.getByRole("button", { name: "去过，1 家", exact: true }).click();
+    await expect(page.getByText("1 个结果")).toBeVisible();
+    await expect(newCityListItem).toBeVisible();
+    await page.getByRole("button", { name: "全部餐厅", exact: true }).click();
+
+    const noodleListItem = page.getByRole("button", {
+      name: /^城河米线 滇菜/u,
+    });
+    await noodleListItem.click();
+    await expect(newCityMarker).toHaveAttribute("aria-pressed", "false");
+    await expect(
+      page.locator('[data-foodle-marker="foodle-sht-002"]'),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await page.getByPlaceholder("搜索餐厅或菜系").fill("寿司");
+    await expect(
+      page.getByRole("complementary", { name: "城河米线详情" }),
+    ).toHaveCount(0);
+    await expect(page.getByText("1 个结果")).toBeVisible();
+  });
+
+  test("uses mobile filters, list mode and a bottom detail sheet", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/food-map/stations/tap");
+
+    await page.getByRole("button", { name: "筛选餐厅" }).click();
+    const filters = page.getByRole("dialog", { name: "筛选餐厅" });
+    await expect(filters).toBeVisible();
+    await filters.getByRole("button", { name: "粤菜", exact: true }).click();
+    await expect(filters.getByText("当前有 1 家符合条件")).toBeVisible();
+    await filters.getByRole("button", { name: "重置" }).click();
+    await expect(filters.getByText("当前有 4 家符合条件")).toBeVisible();
+    await filters.getByRole("button", { name: "查看 4 家餐厅" }).click();
+    await expect(filters).toBeHidden();
+
+    await page.getByRole("button", { name: "列表", exact: true }).click();
+    await expect(page.getByText("4 个结果")).toBeVisible();
+    await page.getByRole("button", { name: /墟市鱼蛋粉/u }).click();
+
+    const details = page.getByRole("dialog", { name: "墟市鱼蛋粉" });
+    await expect(details).toBeVisible();
+    await expect(
+      details.getByRole("link", { name: "在 Google Maps 打开" }),
+    ).toHaveAttribute("href", /google\.com\/maps\/dir/u);
+    await expect(
+      page.evaluate(
+        () =>
+          document.documentElement.scrollWidth ===
+          document.documentElement.clientWidth,
+      ),
+    ).resolves.toBe(true);
+
+    await details.getByRole("button", { name: "关闭餐厅详情" }).click();
+    await expect(details).toBeHidden();
   });
 });
