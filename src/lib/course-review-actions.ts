@@ -17,6 +17,8 @@ import { revalidatePath, unstable_cache } from "next/cache";
 import { db } from "@/db";
 import {
   achievementProfiles,
+  courseInstructors,
+  courseOfferingInstructors,
   courseRatings,
   courseRatingProfessors,
   courseEnrollments,
@@ -28,6 +30,7 @@ import {
   professorCourses,
   professorStaffIdentities,
   professors,
+  staffAliases,
   staffOrganisationAffiliations,
   staffOrganisations,
   staffPeople,
@@ -264,13 +267,31 @@ const storedReviewTagSelection = {
 const storedRatingProfessors = sql<ProfessorOption[]>`coalesce((
   select jsonb_agg(
     jsonb_build_object(
-      'id', selected_professor.professor_id,
-      'name', selected_professor.professor_name_snapshot
+      'id', canonical_professor.id,
+      'name', canonical_professor.name
     )
-    order by selected_professor.professor_name_snapshot
+    order by canonical_professor.name
   )
-  from ${courseRatingProfessors} selected_professor
-  where selected_professor.rating_id = ${courseRatings.id}
+  from (
+    select distinct on (
+      coalesce(
+        selected_professor.instructor_person_id,
+        selected_identity.person_id,
+        selected_professor.professor_id
+      )
+    )
+      coalesce(
+        selected_professor.instructor_person_id,
+        selected_identity.person_id,
+        selected_professor.professor_id
+      ) as id,
+      selected_professor.professor_name_snapshot as name
+    from ${courseRatingProfessors} selected_professor
+    left join ${professorStaffIdentities} selected_identity
+      on selected_identity.professor_id = selected_professor.professor_id
+    where selected_professor.rating_id = ${courseRatings.id}
+    order by id, selected_professor.professor_name_snapshot
+  ) canonical_professor
 ), '[]'::jsonb)`;
 
 function selectedProfessors(
@@ -502,7 +523,11 @@ export async function getMyCourseReviewHistory(): Promise<
       score: courseRatings.score,
       academicYear: courseRatings.academicYear,
       term: courseRatings.term,
-      professorId: courseRatings.professorId,
+      professorId: sql<string | null>`coalesce(
+        ${courseRatings.instructorPersonId},
+        ${professorStaffIdentities.personId},
+        ${courseRatings.professorId}
+      )`,
       professorName: sql<
         string | null
       >`coalesce(${courseRatings.professorNameSnapshot}, ${professors.name})`,
@@ -521,6 +546,10 @@ export async function getMyCourseReviewHistory(): Promise<
     .from(courseRatings)
     .innerJoin(courses, eq(courseRatings.courseCode, courses.code))
     .leftJoin(professors, eq(courseRatings.professorId, professors.id))
+    .leftJoin(
+      professorStaffIdentities,
+      eq(courseRatings.professorId, professorStaffIdentities.professorId),
+    )
     .where(eq(courseRatings.userId, user.id))
     .orderBy(desc(courseRatings.createdAt));
 
@@ -738,13 +767,21 @@ export async function getCourseRatingState(
       score: courseRatings.score,
       academicYear: courseRatings.academicYear,
       term: courseRatings.term,
-      professorId: courseRatings.professorId,
+      professorId: sql<string | null>`coalesce(
+        ${courseRatings.instructorPersonId},
+        ${professorStaffIdentities.personId},
+        ${courseRatings.professorId}
+      )`,
       professorName: courseRatings.professorNameSnapshot,
       professors: storedRatingProfessors,
       storedTags: storedReviewTagSelection,
       isAnonymous: courseRatings.isAnonymous,
     })
     .from(courseRatings)
+    .leftJoin(
+      professorStaffIdentities,
+      eq(courseRatings.professorId, professorStaffIdentities.professorId),
+    )
     .where(
       and(
         eq(courseRatings.courseCode, course.code),
@@ -806,7 +843,11 @@ export async function getCourseReviews(
         )`,
         userId: courseReviews.userId,
         isAnonymous: courseReviews.isAnonymous,
-        professorId: courseReviews.professorId,
+        professorId: sql<string | null>`coalesce(
+          ${courseReviews.instructorPersonId},
+          ${professorStaffIdentities.personId},
+          ${courseReviews.professorId}
+        )`,
         professorName: sql<
           string | null
         >`coalesce(${courseReviews.professorNameSnapshot}, ${professors.name})`,
@@ -822,6 +863,10 @@ export async function getCourseReviews(
       })
       .from(courseReviews)
       .leftJoin(professors, eq(courseReviews.professorId, professors.id))
+      .leftJoin(
+        professorStaffIdentities,
+        eq(courseReviews.professorId, professorStaffIdentities.professorId),
+      )
       .innerJoin(users, eq(courseReviews.userId, users.id))
       .leftJoin(
         courseRatings,
@@ -905,10 +950,20 @@ export async function getCourseReviews(
 
 const getCachedProfessorSearchCorpus = unstable_cache(
   async (courseCode: string) => {
-    const candidates = await db
+    const rows = await db
       .select({
-        id: professors.id,
-        name: professors.name,
+        id: courseInstructors.personId,
+        name: staffPeople.canonicalName,
+        searchText: sql<string>`concat_ws(
+          ' ',
+          ${professors.searchText},
+          ${staffPeople.canonicalName},
+          (
+            select string_agg(alias.alias, ' ' order by alias.alias)
+            from ${staffAliases} alias
+            where alias.person_id = ${staffPeople.id}
+          )
+        )`,
         courseCode: professorCourses.courseCode,
         description: sql<string | null>`(
           select string_agg(distinct organisation.name, ' · ' order by organisation.name)
@@ -920,29 +975,40 @@ const getCachedProfessorSearchCorpus = unstable_cache(
             and organisation.is_current = true
         )`,
       })
-      .from(professors)
+      .from(courseInstructors)
+      .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
+      .leftJoin(
+        professorStaffIdentities,
+        eq(courseInstructors.personId, professorStaffIdentities.personId),
+      )
+      .leftJoin(
+        professors,
+        eq(professorStaffIdentities.professorId, professors.id),
+      )
       .leftJoin(
         professorCourses,
         and(
-          eq(professors.id, professorCourses.professorId),
+          eq(courseInstructors.personId, professorCourses.instructorPersonId),
           eq(professorCourses.courseCode, courseCode),
         ),
       )
-      .leftJoin(
-        professorStaffIdentities,
-        eq(professors.id, professorStaffIdentities.professorId),
-      )
-      .leftJoin(
-        staffPeople,
-        eq(professorStaffIdentities.personId, staffPeople.id),
-      )
-      .orderBy(professors.name);
+      .orderBy(staffPeople.canonicalName);
+    const candidateByPerson = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      const existing = candidateByPerson.get(row.id);
+      candidateByPerson.set(row.id, {
+        ...row,
+        searchText: `${existing?.searchText ?? ""} ${row.searchText}`.trim(),
+        courseCode: existing?.courseCode ?? row.courseCode,
+      });
+    }
+    const candidates = [...candidateByPerson.values()];
     return {
       candidates,
       index: buildProfessorSearchIndex(candidates),
     };
   },
-  ["course-review-professor-search"],
+  ["course-review-professor-search-v2"],
   { revalidate: 300, tags: ["professor-catalog"] },
 );
 
@@ -953,85 +1019,98 @@ export async function getCourseProfessorStats(
   code: string,
 ): Promise<CourseProfessorStats[]> {
   const courseCode = normalizeCode(code);
+  const selectedInstructors = db
+    .select({
+      ratingId: courseRatingProfessors.ratingId,
+      personId: courseRatingProfessors.instructorPersonId,
+    })
+    .from(courseRatingProfessors)
+    .where(sql`${courseRatingProfessors.instructorPersonId} is not null`)
+    .groupBy(
+      courseRatingProfessors.ratingId,
+      courseRatingProfessors.instructorPersonId,
+    )
+    .as("selected_instructors");
   const selectedProfessorId = sql<string | null>`coalesce(
-    ${courseRatingProfessors.professorId},
-    ${courseRatings.professorId}
+    ${selectedInstructors.personId},
+    ${courseRatings.instructorPersonId}
   )`;
-  const [professorRows, ratingRows, enrollmentRows, tagRows] =
-    await Promise.all([
-      db
-        .select({ id: professors.id, name: professors.name })
-        .from(professors)
-        .where(
-          or(
-            sql`exists (
+  const [professorRows, ratingRows, offeringRows, tagRows] = await Promise.all([
+    db
+      .select({
+        id: courseInstructors.personId,
+        name: staffPeople.canonicalName,
+      })
+      .from(courseInstructors)
+      .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
+      .where(
+        or(
+          sql`exists (
             select 1 from ${professorCourses} professor_course
-            where professor_course.professor_id = ${professors.id}
+            where professor_course.instructor_person_id = ${courseInstructors.personId}
               and professor_course.course_code = ${courseCode}
           )`,
-            sql`exists (
+          sql`exists (
             select 1 from ${courseRatings} rating
-            where rating.professor_id = ${professors.id}
+            where rating.instructor_person_id = ${courseInstructors.personId}
               and rating.course_code = ${courseCode}
           )`,
-            sql`exists (
+          sql`exists (
             select 1
             from ${courseRatingProfessors} selected_professor
             inner join ${courseRatings} selected_rating
               on selected_rating.id = selected_professor.rating_id
-            where selected_professor.professor_id = ${professors.id}
+            where selected_professor.instructor_person_id = ${courseInstructors.personId}
               and selected_rating.course_code = ${courseCode}
           )`,
-          ),
-        )
-        .orderBy(professors.name),
-      db
-        .select({
-          professorId: selectedProfessorId,
-          academicYear: courseRatings.academicYear,
-          term: courseRatings.term,
-          avg: sql<string | null>`avg(${courseRatings.score})`,
-          cnt: count(),
-        })
-        .from(courseRatings)
-        .leftJoin(
-          courseRatingProfessors,
-          eq(courseRatingProfessors.ratingId, courseRatings.id),
-        )
-        .where(eq(courseRatings.courseCode, courseCode))
-        .groupBy(
-          selectedProfessorId,
-          courseRatings.academicYear,
-          courseRatings.term,
         ),
-      db
-        .select({
-          academicYear: courseEnrollments.academicYear,
-          term: courseEnrollments.term,
-          instructors: courseEnrollments.instructors,
-        })
-        .from(courseEnrollments)
-        .where(eq(courseEnrollments.courseCode, courseCode)),
-      db
-        .select({
-          professorId: selectedProfessorId,
-          storedTags: storedReviewTagSelection,
-        })
-        .from(courseRatings)
-        .leftJoin(
-          courseRatingProfessors,
-          eq(courseRatingProfessors.ratingId, courseRatings.id),
-        )
-        .where(eq(courseRatings.courseCode, courseCode)),
-    ]);
+      )
+      .orderBy(staffPeople.canonicalName),
+    db
+      .select({
+        professorId: selectedProfessorId,
+        academicYear: courseRatings.academicYear,
+        term: courseRatings.term,
+        avg: sql<string | null>`avg(${courseRatings.score})`,
+        cnt: count(),
+      })
+      .from(courseRatings)
+      .leftJoin(
+        selectedInstructors,
+        eq(selectedInstructors.ratingId, courseRatings.id),
+      )
+      .where(eq(courseRatings.courseCode, courseCode))
+      .groupBy(
+        selectedProfessorId,
+        courseRatings.academicYear,
+        courseRatings.term,
+      ),
+    db
+      .select({
+        professorId: courseOfferingInstructors.personId,
+        academicYear: courseOfferingInstructors.academicYear,
+        term: courseOfferingInstructors.term,
+      })
+      .from(courseOfferingInstructors)
+      .where(
+        and(
+          eq(courseOfferingInstructors.courseCode, courseCode),
+          sql`${courseOfferingInstructors.personId} is not null`,
+        ),
+      ),
+    db
+      .select({
+        professorId: selectedProfessorId,
+        storedTags: storedReviewTagSelection,
+      })
+      .from(courseRatings)
+      .leftJoin(
+        selectedInstructors,
+        eq(selectedInstructors.ratingId, courseRatings.id),
+      )
+      .where(eq(courseRatings.courseCode, courseCode)),
+  ]);
 
-  const normalizeName = (name: string) => name.trim().toLocaleLowerCase();
-  const professorIdByName = new Map(
-    professorRows.map((professor) => [
-      normalizeName(professor.name),
-      professor.id,
-    ]),
-  );
   const taughtTerms = new Map<string, Set<string>>();
   const addTerm = (professorId: string, academicYear: string, term: string) => {
     if (!(COURSE_TERMS as readonly string[]).includes(term)) return;
@@ -1039,11 +1118,13 @@ export async function getCourseProfessorStats(
     terms.add(`${academicYear}\0${term}`);
     taughtTerms.set(professorId, terms);
   };
-  for (const row of enrollmentRows) {
-    for (const instructor of row.instructors) {
-      const professorId = professorIdByName.get(normalizeName(instructor));
-      if (professorId) addTerm(professorId, row.academicYear, row.term);
-    }
+  for (const row of offeringRows) {
+    if (!row.professorId) continue;
+    addTerm(
+      row.professorId,
+      row.academicYear,
+      row.term === "Summer Session" ? "Summer" : row.term,
+    );
   }
 
   const ratingsByProfessor = new Map<
@@ -1412,24 +1493,60 @@ export async function submitCourseReview(
     ),
   ];
   if (professorIds.length > 20) throw new Error("任课教授数量过多");
-  let selectedProfessorRows: { id: string; name: string }[] = [];
+  let selectedProfessorsInOrder: Array<{
+    id: string;
+    legacyProfessorId: string;
+    name: string;
+  }> = [];
   if (professorIds.length) {
-    selectedProfessorRows = await db
-      .select({ id: professors.id, name: professors.name })
+    const catalogRows = await db
+      .select({
+        legacyProfessorId: professors.id,
+        name: sql<string>`coalesce(${staffPeople.canonicalName}, ${professors.name})`,
+        personId: professorStaffIdentities.personId,
+      })
       .from(professors)
-      .where(inArray(professors.id, professorIds));
-    if (selectedProfessorRows.length !== professorIds.length) {
-      throw new Error("请选择教授目录中的教授");
+      .innerJoin(
+        professorStaffIdentities,
+        eq(professors.id, professorStaffIdentities.professorId),
+      )
+      .innerJoin(
+        staffPeople,
+        eq(professorStaffIdentities.personId, staffPeople.id),
+      )
+      .innerJoin(
+        courseInstructors,
+        eq(professorStaffIdentities.personId, courseInstructors.personId),
+      )
+      .where(
+        or(
+          inArray(professors.id, professorIds),
+          inArray(professorStaffIdentities.personId, professorIds),
+        ),
+      )
+      .orderBy(professors.id);
+    const selectedByPerson = new Map<
+      string,
+      (typeof selectedProfessorsInOrder)[number]
+    >();
+    for (const requestedId of professorIds) {
+      const match =
+        catalogRows.find((row) => row.personId === requestedId) ??
+        catalogRows.find((row) => row.legacyProfessorId === requestedId);
+      if (!match) throw new Error("请选择教授目录中的教授");
+      if (!match.personId) {
+        throw new Error("教授身份资料尚未完成迁移，请稍后再试");
+      }
+      selectedByPerson.set(match.personId, {
+        id: match.personId,
+        legacyProfessorId: match.legacyProfessorId,
+        name: match.name,
+      });
     }
+    selectedProfessorsInOrder = [...selectedByPerson.values()];
   } else if (!(await isCourseProfessorOptional(course.code))) {
     throw new Error("请选择任课教授");
   }
-  const professorById = new Map(
-    selectedProfessorRows.map((professor) => [professor.id, professor]),
-  );
-  const selectedProfessorsInOrder = professorIds.map(
-    (id) => professorById.get(id)!,
-  );
   const primaryProfessor = selectedProfessorsInOrder[0] ?? null;
 
   const existingReviews = await db
@@ -1454,7 +1571,8 @@ export async function submitCourseReview(
         score: submission.score,
         academicYear: submission.academicYear,
         term: submission.term,
-        professorId: primaryProfessor?.id ?? null,
+        professorId: primaryProfessor?.legacyProfessorId ?? null,
+        instructorPersonId: primaryProfessor?.id ?? null,
         professorNameSnapshot: primaryProfessor?.name ?? null,
         isAnonymous,
         ...structuredTags,
@@ -1465,7 +1583,8 @@ export async function submitCourseReview(
           score: submission.score,
           academicYear: submission.academicYear,
           term: submission.term,
-          professorId: primaryProfessor?.id ?? null,
+          professorId: primaryProfessor?.legacyProfessorId ?? null,
+          instructorPersonId: primaryProfessor?.id ?? null,
           professorNameSnapshot: primaryProfessor?.name ?? null,
           isAnonymous,
           ...structuredTags,
@@ -1482,19 +1601,22 @@ export async function submitCourseReview(
       if (selectedProfessorsInOrder.length) {
         await tx.execute(sql`
           insert into ${courseRatingProfessors} (
-            rating_id, professor_id, professor_name_snapshot
+            rating_id, professor_id, instructor_person_id,
+            professor_name_snapshot
           )
-          select ${savedRating.id}, selected.id, selected.name
+          select ${savedRating.id}, selected."legacyProfessorId", selected.id,
+                 selected.name
           from jsonb_to_recordset(
             ${JSON.stringify(selectedProfessorsInOrder)}::jsonb
-          ) as selected(id text, name text)
+          ) as selected(id text, "legacyProfessorId" text, name text)
         `);
       }
     }
 
     const reviewValues = {
       content,
-      professorId: primaryProfessor?.id ?? null,
+      professorId: primaryProfessor?.legacyProfessorId ?? null,
+      instructorPersonId: primaryProfessor?.id ?? null,
       professorNameSnapshot: primaryProfessor?.name ?? null,
       academicYear: submission.academicYear,
       term: submission.term,

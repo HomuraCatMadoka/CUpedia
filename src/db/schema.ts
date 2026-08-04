@@ -400,6 +400,10 @@ export const courseRatings = pgTable(
     academicYear: text("academic_year"),
     term: text("term"),
     professorId: text("professor_id").references(() => professors.id),
+    instructorPersonId: text("instructor_person_id").references(
+      () => courseInstructors.personId,
+      { onDelete: "restrict" },
+    ),
     professorNameSnapshot: text("professor_name_snapshot"),
     workload: text("workload"),
     grade: text("grade"),
@@ -418,6 +422,9 @@ export const courseRatings = pgTable(
     uniqueIndex("course_ratings_course_user_uq").on(
       table.courseCode,
       table.userId,
+    ),
+    index("course_ratings_instructor_person_id_idx").on(
+      table.instructorPersonId,
     ),
     check(
       "course_ratings_term_check",
@@ -926,15 +933,39 @@ export const professors = pgTable(
   (table) => [index("professors_search_text_idx").on(table.searchText)],
 );
 
+/** A person who can be selected as an instructor in course reviews. During
+ * migration, legacy professor IDs continue to live in `professors` and map
+ * to this canonical person role through `professor_staff_identities`. */
+export const courseInstructors = pgTable("course_instructors", {
+  personId: text("person_id")
+    .primaryKey()
+    .references(() => staffPeople.id, { onDelete: "restrict" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+}).enableRLS();
+
 export const professorCourses = pgTable(
   "professor_courses",
   {
     professorId: text("professor_id")
       .notNull()
       .references(() => professors.id, { onDelete: "cascade" }),
+    instructorPersonId: text("instructor_person_id").references(
+      () => courseInstructors.personId,
+      { onDelete: "restrict" },
+    ),
     courseCode: text("course_code").notNull(),
   },
-  (table) => [primaryKey({ columns: [table.professorId, table.courseCode] })],
+  (table) => [
+    primaryKey({ columns: [table.professorId, table.courseCode] }),
+    index("professor_courses_instructor_person_id_idx").on(
+      table.instructorPersonId,
+    ),
+  ],
 );
 
 /** Professors attached to one student's course experience. The legacy
@@ -949,11 +980,18 @@ export const courseRatingProfessors = pgTable(
     professorId: text("professor_id")
       .notNull()
       .references(() => professors.id),
+    instructorPersonId: text("instructor_person_id").references(
+      () => courseInstructors.personId,
+      { onDelete: "restrict" },
+    ),
     professorNameSnapshot: text("professor_name_snapshot").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.ratingId, table.professorId] }),
     index("course_rating_professors_professor_id_idx").on(table.professorId),
+    index("course_rating_professors_instructor_person_id_idx").on(
+      table.instructorPersonId,
+    ),
   ],
 ).enableRLS();
 
@@ -976,7 +1014,7 @@ export const professorStaffIdentities = pgTable(
     index("professor_staff_identities_person_id_idx").on(table.personId),
     check(
       "professor_staff_identities_match_method_check",
-      sql`${table.matchMethod} in ('automatic', 'manual_override')`,
+      sql`${table.matchMethod} in ('automatic', 'manual_override', 'source_native')`,
     ),
   ],
 );
@@ -1110,6 +1148,10 @@ export const courseReviews = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     content: text("content").notNull(),
     professorId: text("professor_id").references(() => professors.id),
+    instructorPersonId: text("instructor_person_id").references(
+      () => courseInstructors.personId,
+      { onDelete: "restrict" },
+    ),
     /** Immutable submission snapshot; nullable for legacy comments. */
     professorNameSnapshot: text("professor_name_snapshot"),
     academicYear: text("academic_year"),
@@ -1121,6 +1163,9 @@ export const courseReviews = pgTable(
   },
   (table) => [
     index("course_reviews_course_code_idx").on(table.courseCode),
+    index("course_reviews_instructor_person_id_idx").on(
+      table.instructorPersonId,
+    ),
     check(
       "course_reviews_term_check",
       sql`${table.term} is null or ${table.term} in ('Term 1', 'Term 2', 'Summer')`,

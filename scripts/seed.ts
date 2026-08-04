@@ -22,7 +22,11 @@ import {
   majorCategories,
   categoryCourses,
   professors,
+  courseInstructors,
   professorCourses,
+  professorStaffIdentities,
+  staffPeople,
+  staffPersonSources,
 } from "../src/db/schema";
 import {
   USER_IDS,
@@ -244,11 +248,44 @@ async function main() {
           updatedAt: now,
         },
       });
+    const seedProfessorPersonId = `timetable-professor:${SEED_PROFESSOR.id}`;
+    await tx
+      .insert(staffPeople)
+      .values({
+        id: seedProfessorPersonId,
+        canonicalName: SEED_PROFESSOR.name,
+        source: "cuhk_timetable",
+        identityKind: "unverified",
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(staffPersonSources)
+      .values({
+        personId: seedProfessorPersonId,
+        source: "cuhk_timetable",
+        sourceKey: SEED_PROFESSOR.id,
+        sourceUrl: "seed",
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(professorStaffIdentities)
+      .values({
+        professorId: SEED_PROFESSOR.id,
+        personId: seedProfessorPersonId,
+        matchMethod: "source_native",
+        sourceUrl: "seed",
+      })
+      .onConflictDoNothing();
+    await tx
+      .insert(courseInstructors)
+      .values({ personId: seedProfessorPersonId })
+      .onConflictDoNothing();
     await tx
       .insert(professorCourses)
       .values(
         SEED_PROFESSOR.courseCodes.map((courseCode) => ({
           professorId: SEED_PROFESSOR.id,
+          instructorPersonId: seedProfessorPersonId,
           courseCode,
         })),
       )

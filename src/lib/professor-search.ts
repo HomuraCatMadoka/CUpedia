@@ -3,6 +3,7 @@ import Fuse, { type FuseIndex } from "fuse.js";
 export type ProfessorSearchCandidate = {
   id: string;
   name: string;
+  searchText?: string | null;
   courseCode: string | null;
   description?: string | null;
 };
@@ -23,7 +24,7 @@ const MAX_FUSE_SCORE = 0.6;
 export function buildProfessorSearchIndex(
   candidates: ProfessorSearchCandidate[],
 ): ProfessorSearchIndex {
-  return Fuse.createIndex(["name"], candidates).toJSON();
+  return Fuse.createIndex(["name", "searchText"], candidates).toJSON();
 }
 
 export function searchProfessorCandidates(
@@ -37,7 +38,7 @@ export function searchProfessorCandidates(
   const fuse = new Fuse(
     candidates,
     {
-      keys: ["name"],
+      keys: ["name", "searchText"],
       threshold: 0.4,
       ignoreLocation: true,
       ignoreDiacritics: true,

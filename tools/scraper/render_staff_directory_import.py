@@ -447,6 +447,40 @@ from _staff_directory_import,
        professor_id text, person_id text, match_method text, source_url text
      )
 {conflict_sql}
+
+insert into course_instructors (person_id)
+select distinct identity.person_id
+from professor_staff_identities identity,
+     _staff_directory_import,
+     jsonb_to_recordset(payload->'professor_links') as link(
+       professor_id text, person_id text, match_method text, source_url text
+     )
+where link.professor_id = identity.professor_id
+on conflict (person_id) do update set updated_at = now();
+
+update professor_courses course
+set instructor_person_id = identity.person_id
+from professor_staff_identities identity
+where identity.professor_id = course.professor_id
+  and course.instructor_person_id is distinct from identity.person_id;
+
+update course_ratings rating
+set instructor_person_id = identity.person_id
+from professor_staff_identities identity
+where identity.professor_id = rating.professor_id
+  and rating.instructor_person_id is distinct from identity.person_id;
+
+update course_rating_professors selected
+set instructor_person_id = identity.person_id
+from professor_staff_identities identity
+where identity.professor_id = selected.professor_id
+  and selected.instructor_person_id is distinct from identity.person_id;
+
+update course_reviews review
+set instructor_person_id = identity.person_id
+from professor_staff_identities identity
+where identity.professor_id = review.professor_id
+  and review.instructor_person_id is distinct from identity.person_id;
 """
 
 
