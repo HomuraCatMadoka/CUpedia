@@ -88,3 +88,15 @@ export function decideCandidate(
     },
   };
 }
+
+export function clearCandidateDecision(
+  store: CandidateDecisionStore,
+  restaurantId: string,
+): CandidateDecisionStore {
+  const id = restaurantId.trim();
+  if (!id || !store.byRestaurantId[id]) return store;
+
+  const byRestaurantId = { ...store.byRestaurantId };
+  delete byRestaurantId[id];
+  return { version: 1, byRestaurantId };
+}

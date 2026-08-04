@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  clearCandidateDecision,
   decideCandidate,
   emptyCandidateDecisionStore,
   getCandidateDecision,
@@ -31,6 +32,10 @@ describe("Foodle candidate decisions", () => {
     expect(passed.byRestaurantId["restaurant-1"].decidedAt).toBe(
       "2026-07-31T09:00:00Z",
     );
+
+    const cleared = clearCandidateDecision(passed, "restaurant-1");
+    expect(getCandidateDecision(cleared, "restaurant-1")).toBe("unseen");
+    expect(clearCandidateDecision(cleared, "missing")).toBe(cleared);
   });
 
   it("round-trips valid records and drops malformed entries", () => {

@@ -3,9 +3,12 @@
 import { Drawer } from "@base-ui/react/drawer";
 import {
   ArrowLeftIcon,
+  BanknoteIcon,
   CheckIcon,
+  Clock3Icon,
   FlameIcon,
   FootprintsIcon,
+  HeartIcon,
   ListIcon,
   MapIcon,
   MapPinIcon,
@@ -48,9 +51,19 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
+  FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+  clearCandidateDecision,
+  decideCandidate,
+  emptyCandidateDecisionStore,
+  getCandidateDecision,
+  parseCandidateDecisionStore,
+  serializeCandidateDecisionStore,
+} from "@/lib/food-map/candidate-decisions";
+import {
   FOOD_MAP_CHECKINS_STORAGE_KEY,
   countFoodMapVisits,
   emptyFoodMapCheckinStore,
+  getFoodMapVisitDates,
   hktDateKey,
   parseFoodMapCheckinStore,
   recordFoodMapCheckin,
@@ -89,6 +102,7 @@ const StationMapCanvas = dynamic(
 );
 
 type PriceFilter = "all" | "under-50" | "51-100" | "over-100";
+type PersonalFilter = "all" | "saved" | "visited";
 type MobileView = "map" | "list";
 type ComposerMode = "checkin" | "comment";
 type SelectionOrigin = "map" | "list";
@@ -99,6 +113,14 @@ const PRICE_LABELS: Record<PriceFilter, string> = {
   "51-100": "HK$51 至 100",
   "over-100": "HK$100 以上",
 };
+const PERSONAL_FILTERS: readonly {
+  value: PersonalFilter;
+  label: string;
+}[] = [
+  { value: "all", label: "全部" },
+  { value: "saved", label: "想吃" },
+  { value: "visited", label: "去过" },
+];
 
 const HKD_FORMATTER = new Intl.NumberFormat("en-HK", {
   style: "currency",
@@ -138,14 +160,14 @@ function HeatLegend() {
     >
       <span className="inline-flex items-center gap-1.5">
         <span
-          className="size-2.5 rounded-full bg-[#3f8f62]"
+          className="size-2.5 rounded-full bg-[#26734a]"
           aria-hidden="true"
         />
         较少
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
-          className="size-2.5 rounded-full bg-[#d27a1e]"
+          className="size-2.5 rounded-full bg-[#96500a]"
           aria-hidden="true"
         />
         较多
@@ -186,6 +208,8 @@ function RestaurantListItem({
   restaurant,
   status,
   checkinCount,
+  personalVisits,
+  wanted,
   selected,
   highlighted,
   onSelect,
@@ -194,6 +218,8 @@ function RestaurantListItem({
   restaurant: FoodleRestaurant;
   status: RestaurantOpeningStatus;
   checkinCount: number;
+  personalVisits: number;
+  wanted: boolean;
   selected: boolean;
   highlighted: boolean;
   onSelect: () => void;
@@ -202,9 +228,9 @@ function RestaurantListItem({
   const heat = getRestaurantHeat(checkinCount);
   const heatColor =
     heat === "quiet"
-      ? "bg-[#3f8f62]"
+      ? "bg-[#26734a]"
       : heat === "known"
-        ? "bg-[#d27a1e]"
+        ? "bg-[#96500a]"
         : "bg-[#c83f3f]";
 
   return (
@@ -245,9 +271,22 @@ function RestaurantListItem({
               : " · 价格待补"}
           </p>
         </div>
-        <span className="shrink-0 text-xs font-medium tabular-nums">
-          {checkinCount} 次
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span className="text-xs font-medium tabular-nums">
+            {checkinCount} 次
+          </span>
+          {personalVisits > 0 ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#672d7e] dark:text-[#d9afe8]">
+              <CheckIcon className="size-3" aria-hidden="true" />
+              去过 {personalVisits} 次
+            </span>
+          ) : wanted ? (
+            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[#672d7e] dark:text-[#d9afe8]">
+              <HeartIcon className="size-3 fill-current" aria-hidden="true" />
+              想吃
+            </span>
+          ) : null}
+        </div>
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
         <OpeningBadge status={status} />
@@ -271,16 +310,24 @@ function Fact({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   );
 }
 
-function EmptyResults({ onClear }: { onClear: () => void }) {
+function EmptyResults({
+  title = "没有符合条件的餐厅",
+  actionLabel = "清除筛选",
+  onClear,
+}: {
+  title?: string;
+  actionLabel?: string;
+  onClear: () => void;
+}) {
   return (
     <div className="rounded-xl border border-dashed px-4 py-8 text-center">
-      <p className="text-sm font-medium">没有符合条件的餐厅</p>
+      <p className="text-sm font-medium">{title}</p>
       <button
         type="button"
         onClick={onClear}
-        className="mt-3 min-h-10 touch-manipulation rounded-lg border px-3 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="mt-3 min-h-11 touch-manipulation rounded-lg border px-3 text-sm font-medium outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
       >
-        清除筛选
+        {actionLabel}
       </button>
     </div>
   );
@@ -291,10 +338,14 @@ function RestaurantDetails({
   status,
   totalCheckins,
   personalVisits,
+  visitDates,
   checkedToday,
   checkinsReady,
+  wanted,
+  personalStateError,
   localComments,
   onCheckIn,
+  onToggleWishlist,
   onComment,
   headingRef,
 }: {
@@ -302,10 +353,14 @@ function RestaurantDetails({
   status: RestaurantOpeningStatus;
   totalCheckins: number;
   personalVisits: number;
+  visitDates: readonly string[];
   checkedToday: boolean;
   checkinsReady: boolean;
+  wanted: boolean;
+  personalStateError: string | null;
   localComments: readonly { id: string; body: string; createdAt: string }[];
   onCheckIn: () => void;
+  onToggleWishlist: () => void;
   onComment: () => void;
   headingRef?: RefObject<HTMLHeadingElement | null>;
 }) {
@@ -349,8 +404,8 @@ function RestaurantDetails({
 
       <div className="grid gap-3 border-y py-4">
         <Fact icon={<MapPinIcon className="size-4" aria-hidden="true" />}>
-          {restaurant.location.address} · {restaurant.location.nearestExit} ·{" "}
-          {restaurant.location.distanceMeters}m
+          {restaurant.location.address}，{restaurant.location.nearestExit}，
+          {restaurant.location.distanceMeters} 米
         </Fact>
         <Fact icon={<FootprintsIcon className="size-4" aria-hidden="true" />}>
           {restaurant.foodle.walkMinutes
@@ -362,34 +417,36 @@ function RestaurantDetails({
             ? `${restaurant.foodle.averageScore.toFixed(1)} 分 · ${restaurant.sourceFacts.cuisines?.join("、") ?? "菜系待补"}`
             : (restaurant.sourceFacts.cuisines?.join("、") ?? "评分和菜系待补")}
         </Fact>
-        <Fact icon={<span aria-hidden="true">HK$</span>}>
+        <Fact icon={<BanknoteIcon className="size-4" aria-hidden="true" />}>
           {restaurant.sourceFacts.averagePriceHkd
             ? `人均约 ${formatHkd(restaurant.sourceFacts.averagePriceHkd)} · ${restaurant.sourceFacts.priceRange}`
             : "价格待补"}
         </Fact>
-        <Fact icon={<span aria-hidden="true">时</span>}>
+        <Fact icon={<Clock3Icon className="size-4" aria-hidden="true" />}>
           {firstPeriod
             ? `营业时间 ${firstPeriod.opens} 至 ${firstPeriod.closes}`
             : "营业时间待补全"}
         </Fact>
       </div>
 
-      <a
-        href={directions}
-        target="_blank"
-        rel="noreferrer"
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#672d7e] px-4 text-sm font-medium text-white outline-none transition-colors hover:bg-[#542267] focus-visible:ring-3 focus-visible:ring-[#672d7e]/40 dark:bg-[#c48fda] dark:text-[#211225] dark:hover:bg-[#d4a8e4]"
+      <div
+        className={`grid gap-2 ${personalVisits > 0 ? "grid-cols-[2.75rem_minmax(0,1fr)]" : "grid-cols-[2.75rem_minmax(0,1fr)_minmax(0,1fr)]"}`}
       >
-        <NavigationIcon className="size-4" aria-hidden="true" />在 Google Maps
-        打开
-      </a>
-
-      <div className="grid grid-cols-2 gap-2">
+        <a
+          href={directions}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`在 Google Maps 打开${restaurant.sourceFacts.name}`}
+          title="在 Google Maps 打开"
+          className="grid min-h-11 touch-manipulation place-items-center rounded-lg border bg-background text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <NavigationIcon className="size-4" aria-hidden="true" />
+        </a>
         <button
           type="button"
           disabled={!checkinsReady || checkedToday}
           onClick={onCheckIn}
-          className="min-h-11 touch-manipulation rounded-lg border bg-background px-3 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+          className="min-h-11 touch-manipulation rounded-lg bg-[#672d7e] px-3 text-sm font-medium text-white outline-none transition-colors hover:bg-[#542267] focus-visible:ring-3 focus-visible:ring-[#672d7e]/40 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground dark:bg-[#c48fda] dark:text-[#211225] dark:hover:bg-[#d4a8e4]"
         >
           {checkedToday ? (
             <span className="inline-flex items-center gap-1.5">
@@ -397,25 +454,76 @@ function RestaurantDetails({
               今天已记录
             </span>
           ) : checkinsReady ? (
-            "记录今天到访"
+            personalVisits > 0 ? (
+              "再次到访"
+            ) : (
+              "记录到访"
+            )
           ) : (
-            "读取到访记录"
+            "载入中…"
           )}
         </button>
-        <button
-          type="button"
-          onClick={onComment}
-          className="min-h-11 touch-manipulation rounded-lg border bg-background px-3 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <MessageCircleIcon className="size-4" aria-hidden="true" />
-            写评论
-          </span>
-        </button>
+        {personalVisits === 0 ? (
+          <button
+            type="button"
+            aria-pressed={wanted}
+            disabled={!checkinsReady}
+            onClick={onToggleWishlist}
+            className={`min-h-11 touch-manipulation rounded-lg border px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-[#672d7e]/35 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground ${wanted ? "border-[#672d7e] bg-[#672d7e]/8 text-[#672d7e] hover:bg-[#672d7e]/12 dark:border-[#c48fda] dark:text-[#d9afe8]" : "bg-background hover:bg-muted"}`}
+          >
+            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <HeartIcon
+                className={`size-4 ${wanted ? "fill-current" : ""}`}
+                aria-hidden="true"
+              />
+              {wanted ? "已想吃" : "想吃"}
+            </span>
+          </button>
+        ) : null}
       </div>
-      <p className="text-xs text-muted-foreground">
-        我的到访 {personalVisits} 次；到访记录按日累计，不可撤销或删除。
-      </p>
+      {personalStateError ? (
+        <p
+          className="rounded-lg bg-destructive/10 px-3 py-2 text-xs leading-5 text-destructive"
+          role="alert"
+        >
+          {personalStateError}
+        </p>
+      ) : null}
+
+      <div className="rounded-xl border bg-muted/25 px-3 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs text-muted-foreground">我的到访</p>
+            <p className="mt-0.5 font-semibold tabular-nums">
+              {personalVisits} 次
+            </p>
+          </div>
+          <p className="max-w-44 text-right text-xs leading-5 text-muted-foreground">
+            按日累计，不可撤销或删除
+          </p>
+        </div>
+        {visitDates.length > 0 ? (
+          <details className="mt-3 border-t pt-1">
+            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+              查看到访日期
+            </summary>
+            <ul className="space-y-1 pb-2 text-sm text-muted-foreground">
+              {visitDates.map((date) => (
+                <li key={date}>{formatHktDate(date)}</li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onComment}
+        className="flex min-h-11 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+      >
+        <MessageCircleIcon className="size-4" aria-hidden="true" />
+        写评论
+      </button>
 
       <section aria-labelledby={`comments-${restaurant.id}`}>
         <div className="flex items-center justify-between gap-3">
@@ -503,11 +611,16 @@ function MobileRestaurantDrawer({
 function MobileFilterDrawer({
   open,
   resultCount,
+  personalFilter,
+  savedCount,
+  visitedCount,
+  personalStateReady,
   cuisines,
   cuisine,
   price,
   onlyOpen,
   onCuisineChange,
+  onPersonalFilterChange,
   onPriceChange,
   onOnlyOpenChange,
   onClear,
@@ -515,10 +628,15 @@ function MobileFilterDrawer({
 }: {
   open: boolean;
   resultCount: number;
+  personalFilter: PersonalFilter;
+  savedCount: number;
+  visitedCount: number;
+  personalStateReady: boolean;
   cuisines: readonly string[];
   cuisine: string;
   price: PriceFilter;
   onlyOpen: boolean;
+  onPersonalFilterChange: (value: PersonalFilter) => void;
   onCuisineChange: (value: string) => void;
   onPriceChange: (value: PriceFilter) => void;
   onOnlyOpenChange: (value: boolean) => void;
@@ -559,6 +677,34 @@ function MobileFilterDrawer({
             </div>
 
             <Drawer.Content className="space-y-6 px-5 py-5">
+              <fieldset>
+                <legend className="text-sm font-semibold">我的状态</legend>
+                <div className="mt-3 grid grid-cols-3 gap-2">
+                  {PERSONAL_FILTERS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={!personalStateReady && value !== "all"}
+                      aria-label={
+                        value === "all"
+                          ? "全部餐厅"
+                          : `${label}，${value === "saved" ? savedCount : visitedCount} 家`
+                      }
+                      aria-pressed={personalFilter === value}
+                      onClick={() => onPersonalFilterChange(value)}
+                      className={`min-h-11 rounded-lg border px-3 text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-[#672d7e]/35 disabled:cursor-not-allowed disabled:text-muted-foreground ${personalFilter === value ? "border-[#672d7e] bg-[#672d7e] text-white dark:border-[#c48fda] dark:bg-[#c48fda] dark:text-[#211225]" : "bg-background hover:bg-muted"}`}
+                    >
+                      {label}
+                      {value === "all" ? null : (
+                        <span className="ml-1 tabular-nums">
+                          {value === "saved" ? savedCount : visitedCount}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
               <fieldset>
                 <legend className="text-sm font-semibold">菜系</legend>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -638,6 +784,7 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
   const [query, setQuery] = useState("");
   const [cuisine, setCuisine] = useState("all");
   const [price, setPrice] = useState<PriceFilter>("all");
+  const [personalFilter, setPersonalFilter] = useState<PersonalFilter>("all");
   const [onlyOpen, setOnlyOpen] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>("map");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
@@ -650,6 +797,9 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
   const [now, setNow] = useState<Date | null>(null);
   const [checkins, setCheckins] = useState(emptyFoodMapCheckinStore);
   const [comments, setComments] = useState(emptyFoodMapCommentStore);
+  const [candidateDecisions, setCandidateDecisions] = useState(
+    emptyCandidateDecisionStore,
+  );
   const [storageReady, setStorageReady] = useState(false);
   const [composer, setComposer] = useState<{
     restaurantId: string;
@@ -657,7 +807,12 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
   } | null>(null);
   const [commentBody, setCommentBody] = useState("");
   const [storageError, setStorageError] = useState<string | null>(null);
+  const [personalStateMessage, setPersonalStateMessage] = useState("");
   const detailHeadingRef = useRef<HTMLHeadingElement>(null);
+  const desktopAsideRef = useRef<HTMLElement>(null);
+  const activePersonalFilterButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileFilterTriggerRef = useRef<HTMLButtonElement>(null);
+  const pendingPersonalFilterFocusRef = useRef(false);
   const selectionOriginRef = useRef<{
     restaurantId: string;
     origin: SelectionOrigin;
@@ -667,17 +822,27 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
   useEffect(() => {
     const timeout = window.setTimeout(() => {
       setNow(new Date());
-      setCheckins(
-        parseFoodMapCheckinStore(
-          window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
-        ),
-      );
-      setComments(
-        parseFoodMapCommentStore(
-          window.localStorage.getItem(FOOD_MAP_COMMENTS_STORAGE_KEY),
-        ),
-      );
-      setStorageReady(true);
+      try {
+        setCheckins(
+          parseFoodMapCheckinStore(
+            window.localStorage.getItem(FOOD_MAP_CHECKINS_STORAGE_KEY),
+          ),
+        );
+        setComments(
+          parseFoodMapCommentStore(
+            window.localStorage.getItem(FOOD_MAP_COMMENTS_STORAGE_KEY),
+          ),
+        );
+        setCandidateDecisions(
+          parseCandidateDecisionStore(
+            window.localStorage.getItem(FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY),
+          ),
+        );
+      } catch {
+        setStorageError("浏览器未能读取个人记录，请检查隐私或储存设置。");
+      } finally {
+        setStorageReady(true);
+      }
     }, 0);
     const interval = window.setInterval(() => setNow(new Date()), 60_000);
 
@@ -720,6 +885,34 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
       ]),
     [cuisines],
   );
+  const personalVisitCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        restaurants.map((restaurant) => [
+          restaurant.id,
+          countFoodMapVisits(checkins, restaurant.id),
+        ]),
+      ),
+    [checkins, restaurants],
+  );
+  const wishlistRestaurantIds = useMemo(
+    () =>
+      new Set(
+        restaurants
+          .filter(
+            (restaurant) =>
+              personalVisitCounts[restaurant.id] === 0 &&
+              getCandidateDecision(candidateDecisions, restaurant.id) ===
+                "saved",
+          )
+          .map((restaurant) => restaurant.id),
+      ),
+    [candidateDecisions, personalVisitCounts, restaurants],
+  );
+  const savedCount = wishlistRestaurantIds.size;
+  const visitedCount = restaurants.filter(
+    (restaurant) => personalVisitCounts[restaurant.id] > 0,
+  ).length;
   const filteredRestaurants = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return restaurants.filter((restaurant) => {
@@ -734,20 +927,34 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
         (cuisine === "all" ||
           restaurant.sourceFacts.cuisines?.includes(cuisine)) &&
         priceMatches(restaurant, price) &&
+        (personalFilter === "all" ||
+          (personalFilter === "saved" &&
+            wishlistRestaurantIds.has(restaurant.id)) ||
+          (personalFilter === "visited" &&
+            personalVisitCounts[restaurant.id] > 0)) &&
         (!onlyOpen || statuses.get(restaurant.id)?.state === "open")
       );
     });
-  }, [cuisine, onlyOpen, price, query, restaurants, statuses]);
+  }, [
+    cuisine,
+    onlyOpen,
+    personalFilter,
+    personalVisitCounts,
+    price,
+    query,
+    restaurants,
+    statuses,
+    wishlistRestaurantIds,
+  ]);
   const checkinCounts = useMemo(
     () =>
       Object.fromEntries(
         restaurants.map((restaurant) => [
           restaurant.id,
-          restaurant.foodle.totalCheckins +
-            countFoodMapVisits(checkins, restaurant.id),
+          restaurant.foodle.totalCheckins + personalVisitCounts[restaurant.id],
         ]),
       ),
-    [checkins, restaurants],
+    [personalVisitCounts, restaurants],
   );
   const selectedRestaurant =
     filteredRestaurants.find(
@@ -756,18 +963,46 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
   const today = now ? hktDateKey(now) : "";
   const checkedToday = new Set(checkins.byDate[today] ?? []);
   const activeFilterCount =
-    Number(cuisine !== "all") + Number(price !== "all") + Number(onlyOpen);
+    Number(personalFilter !== "all") +
+    Number(cuisine !== "all") +
+    Number(price !== "all") +
+    Number(onlyOpen);
+  const personalEmptyState =
+    personalFilter === "saved" && savedCount === 0
+      ? {
+          title: "还没有想吃的餐厅",
+          actionLabel: "浏览全部餐厅",
+        }
+      : personalFilter === "visited" && visitedCount === 0
+        ? {
+            title: "还没有到访记录",
+            actionLabel: "浏览全部餐厅",
+          }
+        : null;
 
   useEffect(() => {
     if (!selectedRestaurantId || mobile) return;
     const frame = window.requestAnimationFrame(() => {
-      detailHeadingRef.current?.focus();
+      if (desktopAsideRef.current) desktopAsideRef.current.scrollTop = 0;
+      detailHeadingRef.current?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [mobile, selectedRestaurantId]);
 
   useEffect(() => {
-    if (selectedRestaurantId || !selectionOriginRef.current) return;
+    if (selectedRestaurantId) return;
+    if (pendingPersonalFilterFocusRef.current) {
+      const frame = window.requestAnimationFrame(() => {
+        const target = mobile
+          ? mobileFilterTriggerRef.current
+          : activePersonalFilterButtonRef.current;
+        target?.focus();
+        pendingPersonalFilterFocusRef.current = false;
+        selectionOriginRef.current = null;
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    if (!selectionOriginRef.current) return;
     const { restaurantId, origin } = selectionOriginRef.current;
     const frame = window.requestAnimationFrame(() => {
       document
@@ -776,7 +1011,7 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
       selectionOriginRef.current = null;
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [selectedRestaurantId]);
+  }, [mobile, personalFilter, selectedRestaurantId]);
 
   function clearSelection() {
     setSelectedRestaurantId(null);
@@ -793,8 +1028,17 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
     setQuery("");
     setCuisine("all");
     setPrice("all");
+    setPersonalFilter("all");
     setOnlyOpen(false);
     clearSelection();
+  }
+
+  function clearEmptyResults() {
+    if (personalFilter !== "all") {
+      pendingPersonalFilterFocusRef.current = true;
+    }
+    setPersonalStateMessage("正在显示全部餐厅。");
+    clearFilters();
   }
 
   function openComposer(restaurantId: string, mode: ComposerMode) {
@@ -803,12 +1047,39 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
     setComposer({ restaurantId, mode });
   }
 
+  function toggleWishlist(restaurantId: string) {
+    setStorageError(null);
+    const removing =
+      getCandidateDecision(candidateDecisions, restaurantId) === "saved";
+    const nextDecisions = removing
+      ? clearCandidateDecision(candidateDecisions, restaurantId)
+      : decideCandidate(candidateDecisions, restaurantId, "saved");
+
+    try {
+      window.localStorage.setItem(
+        FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+        serializeCandidateDecisionStore(nextDecisions),
+      );
+      setCandidateDecisions(nextDecisions);
+      setPersonalStateMessage(removing ? "已从想吃移除。" : "已加入想吃。");
+      if (removing && personalFilter === "saved") {
+        pendingPersonalFilterFocusRef.current = true;
+        clearSelection();
+      }
+    } catch {
+      setStorageError("浏览器未能保存想吃状态，请检查隐私或储存设置。");
+    }
+  }
+
   function submitComposer() {
     if (!composer) return;
     const timestamp = new Date();
 
     try {
       if (composer.mode === "checkin") {
+        const wasWanted =
+          getCandidateDecision(candidateDecisions, composer.restaurantId) ===
+          "saved";
         const nextCheckins = recordFoodMapCheckin(
           checkins,
           hktDateKey(timestamp),
@@ -819,6 +1090,30 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
           serializeFoodMapCheckinStore(nextCheckins),
         );
         setCheckins(nextCheckins);
+
+        if (wasWanted) {
+          const nextDecisions = clearCandidateDecision(
+            candidateDecisions,
+            composer.restaurantId,
+          );
+          try {
+            window.localStorage.setItem(
+              FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+              serializeCandidateDecisionStore(nextDecisions),
+            );
+            setCandidateDecisions(nextDecisions);
+          } catch {
+            setStorageError("到访已记录，但未能从想吃移除，请稍后重试。");
+          }
+        }
+
+        setPersonalStateMessage(
+          wasWanted ? "已记录今天到访，并从想吃移除。" : "已记录今天到访。",
+        );
+        if (personalFilter === "saved") {
+          pendingPersonalFilterFocusRef.current = true;
+          clearSelection();
+        }
       }
 
       if (commentBody.trim()) {
@@ -847,6 +1142,8 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
     restaurant: FoodleRestaurant,
     headingRef?: RefObject<HTMLHeadingElement | null>,
   ) {
+    const visitDates = getFoodMapVisitDates(checkins, restaurant.id);
+
     return (
       <RestaurantDetails
         restaurant={restaurant}
@@ -857,13 +1154,17 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
           }
         }
         totalCheckins={checkinCounts[restaurant.id]}
-        personalVisits={countFoodMapVisits(checkins, restaurant.id)}
+        personalVisits={visitDates.length}
+        visitDates={visitDates}
         checkedToday={checkedToday.has(restaurant.id)}
         checkinsReady={storageReady}
+        wanted={wishlistRestaurantIds.has(restaurant.id)}
+        personalStateError={storageError}
         localComments={comments.comments.filter(
           (comment) => comment.restaurantId === restaurant.id,
         )}
         onCheckIn={() => openComposer(restaurant.id, "checkin")}
+        onToggleWishlist={() => toggleWishlist(restaurant.id)}
         onComment={() => openComposer(restaurant.id, "comment")}
         headingRef={headingRef}
       />
@@ -875,6 +1176,9 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
       className="flex h-[calc(100dvh-var(--navbar-height))] min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background md:min-h-[38rem]"
       aria-label={`${station.nameZh}站附近餐厅地图`}
     >
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic>
+        {personalStateMessage}
+      </p>
       <header className="z-20 shrink-0 border-b bg-background px-4 py-3 md:px-6 md:py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
@@ -921,6 +1225,7 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
                 </button>
               </div>
               <button
+                ref={mobileFilterTriggerRef}
                 type="button"
                 aria-label={
                   activeFilterCount > 0
@@ -965,6 +1270,42 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
             />
           </label>
           <div className="scrollbar-hide hidden min-w-0 items-center gap-2 overflow-x-auto pb-0.5 md:flex">
+            <div
+              className="flex h-10 shrink-0 items-center rounded-lg border p-1"
+              role="group"
+              aria-label="我的状态"
+            >
+              {PERSONAL_FILTERS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  ref={
+                    personalFilter === value
+                      ? activePersonalFilterButtonRef
+                      : undefined
+                  }
+                  type="button"
+                  disabled={!storageReady && value !== "all"}
+                  aria-label={
+                    value === "all"
+                      ? "全部餐厅"
+                      : `${label}，${value === "saved" ? savedCount : visitedCount} 家`
+                  }
+                  aria-pressed={personalFilter === value}
+                  onClick={() => {
+                    setPersonalFilter(value);
+                    clearSelection();
+                  }}
+                  className={`min-h-8 rounded-md px-2.5 text-xs font-medium whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-[#672d7e]/35 disabled:cursor-not-allowed disabled:text-muted-foreground ${personalFilter === value ? "bg-[#672d7e] text-white dark:bg-[#c48fda] dark:text-[#211225]" : "hover:bg-muted"}`}
+                >
+                  {label}
+                  {value === "all" ? null : (
+                    <span className="ml-1 tabular-nums">
+                      {value === "saved" ? savedCount : visitedCount}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
             <Select
               items={cuisineItems}
               value={cuisine}
@@ -1049,6 +1390,8 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
                     restaurant={restaurant}
                     status={statuses.get(restaurant.id)!}
                     checkinCount={checkinCounts[restaurant.id]}
+                    personalVisits={personalVisitCounts[restaurant.id]}
+                    wanted={wishlistRestaurantIds.has(restaurant.id)}
                     selected={selectedRestaurantId === restaurant.id}
                     highlighted={highlightedRestaurantId === restaurant.id}
                     onSelect={() => selectRestaurant(restaurant.id, "list")}
@@ -1061,12 +1404,17 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
                 ))}
               </div>
             ) : (
-              <EmptyResults onClear={clearFilters} />
+              <EmptyResults
+                title={personalEmptyState?.title}
+                actionLabel={personalEmptyState?.actionLabel}
+                onClear={clearEmptyResults}
+              />
             )}
           </div>
         ) : (
           <div className="grid h-full min-h-0 md:grid-cols-[22rem_minmax(0,1fr)]">
             <aside
+              ref={desktopAsideRef}
               className="hidden min-h-0 overflow-y-auto border-r bg-background md:block"
               aria-label={
                 selectedRestaurant
@@ -1115,6 +1463,8 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
                           restaurant={restaurant}
                           status={statuses.get(restaurant.id)!}
                           checkinCount={checkinCounts[restaurant.id]}
+                          personalVisits={personalVisitCounts[restaurant.id]}
+                          wanted={wishlistRestaurantIds.has(restaurant.id)}
                           selected={selectedRestaurantId === restaurant.id}
                           highlighted={
                             highlightedRestaurantId === restaurant.id
@@ -1131,7 +1481,11 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
                       ))}
                     </div>
                   ) : (
-                    <EmptyResults onClear={clearFilters} />
+                    <EmptyResults
+                      title={personalEmptyState?.title}
+                      actionLabel={personalEmptyState?.actionLabel}
+                      onClear={clearEmptyResults}
+                    />
                   )}
                 </div>
               )}
@@ -1151,10 +1505,19 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
               <div className="pointer-events-none absolute top-3 left-3 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur md:hidden">
                 <HeatLegend />
               </div>
-              {!selectedRestaurant ? (
+              {!selectedRestaurant && filteredRestaurants.length > 0 ? (
                 <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-sm backdrop-blur">
                   点击地图上的点查看餐厅
                 </p>
+              ) : null}
+              {mobile && filteredRestaurants.length === 0 ? (
+                <div className="absolute inset-x-4 top-1/2 z-10 -translate-y-1/2 rounded-xl bg-background/95 shadow-lg backdrop-blur md:hidden">
+                  <EmptyResults
+                    title={personalEmptyState?.title}
+                    actionLabel={personalEmptyState?.actionLabel}
+                    onClear={clearEmptyResults}
+                  />
+                </div>
               ) : null}
             </div>
           </div>
@@ -1165,10 +1528,18 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
         <MobileFilterDrawer
           open={mobileFiltersOpen}
           resultCount={filteredRestaurants.length}
+          personalFilter={personalFilter}
+          savedCount={savedCount}
+          visitedCount={visitedCount}
+          personalStateReady={storageReady}
           cuisines={cuisines}
           cuisine={cuisine}
           price={price}
           onlyOpen={onlyOpen}
+          onPersonalFilterChange={(value) => {
+            setPersonalFilter(value);
+            clearSelection();
+          }}
           onCuisineChange={(value) => {
             setCuisine(value);
             clearSelection();
@@ -1182,6 +1553,7 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
             clearSelection();
           }}
           onClear={() => {
+            setPersonalFilter("all");
             setCuisine("all");
             setPrice("all");
             setOnlyOpen(false);
@@ -1244,7 +1616,7 @@ export function StationFoodMap({ stationId }: { stationId: FoodleStationId }) {
               disabled={composer?.mode === "comment" && !commentBody.trim()}
               onClick={submitComposer}
             >
-              确认
+              {composer?.mode === "checkin" ? "记录到访" : "发布评论"}
             </Button>
           </DialogFooter>
         </DialogContent>

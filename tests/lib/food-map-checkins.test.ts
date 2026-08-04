@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   emptyFoodMapCheckinStore,
+  getFoodMapVisitDates,
   hktDateKey,
   parseFoodMapCheckinStore,
   recordFoodMapCheckin,
@@ -59,6 +60,10 @@ describe("food map check-in storage", () => {
 
     const nextDay = recordFoodMapCheckin(checked, "2026-07-28", "r1");
     expect(countFoodMapVisits(nextDay, "r1")).toBe(2);
+    expect(getFoodMapVisitDates(nextDay, "r1")).toEqual([
+      "2026-07-28",
+      "2026-07-27",
+    ]);
   });
 
   it("keeps the legacy commute-map toggle behavior", () => {

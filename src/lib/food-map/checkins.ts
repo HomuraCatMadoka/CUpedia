@@ -121,8 +121,19 @@ export function countFoodMapVisits(
   store: FoodMapCheckinStore,
   restaurantId: string,
 ) {
+  return getFoodMapVisitDates(store, restaurantId).length;
+}
+
+export function getFoodMapVisitDates(
+  store: FoodMapCheckinStore,
+  restaurantId: string,
+) {
   const current = normalizeFoodMapCheckinStore(store);
-  return Object.values(current.byDate).filter((ids) =>
-    ids.includes(restaurantId),
-  ).length;
+  const id = restaurantId.trim();
+  if (!id) return [];
+
+  return Object.entries(current.byDate)
+    .filter(([, ids]) => ids.includes(id))
+    .map(([date]) => date)
+    .sort((a, b) => b.localeCompare(a));
 }
