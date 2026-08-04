@@ -1,7 +1,52 @@
 import { expect, test, type Page } from "@playwright/test";
+import { Client } from "pg";
 
-const decisionKey = "cupedia:foodle-candidate-decisions:v1";
-const matchKey = "cupedia:foodle-match:v1";
+import { loginWithPassword } from "./helpers/auth";
+
+interface AccountFoodleState {
+  decisions: {
+    version: 1;
+    byRestaurantId: Record<string, unknown>;
+  };
+  matchResult: {
+    restaurantId: string;
+    candidateIds: string[];
+  } | null;
+}
+
+async function query<T extends Record<string, unknown>>(
+  text: string,
+  values: unknown[] = [],
+) {
+  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  await client.connect();
+  try {
+    return await client.query<T>(text, values);
+  } finally {
+    await client.end();
+  }
+}
+
+async function readAccountFoodleState(): Promise<AccountFoodleState> {
+  const result = await query<{
+    decisions: AccountFoodleState["decisions"];
+    match_result: AccountFoodleState["matchResult"];
+  }>(
+    `select f.decisions, f.match_result
+       from foodle_user_states f
+       join users u on u.id = f.user_id
+      where u.email = 'user@test.com'`,
+  );
+  return result.rows[0]
+    ? {
+        decisions: result.rows[0].decisions,
+        matchResult: result.rows[0].match_result,
+      }
+    : {
+        decisions: { version: 1, byRestaurantId: {} },
+        matchResult: null,
+      };
+}
 
 const restaurants = {
   first: { id: "sht-mock-meal", name: "新城市茶冰厅" },
@@ -14,22 +59,22 @@ const restaurants = {
 } as const;
 
 async function seedSaved(page: Page, ids: readonly string[]) {
-  await page.addInitScript(
-    ({ key, restaurantIds }) => {
-      Math.random = () => 0.999;
-      const byRestaurantId = Object.fromEntries(
-        restaurantIds.map((id) => [
-          id,
-          { decision: "saved", decidedAt: "2026-08-04T00:00:00.000Z" },
-        ]),
-      );
-      window.localStorage.setItem(
-        key,
-        JSON.stringify({ version: 1, byRestaurantId }),
-      );
-    },
-    { key: decisionKey, restaurantIds: ids },
+  const byRestaurantId = Object.fromEntries(
+    ids.map((id) => [
+      id,
+      { decision: "saved", decidedAt: "2026-08-04T00:00:00.000Z" },
+    ]),
   );
+  await query(
+    `insert into foodle_user_states (user_id, decisions, match_result, updated_at)
+     select id, $1::jsonb, null, now() from users where email = 'user@test.com'
+     on conflict (user_id) do update
+       set decisions = excluded.decisions,
+           match_result = null,
+           updated_at = now()`,
+    [JSON.stringify({ version: 1, byRestaurantId })],
+  );
+  await loginWithPassword(page, "user@test.com", "password123");
 }
 
 async function openSavedSurface(
@@ -37,26 +82,29 @@ async function openSavedSurface(
   savedCount: number,
   budget: 10 | 20 | 30 = 30,
 ) {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
   await page.goto("/food-map");
+  await page.evaluate(() => {
+    Math.random = () => 0.999;
+  });
   if (budget !== 30) {
-    await page
+    const budgetButton = page
       .getByRole("group", { name: "通勤时间" })
-      .getByRole("button", { name: `${budget} 分钟` })
-      .click();
+      .getByRole("button", { name: `${budget} 分钟` });
+    await expect(budgetButton).toBeEnabled();
+    await budgetButton.click();
+    await expect(budgetButton).toHaveAttribute("aria-pressed", "true");
   }
+  const entry = page.getByRole("button", {
+    name: new RegExp(`打开 Foodle Match，${budget} 分钟范围，\\d+ 家餐厅`, "u"),
+  });
+  await expect(entry).toBeEnabled();
+  await entry.click();
   await expect(
-    page.getByRole("button", {
-      name: new RegExp(
-        `打开 Foodle Match，${budget} 分钟范围，\\d+ 家餐厅`,
-        "u",
-      ),
-    }),
-  ).toBeEnabled();
-  await page
-    .getByRole("button", {
-      name: new RegExp(`打开 Foodle Match，${budget} 分钟范围`, "u"),
-    })
-    .click();
+    page.getByRole("region", { name: "Foodle Match 餐厅发现" }),
+  ).toBeVisible();
+  expect(pageErrors).toEqual([]);
   await page
     .getByRole("button", { name: `查看想吃候选，${savedCount} 家` })
     .last()
@@ -210,20 +258,14 @@ test.describe("#501 Foodle saved-candidate Match", () => {
     await expect(
       dialog.getByRole("button", { name: "再选一次" }),
     ).toBeVisible();
-    const decisionsBeforeReselect = await page.evaluate(
-      (key) => window.localStorage.getItem(key),
-      decisionKey,
+    const decisionsBeforeReselect = JSON.stringify(
+      (await readAccountFoodleState()).decisions,
     );
-    const originalCandidateIds = await page.evaluate((key) => {
-      const value = window.localStorage.getItem(key);
-      return value ? JSON.parse(value).result.candidateIds : [];
-    }, matchKey);
+    const originalCandidateIds =
+      (await readAccountFoodleState()).matchResult?.candidateIds ?? [];
     await expect
-      .poll(async () =>
-        page.evaluate((key) => {
-          const value = window.localStorage.getItem(key);
-          return value ? JSON.parse(value).result.restaurantId : null;
-        }, matchKey),
+      .poll(
+        async () => (await readAccountFoodleState()).matchResult?.restaurantId,
       )
       .toBe(restaurants.third.id);
 
@@ -239,15 +281,14 @@ test.describe("#501 Foodle saved-candidate Match", () => {
         .getByTestId("match-right-candidate")
         .getAttribute("data-restaurant-id"),
     ]);
-    expect(visiblePair.every((id) => originalCandidateIds.includes(id))).toBe(
-      true,
-    );
     expect(
-      await page.evaluate(
-        (key) => window.localStorage.getItem(key),
-        decisionKey,
+      visiblePair.every(
+        (id) => id !== null && originalCandidateIds.includes(id),
       ),
-    ).toBe(decisionsBeforeReselect);
+    ).toBe(true);
+    expect(JSON.stringify((await readAccountFoodleState()).decisions)).toBe(
+      decisionsBeforeReselect,
+    );
 
     await dialog.getByRole("button", { name: "关闭 Match" }).click();
     await expect(

@@ -706,19 +706,24 @@ export function FoodleMatch({
   ready,
   random,
   initialSide,
+  initialResult,
+  onResult,
 }: {
   candidates: readonly FoodleRestaurant[];
   sourceLabel: string;
   ready: boolean;
   random?: () => number;
   initialSide?: MatchSide;
+  initialResult?: FoodleMatchResult | null;
+  onResult?: (result: FoodleMatchResult) => void | Promise<void>;
 }) {
+  const usesExternalResult = initialResult !== undefined;
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<MatchView | null>(null);
   const [storedResult, setStoredResult] = useState<FoodleMatchResult | null>(
-    null,
+    initialResult ?? null,
   );
-  const [storageReady, setStorageReady] = useState(false);
+  const [storageReady, setStorageReady] = useState(usesExternalResult);
   const [detailRestaurant, setDetailRestaurant] =
     useState<FoodleRestaurant | null>(null);
   const [transitioningId, setTransitioningId] = useState<string | null>(null);
@@ -745,11 +750,15 @@ export function FoodleMatch({
       ]),
     [candidates],
   );
-  const storedRestaurant = storedResult
-    ? restaurantsById.get(storedResult.restaurantId)
+  const effectiveStoredResult = usesExternalResult
+    ? (initialResult ?? null)
+    : storedResult;
+  const storedRestaurant = effectiveStoredResult
+    ? restaurantsById.get(effectiveStoredResult.restaurantId)
     : null;
 
   useEffect(() => {
+    if (usesExternalResult) return;
     const timeout = window.setTimeout(() => {
       try {
         setStoredResult(
@@ -764,7 +773,7 @@ export function FoodleMatch({
       }
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, []);
+  }, [usesExternalResult]);
 
   useEffect(() => {
     if (!open || view?.kind !== "result") return;
@@ -797,6 +806,10 @@ export function FoodleMatch({
   );
 
   function persistResult(result: FoodleMatchResult) {
+    if (usesExternalResult) {
+      if (onResult) void onResult(result);
+      return;
+    }
     setStoredResult(result);
     try {
       window.localStorage.setItem(
@@ -862,9 +875,9 @@ export function FoodleMatch({
   }
 
   function reopenResult() {
-    if (!storedResult) return;
+    if (!effectiveStoredResult) return;
     matchReturnFocusRef.current = lastResultButtonRef.current;
-    setView({ kind: "result", result: storedResult, reopened: true });
+    setView({ kind: "result", result: effectiveStoredResult, reopened: true });
     setOpen(true);
   }
 

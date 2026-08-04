@@ -13,6 +13,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FoodMapView } from "@/components/food-map/food-map-view";
 import { FOOD_MAP_CHECKINS_STORAGE_KEY } from "@/lib/food-map/checkins";
+import {
+  FOODLE_PENDING_INTENT_STORAGE_KEY,
+  serializeFoodlePendingIntent,
+} from "@/lib/food-map/pending-intent";
+import { emptyFoodlePersonalState } from "@/lib/food-map/personal-state";
 
 afterEach(() => {
   cleanup();
@@ -21,6 +26,45 @@ afterEach(() => {
 });
 
 describe("FoodMapView", () => {
+  it("restores an interrupted Foodle scope and restaurant after login", async () => {
+    window.localStorage.setItem(
+      FOODLE_PENDING_INTENT_STORAGE_KEY,
+      serializeFoodlePendingIntent({
+        version: 1,
+        restaurantId: "sht-mock-meal",
+        decision: "saved",
+        budget: 20,
+        stationId: "SHT",
+        createdAt: new Date().toISOString(),
+      }),
+    );
+
+    render(
+      <FoodMapView
+        personalSnapshot={{
+          kind: "authenticated",
+          state: emptyFoodlePersonalState(),
+        }}
+      />,
+    );
+
+    const filter = screen.getByRole("group", { name: "通勤时间" });
+    await waitFor(() =>
+      expect(
+        within(filter)
+          .getByRole("button", { name: "20 分钟" })
+          .getAttribute("aria-pressed"),
+      ).toBe("true"),
+    );
+    expect(
+      await screen.findByRole("heading", { name: "沙田站 · 20 分钟范围" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "新城市茶冰厅" })).toBeTruthy();
+    expect(
+      window.localStorage.getItem(FOODLE_PENDING_INTENT_STORAGE_KEY),
+    ).toBeNull();
+  });
+
   it("renders the complete 30-minute University map by default", () => {
     render(<FoodMapView />);
 

@@ -29,6 +29,7 @@ describe("LoginPage password sign-in", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signInEmail.mockResolvedValue({ error: null });
+    window.history.replaceState({}, "", "/login");
     // Mirror the browser: SKIP_EMAIL_WHITELIST is server-only (not NEXT_PUBLIC_),
     // so isAllowedEmail("user@test.com") is false here — exactly the condition
     // that the removed client gate used to reject.
@@ -58,5 +59,32 @@ describe("LoginPage password sign-in", () => {
     );
     expect(screen.queryByText("仅支持 CUHK 邮箱")).toBeNull();
     await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
+  });
+
+  it("returns to Foodle after a login interruption", async () => {
+    window.history.replaceState({}, "", "/login?next=%2Ffood-map");
+    render(<LoginPage />);
+
+    expect(await screen.findByText("Foodle Match")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "登录后继续" })).toBeTruthy();
+    expect(screen.getByText("完成后回到刚才的餐厅")).toBeTruthy();
+    const passwordTab = screen.getByRole("tab", { name: "密码登录" });
+    expect(passwordTab.getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByLabelText("CUHK 邮箱").classList.contains("h-11")).toBe(
+      true,
+    );
+    expect(
+      screen.getByRole("button", { name: /^登录$/ }).classList.contains("h-11"),
+    ).toBe(true);
+
+    fireEvent.change(screen.getByLabelText("CUHK 邮箱"), {
+      target: { value: "user@test.com" },
+    });
+    fireEvent.change(screen.getByLabelText("密码"), {
+      target: { value: "password123" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^登录$/ }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/food-map"));
   });
 });

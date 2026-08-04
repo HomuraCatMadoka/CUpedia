@@ -17,6 +17,8 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import type { CandidateDecisionStore } from "@/lib/food-map/candidate-decisions";
+import type { FoodleMatchResult } from "@/lib/food-map/match";
 
 // ── Better Auth core tables ──
 
@@ -78,6 +80,19 @@ export const verifications = pgTable("verifications", {
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
+});
+
+export const foodleUserStates = pgTable("foodle_user_states", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  decisions: jsonb("decisions")
+    .$type<CandidateDecisionStore>()
+    .notNull()
+    .default(sql`'{"version":1,"byRestaurantId":{}}'::jsonb`),
+  matchResult: jsonb("match_result").$type<FoodleMatchResult | null>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const wikiPages = pgTable(

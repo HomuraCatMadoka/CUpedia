@@ -8,11 +8,25 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const { migrateLocalState, saveDecision, saveMatchResult } = vi.hoisted(() => ({
+  migrateLocalState: vi.fn(),
+  saveDecision: vi.fn(),
+  saveMatchResult: vi.fn(),
+}));
+
+vi.mock("@/lib/food-map/personal-state-actions", () => ({
+  migrateFoodleLocalStateAction: migrateLocalState,
+  saveFoodleCandidateDecisionAction: saveDecision,
+  saveFoodleMatchResultAction: saveMatchResult,
+}));
 
 import { RestaurantDiscoveryPanel } from "@/components/food-map/restaurant-discovery-panel";
 import { FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY } from "@/lib/food-map/candidate-decisions";
 import { MTR_STATIONS } from "@/lib/food-map/data";
+import { FOODLE_MATCH_STORAGE_KEY } from "@/lib/food-map/match";
+import { emptyFoodlePersonalState } from "@/lib/food-map/personal-state";
 
 const shaTin = MTR_STATIONS.find((station) => station.id === "SHT")!;
 const university = MTR_STATIONS.find((station) => station.id === "UNI")!;
@@ -21,6 +35,10 @@ const taiPoMarket = MTR_STATIONS.find((station) => station.id === "TAP")!;
 afterEach(() => {
   cleanup();
   window.localStorage.clear();
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
 });
 
 async function openEntry(label: RegExp) {
@@ -34,6 +52,235 @@ async function openEntry(label: RegExp) {
 }
 
 describe("RestaurantDiscoveryPanel", () => {
+  it("keeps anonymous discovery read-only until login is confirmed", async () => {
+    render(
+      <RestaurantDiscoveryPanel
+        station={shaTin}
+        budget={20}
+        notice={null}
+        personalSnapshot={{ kind: "anonymous" }}
+      />,
+    );
+    await openEntry(/打开 Foodle Match，沙田站 · 20 分钟范围，4 家餐厅/u);
+    const restaurantName = screen.getByRole("heading", {
+      level: 3,
+    }).textContent;
+
+    fireEvent.click(screen.getByRole("button", { name: "想吃" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "登录后继续" });
+    expect(within(dialog).getByText(/尚未提交/u)).toBeTruthy();
+    expect(
+      window.localStorage.getItem(FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY),
+    ).toBeNull();
+    expect(saveDecision).not.toHaveBeenCalled();
+
+    const login = within(dialog).getByRole("link", { name: "登录并继续" });
+    expect(login.getAttribute("href")).toBe("/login?next=%2Ffood-map");
+    login.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(login);
+    expect(
+      JSON.parse(
+        window.localStorage.getItem("cupedia:foodle-pending-intent:v1") ?? "{}",
+      ).restaurantId,
+    ).toBe("sht-mock-meal");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "继续浏览" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "登录后继续" })).toBeNull(),
+    );
+    expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
+      restaurantName,
+    );
+  });
+
+  it("renders authenticated choices from the account snapshot", async () => {
+    const state = emptyFoodlePersonalState();
+    state.decisions.byRestaurantId["sht-mock-meal"] = {
+      decision: "saved",
+      decidedAt: "2026-08-04T00:00:00.000Z",
+    };
+
+    render(
+      <RestaurantDiscoveryPanel
+        station={shaTin}
+        budget={20}
+        notice={null}
+        personalSnapshot={{ kind: "authenticated", state }}
+      />,
+    );
+
+    expect(await screen.findByText("想吃 1")).toBeTruthy();
+    expect(
+      window.localStorage.getItem(FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY),
+    ).toBeNull();
+    await openEntry(/打开 Foodle Match，沙田站 · 20 分钟范围，3 家餐厅/u);
+    expect(
+      screen.getByRole("region", { name: "Foodle Match 餐厅发现" }),
+    ).toBeTruthy();
+  });
+
+  it("asks before mixing legacy local records into an account", async () => {
+    window.localStorage.setItem(
+      FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        byRestaurantId: {
+          "sht-mock-meal": {
+            decision: "saved",
+            decidedAt: "2026-08-04T00:00:00.000Z",
+          },
+        },
+      }),
+    );
+    window.localStorage.setItem(
+      FOODLE_MATCH_STORAGE_KEY,
+      JSON.stringify({ version: 1, result: null }),
+    );
+    render(
+      <RestaurantDiscoveryPanel
+        station={shaTin}
+        budget={20}
+        notice={null}
+        personalSnapshot={{
+          kind: "authenticated",
+          state: emptyFoodlePersonalState(),
+        }}
+      />,
+    );
+
+    const dialog = await screen.findByRole("dialog", {
+      name: "处理本机 Foodle 记录",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "暂不处理" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "处理本机 Foodle 记录" }),
+      ).toBeNull(),
+    );
+    expect(screen.getByText("想吃 0")).toBeTruthy();
+    expect(
+      window.localStorage.getItem(FOODLE_CANDIDATE_DECISIONS_STORAGE_KEY),
+    ).not.toBeNull();
+    expect(migrateLocalState).not.toHaveBeenCalled();
+  });
+
+  it("surfaces stale catalog data without blocking discovery", async () => {
+    render(
+      <RestaurantDiscoveryPanel
+        station={shaTin}
+        budget={20}
+        notice={null}
+        catalogState="stale"
+      />,
+    );
+
+    expect(await screen.findByText("餐厅资料可能已过期")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: /打开 Foodle Match，沙田站 · 20 分钟范围/u,
+      }),
+    ).toBeTruthy();
+  });
+
+  it.each([
+    ["empty" as const, "当前范围没有餐厅资料", "status"],
+    ["failed" as const, "餐厅资料暂时无法载入", "alert"],
+  ])(
+    "keeps a %s catalog from opening an empty discovery dead end",
+    async (catalogState, message, role) => {
+      render(
+        <RestaurantDiscoveryPanel
+          station={shaTin}
+          budget={20}
+          notice={null}
+          catalogState={catalogState}
+        />,
+      );
+
+      expect(
+        (await screen.findByRole(role, { name: "" })).textContent,
+      ).toContain(message);
+      const entry = screen.getByRole("button", {
+        name: /Foodle Match 暂不可用/u,
+      });
+      expect((entry as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.click(entry);
+      expect(
+        screen.queryByRole("region", { name: "Foodle Match 餐厅发现" }),
+      ).toBeNull();
+    },
+  );
+
+  it("keeps restaurant facts browsable when personal state is unavailable", async () => {
+    render(
+      <RestaurantDiscoveryPanel
+        station={shaTin}
+        budget={20}
+        notice={null}
+        personalSnapshot={{
+          kind: "unavailable",
+          message: "个人选择暂时无法读取",
+        }}
+      />,
+    );
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "个人选择暂时无法读取",
+    );
+    expect(screen.getByText("想吃 —")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /打开 Foodle Match，沙田站 · 20 分钟范围，4 家餐厅/u,
+      }),
+    );
+    const restaurantName = screen.getByRole("heading", {
+      level: 3,
+    }).textContent;
+
+    expect(
+      (screen.getByRole("button", { name: "想吃" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "想吃" }));
+
+    expect(screen.getByRole("alert").textContent).toContain(
+      "个人选择暂时无法读取",
+    );
+    expect(screen.getByRole("heading", { level: 3 }).textContent).toBe(
+      restaurantName,
+    );
+    expect(saveDecision).not.toHaveBeenCalled();
+  });
+
+  it("exposes discovery as a modal surface and closes it with Escape", async () => {
+    render(
+      <RestaurantDiscoveryPanel station={shaTin} budget={20} notice={null} />,
+    );
+    const entry = await screen.findByRole("button", {
+      name: /打开 Foodle Match，沙田站 · 20 分钟范围/u,
+    });
+    fireEvent.click(entry);
+
+    const surface = screen.getByRole("dialog", { name: "餐厅发现" });
+    expect(surface.getAttribute("aria-modal")).toBe("true");
+    fireEvent.keyDown(surface, { key: "Escape" });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("region", { name: "Foodle Match 餐厅发现" }),
+      ).toBeNull(),
+    );
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole("button", {
+          name: /打开 Foodle Match，沙田站 · 20 分钟范围/u,
+        }),
+      ),
+    );
+  });
+
   it("opens an independent eight-card Match batch from the commute scope", async () => {
     render(
       <RestaurantDiscoveryPanel station={null} budget={20} notice={null} />,

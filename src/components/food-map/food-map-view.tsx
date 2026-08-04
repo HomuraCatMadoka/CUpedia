@@ -53,6 +53,12 @@ import {
 } from "@/lib/food-map/checkins";
 import { hasFoodleRestaurants } from "@/lib/food-map/restaurant-catalog";
 import {
+  FOODLE_PENDING_INTENT_STORAGE_KEY,
+  parseFoodlePendingIntent,
+  type FoodlePendingIntent,
+} from "@/lib/food-map/pending-intent";
+import type { FoodlePersonalSnapshot } from "@/lib/food-map/personal-state";
+import {
   getUniversityRoute,
   UNIVERSITY_JOURNEY_TIME_COUNTS,
 } from "@/lib/food-map/university-journey-times";
@@ -1091,7 +1097,11 @@ function DetailPanel({
   );
 }
 
-export function FoodMapView() {
+export function FoodMapView({
+  personalSnapshot,
+}: {
+  personalSnapshot?: FoodlePersonalSnapshot;
+} = {}) {
   const [budget, setBudget] = useState<FoodMapBudget>(DEFAULT_BUDGET);
   const [selectedStationId, setSelectedStationId] =
     useState<MtrStationId | null>(null);
@@ -1099,6 +1109,8 @@ export function FoodMapView() {
   const [today, setToday] = useState(hktDateKey);
   const [checkins, setCheckins] = useState(emptyFoodMapCheckinStore);
   const [checkinsReady, setCheckinsReady] = useState(false);
+  const [pendingIntent, setPendingIntent] =
+    useState<FoodlePendingIntent | null>(null);
   const legendStations = useMemo(() => getReachableStations(budget), [budget]);
 
   useEffect(() => {
@@ -1113,6 +1125,31 @@ export function FoodMapView() {
 
     return () => window.clearTimeout(timeout);
   }, []);
+
+  useEffect(() => {
+    if (personalSnapshot?.kind !== "authenticated") return;
+    const timeout = window.setTimeout(() => {
+      const intent = parseFoodlePendingIntent(
+        window.localStorage.getItem(FOODLE_PENDING_INTENT_STORAGE_KEY),
+      );
+      if (!intent) {
+        window.localStorage.removeItem(FOODLE_PENDING_INTENT_STORAGE_KEY);
+        return;
+      }
+      const intendedStation = intent.stationId
+        ? stationById.get(intent.stationId)
+        : null;
+      setBudget(intent.budget);
+      setSelectedStationId(
+        intendedStation && intendedStation.minutes <= intent.budget
+          ? intendedStation.id
+          : null,
+      );
+      setPendingIntent(intent);
+      setNotice(null);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [personalSnapshot]);
 
   useEffect(() => {
     const refreshToday = () => {
@@ -1206,16 +1243,6 @@ export function FoodMapView() {
       </div>
 
       <div className="mt-3 grid min-w-0 gap-x-6 gap-y-3 md:grid-cols-[minmax(0,32rem)_minmax(20rem,1fr)] md:items-start lg:gap-x-9">
-        <div className="min-w-0">
-          <MtrSchematic
-            key={budget}
-            budget={budget}
-            selectedStationId={selectedStationId}
-            onSelectStation={selectStation}
-            onClearSelection={clearSelection}
-          />
-        </div>
-
         <div className="min-w-0 md:col-start-2 md:row-span-2 md:row-start-1 md:sticky md:top-[calc(var(--navbar-height)+1.5rem)]">
           <RestaurantDiscoveryPanel
             station={
@@ -1225,6 +1252,19 @@ export function FoodMapView() {
             }
             budget={budget}
             notice={notice}
+            personalSnapshot={personalSnapshot}
+            pendingIntent={pendingIntent}
+            onPendingIntentHandled={() => setPendingIntent(null)}
+          />
+        </div>
+
+        <div className="min-w-0 md:col-start-1 md:row-start-1">
+          <MtrSchematic
+            key={budget}
+            budget={budget}
+            selectedStationId={selectedStationId}
+            onSelectStation={selectStation}
+            onClearSelection={clearSelection}
           />
         </div>
 
