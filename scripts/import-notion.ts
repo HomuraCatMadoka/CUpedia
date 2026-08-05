@@ -4,13 +4,9 @@ import path from "path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { sql } from "drizzle-orm";
 import { Pool } from "pg";
-import {
-  S3Client,
-  PutObjectCommand,
-  DeleteObjectsCommand,
-} from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import { wikiPages, wikiRevisions } from "../src/db/schema";
+import { deleteObjects, uploadAsset } from "../src/lib/minio";
 import {
   stripMetadata,
   convertLinks,
@@ -183,40 +179,40 @@ async function processEntry(
   }
 }
 
+type ImportTransaction = Parameters<
+  Parameters<ReturnType<typeof drizzle>["transaction"]>[0]
+>[0];
+
 async function insertEntries(
-  db: ReturnType<typeof drizzle>,
+  db: ImportTransaction,
   adminUserId: string,
   entries: ImportEntry[],
   parentId: string | null,
 ) {
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
-    const [page] = await db.transaction(async (tx) => {
-      const [inserted] = await tx
-        .insert(wikiPages)
-        .values({
-          id: entry.id,
-          title: entry.title,
-          content: entry.content,
-          parentId,
-          sortOrder: i,
-          createdBy: adminUserId,
-          updatedBy: adminUserId,
-        })
-        .returning();
-
-      await tx.insert(wikiRevisions).values({
-        pageId: inserted.id,
+    const [page] = await db
+      .insert(wikiPages)
+      .values({
+        id: entry.id,
         title: entry.title,
         content: entry.content,
-        editedBy: adminUserId,
-        editSummary: "导入 Notion 页面",
-      });
+        parentId,
+        sortOrder: i,
+        createdBy: adminUserId,
+        updatedBy: adminUserId,
+      })
+      .returning();
 
-      return [inserted];
+    await db.insert(wikiRevisions).values({
+      pageId: page.id,
+      title: entry.title,
+      content: entry.content,
+      editedBy: adminUserId,
+      editSummary: "导入 Notion 页面",
     });
 
-    console.log(`Imported: ${entry.id}`);
+    console.log(`Importing: ${entry.id}`);
 
     if (entry.children.length > 0) {
       await insertEntries(db, adminUserId, entry.children, page.id);
@@ -225,44 +221,18 @@ async function insertEntries(
 }
 
 function createUploader() {
-  const s3 = new S3Client({
-    endpoint: `http://${process.env.MINIO_ENDPOINT}:${process.env.MINIO_PORT}`,
-    region: "us-east-1",
-    credentials: {
-      accessKeyId: process.env.MINIO_ACCESS_KEY!,
-      secretAccessKey: process.env.MINIO_SECRET_KEY!,
-    },
-    forcePathStyle: true,
-  });
-  const bucket = process.env.MINIO_BUCKET!;
   const uploadedKeys: string[] = [];
 
   async function upload(buffer: Buffer, filename: string, contentType: string) {
-    const ext = filename.split(".").pop();
-    const key = `wiki-assets/${randomUUID()}.${ext}`;
-
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-      }),
-    );
-
+    const { key, url } = await uploadAsset(buffer, filename, contentType);
     uploadedKeys.push(key);
-    return { key, url: `/api/wiki-assets/${key}` };
+    return { key, url };
   }
 
   async function rollback() {
     if (uploadedKeys.length === 0) return;
     console.log(`Rolling back ${uploadedKeys.length} uploaded objects...`);
-    await s3.send(
-      new DeleteObjectsCommand({
-        Bucket: bucket,
-        Delete: { Objects: uploadedKeys.map((Key) => ({ Key })) },
-      }),
-    );
+    await deleteObjects(uploadedKeys);
   }
 
   return { upload, rollback, uploadedKeys };
@@ -280,6 +250,31 @@ async function checkSchema(db: ReturnType<typeof drizzle>) {
     );
     process.exit(1);
   }
+}
+
+export async function revalidateWikiCache() {
+  const url = process.env.WIKI_REVALIDATE_URL;
+  const secret = process.env.WIKI_REVALIDATE_SECRET;
+  if (!url && !secret) {
+    console.warn(
+      "Wiki cache revalidation skipped: WIKI_REVALIDATE_URL and WIKI_REVALIDATE_SECRET are not set",
+    );
+    return false;
+  }
+  if (!url || !secret) {
+    throw new Error(
+      "WIKI_REVALIDATE_URL and WIKI_REVALIDATE_SECRET must be set together",
+    );
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { authorization: `Bearer ${secret}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Wiki cache revalidation failed: HTTP ${response.status}`);
+  }
+  return true;
 }
 
 async function main() {
@@ -342,7 +337,7 @@ async function main() {
     }
 
     console.log("Inserting into database...");
-    await insertEntries(db, adminUserId, entries, null);
+    await db.transaction((tx) => insertEntries(tx, adminUserId, entries, null));
     console.log("Import complete.");
   } catch (err) {
     console.error("Import failed, rolling back uploads...", err);
@@ -350,6 +345,10 @@ async function main() {
     process.exit(1);
   } finally {
     await pool.end();
+  }
+
+  if (await revalidateWikiCache()) {
+    console.log("Wiki cache revalidated.");
   }
 }
 
