@@ -34,10 +34,10 @@ import {
   staffOrganisationAffiliations,
   staffOrganisations,
   staffPeople,
-  staffTeachingAssignments,
   notifications,
   users,
 } from "@/db/schema";
+import { hasProfessorCourseEvidence } from "@/lib/professor-course-evidence";
 import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
 import { assertContributorComplete } from "@/lib/contributor-account";
 import {
@@ -1047,30 +1047,9 @@ export async function getCourseProfessorStats(
       .from(courseInstructors)
       .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
       .where(
-        or(
-          sql`exists (
-            select 1 from ${staffTeachingAssignments} assignment
-            where assignment.person_id = ${courseInstructors.personId}
-              and assignment.course_code = ${courseCode}
-          )`,
-          sql`exists (
-            select 1 from ${professorCourses} professor_course
-            where professor_course.instructor_person_id = ${courseInstructors.personId}
-              and professor_course.course_code = ${courseCode}
-          )`,
-          sql`exists (
-            select 1 from ${courseRatings} rating
-            where rating.instructor_person_id = ${courseInstructors.personId}
-              and rating.course_code = ${courseCode}
-          )`,
-          sql`exists (
-            select 1
-            from ${courseRatingProfessors} selected_professor
-            inner join ${courseRatings} selected_rating
-              on selected_rating.id = selected_professor.rating_id
-            where selected_professor.instructor_person_id = ${courseInstructors.personId}
-              and selected_rating.course_code = ${courseCode}
-          )`,
+        hasProfessorCourseEvidence(
+          courseInstructors.personId,
+          sql`${courseCode}`,
         ),
       )
       .orderBy(staffPeople.canonicalName),
@@ -1504,37 +1483,39 @@ export async function submitCourseReview(
   let selectedProfessorsInOrder: Array<{
     id: string;
     publicId: string;
-    legacyProfessorId: string;
+    legacyProfessorId: string | null;
     name: string;
   }> = [];
   if (professorIds.length) {
     const catalogRows = await db
       .select({
-        legacyProfessorId: professors.id,
+        legacyProfessorId: professorStaffIdentities.professorId,
         publicId: courseInstructors.publicId,
-        name: sql<string>`coalesce(${staffPeople.canonicalName}, ${professors.name})`,
-        personId: professorStaffIdentities.personId,
+        name: staffPeople.canonicalName,
+        personId: courseInstructors.personId,
       })
-      .from(professors)
-      .innerJoin(
+      .from(courseInstructors)
+      .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
+      .leftJoin(
         professorStaffIdentities,
-        eq(professors.id, professorStaffIdentities.professorId),
-      )
-      .innerJoin(
-        staffPeople,
-        eq(professorStaffIdentities.personId, staffPeople.id),
-      )
-      .innerJoin(
-        courseInstructors,
-        eq(professorStaffIdentities.personId, courseInstructors.personId),
+        eq(courseInstructors.personId, professorStaffIdentities.personId),
       )
       .where(
-        or(
-          inArray(professors.id, professorIds),
-          inArray(professorStaffIdentities.personId, professorIds),
+        and(
+          or(
+            inArray(courseInstructors.personId, professorIds),
+            inArray(professorStaffIdentities.professorId, professorIds),
+          ),
+          hasProfessorCourseEvidence(
+            courseInstructors.personId,
+            sql`${course.code}`,
+          ),
         ),
       )
-      .orderBy(professors.id);
+      .orderBy(
+        courseInstructors.personId,
+        professorStaffIdentities.professorId,
+      );
     const selectedByPerson = new Map<
       string,
       (typeof selectedProfessorsInOrder)[number]
@@ -1544,9 +1525,6 @@ export async function submitCourseReview(
         catalogRows.find((row) => row.personId === requestedId) ??
         catalogRows.find((row) => row.legacyProfessorId === requestedId);
       if (!match) throw new Error("请选择教授目录中的教授");
-      if (!match.personId) {
-        throw new Error("教授身份资料尚未完成迁移，请稍后再试");
-      }
       selectedByPerson.set(match.personId, {
         id: match.personId,
         publicId: match.publicId,

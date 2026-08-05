@@ -38,6 +38,14 @@ class RenderDepartmentProfileImportTest(unittest.TestCase):
         self.assertIn("observed_source_keys", sql)
         self.assertIn("unknown staff person", sql)
 
+    def test_output_can_reuse_an_outer_transaction(self):
+        sql = subject.render_sql(
+            subject.import_payload(self.report()), transaction=False
+        )
+        self.assertFalse(sql.startswith("begin;"))
+        self.assertNotIn("\ncommit;", sql)
+        self.assertIn("insert into staff_person_sources", sql)
+
     def test_unresolved_roster_keys_protect_existing_sources_from_missing(self):
         payload = subject.import_payload(self.report())
         self.assertEqual(len(payload["person_sources"]), 1)

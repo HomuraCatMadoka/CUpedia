@@ -32,15 +32,29 @@ source key 稳定排序。原始 role label 和全部 affiliations 仍保留，p
 教授目录可以按该普通平均分排序，但只让至少 5 份测评的教授进入“评分最高”结果；
 低样本平均分仍可在卡片和详情展示，并明确提示样本较少。首版不另建排行榜页面。
 
+教授与课程的关联不再以单一导入表为准。目录搜索、教授详情、课程教授选项与投稿校验
+共享同一个 evidence union：课表的 `staff_teaching_assignments`、legacy 导入的
+`professor_courses`、单教授评分 `course_ratings`，以及多教授评分
+`course_rating_professors`。新投稿以 `instructor_person_id` 为必填身份，
+`course_rating_professors` 的主键是 `(rating_id, instructor_person_id)`；legacy
+`professor_id` 只保留为可空兼容字段，不能阻挡已验证 canonical instructor 投稿。
+
 院系 crawl 只有在 fresh run、分页数量达到人工审核基线且个人链接验证通过时，才允许
 该 source 参与 missing-row lifecycle。首次缺失只增加 `missing_runs`，连续两次才失效；
 失败或不完整 source 不清理旧数据。生成的 SQL 是 attach-only import，并在 person 不存在
 或 source key 已属于另一人时中止事务。
 
+人工审核后的院系快照属于生产数据，不属于可在空数据库重放的 schema migration。快照 SQL
+作为版本化 artifact 随代码发布；production build 在 schema migration 后自动导入，并以
+内容 SHA-256 写入 `site_settings`。相同快照重复部署直接跳过，避免重复增加
+`missing_runs`；事务级 advisory lock 防止并发部署重复执行。新的 checksum 只有在整次
+attach-only import 成功后才写入，identity guard 失败会回滚并阻止发布。
+
 ## 后果
 
 - 改名、院系换站和 Research Portal URL 变化不改变教授卡片 UUID。
 - 课程测评与教授卡片共享同一 instructor identity，避免按姓名重复聚合。
+- 旧课程映射、课表和评分都能让教授出现在相应课程中，不再因导入来源不同而漏卡。
 - 院系主页是用户看到的主链接；没有可验证个人页时仍能安全使用 Research Portal。
 - 荣休与多重任命不会覆盖正式任命；UI 可以展示全部 affiliation，但只有一个确定的主来源。
 - Research Portal 不收录的大量 adjunct、part-time、visiting 和 honorary 人员首版不会有卡片。

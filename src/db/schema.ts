@@ -986,17 +986,16 @@ export const courseRatingProfessors = pgTable(
     ratingId: uuid("rating_id")
       .notNull()
       .references(() => courseRatings.id, { onDelete: "cascade" }),
-    professorId: text("professor_id")
+    professorId: text("professor_id").references(() => professors.id),
+    instructorPersonId: text("instructor_person_id")
       .notNull()
-      .references(() => professors.id),
-    instructorPersonId: text("instructor_person_id").references(
-      () => courseInstructors.personId,
-      { onDelete: "restrict" },
-    ),
+      .references(() => courseInstructors.personId, {
+        onDelete: "restrict",
+      }),
     professorNameSnapshot: text("professor_name_snapshot").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.ratingId, table.professorId] }),
+    primaryKey({ columns: [table.ratingId, table.instructorPersonId] }),
     index("course_rating_professors_professor_id_idx").on(table.professorId),
     index("course_rating_professors_instructor_person_id_idx").on(
       table.instructorPersonId,

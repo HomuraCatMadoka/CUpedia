@@ -68,13 +68,11 @@ def import_payload(report: dict) -> dict:
     }
 
 
-def render_sql(payload: dict) -> str:
+def render_sql(payload: dict, *, transaction: bool = True) -> str:
     encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
     if "$department_profiles$" in encoded:
         raise ValueError("Unexpected SQL dollar-quote marker in payload")
-    return f"""begin;
-
-create temp table _department_profile_import (
+    body = f"""create temp table _department_profile_import (
   payload jsonb not null
 ) on commit drop;
 
@@ -158,9 +156,8 @@ where existing.is_current
     where observed.source = existing.source
       and observed.source_key = existing.source_key
   );
-
-commit;
 """
+    return f"begin;\n\n{body}commit;\n" if transaction else body
 
 
 def main() -> None:
@@ -176,9 +173,16 @@ def main() -> None:
         type=Path,
         default=data_dir / "staff-department-profiles-import.sql",
     )
+    parser.add_argument(
+        "--no-transaction",
+        action="store_true",
+        help="omit BEGIN/COMMIT for an outer transaction wrapper",
+    )
     args = parser.parse_args()
     report = json.loads(args.report.read_text(encoding="utf-8"))
-    sql = render_sql(import_payload(report))
+    sql = render_sql(
+        import_payload(report), transaction=not args.no_transaction
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(sql, encoding="utf-8")
     print(f"done -> {args.output}")

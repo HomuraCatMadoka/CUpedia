@@ -10,6 +10,7 @@ const FACULTY_ID = "e2e-professor-directory-faculty";
 const DEPARTMENT_ID = "e2e-professor-directory-department";
 const COURSE_CODE = "CSCI1130";
 const PROFILE_URL = "https://www.cse.cuhk.edu.hk/people/e2e-chan";
+const LEGACY_PROFESSOR_ID = "e2e-professor-directory-legacy";
 
 async function withDatabase(
   callback: (client: Client) => Promise<void>,
@@ -75,17 +76,43 @@ test.beforeAll(async () => {
       [PERSON_ID, PROFILE_URL],
     );
     await client.query(
-      `insert into staff_teaching_assignments
-         (person_id, academic_year, term, course_code, captured_at)
-       values ($1, '2025-26', 'Term 2', $2, now())
-       on conflict (person_id, academic_year, term, course_code) do nothing`,
-      [PERSON_ID, COURSE_CODE],
+      `insert into professors (id, name, search_text)
+       values ($1, $2, lower($2))
+       on conflict (id) do update set name = excluded.name`,
+      [LEGACY_PROFESSOR_ID, PROFESSOR_NAME],
+    );
+    await client.query(
+      `insert into professor_courses
+         (professor_id, instructor_person_id, course_code)
+       values ($1, $2, $3)
+       on conflict (professor_id, course_code) do update set
+         instructor_person_id = excluded.instructor_person_id`,
+      [LEGACY_PROFESSOR_ID, PERSON_ID, COURSE_CODE],
     );
   });
 });
 
 test.afterAll(async () => {
   await withDatabase(async (client) => {
+    await client.query(
+      `delete from course_reviews
+       where course_code = $1
+         and user_id = (select id from users where email = $2)`,
+      [COURSE_CODE, "contributor@test.com"],
+    );
+    await client.query(
+      `delete from course_ratings
+       where course_code = $1
+         and user_id = (select id from users where email = $2)`,
+      [COURSE_CODE, "contributor@test.com"],
+    );
+    await client.query(
+      "delete from professor_courses where professor_id = $1",
+      [LEGACY_PROFESSOR_ID],
+    );
+    await client.query("delete from professors where id = $1", [
+      LEGACY_PROFESSOR_ID,
+    ]);
     await client.query("delete from course_instructors where person_id = $1", [
       PERSON_ID,
     ]);
@@ -168,4 +195,34 @@ test("searches a professor, opens the card, and binds a course review", async ({
   await expect(
     page.getByRole("button", { name: `移除 ${PROFESSOR_NAME}` }),
   ).toHaveCount(0);
+
+  await page.getByLabel("学年").selectOption({ index: 1 });
+  await page.getByLabel("学期").selectOption("Term 2");
+  await page.getByRole("radio", { name: "4.5 星" }).click();
+  await page
+    .getByPlaceholder("分享课程内容、功课量或考试体验…")
+    .fill("E2E canonical professor review");
+  await page.getByRole("button", { name: "提交测评" }).click();
+  await expect(page.getByText("我的课程测评")).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      let rowCount = 0;
+      await withDatabase(async (client) => {
+        const result = await client.query<{ count: string }>(
+          `select count(*)::text count
+           from course_rating_professors selected
+           join course_ratings rating on rating.id = selected.rating_id
+           join users account on account.id = rating.user_id
+           where rating.course_code = $1
+             and account.email = $2
+             and selected.instructor_person_id = $3
+             and selected.professor_id is null`,
+          [COURSE_CODE, "contributor@test.com", PERSON_ID],
+        );
+        rowCount = Number(result.rows[0]?.count ?? 0);
+      });
+      return rowCount;
+    })
+    .toBe(1);
 });

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db } from "@/db";
@@ -10,7 +10,6 @@ import {
   courseRatings,
   courseReviews,
   courses,
-  professorCourses,
   staffAliases,
   staffOrganisationAffiliations,
   staffOrganisations,
@@ -18,6 +17,10 @@ import {
   staffPersonSources,
   staffTeachingAssignments,
 } from "@/db/schema";
+import {
+  hasProfessorCourseEvidence,
+  professorCourseCodes,
+} from "@/lib/professor-course-evidence";
 import {
   selectProfessorDepartmentSource,
   selectProfessorProfile,
@@ -122,13 +125,12 @@ const getDirectoryCorpus = unstable_cache(
           ),
           (
             select string_agg(
-              distinct concat(assignment.course_code, ' ', taught_course.title),
+              concat(evidence.course_code, ' ', taught_course.title),
               ' '
-              order by concat(assignment.course_code, ' ', taught_course.title)
+              order by concat(evidence.course_code, ' ', taught_course.title)
             )
-            from ${staffTeachingAssignments} assignment
-            join ${courses} taught_course on taught_course.code = assignment.course_code
-            where assignment.person_id = ${STAFF_PERSON_ID}
+            from (${professorCourseCodes(STAFF_PERSON_ID)}) evidence
+            join ${courses} taught_course on taught_course.code = evidence.course_code
           )
         )`,
         faculty: sql<string | null>`(
@@ -178,7 +180,7 @@ const getDirectoryCorpus = unstable_cache(
       .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
       .where(eq(staffPeople.identityKind, "official"))
       .orderBy(asc(staffPeople.canonicalName), asc(courseInstructors.publicId)),
-  ["professor-directory-corpus-v2"],
+  ["professor-directory-corpus-v3"],
   { revalidate: 300, tags: ["professor-catalog"] },
 );
 
@@ -363,32 +365,7 @@ export async function getProfessorDetail(
         )`,
       })
       .from(courses)
-      .where(
-        or(
-          sql`exists (
-            select 1 from ${staffTeachingAssignments} assignment
-            where assignment.person_id = ${person.id}
-              and assignment.course_code = ${COURSE_CODE}
-          )`,
-          sql`exists (
-            select 1 from ${professorCourses} professor_course
-            where professor_course.instructor_person_id = ${person.id}
-              and professor_course.course_code = ${COURSE_CODE}
-          )`,
-          sql`exists (
-            select 1 from ${courseRatings} rating
-            where rating.course_code = ${COURSE_CODE}
-              and (
-                rating.instructor_person_id = ${person.id}
-                or exists (
-                  select 1 from ${courseRatingProfessors} selected
-                  where selected.rating_id = rating.id
-                    and selected.instructor_person_id = ${person.id}
-                )
-              )
-          )`,
-        ),
-      )
+      .where(hasProfessorCourseEvidence(sql`${person.id}`, COURSE_CODE))
       .orderBy(
         desc(sql`coalesce((
         select max(assignment.academic_year)
