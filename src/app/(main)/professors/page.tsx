@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SearchIcon } from "lucide-react";
 
 import { CourseCatalogTabs } from "@/components/courses/course-catalog-tabs";
+import { ProfessorDirectoryFilters } from "@/components/professors/professor-directory-filters";
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
 import { getProfessorDirectory } from "@/lib/professor-actions";
 import { PROFESSOR_RANKING_MIN_RATINGS } from "@/lib/professor-search";
@@ -30,7 +30,7 @@ export default async function ProfessorsPage({
 }: {
   searchParams: Promise<{
     q?: string;
-    faculty?: string;
+    department?: string;
     page?: string;
     sort?: string;
   }>;
@@ -43,14 +43,14 @@ export default async function ProfessorsPage({
       : "name";
   const result = await getProfessorDirectory({
     q: params.q,
-    faculty: params.faculty,
+    department: params.department,
     page,
     sort,
   });
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const filters = {
     q: params.q,
-    faculty: params.faculty,
+    department: params.department,
     sort: sort === "name" ? undefined : sort,
   };
   const currentHref = directoryHref({ ...filters, page: result.page });
@@ -68,59 +68,13 @@ export default async function ProfessorsPage({
           <CourseCatalogTabs active="professors" />
         </div>
 
-        <form className="mt-8 grid gap-3 sm:grid-cols-[1fr_220px_200px_auto]">
-          <label className="relative">
-            <span className="sr-only">搜索教授</span>
-            <SearchIcon
-              aria-hidden="true"
-              className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              type="search"
-              name="q"
-              defaultValue={params.q}
-              placeholder="姓名、别名或学系…"
-              autoComplete="off"
-              spellCheck={false}
-              className="min-h-12 w-full rounded-xl border bg-background pr-4 pl-11 text-sm outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
-            />
-          </label>
-          <label>
-            <span className="sr-only">按学院筛选</span>
-            <select
-              name="faculty"
-              defaultValue={params.faculty ?? ""}
-              className="min-h-12 w-full rounded-xl border bg-background px-4 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
-            >
-              <option value="">全部学院</option>
-              {result.faculties.map((faculty) => (
-                <option key={faculty} value={faculty}>
-                  {faculty}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="sr-only">教授排序</span>
-            <select
-              name="sort"
-              defaultValue={sort}
-              className="min-h-12 w-full rounded-xl border bg-background px-4 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
-            >
-              <option value="name">按姓名</option>
-              <option value="rating-count">按测评数</option>
-              <option value="rating">
-                评分最高（至少 {PROFESSOR_RANKING_MIN_RATINGS} 份）
-              </option>
-            </select>
-          </label>
-          <button
-            type="submit"
-            className="min-h-12 rounded-xl bg-foreground px-5 text-sm font-medium text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            搜索
-          </button>
-        </form>
+        <ProfessorDirectoryFilters
+          departments={result.departments}
+          initialDepartment={params.department}
+          initialQuery={params.q}
+          sort={sort}
+          rankingMinimum={PROFESSOR_RANKING_MIN_RATINGS}
+        />
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">
@@ -130,7 +84,7 @@ export default async function ProfessorsPage({
               ? ` · 仅展示至少 ${PROFESSOR_RANKING_MIN_RATINGS} 份测评`
               : ""}
           </p>
-          {params.q || params.faculty || sort !== "name" ? (
+          {params.q || params.department || sort !== "name" ? (
             <Link
               href="/professors"
               className="rounded-sm text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
