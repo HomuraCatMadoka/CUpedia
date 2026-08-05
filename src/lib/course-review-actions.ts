@@ -1501,15 +1501,9 @@ export async function submitCourseReview(
         eq(courseInstructors.personId, professorStaffIdentities.personId),
       )
       .where(
-        and(
-          or(
-            inArray(courseInstructors.personId, professorIds),
-            inArray(professorStaffIdentities.professorId, professorIds),
-          ),
-          hasProfessorCourseEvidence(
-            courseInstructors.personId,
-            sql`${course.code}`,
-          ),
+        or(
+          inArray(courseInstructors.personId, professorIds),
+          inArray(professorStaffIdentities.professorId, professorIds),
         ),
       )
       .orderBy(

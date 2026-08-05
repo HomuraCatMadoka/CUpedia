@@ -32,12 +32,14 @@ source key 稳定排序。原始 role label 和全部 affiliations 仍保留，p
 教授目录可以按该普通平均分排序，但只让至少 5 份测评的教授进入“评分最高”结果；
 低样本平均分仍可在卡片和详情展示，并明确提示样本较少。首版不另建排行榜页面。
 
-教授与课程的关联不再以单一导入表为准。目录搜索、教授详情、课程教授选项与投稿校验
-共享同一个 evidence union：课表的 `staff_teaching_assignments`、legacy 导入的
+教授与课程的关联不再以单一导入表为准。目录搜索、教授详情与课程教授选项共享同一个
+evidence union：课表的 `staff_teaching_assignments`、legacy 导入的
 `professor_courses`、单教授评分 `course_ratings`，以及多教授评分
 `course_rating_professors`。新投稿以 `instructor_person_id` 为必填身份，
 `course_rating_professors` 的主键是 `(rating_id, instructor_person_id)`；legacy
-`professor_id` 只保留为可空兼容字段，不能阻挡已验证 canonical instructor 投稿。
+`professor_id` 只保留为可空兼容字段，不能阻挡已验证 canonical instructor 投稿。投稿不要求
+教授预先存在该课程的 evidence；用户从全校 verified 目录选择后，本次评分本身会成为第一条
+课程关联证据。
 
 院系 crawl 只有在 fresh run、分页数量达到人工审核基线且个人链接验证通过时，才允许
 该 source 参与 missing-row lifecycle。首次缺失只增加 `missing_runs`，连续两次才失效；
