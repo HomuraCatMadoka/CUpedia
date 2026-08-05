@@ -1,9 +1,55 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PROFESSOR_RANKING_MIN_RATINGS,
+  rankProfessorCandidates,
   searchProfessorCandidates,
   type ProfessorSearchCandidate,
 } from "@/lib/professor-search";
+
+describe("rankProfessorCandidates", () => {
+  it("uses the direct average and excludes professors below the sample threshold", () => {
+    const ranked = rankProfessorCandidates([
+      {
+        publicId: "small-sample",
+        name: "Small Sample",
+        rating: 5,
+        ratingCount: PROFESSOR_RANKING_MIN_RATINGS - 1,
+      },
+      {
+        publicId: "high",
+        name: "High Rating",
+        rating: 4.5,
+        ratingCount: 5,
+      },
+      {
+        publicId: "popular",
+        name: "Popular",
+        rating: 4.2,
+        ratingCount: 20,
+      },
+    ]);
+
+    expect(ranked.map((candidate) => candidate.publicId)).toEqual([
+      "high",
+      "popular",
+    ]);
+  });
+
+  it("breaks equal averages by sample size, then name", () => {
+    const ranked = rankProfessorCandidates([
+      { publicId: "a", name: "Beta", rating: 4.5, ratingCount: 5 },
+      { publicId: "b", name: "Alpha", rating: 4.5, ratingCount: 6 },
+      { publicId: "c", name: "Aaron", rating: 4.5, ratingCount: 5 },
+    ]);
+
+    expect(ranked.map((candidate) => candidate.publicId)).toEqual([
+      "b",
+      "c",
+      "a",
+    ]);
+  });
+});
 
 function professor(
   id: string,
@@ -62,6 +108,20 @@ describe("searchProfessorCandidates", () => {
         "shi ce",
       ),
     ).toEqual([{ id: "shi", name: "Prof. SHI Ce Matthew" }]);
+  });
+
+  it("可通过任教课程代码或名称找到教授", () => {
+    expect(
+      searchProfessorCandidates(
+        [
+          {
+            ...professor("teacher", "Professor CHAN"),
+            searchText: "Professor CHAN CSCI2100 Data Structures",
+          },
+        ],
+        "CSCI2100",
+      ),
+    ).toEqual([{ id: "teacher", name: "Professor CHAN" }]);
   });
 
   it("容忍多词姓名中的轻微拼写错误", () => {
@@ -215,5 +275,14 @@ describe("searchProfessorCandidates", () => {
       professor(`p${index}`, `Professor CHAN ${index}`),
     );
     expect(searchProfessorCandidates(candidates, "chan")).toHaveLength(10);
+  });
+
+  it("目录搜索可以显式提高结果上限", () => {
+    const candidates = Array.from({ length: 15 }, (_, index) =>
+      professor(`p${index}`, `Professor CHAN ${index}`),
+    );
+    expect(
+      searchProfessorCandidates(candidates, "chan", undefined, 15),
+    ).toHaveLength(15);
   });
 });

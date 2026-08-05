@@ -95,7 +95,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-white">
+      <header className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-background">
         <div className="grid h-full grid-cols-[1fr_auto] grid-rows-[3.5rem_2.75rem] px-4 md:flex md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             {leading}

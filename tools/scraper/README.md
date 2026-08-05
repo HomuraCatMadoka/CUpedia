@@ -10,6 +10,9 @@ tools/scraper/scrape_courses.py   →  scripts/data/{courses,subjects}.json → 
 tools/scraper/scrape_handbook.py  →  scripts/data/handbook/*.{html,json} → pnpm ingest:skeleton
 tools/scraper/scrape_timetable.py →  scripts/data/professors.json → pnpm ingest:professors
 tools/scraper/scrape_staff.py     →  scripts/data/staff-directory.json
+tools/scraper/scrape_department_profiles.py → scripts/data/staff-department-profiles.json
+tools/scraper/analyze_department_profile_coverage.py → read-only production coverage report
+tools/scraper/render_department_profile_import.py → scripts/data/staff-department-profiles-import.sql
 tools/scraper/resolve_staff_pilot.py → scripts/data/staff-engineering-report.json
 tools/scraper/compare_staff_production.py → scripts/data/staff-production-validation.json
 tools/scraper/render_staff_directory_import.py → scripts/data/staff-directory-import.sql
@@ -47,6 +50,12 @@ python export_production_professor_snapshot.py
 # includes faculty trees and standalone institutes, centres, offices and units.
 python scrape_staff.py
 python scrape_staff.py --faculties Engineering,Science
+# Repeat --source for a small adapter smoke test; omit it to run every reviewed
+# department source. Photos remain external URLs in the generated audit data.
+python scrape_department_profiles.py --source cse-faculty --source physics-teaching-staff
+python scrape_department_profiles.py
+python analyze_department_profile_coverage.py ../../scripts/data/staff-department-profiles.json
+python render_department_profile_import.py
 # Fast partial smoke test against a couple of department overview pages:
 python scrape_staff.py --departments department-of-biomedical-engineering,department-of-computer-science-and-engineering --preview --pause 0.25
 # A scoped full run can overlap a few profile requests while still spacing
@@ -71,6 +80,13 @@ python render_staff_import.py
 # interrupted run resumes without refetching completed pages. Use --refresh to
 # deliberately refresh the cache.
 ```
+
+`department-profile-coverage.json` is the reviewed, faculty-by-faculty source
+inventory. It distinguishes sources the generic crawler can run from official
+directories that require an API/DOM adapter, direct-fetch failures confirmed
+through search, and Research Portal-only fallbacks. A directory is never marked
+configured merely because search found it; its selectors and minimum row count
+must survive a live run first.
 
 `courses.json` is rewritten after **every** subject and the run **resumes** by
 skipping subjects already present — a crash mid-harvest loses at most one
@@ -139,7 +155,9 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
   `staff-person-overrides.json`; each entry must use an explicit stable ID,
   official evidence URL and an existing Research Portal organisation. This
   keeps the reviewed person, affiliation, title and timetable aliases
-  reproducible without treating a normalized name as an identity key.
+  reproducible without treating a normalized name as an identity key. The
+  department-profile crawler loads the same reviewed people before matching a
+  fresh roster, so their current official personal pages can be reverified.
   `staff_person_sources` stores each upstream identity separately, keyed by
   `(source, source_key)`. Source freshness and the two-run missing rule are
   maintained there; `staff_people.is_current` remains true while any source is

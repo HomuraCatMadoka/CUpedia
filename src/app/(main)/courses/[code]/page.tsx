@@ -42,10 +42,11 @@ export default async function CourseDetailPage({
     tab?: string;
     review?: string;
     reply?: string;
+    professor?: string;
   }>;
 }) {
   const { code } = await params;
-  const { from, tab, review, reply } = await searchParams;
+  const { from, tab, review, reply, professor } = await searchParams;
   const course = await getCourse(code);
   if (!course) notFound();
   const courseCode = course.code;
@@ -56,11 +57,16 @@ export default async function CourseDetailPage({
   const hasCourseListSource =
     from === "/courses" || Boolean(from?.startsWith("/courses?"));
   const hasReviewHistorySource = from === "/courses/my-reviews";
-  const hasReturnSource = hasCourseListSource || hasReviewHistorySource;
+  const hasProfessorSource = Boolean(
+    from?.startsWith("/professors/") && !from.includes(".."),
+  );
+  const hasReturnSource =
+    hasCourseListSource || hasReviewHistorySource || hasProfessorSource;
   const returnTo = hasReturnSource ? from! : "/courses";
   function detailHref(targetTab: CourseDetailTab, hash?: string): string {
     const query = new URLSearchParams();
     if (hasReturnSource) query.set("from", from!);
+    if (professor) query.set("professor", professor);
     if (targetTab === "enrollment") query.set("tab", "enrollment");
     const suffix = query.size ? `?${query.toString()}` : "";
     return `/courses/${encodeURIComponent(courseCode)}${suffix}${hash ?? ""}`;
@@ -94,6 +100,14 @@ export default async function CourseDetailPage({
   ]);
   const targetRequested = Boolean(review || reply);
   const targetMissing = targetRequested && targetReplyOffset === null;
+  const prefillProfessor = professorStats.find(
+    (item) => item.publicId === professor,
+  );
+  const returnLabel = hasProfessorSource
+    ? "返回教授详情"
+    : hasReviewHistorySource
+      ? "返回我的测评"
+      : undefined;
 
   return (
     <div className="min-w-0 flex-1">
@@ -101,7 +115,7 @@ export default async function CourseDetailPage({
         <CourseListBackLink
           href={returnTo}
           restoreHistory={hasCourseListSource}
-          label={hasReviewHistorySource ? "返回我的测评" : undefined}
+          label={returnLabel}
         />
 
         <div className="mt-4 rounded-2xl border p-6">
@@ -196,6 +210,7 @@ export default async function CourseDetailPage({
                 .reverse()}
               isAuthenticated={!!user}
               professorOptional={professorOptional}
+              prefillProfessor={prefillProfessor}
               targetReviewId={targetReplyOffset === null ? undefined : review}
               targetReplyId={targetReplyOffset === null ? undefined : reply}
               targetReplyOffset={targetReplyOffset ?? undefined}

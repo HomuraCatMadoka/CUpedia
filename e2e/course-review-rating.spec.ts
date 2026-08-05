@@ -129,10 +129,13 @@ test("#293 unified submission validates required experience and supports half-st
   await expect(
     page.getByRole("button", { name: "移除 测试教授 Chan" }),
   ).toBeVisible();
-  await expect(page.getByLabel("搜索任课教授")).toHaveValue("");
-  await expect(page.getByLabel("搜索任课教授")).toHaveAttribute(
+  const professorSearch = page.getByRole("combobox", {
+    name: "搜索任课教授",
+  });
+  await expect(professorSearch).toHaveValue("");
+  await expect(professorSearch).toHaveAttribute(
     "placeholder",
-    "继续搜索其他教授",
+    "继续搜索其他教授…",
   );
   await expect(page.getByRole("radio", { name: "0.5 星" })).toBeChecked();
 

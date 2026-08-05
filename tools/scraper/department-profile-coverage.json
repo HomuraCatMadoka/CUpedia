@@ -1,0 +1,471 @@
+{
+  "reviewedAt": "2026-08-05",
+  "statusLegend": {
+    "configured": "A reviewed directory is supported by the current crawler.",
+    "adapter_required": "An official directory was found, but its API or DOM needs a dedicated adapter.",
+    "search_fallback": "Direct GET failed or was blocked; the official directory was confirmed through search and Research Portal remains the card fallback.",
+    "rp_fallback": "No reviewed personal department profile source is currently safe to automate; use the verified Research Portal person page."
+  },
+  "faculties": {
+    "Arts": [
+      {
+        "unit": "Anthropology",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.arts.cuhk.edu.hk/~ant/people/teachers-and-staff/full-time-academic-staff/",
+        "reason": "TLS failure; official roster confirmed by search"
+      },
+      {
+        "unit": "Chinese Language and Literature",
+        "status": "configured",
+        "directoryUrl": "https://www.chi.cuhk.edu.hk/people/teaching-staff/",
+        "sourceKeys": ["chinese-language-teaching"]
+      },
+      {
+        "unit": "Cultural and Religious Studies",
+        "status": "search_fallback",
+        "directoryUrl": "https://www2.crs.cuhk.edu.hk/faculty-staff/teaching-faculty/",
+        "reason": "TLS failure; official roster confirmed by search"
+      },
+      {
+        "unit": "English",
+        "status": "adapter_required",
+        "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/full-time-staff/",
+        "sourceKeys": [
+          "english-full-time",
+          "english-adjunct",
+          "english-emeritus"
+        ],
+        "reason": "three academic rosters are configured; the separate English Language Instructors page returned zero rows with the shared selector"
+      },
+      {
+        "unit": "Fine Arts",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.arts.cuhk.edu.hk/~fadept/people/all-staff/",
+        "reason": "TLS failure; official roster confirmed by search"
+      },
+      {
+        "unit": "History",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.history.cuhk.edu.hk/people_category/teaching-staff/",
+        "reason": "TLS failure; official roster confirmed by search"
+      },
+      {
+        "unit": "Japanese Studies",
+        "status": "configured",
+        "directoryUrl": "https://www.jas.cuhk.edu.hk/people/",
+        "sourceKeys": ["japanese-studies-teaching"]
+      },
+      {
+        "unit": "Linguistics and Modern Languages",
+        "status": "search_fallback",
+        "directoryUrl": "https://ling.cuhk.edu.hk/people/faculty-linguistics/",
+        "reason": "TLS failure; Linguistics and Modern Languages rosters confirmed by search"
+      },
+      {
+        "unit": "Music",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.arts.cuhk.edu.hk/~music/faculty-directory",
+        "reason": "TLS failure; official roster confirmed by search"
+      },
+      {
+        "unit": "Philosophy",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.phil.arts.cuhk.edu.hk/web/people/academic-staff/",
+        "reason": "current DOM could not be revalidated after TLS failure"
+      },
+      {
+        "unit": "Translation",
+        "status": "adapter_required",
+        "directoryUrl": "https://traserver.tra.cuhk.edu.hk/en/people.php",
+        "reason": "category heading must filter teaching groups"
+      },
+      {
+        "unit": "Centre for China Studies",
+        "status": "configured",
+        "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/full-time-faculty/",
+        "sourceKeys": [
+          "china-studies-full-time",
+          "china-studies-adjunct-honorary",
+          "china-studies-part-time"
+        ]
+      },
+      {
+        "unit": "English Language Teaching Unit",
+        "status": "configured",
+        "directoryUrl": "https://eltu.cuhk.edu.hk/about-us/people/",
+        "sourceKeys": ["eltu-academic-staff"]
+      },
+      {
+        "unit": "Yale-China Chinese Language Academy",
+        "status": "adapter_required",
+        "directoryUrl": "https://yccla.cuhk.edu.hk/people",
+        "reason": "Wix roster needs role filtering and legacy Research Portal organisation cannot be the sole identity gate"
+      }
+    ],
+    "Business Administration": [
+      {
+        "unit": "Accountancy",
+        "status": "configured",
+        "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/",
+        "sourceKeys": ["business-full-time", "business-adjunct-visiting"]
+      },
+      {
+        "unit": "Decisions, Operations and Technology",
+        "status": "configured",
+        "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/",
+        "sourceKeys": ["business-full-time", "business-adjunct-visiting"]
+      },
+      {
+        "unit": "Finance",
+        "status": "configured",
+        "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/",
+        "sourceKeys": ["business-full-time", "business-adjunct-visiting"]
+      },
+      {
+        "unit": "Management",
+        "status": "configured",
+        "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/",
+        "sourceKeys": ["business-full-time", "business-adjunct-visiting"]
+      },
+      {
+        "unit": "Marketing",
+        "status": "configured",
+        "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/",
+        "sourceKeys": ["business-full-time", "business-adjunct-visiting"]
+      },
+      {
+        "unit": "Hotel and Tourism Management",
+        "status": "configured",
+        "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/",
+        "sourceKeys": ["business-full-time", "business-adjunct-visiting"]
+      }
+    ],
+    "Education": [
+      {
+        "unit": "Curriculum and Instruction",
+        "status": "adapter_required",
+        "directoryUrl": "https://www.fed.cuhk.edu.hk/cri/faculty/",
+        "reason": "title text nodes and JavaScript-obfuscated email"
+      },
+      {
+        "unit": "Educational Administration and Policy",
+        "status": "configured",
+        "directoryUrl": "https://www.fed.cuhk.edu.hk/eap/people/academic-staff/",
+        "sourceKeys": [
+          "education-eap-academic",
+          "education-eap-adjunct-honorary"
+        ]
+      },
+      {
+        "unit": "Educational Psychology",
+        "status": "configured",
+        "directoryUrl": "https://www.fed.cuhk.edu.hk/eps/en/people/academic-staff/",
+        "sourceKeys": [
+          "education-eps-academic",
+          "education-eps-adjunct-honorary"
+        ]
+      },
+      {
+        "unit": "Sports Science and Physical Education",
+        "status": "search_fallback",
+        "directoryUrl": "https://spe.cuhk.edu.hk/people/academic-staff/",
+        "reason": "Cloudflare blocks the ordinary crawler"
+      },
+      {
+        "unit": "Physical Education Unit",
+        "status": "configured",
+        "directoryUrl": "https://www.peu.cuhk.edu.hk/en/about-us/staff/",
+        "sourceKeys": ["education-peu-teaching"]
+      }
+    ],
+    "Engineering": [
+      {
+        "unit": "Biomedical Engineering",
+        "status": "configured",
+        "directoryUrl": "https://www.bme.cuhk.edu.hk/new/core-faculty.php",
+        "sourceKeys": ["bme-core-faculty", "bme-adjunct-faculty"]
+      },
+      {
+        "unit": "Computer Science and Engineering",
+        "status": "configured",
+        "directoryUrl": "https://www.cse.cuhk.edu.hk/people/faculty/",
+        "sourceKeys": ["cse-faculty"]
+      },
+      {
+        "unit": "Electronic Engineering",
+        "status": "adapter_required",
+        "directoryUrl": "https://www.ee.cuhk.edu.hk/en-gb/people/academic-staff/professors",
+        "sourceKeys": ["electronic-engineering-professors"],
+        "reason": "professor roster is configured; lecturer, emeritus and adjunct Joomla variants still need dedicated parsing"
+      },
+      {
+        "unit": "Information Engineering",
+        "status": "configured",
+        "directoryUrl": "https://www.ie.cuhk.edu.hk/faculty/",
+        "sourceKeys": ["ie-wordpress-faculty"]
+      },
+      {
+        "unit": "Mechanical and Automation Engineering",
+        "status": "configured",
+        "directoryUrl": "https://www4.mae.cuhk.edu.hk/people/academic-staff/",
+        "sourceKeys": ["mae-academic-staff"]
+      },
+      {
+        "unit": "Systems Engineering and Engineering Management",
+        "status": "configured",
+        "directoryUrl": "https://www.se.cuhk.edu.hk/people/academic-staff/",
+        "sourceKeys": ["seem-academic-staff"]
+      }
+    ],
+    "Law": [
+      {
+        "unit": "Faculty of Law",
+        "status": "configured",
+        "directoryUrl": "https://www.law.cuhk.edu.hk/app/people/",
+        "sourceKeys": [
+          "law-academic-staff",
+          "law-part-time-teachers",
+          "law-visiting-professors",
+          "law-honorary-emeritus"
+        ]
+      }
+    ],
+    "Medicine": [
+      {
+        "unit": "Accident and Emergency Medicine Academic Unit",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Anaesthesia and Intensive Care",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Anatomical and Cellular Pathology",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Biomedical Sciences",
+        "status": "configured",
+        "directoryUrl": "https://www3.sbs.cuhk.edu.hk/en/academic-staff/",
+        "sourceKeys": ["medicine-researchers", "biomedical-sciences-academic"]
+      },
+      {
+        "unit": "Chemical Pathology",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Chinese Medicine",
+        "status": "configured",
+        "directoryUrl": "https://www.scm.cuhk.edu.hk/en-gb/staff/teaching-staff/",
+        "sourceKeys": ["medicine-researchers", "chinese-medicine-teaching"]
+      },
+      {
+        "unit": "Clinical Oncology",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Imaging and Interventional Radiology",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Medicine and Therapeutics",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Microbiology",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Nursing",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.nur.cuhk.edu.hk/people/professoriate-academic-staff/",
+        "reason": "official personal roster confirmed by search; direct SSL retrieval failed"
+      },
+      {
+        "unit": "Obstetrics and Gynaecology",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Ophthalmology and Visual Sciences",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Orthopaedics and Traumatology",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Otorhinolaryngology, Head and Neck Surgery",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Paediatrics",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Pharmacy",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Psychiatry",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      },
+      {
+        "unit": "Public Health and Primary Care",
+        "status": "configured",
+        "directoryUrl": "https://sphpc.cuhk.edu.hk/academic-staff/",
+        "sourceKeys": ["medicine-researchers", "public-health-academic"]
+      },
+      {
+        "unit": "Surgery",
+        "status": "configured",
+        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+        "sourceKeys": ["medicine-researchers"]
+      }
+    ],
+    "Science": [
+      {
+        "unit": "Chemistry",
+        "status": "adapter_required",
+        "directoryUrl": "https://chem.cuhk.edu.hk/people/academic-staff/",
+        "sourceKeys": ["chemistry-academic"],
+        "reason": "current academic roster is configured; honorary records still need explicit deceased filtering"
+      },
+      {
+        "unit": "Earth and Environmental Sciences",
+        "status": "configured",
+        "directoryUrl": "https://www.ees.cuhk.edu.hk/people/faculty-and-supporting-staff/",
+        "sourceKeys": ["ees-teaching-staff"]
+      },
+      {
+        "unit": "Life Sciences",
+        "status": "configured",
+        "directoryUrl": "https://www.sls.cuhk.edu.hk/people/academic-staff/",
+        "sourceKeys": [
+          "life-sciences-academic",
+          "life-sciences-honorary-emeritus"
+        ]
+      },
+      {
+        "unit": "Mathematics",
+        "status": "configured",
+        "directoryUrl": "https://www.math.cuhk.edu.hk/people/academic-staff/professors",
+        "sourceKeys": [
+          "mathematics-professors",
+          "mathematics-lecturers",
+          "mathematics-emeritus-adjunct"
+        ]
+      },
+      {
+        "unit": "Physics",
+        "status": "configured",
+        "directoryUrl": "https://wp.phy.cuhk.edu.hk/teaching-staff",
+        "sourceKeys": ["physics-teaching-staff", "physics-honorary"]
+      },
+      {
+        "unit": "Statistics and Data Science",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.sta.cuhk.edu.hk/people/faculty/",
+        "reason": "DNS failed repeatedly; current roster confirmed by search"
+      }
+    ],
+    "Social Science": [
+      {
+        "unit": "Architecture",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.arch.cuhk.edu.hk/people",
+        "reason": "official directory confirmed by search after direct retrieval failed"
+      },
+      {
+        "unit": "Economics",
+        "status": "configured",
+        "directoryUrl": "https://www.econ.cuhk.edu.hk/en/about/people/faculty/regular-faculty-members/",
+        "sourceKeys": [
+          "economics-regular",
+          "economics-adjunct-part-time",
+          "economics-visiting",
+          "economics-research-staff"
+        ]
+      },
+      {
+        "unit": "Geography and Resource Management",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.grm.cuhk.edu.hk/en/about/people/",
+        "reason": "DNS failed; current roster and special categories confirmed by search"
+      },
+      {
+        "unit": "Government and Public Administration",
+        "status": "search_fallback",
+        "directoryUrl": "https://sgps.cuhk.edu.hk/",
+        "reason": "new official host found; personal roster endpoint still needs review"
+      },
+      {
+        "unit": "Journalism and Communication",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.com.cuhk.edu.hk/people-page/teaching-staff/",
+        "reason": "SSL and browser retrieval failed; official roster confirmed by search"
+      },
+      {
+        "unit": "Psychology",
+        "status": "search_fallback",
+        "directoryUrl": "https://www.psy.cuhk.edu.hk/en/people/faculty.html",
+        "reason": "SSL retrieval failed; official roster confirmed by search"
+      },
+      {
+        "unit": "Social Work",
+        "status": "search_fallback",
+        "directoryUrl": "https://web.swk.cuhk.edu.hk/en-gb/people/full-time-teaching-staff",
+        "reason": "SSL retrieval failed; official roster confirmed by search"
+      },
+      {
+        "unit": "Sociology",
+        "status": "configured",
+        "directoryUrl": "https://www.soc.cuhk.edu.hk/people/faculty/",
+        "sourceKeys": ["sociology-faculty", "sociology-other-faculty"]
+      }
+    ],
+    "Other Academic Units": [
+      {
+        "unit": "Office of University General Education",
+        "status": "configured",
+        "directoryUrl": "https://www.oge.cuhk.edu.hk/overview/people/teaching-staff/",
+        "sourceKeys": ["oge-teaching-staff", "oge-director"]
+      },
+      {
+        "unit": "Shenzhen Institute for Advanced Integration Technologies / Zhizhen Interdisciplinary",
+        "status": "rp_fallback",
+        "directoryUrl": "https://www.zsims.cuhk.edu.hk/en/",
+        "reason": "official unit site found; no reviewed teaching roster adapter yet"
+      }
+    ]
+  }
+}

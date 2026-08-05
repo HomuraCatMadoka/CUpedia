@@ -34,6 +34,7 @@ import {
   staffOrganisationAffiliations,
   staffOrganisations,
   staffPeople,
+  staffTeachingAssignments,
   notifications,
   users,
 } from "@/db/schema";
@@ -118,6 +119,7 @@ export type CourseReviewView = {
 
 export type ProfessorOption = {
   id: string;
+  publicId?: string;
   name: string;
   description?: string;
 };
@@ -1039,12 +1041,18 @@ export async function getCourseProfessorStats(
     db
       .select({
         id: courseInstructors.personId,
+        publicId: courseInstructors.publicId,
         name: staffPeople.canonicalName,
       })
       .from(courseInstructors)
       .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
       .where(
         or(
+          sql`exists (
+            select 1 from ${staffTeachingAssignments} assignment
+            where assignment.person_id = ${courseInstructors.personId}
+              and assignment.course_code = ${courseCode}
+          )`,
           sql`exists (
             select 1 from ${professorCourses} professor_course
             where professor_course.instructor_person_id = ${courseInstructors.personId}
@@ -1495,6 +1503,7 @@ export async function submitCourseReview(
   if (professorIds.length > 20) throw new Error("任课教授数量过多");
   let selectedProfessorsInOrder: Array<{
     id: string;
+    publicId: string;
     legacyProfessorId: string;
     name: string;
   }> = [];
@@ -1502,6 +1511,7 @@ export async function submitCourseReview(
     const catalogRows = await db
       .select({
         legacyProfessorId: professors.id,
+        publicId: courseInstructors.publicId,
         name: sql<string>`coalesce(${staffPeople.canonicalName}, ${professors.name})`,
         personId: professorStaffIdentities.personId,
       })
@@ -1539,6 +1549,7 @@ export async function submitCourseReview(
       }
       selectedByPerson.set(match.personId, {
         id: match.personId,
+        publicId: match.publicId,
         legacyProfessorId: match.legacyProfessorId,
         name: match.name,
       });
@@ -1661,6 +1672,10 @@ export async function submitCourseReview(
   revalidatePath(`/courses/${course.code}`);
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
+  revalidatePath("/professors");
+  for (const professor of selectedProfessorsInOrder) {
+    revalidatePath(`/professors/${professor.publicId}`);
+  }
   const newAchievementNotices = await syncAchievementNoticesForUser(user.id);
   return { newAchievementNotices };
 }

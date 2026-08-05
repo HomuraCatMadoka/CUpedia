@@ -1,17 +1,23 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle2Icon,
   PencilIcon,
-  SearchIcon,
   StarIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-actions";
@@ -125,6 +131,7 @@ export function CourseReviewEditor({
   academicYears,
   isAuthenticated,
   professorOptional,
+  requiredProfessor,
 }: {
   code: string;
   ratingState: CourseRatingState;
@@ -132,6 +139,7 @@ export function CourseReviewEditor({
   academicYears: string[];
   isAuthenticated: boolean;
   professorOptional: boolean;
+  requiredProfessor?: ProfessorOption;
 }) {
   const router = useRouter();
   const { ensureContributorSetup } = useContributorSetup();
@@ -150,16 +158,25 @@ export function CourseReviewEditor({
   const [customTagInput, setCustomTagInput] = useState("");
   const [error, setError] = useState("");
   const [submitting, startSubmit] = useTransition();
-  const [, startSearch] = useTransition();
-  const initialProfessors = ratingState.lastProfessors?.length
+  const [searching, startSearch] = useTransition();
+  const savedProfessors = ratingState.lastProfessors?.length
     ? ratingState.lastProfessors
     : ratingState.lastProfessor
       ? [ratingState.lastProfessor]
       : [];
+  const initialProfessors = requiredProfessor
+    ? [
+        ...savedProfessors,
+        ...(savedProfessors.some((item) => item.id === requiredProfessor.id)
+          ? []
+          : [requiredProfessor]),
+      ]
+    : savedProfessors;
   const [professorQuery, setProfessorQuery] = useState("");
   const [professorOptions, setProfessorOptions] = useState<ProfessorOption[]>(
     [],
   );
+  const professorSearchRequest = useRef(0);
   const [selectedProfessors, setSelectedProfessors] =
     useState<ProfessorOption[]>(initialProfessors);
 
@@ -172,10 +189,25 @@ export function CourseReviewEditor({
   }, []);
 
   function handleProfessorQuery(value: string) {
+    const request = ++professorSearchRequest.current;
     setProfessorQuery(value);
-    startSearch(async () =>
-      setProfessorOptions(await searchProfessors(code, value)),
-    );
+    if (!value.trim()) {
+      setProfessorOptions([]);
+      return;
+    }
+    setProfessorOptions([]);
+    startSearch(async () => {
+      try {
+        const options = await searchProfessors(code, value);
+        if (request === professorSearchRequest.current) {
+          setProfessorOptions(options);
+        }
+      } catch {
+        if (request === professorSearchRequest.current) {
+          setProfessorOptions([]);
+        }
+      }
+    });
   }
 
   function addProfessor(professor: ProfessorOption) {
@@ -184,11 +216,13 @@ export function CourseReviewEditor({
         ? current
         : [...current, professor],
     );
+    professorSearchRequest.current += 1;
     setProfessorQuery("");
     setProfessorOptions([]);
   }
 
   function removeProfessor(professorId: string) {
+    if (professorId === requiredProfessor?.id) return;
     setSelectedProfessors((current) =>
       current.filter((item) => item.id !== professorId),
     );
@@ -364,7 +398,7 @@ export function CourseReviewEditor({
               <span className="rounded-full bg-secondary px-3 py-1.5">
                 {ratingState.lastTerm}
               </span>
-              {initialProfessors.map((professor) => (
+              {savedProfessors.map((professor) => (
                 <span
                   key={professor.id}
                   className="rounded-full bg-secondary px-3 py-1.5"
@@ -483,60 +517,75 @@ export function CourseReviewEditor({
             <div className="space-y-2">
               {selectedProfessors.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {selectedProfessors.map((professor) => (
-                    <button
-                      key={professor.id}
-                      type="button"
-                      onClick={() => removeProfessor(professor.id)}
-                      className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-left text-xs font-normal text-foreground transition-colors hover:bg-destructive/10 hover:text-destructive active:scale-[0.98]"
-                      aria-label={`移除 ${professor.name}`}
-                    >
-                      <span className="min-w-0 break-words">
-                        {professor.name}
+                  {selectedProfessors.map((professor) =>
+                    professor.id === requiredProfessor?.id ? (
+                      <span
+                        key={professor.id}
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-left text-xs font-normal text-foreground"
+                      >
+                        <span className="min-w-0 break-words">
+                          {professor.name}
+                        </span>
+                        <span className="text-muted-foreground">已绑定</span>
                       </span>
-                      <XIcon aria-hidden="true" className="size-3 shrink-0" />
-                    </button>
-                  ))}
+                    ) : (
+                      <button
+                        key={professor.id}
+                        type="button"
+                        onClick={() => removeProfessor(professor.id)}
+                        className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-left text-xs font-normal text-foreground transition-colors hover:bg-destructive/10 hover:text-destructive active:scale-[0.98]"
+                        aria-label={`移除 ${professor.name}`}
+                      >
+                        <span className="min-w-0 break-words">
+                          {professor.name}
+                        </span>
+                        <XIcon aria-hidden="true" className="size-3 shrink-0" />
+                      </button>
+                    ),
+                  )}
                 </div>
               )}
-              <div className="relative">
-                <SearchIcon
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                />
-                <input
+              <Command
+                shouldFilter={false}
+                className="relative overflow-visible rounded-lg border bg-background p-0"
+              >
+                <CommandInput
                   aria-label="搜索任课教授"
+                  name="professor-search"
                   value={professorQuery}
-                  onChange={(event) => handleProfessorQuery(event.target.value)}
+                  onValueChange={handleProfessorQuery}
                   placeholder={
                     selectedProfessors.length
-                      ? "继续搜索其他教授"
-                      : "搜索任课教授姓名"
+                      ? "继续搜索其他教授…"
+                      : "搜索任课教授姓名…"
                   }
                   autoComplete="off"
-                  className="h-11 w-full rounded-lg border bg-background pl-9 pr-3 text-sm font-normal outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20"
+                  spellCheck={false}
+                  className="h-9"
                 />
-                {professorQuery && availableProfessorOptions.length > 0 && (
-                  <ul className="absolute inset-x-0 top-[calc(100%+0.25rem)] z-20 max-h-48 overflow-auto rounded-md border bg-popover p-1 shadow-md">
+                {professorQuery ? (
+                  <CommandList className="absolute inset-x-0 top-[calc(100%+0.25rem)] z-20 max-h-48 rounded-md border bg-popover p-1 shadow-md">
+                    <CommandEmpty>
+                      {searching ? "搜索中…" : "没有匹配的教授"}
+                    </CommandEmpty>
                     {availableProfessorOptions.map((option) => (
-                      <li key={option.id}>
-                        <button
-                          type="button"
-                          onClick={() => addProfessor(option)}
-                          className="w-full rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent"
-                        >
-                          <span className="block">{option.name}</span>
-                          {option.description && (
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {option.description}
-                            </span>
-                          )}
-                        </button>
-                      </li>
+                      <CommandItem
+                        key={option.id}
+                        value={`${option.name} ${option.id}`}
+                        onSelect={() => addProfessor(option)}
+                        className="block px-2 py-1.5 [&>svg:last-child]:hidden"
+                      >
+                        <span className="block">{option.name}</span>
+                        {option.description && (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {option.description}
+                          </span>
+                        )}
+                      </CommandItem>
                     ))}
-                  </ul>
-                )}
-              </div>
+                  </CommandList>
+                ) : null}
+              </Command>
             </div>
             {suggestedProfessors.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5 px-1 pt-0.5">
@@ -682,7 +731,11 @@ export function CourseReviewEditor({
             />
           </label>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
           <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-5">
             <div className="flex items-center gap-3">
               <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
