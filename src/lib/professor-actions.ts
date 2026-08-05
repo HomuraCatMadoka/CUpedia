@@ -40,9 +40,21 @@ const COURSE_CODE = sql.raw('"courses"."code"');
 
 export type ProfessorDirectoryFilter = {
   q?: string;
-  faculty?: string;
+  department?: string;
   page?: number;
   sort?: "name" | "rating-count" | "rating";
+};
+
+export type ProfessorDepartmentOption = {
+  id: string;
+  name: string;
+  count: number;
+};
+
+export type ProfessorDirectorySearchOption = {
+  publicId: string;
+  name: string;
+  description?: string;
 };
 
 export type ProfessorDirectoryItem = {
@@ -63,7 +75,7 @@ export type ProfessorDirectoryPage = {
   total: number;
   page: number;
   pageSize: number;
-  faculties: string[];
+  departments: ProfessorDepartmentOption[];
 };
 
 export type ProfessorCourse = {
@@ -95,6 +107,7 @@ type DirectoryCorpusItem = {
   searchText: string;
   faculty: string | null;
   description: string | null;
+  departmentIds: string[];
   rating: number | null;
   ratingCount: number;
 };
@@ -155,6 +168,16 @@ const getDirectoryCorpus = unstable_cache(
             and organisation.is_current = true
             and organisation.organisation_type <> 'faculty'
         )`,
+        departmentIds: sql<string[]>`coalesce((
+          select array_agg(distinct organisation.id order by organisation.id)
+          from ${staffOrganisationAffiliations} affiliation
+          join ${staffOrganisations} organisation
+            on organisation.id = affiliation.organisation_id
+          where affiliation.person_id = ${STAFF_PERSON_ID}
+            and affiliation.is_current = true
+            and organisation.is_current = true
+            and organisation.organisation_type in ('department', 'school')
+        ), array[]::text[])`,
         rating: sql<number | null>`(
           select avg(rating.score)::double precision
           from ${courseRatings} rating
@@ -180,7 +203,42 @@ const getDirectoryCorpus = unstable_cache(
       .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
       .where(eq(staffPeople.identityKind, "official"))
       .orderBy(asc(staffPeople.canonicalName), asc(courseInstructors.publicId)),
-  ["professor-directory-corpus-v3"],
+  ["professor-directory-corpus-v4"],
+  { revalidate: 300, tags: ["professor-catalog"] },
+);
+
+const getDirectoryDepartments = unstable_cache(
+  async (): Promise<ProfessorDepartmentOption[]> =>
+    db
+      .select({
+        id: staffOrganisations.id,
+        name: staffOrganisations.name,
+        count: sql<number>`count(distinct ${courseInstructors.personId})::integer`,
+      })
+      .from(staffOrganisations)
+      .innerJoin(
+        staffOrganisationAffiliations,
+        eq(staffOrganisationAffiliations.organisationId, staffOrganisations.id),
+      )
+      .innerJoin(
+        courseInstructors,
+        eq(courseInstructors.personId, staffOrganisationAffiliations.personId),
+      )
+      .innerJoin(staffPeople, eq(staffPeople.id, courseInstructors.personId))
+      .where(
+        and(
+          eq(staffPeople.identityKind, "official"),
+          eq(staffOrganisationAffiliations.isCurrent, true),
+          eq(staffOrganisations.isCurrent, true),
+          inArray(staffOrganisations.organisationType, [
+            "department",
+            "school",
+          ]),
+        ),
+      )
+      .groupBy(staffOrganisations.id, staffOrganisations.name)
+      .orderBy(asc(staffOrganisations.name), asc(staffOrganisations.id)),
+  ["professor-directory-departments-v1"],
   { revalidate: 300, tags: ["professor-catalog"] },
 );
 
@@ -258,17 +316,20 @@ async function hydrateDirectoryItems(
 export async function getProfessorDirectory(
   filter: ProfessorDirectoryFilter = {},
 ): Promise<ProfessorDirectoryPage> {
-  const corpus = await getDirectoryCorpus();
-  const faculties = [
-    ...new Set(corpus.flatMap((item) => (item.faculty ? [item.faculty] : []))),
-  ].toSorted((left, right) => left.localeCompare(right));
-  const facultyCorpus = filter.faculty
-    ? corpus.filter((item) => item.faculty === filter.faculty)
+  const [corpus, departments] = await Promise.all([
+    getDirectoryCorpus(),
+    getDirectoryDepartments(),
+  ]);
+  const department = departments.some((item) => item.id === filter.department)
+    ? filter.department
+    : undefined;
+  const departmentCorpus = department
+    ? corpus.filter((item) => item.departmentIds.includes(department))
     : corpus;
   const query = filter.q?.trim() ?? "";
   const matches = query
     ? searchProfessorCandidates(
-        facultyCorpus.map((item) => ({
+        departmentCorpus.map((item) => ({
           id: item.id,
           name: item.name,
           searchText: item.searchText,
@@ -277,11 +338,11 @@ export async function getProfessorDirectory(
         })),
         query,
         undefined,
-        facultyCorpus.length,
+        departmentCorpus.length,
       )
-        .map((match) => facultyCorpus.find((item) => item.id === match.id))
+        .map((match) => departmentCorpus.find((item) => item.id === match.id))
         .filter((item): item is DirectoryCorpusItem => Boolean(item))
-    : facultyCorpus;
+    : departmentCorpus;
   const sorted =
     filter.sort === "rating"
       ? rankProfessorCandidates(matches)
@@ -304,8 +365,42 @@ export async function getProfessorDirectory(
     total: sorted.length,
     page,
     pageSize: PAGE_SIZE,
-    faculties,
+    departments,
   };
+}
+
+export async function searchProfessorDirectory(
+  query: string,
+  department?: string,
+): Promise<ProfessorDirectorySearchOption[]> {
+  if (!query.trim()) return [];
+  const corpus = await getDirectoryCorpus();
+  const candidates = department
+    ? corpus.filter((item) => item.departmentIds.includes(department))
+    : corpus;
+  const byId = new Map(candidates.map((item) => [item.id, item]));
+
+  return searchProfessorCandidates(
+    candidates.map((item) => ({
+      id: item.id,
+      name: item.name,
+      searchText: item.searchText,
+      courseCode: null,
+      description: item.description,
+    })),
+    query,
+  ).flatMap((result) => {
+    const professor = byId.get(result.id);
+    return professor
+      ? [
+          {
+            publicId: professor.publicId,
+            name: professor.name,
+            ...(result.description ? { description: result.description } : {}),
+          },
+        ]
+      : [];
+  });
 }
 
 export async function getProfessorDetail(

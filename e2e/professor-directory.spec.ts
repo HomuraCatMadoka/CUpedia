@@ -11,6 +11,24 @@ const DEPARTMENT_ID = "e2e-professor-directory-department";
 const COURSE_CODE = "CSCI1130";
 const PROFILE_URL = "https://www.cse.cuhk.edu.hk/people/e2e-chan";
 const LEGACY_PROFESSOR_ID = "e2e-professor-directory-legacy";
+const SECOND_PERSON_ID = "e2e-professor-directory-same-name";
+const SECOND_PUBLIC_ID = "8b8db9da-2ee3-4c17-9aa0-e66c75e8a8c6";
+const SECOND_DEPARTMENT_ID = "e2e-professor-directory-mathematics";
+const SECOND_PROFILE_URL = "https://www.math.cuhk.edu.hk/people/e2e-chan";
+const MULTI_DEPARTMENT_ID = "e2e-professor-directory-statistics";
+const SCHOOL_PERSON_ID = "e2e-professor-directory-school-person";
+const SCHOOL_PUBLIC_ID = "9c9ecaeb-3ff4-4d28-8bb1-f77d86f9b9d7";
+const SCHOOL_ID = "e2e-professor-directory-school";
+const SCHOOL_PROFESSOR_NAME = "Professor E2E SCHOOL";
+const SCHOOL_PROFILE_URL = "https://www.pharmacy.cuhk.edu.hk/people/e2e-school";
+const DIRECTORY_PERSON_IDS = [PERSON_ID, SECOND_PERSON_ID, SCHOOL_PERSON_ID];
+const DIRECTORY_ORGANISATION_IDS = [
+  DEPARTMENT_ID,
+  SECOND_DEPARTMENT_ID,
+  MULTI_DEPARTMENT_ID,
+  SCHOOL_ID,
+  FACULTY_ID,
+];
 
 async function withDatabase(
   callback: (client: Client) => Promise<void>,
@@ -31,9 +49,18 @@ test.beforeAll(async () => {
          (id, name, organisation_type, profile_url, source)
        values
          ($1, 'Faculty of Engineering', 'faculty', 'https://www.erg.cuhk.edu.hk/e2e', 'e2e'),
-         ($2, 'Department of Computer Science and Engineering', 'department', 'https://www.cse.cuhk.edu.hk/e2e', 'e2e')
+         ($2, 'Department of Computer Science and Engineering', 'department', 'https://www.cse.cuhk.edu.hk/e2e', 'e2e'),
+         ($3, 'Department of Mathematics', 'department', 'https://www.math.cuhk.edu.hk/e2e', 'e2e'),
+         ($4, 'Department of Statistics and Data Science', 'department', 'https://www.sta.cuhk.edu.hk/e2e', 'e2e'),
+         ($5, 'School of Pharmacy', 'school', 'https://www.pharmacy.cuhk.edu.hk/e2e', 'e2e')
        on conflict (id) do update set name = excluded.name`,
-      [FACULTY_ID, DEPARTMENT_ID],
+      [
+        FACULTY_ID,
+        DEPARTMENT_ID,
+        SECOND_DEPARTMENT_ID,
+        MULTI_DEPARTMENT_ID,
+        SCHOOL_ID,
+      ],
     );
     await client.query(
       `update staff_organisations
@@ -43,37 +70,86 @@ test.beforeAll(async () => {
     );
     await client.query(
       `insert into staff_people (id, canonical_name, source, identity_kind)
-       values ($1, $2, 'e2e', 'official')
+       values
+         ($1, $2, 'e2e', 'official'),
+         ($3, $2, 'e2e', 'official'),
+         ($4, $5, 'e2e', 'official')
        on conflict (id) do update set
          canonical_name = excluded.canonical_name,
          identity_kind = excluded.identity_kind`,
-      [PERSON_ID, PROFESSOR_NAME],
+      [
+        PERSON_ID,
+        PROFESSOR_NAME,
+        SECOND_PERSON_ID,
+        SCHOOL_PERSON_ID,
+        SCHOOL_PROFESSOR_NAME,
+      ],
     );
     await client.query(
       `insert into course_instructors (person_id, public_id)
-       values ($1, $2)
+       values ($1, $2), ($3, $4), ($5, $6)
        on conflict (person_id) do update set public_id = excluded.public_id`,
-      [PERSON_ID, PUBLIC_ID],
+      [
+        PERSON_ID,
+        PUBLIC_ID,
+        SECOND_PERSON_ID,
+        SECOND_PUBLIC_ID,
+        SCHOOL_PERSON_ID,
+        SCHOOL_PUBLIC_ID,
+      ],
     );
     await client.query(
       `insert into staff_organisation_affiliations
          (person_id, organisation_id, source_url)
-       values ($1, $2, $4), ($1, $3, $4)
+       values
+         ($1, $2, $7), ($1, $3, $7), ($1, $4, $7),
+         ($5, $6, $8), ($9, $10, $11)
        on conflict (person_id, organisation_id) do update set is_current = true`,
-      [PERSON_ID, FACULTY_ID, DEPARTMENT_ID, PROFILE_URL],
+      [
+        PERSON_ID,
+        FACULTY_ID,
+        DEPARTMENT_ID,
+        MULTI_DEPARTMENT_ID,
+        SECOND_PERSON_ID,
+        SECOND_DEPARTMENT_ID,
+        PROFILE_URL,
+        SECOND_PROFILE_URL,
+        SCHOOL_PERSON_ID,
+        SCHOOL_ID,
+        SCHOOL_PROFILE_URL,
+      ],
     );
     await client.query(
       `insert into staff_person_sources
          (person_id, source, source_key, profile_url, role_label,
           appointment_kind, profile_verified_at, source_url)
-       values ($1, 'cuhk_department:cse', 'e2e-chan', $2,
-               'Professor', 'regular', now(), $2)
+       values
+         ($1, 'cuhk_department:cse', 'e2e-chan', $2,
+          'Professor', 'regular', now(), $2),
+         ($3, 'cuhk_department:math', 'e2e-chan-math', $4,
+          'Professor', 'regular', now(), $4),
+         ($5, 'cuhk_department:pharmacy', 'e2e-school', $6,
+          'Professor', 'regular', now(), $6)
        on conflict (source, source_key) do update set
          person_id = excluded.person_id,
          profile_url = excluded.profile_url,
          profile_verified_at = excluded.profile_verified_at,
          is_current = true`,
-      [PERSON_ID, PROFILE_URL],
+      [
+        PERSON_ID,
+        PROFILE_URL,
+        SECOND_PERSON_ID,
+        SECOND_PROFILE_URL,
+        SCHOOL_PERSON_ID,
+        SCHOOL_PROFILE_URL,
+      ],
+    );
+    await client.query(
+      `insert into staff_aliases (person_id, alias, normalized_alias, source)
+       values ($1, '測試陳', '測試陳', 'e2e')
+       on conflict (person_id, alias) do update set
+         normalized_alias = excluded.normalized_alias`,
+      [PERSON_ID],
     );
     await client.query(
       `insert into professors (id, name, search_text)
@@ -113,28 +189,123 @@ test.afterAll(async () => {
     await client.query("delete from professors where id = $1", [
       LEGACY_PROFESSOR_ID,
     ]);
-    await client.query("delete from course_instructors where person_id = $1", [
-      PERSON_ID,
+    await client.query(
+      "delete from course_instructors where person_id = any($1::text[])",
+      [DIRECTORY_PERSON_IDS],
+    );
+    await client.query("delete from staff_people where id = any($1::text[])", [
+      DIRECTORY_PERSON_IDS,
     ]);
-    await client.query("delete from staff_people where id = $1", [PERSON_ID]);
-    await client.query("delete from staff_organisations where id = $1", [
-      DEPARTMENT_ID,
-    ]);
-    await client.query("delete from staff_organisations where id = $1", [
-      FACULTY_ID,
-    ]);
+    await client.query(
+      "delete from staff_organisations where id = any($1::text[])",
+      [DIRECTORY_ORGANISATION_IDS],
+    );
   });
+});
+
+test("ignores a stale department filter instead of showing an empty directory", async ({
+  page,
+}) => {
+  await page.goto("/professors?department=department-that-no-longer-exists");
+
+  await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
+    2,
+  );
+  await expect(
+    page.getByRole("button", { name: "按学系或学院筛选" }),
+  ).toContainText("全部学系 / 学院");
+});
+
+test("keeps same-name professors distinct and scopes autocomplete by department", async ({
+  page,
+}) => {
+  await page.goto("/professors");
+  const professorSearch = page.getByRole("combobox", { name: "搜索教授" });
+  await professorSearch.fill("E2E CHAN");
+  await expect(
+    page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }),
+  ).toHaveCount(2);
+
+  await professorSearch.fill("");
+  await expect(
+    page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }),
+  ).toHaveCount(0);
+
+  await page.getByRole("button", { name: "按学系或学院筛选" }).click();
+  await page.getByPlaceholder("搜索学系或学院…").fill("Mathematics");
+  await page.getByRole("option", { name: /Department of Mathematics/ }).click();
+  await page.getByRole("button", { name: "搜索", exact: true }).click();
+  await expect(page.getByText("找到 1 位教授")).toBeVisible();
+
+  await professorSearch.fill("E2E CHAN");
+  const scopedMatch = page.getByRole("option", {
+    name: new RegExp(PROFESSOR_NAME),
+  });
+  await expect(scopedMatch).toHaveCount(1);
+  await expect(scopedMatch).toContainText("Department of Mathematics");
+  await scopedMatch.click();
+  await expect(page).toHaveURL(new RegExp(`/professors/${SECOND_PUBLIC_ID}`));
+});
+
+test("finds aliases without duplicating a professor with multiple affiliations", async ({
+  page,
+}) => {
+  await page.goto("/professors");
+  const professorSearch = page.getByRole("combobox", { name: "搜索教授" });
+
+  await professorSearch.fill("測試陳");
+  const aliasMatch = page.getByRole("option", {
+    name: new RegExp(PROFESSOR_NAME),
+  });
+  await expect(aliasMatch).toHaveCount(1);
+
+  await professorSearch.fill("");
+  await page.getByRole("button", { name: "按学系或学院筛选" }).click();
+  await page.getByPlaceholder("搜索学系或学院…").fill("Statistics");
+  await page
+    .getByRole("option", { name: /Department of Statistics and Data Science/ })
+    .click();
+  await page.getByRole("button", { name: "搜索", exact: true }).click();
+
+  await expect(page.getByText("找到 1 位教授")).toBeVisible();
+  await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
+    1,
+  );
+  await professorSearch.fill("測試陳");
+  await expect(aliasMatch).toHaveCount(1);
+});
+
+test("includes professors affiliated only with a school", async ({ page }) => {
+  await page.goto("/professors");
+  await page.getByRole("button", { name: "按学系或学院筛选" }).click();
+  await page.getByPlaceholder("搜索学系或学院…").fill("Pharmacy");
+  await page.getByRole("option", { name: /School of Pharmacy/ }).click();
+  await page.getByRole("button", { name: "搜索", exact: true }).click();
+
+  await expect(page.getByText("找到 1 位教授")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: SCHOOL_PROFESSOR_NAME }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`department=${SCHOOL_ID}`));
 });
 
 test("searches a professor, opens the card, and binds a course review", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(60_000);
   await loginWithPassword(page, "contributor@test.com", "password123");
   await page.goto("/courses");
   await page.getByRole("link", { name: "教授" }).click();
 
-  await page.getByRole("searchbox", { name: "搜索教授" }).fill(COURSE_CODE);
+  await page.getByRole("button", { name: "按学系或学院筛选" }).click();
+  await page.getByPlaceholder("搜索学系或学院…").fill("Computer Science");
+  await page
+    .getByRole("option", {
+      name: /Department of Computer Science and Engineering/,
+    })
+    .click();
   await page.getByRole("button", { name: "搜索", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`department=${DEPARTMENT_ID}`));
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: PROFESSOR_NAME }),
@@ -145,9 +316,8 @@ test("searches a professor, opens the card, and binds a course review", async ({
     caret: "initial",
   });
 
-  await page
-    .getByRole("link", { name: `查看 ${PROFESSOR_NAME} 的教授测评` })
-    .click();
+  await page.getByRole("combobox", { name: "搜索教授" }).fill("E2E CHAN");
+  await page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }).click();
   await expect(
     page.getByRole("heading", { name: PROFESSOR_NAME }),
   ).toBeVisible();
