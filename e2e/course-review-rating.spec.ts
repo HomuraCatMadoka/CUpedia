@@ -113,7 +113,9 @@ test("#293 unified submission validates required experience and supports half-st
   expect(reviews.rows[0].count).toBe(0);
 
   await expect(page.getByText("课程测评已发布")).toBeVisible();
-  await page.getByLabel("按任课教授筛选").selectOption("seed-professor-chan");
+  await page
+    .getByLabel("按任课教授筛选")
+    .selectOption("timetable-professor:seed-professor-chan");
   const professorSummary = page.getByTestId("professor-rating-summary");
   await expect(professorSummary).toContainText("0.5");
   await expect(professorSummary).toContainText("/ 5");

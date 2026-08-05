@@ -100,6 +100,72 @@ on conflict (professor_id) do update set
   source_url = excluded.source_url,
   verified_at = now();
 
+insert into staff_people (id, canonical_name, source, identity_kind)
+select 'timetable-professor:' || x.id, x.name, 'cuhk_timetable', 'unverified'
+from _professor_import,
+     jsonb_to_recordset(payload->'professors') as x(
+       id text, name text, search_text text, courses jsonb,
+       identity_profile_url text, identity_evidence_url text
+     )
+left join professor_staff_identities identity on identity.professor_id = x.id
+left join staff_person_sources source
+  on source.source = 'cuhk_timetable' and source.source_key = x.id
+where identity.professor_id is null and source.source_key is null
+on conflict (id) do update set
+  canonical_name = excluded.canonical_name,
+  last_seen_at = now(),
+  is_current = true,
+  missing_runs = 0,
+  updated_at = now();
+
+insert into staff_person_sources (person_id, source, source_key, source_url)
+select 'timetable-professor:' || x.id, 'cuhk_timetable', x.id,
+       'https://rgsntl.rgs.cuhk.edu.hk/rws_prd_applx2/Public/tt_dsp_timetable.aspx'
+from _professor_import,
+     jsonb_to_recordset(payload->'professors') as x(
+       id text, name text, search_text text, courses jsonb,
+       identity_profile_url text, identity_evidence_url text
+     )
+left join professor_staff_identities identity on identity.professor_id = x.id
+where identity.professor_id is null
+  and exists (
+    select 1 from staff_people person
+    where person.id = 'timetable-professor:' || x.id
+  )
+on conflict (source, source_key) do update set
+  last_seen_at = now(), is_current = true, missing_runs = 0;
+
+insert into professor_staff_identities (
+  professor_id, person_id, match_method, source_url
+)
+select x.id, source.person_id, 'source_native', source.source_url
+from _professor_import,
+     jsonb_to_recordset(payload->'professors') as x(
+       id text, name text, search_text text, courses jsonb,
+       identity_profile_url text, identity_evidence_url text
+     )
+join staff_person_sources source
+  on source.source = 'cuhk_timetable' and source.source_key = x.id
+left join professor_staff_identities identity on identity.professor_id = x.id
+where identity.professor_id is null
+on conflict (professor_id) do nothing;
+
+insert into course_instructors (person_id)
+select distinct identity.person_id
+from professor_staff_identities identity,
+     _professor_import,
+     jsonb_to_recordset(payload->'professors') as x(
+       id text, name text, search_text text, courses jsonb,
+       identity_profile_url text, identity_evidence_url text
+     )
+where x.id = identity.professor_id
+on conflict (person_id) do update set updated_at = now();
+
+update professor_courses course
+set instructor_person_id = identity.person_id
+from professor_staff_identities identity
+where identity.professor_id = course.professor_id;
+
 insert into course_enrollments (
   academic_year, term, course_code, class_code, class_nbr, component,
   section, quota, vacancy, instructors, captured_at

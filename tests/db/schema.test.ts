@@ -17,6 +17,9 @@ import {
   menuImportDrafts,
   danmakuMessages,
   courseRatings,
+  courseInstructors,
+  courseRatingProfessors,
+  professorCourses,
   courseReviews,
   courseReviewReplies,
   notifications,
@@ -171,6 +174,16 @@ describe("schema", () => {
     expect(cols.enrollment).toBeDefined();
     expect(cols.attendance).toBeDefined();
     expect(cols.customTags).toBeDefined();
+    expect(cols.instructorPersonId).toBeDefined();
+  });
+
+  it("course instructor references coexist with legacy professor ids during migration", () => {
+    expect(getTableColumns(courseInstructors).personId).toBeDefined();
+    expect(getTableColumns(professorCourses).instructorPersonId).toBeDefined();
+    expect(
+      getTableColumns(courseRatingProfessors).instructorPersonId,
+    ).toBeDefined();
+    expect(getTableColumns(courseReviews).instructorPersonId).toBeDefined();
   });
 
   it("course review replies belong directly to a review author", () => {
