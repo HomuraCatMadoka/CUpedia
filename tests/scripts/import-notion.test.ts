@@ -1,10 +1,18 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   parseNotionFilename,
   extractLinkOrder,
   notionIdToUuid,
+  revalidateWikiCache,
   rewriteDroppedRootLinks,
 } from "../../scripts/import-notion";
+
+afterEach(() => {
+  delete process.env.WIKI_REVALIDATE_URL;
+  delete process.env.WIKI_REVALIDATE_SECRET;
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("parseNotionFilename", () => {
   it("extracts title and UUID", () => {
@@ -87,5 +95,49 @@ describe("extractLinkOrder", () => {
 
   it("returns empty for content without .md links", () => {
     expect(extractLinkOrder("# No links here\nJust text.")).toEqual([]);
+  });
+});
+
+describe("revalidateWikiCache", () => {
+  it("skips with a warning when revalidation is not configured", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(revalidateWikiCache()).resolves.toBe(false);
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("rejects partial configuration", async () => {
+    process.env.WIKI_REVALIDATE_URL =
+      "https://cupedia.org/api/internal/revalidate-wiki";
+
+    await expect(revalidateWikiCache()).rejects.toThrow(
+      "WIKI_REVALIDATE_URL and WIKI_REVALIDATE_SECRET must be set together",
+    );
+  });
+
+  it("posts the bearer secret to the configured endpoint", async () => {
+    process.env.WIKI_REVALIDATE_URL =
+      "https://cupedia.org/api/internal/revalidate-wiki";
+    process.env.WIKI_REVALIDATE_SECRET = "test-secret";
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(revalidateWikiCache()).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(process.env.WIKI_REVALIDATE_URL, {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret" },
+    });
+  });
+
+  it("reports a non-success response", async () => {
+    process.env.WIKI_REVALIDATE_URL =
+      "https://cupedia.org/api/internal/revalidate-wiki";
+    process.env.WIKI_REVALIDATE_SECRET = "test-secret";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, status: 401 }),
+    );
+
+    await expect(revalidateWikiCache()).rejects.toThrow("HTTP 401");
   });
 });
