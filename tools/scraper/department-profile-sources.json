@@ -1,0 +1,719 @@
+[
+  {
+    "key": "cse-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-computer-science-and-engineering/"
+    ],
+    "directoryUrl": "https://www.cse.cuhk.edu.hk/people/faculty/",
+    "allowedProfileHosts": [
+      "www.cse.cuhk.edu.hk",
+      "appsrv.cse.cuhk.edu.hk",
+      "www1.se.cuhk.edu.hk",
+      "www.ee.cuhk.edu.hk",
+      "staff.ie.cuhk.edu.hk"
+    ],
+    "entrySelector": ".filtr-item:has(.sptp-member-avatar[href*='/people/faculty/'])",
+    "linkSelector": ".sptp-member-avatar",
+    "nameSelector": ".sptp-member-name h2",
+    "titleSelector": ".sptp-member-profession h4",
+    "imageSelector": ".sptp-member-avatar img",
+    "categoryAttribute": "data-category",
+    "enrichProfiles": true,
+    "profileEmailSelector": ".elementor-icon-list-items",
+    "minimumEntries": 55
+  },
+  {
+    "key": "physics-teaching-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-physics/"
+    ],
+    "directoryUrl": "https://wp.phy.cuhk.edu.hk/teaching-staff",
+    "entrySelector": "article.teaching-staff-box",
+    "linkSelector": "a",
+    "nameSelector": "h5",
+    "titleSelector": ".people-details p:first-of-type",
+    "emailSelector": ".people-details",
+    "imageSelector": "img",
+    "minimumEntries": 33
+  },
+  {
+    "key": "economics-regular",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-economics/"
+    ],
+    "directoryUrl": "https://www.econ.cuhk.edu.hk/en/about/people/faculty/regular-faculty-members/",
+    "entrySelector": "a.faculty__item",
+    "linkSelector": ":scope",
+    "nameSelector": ".faculty__name",
+    "titleSelector": ".faculty__title",
+    "emailSelector": ".info",
+    "imageSelector": ".faculty__image",
+    "minimumEntries": 10
+  },
+  {
+    "key": "economics-adjunct-part-time",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-economics/"
+    ],
+    "directoryUrl": "https://www.econ.cuhk.edu.hk/en/about/people/faculty/adjunct-professors-part-time-lecturers/",
+    "entrySelector": "a.faculty__item",
+    "linkSelector": ":scope",
+    "nameSelector": ".faculty__name",
+    "titleSelector": ".faculty__title",
+    "emailSelector": ".info",
+    "imageSelector": ".faculty__image",
+    "minimumEntries": 6
+  },
+  {
+    "key": "physics-honorary",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-physics/"
+    ],
+    "directoryUrl": "https://wp.phy.cuhk.edu.hk/honorary-staff",
+    "entrySelector": "article.teaching-staff-box",
+    "linkSelector": "a",
+    "nameSelector": "h5",
+    "titleSelector": ".people-details p:first-of-type",
+    "emailSelector": ".people-details",
+    "imageSelector": "img",
+    "minimumEntries": 16
+  },
+  {
+    "key": "economics-visiting",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-economics/"
+    ],
+    "directoryUrl": "https://www.econ.cuhk.edu.hk/en/about/people/faculty/visiting-scholars/",
+    "entrySelector": "a.faculty__item",
+    "linkSelector": ":scope",
+    "nameSelector": ".faculty__name",
+    "titleSelector": ".faculty__title",
+    "emailSelector": ".info",
+    "imageSelector": ".faculty__image",
+    "minimumEntries": 5
+  },
+  {
+    "key": "economics-research-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-economics/"
+    ],
+    "directoryUrl": "https://www.econ.cuhk.edu.hk/en/about/people/faculty/research-staff/",
+    "entrySelector": "a.faculty__item",
+    "linkSelector": ":scope",
+    "nameSelector": ".faculty__name",
+    "titleSelector": ".faculty__title",
+    "emailSelector": ".info",
+    "imageSelector": ".faculty__image",
+    "minimumEntries": 3
+  },
+  {
+    "key": "sociology-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-sociology/"
+    ],
+    "directoryUrl": "https://www.soc.cuhk.edu.hk/people/faculty/",
+    "entrySelector": ".grid",
+    "linkSelector": ".grid-name-en",
+    "nameSelector": ".grid-name-en",
+    "titleSelector": ".grid-position",
+    "imageSelector": ".grid-photo",
+    "imageAttribute": "style",
+    "minimumEntries": 13
+  },
+  {
+    "key": "sociology-other-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-sociology/"
+    ],
+    "directoryUrl": "https://www.soc.cuhk.edu.hk/people/other-faculty/",
+    "entrySelector": ".grid",
+    "linkSelector": ".grid-name-en",
+    "nameSelector": ".grid-name-en",
+    "titleSelector": ".grid-position",
+    "groupHeadingSelector": "h2",
+    "imageSelector": ".grid-photo",
+    "imageAttribute": "style",
+    "minimumEntries": 9
+  },
+  {
+    "key": "business-full-time",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-business-administration/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-decisions-operations-and-technology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-finance/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-management/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-marketing/",
+      "https://research.cuhk.edu.hk/en/organisations/school-of-accountancy/",
+      "https://research.cuhk.edu.hk/en/organisations/school-of-hotel-and-tourism-management/"
+    ],
+    "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/?tmodes=full-time-faculty",
+    "entrySelector": "li.h-card",
+    "linkSelector": "a.u-url",
+    "nameSelector": ".p-name",
+    "titleSelector": "[property=jobTitle].p-job-title",
+    "emailSelector": "[property=email]",
+    "imageSelector": "img.u-photo",
+    "appointmentOverride": "regular",
+    "paginationSelector": "a.next.page-numbers",
+    "maxPages": 25,
+    "minimumEntries": 164
+  },
+  {
+    "key": "business-adjunct-visiting",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-business-administration/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-decisions-operations-and-technology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-finance/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-management/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-marketing/",
+      "https://research.cuhk.edu.hk/en/organisations/school-of-accountancy/",
+      "https://research.cuhk.edu.hk/en/organisations/school-of-hotel-and-tourism-management/"
+    ],
+    "directoryUrl": "https://www.bschool.cuhk.edu.hk/staff/?tmodes=adjunct-visiting-faculty",
+    "entrySelector": "li.h-card",
+    "linkSelector": "a.u-url",
+    "nameSelector": ".p-name",
+    "titleSelector": "[property=jobTitle].p-job-title",
+    "emailSelector": "[property=email]",
+    "imageSelector": "img.u-photo",
+    "paginationSelector": "a.next.page-numbers",
+    "maxPages": 25,
+    "minimumEntries": 62
+  },
+  {
+    "key": "medicine-chairpersons",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-medicine/"
+    ],
+    "directoryUrl": "https://www.med.cuhk.edu.hk/staff/chairmen",
+    "entrySelector": ".ppl__item",
+    "linkSelector": ".ppl__img-w",
+    "nameSelector": ".ppl__row2",
+    "titleSelector": ".ppl__row3",
+    "emailSelector": ".ppl__contacts-item--email",
+    "imageSelector": ".ppl__img",
+    "minimumEntries": 12
+  },
+  {
+    "key": "medicine-researchers",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-medicine/",
+      "https://research.cuhk.edu.hk/en/organisations/accident-and-emergency-medicine-academic-unit/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-anaesthesia-and-intensive-care/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-anatomical-and-cellular-pathology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-chemical-pathology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-clinical-oncology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-imaging-and-interventional-radiology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-medicine-and-therapeutics/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-microbiology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-obstetrics-and-gynaecology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-ophthalmology-and-visual-sciences/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-orthopaedics-and-traumatology/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-otorhinolaryngology-head-and-neck-surgery/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-paediatrics/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-psychiatry/",
+      "https://research.cuhk.edu.hk/en/organisations/department-of-surgery/",
+      "https://research.cuhk.edu.hk/en/organisations/school-of-biomedical-sciences/",
+      "https://research.cuhk.edu.hk/en/organisations/school-of-chinese-medicine/",
+      "https://research.cuhk.edu.hk/en/organisations/school-of-pharmacy/",
+      "https://research.cuhk.edu.hk/en/organisations/the-jockey-club-school-of-public-health-and-primary-care/",
+      "https://research.cuhk.edu.hk/en/organisations/the-nethersole-school-of-nursing/"
+    ],
+    "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
+    "entrySelector": ".exp-card",
+    "nameSelector": ".exp-card__name",
+    "emailSelector": ".exp-card__contact",
+    "minimumEntries": 150
+  },
+  {
+    "key": "biomedical-sciences-academic",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/school-of-biomedical-sciences/"
+    ],
+    "directoryUrl": "https://www3.sbs.cuhk.edu.hk/en/academic-staff/",
+    "entrySelector": ".our-people-academic-staff-col",
+    "linkSelector": ".our-people-academic-staff-btn",
+    "nameSelector": ".our-people-academic-staff-text-b .subtitle",
+    "titleSelector": ".our-people-academic-staff-text-b > div:nth-child(2)",
+    "emailSelector": ":scope",
+    "imageSelector": ".our-people-academic-staff-img img",
+    "minimumEntries": 60
+  },
+  {
+    "key": "public-health-academic",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/the-jockey-club-school-of-public-health-and-primary-care/"
+    ],
+    "directoryUrl": "https://sphpc.cuhk.edu.hk/academic-staff/",
+    "entrySelector": ".e-loop-item.category-academic-staff",
+    "linkSelector": "h3.elementor-heading-title a",
+    "nameSelector": "h3.elementor-heading-title a",
+    "titleSelector": ".elementor-widget-post-info .elementor-icon-list-text",
+    "emailSelector": "a[href^='mailto:']",
+    "imageSelector": ".elementor-widget-image img",
+    "minimumEntries": 50
+  },
+  {
+    "key": "chinese-medicine-teaching",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/school-of-chinese-medicine/"
+    ],
+    "directoryUrl": "https://www.scm.cuhk.edu.hk/en-gb/staff/teaching-staff/",
+    "entrySelector": ".people-list-row",
+    "linkSelector": ".people-name a",
+    "nameSelector": ".people-name a",
+    "titleSelector": ".people-title",
+    "emailSelector": ".people-contact",
+    "imageSelector": ".people-cover img",
+    "minimumEntries": 25
+  },
+  {
+    "key": "bme-core-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-biomedical-engineering/"
+    ],
+    "directoryUrl": "https://www.bme.cuhk.edu.hk/new/core-faculty.php",
+    "entrySelector": "a.faculty-entry",
+    "linkSelector": ":scope",
+    "nameSelector": ".faculty-name",
+    "titleSelector": ".faculty-position",
+    "emailSelector": ".faculty-email",
+    "imageSelector": ".faculty-image",
+    "imageAttribute": "style",
+    "minimumEntries": 18
+  },
+  {
+    "key": "bme-adjunct-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-biomedical-engineering/"
+    ],
+    "directoryUrl": "https://www.bme.cuhk.edu.hk/new/adjunct-professors.php",
+    "entrySelector": "a.faculty-entry",
+    "linkSelector": ":scope",
+    "nameSelector": ".faculty-name",
+    "titleSelector": ".faculty-position",
+    "emailSelector": ".faculty-email",
+    "imageSelector": ".faculty-image",
+    "imageAttribute": "style",
+    "appointmentOverride": "adjunct",
+    "minimumEntries": 8
+  },
+  {
+    "key": "mae-academic-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-mechanical-and-automation-engineering/"
+    ],
+    "directoryUrl": "https://www4.mae.cuhk.edu.hk/people/academic-staff/",
+    "entrySelector": ".people.type-people",
+    "linkSelector": ".desc-box .desc-nav li:nth-child(2) a[href]",
+    "nameSelector": ".people-wrap .name",
+    "titleSelector": ".people-wrap .title",
+    "emailSelector": ".desc-box .c-email2",
+    "imageSelector": ".people-wrap img",
+    "minimumEntries": 32
+  },
+  {
+    "key": "electronic-engineering-professors",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-electronic-engineering/"
+    ],
+    "directoryUrl": "https://www.ee.cuhk.edu.hk/en-gb/people/academic-staff/professors",
+    "entrySelector": ".aidanews2_positions",
+    "linkSelector": ".aidanews2_title a",
+    "nameSelector": ".aidanews2_title a",
+    "titleSelector": ".aidanews2_text table tr:first-child td",
+    "imageSelector": ".aidanews2_img1 img",
+    "minimumEntries": 36
+  },
+  {
+    "key": "seem-academic-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-systems-engineering-and-engineering-management/"
+    ],
+    "directoryUrl": "https://www.se.cuhk.edu.hk/people/academic-staff/",
+    "entrySelector": "#tablepress-61 tbody tr",
+    "linkSelector": ".column-1 a[href*='/people/']",
+    "nameSelector": ".column-1",
+    "nameTextIndex": 0,
+    "titleSelector": ".column-1",
+    "titleTextIndex": 1,
+    "emailSelector": ".column-1",
+    "imageSelector": ".column-2 img",
+    "minimumEntries": 30
+  },
+  {
+    "key": "ees-teaching-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-earth-and-environmental-sciences/"
+    ],
+    "directoryUrl": "https://www.ees.cuhk.edu.hk/people/faculty-and-supporting-staff/",
+    "entrySelector": ".people-col.grid-col.equalheight",
+    "linkSelector": "a:first-of-type[href]",
+    "nameSelector": ".pc-name",
+    "titleSelector": ".pc-title, .pc-title-2",
+    "emailSelector": ".pc-email",
+    "imageSelector": "img",
+    "minimumEntries": 19
+  },
+  {
+    "key": "ie-wordpress-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-information-engineering/"
+    ],
+    "directoryUrl": "https://www.ie.cuhk.edu.hk/wp-json/wp/v2/faculty?per_page=100&_embed=1",
+    "sourceUrl": "https://www.ie.cuhk.edu.hk/faculty/",
+    "adapter": "ie_wordpress_rest",
+    "excludedPersonnel": [164],
+    "minimumEntries": 40
+  },
+  {
+    "key": "life-sciences-academic",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/school-of-life-sciences/"
+    ],
+    "directoryUrl": "https://www.sls.cuhk.edu.hk/people/academic-staff/",
+    "entrySelector": "a.profile-entry",
+    "linkSelector": ":scope",
+    "nameSelector": ".pe-name",
+    "groupHeadingSelector": "h2",
+    "imageSelector": ".pe-image img",
+    "minimumEntries": 42
+  },
+  {
+    "key": "life-sciences-honorary-emeritus",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/school-of-life-sciences/"
+    ],
+    "directoryUrl": "https://www.sls.cuhk.edu.hk/people/honorary-and-emeritus-professors/",
+    "entrySelector": "a.pp-entry",
+    "linkSelector": ":scope",
+    "nameSelector": ".pp-name",
+    "groupHeadingSelector": "h2",
+    "minimumEntries": 28
+  },
+  {
+    "key": "chemistry-academic",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-chemistry/"
+    ],
+    "directoryUrl": "https://chem.cuhk.edu.hk/people/academic-staff/",
+    "entrySelector": ".entry-content figure.wp-caption",
+    "linkSelector": "figcaption a",
+    "nameSelector": "figcaption a",
+    "groupHeadingSelector": "h2.elementor-heading-title",
+    "imageSelector": "img",
+    "allowedImageHosts": ["chem.cuhk.edu.hk", "i0.wp.com"],
+    "minimumEntries": 30
+  },
+  {
+    "key": "mathematics-professors",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-mathematics/"
+    ],
+    "directoryUrl": "https://www.math.cuhk.edu.hk/people/academic-staff/professors",
+    "entrySelector": ".field-name-body table tbody tr",
+    "linkSelector": "td:first-child a",
+    "nameSelector": "td:first-child",
+    "emailSelector": "td:nth-child(4)",
+    "groupHeadingSelector": "h3",
+    "minimumEntries": 24
+  },
+  {
+    "key": "mathematics-lecturers",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-mathematics/"
+    ],
+    "directoryUrl": "https://www.math.cuhk.edu.hk/people/academic-staff/lecturers",
+    "entrySelector": ".field-name-body table tbody tr",
+    "linkSelector": "td:first-child a",
+    "nameSelector": "td:first-child",
+    "emailSelector": "td:nth-child(4)",
+    "groupHeadingSelector": "h3",
+    "minimumEntries": 17
+  },
+  {
+    "key": "mathematics-emeritus-adjunct",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-mathematics/"
+    ],
+    "directoryUrl": "https://www.math.cuhk.edu.hk/people/academic-staff/emeritus-adjunct-professors",
+    "entrySelector": ".field-name-body table tbody tr",
+    "linkSelector": "td:first-child a",
+    "nameSelector": "td:first-child",
+    "emailSelector": "td:nth-child(4)",
+    "groupHeadingSelector": "h3",
+    "minimumEntries": 6
+  },
+  {
+    "key": "education-eap-academic",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-educational-administration-and-policy/"
+    ],
+    "directoryUrl": "https://www.fed.cuhk.edu.hk/eap/people/academic-staff/",
+    "entrySelector": ".content-tab .list-staff > .staff-item",
+    "linkSelector": ".name-title a",
+    "nameSelector": ".name-title a",
+    "titleSelector": ".sub-title",
+    "imageSelector": "img",
+    "enrichProfiles": true,
+    "profileEmailSelector": ".box-people .list-info a[href^='mailto:']",
+    "minimumEntries": 12
+  },
+  {
+    "key": "education-eap-adjunct-honorary",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-educational-administration-and-policy/"
+    ],
+    "directoryUrl": "https://www.fed.cuhk.edu.hk/eap/people/adjunct-and-honorary-staff/",
+    "entrySelector": ".content-tab .tlb-custom > li:not(.title)",
+    "nameSelector": ".col:nth-child(1)",
+    "titleSelector": ".col:nth-child(2)",
+    "minimumEntries": 14
+  },
+  {
+    "key": "education-eps-academic",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-educational-psychology/"
+    ],
+    "directoryUrl": "https://www.fed.cuhk.edu.hk/eps/en/people/academic-staff/",
+    "entrySelector": "#boxes > .box",
+    "linkSelector": ".details h4 a",
+    "nameSelector": ".details h4 a",
+    "titleSelector": ".details h3",
+    "imageSelector": ".imgBox img",
+    "enrichProfiles": true,
+    "profileEmailSelector": "#personal-info a[href^='mailto:']",
+    "minimumEntries": 22
+  },
+  {
+    "key": "education-eps-adjunct-honorary",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-educational-psychology/"
+    ],
+    "directoryUrl": "https://www.fed.cuhk.edu.hk/eps/en/people/adjunct-and-honorary-staff/",
+    "entrySelector": "#tables .table-content",
+    "nameSelector": ".title",
+    "titleSelector": ".post",
+    "emailSelector": ".email",
+    "minimumEntries": 6
+  },
+  {
+    "key": "education-peu-teaching",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/physical-education-unit/"
+    ],
+    "directoryUrl": "https://www.peu.cuhk.edu.hk/en/about-us/staff/",
+    "entrySelector": ".staff--list > a.staff-item",
+    "linkSelector": ":scope",
+    "nameSelector": ".staff-name h5",
+    "titleSelector": ".staff-name h6",
+    "emailSelector": ".staff-contacts",
+    "imageSelector": ".staff-item-image img",
+    "minimumEntries": 24
+  },
+  {
+    "key": "law-academic-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-law/"
+    ],
+    "directoryUrl": "https://www.law.cuhk.edu.hk/app/people/",
+    "entrySelector": ".elementor-accordion-item .staff_rec.row:has(.staff_name a)",
+    "linkSelector": ".staff_name a",
+    "nameSelector": ".staff_name a",
+    "titleSelector": ".staff_title",
+    "enrichProfiles": true,
+    "profileEmailSelector": ".people_info a[href^='mailto:']",
+    "minimumEntries": 50
+  },
+  {
+    "key": "law-part-time-teachers",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-law/"
+    ],
+    "directoryUrl": "https://www.law.cuhk.edu.hk/app/part-time-teachers/",
+    "entrySelector": ".elementor-widget-awsm-team .awsm-team-item",
+    "linkSelector": "figure a[href*='/people/']",
+    "nameSelector": ".awsm-personal-info h3",
+    "imageSelector": "figure img",
+    "appointmentOverride": "part_time",
+    "minimumEntries": 8
+  },
+  {
+    "key": "law-visiting-professors",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-law/"
+    ],
+    "directoryUrl": "https://www.law.cuhk.edu.hk/app/visiting-professors-part-time-teachers/",
+    "entrySelector": ".admin_staff .admin_staff_rec.row",
+    "linkSelector": ".people-mail a",
+    "nameSelector": ".admin_staff_name",
+    "appointmentOverride": "visiting",
+    "minimumEntries": 5
+  },
+  {
+    "key": "law-honorary-emeritus",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/faculty-of-law/"
+    ],
+    "directoryUrl": "https://www.law.cuhk.edu.hk/app/honorary-professors-emeritus-professor/",
+    "entrySelector": ".elementor-widget-awsm-team .awsm-team-item",
+    "linkSelector": "figure a",
+    "nameSelector": ".awsm-personal-info h3",
+    "titleSelector": ".awsm-personal-info > span",
+    "emailSelector": ".awsm-contact-info",
+    "imageSelector": "figure img",
+    "groupHeadingSelector": "h2.elementor-heading-title",
+    "minimumEntries": 7
+  },
+  {
+    "key": "english-full-time",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
+    ],
+    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/full-time-staff/",
+    "entrySelector": ".staff-card",
+    "linkSelector": ".research-area > a[href]",
+    "nameSelector": ".staff-title h4",
+    "titleSelector": ".staff-title .sub-title",
+    "emailSelector": ".meta-block.mail",
+    "imageSelector": ".staff-img img",
+    "minimumEntries": 12
+  },
+  {
+    "key": "english-adjunct",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
+    ],
+    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/adjunct-professors/",
+    "entrySelector": ".staff-card",
+    "linkSelector": ".research-area > a[href]",
+    "nameSelector": ".staff-title h4",
+    "titleSelector": ".staff-title .sub-title",
+    "emailSelector": ".meta-block.mail",
+    "imageSelector": ".staff-img img",
+    "appointmentOverride": "adjunct",
+    "minimumEntries": 3
+  },
+  {
+    "key": "english-emeritus",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
+    ],
+    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/emeritus-professors/",
+    "entrySelector": ".staff-card",
+    "linkSelector": ".research-area > a[href]",
+    "nameSelector": ".staff-title h4",
+    "titleSelector": ".staff-title .sub-title",
+    "emailSelector": ".meta-block.mail",
+    "imageSelector": ".staff-img img",
+    "appointmentOverride": "emeritus",
+    "minimumEntries": 1
+  },
+  {
+    "key": "chinese-language-teaching",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-chinese-language-and-literature/"
+    ],
+    "directoryUrl": "https://www.chi.cuhk.edu.hk/people/teaching-staff/",
+    "adapter": "chi_teaching_ajax",
+    "minimumEntries": 55
+  },
+  {
+    "key": "eltu-academic-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/english-language-teaching-unit/"
+    ],
+    "directoryUrl": "https://eltu.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_people.php?category=academic-staff&paged=1&max_posts=-1",
+    "sourceUrl": "https://eltu.cuhk.edu.hk/about-us/people/",
+    "adapter": "eltu_people_api",
+    "minimumEntries": 40
+  },
+  {
+    "key": "japanese-studies-teaching",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-japanese-studies/"
+    ],
+    "directoryUrl": "https://www.jas.cuhk.edu.hk/people/",
+    "entrySelector": "div.aidanews2_art.people-teachs",
+    "linkSelector": ".aidanews2_img1[href]",
+    "nameSelector": "h1.aidanews2_title a",
+    "titleSelector": ".aidanews2_text p:last-of-type",
+    "imageSelector": ".aidanews2_img1 img",
+    "minimumEntries": 12
+  },
+  {
+    "key": "china-studies-full-time",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/centre-for-china-studies/"
+    ],
+    "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/full-time-faculty/",
+    "entrySelector": ".staff-row",
+    "linkSelector": ":scope",
+    "linkAttribute": "onclick",
+    "nameSelector": ".staff-name",
+    "titleSelector": ".staff-title",
+    "emailSelector": "a.staff-email",
+    "imageSelector": ".staff-image",
+    "imageAttribute": "style",
+    "minimumEntries": 8
+  },
+  {
+    "key": "china-studies-adjunct-honorary",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/centre-for-china-studies/"
+    ],
+    "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/adjunct-and-honorary-faculty/",
+    "entrySelector": ".staff-row",
+    "linkSelector": ":scope",
+    "linkAttribute": "onclick",
+    "nameSelector": ".staff-name",
+    "titleSelector": ".staff-title",
+    "emailSelector": "a.staff-email",
+    "imageSelector": ".staff-image",
+    "imageAttribute": "style",
+    "minimumEntries": 2
+  },
+  {
+    "key": "china-studies-part-time",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/centre-for-china-studies/"
+    ],
+    "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/part-time-faculty/",
+    "entrySelector": ".staff-row",
+    "linkSelector": ":scope",
+    "linkAttribute": "onclick",
+    "nameSelector": ".staff-name",
+    "titleSelector": ".staff-title",
+    "emailSelector": "a.staff-email",
+    "imageSelector": ".staff-image",
+    "imageAttribute": "style",
+    "appointmentOverride": "part_time",
+    "minimumEntries": 6
+  },
+  {
+    "key": "oge-teaching-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/office-of-university-general-education/"
+    ],
+    "directoryUrl": "https://www.oge.cuhk.edu.hk/overview/people/teaching-staff/",
+    "entrySelector": "a.people-col",
+    "linkSelector": ":scope",
+    "nameSelector": "h2",
+    "titleSelector": ".pc-title",
+    "imageSelector": ".pc-photo img",
+    "minimumEntries": 20
+  },
+  {
+    "key": "oge-director",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/office-of-university-general-education/"
+    ],
+    "directoryUrl": "https://www.oge.cuhk.edu.hk/overview/people/teaching-staff/",
+    "entrySelector": ".people-block",
+    "linkSelector": ".pb-photo",
+    "nameSelector": "h2",
+    "titleSelector": ".pb-content p",
+    "imageSelector": ".pb-photo img",
+    "minimumEntries": 1
+  }
+]

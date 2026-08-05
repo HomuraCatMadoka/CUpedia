@@ -13,8 +13,19 @@ export function MainShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {!focusedEditor && <Navbar leading={<SidebarMobileToggle />} />}
+      {!focusedEditor && (
+        <>
+          <a
+            href="#main-content"
+            className="sr-only fixed top-3 left-3 z-100 rounded-md bg-background px-3 py-2 text-sm font-medium shadow-sm focus:not-sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            跳到主要内容
+          </a>
+          <Navbar leading={<SidebarMobileToggle />} />
+        </>
+      )}
       <main
+        id="main-content"
         className={cn(
           "flex min-w-0",
           focusedEditor

@@ -2,6 +2,7 @@
  * @vitest-environment jsdom
  */
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -92,9 +93,25 @@ const REVIEW = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: vi.fn(),
+  });
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+  delete (Element.prototype as { scrollIntoView?: () => void }).scrollIntoView;
+});
 
 describe("CourseReviewSection", () => {
   it("立即切换点赞状态，并以服务端计数完成保存", async () => {
@@ -379,24 +396,111 @@ describe("CourseReviewSection", () => {
     expect(
       screen.getByRole("button", { name: "移除 Professor WONG" }),
     ).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("搜索任课教授"), {
+    const professorSearch = screen.getByLabelText("搜索任课教授");
+    fireEvent.change(professorSearch, {
       target: { value: "Professor" },
     });
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Professor LEE" }),
+        screen.getByRole("option", { name: "Professor LEE" }),
       ).toBeTruthy(),
     );
     expect(screen.queryByRole("button", { name: "Professor CHAN" })).toBeNull();
+    fireEvent.keyDown(professorSearch, { key: "ArrowDown" });
+    fireEvent.keyDown(professorSearch, { key: "Enter" });
+    expect(
+      screen.getByRole("button", { name: "移除 Professor LEE" }),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
     fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
 
     await waitFor(() =>
       expect(submit).toHaveBeenCalledWith(
         "BIOL4310",
-        expect.objectContaining({ professorIds: ["p1", "p2"] }),
+        expect.objectContaining({ professorIds: ["p1", "p2", "p3"] }),
       ),
     );
+  });
+
+  it("从教授详情进入时锁定教授并写入课程测评", async () => {
+    submit.mockResolvedValue({ newAchievementNotices: [] });
+    const requiredProfessor = {
+      id: "person-1",
+      publicId: "9e831ca8-67fd-4706-aee5-36e5be2cbfa5",
+      name: "Professor CHAN",
+      rating: null,
+      ratingCount: 0,
+      terms: [],
+      tags: [],
+    };
+    render(
+      <CourseReviewSection
+        code="CSCI2100"
+        reviews={[]}
+        ratingState={RATING_STATE}
+        professorStats={[requiredProfessor]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+        prefillProfessor={requiredProfessor}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    expect(screen.getByText("已绑定")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "移除 Professor CHAN" }),
+    ).toBeNull();
+    fireEvent.change(screen.getByLabelText("学年"), {
+      target: { value: "2025-26" },
+    });
+    fireEvent.change(screen.getByLabelText("学期"), {
+      target: { value: "Term 1" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
+    fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
+
+    await waitFor(() =>
+      expect(submit).toHaveBeenCalledWith(
+        "CSCI2100",
+        expect.objectContaining({ professorIds: ["person-1"] }),
+      ),
+    );
+  });
+
+  it("只显示最后一次教授搜索的结果", async () => {
+    let finishOld: (value: { id: string; name: string }[]) => void = () => {};
+    let finishNew: (value: { id: string; name: string }[]) => void = () => {};
+    search.mockImplementation(
+      (_code: string, query: string) =>
+        new Promise((resolve) => {
+          if (query === "old") finishOld = resolve;
+          if (query === "new") finishNew = resolve;
+        }),
+    );
+    render(
+      <CourseReviewSection
+        code="CSCI2100"
+        reviews={[]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+    const input = screen.getByLabelText("搜索任课教授");
+    fireEvent.change(input, { target: { value: "old" } });
+    fireEvent.change(input, { target: { value: "new" } });
+
+    await act(async () => finishNew([{ id: "new", name: "New Result" }]));
+    expect(screen.getByRole("option", { name: "New Result" })).toBeTruthy();
+
+    await act(async () => finishOld([{ id: "old", name: "Old Result" }]));
+    expect(screen.queryByRole("option", { name: "Old Result" })).toBeNull();
+    expect(screen.getByRole("option", { name: "New Result" })).toBeTruthy();
   });
 
   it("首次满足成就条件时立即提示可以领取", async () => {

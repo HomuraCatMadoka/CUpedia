@@ -186,6 +186,12 @@ describe("schema", () => {
     expect(getTableColumns(courseReviews).instructorPersonId).toBeDefined();
   });
 
+  it("multi-professor ratings use canonical instructor identity", () => {
+    const cols = getTableColumns(courseRatingProfessors);
+    expect(cols.instructorPersonId.notNull).toBe(true);
+    expect(cols.professorId.notNull).toBe(false);
+  });
+
   it("course review replies belong directly to a review author", () => {
     const reviewCols = getTableColumns(courseReviews);
     const replyCols = getTableColumns(courseReviewReplies);

@@ -984,16 +984,34 @@ describe("submitCourseReview", () => {
     expect(dbInsert).not.toHaveBeenCalled();
   });
 
-  it("拒绝产生只有 legacy professor id 的新投稿", async () => {
+  it("canonical professor 不依赖 legacy identity 也能投稿", async () => {
     queueRows(
       [COURSE],
-      [{ legacyProfessorId: "p1", name: "Professor CHAN", personId: null }],
+      [
+        {
+          legacyProfessorId: null,
+          name: "Professor CHAN",
+          personId: "person-1",
+        },
+      ],
+      [],
+      [],
     );
 
-    await expect(submitCourseReview("CSCI3150", SUBMISSION)).rejects.toThrow(
-      /身份资料尚未完成迁移/,
+    await expect(
+      submitCourseReview("CSCI3150", {
+        ...SUBMISSION,
+        professorId: undefined,
+        professorIds: ["person-1"],
+      }),
+    ).resolves.toEqual({ newAchievementNotices: [] });
+    expect(values()).toHaveBeenCalledWith(
+      expect.objectContaining({
+        professorId: null,
+        instructorPersonId: "person-1",
+        professorNameSnapshot: "Professor CHAN",
+      }),
     );
-    expect(dbInsert).not.toHaveBeenCalled();
   });
 
   it("课程不存在时报错", async () => {

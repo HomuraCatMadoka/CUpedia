@@ -18,6 +18,15 @@ export type ProfessorSearchIndex = ReturnType<
   FuseIndex<ProfessorSearchCandidate>["toJSON"]
 >;
 
+export const PROFESSOR_RANKING_MIN_RATINGS = 5;
+
+export type ProfessorRankingCandidate = {
+  name: string;
+  publicId: string;
+  rating: number | null;
+  ratingCount: number;
+};
+
 const MAX_RESULTS = 10;
 const MAX_FUSE_SCORE = 0.6;
 
@@ -31,6 +40,7 @@ export function searchProfessorCandidates(
   candidates: ProfessorSearchCandidate[],
   query: string,
   serializedIndex?: ProfessorSearchIndex,
+  limit = MAX_RESULTS,
 ): ProfessorSearchResult[] {
   const normalizedQuery = query.trim().normalize("NFKC");
   if (!normalizedQuery) return [];
@@ -61,10 +71,28 @@ export function searchProfessorCandidates(
         Number(Boolean(left.item.courseCode))
       );
     })
-    .slice(0, MAX_RESULTS)
+    .slice(0, limit)
     .map(({ item }) => ({
       id: item.id,
       name: item.name,
       ...(item.description ? { description: item.description } : {}),
     }));
+}
+
+export function rankProfessorCandidates<T extends ProfessorRankingCandidate>(
+  candidates: T[],
+): T[] {
+  return candidates
+    .filter(
+      (candidate) =>
+        candidate.rating !== null &&
+        candidate.ratingCount >= PROFESSOR_RANKING_MIN_RATINGS,
+    )
+    .toSorted(
+      (left, right) =>
+        right.rating! - left.rating! ||
+        right.ratingCount - left.ratingCount ||
+        left.name.localeCompare(right.name) ||
+        left.publicId.localeCompare(right.publicId),
+    );
 }

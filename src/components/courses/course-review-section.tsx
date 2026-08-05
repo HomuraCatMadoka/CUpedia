@@ -23,6 +23,7 @@ export function CourseReviewSection({
   academicYears,
   isAuthenticated,
   professorOptional,
+  prefillProfessor,
   targetReviewId,
   targetReplyId,
   targetReplyOffset,
@@ -34,6 +35,7 @@ export function CourseReviewSection({
   academicYears: string[];
   isAuthenticated: boolean;
   professorOptional: boolean;
+  prefillProfessor?: CourseProfessorStats;
   targetReviewId?: string;
   targetReplyId?: string;
   targetReplyOffset?: number;
@@ -104,6 +106,7 @@ export function CourseReviewSection({
         academicYears={academicYears}
         isAuthenticated={isAuthenticated}
         professorOptional={professorOptional}
+        requiredProfessor={prefillProfessor}
       />
 
       <div id="peer-reviews" className="scroll-mt-20 space-y-4 border-b pb-5">

@@ -769,6 +769,10 @@ export const staffPersonSources = pgTable(
     source: text("source").notNull(),
     sourceKey: text("source_key").notNull(),
     profileUrl: text("profile_url"),
+    imageUrl: text("image_url"),
+    roleLabel: text("role_label"),
+    appointmentKind: text("appointment_kind"),
+    profileVerifiedAt: timestamp("profile_verified_at", { withTimezone: true }),
     sourceUrl: text("source_url").notNull(),
     firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
       .defaultNow()
@@ -783,6 +787,10 @@ export const staffPersonSources = pgTable(
     primaryKey({ columns: [table.source, table.sourceKey] }),
     index("staff_person_sources_person_id_idx").on(table.personId),
     index("staff_person_sources_profile_url_idx").on(table.profileUrl),
+    check(
+      "staff_person_sources_appointment_kind_check",
+      sql`${table.appointmentKind} is null or ${table.appointmentKind} in ('regular', 'emeritus', 'visiting', 'part_time', 'adjunct', 'honorary', 'courtesy')`,
+    ),
   ],
 );
 
@@ -937,6 +945,7 @@ export const professors = pgTable(
  * migration, legacy professor IDs continue to live in `professors` and map
  * to this canonical person role through `professor_staff_identities`. */
 export const courseInstructors = pgTable("course_instructors", {
+  publicId: uuid("public_id").defaultRandom().notNull().unique(),
   personId: text("person_id")
     .primaryKey()
     .references(() => staffPeople.id, { onDelete: "restrict" }),
@@ -977,17 +986,16 @@ export const courseRatingProfessors = pgTable(
     ratingId: uuid("rating_id")
       .notNull()
       .references(() => courseRatings.id, { onDelete: "cascade" }),
-    professorId: text("professor_id")
+    professorId: text("professor_id").references(() => professors.id),
+    instructorPersonId: text("instructor_person_id")
       .notNull()
-      .references(() => professors.id),
-    instructorPersonId: text("instructor_person_id").references(
-      () => courseInstructors.personId,
-      { onDelete: "restrict" },
-    ),
+      .references(() => courseInstructors.personId, {
+        onDelete: "restrict",
+      }),
     professorNameSnapshot: text("professor_name_snapshot").notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.ratingId, table.professorId] }),
+    primaryKey({ columns: [table.ratingId, table.instructorPersonId] }),
     index("course_rating_professors_professor_id_idx").on(table.professorId),
     index("course_rating_professors_instructor_person_id_idx").on(
       table.instructorPersonId,

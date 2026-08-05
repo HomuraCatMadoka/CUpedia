@@ -14,6 +14,7 @@ import {
   CourseListNavigationReset,
 } from "@/components/courses/course-card-link";
 import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
+import { CourseCatalogTabs } from "@/components/courses/course-catalog-tabs";
 import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 
 const COURSE_UPDATE_DATE_FORMATTER = new Intl.DateTimeFormat("zh-HK", {
@@ -63,11 +64,12 @@ export default async function CoursesPage({
     <div className="flex-1 overflow-y-auto">
       <CourseListNavigationReset />
       <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-5">
+          <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
             <h1 className="text-2xl font-bold">课程测评</h1>
+            <CourseCatalogTabs active="courses" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Link
               href="/courses/my-reviews"
               className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
