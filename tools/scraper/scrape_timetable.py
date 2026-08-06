@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import re
 import time
@@ -243,6 +244,42 @@ def enrollment_rows(rows: list[dict[str, str]]) -> list[dict]:
     return list(records.values())
 
 
+def row_subject(row: dict) -> str:
+    match = re.match(r"[A-Z]{3,4}", row["course"])
+    return match.group(0) if match else ""
+
+
+def persist_subject(out, ledger, subject: str, subject_rows: list[dict]) -> int:
+    """Merge one completed subject while allowing disjoint workers to share output."""
+    lock = out.with_suffix(".lock")
+    with lock.open("a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        rows = json.loads(out.read_text())["rows"] if out.exists() else []
+        rows = [row for row in rows if row_subject(row) != subject]
+        rows.extend(subject_rows)
+        done = (
+            set(json.loads(ledger.read_text(encoding="utf-8")))
+            if ledger.exists()
+            else {row_subject(row) for row in rows}
+        )
+        done.add(subject)
+        payload = {
+            "capturedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "rows": rows,
+            "professors": aggregate(rows),
+            "enrollments": enrollment_rows(rows),
+        }
+        out_tmp = out.with_suffix(".json.tmp")
+        ledger_tmp = ledger.with_suffix(".json.tmp")
+        out_tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        ledger_tmp.write_text(
+            json.dumps(sorted(done), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        out_tmp.replace(out)
+        ledger_tmp.replace(ledger)
+        return len(rows)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--subjects", help="comma-separated subset, e.g. ACCT,CSCI")
@@ -271,8 +308,21 @@ def main() -> None:
 
     data_dir = common.ensure_data_dir()
     out = data_dir / "professors.json"
+    ledger = data_dir / "professors.attempted.json"
+    if args.fresh:
+        out.unlink(missing_ok=True)
+        ledger.unlink(missing_ok=True)
     rows = [] if args.fresh or not out.exists() else json.loads(out.read_text())["rows"]
-    for subject in subjects:
+    done = (
+        set(json.loads(ledger.read_text(encoding="utf-8")))
+        if ledger.exists()
+        else {row_subject(row) for row in rows}
+    )
+    todo = [subject for subject in subjects if subject not in done]
+    print(f"{len(todo)}/{len(subjects)} subjects to scrape ({len(done)} already attempted)")
+    total = len(rows)
+    for subject in todo:
+        subject_rows = []
         for career in careers:
             for term_label, term in terms:
                 listing = fetch_listing(session, subject, term, career)
@@ -291,20 +341,12 @@ def main() -> None:
                         "academic_career": career,
                         "term": term_label.removeprefix(f"{args.year} "),
                     })
-                rows.extend(parsed)
+                subject_rows.extend(parsed)
                 time.sleep(TERM_PAUSE)
         print(f"  {subject}: done")
-        out.write_text(
-            json.dumps({
-                "capturedAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "rows": rows,
-                "professors": aggregate(rows),
-                "enrollments": enrollment_rows(rows),
-            }, indent=2),
-            encoding="utf-8",
-        )
+        total = persist_subject(out, ledger, subject, subject_rows)
         time.sleep(SUBJECT_PAUSE)
-    print(f"done: {len(aggregate(rows))} professors -> {out}")
+    print(f"done: {total} rows -> {out}")
 
 
 if __name__ == "__main__":

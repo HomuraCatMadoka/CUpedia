@@ -25,6 +25,7 @@ ddddocr is imperfect, so the captcha POST runs in a retry loop (the site echoes
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
 import re
 import time
@@ -182,6 +183,34 @@ def scrape_subject(s, subject: str) -> list[dict]:
     return out
 
 
+def persist_subject(out, ledger, subject: str, records: list[dict]) -> int:
+    """Merge one completed subject while allowing disjoint workers to share output."""
+    lock = out.with_suffix(".lock")
+    with lock.open("a") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        courses = json.loads(out.read_text(encoding="utf-8")) if out.exists() else []
+        courses = [course for course in courses if course["subject"] != subject]
+        courses.extend(records)
+        done = (
+            set(json.loads(ledger.read_text(encoding="utf-8")))
+            if ledger.exists()
+            else set()
+        )
+        done.add(subject)
+
+        out_tmp = out.with_suffix(".json.tmp")
+        ledger_tmp = ledger.with_suffix(".json.tmp")
+        out_tmp.write_text(
+            json.dumps(courses, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        ledger_tmp.write_text(
+            json.dumps(sorted(done), ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        out_tmp.replace(out)
+        ledger_tmp.replace(ledger)
+        return len(courses)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--subjects", help="comma-separated subset, e.g. ACCT,CSCI")
@@ -226,18 +255,14 @@ def main() -> None:
     todo = [t for t in targets if t not in done]
     print(f"{len(todo)}/{len(targets)} subjects to scrape ({len(done)} already attempted)")
 
+    total = len(courses)
     for subject in todo:
-        courses.extend(scrape_subject(s, subject))
+        records = scrape_subject(s, subject)
         done.add(subject)
-        # persist both after each subject so a crash/kill is resumable
-        out.write_text(
-            json.dumps(courses, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-        ledger.write_text(
-            json.dumps(sorted(done), ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        # Re-read and merge under a lock so disjoint workers cannot lose updates.
+        total = persist_subject(out, ledger, subject, records)
         time.sleep(SUBJECT_PAUSE)
-    print(f"done: {len(courses)} courses -> {out}")
+    print(f"done: {total} courses -> {out}")
 
 
 if __name__ == "__main__":

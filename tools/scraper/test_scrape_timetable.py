@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 import scrape_timetable as subject
@@ -113,6 +115,31 @@ class TimetableScraperTest(unittest.TestCase):
             "section": "A", "quota": 50, "vacancy": 21,
             "instructors": ["Dr. CHEONG Chi Hong", "Prof. CHAN Wing Kai"],
         })
+
+    def test_persist_subject_preserves_other_worker_results(self):
+        with TemporaryDirectory() as directory:
+            out = Path(directory) / "professors.json"
+            ledger = Path(directory) / "professors.attempted.json"
+            existing = {
+                "capturedAt": "",
+                "rows": [{
+                    "academic_year": "2026-27", "academic_career": "UG",
+                    "term": "Term 1", "course": "ACCT1111",
+                    "class_code": "ACCT1111A", "class_nbr": "1",
+                    "component": "LEC", "section": "A", "quota": "10",
+                    "vacancy": "5", "instructors": "- Dr. WONG Kin Ho",
+                }],
+                "professors": [], "enrollments": [],
+            }
+            out.write_text(subject.json.dumps(existing), encoding="utf-8")
+
+            total = subject.persist_subject(out, ledger, "CSCI", [])
+
+            self.assertEqual(total, 1)
+            self.assertEqual(subject.json.loads(out.read_text())["rows"], existing["rows"])
+            self.assertEqual(
+                subject.json.loads(ledger.read_text()), ["ACCT", "CSCI"]
+            )
 
 
 if __name__ == "__main__":
