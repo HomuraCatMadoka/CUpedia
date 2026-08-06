@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 
 import requests
+from charset_normalizer import from_bytes
 
 # repo_root/tools/scraper/common.py -> repo_root
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -54,17 +55,18 @@ def curl_get(
     ]
     if referer:
         command.extend(["--referer", referer])
-    command.append(url)
+    command.extend(["--", url])
     try:
         content = subprocess.run(
-            command, check=True, capture_output=True
+            command,
+            check=True,
+            capture_output=True,
+            timeout=max_seconds * (retries + 1) + 5,
         ).stdout
-    except (OSError, subprocess.CalledProcessError) as error:
+    except (OSError, subprocess.SubprocessError) as error:
         raise requests.ConnectionError("Verified native curl failed") from error
-    response = requests.Response()
-    response._content = content
-    response.encoding = response.apparent_encoding
-    return response.text
+    detected = from_bytes(content).best()
+    return str(detected) if detected is not None else content.decode("utf-8", errors="replace")
 
 
 def get(s: requests.Session, url: str, *, referer: str | None = None, retries: int = 3) -> str:

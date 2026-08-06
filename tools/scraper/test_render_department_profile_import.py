@@ -86,6 +86,12 @@ class RenderDepartmentProfileImportTest(unittest.TestCase):
                 self.report(), expected_config_digest="new-config"
             )
 
+    def test_current_source_configuration_is_accepted(self):
+        payload = subject.import_payload(
+            self.report(), expected_config_digest="current-config"
+        )
+        self.assertEqual(len(payload["person_sources"]), 1)
+
     def test_incomplete_full_report_is_rejected(self):
         report = self.report()
         report["scope"]["complete"] = False

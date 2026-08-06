@@ -45,6 +45,57 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
                 )
             get.assert_called_once_with("https://dept.cuhk.edu.hk/")
 
+    def test_fetcher_paces_network_starts_globally(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fetcher = subject.CachedFetcher(Path(directory), 0.25, refresh=True)
+            with (
+                patch(
+                    "scrape_department_profiles.time.monotonic",
+                    side_effect=[10.0, 10.0],
+                ),
+                patch("scrape_department_profiles.time.sleep") as sleep,
+            ):
+                fetcher._wait_for_request_slot()
+                fetcher._wait_for_request_slot()
+            sleep.assert_called_once_with(0.25)
+
+    def test_directory_fetch_retries_once_with_a_delay(self):
+        class Fetcher:
+            pause = 0.5
+
+            def __init__(self):
+                self.calls = 0
+
+            def get(self, _url):
+                self.calls += 1
+                if self.calls == 1:
+                    raise subject.requests.ConnectionError()
+                return "<main>staff</main>"
+
+        fetcher = Fetcher()
+        with patch("scrape_department_profiles.time.sleep") as sleep:
+            html = subject.fetch_directory_pages(self.config(), fetcher)
+        self.assertEqual(html, "<main>staff</main>")
+        self.assertEqual(fetcher.calls, 2)
+        sleep.assert_called_once_with(0.5)
+
+    def test_directory_attempts_are_never_less_than_one(self):
+        class Fetcher:
+            pause = 0
+
+            def __init__(self):
+                self.calls = 0
+
+            def get(self, _url):
+                self.calls += 1
+                return "<main>staff</main>"
+
+        fetcher = Fetcher()
+        subject.fetch_directory_pages(
+            {**self.config(), "directoryAttempts": 0}, fetcher
+        )
+        self.assertEqual(fetcher.calls, 1)
+
     def config(self):
         return {
             "key": "example",
@@ -585,6 +636,75 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         subject.verify_profile_links(report, FailingFetcher())
         self.assertEqual(report["fetchErrors"][0]["sourceKey"], "example")
         self.assertEqual(report["unresolved"][0]["profileStatus"], "failed")
+
+    def test_shared_profile_is_fetched_once_and_marks_all_rows_verified(self):
+        profile_url = "https://dept.cuhk.edu.hk/people/shared/"
+
+        class Fetcher:
+            fetched_at = {
+                profile_url: datetime(2026, 8, 6, tzinfo=timezone.utc)
+            }
+
+            def __init__(self):
+                self.calls = 0
+
+            def get(self, _url):
+                self.calls += 1
+                return "profile"
+
+        report = {
+            "scope": {"fresh": True, "completeSources": ["example"]},
+            "sources": [{"key": "example", "complete": True}],
+            "records": [{
+                "source": "cuhk_department:example",
+                "profileUrl": profile_url,
+            }],
+            "unresolved": [{
+                "sourceKey": "example",
+                "profileUrl": profile_url,
+            }],
+        }
+        fetcher = Fetcher()
+        subject.verify_profile_links(report, fetcher)
+        self.assertEqual(fetcher.calls, 1)
+        self.assertEqual(report["records"][0]["profileStatus"], "verified")
+        self.assertEqual(report["unresolved"][0]["profileStatus"], "verified")
+        self.assertEqual(
+            report["records"][0]["profileVerifiedAt"],
+            report["unresolved"][0]["profileVerifiedAt"],
+        )
+
+    def test_shared_failed_profile_is_fetched_once_and_reports_each_row(self):
+        profile_url = "https://dept.cuhk.edu.hk/people/shared/"
+
+        class Fetcher:
+            fetched_at = {}
+
+            def __init__(self):
+                self.calls = 0
+
+            def get(self, _url):
+                self.calls += 1
+                raise subject.requests.ConnectionError()
+
+        report = {
+            "scope": {"fresh": True, "completeSources": ["example"]},
+            "sources": [{"key": "example", "complete": True}],
+            "records": [{
+                "source": "cuhk_department:example",
+                "profileUrl": profile_url,
+            }],
+            "unresolved": [{
+                "sourceKey": "example",
+                "profileUrl": profile_url,
+            }],
+        }
+        fetcher = Fetcher()
+        subject.verify_profile_links(report, fetcher)
+        self.assertEqual(fetcher.calls, 1)
+        self.assertEqual(report["records"][0]["profileStatus"], "failed")
+        self.assertEqual(report["unresolved"][0]["profileStatus"], "failed")
+        self.assertEqual(len(report["fetchErrors"]), 2)
 
     def test_unmatched_but_reachable_profile_counts_toward_crawl_coverage(self):
         class Fetcher:

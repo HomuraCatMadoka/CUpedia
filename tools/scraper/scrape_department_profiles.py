@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import re
+import threading
 import time
 import unicodedata
 from collections import defaultdict
@@ -361,6 +362,18 @@ class CachedFetcher:
         self.refresh = refresh
         self.session = common.session()
         self.fetched_at: dict[str, datetime] = {}
+        self._pace_lock = threading.Lock()
+        self._next_request_at = 0.0
+
+    def _wait_for_request_slot(self) -> None:
+        """Reserve one globally paced network start across all worker threads."""
+        with self._pace_lock:
+            now = time.monotonic()
+            scheduled_at = max(now, self._next_request_at)
+            self._next_request_at = scheduled_at + max(self.pause, 0)
+        delay = scheduled_at - now
+        if delay > 0:
+            time.sleep(delay)
 
     def get(self, url: str) -> str:
         digest = hashlib.sha256(url.encode()).hexdigest()
@@ -373,11 +386,11 @@ class CachedFetcher:
         # Department sites are public and stateless. Native curl gives each
         # response a true wall-clock cap; requests' read timeout can hang on
         # servers that keep a TLS connection half-open or trickle bytes.
+        self._wait_for_request_slot()
         html = common.curl_get(url)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(html, encoding="utf-8")
         self.fetched_at[url] = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
-        time.sleep(max(self.pause, 0))
         return html
 
     def post(self, url: str, data: dict, referer: str) -> dict:
@@ -385,6 +398,7 @@ class CachedFetcher:
         path = self.cache_dir / f"{hashlib.sha256(signature.encode()).hexdigest()}.json"
         if path.exists() and not self.refresh:
             return json.loads(path.read_text(encoding="utf-8"))
+        self._wait_for_request_slot()
         response = self.session.post(
             url,
             data=data,
@@ -397,7 +411,6 @@ class CachedFetcher:
             raise ValueError("Department AJAX returned an unsuccessful response")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value), encoding="utf-8")
-        time.sleep(max(self.pause, 0))
         return value
 
 
@@ -438,7 +451,7 @@ def fetch_directory_pages(config: dict, fetcher: CachedFetcher) -> str:
     seen = set()
     while url and url not in seen:
         seen.add(url)
-        directory_attempts = config.get("directoryAttempts", 2)
+        directory_attempts = max(1, int(config.get("directoryAttempts", 2)))
         for attempt in range(directory_attempts):
             try:
                 html = fetcher.get(url)
@@ -446,6 +459,7 @@ def fetch_directory_pages(config: dict, fetcher: CachedFetcher) -> str:
             except requests.RequestException:
                 if attempt + 1 == directory_attempts:
                     raise
+                time.sleep(max(getattr(fetcher, "pause", 0), 0))
         pages.append(html)
         selector = config.get("paginationSelector")
         next_link = BeautifulSoup(html, "html.parser").select_one(selector) if selector else None
@@ -621,14 +635,15 @@ def verify_profile_links(report: dict, fetcher: CachedFetcher) -> dict:
             and record.get("profileStatus") == "verified"
             for record in candidates
         )
-        if source["verifiedProfiles"] < source.get("minimumVerifiedProfiles", 0):
+        minimum_verified_profiles = source.get("minimumVerifiedProfiles", 0)
+        if source["verifiedProfiles"] < minimum_verified_profiles:
             source["complete"] = False
             incomplete_sources.add(source["key"])
             report.setdefault("sourceErrors", []).append({
                 "sourceKey": source["key"],
                 "error": "verified_profiles_below_minimum",
                 "verifiedProfiles": source["verifiedProfiles"],
-                "minimumVerifiedProfiles": source["minimumVerifiedProfiles"],
+                "minimumVerifiedProfiles": minimum_verified_profiles,
             })
     report["scope"]["completeSources"] = [
         key for key in report["scope"]["completeSources"]
@@ -650,6 +665,7 @@ def build_report(
     configs: list[dict],
     pages: dict[str, str],
     profile_pages: dict[str, str] | None = None,
+    *,
     fetch_errors: list[dict] | None = None,
     source_errors: list[dict] | None = None,
     source_observed_at: dict[str, str] | None = None,
@@ -855,13 +871,13 @@ def main() -> None:
         active_configs,
         pages,
         profile_pages,
-        fetch_errors,
-        source_errors,
-        source_observed_at,
-        args.refresh,
-        full_scope,
-        hashlib.sha256(source_config_bytes).hexdigest(),
-        requested_source_keys,
+        fetch_errors=fetch_errors,
+        source_errors=source_errors,
+        source_observed_at=source_observed_at,
+        fresh_run=args.refresh,
+        full_scope=full_scope,
+        source_config_digest=hashlib.sha256(source_config_bytes).hexdigest(),
+        requested_source_keys=requested_source_keys,
     )
     report = verify_profile_links(report, fetcher)
     args.output.parent.mkdir(parents=True, exist_ok=True)

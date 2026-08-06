@@ -39,7 +39,9 @@ class CommonHttpTest(unittest.TestCase):
         self.assertIn("--fail", command)
         self.assertIn("=https", command)
         self.assertNotIn("--insecure", command)
-        run.assert_called_once_with(command, check=True, capture_output=True)
+        run.assert_called_once_with(
+            command, check=True, capture_output=True, timeout=95
+        )
 
     def test_failed_native_curl_remains_a_requests_error(self):
         session = Mock()
@@ -66,6 +68,18 @@ class CommonHttpTest(unittest.TestCase):
         self.assertEqual(command[command.index("--retry") + 1], "0")
         self.assertIn("=https", command)
         self.assertNotIn("--insecure", command)
+        self.assertEqual(command[-2:], ["--", "https://dept.cuhk.edu.hk/people/"])
+        run.assert_called_once_with(
+            command, check=True, capture_output=True, timeout=22
+        )
+
+    def test_curl_process_timeout_remains_a_requests_error(self):
+        with patch(
+            "common.subprocess.run",
+            side_effect=subprocess.TimeoutExpired(["curl"], 10),
+        ):
+            with self.assertRaises(requests.ConnectionError):
+                common.curl_get("https://dept.cuhk.edu.hk/people/")
 
 
 if __name__ == "__main__":

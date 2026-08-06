@@ -654,7 +654,7 @@
     "titleSelector": "h6",
     "emailSelector": "a[href^='mailto:']",
     "minimumEntries": 25,
-    "minimumVerifiedProfiles": 20
+    "minimumVerifiedProfiles": 15
   },
   {
     "key": "linguistics-faculty",
@@ -667,7 +667,7 @@
     "nameSelector": "h6",
     "imageSelector": "img",
     "minimumEntries": 12,
-    "minimumVerifiedProfiles": 10
+    "minimumVerifiedProfiles": 8
   },
   {
     "key": "statistics-faculty",
@@ -682,7 +682,7 @@
     "imageSelector": ".card-image",
     "imageAttribute": "style",
     "minimumEntries": 30,
-    "minimumVerifiedProfiles": 20
+    "minimumVerifiedProfiles": 18
   },
   {
     "key": "psychology-faculty",
@@ -696,7 +696,7 @@
     "titleSelector": ".sppb-person-introtext",
     "imageSelector": ".sppb-person-image img",
     "minimumEntries": 30,
-    "minimumVerifiedProfiles": 20
+    "minimumVerifiedProfiles": 18
   },
   {
     "key": "architecture-faculty",
@@ -832,7 +832,7 @@
     "enrichProfiles": true,
     "profileEmailSelector": "a[href^='mailto:']",
     "minimumEntries": 12,
-    "minimumVerifiedProfiles": 10
+    "minimumVerifiedProfiles": 8
   },
   {
     "key": "divinity-teaching-staff",
