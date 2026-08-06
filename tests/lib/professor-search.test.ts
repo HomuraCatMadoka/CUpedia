@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  PROFESSOR_RANKING_MIN_RATINGS,
   rankProfessorCandidates,
   searchProfessorCandidates,
   type ProfessorSearchCandidate,
 } from "@/lib/professor-search";
 
 describe("rankProfessorCandidates", () => {
-  it("uses the direct average and excludes professors below the sample threshold", () => {
+  it("uses the direct average and keeps small samples visible", () => {
     const ranked = rankProfessorCandidates([
       {
         publicId: "small-sample",
         name: "Small Sample",
         rating: 5,
-        ratingCount: PROFESSOR_RANKING_MIN_RATINGS - 1,
+        ratingCount: 1,
       },
       {
         publicId: "high",
@@ -31,8 +30,21 @@ describe("rankProfessorCandidates", () => {
     ]);
 
     expect(ranked.map((candidate) => candidate.publicId)).toEqual([
+      "small-sample",
       "high",
       "popular",
+    ]);
+  });
+
+  it("keeps unrated professors after rated results", () => {
+    const ranked = rankProfessorCandidates([
+      { publicId: "none", name: "No Rating", rating: null, ratingCount: 0 },
+      { publicId: "rated", name: "Rated", rating: 3, ratingCount: 1 },
+    ]);
+
+    expect(ranked.map((candidate) => candidate.publicId)).toEqual([
+      "rated",
+      "none",
     ]);
   });
 

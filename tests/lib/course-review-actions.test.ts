@@ -77,6 +77,7 @@ const {
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  updateTag: vi.fn(),
   unstable_cache:
     (callback: (...args: unknown[]) => Promise<unknown>) =>
     async (...args: unknown[]) => {

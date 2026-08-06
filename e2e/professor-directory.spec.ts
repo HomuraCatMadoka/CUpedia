@@ -9,6 +9,7 @@ const PROFESSOR_NAME = "Professor E2E CHAN";
 const FACULTY_ID = "e2e-professor-directory-faculty";
 const DEPARTMENT_ID = "e2e-professor-directory-department";
 const COURSE_CODE = "CSCI1130";
+const UNLISTED_COURSE_CODE = "E2E9999";
 const PROFILE_URL = "https://www.cse.cuhk.edu.hk/people/e2e-chan";
 const LEGACY_PROFESSOR_ID = "e2e-professor-directory-legacy";
 const SECOND_PERSON_ID = "e2e-professor-directory-same-name";
@@ -152,10 +153,43 @@ test.beforeAll(async () => {
       [PERSON_ID],
     );
     await client.query(
+      `insert into staff_teaching_assignments
+         (person_id, academic_year, term, course_code, captured_at)
+       select $1,
+         case
+           when code in ('CSCI1120', 'CSCI1130', 'CSCI2100', 'CSCI2720',
+                         'CSCI3130', 'CSCI3230', 'CSCI4180') then '2025-26'
+           when code in ('ENGG2020', 'MATH1030') then '2023-24'
+           else '2021-22'
+         end,
+         'Term 1', code, now()
+       from courses
+       on conflict do nothing`,
+      [PERSON_ID],
+    );
+    await client.query(
+      `insert into course_ratings
+         (course_code, user_id, score, academic_year, term,
+          instructor_person_id, professor_name_snapshot)
+       select 'CSCI2100', id, 4.5, '2025-26', 'Term 1', $1, $2
+       from users where email = 'user@test.com'
+       on conflict (course_code, user_id) do update set
+         score = excluded.score,
+         instructor_person_id = excluded.instructor_person_id,
+         professor_name_snapshot = excluded.professor_name_snapshot`,
+      [PERSON_ID, PROFESSOR_NAME],
+    );
+    await client.query(
       `insert into professors (id, name, search_text)
        values ($1, $2, lower($2))
        on conflict (id) do update set name = excluded.name`,
       [LEGACY_PROFESSOR_ID, PROFESSOR_NAME],
+    );
+    await client.query(
+      `insert into courses (code, subject, title, units, description)
+       values ($1, 'E2E', 'Previously Unlisted Professor Course', '3', '')
+       on conflict (code) do update set title = excluded.title`,
+      [UNLISTED_COURSE_CODE],
     );
     await client.query(
       `insert into professor_courses
@@ -183,9 +217,19 @@ test.afterAll(async () => {
       [COURSE_CODE, "contributor@test.com"],
     );
     await client.query(
+      `delete from course_ratings
+       where course_code = 'CSCI2100'
+         and instructor_person_id = $1
+         and user_id = (select id from users where email = 'user@test.com')`,
+      [PERSON_ID],
+    );
+    await client.query(
       "delete from professor_courses where professor_id = $1",
       [LEGACY_PROFESSOR_ID],
     );
+    await client.query("delete from courses where code = $1", [
+      UNLISTED_COURSE_CODE,
+    ]);
     await client.query("delete from professors where id = $1", [
       LEGACY_PROFESSOR_ID,
     ]);
@@ -213,7 +257,7 @@ test("ignores a stale department filter instead of showing an empty directory", 
   );
   await expect(
     page.getByRole("button", { name: "按学系或学院筛选" }),
-  ).toContainText("全部学系 / 学院");
+  ).toContainText("全部学系");
 });
 
 test("keeps same-name professors distinct and scopes autocomplete by department", async ({
@@ -234,7 +278,9 @@ test("keeps same-name professors distinct and scopes autocomplete by department"
   await page.getByRole("button", { name: "按学系或学院筛选" }).click();
   await page.getByPlaceholder("搜索学系或学院…").fill("Mathematics");
   await page.getByRole("option", { name: /Department of Mathematics/ }).click();
-  await page.getByRole("button", { name: "搜索", exact: true }).click();
+  await expect(page).toHaveURL(
+    new RegExp(`department=${SECOND_DEPARTMENT_ID}`),
+  );
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
 
   await professorSearch.fill("E2E CHAN");
@@ -265,7 +311,7 @@ test("finds aliases without duplicating a professor with multiple affiliations",
   await page
     .getByRole("option", { name: /Department of Statistics and Data Science/ })
     .click();
-  await page.getByRole("button", { name: "搜索", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`department=${MULTI_DEPARTMENT_ID}`));
 
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
   await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
@@ -280,7 +326,7 @@ test("includes professors affiliated only with a school", async ({ page }) => {
   await page.getByRole("button", { name: "按学系或学院筛选" }).click();
   await page.getByPlaceholder("搜索学系或学院…").fill("Pharmacy");
   await page.getByRole("option", { name: /School of Pharmacy/ }).click();
-  await page.getByRole("button", { name: "搜索", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`department=${SCHOOL_ID}`));
 
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
   await expect(
@@ -289,10 +335,36 @@ test("includes professors affiliated only with a school", async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`department=${SCHOOL_ID}`));
 });
 
+test("applies sorting and review filters immediately", async ({ page }) => {
+  await page.goto("/professors");
+
+  await page.getByRole("button", { name: /排序.*评价最多/ }).click();
+  await page.getByRole("menuitem", { name: "姓名 A-Z" }).click();
+  await expect(page).toHaveURL(/sort=name/);
+  await page.getByRole("button", { name: "筛选", exact: true }).click();
+  await page.getByRole("radio", { name: "只看有评价" }).click();
+  await expect(page).toHaveURL(/rated=1/);
+  await expect(
+    page.getByRole("button", { name: "筛选 · 1", exact: true }),
+  ).toBeVisible();
+});
+
+test("shows three professor cards in one row on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/professors");
+
+  const cards = page.locator("main article");
+  await expect(cards).toHaveCount(3);
+  const cardTops = await cards.evaluateAll((items) =>
+    items.map((item) => Math.round(item.getBoundingClientRect().top)),
+  );
+  expect(new Set(cardTops).size).toBe(1);
+});
+
 test("searches a professor, opens the card, and binds a course review", async ({
   page,
 }, testInfo) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   await loginWithPassword(page, "contributor@test.com", "password123");
   await page.goto("/courses");
   await page.getByRole("link", { name: "教授" }).click();
@@ -304,7 +376,6 @@ test("searches a professor, opens the card, and binds a course review", async ({
       name: /Department of Computer Science and Engineering/,
     })
     .click();
-  await page.getByRole("button", { name: "搜索", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`department=${DEPARTMENT_ID}`));
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
   await expect(
@@ -315,9 +386,26 @@ test("searches a professor, opens the card, and binds a course review", async ({
     fullPage: true,
     caret: "initial",
   });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.screenshot({
+    path: testInfo.outputPath("professor-directory-mobile.png"),
+    fullPage: true,
+    caret: "initial",
+  });
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.screenshot({
+    path: testInfo.outputPath("professor-directory-dark.png"),
+    fullPage: true,
+    caret: "initial",
+  });
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
 
   await page.getByRole("combobox", { name: "搜索教授" }).fill("E2E CHAN");
-  await page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }).click();
+  await expect(
+    page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }),
+  ).toBeVisible();
+  await page.goto(`/professors/${PUBLIC_ID}`);
   await expect(
     page.getByRole("heading", { name: PROFESSOR_NAME }),
   ).toBeVisible();
@@ -329,6 +417,16 @@ test("searches a professor, opens the card, and binds a course review", async ({
     page.getByText("Department of Computer Science and Engineering"),
   ).toBeVisible();
   await expect(page.getByText(COURSE_CODE, { exact: true })).toBeVisible();
+  await page.getByRole("link", { name: "选择课程评价" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "选择课程评价" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "关闭课程选择" }),
+  ).toBeFocused();
+  await expect(page).toHaveURL(/chooseCourse=1/);
+  await page.keyboard.press("Escape");
+  await expect(page).not.toHaveURL(/chooseCourse=1/);
   await page.screenshot({
     path: testInfo.outputPath("professor-detail.png"),
     fullPage: true,
@@ -350,7 +448,36 @@ test("searches a professor, opens the card, and binds a course review", async ({
   });
   await page.evaluate(() => document.documentElement.classList.remove("dark"));
 
-  await page.getByRole("link", { name: "写评价" }).click();
+  await page.getByRole("button", { name: /查看全部 \d+ 门并搜索课程/ }).click();
+  await page
+    .getByRole("searchbox", { name: "搜索课程代码或名称" })
+    .fill(UNLISTED_COURSE_CODE);
+  const unlistedCourseLink = page.getByRole("link", {
+    name: `评价 ${UNLISTED_COURSE_CODE}`,
+  });
+  await expect(unlistedCourseLink).toBeVisible();
+  await expect(unlistedCourseLink).toHaveAttribute(
+    "href",
+    new RegExp(`/courses/${UNLISTED_COURSE_CODE}\\?professor=${PUBLIC_ID}`),
+  );
+  await unlistedCourseLink.click();
+  await expect(page).toHaveURL(
+    new RegExp(`/courses/${UNLISTED_COURSE_CODE}\\?professor=${PUBLIC_ID}`),
+  );
+  const unlistedProfessorField = page.getByRole("group", { name: "任课教授" });
+  await expect(
+    unlistedProfessorField.getByText(PROFESSOR_NAME, { exact: true }),
+  ).toBeVisible();
+  await expect(
+    unlistedProfessorField.getByText("已绑定", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: `移除 ${PROFESSOR_NAME}` }),
+  ).toHaveCount(0);
+
+  await page.goto(`/professors/${PUBLIC_ID}`);
+
+  await page.getByRole("link", { name: `评价 ${COURSE_CODE}` }).click();
   await expect(page).toHaveURL(
     new RegExp(`/courses/${COURSE_CODE}\\?professor=${PUBLIC_ID}`),
   );
@@ -373,7 +500,6 @@ test("searches a professor, opens the card, and binds a course review", async ({
     .getByPlaceholder("分享课程内容、功课量或考试体验…")
     .fill("E2E canonical professor review");
   await page.getByRole("button", { name: "提交测评" }).click();
-  await expect(page.getByText("我的课程测评")).toBeVisible();
 
   await expect
     .poll(async () => {
@@ -395,4 +521,10 @@ test("searches a professor, opens the card, and binds a course review", async ({
       return rowCount;
     })
     .toBe(1);
+  await page.reload();
+  await expect(
+    page
+      .getByRole("listitem")
+      .getByText("E2E canonical professor review", { exact: true }),
+  ).toBeVisible();
 });

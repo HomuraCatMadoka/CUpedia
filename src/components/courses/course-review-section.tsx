@@ -11,6 +11,7 @@ import type {
   CourseProfessorStats,
   CourseRatingState,
   CourseReviewView,
+  ProfessorOption,
 } from "@/lib/course-review-actions";
 
 const INITIAL_REVIEW_LIMIT = 10;
@@ -35,7 +36,7 @@ export function CourseReviewSection({
   academicYears: string[];
   isAuthenticated: boolean;
   professorOptional: boolean;
-  prefillProfessor?: CourseProfessorStats;
+  prefillProfessor?: ProfessorOption;
   targetReviewId?: string;
   targetReplyId?: string;
   targetReplyOffset?: number;
