@@ -97,7 +97,9 @@ separately. Link coverage is measured across the whole official roster, while
 only entries that resolve to one verified staff identity are emitted for cards.
 The department crawler uses native `curl` with a hard response deadline over
 verified HTTPS; the shared requests helper uses the same transport as a TLS
-fallback. Neither path uses an insecure TLS mode.
+fallback. Directory pages get one bounded whole-request retry in addition to
+curl's transport retry; personal pages do not get the extra directory retry.
+Neither path uses an insecure TLS mode.
 
 `courses.json` is rewritten after **every** subject and the run **resumes** by
 skipping subjects already present — a crash mid-harvest loses at most one

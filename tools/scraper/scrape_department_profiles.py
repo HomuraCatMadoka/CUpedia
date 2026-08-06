@@ -438,12 +438,13 @@ def fetch_directory_pages(config: dict, fetcher: CachedFetcher) -> str:
     seen = set()
     while url and url not in seen:
         seen.add(url)
-        for attempt in range(config.get("directoryAttempts", 1)):
+        directory_attempts = config.get("directoryAttempts", 2)
+        for attempt in range(directory_attempts):
             try:
                 html = fetcher.get(url)
                 break
             except requests.RequestException:
-                if attempt + 1 == config.get("directoryAttempts", 1):
+                if attempt + 1 == directory_attempts:
                     raise
         pages.append(html)
         selector = config.get("paginationSelector")

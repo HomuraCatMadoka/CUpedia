@@ -789,7 +789,6 @@
     "imageSelector": ".cu-media img",
     "enrichProfiles": true,
     "profileEmailSelector": "a[href^='mailto:']",
-    "directoryAttempts": 2,
     "minimumEntries": 25,
     "minimumVerifiedProfiles": 15
   },

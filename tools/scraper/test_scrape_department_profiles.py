@@ -287,7 +287,7 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         html = subject.fetch_directory_pages(config, Fetcher())
         self.assertIn("last page", html)
 
-    def test_reviewed_flaky_directory_can_retry_as_a_whole(self):
+    def test_directory_retries_as_a_whole_by_default(self):
         class Fetcher:
             calls = 0
 
@@ -299,9 +299,7 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
                 return "<main>official roster</main>"
 
         fetcher = Fetcher()
-        html = subject.fetch_directory_pages(
-            {**self.config(), "directoryAttempts": 2}, fetcher
-        )
+        html = subject.fetch_directory_pages(self.config(), fetcher)
         self.assertIn("official roster", html)
         self.assertEqual(fetcher.calls, 2)
 
