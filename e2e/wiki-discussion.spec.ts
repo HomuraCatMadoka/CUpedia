@@ -86,8 +86,11 @@ async function openDiscussion(page: Page) {
   if ((await panelTrigger.getAttribute("aria-expanded")) === "false") {
     await panelTrigger.click();
   }
-  await page.getByRole("button", { name: new RegExp(rootComment) }).click();
-  await expect(page.getByText(rootComment, { exact: true })).toBeVisible();
+  const comment = page.getByText(rootComment, { exact: true }).first();
+  if (!(await comment.isVisible())) {
+    await page.getByRole("button", { name: new RegExp(rootComment) }).click();
+  }
+  await expect(comment).toBeVisible();
 }
 
 test.afterAll(async () => {
