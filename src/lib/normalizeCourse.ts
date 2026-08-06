@@ -12,7 +12,7 @@ export type RawCourse = {
   description?: string;
   requirements?: string;
   requirementsRaw?: string;
-  // career 用于本科过滤："Undergraduate" / "Postgraduate" / "Research" …
+  // career 用于区分本科与研究生课程："Undergraduate" / "Postgraduate" / "Research" …
   career?: string;
   // 开课学期/季节提示，可为数组（term 名）或单串
   terms?: string[] | string;
@@ -63,16 +63,19 @@ function toUnits(raw: string | number | undefined): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-// 返回 null = 非本科，过滤掉。career 缺省视为本科（官方目录侧只抓 UG）。
+// 保留本科及 5000+ 研究生课程；career 缺省沿用历史行为，视为本科。
 export function normalizeCourse(raw: RawCourse): Course | null {
-  if (raw.career && !UNDERGRAD.test(raw.career)) return null;
-
   const subject = (raw.subject ?? "").trim().toUpperCase();
   const rawCode = (raw.code ?? raw.courseCode ?? "").trim();
   if (!rawCode) return null;
+  const code = normalizeCode(rawCode, subject);
+  const courseNumber = Number(code.match(/\d{4}$/)?.[0] ?? 0);
+  if (raw.career && !UNDERGRAD.test(raw.career) && courseNumber < 5000) {
+    return null;
+  }
 
   return {
-    code: normalizeCode(rawCode, subject),
+    code,
     subject,
     title: cleanText(raw.title ?? ""),
     units: toUnits(raw.units ?? raw.credits),

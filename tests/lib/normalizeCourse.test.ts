@@ -13,9 +13,30 @@ describe("normalizeCourse", () => {
     terms: ["2025-26 Term 1", "2025-26 Term 2"],
   };
 
-  it("filters out non-undergraduate courses", () => {
+  it("keeps 5000+ postgraduate courses and filters lower-level ones", () => {
     expect(normalizeCourse({ ...base, career: "Postgraduate" })).toBeNull();
     expect(normalizeCourse({ ...base, career: "Research" })).toBeNull();
+    expect(
+      normalizeCourse({
+        ...base,
+        code: "4999",
+        career: "Postgraduate - Taught",
+      }),
+    ).toBeNull();
+    expect(
+      normalizeCourse({
+        ...base,
+        code: "5000",
+        career: "Postgraduate - Taught",
+      })?.code,
+    ).toBe("CSCI5000");
+    expect(
+      normalizeCourse({
+        ...base,
+        code: "8001",
+        career: "Postgraduate - Research",
+      })?.code,
+    ).toBe("CSCI8001");
   });
 
   it("keeps undergraduate (and missing career defaults to UG)", () => {

@@ -1308,6 +1308,32 @@ describe("getCourseProfessorStats", () => {
 });
 
 describe("getCourseEnrollmentHistory", () => {
+  it("vacancy 缺失时保留开课记录并返回未知已选人数", async () => {
+    queueRows([
+      {
+        academicYear: "2026-27",
+        term: "Term 1",
+        classCode: "CSCI5120",
+        component: "LEC",
+        quota: 60,
+        vacancy: null,
+        instructors: ["Professor CHENG James"],
+        capturedAt: new Date("2026-08-06T00:00:00Z"),
+      },
+    ]);
+
+    await expect(getCourseEnrollmentHistory("CSCI5120")).resolves.toEqual([
+      {
+        academicYear: "2026-27",
+        term: "Term 1",
+        section: null,
+        enrolled: null,
+        quota: 60,
+        instructors: ["Professor CHENG James"],
+      },
+    ]);
+  });
+
   it("按班别分别返回主组件人数，避免重复计算导修课", async () => {
     const capturedAt = new Date("2026-07-13T00:00:00Z");
     queueRows([
