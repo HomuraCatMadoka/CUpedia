@@ -260,6 +260,12 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
             image_selector=".portrait",
         )
         self.assertIsNone(enriched["imageUrl"])
+        self.assertIsNone(
+            subject.photo_url(
+                record["profileUrl"],
+                "/images/male-photo-e1582797285842.jpg",
+            )
+        )
 
     def test_profile_email_prefers_cuhk_over_unrelated_publication_email(self):
         self.assertEqual(

@@ -35,6 +35,7 @@ EMAIL = re.compile(
 )
 CJK = re.compile(r"[\u3400-\u9fff]+")
 PLACEHOLDER_IMAGES = {
+    "male-photo-e1582797285842.jpg",
     "men.jpg",
     "placeholder_240.png",
     "placeholder-portrait-male.png",
