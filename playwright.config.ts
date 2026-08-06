@@ -36,6 +36,9 @@ const useCiGroups = process.env.E2E_CI_GROUPS === "1";
 const mobileWebKitTest = /wiki-edit\.mobile-webkit\.spec\.ts$/;
 const wikiDesktopTest =
   /wiki-(?!edit\.mobile(?:-webkit)?\.spec\.ts$).*\.spec\.ts$/;
+// Historical runtime split: these files are about half of desktop Wiki time.
+const wikiEditorCoreTest =
+  /wiki-edit(?:\.(?:autosave|block-commands|hydration|shell))?\.spec\.ts$/;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with
@@ -67,6 +70,12 @@ export default defineConfig({
           {
             name: "chromium-wiki",
             testMatch: wikiDesktopTest,
+            testIgnore: wikiEditorCoreTest,
+            use: { ...devices["Desktop Chrome"] },
+          },
+          {
+            name: "chromium-wiki-editor",
+            testMatch: wikiEditorCoreTest,
             use: { ...devices["Desktop Chrome"] },
           },
         ]
