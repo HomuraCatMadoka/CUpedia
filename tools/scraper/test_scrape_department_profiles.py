@@ -333,7 +333,7 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
             "francisyip@cuhk.edu.hk",
         )
 
-    def test_unique_short_department_name_stays_a_candidate(self):
+    def test_unique_department_alias_matches_within_the_same_organisation(self):
         directory = self.directory()
         directory["people"][0]["name"] = "Professor LAM Kuo Chin King Tin"
         html = """
@@ -343,8 +343,28 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         report = subject.build_report(
             directory, [self.config()], {self.config()["directoryUrl"]: html}
         )
+        self.assertEqual(report["records"][0]["matchedBy"], "organisation_alias")
+        self.assertEqual(report["unresolved"], [])
+
+    def test_department_alias_must_resolve_to_exactly_one_person(self):
+        directory = self.directory()
+        directory["people"][0]["name"] = "Professor LAM King Tin Alan"
+        directory["people"].append({
+            **directory["people"][0],
+            "externalId": "33333333-3333-3333-3333-333333333333",
+            "name": "Professor LAM King Tin Peter",
+            "profileUrl": "https://research.cuhk.edu.hk/en/persons/peter-lam/",
+        })
+        html = """
+        <div class="person"><a class="profile" href="/people/lam/"></a>
+          <h2>King Tin Lam</h2><p class="title">Lecturer</p></div>
+        """
+        report = subject.build_report(
+            directory, [self.config()], {self.config()["directoryUrl"]: html}
+        )
         self.assertEqual(report["records"], [])
         self.assertEqual(report["unresolved"][0]["status"], "candidate")
+        self.assertEqual(len(report["unresolved"][0]["candidatePersonIds"]), 2)
 
     def test_email_requires_a_compatible_name(self):
         html = """

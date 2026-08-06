@@ -48,6 +48,7 @@ const primaryProfile = selectProfessorProfile(professor.researchPortalUrl, [
     profileVerifiedAt: "2026-08-05T00:00:00Z",
     appointmentKind: "regular",
     isCurrent: true,
+    imageUrl: professor.imageUrl,
   },
 ]);
 

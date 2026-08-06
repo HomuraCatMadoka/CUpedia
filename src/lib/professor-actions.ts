@@ -23,6 +23,7 @@ import {
 } from "@/lib/professor-course-evidence";
 import {
   selectProfessorDepartmentSource,
+  selectProfessorImage,
   selectProfessorProfile,
   type ProfessorAppointmentKind,
   type ProfessorCardSource,
@@ -308,7 +309,7 @@ async function hydrateDirectoryItems(
       title: selected?.roleLabel ?? null,
       faculty: item.faculty,
       department: item.description,
-      imageUrl: selected?.imageUrl ?? null,
+      imageUrl: selectProfessorImage(personSources),
       profile: selectProfessorProfile(
         stats?.researchPortalUrl ?? null,
         personSources,

@@ -600,14 +600,17 @@ def match_record(
     suggested_candidates = []
     if not candidates:
         candidates_by_id = {}
-        signature = set(name_signature(record["name"]))
+        signature = meaningful_name_tokens(record["name"])
         if len(signature) >= 2:
             for organisation_url in config["organisationUrls"]:
                 for person in by_org.get(organisation_url, {}).values():
-                    candidate_signature = set(name_signature(person["name"]))
-                    if signature < candidate_signature:
+                    candidate_signature = meaningful_name_tokens(person["name"])
+                    if alias_signatures_match(signature, candidate_signature):
                         candidates_by_id[person["personId"]] = person
         suggested_candidates = list(candidates_by_id.values())
+        if len(suggested_candidates) == 1:
+            candidates = suggested_candidates
+            matched_by = "organisation_alias"
     if len(candidates) != 1:
         return {
             **record,
@@ -631,6 +634,15 @@ def match_record(
             config.get("sourceIdentityHost"),
         ),
     }
+
+
+def meaningful_name_tokens(value: str) -> set[str]:
+    return {token for token in name_signature(value) if len(token) >= 2}
+
+
+def alias_signatures_match(left: set[str], right: set[str]) -> bool:
+    """Match an added/omitted English alias without guessing between people."""
+    return len(left) >= 2 and len(right) >= 2 and (left <= right or right <= left)
 
 
 def names_compatible(left: str, right: str) -> bool:
