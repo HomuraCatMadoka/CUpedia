@@ -76,18 +76,22 @@ export function selectProfessorDepartmentSource<T extends ProfessorCardSource>(
   );
 }
 
-export function selectProfessorImage(
+export function selectProfessorImages(
   sources: ProfessorCardSource[],
-): string | null {
+): string[] {
   const departmentImage = selectProfessorDepartmentSource(sources)?.imageUrl;
-  if (departmentImage) return departmentImage;
+  const portalImage = sources.find(
+    (source) =>
+      source.source === "cuhk_research_portal" &&
+      source.isCurrent &&
+      Boolean(source.imageUrl),
+  )?.imageUrl;
 
-  return (
-    sources.find(
-      (source) =>
-        source.source === "cuhk_research_portal" &&
-        source.isCurrent &&
-        Boolean(source.imageUrl),
-    )?.imageUrl ?? null
+  return Array.from(
+    new Set(
+      [departmentImage, portalImage].filter((url): url is string =>
+        Boolean(url),
+      ),
+    ),
   );
 }

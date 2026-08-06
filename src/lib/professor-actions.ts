@@ -23,7 +23,7 @@ import {
 } from "@/lib/professor-course-evidence";
 import {
   selectProfessorDepartmentSource,
-  selectProfessorImage,
+  selectProfessorImages,
   selectProfessorProfile,
   type ProfessorAppointmentKind,
   type ProfessorCardSource,
@@ -71,7 +71,7 @@ export type ProfessorDirectoryItem = {
   title: string | null;
   faculty: string | null;
   department: string | null;
-  imageUrl: string | null;
+  imageUrls: string[];
   profile: { kind: "department" | "research_portal"; url: string } | null;
   rating: number | null;
   ratingCount: number;
@@ -309,7 +309,7 @@ async function hydrateDirectoryItems(
       title: selected?.roleLabel ?? null,
       faculty: item.faculty,
       department: item.description,
-      imageUrl: selectProfessorImage(personSources),
+      imageUrls: selectProfessorImages(personSources),
       profile: selectProfessorProfile(
         stats?.researchPortalUrl ?? null,
         personSources,
