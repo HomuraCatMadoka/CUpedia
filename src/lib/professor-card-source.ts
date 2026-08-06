@@ -14,6 +14,7 @@ export type ProfessorCardSource = {
   profileVerifiedAt: Date | string | null;
   appointmentKind: ProfessorAppointmentKind | null;
   isCurrent: boolean;
+  imageUrl: string | null;
 };
 
 const APPOINTMENT_PRIORITY: Record<ProfessorAppointmentKind, number> = {
@@ -72,5 +73,21 @@ export function selectProfessorDepartmentSource<T extends ProfessorCardSource>(
           left.sourceKey.localeCompare(right.sourceKey)
         );
       })[0] ?? null
+  );
+}
+
+export function selectProfessorImage(
+  sources: ProfessorCardSource[],
+): string | null {
+  const departmentImage = selectProfessorDepartmentSource(sources)?.imageUrl;
+  if (departmentImage) return departmentImage;
+
+  return (
+    sources.find(
+      (source) =>
+        source.source === "cuhk_research_portal" &&
+        source.isCurrent &&
+        Boolean(source.imageUrl),
+    )?.imageUrl ?? null
   );
 }

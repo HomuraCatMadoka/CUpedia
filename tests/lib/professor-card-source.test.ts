@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isProfessorCardEligible,
+  selectProfessorImage,
   selectProfessorDepartmentSource,
   selectProfessorProfile,
   type ProfessorCardSource,
@@ -17,6 +18,7 @@ function source(
     profileVerifiedAt: "2026-08-05T00:00:00Z",
     appointmentKind: "regular",
     isCurrent: true,
+    imageUrl: "https://www.cse.cuhk.edu.hk/people/person.jpg",
     ...values,
   };
 }
@@ -89,6 +91,21 @@ describe("professor card source selection", () => {
       kind: "research_portal",
       url: "https://research.cuhk.edu.hk/person/",
     });
+  });
+
+  it("uses a Portal portrait only when the selected department has no photo", () => {
+    const portal = source({
+      source: "cuhk_research_portal",
+      sourceKey: "portal-person",
+      profileUrl: "https://research.cuhk.edu.hk/en/persons/person/",
+      imageUrl: "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/",
+    });
+    expect(selectProfessorImage([source(), portal])).toBe(
+      "https://www.cse.cuhk.edu.hk/people/person.jpg",
+    );
+    expect(selectProfessorImage([source({ imageUrl: null }), portal])).toBe(
+      portal.imageUrl,
+    );
   });
 
   it("returns null when neither official profile is usable", () => {
