@@ -225,6 +225,56 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         )
         self.assertEqual(enriched["email"], "ktlam@cse.cuhk.edu.hk")
 
+    def test_english_api_allows_only_regular_staff_in_full_time(self):
+        config = {
+            **self.config(),
+            "adapter": "eng_staff_api",
+            "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+            "allowedAppointmentKinds": ["regular"],
+        }
+        payload = json.dumps({
+            "posts": [
+                {
+                    "title": "Regular Person",
+                    "positions": "Associate Professor",
+                    "sub_title": "",
+                    "email": "regular@cuhk.edu.hk",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/regular/",
+                    "img_url": "https://dept.cuhk.edu.hk/regular.jpg",
+                },
+                {
+                    "title": "Adjunct Person",
+                    "positions": "Adjunct Professor",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/adjunct/",
+                },
+                {
+                    "title": "Emeritus Person",
+                    "positions": "Emeritus Professor",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/emeritus/",
+                },
+                {
+                    "title": "Visiting Person",
+                    "positions": "Visiting Professor",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/visiting/",
+                },
+            ]
+        })
+        records = subject.parse_json_directory(payload, config)
+        self.assertEqual([record["name"] for record in records], ["Regular Person"])
+        self.assertEqual(records[0]["appointmentKind"], "regular")
+        self.assertEqual(records[0]["sourceUrl"], config["sourceUrl"])
+
+    def test_source_identity_can_preserve_a_reviewed_legacy_host(self):
+        record = {"profileUrl": "https://eng.cuhk.edu.hk/staff/person/"}
+        self.assertEqual(
+            subject.source_identity_key(
+                record,
+                "english-full-time",
+                "www.eng.cuhk.edu.hk",
+            ),
+            "https://www.eng.cuhk.edu.hk/staff/person",
+        )
+
     def test_profile_page_can_supply_photo_when_roster_already_has_email(self):
         record = {
             "email": "ktlam@cuhk.edu.hk",
