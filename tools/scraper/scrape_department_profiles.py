@@ -35,7 +35,10 @@ EMAIL = re.compile(
 )
 CJK = re.compile(r"[\u3400-\u9fff]+")
 PLACEHOLDER_IMAGES = {
+    "male-photo-e1582797285842.jpg",
     "men.jpg",
+    "placeholder_240.png",
+    "placeholder-portrait-male.png",
     "sharing-logo.jpg",
     "placeholder-portrait-male-e1776937960820.png",
 }
@@ -90,6 +93,24 @@ def photo_url(
     if image_name in PLACEHOLDER_IMAGES:
         return None
     return url if Path(image_name).suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"} else None
+
+
+def selected_image_value(image, attribute: str | None = None) -> str | None:
+    if not image:
+        return None
+    if attribute == "style":
+        match = re.search(
+            r"background-image\s*:\s*url\(['\"]?([^)'\"]+)",
+            image.get("style", ""),
+            re.I,
+        )
+        return match.group(1) if match else None
+    if attribute:
+        return image.get(attribute)
+    value = image.get("data-src")
+    if image.get("srcset"):
+        value = image["srcset"].split(",")[-1].strip().split()[0]
+    return value or image.get("src")
 
 
 def clean_name(value: str) -> str:
@@ -300,16 +321,7 @@ def parse_directory(html: str, config: dict) -> list[dict]:
             heading = entry.find_previous(config["groupHeadingSelector"])
             group = heading.get_text(" ", strip=True) if heading else None
         category = entry.get(config["categoryAttribute"]) if config.get("categoryAttribute") else None
-        image_value = None
-        if image:
-            if config.get("imageAttribute") == "style":
-                match = re.search(r"background-image\s*:\s*url\(['\"]?([^)'\"]+)", image.get("style", ""), re.I)
-                image_value = match.group(1) if match else None
-            else:
-                image_value = image.get("data-src")
-                if image.get("srcset"):
-                    image_value = image["srcset"].split(",")[-1].strip().split()[0]
-                image_value = image_value or image.get("src")
+        image_value = selected_image_value(image, config.get("imageAttribute"))
         inferred_appointment = appointment_kind(
             " ".join(filter(None, [category, group, title]))
         )
@@ -346,13 +358,35 @@ def parse_directory(html: str, config: dict) -> list[dict]:
     return list(deduplicated.values())
 
 
-def enrich_from_profile(record: dict, html: str, selector: str | None = None) -> dict:
+def enrich_from_profile(
+    record: dict,
+    html: str,
+    email_selector: str | None = None,
+    image_selector: str | None = None,
+    image_attribute: str | None = None,
+    allowed_image_hosts: list[str] | None = None,
+) -> dict:
     """Fill roster omissions from the person's official department page."""
     soup = BeautifulSoup(html, "html.parser")
-    nodes = soup.select(selector) if selector else []
+    nodes = soup.select(email_selector) if email_selector else []
     email_text = " ".join(node.get_text(" ", strip=True) for node in nodes)
     email = record.get("email") or email_in_text(email_text)
-    return {**record, "email": email}
+    image = soup.select_one(image_selector) if image_selector else None
+    image_url = record.get("imageUrl")
+    if not image_url and image:
+        image_url = photo_url(
+            record["profileUrl"],
+            selected_image_value(image, image_attribute),
+            allowed_image_hosts,
+        )
+    return {**record, "email": email, "imageUrl": image_url}
+
+
+def needs_profile_enrichment(record: dict, config: dict) -> bool:
+    return bool(
+        (config.get("profileEmailSelector") and not record.get("email"))
+        or (config.get("profileImageSelector") and not record.get("imageUrl"))
+    )
 
 
 class CachedFetcher:
@@ -706,6 +740,9 @@ def build_report(
                     record,
                     profile_pages[record["profileUrl"]],
                     config.get("profileEmailSelector"),
+                    config.get("profileImageSelector"),
+                    config.get("profileImageAttribute"),
+                    config.get("allowedImageHosts"),
                 )
                 if record.get("profileUrl") in profile_pages else record
                 for record in records
@@ -845,7 +882,7 @@ def main() -> None:
         directory_host = urlsplit(config["directoryUrl"]).hostname
         profile_urls = {
             record["profileUrl"] for record in records
-            if not record.get("email")
+            if needs_profile_enrichment(record, config)
             and record.get("profileUrl")
             and urlsplit(record["profileUrl"]).hostname == directory_host
         }

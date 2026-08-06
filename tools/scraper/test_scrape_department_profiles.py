@@ -225,6 +225,48 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         )
         self.assertEqual(enriched["email"], "ktlam@cse.cuhk.edu.hk")
 
+    def test_profile_page_can_supply_photo_when_roster_already_has_email(self):
+        record = {
+            "email": "ktlam@cuhk.edu.hk",
+            "imageUrl": None,
+            "profileUrl": "https://dept.cuhk.edu.hk/people/lam/",
+        }
+        config = {
+            "profileEmailSelector": ".contact",
+            "profileImageSelector": "meta[property='og:image']",
+        }
+        self.assertTrue(subject.needs_profile_enrichment(record, config))
+        enriched = subject.enrich_from_profile(
+            record,
+            "<meta property='og:image' content='/images/lam.jpg'>",
+            config["profileEmailSelector"],
+            config["profileImageSelector"],
+            "content",
+        )
+        self.assertEqual(
+            enriched["imageUrl"],
+            "https://dept.cuhk.edu.hk/images/lam.jpg",
+        )
+
+    def test_profile_placeholder_photo_is_not_imported(self):
+        record = {
+            "email": None,
+            "imageUrl": None,
+            "profileUrl": "https://dept.cuhk.edu.hk/people/lam/",
+        }
+        enriched = subject.enrich_from_profile(
+            record,
+            "<main><img class='portrait' src='/images/placeholder_240.png'></main>",
+            image_selector=".portrait",
+        )
+        self.assertIsNone(enriched["imageUrl"])
+        self.assertIsNone(
+            subject.photo_url(
+                record["profileUrl"],
+                "/images/male-photo-e1582797285842.jpg",
+            )
+        )
+
     def test_profile_email_prefers_cuhk_over_unrelated_publication_email(self):
         self.assertEqual(
             subject.email_in_text("edition@aaai.org / person@cse.cuhk.edu.hk"),
