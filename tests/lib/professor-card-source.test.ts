@@ -100,8 +100,14 @@ describe("professor card source selection", () => {
       profileUrl: "https://research.cuhk.edu.hk/en/persons/person/",
       imageUrl: "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/",
     });
-    expect(selectProfessorImages([source(), portal])).toEqual([
+    expect(
+      selectProfessorImages(
+        [source(), portal],
+        "/api/professor-portraits/person-id",
+      ),
+    ).toEqual([
       "https://www.cse.cuhk.edu.hk/people/person.jpg",
+      "/api/professor-portraits/person-id",
       portal.imageUrl,
     ]);
     expect(selectProfessorImages([source({ imageUrl: null }), portal])).toEqual(

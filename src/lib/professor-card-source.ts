@@ -78,6 +78,7 @@ export function selectProfessorDepartmentSource<T extends ProfessorCardSource>(
 
 export function selectProfessorImages(
   sources: ProfessorCardSource[],
+  departmentProxyUrl?: string,
 ): string[] {
   const departmentImage = selectProfessorDepartmentSource(sources)?.imageUrl;
   const portalImage = sources.find(
@@ -89,9 +90,11 @@ export function selectProfessorImages(
 
   return Array.from(
     new Set(
-      [departmentImage, portalImage].filter((url): url is string =>
-        Boolean(url),
-      ),
+      [
+        departmentImage,
+        departmentImage ? departmentProxyUrl : null,
+        portalImage,
+      ].filter((url): url is string => Boolean(url)),
     ),
   );
 }

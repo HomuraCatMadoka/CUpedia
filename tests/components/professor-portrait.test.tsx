@@ -32,11 +32,17 @@ describe("ProfessorPortrait", () => {
       <ProfessorPortrait
         imageUrls={[
           "https://department.example/photo.jpg",
+          "/api/professor-portraits/person-id",
           "https://portal.example/photo.jpg",
         ]}
         name="Dr. SUN Li"
       />,
     );
+
+    fireEvent.error(screen.getByAltText("Dr. SUN Li 的官方头像"));
+    expect(
+      screen.getByAltText("Dr. SUN Li 的官方头像").getAttribute("src"),
+    ).toBe("/api/professor-portraits/person-id");
 
     fireEvent.error(screen.getByAltText("Dr. SUN Li 的官方头像"));
     expect(
