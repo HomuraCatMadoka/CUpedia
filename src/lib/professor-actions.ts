@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db } from "@/db";
@@ -43,6 +43,7 @@ export type ProfessorDirectoryFilter = {
   department?: string;
   page?: number;
   sort?: "name" | "rating-count" | "rating";
+  ratedOnly?: boolean;
 };
 
 export type ProfessorDepartmentOption = {
@@ -55,6 +56,11 @@ export type ProfessorDirectorySearchOption = {
   publicId: string;
   name: string;
   description?: string;
+};
+
+export type ProfessorReviewCourseOption = {
+  code: string;
+  title: string;
 };
 
 export type ProfessorDirectoryItem = {
@@ -203,7 +209,7 @@ const getDirectoryCorpus = unstable_cache(
       .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
       .where(eq(staffPeople.identityKind, "official"))
       .orderBy(asc(staffPeople.canonicalName), asc(courseInstructors.publicId)),
-  ["professor-directory-corpus-v4"],
+  ["professor-directory-corpus-v5"],
   { revalidate: 300, tags: ["professor-catalog"] },
 );
 
@@ -327,7 +333,7 @@ export async function getProfessorDirectory(
     ? corpus.filter((item) => item.departmentIds.includes(department))
     : corpus;
   const query = filter.q?.trim() ?? "";
-  const matches = query
+  const queryMatches = query
     ? searchProfessorCandidates(
         departmentCorpus.map((item) => ({
           id: item.id,
@@ -343,6 +349,9 @@ export async function getProfessorDirectory(
         .map((match) => departmentCorpus.find((item) => item.id === match.id))
         .filter((item): item is DirectoryCorpusItem => Boolean(item))
     : departmentCorpus;
+  const matches = filter.ratedOnly
+    ? queryMatches.filter((item) => item.ratingCount > 0)
+    : queryMatches;
   const sorted =
     filter.sort === "rating"
       ? rankProfessorCandidates(matches)
@@ -367,6 +376,32 @@ export async function getProfessorDirectory(
     pageSize: PAGE_SIZE,
     departments,
   };
+}
+
+export async function searchProfessorReviewCourses(
+  query: string,
+): Promise<ProfessorReviewCourseOption[]> {
+  const normalizedQuery = query.trim().normalize("NFKC");
+  if (normalizedQuery.length < 2) return [];
+  const compactCode = normalizedQuery.replaceAll(" ", "").toLowerCase();
+  const like = `%${normalizedQuery.toLowerCase()}%`;
+  const codeLike = `%${compactCode}%`;
+  const codePrefix = `${compactCode}%`;
+
+  return db
+    .select({ code: courses.code, title: courses.title })
+    .from(courses)
+    .where(
+      or(
+        sql`lower(${courses.code}) like ${codeLike}`,
+        sql`lower(${courses.title}) like ${like}`,
+      ),
+    )
+    .orderBy(
+      sql`case when lower(${courses.code}) like ${codePrefix} then 0 else 1 end`,
+      asc(courses.code),
+    )
+    .limit(8);
 }
 
 export async function searchProfessorDirectory(

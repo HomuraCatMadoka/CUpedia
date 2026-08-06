@@ -12,7 +12,7 @@ import {
   or,
   sql,
 } from "drizzle-orm";
-import { revalidatePath, unstable_cache } from "next/cache";
+import { revalidatePath, unstable_cache, updateTag } from "next/cache";
 
 import { db } from "@/db";
 import {
@@ -1206,6 +1206,23 @@ export async function searchProfessors(
   return searchProfessorCandidates(candidates, query, index);
 }
 
+export async function getProfessorOptionByPublicId(
+  publicId: string,
+): Promise<ProfessorOption | null> {
+  if (!UUID_PATTERN.test(publicId)) return null;
+  const [professor] = await db
+    .select({
+      id: courseInstructors.personId,
+      publicId: courseInstructors.publicId,
+      name: staffPeople.canonicalName,
+    })
+    .from(courseInstructors)
+    .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
+    .where(eq(courseInstructors.publicId, publicId))
+    .limit(1);
+  return professor ?? null;
+}
+
 export async function getCourseEnrollmentHistory(
   code: string,
 ): Promise<CourseEnrollmentView[]> {
@@ -1645,6 +1662,7 @@ export async function submitCourseReview(
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
   revalidatePath("/professors");
+  updateTag("professor-catalog");
   for (const professor of selectedProfessorsInOrder) {
     revalidatePath(`/professors/${professor.publicId}`);
   }
@@ -1735,6 +1753,9 @@ export async function deleteCourseReviewSubmission(
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
   revalidatePath("/courses/achievements");
+  revalidatePath("/professors");
+  revalidatePath("/professors/[publicId]", "page");
+  updateTag("professor-catalog");
   await syncAchievementNoticesForUser(ownerId);
 }
 

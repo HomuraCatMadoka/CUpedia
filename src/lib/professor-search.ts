@@ -18,8 +18,6 @@ export type ProfessorSearchIndex = ReturnType<
   FuseIndex<ProfessorSearchCandidate>["toJSON"]
 >;
 
-export const PROFESSOR_RANKING_MIN_RATINGS = 5;
-
 export type ProfessorRankingCandidate = {
   name: string;
   publicId: string;
@@ -82,17 +80,14 @@ export function searchProfessorCandidates(
 export function rankProfessorCandidates<T extends ProfessorRankingCandidate>(
   candidates: T[],
 ): T[] {
-  return candidates
-    .filter(
-      (candidate) =>
-        candidate.rating !== null &&
-        candidate.ratingCount >= PROFESSOR_RANKING_MIN_RATINGS,
-    )
-    .toSorted(
-      (left, right) =>
-        right.rating! - left.rating! ||
-        right.ratingCount - left.ratingCount ||
-        left.name.localeCompare(right.name) ||
-        left.publicId.localeCompare(right.publicId),
+  return candidates.toSorted((left, right) => {
+    if (left.rating === null && right.rating !== null) return 1;
+    if (left.rating !== null && right.rating === null) return -1;
+    return (
+      (right.rating ?? 0) - (left.rating ?? 0) ||
+      right.ratingCount - left.ratingCount ||
+      left.name.localeCompare(right.name) ||
+      left.publicId.localeCompare(right.publicId)
     );
+  });
 }

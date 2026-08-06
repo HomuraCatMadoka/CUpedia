@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CourseCatalogTabs } from "@/components/courses/course-catalog-tabs";
-import { ProfessorDirectoryFilters } from "@/components/professors/professor-directory-filters";
+import {
+  ProfessorDirectoryFilters,
+  ProfessorDirectorySort,
+} from "@/components/professors/professor-directory-filters";
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
 import { getProfessorDirectory } from "@/lib/professor-actions";
-import { PROFESSOR_RANKING_MIN_RATINGS } from "@/lib/professor-search";
 
 export const dynamic = "force-dynamic";
 
@@ -33,25 +35,29 @@ export default async function ProfessorsPage({
     department?: string;
     page?: string;
     sort?: string;
+    rated?: string;
   }>;
 }) {
   const params = await searchParams;
   const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const sort =
-    params.sort === "rating-count" || params.sort === "rating"
+    params.sort === "name" || params.sort === "rating"
       ? params.sort
-      : "name";
+      : "rating-count";
+  const ratedOnly = params.rated === "1";
   const result = await getProfessorDirectory({
     q: params.q,
     department: params.department,
     page,
     sort,
+    ratedOnly,
   });
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const filters = {
     q: params.q,
     department: params.department,
-    sort: sort === "name" ? undefined : sort,
+    sort: sort === "rating-count" ? undefined : sort,
+    rated: ratedOnly ? "1" : undefined,
   };
   const currentHref = directoryHref({ ...filters, page: result.page });
 
@@ -69,29 +75,34 @@ export default async function ProfessorsPage({
         </div>
 
         <ProfessorDirectoryFilters
+          key={`${params.q ?? ""}:${params.department ?? ""}:${sort}:${ratedOnly}`}
           departments={result.departments}
           initialDepartment={params.department}
           initialQuery={params.q}
           sort={sort}
-          rankingMinimum={PROFESSOR_RANKING_MIN_RATINGS}
+          ratedOnly={ratedOnly}
         />
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            找到 {result.total} 位教授
-            {totalPages > 1 ? ` · 第 ${result.page} / ${totalPages} 页` : ""}
-            {sort === "rating"
-              ? ` · 仅展示至少 ${PROFESSOR_RANKING_MIN_RATINGS} 份测评`
-              : ""}
-          </p>
-          {params.q || params.department || sort !== "name" ? (
-            <Link
-              href="/professors"
-              className="rounded-sm text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              清除筛选
-            </Link>
-          ) : null}
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              找到 {result.total} 位教授
+              {totalPages > 1 ? `，第 ${result.page} / ${totalPages} 页` : ""}
+              {ratedOnly ? "，仅看有评价" : ""}
+            </p>
+            {params.q ||
+            params.department ||
+            sort !== "rating-count" ||
+            ratedOnly ? (
+              <Link
+                href="/professors"
+                className="rounded-sm text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                清除筛选
+              </Link>
+            ) : null}
+          </div>
+          <ProfessorDirectorySort sort={sort} />
         </div>
 
         {result.professors.length === 0 ? (
@@ -105,7 +116,7 @@ export default async function ProfessorsPage({
             </Link>
           </div>
         ) : (
-          <div className="mt-5 grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-3 sm:gap-x-5 lg:grid-cols-4">
+          <div className="mt-5 grid grid-cols-3 gap-x-2 gap-y-4 sm:gap-x-5 sm:gap-y-5 lg:grid-cols-4">
             {result.professors.map((professor) => (
               <article
                 key={professor.publicId}
@@ -114,15 +125,15 @@ export default async function ProfessorsPage({
                 <Link
                   href={`/professors/${professor.publicId}?from=${encodeURIComponent(currentHref)}`}
                   aria-label={`查看 ${professor.name} 的教授测评`}
-                  className="group flex min-h-56 min-w-0 flex-col items-center justify-center rounded-2xl px-3 py-5 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="group flex min-h-44 min-w-0 flex-col items-center justify-center rounded-2xl px-1 py-3 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-56 sm:px-3 sm:py-5"
                 >
                   <ProfessorPortrait
                     variant="directory"
                     imageUrl={professor.imageUrl}
                     name={professor.name}
                   />
-                  <div className="mt-4 min-w-0 max-w-full">
-                    <h2 className="line-clamp-2 font-medium tracking-[-0.02em] group-hover:underline group-hover:underline-offset-4">
+                  <div className="mt-3 min-w-0 max-w-full sm:mt-4">
+                    <h2 className="line-clamp-2 text-sm font-medium tracking-[-0.02em] group-hover:underline group-hover:underline-offset-4 sm:text-base">
                       {professor.name}
                     </h2>
                     <p className="mt-1 truncate text-xs text-muted-foreground">

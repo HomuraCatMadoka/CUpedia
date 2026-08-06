@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { ProfessorCourseExplorer } from "@/components/professors/professor-course-explorer";
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
 import { getProfessorDetail } from "@/lib/professor-actions";
 
@@ -35,19 +36,20 @@ export default async function ProfessorDetailPage({
   searchParams,
 }: {
   params: Promise<{ publicId: string }>;
-  searchParams: Promise<{ from?: string }>;
+  searchParams: Promise<{ from?: string; chooseCourse?: string }>;
 }) {
   const { publicId } = await params;
   const professor = await getProfessorDetail(publicId);
   if (!professor) notFound();
-  const returnTo = safeReturnPath((await searchParams).from);
+  const pageSearchParams = await searchParams;
+  const returnTo = safeReturnPath(pageSearchParams.from);
   const detailPath = `/professors/${professor.publicId}?from=${encodeURIComponent(returnTo)}`;
   const reviewHref = (courseCode: string) =>
     `/courses/${encodeURIComponent(courseCode)}?professor=${professor.publicId}&from=${encodeURIComponent(detailPath)}#course-review`;
   const primaryReviewHref =
     professor.courses.length === 1
       ? reviewHref(professor.courses[0]!.code)
-      : "#related-courses";
+      : `${detailPath}&chooseCourse=1`;
 
   return (
     <div className="min-w-0 flex-1">
@@ -65,7 +67,7 @@ export default async function ProfessorDetailPage({
             name={professor.name}
           />
           <div className="min-w-0">
-            <h1 className="text-3xl font-semibold tracking-[-0.035em] text-balance sm:text-4xl">
+            <h1 className="break-words text-3xl font-semibold tracking-[-0.035em] text-balance sm:text-4xl">
               {professor.name}
             </h1>
             {professor.title ? (
@@ -106,63 +108,26 @@ export default async function ProfessorDetailPage({
                 </p>
               </>
             )}
-            {professor.courses.length ? (
-              <Link
-                href={primaryReviewHref}
-                className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {professor.courses.length === 1 ? "写评价" : "选择课程"}
-              </Link>
-            ) : null}
+            <Link
+              href={
+                professor.courses.length
+                  ? primaryReviewHref
+                  : `${detailPath}&chooseCourse=1`
+              }
+              className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              {professor.courses.length === 1 ? "写评价" : "选择课程评价"}
+            </Link>
           </div>
         </section>
 
-        <section id="related-courses" className="mt-9 scroll-mt-20">
-          <h2 className="text-xl font-semibold tracking-tight">相关课程</h2>
-          {professor.courses.length ? (
-            <div className="mt-4 divide-y border-y">
-              {professor.courses.map((course) => (
-                <article
-                  key={course.code}
-                  className="grid gap-4 py-5 sm:grid-cols-[1fr_auto] sm:items-center"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      href={`/courses/${encodeURIComponent(course.code)}?from=${encodeURIComponent(detailPath)}`}
-                      className="rounded-sm font-medium hover:underline hover:underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <span
-                        translate="no"
-                        className="mr-2 font-mono text-xs text-muted-foreground"
-                      >
-                        {course.code}
-                      </span>
-                      {course.title}
-                    </Link>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {course.academicYears.slice(0, 3).join("、") ||
-                        "课程记录"}
-                      {course.ratingCount
-                        ? `，${scoreFormat.format(course.rating ?? 0)} / 5`
-                        : ""}
-                    </p>
-                  </div>
-                  {professor.courses.length > 1 ? (
-                    <Link
-                      href={reviewHref(course.code)}
-                      aria-label={`评价 ${professor.name} 的 ${course.code}`}
-                      className="inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    >
-                      评价
-                    </Link>
-                  ) : null}
-                </article>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-4 text-sm text-muted-foreground">暂无课程记录。</p>
-          )}
-        </section>
+        <ProfessorCourseExplorer
+          key={pageSearchParams.chooseCourse === "1" ? "open" : "closed"}
+          professor={{ publicId: professor.publicId, name: professor.name }}
+          courses={professor.courses}
+          detailPath={detailPath}
+          initiallyOpen={pageSearchParams.chooseCourse === "1"}
+        />
 
         <section className="mt-10">
           <div className="flex items-end justify-between gap-4 border-b pb-3">

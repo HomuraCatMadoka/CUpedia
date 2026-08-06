@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import {
   getCourse,
   getCourseProfessorStats,
+  getProfessorOptionByPublicId,
   getCourseReviews,
   getCourseReviewReplyTargetOffset,
   getCourseRatingState,
@@ -82,6 +83,7 @@ export default async function CourseDetailPage({
     professorOptional,
     reviews,
     professorStats,
+    requestedProfessor,
     targetReplyOffset,
   ] = await Promise.all([
     getCourseRatingState(course.code),
@@ -94,15 +96,19 @@ export default async function CourseDetailPage({
     activeTab === "reviews"
       ? getCourseProfessorStats(course.code)
       : Promise.resolve([]),
+    activeTab === "reviews" && professor
+      ? getProfessorOptionByPublicId(professor)
+      : Promise.resolve(null),
     activeTab === "reviews" && review && reply
       ? getCourseReviewReplyTargetOffset(course.code, review, reply)
       : Promise.resolve(null),
   ]);
   const targetRequested = Boolean(review || reply);
   const targetMissing = targetRequested && targetReplyOffset === null;
-  const prefillProfessor = professorStats.find(
-    (item) => item.publicId === professor,
-  );
+  const prefillProfessor =
+    professorStats.find((item) => item.publicId === professor) ??
+    requestedProfessor ??
+    undefined;
   const returnLabel = hasProfessorSource
     ? "返回教授详情"
     : hasReviewHistorySource
