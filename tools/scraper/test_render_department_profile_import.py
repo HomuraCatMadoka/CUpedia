@@ -7,7 +7,14 @@ class RenderDepartmentProfileImportTest(unittest.TestCase):
     def report(self):
         return {
             "observedAt": "2026-08-05T00:00:00+00:00",
-            "scope": {"fresh": True, "completeSources": ["example"]},
+            "scope": {
+                "fresh": True,
+                "full": True,
+                "complete": True,
+                "sourceConfigDigest": "current-config",
+                "requestedSources": ["example"],
+                "completeSources": ["example"],
+            },
             "sources": [{
                 "key": "example",
                 "observedSourceKeys": [
@@ -65,6 +72,36 @@ class RenderDepartmentProfileImportTest(unittest.TestCase):
         report = self.report()
         report["scope"]["fresh"] = False
         with self.assertRaisesRegex(ValueError, "fresh crawl"):
+            subject.import_payload(report)
+
+    def test_partial_report_is_rejected(self):
+        report = self.report()
+        report["scope"]["full"] = False
+        with self.assertRaisesRegex(ValueError, "full source crawl"):
+            subject.import_payload(report)
+
+    def test_stale_source_configuration_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "source configuration"):
+            subject.import_payload(
+                self.report(), expected_config_digest="new-config"
+            )
+
+    def test_current_source_configuration_is_accepted(self):
+        payload = subject.import_payload(
+            self.report(), expected_config_digest="current-config"
+        )
+        self.assertEqual(len(payload["person_sources"]), 1)
+
+    def test_incomplete_full_report_is_rejected(self):
+        report = self.report()
+        report["scope"]["complete"] = False
+        with self.assertRaisesRegex(ValueError, "every source"):
+            subject.import_payload(report)
+
+    def test_tampered_complete_flag_cannot_hide_missing_source(self):
+        report = self.report()
+        report["scope"]["requestedSources"].append("missing")
+        with self.assertRaisesRegex(ValueError, "coverage is incomplete"):
             subject.import_payload(report)
 
     def test_complete_source_without_observed_keys_is_rejected(self):

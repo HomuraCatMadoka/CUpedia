@@ -12,9 +12,11 @@ import argparse
 import hashlib
 import json
 import re
+import threading
 import time
 import unicodedata
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -37,6 +39,7 @@ PLACEHOLDER_IMAGES = {
     "sharing-logo.jpg",
     "placeholder-portrait-male-e1776937960820.png",
 }
+ROLE_EMAIL_LOCALS = {"contact", "department", "director", "info", "office"}
 
 
 def absolute_url(base_url: str, value: str | None) -> str | None:
@@ -91,6 +94,7 @@ def photo_url(
 
 def clean_name(value: str) -> str:
     value = CJK.sub("", unicodedata.normalize("NFKC", value))
+    value = re.sub(r"\(\s*\)|\[\s*\]", "", value)
     return re.sub(r"\s+", " ", value).strip(" ,|-/")
 
 
@@ -134,12 +138,13 @@ def email_in_text(value: str) -> str | None:
         ).casefold()
         for match in matches
     ]
+    cuhk_emails = [email for email in emails if is_cuhk_email(email)]
     return next(
         (
-            email for email in emails
-            if is_cuhk_email(email)
+            email for email in cuhk_emails
+            if email.split("@", 1)[0] not in ROLE_EMAIL_LOCALS
         ),
-        None,
+        cuhk_emails[0] if cuhk_emails else None,
     )
 
 
@@ -357,18 +362,35 @@ class CachedFetcher:
         self.refresh = refresh
         self.session = common.session()
         self.fetched_at: dict[str, datetime] = {}
+        self._pace_lock = threading.Lock()
+        self._next_request_at = 0.0
+
+    def _wait_for_request_slot(self) -> None:
+        """Reserve one globally paced network start across all worker threads."""
+        with self._pace_lock:
+            now = time.monotonic()
+            scheduled_at = max(now, self._next_request_at)
+            self._next_request_at = scheduled_at + max(self.pause, 0)
+        delay = scheduled_at - now
+        if delay > 0:
+            time.sleep(delay)
 
     def get(self, url: str) -> str:
         digest = hashlib.sha256(url.encode()).hexdigest()
         path = self.cache_dir / f"{digest}.html"
+        if url in self.fetched_at and path.exists():
+            return path.read_text(encoding="utf-8")
         if path.exists() and not self.refresh:
             self.fetched_at[url] = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
             return path.read_text(encoding="utf-8")
-        html = common.get(self.session, url)
+        # Department sites are public and stateless. Native curl gives each
+        # response a true wall-clock cap; requests' read timeout can hang on
+        # servers that keep a TLS connection half-open or trickle bytes.
+        self._wait_for_request_slot()
+        html = common.curl_get(url)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(html, encoding="utf-8")
         self.fetched_at[url] = datetime.fromtimestamp(path.stat().st_mtime, timezone.utc)
-        time.sleep(max(self.pause, 0))
         return html
 
     def post(self, url: str, data: dict, referer: str) -> dict:
@@ -376,6 +398,7 @@ class CachedFetcher:
         path = self.cache_dir / f"{hashlib.sha256(signature.encode()).hexdigest()}.json"
         if path.exists() and not self.refresh:
             return json.loads(path.read_text(encoding="utf-8"))
+        self._wait_for_request_slot()
         response = self.session.post(
             url,
             data=data,
@@ -388,7 +411,6 @@ class CachedFetcher:
             raise ValueError("Department AJAX returned an unsuccessful response")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value), encoding="utf-8")
-        time.sleep(max(self.pause, 0))
         return value
 
 
@@ -429,7 +451,15 @@ def fetch_directory_pages(config: dict, fetcher: CachedFetcher) -> str:
     seen = set()
     while url and url not in seen:
         seen.add(url)
-        html = fetcher.get(url)
+        directory_attempts = max(1, int(config.get("directoryAttempts", 2)))
+        for attempt in range(directory_attempts):
+            try:
+                html = fetcher.get(url)
+                break
+            except requests.RequestException:
+                if attempt + 1 == directory_attempts:
+                    raise
+                time.sleep(max(getattr(fetcher, "pause", 0), 0))
         pages.append(html)
         selector = config.get("paginationSelector")
         next_link = BeautifulSoup(html, "html.parser").select_one(selector) if selector else None
@@ -535,42 +565,96 @@ def match_record(
 
 
 def names_compatible(left: str, right: str) -> bool:
-    left_tokens = {token for token in name_signature(left) if len(token) >= 3}
-    right_tokens = {token for token in name_signature(right) if len(token) >= 3}
+    left_signature = name_signature(left)
+    right_signature = name_signature(right)
+    left_tokens = {token for token in left_signature if len(token) >= 3}
+    right_tokens = {token for token in right_signature if len(token) >= 3}
     overlap = left_tokens & right_tokens
-    return left_tokens == right_tokens or len(overlap) >= 2
+    if left_tokens == right_tokens or len(overlap) >= 2:
+        return True
+
+    def initials_match(
+        short_signature: tuple[str, ...], full_tokens: set[str]
+    ) -> bool:
+        initials = {token for token in short_signature if len(token) == 1}
+        unmatched = full_tokens - overlap
+        return len(initials) >= 2 and all(
+            any(token.startswith(initial) for token in unmatched)
+            for initial in initials
+        )
+
+    return len(overlap) == 1 and (
+        initials_match(left_signature, right_tokens)
+        or initials_match(right_signature, left_tokens)
+    )
 
 
 def verify_profile_links(report: dict, fetcher: CachedFetcher) -> dict:
     """GET each emitted personal page; failed links are never card targets."""
-    failed_sources = set()
+    incomplete_sources = set()
     errors = list(report.get("fetchErrors", []))
-    for record in report["records"]:
+    candidates = [*report["records"], *report.get("unresolved", [])]
+    records_by_url = defaultdict(list)
+    for record in candidates:
         profile_url = record.get("profileUrl")
         if not profile_url:
             record["profileStatus"] = "missing"
             continue
-        try:
-            if profile_url not in fetcher.fetched_at:
-                fetcher.get(profile_url)
-            record["profileStatus"] = "verified"
-            record["profileVerifiedAt"] = fetcher.fetched_at[profile_url].isoformat()
-        except requests.RequestException as error:
-            record["profileStatus"] = "failed"
-            failed_sources.add(record["source"].removeprefix("cuhk_department:"))
-            errors.append({
-                "sourceKey": record["source"].removeprefix("cuhk_department:"),
-                "url": profile_url,
-                "error": type(error).__name__,
+        records_by_url[profile_url].append(record)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            url: executor.submit(fetcher.get, url)
+            for url in records_by_url
+        }
+        for profile_url in sorted(futures):
+            records = records_by_url[profile_url]
+            try:
+                futures[profile_url].result()
+                verified_at = fetcher.fetched_at[profile_url].isoformat()
+                for record in records:
+                    record["profileStatus"] = "verified"
+                    record["profileVerifiedAt"] = verified_at
+            except requests.RequestException as error:
+                for record in records:
+                    record["profileStatus"] = "failed"
+                    source_key = record.get("source", "").removeprefix(
+                        "cuhk_department:"
+                    ) or record["sourceKey"]
+                    errors.append({
+                        "sourceKey": source_key,
+                        "url": profile_url,
+                        "error": type(error).__name__,
+                    })
+    for source in report["sources"]:
+        source_name = f"cuhk_department:{source['key']}"
+        source["verifiedProfiles"] = sum(
+            (
+                record.get("source") == source_name
+                or record.get("sourceKey") == source["key"]
+            )
+            and record.get("profileStatus") == "verified"
+            for record in candidates
+        )
+        minimum_verified_profiles = source.get("minimumVerifiedProfiles", 0)
+        if source["verifiedProfiles"] < minimum_verified_profiles:
+            source["complete"] = False
+            incomplete_sources.add(source["key"])
+            report.setdefault("sourceErrors", []).append({
+                "sourceKey": source["key"],
+                "error": "verified_profiles_below_minimum",
+                "verifiedProfiles": source["verifiedProfiles"],
+                "minimumVerifiedProfiles": minimum_verified_profiles,
             })
-    if failed_sources:
-        for source in report["sources"]:
-            if source["key"] in failed_sources:
-                source["complete"] = False
-        report["scope"]["completeSources"] = [
-            key for key in report["scope"]["completeSources"]
-            if key not in failed_sources
-        ]
+    report["scope"]["completeSources"] = [
+        key for key in report["scope"]["completeSources"]
+        if key not in incomplete_sources
+    ]
+    report["scope"]["complete"] = (
+        report["scope"].get("fresh", False)
+        and report["scope"].get("full", False)
+        and set(report["scope"].get("requestedSources", []))
+        == set(report["scope"]["completeSources"])
+    )
     report["fetchErrors"] = errors
     report["generatedAt"] = datetime.now(timezone.utc).isoformat()
     return report
@@ -581,17 +665,24 @@ def build_report(
     configs: list[dict],
     pages: dict[str, str],
     profile_pages: dict[str, str] | None = None,
+    *,
     fetch_errors: list[dict] | None = None,
     source_errors: list[dict] | None = None,
     source_observed_at: dict[str, str] | None = None,
     fresh_run: bool = False,
+    full_scope: bool = False,
+    source_config_digest: str | None = None,
+    requested_source_keys: list[str] | None = None,
 ) -> dict:
     by_email, by_org_and_name, by_org = portal_indexes(directory)
     verified = {}
     unresolved = []
     sources = []
+    # A failed personal profile must not invalidate an otherwise complete roster.
+    # Directory/source failures are fatal; profile health is assessed separately
+    # by ``minimumVerifiedProfiles`` after links are verified.
     errored_sources = {
-        item["sourceKey"] for item in [*(fetch_errors or []), *(source_errors or [])]
+        item["sourceKey"] for item in (source_errors or [])
     }
     for config in configs:
         try:
@@ -638,6 +729,12 @@ def build_report(
                 "error": "duplicate_source_identity_key",
             }]
         complete = config["key"] not in errored_sources and identities_complete
+        profile_capability = config.get(
+            "profileCapability",
+            "personal"
+            if config.get("linkSelector") or config.get("adapter")
+            else "roster_only",
+        )
         sources.append(
             {
                 "key": config["key"],
@@ -646,6 +743,11 @@ def build_report(
                 "verified": sum(record["status"] == "verified" for record in matched),
                 "unresolved": sum(record["status"] != "verified" for record in matched),
                 "complete": complete,
+                "profileCapability": profile_capability,
+                "minimumVerifiedProfiles": config.get(
+                    "minimumVerifiedProfiles",
+                    1 if profile_capability == "personal" else 0,
+                ),
                 "observedAt": (source_observed_at or {}).get(config["key"]),
                 "observedSourceKeys": observed_source_keys,
             }
@@ -657,6 +759,12 @@ def build_report(
         "observedAt": min(observed_values) if observed_values else generated_at,
         "scope": {
             "fresh": fresh_run,
+            "full": full_scope,
+            "complete": False,
+            "sourceConfigDigest": source_config_digest,
+            "requestedSources": requested_source_keys or [
+                config["key"] for config in configs
+            ],
             "completeSources": [
                 source["key"] for source in sources
                 if fresh_run and source["complete"]
@@ -698,10 +806,13 @@ def main() -> None:
         json.loads(args.directory.read_text(encoding="utf-8")),
         json.loads(args.person_overrides.read_text(encoding="utf-8")),
     )
-    configs = json.loads(args.sources.read_text(encoding="utf-8"))
+    source_config_bytes = args.sources.read_bytes()
+    configs = json.loads(source_config_bytes)
+    full_scope = not args.source_keys
     if args.source_keys:
         wanted = set(args.source_keys)
         configs = [config for config in configs if config["key"] in wanted]
+    requested_source_keys = [config["key"] for config in configs]
     fetcher = CachedFetcher(args.cache_dir, args.pause, args.refresh)
     pages = {}
     active_configs = []
@@ -720,6 +831,7 @@ def main() -> None:
             })
     profile_pages = {}
     fetch_errors = []
+    profile_sources: dict[str, set[str]] = defaultdict(set)
     for config in active_configs:
         if not config.get("enrichProfiles"):
             continue
@@ -737,24 +849,35 @@ def main() -> None:
             and record.get("profileUrl")
             and urlsplit(record["profileUrl"]).hostname == directory_host
         }
-        for profile_url in sorted(profile_urls):
+        for profile_url in profile_urls:
+            profile_sources[profile_url].add(config["key"])
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {
+            url: executor.submit(fetcher.get, url)
+            for url in profile_sources
+        }
+        for profile_url in sorted(futures):
             try:
-                profile_pages[profile_url] = fetcher.get(profile_url)
+                profile_pages[profile_url] = futures[profile_url].result()
             except requests.RequestException as error:
-                fetch_errors.append({
-                    "sourceKey": config["key"],
-                    "url": profile_url,
-                    "error": type(error).__name__,
-                })
+                for source_key in sorted(profile_sources[profile_url]):
+                    fetch_errors.append({
+                        "sourceKey": source_key,
+                        "url": profile_url,
+                        "error": type(error).__name__,
+                    })
     report = build_report(
         directory,
         active_configs,
         pages,
         profile_pages,
-        fetch_errors,
-        source_errors,
-        source_observed_at,
-        args.refresh,
+        fetch_errors=fetch_errors,
+        source_errors=source_errors,
+        source_observed_at=source_observed_at,
+        fresh_run=args.refresh,
+        full_scope=full_scope,
+        source_config_digest=hashlib.sha256(source_config_bytes).hexdigest(),
+        requested_source_keys=requested_source_keys,
     )
     report = verify_profile_links(report, fetcher)
     args.output.parent.mkdir(parents=True, exist_ok=True)

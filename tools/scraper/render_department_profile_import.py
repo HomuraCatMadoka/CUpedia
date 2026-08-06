@@ -3,18 +3,31 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 
 import common
 
 
-def import_payload(report: dict) -> dict:
+def import_payload(report: dict, expected_config_digest: str | None = None) -> dict:
     if not report.get("scope", {}).get("fresh"):
         raise ValueError("Department profile import requires a fresh crawl")
+    if not report["scope"].get("full"):
+        raise ValueError("Department profile import requires a full source crawl")
+    if not report["scope"].get("complete"):
+        raise ValueError("Department profile import requires every source to complete")
+    if (
+        expected_config_digest
+        and report["scope"].get("sourceConfigDigest") != expected_config_digest
+    ):
+        raise ValueError("Department profile source configuration has changed")
+    requested_keys = set(report["scope"].get("requestedSources", []))
     complete_keys = set(report["scope"].get("completeSources", []))
+    if not requested_keys or requested_keys != complete_keys:
+        raise ValueError("Department profile source coverage is incomplete")
     known_keys = {source["key"] for source in report.get("sources", [])}
-    if not complete_keys <= known_keys:
+    if complete_keys != known_keys:
         raise ValueError("completeSources contains an unknown source")
     sources_by_key = {
         source["key"]: source for source in report.get("sources", [])
@@ -169,6 +182,11 @@ def main() -> None:
         default=data_dir / "staff-department-profiles.json",
     )
     parser.add_argument(
+        "--sources",
+        type=Path,
+        default=Path(__file__).with_name("department-profile-sources.json"),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=data_dir / "staff-department-profiles-import.sql",
@@ -180,8 +198,9 @@ def main() -> None:
     )
     args = parser.parse_args()
     report = json.loads(args.report.read_text(encoding="utf-8"))
+    config_digest = hashlib.sha256(args.sources.read_bytes()).hexdigest()
     sql = render_sql(
-        import_payload(report), transaction=not args.no_transaction
+        import_payload(report, config_digest), transaction=not args.no_transaction
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(sql, encoding="utf-8")

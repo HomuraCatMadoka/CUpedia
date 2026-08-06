@@ -5,6 +5,7 @@ description = "Offline scrapers for CUHK course catalog + handbook study schemes
 requires-python = ">=3.10"
 dependencies = [
     "requests>=2.31",
+    "charset-normalizer>=3.3",
     "beautifulsoup4>=4.12",
     "defusedxml>=0.7",
     "ddddocr>=1.4",          # 4-char captcha OCR for the AQS catalog

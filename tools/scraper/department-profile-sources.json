@@ -196,6 +196,7 @@
   },
   {
     "key": "medicine-researchers",
+    "profileCapability": "roster_only",
     "organisationUrls": [
       "https://research.cuhk.edu.hk/en/organisations/faculty-of-medicine/",
       "https://research.cuhk.edu.hk/en/organisations/accident-and-emergency-medicine-academic-unit/",
@@ -642,53 +643,213 @@
     "minimumEntries": 12
   },
   {
-    "key": "china-studies-full-time",
+    "key": "nursing-academic-staff",
     "organisationUrls": [
-      "https://research.cuhk.edu.hk/en/organisations/centre-for-china-studies/"
+      "https://research.cuhk.edu.hk/en/organisations/the-nethersole-school-of-nursing/"
     ],
-    "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/full-time-faculty/",
-    "entrySelector": ".staff-row",
-    "linkSelector": ":scope",
-    "linkAttribute": "onclick",
-    "nameSelector": ".staff-name",
-    "titleSelector": ".staff-title",
-    "emailSelector": "a.staff-email",
-    "imageSelector": ".staff-image",
-    "imageAttribute": "style",
-    "minimumEntries": 8
+    "directoryUrl": "https://www.nur.cuhk.edu.hk/people/professoriate-academic-staff/",
+    "entrySelector": ".elementor-inner-column:has(.people-link)",
+    "linkSelector": ".people-link h5 a",
+    "nameSelector": ".people-link h5 a",
+    "titleSelector": "h6",
+    "emailSelector": "a[href^='mailto:']",
+    "minimumEntries": 25,
+    "minimumVerifiedProfiles": 20
   },
   {
-    "key": "china-studies-adjunct-honorary",
+    "key": "linguistics-faculty",
     "organisationUrls": [
-      "https://research.cuhk.edu.hk/en/organisations/centre-for-china-studies/"
+      "https://research.cuhk.edu.hk/en/organisations/department-of-linguistics-and-modern-languages/"
     ],
-    "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/adjunct-and-honorary-faculty/",
-    "entrySelector": ".staff-row",
-    "linkSelector": ":scope",
-    "linkAttribute": "onclick",
-    "nameSelector": ".staff-name",
-    "titleSelector": ".staff-title",
-    "emailSelector": "a.staff-email",
-    "imageSelector": ".staff-image",
-    "imageAttribute": "style",
-    "minimumEntries": 2
+    "directoryUrl": "https://ling.cuhk.edu.hk/people/faculty-linguistics/",
+    "entrySelector": ".elementor-inner-column:has(h6):has(a[href*='/people/faculty-linguistics/'])",
+    "linkSelector": "a[href*='/people/faculty-linguistics/']",
+    "nameSelector": "h6",
+    "imageSelector": "img",
+    "minimumEntries": 12,
+    "minimumVerifiedProfiles": 10
   },
   {
-    "key": "china-studies-part-time",
+    "key": "statistics-faculty",
     "organisationUrls": [
-      "https://research.cuhk.edu.hk/en/organisations/centre-for-china-studies/"
+      "https://research.cuhk.edu.hk/en/organisations/department-of-statistics-and-data-science/"
     ],
-    "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/part-time-faculty/",
-    "entrySelector": ".staff-row",
-    "linkSelector": ":scope",
-    "linkAttribute": "onclick",
-    "nameSelector": ".staff-name",
-    "titleSelector": ".staff-title",
-    "emailSelector": "a.staff-email",
-    "imageSelector": ".staff-image",
+    "directoryUrl": "https://www.sta.cuhk.edu.hk/people/faculty/",
+    "entrySelector": ".card-people",
+    "linkSelector": ".card-content > a",
+    "nameSelector": ".font-bold",
+    "titleSelector": ".title",
+    "imageSelector": ".card-image",
     "imageAttribute": "style",
-    "appointmentOverride": "part_time",
-    "minimumEntries": 6
+    "minimumEntries": 30,
+    "minimumVerifiedProfiles": 20
+  },
+  {
+    "key": "psychology-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-psychology/"
+    ],
+    "directoryUrl": "https://www.psy.cuhk.edu.hk/en/people/faculty.html",
+    "entrySelector": ".sppb-addon-person",
+    "linkSelector": ".sppb-person-introtext a",
+    "nameSelector": ".sppb-person-name",
+    "titleSelector": ".sppb-person-introtext",
+    "imageSelector": ".sppb-person-image img",
+    "minimumEntries": 30,
+    "minimumVerifiedProfiles": 20
+  },
+  {
+    "key": "architecture-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/school-of-architecture/"
+    ],
+    "directoryUrl": "https://www.arch.cuhk.edu.hk/people/faculty-members",
+    "entrySelector": "article:has(a.preview-card-a)",
+    "linkSelector": "a.preview-card-a",
+    "nameSelector": ".card-3-0",
+    "titleSelector": ".card-3-1",
+    "imageSelector": "img",
+    "enrichProfiles": true,
+    "profileEmailSelector": "a[href^='mailto:']",
+    "minimumEntries": 50,
+    "minimumVerifiedProfiles": 10
+  },
+  {
+    "key": "pharmacy-academic-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/school-of-pharmacy/"
+    ],
+    "directoryUrl": "https://www.pharmacy.cuhk.edu.hk/1/about-us/academic-staff/",
+    "entrySelector": ".content-column.one_half:has(h4 a)",
+    "linkSelector": "h4 a",
+    "nameSelector": "h4 a",
+    "titleSelector": "h4",
+    "imageSelector": "img",
+    "enrichProfiles": true,
+    "profileEmailSelector": "a[href^='mailto:']",
+    "minimumEntries": 12,
+    "minimumVerifiedProfiles": 8
+  },
+  {
+    "key": "fine-arts-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-fine-arts/"
+    ],
+    "directoryUrl": "https://www.arts.cuhk.edu.hk/~fadept/people/all-staff/",
+    "entrySelector": "li.margin-20-bottom:has(h5.normal)",
+    "linkSelector": ".col-block a:has(h5.normal)",
+    "nameSelector": "h5.normal",
+    "titleSelector": ".col-block p",
+    "emailSelector": "a[href^='mailto:']",
+    "minimumEntries": 30,
+    "minimumVerifiedProfiles": 7
+  },
+  {
+    "key": "music-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-music/"
+    ],
+    "directoryUrl": "https://www.arts.cuhk.edu.hk/~music/faculty-directory",
+    "entrySelector": ".people_item",
+    "linkSelector": "a.name",
+    "nameSelector": "a.name",
+    "titleSelector": ".title.purpletext",
+    "emailSelector": "a[href^='mailto:']",
+    "imageSelector": "a.image",
+    "imageAttribute": "style",
+    "minimumEntries": 20,
+    "minimumVerifiedProfiles": 7
+  },
+  {
+    "key": "curriculum-instruction-faculty",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-curriculum-and-instruction/"
+    ],
+    "directoryUrl": "https://www.fed.cuhk.edu.hk/cri/faculty/",
+    "entrySelector": ".faculty-grid.shadow-box",
+    "linkSelector": ".faculty-heading a",
+    "nameSelector": ".faculty-heading a",
+    "titleSelector": ".faculty-body",
+    "imageSelector": "figure img",
+    "enrichProfiles": true,
+    "profileEmailSelector": "a[href^='mailto:']",
+    "minimumEntries": 40,
+    "minimumVerifiedProfiles": 15
+  },
+  {
+    "key": "journalism-teaching-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/school-of-journalism-and-communication/"
+    ],
+    "directoryUrl": "https://www.com.cuhk.edu.hk/people-page/teaching-staff/",
+    "entrySelector": ".cu-item",
+    "linkSelector": ".cu-staff-title h5 a",
+    "nameSelector": ".cu-staff-title h5 a",
+    "titleSelector": ".cu-term",
+    "imageSelector": ".cu-media img",
+    "enrichProfiles": true,
+    "profileEmailSelector": "a[href^='mailto:']",
+    "directoryAttempts": 2,
+    "minimumEntries": 25,
+    "minimumVerifiedProfiles": 15
+  },
+  {
+    "key": "social-work-full-time",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-social-work/"
+    ],
+    "directoryUrl": "https://web.swk.cuhk.edu.hk/en-gb/people/full-time-teaching-staff",
+    "entrySelector": ".listing-card",
+    "linkSelector": ".card-more",
+    "nameSelector": ".name",
+    "titleSelector": ".card-info p",
+    "imageSelector": ".card-img img",
+    "minimumEntries": 20,
+    "minimumVerifiedProfiles": 10
+  },
+  {
+    "key": "philosophy-academic-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-philosophy/"
+    ],
+    "directoryUrl": "https://www.phil.arts.cuhk.edu.hk/web/people/academic-staff/",
+    "entrySelector": "table.loop_staff tr:has(.staff_name)",
+    "linkSelector": ".staff_name a",
+    "nameSelector": ".staff_name a",
+    "titleSelector": ".staff_post",
+    "minimumEntries": 25,
+    "minimumVerifiedProfiles": 10
+  },
+  {
+    "key": "sports-science-academic",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/department-of-sports-science-and-physical-education/"
+    ],
+    "directoryUrl": "https://spe.cuhk.edu.hk/people/academic-staff/",
+    "entrySelector": ".staff-category-professor .member-card, .staff-category-lecturer .member-card",
+    "linkSelector": ".staff_posts_title a",
+    "nameSelector": ".staff_posts_title a",
+    "titleSelector": ".elementor-widget-text-editor .elementor-widget-container",
+    "enrichProfiles": true,
+    "profileEmailSelector": "a[href^='mailto:']",
+    "minimumEntries": 12,
+    "minimumVerifiedProfiles": 10
+  },
+  {
+    "key": "divinity-teaching-staff",
+    "organisationUrls": [
+      "https://research.cuhk.edu.hk/en/organisations/divinity-school-of-chung-chi-college/"
+    ],
+    "directoryUrl": "https://www.theology.cuhk.edu.hk/en/academics/teaching-staff.html",
+    "entrySelector": ".media:has(.media-heading a)",
+    "linkSelector": ".media-heading a",
+    "nameSelector": ".media-heading a",
+    "titleSelector": ".title",
+    "imageSelector": ".media-left img",
+    "enrichProfiles": true,
+    "profileEmailSelector": "a[href^='mailto:']",
+    "minimumEntries": 15,
+    "minimumVerifiedProfiles": 7
   },
   {
     "key": "oge-teaching-staff",
