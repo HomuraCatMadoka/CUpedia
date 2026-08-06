@@ -1,7 +1,8 @@
 {
-  "reviewedAt": "2026-08-05",
+  "reviewedAt": "2026-08-06",
   "statusLegend": {
     "configured": "A reviewed directory is supported by the current crawler.",
+    "roster_only": "The crawler supports identity evidence from this directory, but it does not provide personal department profile links.",
     "adapter_required": "An official directory was found, but its API or DOM needs a dedicated adapter.",
     "search_fallback": "Direct GET failed or was blocked; the official directory was confirmed through search and Research Portal remains the card fallback.",
     "rp_fallback": "No reviewed personal department profile source is currently safe to automate; use the verified Research Portal person page."
@@ -39,9 +40,9 @@
       },
       {
         "unit": "Fine Arts",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://www.arts.cuhk.edu.hk/~fadept/people/all-staff/",
-        "reason": "TLS failure; official roster confirmed by search"
+        "sourceKeys": ["fine-arts-staff"]
       },
       {
         "unit": "History",
@@ -57,21 +58,21 @@
       },
       {
         "unit": "Linguistics and Modern Languages",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://ling.cuhk.edu.hk/people/faculty-linguistics/",
-        "reason": "TLS failure; Linguistics and Modern Languages rosters confirmed by search"
+        "sourceKeys": ["linguistics-faculty"]
       },
       {
         "unit": "Music",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://www.arts.cuhk.edu.hk/~music/faculty-directory",
-        "reason": "TLS failure; official roster confirmed by search"
+        "sourceKeys": ["music-faculty"]
       },
       {
         "unit": "Philosophy",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://www.phil.arts.cuhk.edu.hk/web/people/academic-staff/",
-        "reason": "current DOM could not be revalidated after TLS failure"
+        "sourceKeys": ["philosophy-academic-staff"]
       },
       {
         "unit": "Translation",
@@ -81,13 +82,9 @@
       },
       {
         "unit": "Centre for China Studies",
-        "status": "configured",
+        "status": "search_fallback",
         "directoryUrl": "https://www.ccs.cuhk.edu.hk/people/faculty-and-staff/full-time-faculty/",
-        "sourceKeys": [
-          "china-studies-full-time",
-          "china-studies-adjunct-honorary",
-          "china-studies-part-time"
-        ]
+        "reason": "official roster and profiles are indexed, but both verified HTTP clients fail the site's TLS handshake; Research Portal covers current staff"
       },
       {
         "unit": "English Language Teaching Unit",
@@ -143,9 +140,9 @@
     "Education": [
       {
         "unit": "Curriculum and Instruction",
-        "status": "adapter_required",
+        "status": "configured",
         "directoryUrl": "https://www.fed.cuhk.edu.hk/cri/faculty/",
-        "reason": "title text nodes and JavaScript-obfuscated email"
+        "sourceKeys": ["curriculum-instruction-faculty"]
       },
       {
         "unit": "Educational Administration and Policy",
@@ -167,9 +164,9 @@
       },
       {
         "unit": "Sports Science and Physical Education",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://spe.cuhk.edu.hk/people/academic-staff/",
-        "reason": "Cloudflare blocks the ordinary crawler"
+        "sourceKeys": ["sports-science-academic"]
       },
       {
         "unit": "Physical Education Unit",
@@ -233,19 +230,19 @@
     "Medicine": [
       {
         "unit": "Accident and Emergency Medicine Academic Unit",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Anaesthesia and Intensive Care",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Anatomical and Cellular Pathology",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
@@ -257,7 +254,7 @@
       },
       {
         "unit": "Chemical Pathology",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
@@ -269,73 +266,73 @@
       },
       {
         "unit": "Clinical Oncology",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Imaging and Interventional Radiology",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Medicine and Therapeutics",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Microbiology",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Nursing",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://www.nur.cuhk.edu.hk/people/professoriate-academic-staff/",
-        "reason": "official personal roster confirmed by search; direct SSL retrieval failed"
+        "sourceKeys": ["nursing-academic-staff"]
       },
       {
         "unit": "Obstetrics and Gynaecology",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Ophthalmology and Visual Sciences",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Orthopaedics and Traumatology",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Otorhinolaryngology, Head and Neck Surgery",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Paediatrics",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
       {
         "unit": "Pharmacy",
         "status": "configured",
-        "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
-        "sourceKeys": ["medicine-researchers"]
+        "directoryUrl": "https://www.pharmacy.cuhk.edu.hk/1/about-us/academic-staff/",
+        "sourceKeys": ["medicine-researchers", "pharmacy-academic-staff"]
       },
       {
         "unit": "Psychiatry",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       },
@@ -347,7 +344,7 @@
       },
       {
         "unit": "Surgery",
-        "status": "configured",
+        "status": "roster_only",
         "directoryUrl": "https://www.med.cuhk.edu.hk/research/search",
         "sourceKeys": ["medicine-researchers"]
       }
@@ -393,17 +390,17 @@
       },
       {
         "unit": "Statistics and Data Science",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://www.sta.cuhk.edu.hk/people/faculty/",
-        "reason": "DNS failed repeatedly; current roster confirmed by search"
+        "sourceKeys": ["statistics-faculty"]
       }
     ],
     "Social Science": [
       {
         "unit": "Architecture",
-        "status": "search_fallback",
-        "directoryUrl": "https://www.arch.cuhk.edu.hk/people",
-        "reason": "official directory confirmed by search after direct retrieval failed"
+        "status": "configured",
+        "directoryUrl": "https://www.arch.cuhk.edu.hk/people/faculty-members",
+        "sourceKeys": ["architecture-faculty"]
       },
       {
         "unit": "Economics",
@@ -430,21 +427,21 @@
       },
       {
         "unit": "Journalism and Communication",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://www.com.cuhk.edu.hk/people-page/teaching-staff/",
-        "reason": "SSL and browser retrieval failed; official roster confirmed by search"
+        "sourceKeys": ["journalism-teaching-staff"]
       },
       {
         "unit": "Psychology",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://www.psy.cuhk.edu.hk/en/people/faculty.html",
-        "reason": "SSL retrieval failed; official roster confirmed by search"
+        "sourceKeys": ["psychology-faculty"]
       },
       {
         "unit": "Social Work",
-        "status": "search_fallback",
+        "status": "configured",
         "directoryUrl": "https://web.swk.cuhk.edu.hk/en-gb/people/full-time-teaching-staff",
-        "reason": "SSL retrieval failed; official roster confirmed by search"
+        "sourceKeys": ["social-work-full-time"]
       },
       {
         "unit": "Sociology",
@@ -454,6 +451,12 @@
       }
     ],
     "Other Academic Units": [
+      {
+        "unit": "Divinity School of Chung Chi College",
+        "status": "configured",
+        "directoryUrl": "https://www.theology.cuhk.edu.hk/en/academics/teaching-staff.html",
+        "sourceKeys": ["divinity-teaching-staff"]
+      },
       {
         "unit": "Office of University General Education",
         "status": "configured",

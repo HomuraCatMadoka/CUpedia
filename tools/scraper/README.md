@@ -88,6 +88,17 @@ through search, and Research Portal-only fallbacks. A directory is never marked
 configured merely because search found it; its selectors and minimum row count
 must survive a live run first.
 
+Department-profile SQL rendering accepts only a fresh, unfiltered crawl where
+every source completed against the current source-config file. The report
+stores the config digest, so adding an adapter invalidates older snapshots
+instead of silently omitting the new source. Personal-profile sources also
+enforce a minimum verified-link count; roster-only evidence is labelled
+separately. Link coverage is measured across the whole official roster, while
+only entries that resolve to one verified staff identity are emitted for cards.
+The department crawler uses native `curl` with a hard response deadline over
+verified HTTPS; the shared requests helper uses the same transport as a TLS
+fallback. Neither path uses an insecure TLS mode.
+
 `courses.json` is rewritten after **every** subject and the run **resumes** by
 skipping subjects already present — a crash mid-harvest loses at most one
 subject, and re-running continues where it stopped (`--fresh` to ignore it).

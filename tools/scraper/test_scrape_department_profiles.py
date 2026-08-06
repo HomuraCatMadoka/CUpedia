@@ -1,6 +1,9 @@
 import json
+import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 import scrape_department_profiles as subject
 
@@ -26,6 +29,21 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
                 },
             ]
         }
+
+    def test_fresh_fetcher_reuses_url_within_the_same_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fetcher = subject.CachedFetcher(Path(directory), 0, refresh=True)
+            with patch(
+                "scrape_department_profiles.common.curl_get",
+                return_value="official html",
+            ) as get:
+                self.assertEqual(
+                    fetcher.get("https://dept.cuhk.edu.hk/"), "official html"
+                )
+                self.assertEqual(
+                    fetcher.get("https://dept.cuhk.edu.hk/"), "official html"
+                )
+            get.assert_called_once_with("https://dept.cuhk.edu.hk/")
 
     def config(self):
         return {
@@ -92,6 +110,9 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
             ),
             "https://dept.cuhk.edu.hk/people/lam",
         )
+
+    def test_clean_name_removes_empty_brackets_left_by_chinese_name(self):
+        self.assertEqual(subject.clean_name("Prof. CHAN (陳大文)"), "Prof. CHAN")
 
     def test_source_can_override_appointment_when_roster_has_no_row_title(self):
         config = {
@@ -161,6 +182,14 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         self.assertIsNone(subject.email_in_text("edition@aaai.org"))
         self.assertIsNone(subject.email_in_text("person@cuhk.edu.hk.evil.com"))
 
+    def test_profile_email_prefers_personal_address_over_role_alias(self):
+        self.assertEqual(
+            subject.email_in_text(
+                "director@theology.cuhk.edu.hk, francisyip@cuhk.edu.hk"
+            ),
+            "francisyip@cuhk.edu.hk",
+        )
+
     def test_unique_short_department_name_stays_a_candidate(self):
         directory = self.directory()
         directory["people"][0]["name"] = "Professor LAM Kuo Chin King Tin"
@@ -195,6 +224,20 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
             self.directory(), [self.config()], {self.config()["directoryUrl"]: html}
         )
         self.assertEqual(report["records"], [])
+
+    def test_unique_email_accepts_matching_chinese_name_initials(self):
+        directory = self.directory()
+        directory["people"][0]["name"] = "Professor CHAN Che Ming"
+        directory["people"][0]["email"] = "mcmchan@cuhk.edu.hk"
+        html = """
+        <div class="person"><a class="profile" href="/people/chan/"></a>
+          <h2>CHAN, Michael C.M.</h2><p class="title">Professor</p>
+          <p class="email">mcmchan@cuhk.edu.hk</p></div>
+        """
+        report = subject.build_report(
+            directory, [self.config()], {self.config()["directoryUrl"]: html}
+        )
+        self.assertEqual(report["records"][0]["matchedBy"], "email")
 
     def test_duplicate_affiliation_rows_do_not_make_exact_name_ambiguous(self):
         directory = self.directory()
@@ -244,6 +287,24 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         html = subject.fetch_directory_pages(config, Fetcher())
         self.assertIn("last page", html)
 
+    def test_reviewed_flaky_directory_can_retry_as_a_whole(self):
+        class Fetcher:
+            calls = 0
+
+            def get(self, _url):
+                self.calls += 1
+                if self.calls == 1:
+                    import requests
+                    raise requests.ConnectionError()
+                return "<main>official roster</main>"
+
+        fetcher = Fetcher()
+        html = subject.fetch_directory_pages(
+            {**self.config(), "directoryAttempts": 2}, fetcher
+        )
+        self.assertIn("official roster", html)
+        self.assertEqual(fetcher.calls, 2)
+
     def test_image_selector_is_optional(self):
         config = self.config()
         del config["imageSelector"]
@@ -261,6 +322,38 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
           <p class="title">Lecturer</p></div>
         """
         self.assertIsNone(subject.parse_directory(html, config)[0]["profileUrl"])
+
+    def test_personal_source_default_requires_one_verified_profile(self):
+        config = {**self.config(), "minimumEntries": 12}
+        html = "".join(
+            f"<div class='person'><a class='profile' href='/people/{index}/'></a>"
+            f"<h2>Person {index}</h2></div>"
+            for index in range(12)
+        )
+        report = subject.build_report(
+            self.directory(), [config], {config["directoryUrl"]: html}
+        )
+        self.assertEqual(report["sources"][0]["minimumVerifiedProfiles"], 1)
+
+    def test_failed_profile_fetch_does_not_invalidate_complete_roster(self):
+        config = self.config()
+        html = """
+        <div class="person"><a class="profile" href="/people/lam/"></a>
+          <h2>King Tin Lam</h2><p class="title">Lecturer</p></div>
+        """
+        report = subject.build_report(
+            self.directory(),
+            [config],
+            {config["directoryUrl"]: html},
+            fetch_errors=[{
+                "sourceKey": config["key"],
+                "url": "https://dept.cuhk.edu.hk/people/other/",
+                "error": "HTTPError",
+            }],
+            fresh_run=True,
+        )
+        self.assertTrue(report["sources"][0]["complete"])
+        self.assertEqual(report["scope"]["completeSources"], [config["key"]])
 
     def test_reviewed_onclick_profile_link_is_supported_without_executing_js(self):
         config = {
@@ -453,7 +546,11 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
 
         report = {
             "scope": {"fresh": True, "completeSources": ["example"]},
-            "sources": [{"key": "example", "complete": True}],
+            "sources": [{
+                "key": "example",
+                "complete": True,
+                "minimumVerifiedProfiles": 1,
+            }],
             "records": [{
                 "source": "cuhk_department:example",
                 "profileUrl": "https://dept.cuhk.edu.hk/people/lam/",
@@ -464,6 +561,111 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         self.assertEqual(report["records"][0]["profileStatus"], "failed")
         self.assertFalse(report["sources"][0]["complete"])
         self.assertEqual(report["scope"]["completeSources"], [])
+
+    def test_unmatched_profile_failure_is_reported_without_crashing(self):
+        class FailingFetcher:
+            fetched_at = {}
+
+            def get(self, _url):
+                import requests
+                raise requests.ConnectionError()
+
+        report = {
+            "scope": {"fresh": True, "completeSources": ["example"]},
+            "sources": [{
+                "key": "example",
+                "complete": True,
+                "minimumVerifiedProfiles": 1,
+            }],
+            "records": [],
+            "unresolved": [{
+                "sourceKey": "example",
+                "profileUrl": "https://dept.cuhk.edu.hk/people/visitor/",
+            }],
+            "fetchErrors": [],
+        }
+        subject.verify_profile_links(report, FailingFetcher())
+        self.assertEqual(report["fetchErrors"][0]["sourceKey"], "example")
+        self.assertEqual(report["unresolved"][0]["profileStatus"], "failed")
+
+    def test_unmatched_but_reachable_profile_counts_toward_crawl_coverage(self):
+        class Fetcher:
+            fetched_at = {
+                "https://dept.cuhk.edu.hk/people/visitor/": datetime(
+                    2026, 8, 6, tzinfo=timezone.utc
+                )
+            }
+
+            def get(self, _url):
+                return "profile"
+
+        report = {
+            "scope": {
+                "fresh": True,
+                "full": True,
+                "requestedSources": ["example"],
+                "completeSources": ["example"],
+            },
+            "sources": [{
+                "key": "example",
+                "complete": True,
+                "minimumVerifiedProfiles": 1,
+            }],
+            "records": [],
+            "unresolved": [{
+                "sourceKey": "example",
+                "profileUrl": "https://dept.cuhk.edu.hk/people/visitor/",
+            }],
+            "fetchErrors": [],
+        }
+        subject.verify_profile_links(report, Fetcher())
+        self.assertEqual(report["unresolved"][0]["profileStatus"], "verified")
+        self.assertEqual(report["sources"][0]["verifiedProfiles"], 1)
+        self.assertTrue(report["scope"]["complete"])
+
+    def test_personal_source_without_verified_profiles_is_incomplete(self):
+        report = {
+            "scope": {"fresh": True, "completeSources": ["example"]},
+            "sources": [{
+                "key": "example",
+                "complete": True,
+                "profileCapability": "personal",
+                "minimumVerifiedProfiles": 1,
+            }],
+            "records": [{
+                "source": "cuhk_department:example",
+                "profileUrl": None,
+            }],
+            "fetchErrors": [],
+            "sourceErrors": [],
+        }
+        subject.verify_profile_links(report, object())
+        self.assertFalse(report["sources"][0]["complete"])
+        self.assertEqual(report["scope"]["completeSources"], [])
+        self.assertEqual(
+            report["sourceErrors"][0]["error"],
+            "verified_profiles_below_minimum",
+        )
+
+    def test_roster_only_source_can_complete_without_profile_links(self):
+        report = {
+            "scope": {"fresh": True, "completeSources": ["example"]},
+            "sources": [{
+                "key": "example",
+                "complete": True,
+                "profileCapability": "roster_only",
+                "minimumVerifiedProfiles": 0,
+            }],
+            "records": [{
+                "source": "cuhk_department:example",
+                "profileUrl": None,
+            }],
+            "fetchErrors": [],
+            "sourceErrors": [],
+        }
+        subject.verify_profile_links(report, object())
+        self.assertTrue(report["sources"][0]["complete"])
+        self.assertEqual(report["scope"]["completeSources"], ["example"])
 
     def test_unresolved_rows_still_emit_observed_lifecycle_keys(self):
         html = """
