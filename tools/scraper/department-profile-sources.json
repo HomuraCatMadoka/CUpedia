@@ -580,13 +580,10 @@
     "organisationUrls": [
       "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
     ],
-    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/full-time-staff/",
-    "entrySelector": ".staff-card",
-    "linkSelector": ".research-area > a[href]",
-    "nameSelector": ".staff-title h4",
-    "titleSelector": ".staff-title .sub-title",
-    "emailSelector": ".meta-block.mail",
-    "imageSelector": ".staff-img img",
+    "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?paged=1&type=457&max_posts=-1",
+    "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+    "adapter": "eng_staff_api",
+    "excludedAppointmentKinds": ["adjunct", "emeritus"],
     "minimumEntries": 12
   },
   {
@@ -594,13 +591,9 @@
     "organisationUrls": [
       "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
     ],
-    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/adjunct-professors/",
-    "entrySelector": ".staff-card",
-    "linkSelector": ".research-area > a[href]",
-    "nameSelector": ".staff-title h4",
-    "titleSelector": ".staff-title .sub-title",
-    "emailSelector": ".meta-block.mail",
-    "imageSelector": ".staff-img img",
+    "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?positions=adjunct-professors&paged=1&type=457&max_posts=-1",
+    "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+    "adapter": "eng_staff_api",
     "appointmentOverride": "adjunct",
     "minimumEntries": 3
   },
@@ -609,13 +602,9 @@
     "organisationUrls": [
       "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
     ],
-    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/emeritus-professors/",
-    "entrySelector": ".staff-card",
-    "linkSelector": ".research-area > a[href]",
-    "nameSelector": ".staff-title h4",
-    "titleSelector": ".staff-title .sub-title",
-    "emailSelector": ".meta-block.mail",
-    "imageSelector": ".staff-img img",
+    "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?positions=emeritus-professors&paged=1&type=457&max_posts=-1",
+    "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+    "adapter": "eng_staff_api",
     "appointmentOverride": "emeritus",
     "minimumEntries": 1
   },

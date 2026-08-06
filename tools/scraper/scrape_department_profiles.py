@@ -283,6 +283,27 @@ def parse_json_directory(payload: str, config: dict) -> list[dict]:
                 "sourceUrl": config["directoryUrl"],
                 "imageUrl": photo_url(config["directoryUrl"], image),
             })
+    elif config["adapter"] == "eng_staff_api":
+        excluded_appointments = set(config.get("excludedAppointmentKinds", []))
+        for row in value["posts"]:
+            kind = config.get("appointmentOverride") or appointment_kind(
+                row.get("positions")
+            )
+            if kind in excluded_appointments:
+                continue
+            records.append({
+                "name": clean_name(row["title"]),
+                "title": row.get("sub_title") or row.get("positions"),
+                "appointmentKind": kind,
+                "email": email_in_text(row.get("email") or ""),
+                "profileUrl": official_url(
+                    config["directoryUrl"], row.get("permalink")
+                ),
+                "sourceUrl": config["sourceUrl"],
+                "imageUrl": photo_url(
+                    config["directoryUrl"], row.get("img_url")
+                ),
+            })
     else:
         raise ValueError(f"Unknown directory adapter: {config['adapter']}")
     return records
