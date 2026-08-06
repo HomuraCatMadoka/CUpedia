@@ -152,6 +152,21 @@ on conflict (source, source_key) do update set
   is_current = true,
   missing_runs = 0;
 
+-- A full crawl owns the whole cuhk_department namespace. Sources removed from
+-- the reviewed inventory have no future run that could age them out, so retire
+-- them immediately while preserving their provenance rows.
+update staff_person_sources existing
+set missing_runs = greatest(existing.missing_runs, 2),
+    is_current = false
+from _department_profile_import
+where existing.is_current
+  and existing.source like 'cuhk_department:%'
+  and not exists (
+    select 1
+    from jsonb_array_elements_text(payload->'managed_sources') managed(source)
+    where existing.source = managed.source
+  );
+
 update staff_person_sources existing
 set missing_runs = existing.missing_runs + 1,
     is_current = existing.missing_runs + 1 < 2

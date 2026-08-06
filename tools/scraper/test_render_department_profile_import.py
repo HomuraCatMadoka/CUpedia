@@ -58,6 +58,13 @@ class RenderDepartmentProfileImportTest(unittest.TestCase):
         self.assertEqual(len(payload["person_sources"]), 1)
         self.assertEqual(len(payload["observed_source_keys"]), 2)
 
+    def test_full_snapshot_retires_removed_department_sources(self):
+        sql = subject.render_sql(subject.import_payload(self.report()))
+        self.assertIn("existing.source like 'cuhk_department:%'", sql)
+        self.assertIn("existing.source = managed.source", sql)
+        self.assertIn("is_current = false", sql)
+        self.assertIn("greatest(existing.missing_runs, 2)", sql)
+
     def test_failed_profile_keeps_provenance_but_clears_verification(self):
         report = self.report()
         report["records"][0]["profileStatus"] = "failed"
