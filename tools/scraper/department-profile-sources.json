@@ -654,7 +654,7 @@
     "titleSelector": "h6",
     "emailSelector": "a[href^='mailto:']",
     "minimumEntries": 25,
-    "minimumVerifiedProfiles": 15
+    "minimumVerifiedProfiles": 20
   },
   {
     "key": "linguistics-faculty",
@@ -667,7 +667,7 @@
     "nameSelector": "h6",
     "imageSelector": "img",
     "minimumEntries": 12,
-    "minimumVerifiedProfiles": 8
+    "minimumVerifiedProfiles": 10
   },
   {
     "key": "statistics-faculty",
@@ -682,7 +682,7 @@
     "imageSelector": ".card-image",
     "imageAttribute": "style",
     "minimumEntries": 30,
-    "minimumVerifiedProfiles": 18
+    "minimumVerifiedProfiles": 20
   },
   {
     "key": "psychology-faculty",
@@ -696,7 +696,7 @@
     "titleSelector": ".sppb-person-introtext",
     "imageSelector": ".sppb-person-image img",
     "minimumEntries": 30,
-    "minimumVerifiedProfiles": 18
+    "minimumVerifiedProfiles": 20
   },
   {
     "key": "architecture-faculty",
@@ -789,6 +789,7 @@
     "imageSelector": ".cu-media img",
     "enrichProfiles": true,
     "profileEmailSelector": "a[href^='mailto:']",
+    "directoryAttempts": 2,
     "minimumEntries": 25,
     "minimumVerifiedProfiles": 15
   },
@@ -832,7 +833,7 @@
     "enrichProfiles": true,
     "profileEmailSelector": "a[href^='mailto:']",
     "minimumEntries": 12,
-    "minimumVerifiedProfiles": 8
+    "minimumVerifiedProfiles": 10
   },
   {
     "key": "divinity-teaching-staff",
