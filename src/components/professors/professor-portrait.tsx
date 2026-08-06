@@ -4,15 +4,16 @@ import Image from "next/image";
 import { useState } from "react";
 
 export function ProfessorPortrait({
-  imageUrl,
+  imageUrls,
   name,
   variant = "portrait",
 }: {
-  imageUrl: string | null;
+  imageUrls: readonly string[];
   name: string;
   variant?: "portrait" | "icon" | "directory";
 }) {
-  const [failed, setFailed] = useState(false);
+  const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
+  const imageUrl = imageUrls.find((url) => !failedUrls.has(url)) ?? null;
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -30,7 +31,7 @@ export function ProfessorPortrait({
             : "relative aspect-[4/5] w-32 overflow-hidden rounded-xl bg-secondary sm:w-36"
       }
     >
-      {!imageUrl || failed ? (
+      {!imageUrl ? (
         <div
           role="img"
           aria-label={`${name} 的头像占位`}
@@ -41,7 +42,7 @@ export function ProfessorPortrait({
       ) : (
         <Image
           src={imageUrl}
-          alt={`${name} 的院系头像`}
+          alt={`${name} 的官方头像`}
           fill
           priority={variant === "portrait"}
           sizes={
@@ -52,7 +53,9 @@ export function ProfessorPortrait({
                 : "(min-width: 640px) 144px, 128px"
           }
           referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
+          onError={() =>
+            setFailedUrls((current) => new Set(current).add(imageUrl))
+          }
           className="object-cover grayscale-[15%]"
         />
       )}
