@@ -119,11 +119,21 @@ def clean_name(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip(" ,|-/")
 
 
-def source_identity_key(record: dict, config_key: str) -> str:
+def source_identity_key(
+    record: dict,
+    config_key: str,
+    source_identity_host: str | None = None,
+) -> str:
     if record.get("profileUrl"):
         parsed = urlsplit(record["profileUrl"])
         path = parsed.path.rstrip("/") or "/"
-        return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, ""))
+        return urlunsplit((
+            parsed.scheme,
+            source_identity_host or parsed.netloc,
+            path,
+            parsed.query,
+            "",
+        ))
     if record.get("email"):
         return f"email:{record['email']}"
     signature = "|".join(name_signature(record["name"]))
@@ -284,12 +294,12 @@ def parse_json_directory(payload: str, config: dict) -> list[dict]:
                 "imageUrl": photo_url(config["directoryUrl"], image),
             })
     elif config["adapter"] == "eng_staff_api":
-        excluded_appointments = set(config.get("excludedAppointmentKinds", []))
+        allowed_appointments = set(config.get("allowedAppointmentKinds", []))
         for row in value["posts"]:
             kind = config.get("appointmentOverride") or appointment_kind(
                 row.get("positions")
             )
-            if kind in excluded_appointments:
+            if allowed_appointments and kind not in allowed_appointments:
                 continue
             records.append({
                 "name": clean_name(row["title"]),
@@ -615,7 +625,11 @@ def match_record(
         "personId": person["personId"],
         "canonicalName": person["name"],
         "source": source,
-        "sourceKey": source_identity_key(record, config["key"]),
+        "sourceKey": source_identity_key(
+            record,
+            config["key"],
+            config.get("sourceIdentityHost"),
+        ),
     }
 
 
@@ -778,7 +792,14 @@ def build_report(
             else:
                 unresolved.append({"sourceKey": config["key"], **record})
         observed_source_keys = sorted(
-            {source_identity_key(record, config["key"]) for record in records}
+            {
+                source_identity_key(
+                    record,
+                    config["key"],
+                    config.get("sourceIdentityHost"),
+                )
+                for record in records
+            }
         )
         identities_complete = len(observed_source_keys) == len(records)
         if not identities_complete:

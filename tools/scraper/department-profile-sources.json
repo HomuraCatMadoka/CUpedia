@@ -583,7 +583,8 @@
     "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?paged=1&type=457&max_posts=-1",
     "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
     "adapter": "eng_staff_api",
-    "excludedAppointmentKinds": ["adjunct", "emeritus"],
+    "allowedAppointmentKinds": ["regular"],
+    "sourceIdentityHost": "www.eng.cuhk.edu.hk",
     "minimumEntries": 12
   },
   {
@@ -594,6 +595,7 @@
     "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?positions=adjunct-professors&paged=1&type=457&max_posts=-1",
     "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
     "adapter": "eng_staff_api",
+    "sourceIdentityHost": "www.eng.cuhk.edu.hk",
     "appointmentOverride": "adjunct",
     "minimumEntries": 3
   },
@@ -605,6 +607,7 @@
     "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?positions=emeritus-professors&paged=1&type=457&max_posts=-1",
     "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
     "adapter": "eng_staff_api",
+    "sourceIdentityHost": "www.eng.cuhk.edu.hk",
     "appointmentOverride": "emeritus",
     "minimumEntries": 1
   },
