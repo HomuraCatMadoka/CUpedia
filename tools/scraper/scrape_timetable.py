@@ -1,4 +1,4 @@
-"""Harvest official CUHK teaching timetable instructors → professors.json."""
+"""Harvest UG and 5000+ PG timetable instructors → professors.json."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ import common
 TIMETABLE = "https://rgsntl.rgs.cuhk.edu.hk/rws_prd_applx2/Public/tt_dsp_timetable.aspx"
 SUBJECT_PAUSE = 1.5
 TERM_PAUSE = 0.5
+ACADEMIC_CAREERS = ("UG", "RPG", "TPG", "PGDE")
 _ocr = None
 INVALID_INSTRUCTOR_NAMES = {
     "", "-", "staff", "tba", "to be announced",
@@ -56,16 +57,49 @@ def options(soup, select_id: str) -> dict[str, str]:
     }
 
 
-def fetch_listing(session, subject: str, term: str, retries: int = 20) -> str | None:
+def selected_value(soup, select_id: str) -> str:
+    select = soup.find("select", id=select_id)
+    if not select:
+        return ""
+    option = select.find("option", selected=True) or select.find("option")
+    return option.get("value", "") if option else ""
+
+
+def select_career(session, soup, career: str):
+    """Apply the career postback so ASP.NET refreshes dependent form state."""
+    selected = soup.select_one("#ddl_acad_career option[selected]")
+    if selected and selected.get("value") == career:
+        return soup
+    payload = _hidden(soup)
+    payload.update(
+        {
+            "__EVENTTARGET": "ddl_acad_career",
+            "__EVENTARGUMENT": "",
+            "ddl_acad_career": career,
+            "ddl_acad_term": selected_value(soup, "ddl_acad_term"),
+            "ddl_subject": selected_value(soup, "ddl_subject"),
+            "ddl_acad_org": selected_value(soup, "ddl_acad_org"),
+        }
+    )
+    body = session.post(
+        TIMETABLE, data=payload, headers={"Referer": TIMETABLE}, timeout=30
+    ).text
+    return BeautifulSoup(body, "html.parser")
+
+
+def fetch_listing(
+    session, subject: str, term: str, career: str, retries: int = 20
+) -> str | None:
     for _ in range(retries):
         soup = BeautifulSoup(common.get(session, TIMETABLE), "html.parser")
+        soup = select_career(session, soup, career)
         captcha = _solve(session, soup)
         if not captcha:
             continue
         payload = _hidden(soup)
         payload.update(
             {
-                "ddl_acad_career": "UG",
+                "ddl_acad_career": career,
                 "ddl_acad_term": term,
                 "ddl_subject": subject,
                 "ddl_acad_org": "",
@@ -80,6 +114,12 @@ def fetch_listing(session, subject: str, term: str, retries: int = 20) -> str | 
             return body
         time.sleep(1)
     return None
+
+
+def include_course(career: str, course_code: str) -> bool:
+    """Keep all UG offerings and only 5000+ postgraduate offerings."""
+    match = re.search(r"\d{4}$", course_code)
+    return career == "UG" or bool(match and int(match.group()) >= 5000)
 
 
 def parse_listing(html: str) -> list[dict[str, str]]:
@@ -104,7 +144,14 @@ def parse_listing(html: str) -> list[dict[str, str]]:
     vacancy_col = column("vacancy")
     component_col = column("course component")
     section_col = column("section code")
-    required = [course_col, instructor_col, class_nbr_col, quota_col, vacancy_col, component_col, section_col]
+    required = [
+        course_col,
+        instructor_col,
+        class_nbr_col,
+        quota_col,
+        component_col,
+        section_col,
+    ]
     if any(value is None for value in required):
         return []
     records = []
@@ -125,7 +172,11 @@ def parse_listing(html: str) -> list[dict[str, str]]:
             current_class_nbr = class_nbr
         instructors = cells[instructor_col].get_text("\n", strip=True)
         quota = cells[quota_col].get_text(" ", strip=True)
-        vacancy = cells[vacancy_col].get_text(" ", strip=True)
+        vacancy = (
+            cells[vacancy_col].get_text(" ", strip=True)
+            if vacancy_col is not None
+            else ""
+        )
         if re.fullmatch(r"[A-Z]{3,4}\d{4}", current_course) and (instructors or quota):
             records.append({
                 "course": current_course,
@@ -165,7 +216,7 @@ def enrollment_rows(rows: list[dict[str, str]]) -> list[dict]:
     previous_key = None
     for row in rows:
         instructors = instructor_names(row.get("instructors", ""))
-        if not row.get("quota", "").isdigit() or not row.get("vacancy", "").isdigit():
+        if not row.get("quota", "").isdigit():
             if previous_key and instructors:
                 records[previous_key]["instructors"] = sorted(
                     set(records[previous_key]["instructors"] + instructors)
@@ -180,7 +231,7 @@ def enrollment_rows(rows: list[dict[str, str]]) -> list[dict]:
             "component": row["component"],
             "section": row["section"],
             "quota": int(row["quota"]),
-            "vacancy": int(row["vacancy"]),
+            "vacancy": int(row["vacancy"]) if row.get("vacancy", "").isdigit() else None,
             "instructors": instructors,
         }
         key = (
@@ -201,6 +252,10 @@ def main() -> None:
 
     session = common.session()
     landing = BeautifulSoup(common.get(session, TIMETABLE), "html.parser")
+    available_careers = set(options(landing, "ddl_acad_career").values())
+    careers = [career for career in ACADEMIC_CAREERS if career in available_careers]
+    if not careers:
+        raise SystemExit("No supported academic careers found")
     subjects = (
         [value.strip().upper() for value in args.subjects.split(",")]
         if args.subjects
@@ -218,15 +273,26 @@ def main() -> None:
     out = data_dir / "professors.json"
     rows = [] if args.fresh or not out.exists() else json.loads(out.read_text())["rows"]
     for subject in subjects:
-        for term_label, term in terms:
-            listing = fetch_listing(session, subject, term)
-            if listing is None:
-                raise RuntimeError(f"captcha failed for {subject} term {term}")
-            parsed = parse_listing(listing)
-            for row in parsed:
-                row.update({"academic_year": args.year, "term": term_label.removeprefix(f"{args.year} ")})
-            rows.extend(parsed)
-            time.sleep(TERM_PAUSE)
+        for career in careers:
+            for term_label, term in terms:
+                listing = fetch_listing(session, subject, term, career)
+                if listing is None:
+                    raise RuntimeError(
+                        f"captcha failed for {career} {subject} term {term}"
+                    )
+                parsed = [
+                    row
+                    for row in parse_listing(listing)
+                    if include_course(career, row["course"])
+                ]
+                for row in parsed:
+                    row.update({
+                        "academic_year": args.year,
+                        "academic_career": career,
+                        "term": term_label.removeprefix(f"{args.year} "),
+                    })
+                rows.extend(parsed)
+                time.sleep(TERM_PAUSE)
         print(f"  {subject}: done")
         out.write_text(
             json.dumps({

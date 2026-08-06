@@ -157,9 +157,12 @@ export function CourseEnrollmentHistory({
           {visibleRows.length ? (
             <ul className="divide-y">
               {visibleRows.map((row) => {
-                const percentage = row.quota
-                  ? Math.round((row.enrolled / row.quota) * 100)
-                  : 0;
+                const percentage =
+                  row.enrolled === null
+                    ? null
+                    : row.quota
+                      ? Math.round((row.enrolled / row.quota) * 100)
+                      : 0;
                 return (
                   <li
                     key={`${row.academicYear}-${row.term}-${row.section ?? "all"}`}
@@ -176,10 +179,10 @@ export function CourseEnrollmentHistory({
                     </span>
                     <span className="col-start-2 row-span-2 row-start-1 self-center text-right sm:col-start-3 sm:row-span-1 sm:row-start-1">
                       <span className="block text-sm font-semibold tabular-nums">
-                        {row.enrolled} / {row.quota}
+                        {row.enrolled ?? "-"} / {row.quota}
                       </span>
                       <span className="text-[11px] text-muted-foreground tabular-nums">
-                        {percentage}%
+                        {percentage === null ? "-" : `${percentage}%`}
                       </span>
                     </span>
                   </li>

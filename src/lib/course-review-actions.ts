@@ -177,7 +177,7 @@ export type CourseEnrollmentView = {
   academicYear: string;
   term: string;
   section: string | null;
-  enrolled: number;
+  enrolled: number | null;
   quota: number;
   instructors: string[];
 };
@@ -1244,9 +1244,12 @@ export async function getCourseEnrollmentHistory(
   return [...classes.entries()].map(([key, components]) => {
     const main =
       components.find((row) => row.component === "LEC") ??
-      components.reduce((best, row) =>
-        row.quota - row.vacancy > best.quota - best.vacancy ? row : best,
-      );
+      components.reduce((best, row) => {
+        const enrolled = row.vacancy === null ? -1 : row.quota - row.vacancy;
+        const bestEnrolled =
+          best.vacancy === null ? -1 : best.quota - best.vacancy;
+        return enrolled > bestEnrolled ? row : best;
+      });
     const [academicYear, term, classCode] = key.split("\0");
     const section = classCode!.startsWith(courseCode)
       ? classCode!.slice(courseCode.length).replace(/^-/, "") || null
@@ -1255,7 +1258,8 @@ export async function getCourseEnrollmentHistory(
       academicYear: academicYear!,
       term: term!,
       section,
-      enrolled: Math.max(0, main.quota - main.vacancy),
+      enrolled:
+        main.vacancy === null ? null : Math.max(0, main.quota - main.vacancy),
       quota: main.quota,
       instructors: main.instructors,
     };

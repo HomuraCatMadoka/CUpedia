@@ -39,7 +39,7 @@ python scrape_courses.py --catalog-only          # refresh subjects.json only
 # Current Handbook Major Programme schemes (latest four admission years)
 python scrape_handbook.py
 
-# Official teaching timetable instructors
+# Official teaching timetable instructors (UG + 5000+ RPG/TPG/PGDE)
 python scrape_timetable.py --subjects ACCT,CSCI --year 2025-26
 pnpm ingest:professors
 # Read-only export of the current linked production snapshot for migration rehearsal:
@@ -116,10 +116,14 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
 - **Detail fields by stable control id** — `parse_detail` reads the verified
   ASP.NET ids (`uc_course_lbl_course` / `_units` / `_acad_career` /
   `_crse_descrlong`, `uc_course_tc_enrl_requirement`, `uc_course_ddl_class_term`)
-  rather than fragile table positions. `career` drives the UG filter downstream
-  in `normalizeCourse`.
-- **Verified end-to-end** against the live site (ACCT/CSCI/MATH → 301 raw rows →
-  172 UG after `normalizeCourse`, 0 malformed). The Handbook now redirects Major
+  rather than fragile table positions. `normalizeCourse` keeps undergraduate
+  courses plus postgraduate courses numbered 5000 or above.
+- **Postgraduate timetable** — changing academic career requires an ASP.NET
+  postback before submitting the subject search. RPG tables omit the Vacancy
+  column, so their enrollment snapshots store an unknown vacancy and the UI
+  displays `-` instead of inventing a value.
+- **Verified end-to-end** against the live site (ACCT/CSCI/MATH → 301 raw rows,
+  0 malformed). The Handbook now redirects Major
   requirements to Browse Program Information; `scrape_handbook.py` queries its
   current academic year and three preceding years, keeps only Major schemes, and
   writes a traceable manifest. Long ASP.NET sessions are renewed automatically.

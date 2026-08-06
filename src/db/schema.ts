@@ -1070,7 +1070,7 @@ export const courseEnrollments = pgTable(
     component: text("component").notNull(),
     section: text("section").notNull(),
     quota: integer("quota").notNull(),
-    vacancy: integer("vacancy").notNull(),
+    vacancy: integer("vacancy"),
     instructors: text("instructors").array().notNull(),
     capturedAt: timestamp("captured_at").notNull(),
   },

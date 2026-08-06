@@ -1,4 +1,4 @@
-"""Harvest the official AQS public undergraduate course catalog → courses.json.
+"""Harvest the official AQS public course catalog → courses.json.
 
 Source (see docs/adr/0005): the AQS public catalog is the authoritative course
 identity. The subject listing is gated by a 4-character captcha; each course's
