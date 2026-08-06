@@ -13,6 +13,7 @@ tools/scraper/scrape_staff.py     →  scripts/data/staff-directory.json
 tools/scraper/scrape_department_profiles.py → scripts/data/staff-department-profiles.json
 tools/scraper/analyze_department_profile_coverage.py → read-only production coverage report
 tools/scraper/render_department_profile_import.py → scripts/data/staff-department-profiles-import.sql
+tools/scraper/merge_department_profile_images.py → enrich a complete SQL snapshot from fresh scoped portraits
 tools/scraper/resolve_staff_pilot.py → scripts/data/staff-engineering-report.json
 tools/scraper/compare_staff_production.py → scripts/data/staff-production-validation.json
 tools/scraper/render_staff_directory_import.py → scripts/data/staff-directory-import.sql
@@ -56,6 +57,12 @@ python scrape_department_profiles.py --source cse-faculty --source physics-teach
 python scrape_department_profiles.py
 python analyze_department_profile_coverage.py ../../scripts/data/staff-department-profiles.json
 python render_department_profile_import.py
+# When one unrelated roster is temporarily unavailable, merge only fresh,
+# verified null→portrait enrichments into the last complete SQL snapshot:
+python merge_department_profile_images.py \
+  --snapshot ../../src/db/data/department-professor-profiles.sql \
+  --report ../../scripts/data/staff-department-profiles.json \
+  --output ../../src/db/data/department-professor-profiles.sql
 # Fast partial smoke test against a couple of department overview pages:
 python scrape_staff.py --departments department-of-biomedical-engineering,department-of-computer-science-and-engineering --preview --pause 0.25
 # A scoped full run can overlap a few profile requests while still spacing
