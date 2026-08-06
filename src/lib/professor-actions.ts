@@ -309,7 +309,10 @@ async function hydrateDirectoryItems(
       title: selected?.roleLabel ?? null,
       faculty: item.faculty,
       department: item.description,
-      imageUrls: selectProfessorImages(personSources),
+      imageUrls: selectProfessorImages(
+        personSources,
+        `/api/professor-portraits/${item.publicId}`,
+      ),
       profile: selectProfessorProfile(
         stats?.researchPortalUrl ?? null,
         personSources,
