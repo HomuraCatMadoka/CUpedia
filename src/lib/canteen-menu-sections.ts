@@ -47,27 +47,56 @@ export function menuSectionLabel(svgKey: string): string {
   return key;
 }
 
-/** Group period items by stored section key; known keys keep legacy order. */
+function sectionMinSortOrder(items: CanteenMenuItem[]): number {
+  let min = Number.POSITIVE_INFINITY;
+  for (const item of items) {
+    if (item.sortOrder < min) min = item.sortOrder;
+  }
+  return Number.isFinite(min) ? min : 0;
+}
+
+/**
+ * Group period items by stored section key.
+ * Order follows min(item.sortOrder) so Pin Me / sync order wins; on ties,
+ * legacy icon keys keep their fixed rank, then first-seen order.
+ */
 export function groupMenuItemsBySvgKey(
   items: CanteenMenuItem[],
 ): MenuSection[] {
   const buckets = new Map<string, CanteenMenuItem[]>();
-  const firstSeen: string[] = [];
+  const firstSeen = new Map<string, number>();
   for (const item of items) {
     const key = resolveStoredSectionKey(item.svgKey);
     const list = buckets.get(key);
     if (list) list.push(item);
     else {
       buckets.set(key, [item]);
-      firstSeen.push(key);
+      firstSeen.set(key, firstSeen.size);
     }
   }
 
-  const knownKeys = MENU_SECTION_ORDER.filter((key) => buckets.has(key));
-  const customKeys = firstSeen.filter((key) => !KNOWN_SECTION_KEYS.has(key));
+  const orderedKeys = [...buckets.keys()].sort((a, b) => {
+    const aItems = buckets.get(a)!;
+    const bItems = buckets.get(b)!;
+    const bySort =
+      sectionMinSortOrder(aItems) - sectionMinSortOrder(bItems);
+    if (bySort !== 0) return bySort;
+
+    const aKnown = KNOWN_SECTION_KEYS.has(a);
+    const bKnown = KNOWN_SECTION_KEYS.has(b);
+    if (aKnown && bKnown) {
+      return (
+        MENU_SECTION_RANK[a as DishSvgKey] -
+        MENU_SECTION_RANK[b as DishSvgKey]
+      );
+    }
+    if (aKnown !== bKnown) return aKnown ? -1 : 1;
+
+    return (firstSeen.get(a) ?? 0) - (firstSeen.get(b) ?? 0);
+  });
 
   const sections: MenuSection[] = [];
-  for (const svgKey of [...knownKeys, ...customKeys]) {
+  for (const svgKey of orderedKeys) {
     const group = buckets.get(svgKey);
     if (!group?.length) continue;
     sections.push({
