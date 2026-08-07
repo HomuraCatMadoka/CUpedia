@@ -173,4 +173,20 @@ describe("WikiCreateButton", () => {
     expect(mockRollback).not.toHaveBeenCalled();
     expect(mockAssign).not.toHaveBeenCalled();
   });
+
+  it("navigates when onCreated closes its container", async () => {
+    const view = render(
+      <WikiCreateButton onCreated={() => view.rerender(<div>closed</div>)}>
+        新建
+      </WikiCreateButton>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "新建" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mockAssign).toHaveBeenCalledOnce());
+    expect(screen.getByText("closed")).toBeTruthy();
+    expect(mockConfirm).toHaveBeenCalledWith("mutation-1");
+    expect(mockRollback).not.toHaveBeenCalled();
+  });
 });

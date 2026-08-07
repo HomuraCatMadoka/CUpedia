@@ -63,7 +63,6 @@ export function WikiCreateButton({
         icon: null,
         parentId: parentId ?? null,
       }) ?? null;
-    onCreated?.();
 
     const query = new URLSearchParams({ draft: "1" });
     if (parentId) query.set("parent", parentId);
@@ -100,6 +99,7 @@ export function WikiCreateButton({
         return;
       }
 
+      onCreated?.();
       window.dispatchEvent(
         new CustomEvent("cupedia:editor-navigation-bypass", {
           detail: destination,
