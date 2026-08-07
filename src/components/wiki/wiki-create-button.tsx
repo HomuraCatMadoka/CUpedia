@@ -63,15 +63,17 @@ export function WikiCreateButton({
         icon: null,
         parentId: parentId ?? null,
       }) ?? null;
-    wikiTree?.confirm(mutationToken);
     onCreated?.();
 
     const query = new URLSearchParams({ draft: "1" });
     if (parentId) query.set("parent", parentId);
     const destination = `/wiki/${id}?${query}`;
+    const resetPending = () => {
+      pendingRef.current = false;
+    };
     const cancel = () => {
       wikiTree?.rollback(mutationToken);
-      pendingRef.current = false;
+      resetPending();
     };
 
     try {
@@ -91,12 +93,13 @@ export function WikiCreateButton({
         body: JSON.stringify({ id, parentId: parentId ?? null }),
       });
       if (!response.ok) throw new Error("Unable to create private page");
+
+      wikiTree?.confirm(mutationToken);
       if (!mountedRef.current || pathnameRef.current !== sourcePathname) {
-        cancel();
+        resetPending();
         return;
       }
 
-      wikiTree?.confirm(mutationToken);
       window.dispatchEvent(
         new CustomEvent("cupedia:editor-navigation-bypass", {
           detail: destination,

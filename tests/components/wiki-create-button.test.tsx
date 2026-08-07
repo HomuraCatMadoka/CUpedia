@@ -4,13 +4,21 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockAssign, mockEnsureContributorSetup, navigation } = vi.hoisted(
-  () => ({
-    mockAssign: vi.fn(),
-    mockEnsureContributorSetup: vi.fn().mockResolvedValue(true),
-    navigation: { pathname: "/wiki" },
-  }),
-);
+const {
+  mockAssign,
+  mockConfirm,
+  mockEnsureContributorSetup,
+  mockProjectUpsert,
+  mockRollback,
+  navigation,
+} = vi.hoisted(() => ({
+  mockAssign: vi.fn(),
+  mockConfirm: vi.fn(),
+  mockEnsureContributorSetup: vi.fn().mockResolvedValue(true),
+  mockProjectUpsert: vi.fn(() => "mutation-1"),
+  mockRollback: vi.fn(),
+  navigation: { pathname: "/wiki" },
+}));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
@@ -23,6 +31,14 @@ vi.mock("@/lib/document-navigation", () => ({
 vi.mock("@/components/auth/contributor-setup-provider", () => ({
   useContributorSetup: () => ({
     ensureContributorSetup: mockEnsureContributorSetup,
+  }),
+}));
+
+vi.mock("@/components/wiki/wiki-tree-provider", () => ({
+  useOptionalWikiTree: () => ({
+    projectUpsert: mockProjectUpsert,
+    confirm: mockConfirm,
+    rollback: mockRollback,
   }),
 }));
 
@@ -46,6 +62,8 @@ describe("WikiCreateButton", () => {
     fireEvent.click(button);
 
     await waitFor(() => expect(mockAssign).toHaveBeenCalledOnce());
+    expect(mockConfirm).toHaveBeenCalledWith("mutation-1");
+    expect(mockRollback).not.toHaveBeenCalled();
     expect(mockAssign).toHaveBeenCalledWith(
       expect.stringMatching(/^\/wiki\/[0-9a-f-]+\?draft=1&parent=parent-1$/),
     );
@@ -95,6 +113,10 @@ describe("WikiCreateButton", () => {
     fireEvent.click(button);
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockRollback).toHaveBeenCalledTimes(2);
+    expect(mockRollback).toHaveBeenNthCalledWith(1, "mutation-1");
+    expect(mockRollback).toHaveBeenNthCalledWith(2, "mutation-1");
     expect(mockAssign).not.toHaveBeenCalled();
     expect(button.getAttribute("aria-disabled")).toBeNull();
     expect(button.getAttribute("aria-busy")).toBeNull();
@@ -126,7 +148,29 @@ describe("WikiCreateButton", () => {
     completeSetup(true);
 
     await waitFor(() => expect(fetch).not.toHaveBeenCalled());
+    expect(mockConfirm).not.toHaveBeenCalled();
+    expect(mockRollback).toHaveBeenCalledWith("mutation-1");
     expect(fetch).not.toHaveBeenCalled();
+    expect(mockAssign).not.toHaveBeenCalled();
+  });
+
+  it("keeps a persisted draft when navigation becomes stale", async () => {
+    let completeRequest!: (response: Response) => void;
+    vi.mocked(fetch).mockReturnValue(
+      new Promise((resolve) => {
+        completeRequest = resolve;
+      }) as Promise<Response>,
+    );
+    const { rerender } = render(<WikiCreateButton>新建</WikiCreateButton>);
+
+    fireEvent.click(screen.getByRole("button", { name: "新建" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    navigation.pathname = "/courses";
+    rerender(<WikiCreateButton>新建</WikiCreateButton>);
+    completeRequest({ ok: true } as Response);
+
+    await waitFor(() => expect(mockConfirm).toHaveBeenCalledWith("mutation-1"));
+    expect(mockRollback).not.toHaveBeenCalled();
     expect(mockAssign).not.toHaveBeenCalled();
   });
 });
