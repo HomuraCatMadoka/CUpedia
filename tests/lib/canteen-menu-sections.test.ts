@@ -61,4 +61,34 @@ describe("groupMenuItemsBySvgKey", () => {
   it("omits empty categories", () => {
     expect(groupMenuItemsBySvgKey([])).toEqual([]);
   });
+
+  it("orders store categories by min sortOrder, not encounter order", () => {
+    // All-day drinks are often listed first after primary-period sorting;
+    // section order must still follow sync/Pin Me sortOrder.
+    const sections = groupMenuItemsBySvgKey([
+      item("d1", "demo-item-1", "demo-section-d", 90),
+      item("d2", "demo-item-2", "demo-section-d", 91),
+      item("t1", "demo-item-3", "demo-section-a", 0),
+      item("c1", "demo-item-4", "demo-section-b", 10),
+      item("s1", "demo-item-5", "demo-section-c", 50),
+    ]);
+    expect(sections.map((s) => s.svgKey)).toEqual([
+      "demo-section-a",
+      "demo-section-b",
+      "demo-section-c",
+      "demo-section-d",
+    ]);
+  });
+
+  it("ignores non-finite sortOrder when computing section min", () => {
+    const sections = groupMenuItemsBySvgKey([
+      item("a1", "demo-item-a1", "demo-section-late", Number.NEGATIVE_INFINITY),
+      item("a2", "demo-item-a2", "demo-section-late", 10),
+      item("b1", "demo-item-b1", "demo-section-early", 5),
+    ]);
+    expect(sections.map((s) => s.svgKey)).toEqual([
+      "demo-section-early",
+      "demo-section-late",
+    ]);
+  });
 });
