@@ -7,6 +7,10 @@ import {
 import { COURSE_TERMS } from "@/lib/course-review-constants";
 import { requireCliAuth } from "@/lib/cli-api/auth";
 import { ERROR_CODES } from "@/lib/cli-api/errors";
+import {
+  DEFAULT_WRITE_LIMIT,
+  checkRateLimit,
+} from "@/lib/cli-api/rate-limit";
 import { fail, ok, parseJsonBody } from "@/lib/cli-api/respond";
 
 const ACADEMIC_YEAR_PATTERN = /^(\d{4})-(\d{2})$/;
@@ -36,6 +40,13 @@ export async function POST(
 
   const auth = await requireCliAuth(request);
   if (auth.response) return auth.response;
+
+  // Per-user write budget: a logged-in caller's bearer identity is the rate
+  // limit key (CLI callers have no stable IP under Vercel).
+  const rl = checkRateLimit(`courses:review:${auth.user.id}`, DEFAULT_WRITE_LIMIT);
+  if (!rl.allowed) {
+    return fail(ERROR_CODES.RATE_LIMIT_EXCEEDED, 429);
+  }
 
   const body = await parseJsonBody(request);
   if (!isPlainObject(body)) {

@@ -4,6 +4,10 @@ import {
 } from "@/lib/canteen-shame-actions";
 import { requireCliAuth } from "@/lib/cli-api/auth";
 import { ERROR_CODES } from "@/lib/cli-api/errors";
+import {
+  DEFAULT_WRITE_LIMIT,
+  checkRateLimit,
+} from "@/lib/cli-api/rate-limit";
 import { fail, ok, parseJsonBody } from "@/lib/cli-api/respond";
 
 const VOTE_ERROR_STATUS: Record<ShameVoteErrorCode, number> = {
@@ -29,6 +33,13 @@ const VOTE_ERROR_STATUS: Record<ShameVoteErrorCode, number> = {
 export async function POST(request: Request) {
   const auth = await requireCliAuth(request);
   if (auth.response) return auth.response;
+
+  // Per-user write budget: a logged-in caller's bearer identity is the rate
+  // limit key (CLI callers have no stable IP under Vercel).
+  const rl = checkRateLimit(`canteen:shit-vote:${auth.user.id}`, DEFAULT_WRITE_LIMIT);
+  if (!rl.allowed) {
+    return fail(ERROR_CODES.RATE_LIMIT_EXCEEDED, 429);
+  }
 
   const body = await parseJsonBody(request);
   if (body === null || typeof body !== "object" || Array.isArray(body)) {

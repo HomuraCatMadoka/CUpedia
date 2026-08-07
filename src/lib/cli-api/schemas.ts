@@ -11,8 +11,6 @@
  * HTTP status without string matching.
  */
 
-import { parseVote } from "@/lib/canteen-types";
-import { validateDanmakuContent } from "@/lib/danmaku-types";
 import {
   validatePriorities,
   type SmallCollegePreference,
@@ -63,48 +61,10 @@ const SMALL_COLLEGE_PREFERENCES = new Set<SmallCollegePreference>([
   "indifferent",
 ]);
 
-const SEARCH_TYPES = new Set(["article", "canteen", "course"]);
 const COURSE_SORTS = new Set(["latest", "rating-count"]);
 const COURSE_LEVELS = new Set(["1000", "2000", "3000", "4000", "5000"]);
 
-// ── GET /api/cli/search ─────────────────────────────────────────────────────
-
-export type CliSearchQuery = {
-  q: string;
-  limit?: number;
-  type?: "article" | "canteen" | "course";
-};
-
-export function parseSearchQuery(
-  params: QueryParams,
-): ParseResult<CliSearchQuery> {
-  const record = toRecord(params);
-
-  const q = record.q;
-  if (typeof q !== "string" || !q.trim()) {
-    return { ok: false, error: ERROR_CODES.INVALID_PARAMS };
-  }
-  const value: CliSearchQuery = { q: q.trim() };
-
-  if (record.limit !== undefined) {
-    const n = typeof record.limit === "number" ? record.limit : Number(record.limit);
-    if (!Number.isInteger(n) || n < 1 || n > 50) {
-      return { ok: false, error: ERROR_CODES.INVALID_PARAMS };
-    }
-    value.limit = n;
-  }
-
-  if (record.type !== undefined) {
-    if (typeof record.type !== "string" || !SEARCH_TYPES.has(record.type)) {
-      return { ok: false, error: ERROR_CODES.INVALID_PARAMS };
-    }
-    value.type = record.type as CliSearchQuery["type"];
-  }
-
-  return { ok: true, value };
-}
-
-// ── GET /api/cli/courses ────────────────────────────────────────────────────
+// ── GET /api/courses ────────────────────────────────────────────────────────
 
 export type CliCourseListQuery = {
   query?: string;
@@ -159,47 +119,7 @@ export function parseCourseListQuery(
   return { ok: true, value };
 }
 
-// ── POST /api/cli/courses/:code/review ──────────────────────────────────────
-
-export type CliReviewBody = {
-  rating: number;
-  content: string;
-  professorId?: string;
-};
-
-export function parseReviewBody(input: unknown): ParseResult<CliReviewBody> {
-  if (!isJsonObject(input)) {
-    return { ok: false, error: ERROR_CODES.INVALID_JSON };
-  }
-  const body = input as Record<string, unknown>;
-
-  const rating = body.rating;
-  if (
-    typeof rating !== "number" ||
-    !Number.isInteger(rating) ||
-    rating < 1 ||
-    rating > 5
-  ) {
-    return { ok: false, error: ERROR_CODES.INVALID_PARAMS };
-  }
-
-  const content = body.content;
-  if (typeof content !== "string" || !content.trim() || content.length > 5000) {
-    return { ok: false, error: ERROR_CODES.INVALID_PARAMS };
-  }
-
-  const value: CliReviewBody = { rating, content: content.trim() };
-  if (body.professorId !== undefined) {
-    if (typeof body.professorId !== "string" || !body.professorId.trim()) {
-      return { ok: false, error: ERROR_CODES.INVALID_PARAMS };
-    }
-    value.professorId = body.professorId.trim();
-  }
-
-  return { ok: true, value };
-}
-
-// ── POST /api/cli/college-picker/recommend ──────────────────────────────────
+// ── POST /api/college-picker/recommend ──────────────────────────────────────
 
 export type CliCollegePickBody = {
   majorGroup: MajorGroup;
@@ -296,57 +216,6 @@ export function parseCollegePickBody(
   }
 
   return { ok: true, value };
-}
-
-// ── POST /api/cli/canteens/:id/vote ─────────────────────────────────────────
-
-export type CliVoteBody = {
-  dishId: string;
-  vote: "like" | "dislike";
-};
-
-export function parseVoteBody(input: unknown): ParseResult<CliVoteBody> {
-  if (!isJsonObject(input)) {
-    return { ok: false, error: ERROR_CODES.INVALID_JSON };
-  }
-  const body = input as Record<string, unknown>;
-
-  const dishId = body.dishId;
-  if (typeof dishId !== "string" || !dishId.trim()) {
-    return { ok: false, error: ERROR_CODES.INVALID_PARAMS };
-  }
-
-  let vote: "like" | "dislike";
-  try {
-    const parsed = parseVote(body.vote);
-    if (parsed === null) {
-      return { ok: false, error: ERROR_CODES.INVALID_VOTE };
-    }
-    vote = parsed;
-  } catch {
-    return { ok: false, error: ERROR_CODES.INVALID_VOTE };
-  }
-
-  return { ok: true, value: { dishId: dishId.trim(), vote } };
-}
-
-// ── POST danmaku / canteen message ──────────────────────────────────────────
-
-export type CliMessageBody = {
-  content: string;
-};
-
-export function parseMessageBody(input: unknown): ParseResult<CliMessageBody> {
-  if (!isJsonObject(input)) {
-    return { ok: false, error: ERROR_CODES.INVALID_JSON };
-  }
-  const body = input as Record<string, unknown>;
-
-  try {
-    return { ok: true, value: { content: validateDanmakuContent(body.content) } };
-  } catch {
-    return { ok: false, error: ERROR_CODES.INVALID_DANMAKU };
-  }
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────────

@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextResponse } from "next/server";
 
-const { mockSubmitCourseReview, mockRequireCliAuth } = vi.hoisted(() => ({
-  mockSubmitCourseReview: vi.fn(),
-  mockRequireCliAuth: vi.fn(),
-}));
+const { mockSubmitCourseReview, mockRequireCliAuth, mockCheckRateLimit } =
+  vi.hoisted(() => ({
+    mockSubmitCourseReview: vi.fn(),
+    mockRequireCliAuth: vi.fn(),
+    mockCheckRateLimit: vi.fn(),
+  }));
 
 vi.mock("@/lib/course-review-actions", () => ({
   submitCourseReview: (...args: unknown[]) => mockSubmitCourseReview(...args),
@@ -12,6 +14,11 @@ vi.mock("@/lib/course-review-actions", () => ({
 
 vi.mock("@/lib/cli-api/auth", () => ({
   requireCliAuth: (...args: unknown[]) => mockRequireCliAuth(...args),
+}));
+
+vi.mock("@/lib/cli-api/rate-limit", () => ({
+  checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...args),
+  DEFAULT_WRITE_LIMIT: 30,
 }));
 
 import { POST } from "@/app/api/courses/[code]/review/route";
@@ -42,6 +49,11 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRequireCliAuth.mockResolvedValue(AUTH_OK);
   mockSubmitCourseReview.mockResolvedValue({ newAchievementNotices: [] });
+  mockCheckRateLimit.mockReturnValue({
+    allowed: true,
+    remaining: 29,
+    retryAfterMs: 0,
+  });
 });
 
 describe("POST /api/courses/[code]/review", () => {
@@ -197,5 +209,21 @@ describe("POST /api/courses/[code]/review", () => {
       error: "INVALID_PARAMS",
       message: "评论内容过长",
     });
+  });
+
+  it("returns 429 when the per-user write rate limit is hit", async () => {
+    mockCheckRateLimit.mockReturnValue({
+      allowed: false,
+      remaining: 0,
+      retryAfterMs: 42_000,
+    });
+    const res = await POST(makeRequest(VALID_BODY), params());
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ error: "RATE_LIMIT_EXCEEDED" });
+    expect(mockSubmitCourseReview).not.toHaveBeenCalled();
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(
+      "courses:review:user-1",
+      30,
+    );
   });
 });
