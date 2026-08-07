@@ -46,17 +46,17 @@ describe("WikiCreateButton", () => {
     );
   });
 
-  it("creates a page when the button is activated with Space", () => {
+  it("creates a page when the button is activated with Space", async () => {
     render(<WikiCreateButton>新建</WikiCreateButton>);
 
     fireEvent.keyDown(screen.getByRole("button", { name: "新建" }), {
       key: " ",
     });
 
-    expect(mockPush).toHaveBeenCalledOnce();
+    await waitFor(() => expect(mockPush).toHaveBeenCalledOnce());
   });
 
-  it("navigates immediately and only once while contributor setup is pending", async () => {
+  it("persists before navigating and ignores duplicate activation", async () => {
     let completeSetup!: (complete: boolean) => void;
     mockEnsureContributorSetup.mockReturnValue(
       new Promise<boolean>((resolve) => {
@@ -71,15 +71,16 @@ describe("WikiCreateButton", () => {
     expect(button.getAttribute("aria-disabled")).toBeNull();
     expect(button.getAttribute("aria-busy")).toBeNull();
     expect(mockEnsureContributorSetup).toHaveBeenCalledOnce();
-    expect(mockPush).toHaveBeenCalledOnce();
+    expect(mockPush).not.toHaveBeenCalled();
 
     completeSetup(true);
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mockPush).toHaveBeenCalledOnce());
     expect(button.getAttribute("aria-disabled")).toBeNull();
     expect(button.getAttribute("aria-busy")).toBeNull();
   });
 
-  it("does not allow a second page when eager persistence fails before navigation commits", async () => {
+  it("allows retry when draft persistence fails", async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: false } as Response);
     render(<WikiCreateButton>新建</WikiCreateButton>);
 
@@ -88,7 +89,8 @@ describe("WikiCreateButton", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
     fireEvent.click(button);
 
-    expect(mockPush).toHaveBeenCalledOnce();
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(mockPush).not.toHaveBeenCalled();
     expect(button.getAttribute("aria-disabled")).toBeNull();
     expect(button.getAttribute("aria-busy")).toBeNull();
   });
@@ -98,6 +100,7 @@ describe("WikiCreateButton", () => {
 
     const button = screen.getByRole("button", { name: "新建" });
     fireEvent.click(button);
+    await waitFor(() => expect(mockPush).toHaveBeenCalledOnce());
     const firstDestination = mockPush.mock.calls[0]![0] as string;
     navigation.pathname = new URL(
       firstDestination,
@@ -106,6 +109,6 @@ describe("WikiCreateButton", () => {
     rerender(<WikiCreateButton>新建</WikiCreateButton>);
 
     fireEvent.click(button);
-    expect(mockPush).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(mockPush).toHaveBeenCalledTimes(2));
   });
 });
