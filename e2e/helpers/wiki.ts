@@ -35,6 +35,6 @@ export async function createUntitledWikiPage(page: Page) {
   });
   await page.getByRole("button", { name: "共享", exact: true }).click();
   await page.getByRole("button", { name: "发布到 Wiki", exact: true }).click();
-  await page.waitForURL(canonicalWikiPageUrl, { timeout: 30_000 });
+  await expect(page).toHaveURL(wikiPageUrl(pageId), { timeout: 30_000 });
   return pageId;
 }

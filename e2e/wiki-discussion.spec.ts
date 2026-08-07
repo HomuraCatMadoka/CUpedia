@@ -82,12 +82,23 @@ async function openDiscussion(page: Page) {
   const panelTrigger = page.locator(
     'button[aria-controls="wiki-discussion-panel"]',
   );
+  const panel = page.locator("#wiki-discussion-panel");
   await expect(panelTrigger).toBeVisible();
-  if ((await panelTrigger.getAttribute("aria-expanded")) === "false") {
-    await panelTrigger.click();
+  await expect(async () => {
+    if (!(await panel.isVisible())) {
+      await panelTrigger.click();
+    }
+    await expect(panel).toBeVisible({ timeout: 1_000 });
+  }).toPass();
+  const comment = page.getByText(rootComment, { exact: true }).first();
+  const threadButton = page.getByRole("button", {
+    name: new RegExp(rootComment),
+  });
+  await expect(comment.or(threadButton).first()).toBeVisible();
+  if (!(await comment.isVisible())) {
+    await threadButton.click();
   }
-  await page.getByRole("button", { name: new RegExp(rootComment) }).click();
-  await expect(page.getByText(rootComment, { exact: true })).toBeVisible();
+  await expect(comment).toBeVisible();
 }
 
 test.afterAll(async () => {

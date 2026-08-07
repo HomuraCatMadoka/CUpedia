@@ -48,6 +48,7 @@ const primaryProfile = selectProfessorProfile(professor.researchPortalUrl, [
     profileVerifiedAt: "2026-08-05T00:00:00Z",
     appointmentKind: "regular",
     isCurrent: true,
+    imageUrl: professor.imageUrl,
   },
 ]);
 
@@ -113,7 +114,7 @@ export default function ProfessorCardMockupPage() {
         <section className="mt-6 overflow-hidden rounded-xl border bg-card">
           <div className="grid gap-6 p-5 sm:grid-cols-[128px_1fr] sm:p-7">
             <ProfessorPortrait
-              imageUrl={professor.imageUrl}
+              imageUrls={[professor.imageUrl]}
               name={professor.name}
             />
 

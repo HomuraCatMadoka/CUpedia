@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
+import { waitForHydratedWikiEditor } from "./helpers/wiki";
 
 async function query<T extends Record<string, unknown>>(
   text: string,
@@ -423,7 +424,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
       await createButton.click();
       await expect(page).toHaveURL(/\?draft=1$/);
       pageIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
-      await expect(createButton).not.toHaveAttribute("aria-busy");
+      await waitForHydratedWikiEditor(page);
 
       await createButton.click();
       await expect

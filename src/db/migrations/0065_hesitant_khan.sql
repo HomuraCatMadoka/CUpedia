@@ -1,0 +1,1 @@
+ALTER TABLE "course_enrollments" ALTER COLUMN "vacancy" DROP NOT NULL;
