@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { CommandSearch } from "@/components/layout/command-search";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
+import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 
 const NotificationCenter = dynamic(() =>
   import("@/components/layout/notification-center").then(
@@ -33,6 +34,7 @@ const NotificationCenter = dynamic(() =>
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session } = authClient.useSession();
   // `useSession` reads a cookie-backed session snapshot synchronously on the
   // client, so the first client render can already know the user while the
@@ -41,11 +43,37 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   // branch on mount so the server output and the first client render agree on
   // the logged-out markup; the real session UI swaps in right after mount.
   const mounted = useMounted();
+  const sessionUserId = session?.user?.id ?? session?.user?.email;
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
   const [nicknameError, setNicknameError] = useState("");
   const [saving, setSaving] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [achievementNotice, setAchievementNotice] = useState<{
+    userId: string | undefined;
+    count: number;
+  }>({ userId: undefined, count: 0 });
+  const achievementNoticeCount =
+    achievementNotice.userId === sessionUserId ? achievementNotice.count : 0;
+
+  useEffect(() => {
+    if (!mounted || !sessionUserId) return;
+    let cancelled = false;
+    const handleNoticesSeen = () => {
+      cancelled = true;
+      setAchievementNotice({ userId: sessionUserId, count: 0 });
+    };
+    window.addEventListener("achievement-notices-seen", handleNoticesSeen);
+    void getAchievementNoticeCount()
+      .then((count) => {
+        if (!cancelled) setAchievementNotice({ userId: sessionUserId, count });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("achievement-notices-seen", handleNoticesSeen);
+    };
+  }, [mounted, pathname, sessionUserId]);
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -139,7 +167,20 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                 <NotificationCenter />
                 <DropdownMenu>
                   <DropdownMenuTrigger className="flex min-h-11 touch-manipulation items-center gap-2 rounded-md px-2 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1">
-                    <AchievementAvatar image={session.user.image} size="xs" />
+                    <span className="relative">
+                      <AchievementAvatar image={session.user.image} size="xs" />
+                      {achievementNoticeCount > 0 && (
+                        <span
+                          data-testid="achievement-notice-badge"
+                          aria-label={`${achievementNoticeCount} 个未读成就提醒`}
+                          className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-semibold text-white tabular-nums"
+                        >
+                          {achievementNoticeCount > 9
+                            ? "9+"
+                            : achievementNoticeCount}
+                        </span>
+                      )}
+                    </span>
                     <span className="hidden sm:inline">
                       {((session.user as Record<string, unknown>)
                         .nickname as string) || session.user.email}

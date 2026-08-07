@@ -250,11 +250,15 @@ test.afterAll(async () => {
 test("ignores a stale department filter instead of showing an empty directory", async ({
   page,
 }) => {
-  await page.goto("/professors?department=department-that-no-longer-exists");
+  await page.goto(
+    "/professors?q=%20%20&department=department-that-no-longer-exists",
+  );
 
   await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
     2,
   );
+  await expect(page.getByText(/全部 \d+ 位教授/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "清除筛选" })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "按学系或学院筛选" }),
   ).toContainText("全部学系");

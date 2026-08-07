@@ -1,4 +1,4 @@
-// 摄取课程目录：scripts/data/courses.json → normalizeCourse → upsert courses 表。
+// 摄取课程目录（本科 + 5000+ 研究生）：courses.json → normalizeCourse → courses 表。
 // 数据由 tools/scraper/scrape_courses.py 产出。幂等（按 code 冲突更新）。
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -41,7 +41,7 @@ async function main() {
     .filter((c): c is NonNullable<typeof c> => c !== null)
     .map((c) => ({ ...c, units: String(c.units) }));
   console.log(
-    `Ingesting ${rows.length}/${raw.length} courses (UG, with code)...`,
+    `Ingesting ${rows.length}/${raw.length} courses (UG + 5000+ PG, with code)...`,
   );
 
   const pool = new Pool({ connectionString: url });

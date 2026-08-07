@@ -112,7 +112,7 @@ export default async function ProfessorSearchMockupPage({
               >
                 <ProfessorPortrait
                   variant="icon"
-                  imageUrl={professor.imageUrl}
+                  imageUrls={professor.imageUrl ? [professor.imageUrl] : []}
                   name={professor.name}
                 />
                 <div className="min-w-0 flex-1">

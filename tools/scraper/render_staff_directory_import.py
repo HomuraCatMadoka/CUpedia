@@ -201,6 +201,7 @@ def build_payload(
                 "source": SOURCE,
                 "source_key": source_key,
                 "profile_url": person["profileUrl"],
+                "image_url": person.get("imageUrl"),
                 "source_url": person["profileUrl"],
             }
         )
@@ -610,7 +611,7 @@ begin
          _staff_directory_import,
          jsonb_to_recordset(payload->'person_sources') as incoming(
            person_id text, source text, source_key text, profile_url text,
-           source_url text
+           image_url text, source_url text
          )
     where existing.source = incoming.source
       and existing.source_key = incoming.source_key
@@ -622,19 +623,20 @@ end
 $$;
 
 insert into staff_person_sources (
-  person_id, source, source_key, profile_url, source_url,
+  person_id, source, source_key, profile_url, image_url, source_url,
   first_seen_at, last_seen_at, is_current, missing_runs
 )
-select x.person_id, x.source, x.source_key, x.profile_url, x.source_url,
+select x.person_id, x.source, x.source_key, x.profile_url, x.image_url, x.source_url,
        meta.observed_at, meta.observed_at, true, 0
 from _staff_directory_import,
      lateral (select (payload->>'observed_at')::timestamptz observed_at) meta,
      jsonb_to_recordset(payload->'person_sources') as x(
        person_id text, source text, source_key text, profile_url text,
-       source_url text
+       image_url text, source_url text
      )
 on conflict (source, source_key) do update set
   profile_url = excluded.profile_url,
+  image_url = excluded.image_url,
   source_url = excluded.source_url,
   last_seen_at = excluded.last_seen_at,
   is_current = true,

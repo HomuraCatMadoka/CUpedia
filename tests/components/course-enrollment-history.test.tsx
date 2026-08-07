@@ -38,6 +38,25 @@ const HISTORY: CourseEnrollmentView[] = [
 afterEach(cleanup);
 
 describe("CourseEnrollmentHistory", () => {
+  it("未知 vacancy 显示横线", () => {
+    render(
+      <CourseEnrollmentHistory
+        enrollmentHistory={[
+          {
+            academicYear: "2026-27",
+            term: "Term 1",
+            section: null,
+            enrolled: null,
+            quota: 60,
+            instructors: ["Professor CHENG James"],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("- / 60")).toBeTruthy();
+  });
+
   it("默认展示最新学年和学期的前 10 个 Section，并可展开其余记录", () => {
     render(<CourseEnrollmentHistory enrollmentHistory={HISTORY} />);
 

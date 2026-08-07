@@ -225,6 +225,98 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         )
         self.assertEqual(enriched["email"], "ktlam@cse.cuhk.edu.hk")
 
+    def test_english_api_allows_only_regular_staff_in_full_time(self):
+        config = {
+            **self.config(),
+            "adapter": "eng_staff_api",
+            "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+            "allowedAppointmentKinds": ["regular"],
+        }
+        payload = json.dumps({
+            "posts": [
+                {
+                    "title": "Regular Person",
+                    "positions": "Associate Professor",
+                    "sub_title": "",
+                    "email": "regular@cuhk.edu.hk",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/regular/",
+                    "img_url": "https://dept.cuhk.edu.hk/regular.jpg",
+                },
+                {
+                    "title": "Adjunct Person",
+                    "positions": "Adjunct Professor",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/adjunct/",
+                },
+                {
+                    "title": "Emeritus Person",
+                    "positions": "Emeritus Professor",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/emeritus/",
+                },
+                {
+                    "title": "Visiting Person",
+                    "positions": "Visiting Professor",
+                    "permalink": "https://dept.cuhk.edu.hk/staff/visiting/",
+                },
+            ]
+        })
+        records = subject.parse_json_directory(payload, config)
+        self.assertEqual([record["name"] for record in records], ["Regular Person"])
+        self.assertEqual(records[0]["appointmentKind"], "regular")
+        self.assertEqual(records[0]["sourceUrl"], config["sourceUrl"])
+
+    def test_source_identity_can_preserve_a_reviewed_legacy_host(self):
+        record = {"profileUrl": "https://eng.cuhk.edu.hk/staff/person/"}
+        self.assertEqual(
+            subject.source_identity_key(
+                record,
+                "english-full-time",
+                "www.eng.cuhk.edu.hk",
+            ),
+            "https://www.eng.cuhk.edu.hk/staff/person",
+        )
+
+    def test_profile_page_can_supply_photo_when_roster_already_has_email(self):
+        record = {
+            "email": "ktlam@cuhk.edu.hk",
+            "imageUrl": None,
+            "profileUrl": "https://dept.cuhk.edu.hk/people/lam/",
+        }
+        config = {
+            "profileEmailSelector": ".contact",
+            "profileImageSelector": "meta[property='og:image']",
+        }
+        self.assertTrue(subject.needs_profile_enrichment(record, config))
+        enriched = subject.enrich_from_profile(
+            record,
+            "<meta property='og:image' content='/images/lam.jpg'>",
+            config["profileEmailSelector"],
+            config["profileImageSelector"],
+            "content",
+        )
+        self.assertEqual(
+            enriched["imageUrl"],
+            "https://dept.cuhk.edu.hk/images/lam.jpg",
+        )
+
+    def test_profile_placeholder_photo_is_not_imported(self):
+        record = {
+            "email": None,
+            "imageUrl": None,
+            "profileUrl": "https://dept.cuhk.edu.hk/people/lam/",
+        }
+        enriched = subject.enrich_from_profile(
+            record,
+            "<main><img class='portrait' src='/images/placeholder_240.png'></main>",
+            image_selector=".portrait",
+        )
+        self.assertIsNone(enriched["imageUrl"])
+        self.assertIsNone(
+            subject.photo_url(
+                record["profileUrl"],
+                "/images/male-photo-e1582797285842.jpg",
+            )
+        )
+
     def test_profile_email_prefers_cuhk_over_unrelated_publication_email(self):
         self.assertEqual(
             subject.email_in_text("edition@aaai.org / person@cse.cuhk.edu.hk"),
@@ -241,7 +333,7 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
             "francisyip@cuhk.edu.hk",
         )
 
-    def test_unique_short_department_name_stays_a_candidate(self):
+    def test_unique_department_alias_matches_within_the_same_organisation(self):
         directory = self.directory()
         directory["people"][0]["name"] = "Professor LAM Kuo Chin King Tin"
         html = """
@@ -251,8 +343,28 @@ class ScrapeDepartmentProfilesTest(unittest.TestCase):
         report = subject.build_report(
             directory, [self.config()], {self.config()["directoryUrl"]: html}
         )
+        self.assertEqual(report["records"][0]["matchedBy"], "organisation_alias")
+        self.assertEqual(report["unresolved"], [])
+
+    def test_department_alias_must_resolve_to_exactly_one_person(self):
+        directory = self.directory()
+        directory["people"][0]["name"] = "Professor LAM King Tin Alan"
+        directory["people"].append({
+            **directory["people"][0],
+            "externalId": "33333333-3333-3333-3333-333333333333",
+            "name": "Professor LAM King Tin Peter",
+            "profileUrl": "https://research.cuhk.edu.hk/en/persons/peter-lam/",
+        })
+        html = """
+        <div class="person"><a class="profile" href="/people/lam/"></a>
+          <h2>King Tin Lam</h2><p class="title">Lecturer</p></div>
+        """
+        report = subject.build_report(
+            directory, [self.config()], {self.config()["directoryUrl"]: html}
+        )
         self.assertEqual(report["records"], [])
         self.assertEqual(report["unresolved"][0]["status"], "candidate")
+        self.assertEqual(len(report["unresolved"][0]["candidatePersonIds"]), 2)
 
     def test_email_requires_a_compatible_name(self):
         html = """
