@@ -41,6 +41,7 @@ export default async function CoursesPage({
     sort: sortParam,
     page: pageParam,
   } = await searchParams;
+  const query = q?.trim() || undefined;
   const sort = sortParam === "latest" ? "latest" : "rating-count";
   const sortQuery = sort === "latest" ? sort : undefined;
   const requestedPage = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
@@ -48,7 +49,7 @@ export default async function CoursesPage({
   const [result, subjects] = await Promise.all([
     getCourses({
       credits,
-      query: q,
+      query,
       subject,
       level,
       sort,
@@ -59,9 +60,9 @@ export default async function CoursesPage({
   const { courses, total, pageSize, page } = result;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const filtering = Boolean(q || subject || credits || level);
+  const filtering = Boolean(query || subject || credits || level);
   const currentListHref = pageHref(
-    { credits, q, subject, level, sort: sortQuery },
+    { credits, q: query, subject, level, sort: sortQuery },
     page,
   );
 
@@ -80,7 +81,7 @@ export default async function CoursesPage({
         </div>
 
         <div className="mt-8 space-y-5">
-          <CourseSearch initialQuery={q ?? ""} />
+          <CourseSearch initialQuery={query ?? ""} />
           <CourseFilters
             credits={credits}
             subject={subject}
@@ -100,7 +101,13 @@ export default async function CoursesPage({
                 ariaLabel="课程顶部分页"
                 page={page}
                 totalPages={totalPages}
-                filters={{ credits, q, subject, level, sort: sortQuery }}
+                filters={{
+                  credits,
+                  q: query,
+                  subject,
+                  level,
+                  sort: sortQuery,
+                }}
               />
             )}
           </div>
@@ -135,7 +142,13 @@ export default async function CoursesPage({
               ariaLabel="课程底部分页"
               page={page}
               totalPages={totalPages}
-              filters={{ credits, q, subject, level, sort: sortQuery }}
+              filters={{
+                credits,
+                q: query,
+                subject,
+                level,
+                sort: sortQuery,
+              }}
               className="justify-center pt-3"
             />
           )}

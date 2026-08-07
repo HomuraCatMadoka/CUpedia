@@ -1,5 +1,17 @@
 import { test, expect } from "@playwright/test";
 
+test("ignores a whitespace-only course query", async ({ page }) => {
+  await page.goto("/courses?q=%20%20");
+
+  await expect(page.getByText(/全部 \d+ 门课程/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "清除搜索与筛选" })).toHaveCount(
+    0,
+  );
+  await expect(page.getByRole("searchbox", { name: "搜索课程" })).toHaveValue(
+    "",
+  );
+});
+
 test("#266 public browse, search, credits filter, and detail", async ({
   page,
 }) => {
