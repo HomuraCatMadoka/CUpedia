@@ -409,12 +409,22 @@ function PageTreeItem({
           }
         }}
         onDrop={(event) => {
-          if (!draggedPage || !dropPlacement) return;
+          if (
+            !draggedPage ||
+            draggedPage.id === node.id ||
+            draggedPage.parentId !== node.parentId
+          ) {
+            return;
+          }
           event.preventDefault();
           event.stopPropagation();
+          const bounds = event.currentTarget.getBoundingClientRect();
           movePage(draggedPage.id, {
             targetPageId: node.id,
-            placement: dropPlacement,
+            placement:
+              event.clientY < bounds.top + bounds.height / 2
+                ? "before"
+                : "after",
           });
           setDropTarget(null);
         }}
