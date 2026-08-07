@@ -4,15 +4,20 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockPush, mockEnsureContributorSetup, navigation } = vi.hoisted(() => ({
-  mockPush: vi.fn(),
-  mockEnsureContributorSetup: vi.fn().mockResolvedValue(true),
-  navigation: { pathname: "/wiki" },
-}));
+const { mockAssign, mockEnsureContributorSetup, navigation } = vi.hoisted(
+  () => ({
+    mockAssign: vi.fn(),
+    mockEnsureContributorSetup: vi.fn().mockResolvedValue(true),
+    navigation: { pathname: "/wiki" },
+  }),
+);
 
 vi.mock("next/navigation", () => ({
   usePathname: () => navigation.pathname,
-  useRouter: () => ({ push: mockPush }),
+}));
+
+vi.mock("@/lib/document-navigation", () => ({
+  navigateDocument: mockAssign,
 }));
 
 vi.mock("@/components/auth/contributor-setup-provider", () => ({
@@ -40,23 +45,23 @@ describe("WikiCreateButton", () => {
     );
     fireEvent.click(button);
 
-    await waitFor(() => expect(mockPush).toHaveBeenCalledOnce());
-    expect(mockPush).toHaveBeenCalledWith(
+    await waitFor(() => expect(mockAssign).toHaveBeenCalledOnce());
+    expect(mockAssign).toHaveBeenCalledWith(
       expect.stringMatching(/^\/wiki\/[0-9a-f-]+\?draft=1&parent=parent-1$/),
     );
   });
 
-  it("creates a page when the button is activated with Space", () => {
+  it("creates a page when the button is activated with Space", async () => {
     render(<WikiCreateButton>新建</WikiCreateButton>);
 
     fireEvent.keyDown(screen.getByRole("button", { name: "新建" }), {
       key: " ",
     });
 
-    expect(mockPush).toHaveBeenCalledOnce();
+    await waitFor(() => expect(mockAssign).toHaveBeenCalledOnce());
   });
 
-  it("navigates immediately and only once while contributor setup is pending", async () => {
+  it("persists before navigating and ignores duplicate activation", async () => {
     let completeSetup!: (complete: boolean) => void;
     mockEnsureContributorSetup.mockReturnValue(
       new Promise<boolean>((resolve) => {
@@ -71,15 +76,16 @@ describe("WikiCreateButton", () => {
     expect(button.getAttribute("aria-disabled")).toBeNull();
     expect(button.getAttribute("aria-busy")).toBeNull();
     expect(mockEnsureContributorSetup).toHaveBeenCalledOnce();
-    expect(mockPush).toHaveBeenCalledOnce();
+    expect(mockAssign).not.toHaveBeenCalled();
 
     completeSetup(true);
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    await waitFor(() => expect(mockAssign).toHaveBeenCalledOnce());
     expect(button.getAttribute("aria-disabled")).toBeNull();
     expect(button.getAttribute("aria-busy")).toBeNull();
   });
 
-  it("does not allow a second page when eager persistence fails before navigation commits", async () => {
+  it("allows retry when draft persistence fails", async () => {
     vi.mocked(fetch).mockResolvedValue({ ok: false } as Response);
     render(<WikiCreateButton>新建</WikiCreateButton>);
 
@@ -88,24 +94,39 @@ describe("WikiCreateButton", () => {
     await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
     fireEvent.click(button);
 
-    expect(mockPush).toHaveBeenCalledOnce();
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(mockAssign).not.toHaveBeenCalled();
     expect(button.getAttribute("aria-disabled")).toBeNull();
     expect(button.getAttribute("aria-busy")).toBeNull();
   });
 
-  it("allows another page after the first navigation commits", async () => {
+  it("ignores duplicate activation while document navigation is pending", async () => {
+    render(<WikiCreateButton>新建</WikiCreateButton>);
+
+    const button = screen.getByRole("button", { name: "新建" });
+    fireEvent.click(button);
+    await waitFor(() => expect(mockAssign).toHaveBeenCalledOnce());
+    fireEvent.click(button);
+    expect(mockAssign).toHaveBeenCalledOnce();
+  });
+
+  it("does not resume stale creation after the user navigates away", async () => {
+    let completeSetup!: (complete: boolean) => void;
+    mockEnsureContributorSetup.mockReturnValue(
+      new Promise<boolean>((resolve) => {
+        completeSetup = resolve;
+      }),
+    );
     const { rerender } = render(<WikiCreateButton>新建</WikiCreateButton>);
 
     const button = screen.getByRole("button", { name: "新建" });
     fireEvent.click(button);
-    const firstDestination = mockPush.mock.calls[0]![0] as string;
-    navigation.pathname = new URL(
-      firstDestination,
-      "https://example.test",
-    ).pathname;
+    navigation.pathname = "/courses";
     rerender(<WikiCreateButton>新建</WikiCreateButton>);
+    completeSetup(true);
 
-    fireEvent.click(button);
-    expect(mockPush).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(fetch).not.toHaveBeenCalled());
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mockAssign).not.toHaveBeenCalled();
   });
 });
