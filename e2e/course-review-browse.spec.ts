@@ -4,7 +4,7 @@ test("#266 public browse, search, credits filter, and detail", async ({
   page,
 }) => {
   await page.goto("/courses");
-  await expect(page.getByRole("heading", { name: "课程测评" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "查找课程" })).toBeVisible();
 
   await page.getByRole("button", { name: "筛选" }).click();
   await page
@@ -31,7 +31,7 @@ test("#266 public browse, search, credits filter, and detail", async ({
   await page.getByRole("button", { name: "查看课程" }).click();
   await expect(page).not.toHaveURL(/credits=/);
 
-  const search = page.getByPlaceholder("搜索课程代码或名称...");
+  const search = page.getByRole("searchbox", { name: "搜索课程" });
   await search.fill("CSCI1130");
   await search.press("Enter");
   await expect(page).toHaveURL(/q=CSCI1130/);

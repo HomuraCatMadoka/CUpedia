@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CourseCatalogTabs } from "@/components/courses/course-catalog-tabs";
+import { buttonVariants } from "@/components/ui/button";
 import {
   ProfessorDirectoryFilters,
   ProfessorDirectorySort,
@@ -52,16 +53,22 @@ export default async function ProfessorsPage({
     sort,
     ratedOnly,
   });
+  const query = params.q?.trim() || undefined;
+  const department = result.departments.some(
+    (option) => option.id === params.department,
+  )
+    ? params.department
+    : undefined;
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const filters = {
-    q: params.q,
-    department: params.department,
+    q: query,
+    department,
     sort: sort === "rating-count" ? undefined : sort,
     rated: ratedOnly ? "1" : undefined,
   };
   const currentHref = directoryHref({ ...filters, page: result.page });
   const filtering = Boolean(
-    params.q || params.department || sort !== "rating-count" || ratedOnly,
+    query || department || sort !== "rating-count" || ratedOnly,
   );
 
   return (
@@ -78,10 +85,10 @@ export default async function ProfessorsPage({
         </div>
 
         <ProfessorDirectoryFilters
-          key={`${params.q ?? ""}:${params.department ?? ""}:${sort}:${ratedOnly}`}
+          key={`${query ?? ""}:${department ?? ""}:${sort}:${ratedOnly}`}
           departments={result.departments}
-          initialDepartment={params.department}
-          initialQuery={params.q}
+          initialDepartment={department}
+          initialQuery={query}
           sort={sort}
           ratedOnly={ratedOnly}
         />
@@ -165,12 +172,23 @@ export default async function ProfessorsPage({
             {result.page > 1 ? (
               <Link
                 href={directoryHref({ ...filters, page: result.page - 1 })}
-                className="inline-flex min-h-11 touch-manipulation items-center rounded-lg border px-3 py-2 text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 touch-manipulation",
+                })}
               >
                 上一页
               </Link>
             ) : (
-              <span className="inline-flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm text-muted-foreground opacity-50">
+              <span
+                aria-disabled="true"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 opacity-50",
+                })}
+              >
                 上一页
               </span>
             )}
@@ -180,12 +198,23 @@ export default async function ProfessorsPage({
             {result.page < totalPages ? (
               <Link
                 href={directoryHref({ ...filters, page: result.page + 1 })}
-                className="inline-flex min-h-11 touch-manipulation items-center rounded-lg border px-3 py-2 text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 touch-manipulation",
+                })}
               >
                 下一页
               </Link>
             ) : (
-              <span className="inline-flex min-h-11 items-center rounded-lg border px-3 py-2 text-sm text-muted-foreground opacity-50">
+              <span
+                aria-disabled="true"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 opacity-50",
+                })}
+              >
                 下一页
               </span>
             )}
