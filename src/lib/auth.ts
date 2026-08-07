@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { emailOTP } from "better-auth/plugins";
+import { emailOTP, bearer } from "better-auth/plugins";
 import { createAuthMiddleware, APIError } from "better-auth/api";
 import { db } from "@/db";
 import { users, sessions, accounts, verifications } from "@/db/schema";
@@ -59,6 +59,9 @@ export const auth = betterAuth({
       // Resends reuse the active code and refresh its ten-minute expiry.
       resendStrategy: "reuse",
     }),
+    // CLI API auth: turns `Authorization: Bearer <sessionToken>` into a session
+    // so non-browser callers (cupedia CLI) can authenticate without cookies.
+    bearer(),
   ],
   hooks: {
     // Enforce the eligible-account whitelist server-side at account creation
