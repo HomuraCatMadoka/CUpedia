@@ -50,7 +50,9 @@ export function menuSectionLabel(svgKey: string): string {
 function sectionMinSortOrder(items: CanteenMenuItem[]): number {
   let min = Number.POSITIVE_INFINITY;
   for (const item of items) {
-    if (item.sortOrder < min) min = item.sortOrder;
+    if (Number.isFinite(item.sortOrder) && item.sortOrder < min) {
+      min = item.sortOrder;
+    }
   }
   return Number.isFinite(min) ? min : 0;
 }
@@ -75,11 +77,13 @@ export function groupMenuItemsBySvgKey(
     }
   }
 
+  const minSortOrders = new Map<string, number>();
+  for (const [key, group] of buckets) {
+    minSortOrders.set(key, sectionMinSortOrder(group));
+  }
+
   const orderedKeys = [...buckets.keys()].sort((a, b) => {
-    const aItems = buckets.get(a)!;
-    const bItems = buckets.get(b)!;
-    const bySort =
-      sectionMinSortOrder(aItems) - sectionMinSortOrder(bItems);
+    const bySort = minSortOrders.get(a)! - minSortOrders.get(b)!;
     if (bySort !== 0) return bySort;
 
     const aKnown = KNOWN_SECTION_KEYS.has(a);
