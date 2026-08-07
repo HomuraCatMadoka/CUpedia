@@ -73,5 +73,5 @@ scripts/data/
 # assets
 design.png
 supabase/
-# plans (cli-api 项目计划与 skill 拷贝，本地开发参考，不提交)
-docs/plans/cli-api/
+# plans (本地开发参考，不提交)
+docs/plans/
