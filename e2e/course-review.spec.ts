@@ -94,7 +94,7 @@ test("#348 browser back restores the course list browsing position", async ({
   await page.goBack();
 
   await expect(page).toHaveURL(/\/courses\?subject=CSCI$/);
-  await expect(page.getByRole("heading", { name: "课程测评" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "查找课程" })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(positionBeforeNavigation - 50);
@@ -107,7 +107,7 @@ test("#348 return link restores the course list browsing position", async ({
   await page.getByRole("link", { name: "返回课程列表" }).click();
 
   await expect(page).toHaveURL(/\/courses\?subject=CSCI$/);
-  await expect(page.getByRole("heading", { name: "课程测评" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "查找课程" })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => window.scrollY))
     .toBeGreaterThan(positionBeforeNavigation - 50);
@@ -139,7 +139,7 @@ test("#348 a directly opened detail uses the course list fallback", async ({
   await page.getByRole("link", { name: "返回课程列表" }).click();
 
   await expect(page).toHaveURL(/\/courses\?subject=CSCI$/);
-  await expect(page.getByRole("heading", { name: "课程测评" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "查找课程" })).toBeVisible();
 });
 
 test("#348 a detail opened in a new tab returns within that tab", async ({
@@ -190,7 +190,7 @@ test("#348 a new course list does not reuse another list position", async ({
   await page.goto("/courses?subject=MATH");
 
   await expect(page).toHaveURL(/\/courses\?subject=MATH$/);
-  await expect(page.getByRole("heading", { name: "课程测评" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "查找课程" })).toBeVisible();
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 

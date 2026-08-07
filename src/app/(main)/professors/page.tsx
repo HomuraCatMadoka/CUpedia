@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { CourseCatalogTabs } from "@/components/courses/course-catalog-tabs";
+import { buttonVariants } from "@/components/ui/button";
 import {
   ProfessorDirectoryFilters,
   ProfessorDirectorySort,
@@ -52,14 +53,23 @@ export default async function ProfessorsPage({
     sort,
     ratedOnly,
   });
+  const query = params.q?.trim() || undefined;
+  const department = result.departments.some(
+    (option) => option.id === params.department,
+  )
+    ? params.department
+    : undefined;
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const filters = {
-    q: params.q,
-    department: params.department,
+    q: query,
+    department,
     sort: sort === "rating-count" ? undefined : sort,
     rated: ratedOnly ? "1" : undefined,
   };
   const currentHref = directoryHref({ ...filters, page: result.page });
+  const filtering = Boolean(
+    query || department || sort !== "rating-count" || ratedOnly,
+  );
 
   return (
     <div className="min-w-0 flex-1 overflow-y-auto">
@@ -75,10 +85,10 @@ export default async function ProfessorsPage({
         </div>
 
         <ProfessorDirectoryFilters
-          key={`${params.q ?? ""}:${params.department ?? ""}:${sort}:${ratedOnly}`}
+          key={`${query ?? ""}:${department ?? ""}:${sort}:${ratedOnly}`}
           departments={result.departments}
-          initialDepartment={params.department}
-          initialQuery={params.q}
+          initialDepartment={department}
+          initialQuery={query}
           sort={sort}
           ratedOnly={ratedOnly}
         />
@@ -86,14 +96,13 @@ export default async function ProfessorsPage({
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm text-muted-foreground">
-              找到 {result.total} 位教授
+              {filtering
+                ? `找到 ${result.total} 位教授`
+                : `全部 ${result.total} 位教授`}
               {totalPages > 1 ? `，第 ${result.page} / ${totalPages} 页` : ""}
               {ratedOnly ? "，仅看有评价" : ""}
             </p>
-            {params.q ||
-            params.department ||
-            sort !== "rating-count" ||
-            ratedOnly ? (
+            {filtering ? (
               <Link
                 href="/professors"
                 className="rounded-sm text-sm text-muted-foreground underline decoration-border underline-offset-4 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -108,12 +117,14 @@ export default async function ProfessorsPage({
         {result.professors.length === 0 ? (
           <div className="mt-4 rounded-2xl border border-dashed p-10 text-center text-sm text-muted-foreground">
             <p>没有符合条件的教授。</p>
-            <Link
-              href="/professors"
-              className="mt-3 inline-block font-medium text-foreground underline underline-offset-4"
-            >
-              清除筛选
-            </Link>
+            {filtering && (
+              <Link
+                href="/professors"
+                className="mt-3 inline-flex min-h-11 touch-manipulation items-center font-medium text-foreground underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                清除筛选
+              </Link>
+            )}
           </div>
         ) : (
           <div className="mt-5 grid grid-cols-3 gap-x-2 gap-y-4 sm:gap-x-5 sm:gap-y-5 lg:grid-cols-4">
@@ -124,7 +135,7 @@ export default async function ProfessorsPage({
               >
                 <Link
                   href={`/professors/${professor.publicId}?from=${encodeURIComponent(currentHref)}`}
-                  aria-label={`查看 ${professor.name} 的教授测评`}
+                  aria-label={`查看 ${professor.name}（${professor.department ?? professor.faculty ?? "香港中文大学"}）的教授测评`}
                   className="group flex min-h-44 min-w-0 flex-col items-center justify-center rounded-2xl px-1 py-3 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-56 sm:px-3 sm:py-5"
                 >
                   <ProfessorPortrait
@@ -136,7 +147,7 @@ export default async function ProfessorsPage({
                     <h2 className="line-clamp-2 text-sm font-medium tracking-[-0.02em] group-hover:underline group-hover:underline-offset-4 sm:text-base">
                       {professor.name}
                     </h2>
-                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                    <p className="mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground">
                       {professor.department ??
                         professor.faculty ??
                         "香港中文大学"}
@@ -161,12 +172,23 @@ export default async function ProfessorsPage({
             {result.page > 1 ? (
               <Link
                 href={directoryHref({ ...filters, page: result.page - 1 })}
-                className="rounded-lg border px-3 py-2 text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 touch-manipulation",
+                })}
               >
                 上一页
               </Link>
             ) : (
-              <span className="rounded-lg border px-3 py-2 text-sm text-muted-foreground opacity-50">
+              <span
+                aria-disabled="true"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 opacity-50",
+                })}
+              >
                 上一页
               </span>
             )}
@@ -176,12 +198,23 @@ export default async function ProfessorsPage({
             {result.page < totalPages ? (
               <Link
                 href={directoryHref({ ...filters, page: result.page + 1 })}
-                className="rounded-lg border px-3 py-2 text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 touch-manipulation",
+                })}
               >
                 下一页
               </Link>
             ) : (
-              <span className="rounded-lg border px-3 py-2 text-sm text-muted-foreground opacity-50">
+              <span
+                aria-disabled="true"
+                className={buttonVariants({
+                  variant: "outline",
+                  size: "lg",
+                  className: "min-h-11 opacity-50",
+                })}
+              >
                 下一页
               </span>
             )}
