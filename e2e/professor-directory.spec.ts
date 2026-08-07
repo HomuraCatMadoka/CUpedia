@@ -365,6 +365,32 @@ test("shows three professor cards in one row on mobile", async ({ page }) => {
   expect(new Set(cardTops).size).toBe(1);
 });
 
+test("scrolls the professor course picker on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto(`/professors/${PUBLIC_ID}`);
+  await page.getByRole("button", { name: /查看全部 \d+ 门并搜索课程/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "选择课程评价" });
+  const results = dialog
+    .getByRole("heading", { name: "目前收录" })
+    .locator("../..")
+    .locator("..");
+
+  await expect
+    .poll(() =>
+      results.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    )
+    .toBeGreaterThan(0);
+
+  await results.hover();
+  await page.mouse.wheel(0, 800);
+  await expect
+    .poll(() => results.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
 test("searches a professor, opens the card, and binds a course review", async ({
   page,
 }, testInfo) => {
