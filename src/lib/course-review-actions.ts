@@ -190,6 +190,8 @@ export type CourseView = Course & {
   ratingCount: number;
   /** Most recent written review, for recency context in the catalog. */
   latestCommentAt: string | null;
+  /** Most recent rating or written review, matching the catalog's recency sort. */
+  latestEvaluationAt: string | null;
 };
 
 export type CourseRatingState = {
@@ -585,6 +587,7 @@ async function buildViews(rows: CourseRow[]): Promise<CourseView[]> {
         code: courseRatings.courseCode,
         avg: sql<string | null>`avg(${courseRatings.score})`,
         cnt: count(),
+        latestAt: sql<Date | null>`max(${courseRatings.createdAt})`,
       })
       .from(courseRatings)
       .where(inArray(courseRatings.courseCode, codes))
@@ -605,6 +608,7 @@ async function buildViews(rows: CourseRow[]): Promise<CourseView[]> {
       {
         avg: Number(r.avg ?? 0),
         cnt: Number(r.cnt),
+        latestAt: r.latestAt,
       },
     ]),
   );
@@ -619,6 +623,7 @@ async function buildViews(rows: CourseRow[]): Promise<CourseView[]> {
     const agg = ratingMap.get(r.code) ?? {
       avg: 0,
       cnt: 0,
+      latestAt: null,
     };
     const reviewAgg = reviewMap.get(r.code) ?? { cnt: 0, latestAt: null };
     return {
@@ -630,8 +635,19 @@ async function buildViews(rows: CourseRow[]): Promise<CourseView[]> {
         reviewAgg.latestAt instanceof Date
           ? reviewAgg.latestAt.toISOString()
           : null,
+      latestEvaluationAt: latestDateIso(agg.latestAt, reviewAgg.latestAt),
     };
   });
+}
+
+function latestDateIso(...values: (Date | null)[]): string | null {
+  const timestamps = values
+    .filter((value): value is Date => value instanceof Date)
+    .map((value) => value.getTime())
+    .filter(Number.isFinite);
+  return timestamps.length
+    ? new Date(Math.max(...timestamps)).toISOString()
+    : null;
 }
 
 // ── Course reads ──
@@ -647,7 +663,10 @@ export async function getCourses(
   const levelCond = levelCondition(filter.level);
   const subject = filter.subject?.trim().toUpperCase();
   const sort = filter.sort === "latest" ? "latest" : "rating-count";
-  const page = Math.max(1, Math.floor(filter.page ?? 1));
+  const requestedPage = filter.page ?? 1;
+  const page = Number.isFinite(requestedPage)
+    ? Math.max(1, Math.floor(requestedPage))
+    : 1;
   const like = `%${q.toLowerCase()}%`;
   const codeLike = `%${normalizeCode(q).toLowerCase()}%`;
   const codePrefix = `${normalizeCode(q).toLowerCase()}%`;
@@ -677,8 +696,7 @@ export async function getCourses(
       ? sql`${latestEvaluationOrder} desc nulls last`
       : sql`${ratingCountOrder} desc`;
 
-  const [totalRows, rows] = await Promise.all([
-    db.select({ total: count() }).from(courses).where(where),
+  const queryPage = (pageNumber: number) =>
     db
       .select(courseCols)
       .from(courses)
@@ -691,13 +709,22 @@ export async function getCourses(
         courses.code,
       )
       .limit(PAGE_SIZE)
-      .offset((page - 1) * PAGE_SIZE),
-  ]);
+      .offset((pageNumber - 1) * PAGE_SIZE);
+  const totalRows = await db
+    .select({ total: count() })
+    .from(courses)
+    .where(where);
+  const total = Number(totalRows[0]?.total ?? 0);
+  const normalizedPage = Math.min(
+    Math.max(1, Math.ceil(total / PAGE_SIZE)),
+    page,
+  );
+  const rows = await queryPage(normalizedPage);
 
   return {
     courses: await buildViews(rows),
-    total: Number(totalRows[0]?.total ?? 0),
-    page,
+    total,
+    page: normalizedPage,
     pageSize: PAGE_SIZE,
   };
 }

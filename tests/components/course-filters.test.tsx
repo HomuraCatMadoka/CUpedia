@@ -154,28 +154,15 @@ describe("CourseFilters", () => {
     );
   });
 
-  it("在移动端筛选抽屉中点击选项后立即应用", async () => {
+  it("在移动端筛选抽屉中暂存选项并一次应用", async () => {
     render(<CourseFilters subjects={[]} />);
 
     fireEvent.click(screen.getAllByRole("button", { name: "筛选" })[0]);
 
     const dialog = await screen.findByRole("dialog", { name: "筛选课程" });
     fireEvent.click(within(dialog).getByRole("button", { name: "3" }));
-
-    await waitFor(() =>
-      expect(push).toHaveBeenCalledWith("/courses?subject=ELED&credits=3"),
-    );
-
     fireEvent.click(within(dialog).getByRole("button", { name: "3000" }));
-
-    await waitFor(() =>
-      expect(push).toHaveBeenCalledWith(
-        "/courses?subject=ELED&credits=3&level=3000",
-      ),
-    );
-    expect(
-      within(dialog).queryByRole("button", { name: "查看课程" }),
-    ).toBeNull();
+    expect(push).not.toHaveBeenCalled();
     expect(
       within(dialog)
         .getByRole("button", { name: "3" })
@@ -186,6 +173,14 @@ describe("CourseFilters", () => {
         .getByRole("button", { name: "3000" })
         .getAttribute("aria-pressed"),
     ).toBe("true");
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "查看课程" }));
+
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith(
+        "/courses?subject=ELED&credits=3&level=3000",
+      ),
+    );
   });
 
   it("在桌面端统一筛选学分和课程等级后一次应用", async () => {

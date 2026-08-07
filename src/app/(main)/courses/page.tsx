@@ -15,7 +15,6 @@ import {
 } from "@/components/courses/course-card-link";
 import { CourseGenderBadge } from "@/components/courses/course-gender-badge";
 import { CourseCatalogTabs } from "@/components/courses/course-catalog-tabs";
-import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 
 const COURSE_UPDATE_DATE_FORMATTER = new Intl.DateTimeFormat("zh-HK", {
   month: "numeric",
@@ -44,14 +43,20 @@ export default async function CoursesPage({
   } = await searchParams;
   const sort = sortParam === "latest" ? "latest" : "rating-count";
   const sortQuery = sort === "latest" ? sort : undefined;
-  const page = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
+  const requestedPage = Math.max(1, parseInt(pageParam ?? "1", 10) || 1);
 
-  const [result, subjects, achievementNoticeCount] = await Promise.all([
-    getCourses({ credits, query: q, subject, level, sort, page }),
+  const [result, subjects] = await Promise.all([
+    getCourses({
+      credits,
+      query: q,
+      subject,
+      level,
+      sort,
+      page: requestedPage,
+    }),
     getSubjects(),
-    getAchievementNoticeCount(),
   ]);
-  const { courses, total, pageSize } = result;
+  const { courses, total, pageSize, page } = result;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const filtering = Boolean(q || subject || credits || level);
@@ -61,36 +66,17 @@ export default async function CoursesPage({
   );
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="min-w-0 flex-1 overflow-y-auto">
       <CourseListNavigationReset />
-      <div className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-5">
-          <div className="flex flex-wrap items-center gap-x-7 gap-y-3">
-            <h1 className="text-2xl font-bold">课程测评</h1>
-            <CourseCatalogTabs active="courses" />
+      <div className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-10">
+        <div className="flex flex-wrap items-end justify-between gap-5 border-b pb-5">
+          <div>
+            <p className="text-sm text-muted-foreground">课程测评</p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em] text-balance">
+              查找课程
+            </h1>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Link
-              href="/courses/my-reviews"
-              className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
-            >
-              我的测评
-            </Link>
-            <Link
-              href="/courses/achievements"
-              className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
-            >
-              我的成就
-              {achievementNoticeCount > 0 && (
-                <span
-                  aria-label={`${achievementNoticeCount} 个未读成就提醒`}
-                  className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs text-background"
-                >
-                  {achievementNoticeCount}
-                </span>
-              )}
-            </Link>
-          </div>
+          <CourseCatalogTabs active="courses" />
         </div>
 
         <div className="mt-8 space-y-5">
@@ -121,7 +107,15 @@ export default async function CoursesPage({
 
           {courses.length === 0 ? (
             <div className="rounded-2xl border border-dashed p-12 text-center text-sm text-muted-foreground">
-              没有符合条件的课程，试试调整筛选或搜索词。
+              <p>没有符合条件的课程，试试调整筛选或搜索词。</p>
+              {filtering && (
+                <Link
+                  href="/courses"
+                  className="mt-3 inline-flex min-h-11 touch-manipulation items-center font-medium text-foreground underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  清除搜索与筛选
+                </Link>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -130,6 +124,7 @@ export default async function CoursesPage({
                   key={c.code}
                   course={c}
                   returnTo={currentListHref}
+                  showUpdate={sort === "latest"}
                 />
               ))}
             </div>
@@ -204,13 +199,13 @@ function PageLink({
   children: React.ReactNode;
 }) {
   return disabled ? (
-    <span className="rounded-lg border px-3 py-1.5 text-sm text-muted-foreground opacity-50">
+    <span className="inline-flex min-h-11 items-center rounded-lg border px-3 py-1.5 text-sm text-muted-foreground opacity-50">
       {children}
     </span>
   ) : (
     <Link
       href={href}
-      className="rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40"
+      className="inline-flex min-h-11 touch-manipulation items-center rounded-lg border px-3 py-1.5 text-sm transition-colors hover:border-foreground/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       {children}
     </Link>
@@ -220,12 +215,16 @@ function PageLink({
 function CourseCard({
   course: c,
   returnTo,
+  showUpdate,
 }: {
   course: CourseView;
   returnTo: string;
+  showUpdate: boolean;
 }) {
   const detailHref = `/courses/${c.code}?from=${encodeURIComponent(returnTo)}`;
-  const updateLabel = formatUpdateLabel(c.latestCommentAt);
+  const updateLabel = showUpdate
+    ? formatUpdateLabel(c.latestEvaluationAt)
+    : null;
 
   return (
     <CourseCardLink
@@ -261,8 +260,8 @@ function CourseCard({
               <span className="min-w-0 font-mono text-xs text-muted-foreground">
                 {c.ratingCount} 次评分 · {c.reviewCount} 条评论
                 {updateLabel && (
-                  <span className="block truncate pt-1 md:hidden">
-                    最后评论：{updateLabel}
+                  <span className="block truncate pt-1">
+                    最近评价：{updateLabel}
                   </span>
                 )}
               </span>
@@ -285,9 +284,7 @@ function CourseCard({
             <span className="font-mono text-xs text-muted-foreground">
               暂无评分
               {updateLabel && (
-                <span className="block pt-1 md:hidden">
-                  最后评论：{updateLabel}
-                </span>
+                <span className="block pt-1">最近评价：{updateLabel}</span>
               )}
             </span>
             <span className="text-sm text-muted-foreground transition-colors group-hover:text-foreground">
