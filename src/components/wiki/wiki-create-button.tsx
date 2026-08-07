@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, type ComponentProps } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { toast } from "sonner";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
@@ -46,7 +45,7 @@ export function WikiCreateButton({
     pendingPathRef.current = null;
   }, [pathname]);
 
-  const create = async () => {
+  const create = () => {
     if (pendingRef.current) return;
     pendingRef.current = true;
 
@@ -59,44 +58,32 @@ export function WikiCreateButton({
         icon: null,
         parentId: parentId ?? null,
       }) ?? null;
+    wikiTree?.confirm(mutationToken);
     onCreated?.();
 
     const query = new URLSearchParams({ draft: "1" });
     if (parentId) query.set("parent", parentId);
     const destination = `/wiki/${id}?${query}`;
     pendingPathRef.current = `/wiki/${id}`;
-    try {
-      const ready = await contributorReady;
-      if (!ready) {
-        wikiTree?.rollback(mutationToken);
-        pendingRef.current = false;
-        pendingPathRef.current = null;
-        return;
-      }
-
-      const response = await fetch("/api/wiki-drafts", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, parentId: parentId ?? null }),
-        keepalive: true,
-      });
-      if (!response.ok) {
-        throw new Error("Unable to create private page");
-      }
-
-      wikiTree?.confirm(mutationToken);
-      window.dispatchEvent(
-        new CustomEvent("cupedia:editor-navigation-bypass", {
-          detail: destination,
-        }),
-      );
-      router.push(destination);
-    } catch {
-      wikiTree?.rollback(mutationToken);
-      pendingRef.current = false;
-      pendingPathRef.current = null;
-      toast.error("创建页面失败，请重试。");
-    }
+    const persistDraft = contributorReady
+      .then(async (ready) => {
+        if (!ready) return false;
+        const response = await fetch("/api/wiki-drafts", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ id, parentId: parentId ?? null }),
+          keepalive: true,
+        });
+        return response.ok;
+      })
+      .catch(() => false);
+    window.dispatchEvent(
+      new CustomEvent("cupedia:editor-navigation-bypass", {
+        detail: destination,
+      }),
+    );
+    router.push(destination);
+    void persistDraft;
   };
 
   return (
@@ -117,7 +104,7 @@ export function WikiCreateButton({
         if (event.key !== " ") return;
         event.preventDefault();
         if (disabled || pendingRef.current) return;
-        void create();
+        create();
       }}
       {...props}
     >
