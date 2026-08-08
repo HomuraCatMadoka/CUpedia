@@ -8,6 +8,10 @@ export interface WikiDraftRecord {
   baseVersion: number;
   contentGeneration: number;
   baseSnapshot: string;
+  /** Last request sent without a confirmed response; survives reloads. */
+  submittedSnapshot?: string;
+  /** Drafts rejected by conflict detection must never be replayed silently. */
+  recoveryDisposition?: "manual";
   draftSnapshot: string;
   updatedAt: number;
 }
@@ -20,33 +24,10 @@ export interface WikiDraftServerState {
   snapshot: string;
 }
 
-export type WikiDraftClassification =
-  | "none"
-  | "recoverable"
-  | "stale-generation";
-
 export function createWikiDraftKey(
   record: Pick<WikiDraftRecord, "userId" | "pageId" | "sessionId">,
 ) {
   return `${record.userId}:${record.pageId}:${record.sessionId}`;
-}
-
-export function classifyWikiDraft(
-  record: WikiDraftRecord,
-  server: WikiDraftServerState,
-): WikiDraftClassification {
-  if (
-    record.schemaVersion !== WIKI_DRAFT_SCHEMA_VERSION ||
-    record.userId !== server.userId ||
-    record.pageId !== server.pageId ||
-    record.draftSnapshot === record.baseSnapshot ||
-    record.draftSnapshot === server.snapshot
-  ) {
-    return "none";
-  }
-  return record.contentGeneration === server.contentGeneration
-    ? "recoverable"
-    : "stale-generation";
 }
 
 export function resolveAcknowledgedWikiDraft(
@@ -57,10 +38,14 @@ export function resolveAcknowledgedWikiDraft(
     "version" | "contentGeneration" | "snapshot"
   >,
 ) {
-  if (record.draftSnapshot === acknowledgedSnapshot) return null;
-  if (!nextBase) return record;
+  const settled = { ...record };
+  delete settled.submittedSnapshot;
+  if (record.draftSnapshot === acknowledgedSnapshot) {
+    return null;
+  }
+  if (!nextBase) return settled;
   return {
-    ...record,
+    ...settled,
     baseVersion: nextBase.version,
     contentGeneration: nextBase.contentGeneration,
     baseSnapshot: nextBase.snapshot,

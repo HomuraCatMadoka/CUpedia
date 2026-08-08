@@ -955,6 +955,45 @@ describe("search corpus refresh — structural vs content", () => {
     };
   }
 
+  it("treats an already-applied retry as success without another write", async () => {
+    const submitted = PLATE("submitted edit");
+    const latest = {
+      id: "1",
+      title: "Submitted",
+      icon: null,
+      content: submitted,
+      parentId: null,
+      updatedAt: new Date("2024-01-02"),
+      version: 2,
+      contentGeneration: 0,
+    };
+    mockDbQueryWikiPages.findFirst
+      .mockResolvedValueOnce({
+        ...latest,
+        title: "Base",
+        content: PLATE("base"),
+        updatedAt: new Date("2024-01-01"),
+        version: 1,
+      })
+      .mockResolvedValueOnce(latest);
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => fn(makeConflictTx()),
+    );
+
+    const result = await updateWikiPage({
+      pageId: "1",
+      title: "Submitted",
+      content: submitted,
+      baseTitle: "Base",
+      baseContent: PLATE("base"),
+      expectedVersion: 1,
+      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+    });
+
+    expect(result).toBe(latest);
+    expect(mockDbTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it("merged branch preserves a concurrent rename when the local title is unchanged", async () => {
     let call = 0;
     mockDbQueryWikiPages.findFirst.mockImplementation(async () => {

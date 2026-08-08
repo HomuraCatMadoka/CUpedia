@@ -8,6 +8,7 @@ import {
 import {
   createWikiDraft,
   deleteWikiDraft,
+  getOwnWikiDraft,
   publishWikiDraft,
   updateWikiDraft,
   type WikiDraft,
@@ -16,12 +17,28 @@ import { stripTitleHeading } from "@/lib/headings";
 import { parseContent } from "@/lib/plate-utils";
 import {
   resolveWikiLinkUrls,
+  restoreLegacyChildPageLinks,
   stripLegacyChildPageLinks,
 } from "@/lib/wiki-links";
 import { WikiEditorLazy } from "@/components/wiki/wiki-editor-lazy";
 
 type EditablePage = NonNullable<Awaited<ReturnType<typeof getWikiPageForEdit>>>;
 type WikiTree = Awaited<ReturnType<typeof getWikiTree>>;
+
+function toEditorValue(
+  page: Pick<EditablePage, "content" | "title">,
+  childPageIds: string[],
+) {
+  return stripTitleHeading(
+    resolveWikiLinkUrls(
+      stripLegacyChildPageLinks(
+        parseContent(page.content),
+        new Set(childPageIds),
+      ),
+    ),
+    page.title,
+  );
+}
 
 function collectDescendantIds(
   pages: { id: string; parentId: string | null }[],
@@ -65,6 +82,27 @@ export async function WikiPageEditor({
   const discussions = await getDiscussions(pageId);
   const excludedParentIds = collectDescendantIds(pages, pageId);
   const childPages = pages.filter((candidate) => candidate.parentId === pageId);
+  const childPageIds = childPages.map((child) => child.id);
+
+  async function handleCheckForUpdate(currentVersion: number) {
+    "use server";
+    const latest = await getWikiPageForEdit(pageId);
+    if (!latest || latest.version === currentVersion) return null;
+    const latestTree = await getWikiTree();
+    const latestChildPageIds = latestTree
+      .filter((candidate) => candidate.parentId === pageId)
+      .map((child) => child.id);
+    return {
+      id: latest.id,
+      parentId: latest.parentId,
+      title: latest.title,
+      icon: latest.icon,
+      content: JSON.stringify(toEditorValue(latest, latestChildPageIds)),
+      version: latest.version,
+      contentGeneration: latest.contentGeneration,
+      updatedAt: new Date(latest.updatedAt).toISOString(),
+    };
+  }
 
   async function handleUpdate(data: {
     title: string;
@@ -82,11 +120,23 @@ export async function WikiPageEditor({
   }) {
     "use server";
     try {
+      const storedPage = await getWikiPageForEdit(pageId);
+      if (!storedPage) throw new Error("Page not found");
+      const hiddenChildPageIds = new Set(childPageIds);
+      const storedValue = parseContent(storedPage.content);
+      const restoreEditorProjection = (content: string) =>
+        JSON.stringify(
+          restoreLegacyChildPageLinks(
+            storedValue,
+            parseContent(content),
+            hiddenChildPageIds,
+          ),
+        );
       const updated = await updateWikiPage({
         pageId,
         title: data.title,
         icon: data.icon,
-        content: data.content,
+        content: restoreEditorProjection(data.content),
         editSummary: data.editSummary,
         parentId: data.parentId,
         expectedVersion: data.expectedVersion!,
@@ -94,13 +144,28 @@ export async function WikiPageEditor({
         expectedUpdatedAt: data.expectedUpdatedAt!,
         baseTitle: data.baseTitle,
         baseIcon: data.baseIcon,
-        baseContent: data.baseContent,
+        baseContent:
+          data.baseContent === undefined
+            ? undefined
+            : restoreEditorProjection(data.baseContent),
         baseParentId: data.baseParentId,
       });
+      const latestTree = await getWikiTree();
+      const latestChildPageIds = latestTree
+        .filter((candidate) => candidate.parentId === pageId)
+        .map((child) => child.id);
       if ("conflict" in updated) {
         return {
           conflict: true as const,
-          theirContent: updated.theirContent,
+          theirContent: JSON.stringify(
+            toEditorValue(
+              {
+                title: updated.theirTitle,
+                content: updated.theirContent,
+              },
+              latestChildPageIds,
+            ),
+          ),
           theirTitle: updated.theirTitle,
           theirIcon: updated.theirIcon,
           theirParentId: updated.theirParentId,
@@ -114,7 +179,7 @@ export async function WikiPageEditor({
         parentId: updated.parentId,
         title: updated.title,
         icon: updated.icon,
-        content: updated.content,
+        content: JSON.stringify(toEditorValue(updated, latestChildPageIds)),
         version: updated.version,
         contentGeneration: updated.contentGeneration,
         updatedAt: new Date(updated.updatedAt).toISOString(),
@@ -138,15 +203,7 @@ export async function WikiPageEditor({
       pageId={pageId}
       initialTitle={page.title}
       initialIcon={page.icon}
-      initialValue={stripTitleHeading(
-        resolveWikiLinkUrls(
-          stripLegacyChildPageLinks(
-            parseContent(page.content),
-            new Set(childPages.map((child) => child.id)),
-          ),
-        ),
-        page.title,
-      )}
+      initialValue={toEditorValue(page, childPageIds)}
       parentId={page.parentId}
       expectedVersion={page.version}
       expectedContentGeneration={page.contentGeneration}
@@ -166,6 +223,7 @@ export async function WikiPageEditor({
       initialDiscussions={discussions}
       canDelete={canDelete}
       onDelete={canDelete ? handleDelete : undefined}
+      onCheckForUpdate={handleCheckForUpdate}
       onSubmit={handleUpdate}
     />
   );
@@ -205,6 +263,22 @@ export function WikiDraftPageEditor({
     }
   }
 
+  async function handleCheckForUpdate(currentVersion: number) {
+    "use server";
+    const latest = await getOwnWikiDraft(pageId);
+    if (!latest || latest.version === currentVersion) return null;
+    return {
+      id: latest.id,
+      parentId: latest.parentId,
+      title: latest.title,
+      icon: latest.icon,
+      content: latest.content,
+      version: latest.version,
+      contentGeneration: 0,
+      updatedAt: new Date(latest.updatedAt).toISOString(),
+    };
+  }
+
   async function handleSave(data: {
     title: string;
     icon?: string | null;
@@ -228,6 +302,10 @@ export function WikiDraftPageEditor({
         content: data.content,
         parentId: data.parentId,
         expectedVersion: data.expectedVersion!,
+        baseTitle: data.baseTitle,
+        baseIcon: data.baseIcon,
+        baseContent: data.baseContent,
+        baseParentId: data.baseParentId,
       });
       if ("conflict" in updated) return updated;
       return {
@@ -294,6 +372,7 @@ export function WikiDraftPageEditor({
       }))}
       canDelete
       onDelete={handleDelete}
+      onCheckForUpdate={handleCheckForUpdate}
       onInitialize={draft ? undefined : handleInitialize}
       onPublish={handlePublish}
       onSubmit={handleSave}

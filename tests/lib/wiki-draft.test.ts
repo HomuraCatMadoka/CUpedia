@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  classifyWikiDraft,
   createWikiDraftKey,
   resolveAcknowledgedWikiDraft,
   formatWikiContentForDiff,
@@ -28,50 +27,23 @@ describe("wiki draft recovery state", () => {
     );
   });
 
-  it("offers an unsent draft when the server still matches its generation", () => {
-    expect(
-      classifyWikiDraft(record, {
-        userId: "user-1",
-        pageId: "page-1",
-        version: 4,
-        contentGeneration: 2,
-        snapshot: "server-v4",
-      }),
-    ).toBe("recoverable");
-  });
-
-  it("does not show a false prompt for content already acknowledged by the server", () => {
-    expect(
-      classifyWikiDraft(
-        { ...record, draftSnapshot: "server-v5" },
-        {
-          userId: "user-1",
-          pageId: "page-1",
-          version: 5,
-          contentGeneration: 2,
-          snapshot: "server-v5",
-        },
-      ),
-    ).toBe("none");
-  });
-
-  it("marks an older-generation draft as stale after rollback", () => {
-    expect(
-      classifyWikiDraft(record, {
-        userId: "user-1",
-        pageId: "page-1",
-        version: 5,
-        contentGeneration: 3,
-        snapshot: "rolled back",
-      }),
-    ).toBe("stale-generation");
-  });
-
-  it("clears only the exact draft snapshot acknowledged by a save", () => {
+  it("clears every fully acknowledged local recovery record", () => {
     expect(resolveAcknowledgedWikiDraft(record, "local edit")).toBeNull();
+    const nextBase = {
+      version: 5,
+      contentGeneration: 2,
+      snapshot: "local edit",
+    };
+    expect(
+      resolveAcknowledgedWikiDraft(record, "local edit", nextBase),
+    ).toBeNull();
     expect(
       resolveAcknowledgedWikiDraft(
-        { ...record, draftSnapshot: "trailing edit" },
+        {
+          ...record,
+          submittedSnapshot: "local edit",
+          draftSnapshot: "trailing edit",
+        },
         "local edit",
         {
           version: 5,

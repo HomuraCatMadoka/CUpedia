@@ -11,8 +11,84 @@ const DATABASE_NAME = "cupedia-wiki-drafts";
 const STORE_NAME = "drafts";
 const DATABASE_VERSION = 1;
 const HISTORY_SESSION_KEY = "__cupediaWikiDraftSession";
+const TAB_SESSION_KEY_PREFIX = "__cupediaWikiDraftSession:";
+const SESSION_LOCK_PREFIX = "cupedia-wiki-draft-session:";
+
+const claimedSessionIds = new Set<string>();
+const draftOperations = new Map<string, Promise<unknown>>();
 
 type StoredWikiDraft = WikiDraftRecord & { key: string };
+
+function serializeDraftOperation<T>(key: string, run: () => Promise<T>) {
+  const previous = draftOperations.get(key) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(run);
+  draftOperations.set(key, current);
+  return current.finally(() => {
+    if (draftOperations.get(key) === current) draftOperations.delete(key);
+  });
+}
+
+function readTabSessionId(key: string) {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeTabSessionId(key: string, sessionId: string) {
+  try {
+    sessionStorage.setItem(key, sessionId);
+  } catch {
+    // History state remains the fallback when storage is unavailable.
+  }
+}
+
+async function tryClaimSessionId(sessionId: string) {
+  if (claimedSessionIds.has(sessionId)) return true;
+  if (!navigator.locks) return false;
+
+  return new Promise<boolean>((resolve, reject) => {
+    void navigator.locks
+      .request(
+        `${SESSION_LOCK_PREFIX}${sessionId}`,
+        { ifAvailable: true },
+        async (lock) => {
+          if (!lock) {
+            resolve(false);
+            return;
+          }
+          claimedSessionIds.add(sessionId);
+          resolve(true);
+          // Hold ownership for this document's lifetime. The browser releases
+          // the lock automatically when the document closes or reloads.
+          await new Promise<void>(() => {});
+        },
+      )
+      .catch(reject);
+  });
+}
+
+async function claimSessionId(candidate: string) {
+  if (!navigator.locks) {
+    if (claimedSessionIds.has(candidate)) return candidate;
+    const navigation = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    const sessionId =
+      navigation?.type === "reload" || navigation?.type === "back_forward"
+        ? candidate
+        : crypto.randomUUID();
+    claimedSessionIds.add(sessionId);
+    return sessionId;
+  }
+  if (await tryClaimSessionId(candidate)) return candidate;
+  let sessionId = crypto.randomUUID();
+  while (!(await tryClaimSessionId(sessionId))) {
+    sessionId = crypto.randomUUID();
+  }
+  return sessionId;
+}
 
 function toWikiDraftRecord(stored: StoredWikiDraft): WikiDraftRecord {
   return {
@@ -23,6 +99,8 @@ function toWikiDraftRecord(stored: StoredWikiDraft): WikiDraftRecord {
     baseVersion: stored.baseVersion,
     contentGeneration: stored.contentGeneration,
     baseSnapshot: stored.baseSnapshot,
+    submittedSnapshot: stored.submittedSnapshot,
+    recoveryDisposition: stored.recoveryDisposition,
     draftSnapshot: stored.draftSnapshot,
     updatedAt: stored.updatedAt,
   };
@@ -71,19 +149,23 @@ async function withDraftStore<T>(
   }
 }
 
-export function getWikiDraftSessionId(userId: string, pageId: string) {
+export async function getWikiDraftSessionId(userId: string, pageId: string) {
+  const tabSessionKey = `${TAB_SESSION_KEY_PREFIX}${userId}:${pageId}`;
+  const tabSessionId = readTabSessionId(tabSessionKey);
   const state = (history.state ?? {}) as Record<string, unknown>;
   const existing = state[HISTORY_SESSION_KEY] as
     | { userId?: string; pageId?: string; sessionId?: string }
     | undefined;
-  if (
+  const historySessionId =
     existing?.userId === userId &&
     existing.pageId === pageId &&
     existing.sessionId
-  ) {
-    return existing.sessionId;
-  }
-  const sessionId = crypto.randomUUID();
+      ? existing.sessionId
+      : null;
+  const sessionId = await claimSessionId(
+    tabSessionId ?? historySessionId ?? crypto.randomUUID(),
+  );
+  writeTabSessionId(tabSessionKey, sessionId);
   history.replaceState(
     {
       ...state,
@@ -96,27 +178,70 @@ export function getWikiDraftSessionId(userId: string, pageId: string) {
 }
 
 export async function readWikiDraft(key: string) {
-  return withDraftStore("readonly", async (store) => {
-    const stored = await requestResult(
-      store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
-    );
-    if (!stored) return null;
-    return toWikiDraftRecord(stored);
-  });
+  return serializeDraftOperation(key, () =>
+    withDraftStore("readonly", async (store) => {
+      const stored = await requestResult(
+        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
+      );
+      if (!stored) return null;
+      return toWikiDraftRecord(stored);
+    }),
+  );
 }
 
 export async function writeWikiDraft(record: WikiDraftRecord) {
-  await withDraftStore("readwrite", async (store) => {
-    await requestResult(
-      store.put({ ...record, key: createWikiDraftKey(record) }),
-    );
-  });
+  const key = createWikiDraftKey(record);
+  await serializeDraftOperation(key, () =>
+    withDraftStore("readwrite", async (store) => {
+      const stored = await requestResult(
+        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
+      );
+      await requestResult(
+        store.put({
+          ...record,
+          ...(stored?.submittedSnapshot
+            ? { submittedSnapshot: stored.submittedSnapshot }
+            : {}),
+          key,
+        }),
+      );
+    }),
+  );
+}
+
+export async function markWikiDraftSubmitted(key: string, snapshot: string) {
+  await serializeDraftOperation(key, () =>
+    withDraftStore("readwrite", async (store) => {
+      const stored = await requestResult(
+        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
+      );
+      if (!stored) return;
+      await requestResult(
+        store.put({ ...stored, submittedSnapshot: snapshot, key }),
+      );
+    }),
+  );
+}
+
+export async function clearWikiDraftSubmitted(key: string) {
+  await serializeDraftOperation(key, () =>
+    withDraftStore("readwrite", async (store) => {
+      const stored = await requestResult(
+        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
+      );
+      if (!stored?.submittedSnapshot) return;
+      delete stored.submittedSnapshot;
+      await requestResult(store.put(stored));
+    }),
+  );
 }
 
 export async function deleteWikiDraft(key: string) {
-  await withDraftStore("readwrite", async (store) => {
-    await requestResult(store.delete(key));
-  });
+  await serializeDraftOperation(key, () =>
+    withDraftStore("readwrite", async (store) => {
+      await requestResult(store.delete(key));
+    }),
+  );
 }
 
 export async function acknowledgeWikiDraft(
@@ -127,22 +252,24 @@ export async function acknowledgeWikiDraft(
     "version" | "contentGeneration" | "snapshot"
   >,
 ) {
-  await withDraftStore("readwrite", async (store) => {
-    const stored = await requestResult(
-      store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
-    );
-    if (!stored) return;
-    const next = resolveAcknowledgedWikiDraft(
-      toWikiDraftRecord(stored),
-      acknowledgedSnapshot,
-      nextBase,
-    );
-    if (next) {
-      await requestResult(store.put({ ...next, key }));
-    } else {
-      await requestResult(store.delete(key));
-    }
-  });
+  await serializeDraftOperation(key, () =>
+    withDraftStore("readwrite", async (store) => {
+      const stored = await requestResult(
+        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
+      );
+      if (!stored) return;
+      const next = resolveAcknowledgedWikiDraft(
+        toWikiDraftRecord(stored),
+        acknowledgedSnapshot,
+        nextBase,
+      );
+      if (next) {
+        await requestResult(store.put({ ...next, key }));
+      } else {
+        await requestResult(store.delete(key));
+      }
+    }),
+  );
 }
 
 export async function rebaseWikiDraft(
@@ -151,19 +278,23 @@ export async function rebaseWikiDraft(
     WikiDraftServerState,
     "version" | "contentGeneration" | "snapshot"
   >,
+  recoveryDisposition?: WikiDraftRecord["recoveryDisposition"],
 ) {
-  await withDraftStore("readwrite", async (store) => {
-    const stored = await requestResult(
-      store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
-    );
-    if (!stored) return;
-    await requestResult(
-      store.put({
-        ...stored,
-        baseVersion: nextBase.version,
-        contentGeneration: nextBase.contentGeneration,
-        baseSnapshot: nextBase.snapshot,
-      }),
-    );
-  });
+  await serializeDraftOperation(key, () =>
+    withDraftStore("readwrite", async (store) => {
+      const stored = await requestResult(
+        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
+      );
+      if (!stored) return;
+      await requestResult(
+        store.put({
+          ...stored,
+          baseVersion: nextBase.version,
+          contentGeneration: nextBase.contentGeneration,
+          baseSnapshot: nextBase.snapshot,
+          ...(recoveryDisposition ? { recoveryDisposition } : {}),
+        }),
+      );
+    }),
+  );
 }

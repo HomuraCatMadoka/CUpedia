@@ -40,6 +40,10 @@ interface UseAutosaveResult {
   notifyChange: () => void;
   /** Adopt externally-set content as the clean baseline (e.g. conflict discard). */
   resetBaseline: (content: string) => void;
+  /** Restore a request whose server outcome was unknown across a reload. */
+  restorePendingSave: (content: string) => void;
+  /** Skip the unload prompt after another durable store confirms this draft. */
+  releaseUnloadGuard: () => void;
 }
 
 /**
@@ -61,7 +65,13 @@ export function useAutosave({
   // Last content known to be persisted; a save is a no-op while content matches.
   const savedRef = React.useRef(initialContent);
   const inFlightRef = React.useRef<Promise<string | null> | null>(null);
+  // A transport rejection cannot tell whether the server committed. Retry the
+  // exact snapshot before sending newer edits so optimistic locking can first
+  // converge on a known outcome.
+  const uncertainSnapshotRef = React.useRef<string | null>(null);
   const haltedRef = React.useRef(false);
+  const unloadGuardReleasedRef = React.useRef(false);
+  const activeRef = React.useRef(true);
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   // Mirror the latest props/status into refs so the imperative callbacks stay
   // stable (never re-created) yet always see current values.
@@ -100,6 +110,7 @@ export function useAutosave({
       if (inFlightRef.current) return inFlightRef.current;
 
       setStatus("saving");
+      uncertainSnapshotRef.current = next;
       let saveRequest: ReturnType<typeof onSaveRef.current>;
       try {
         saveRequest = onSaveRef.current(next, reason);
@@ -109,6 +120,10 @@ export function useAutosave({
 
       const request = saveRequest
         .then((result) => {
+          // Any server response, including a known conflict/error, resolves the
+          // uncertainty. Only a thrown/rejected transport keeps this snapshot.
+          uncertainSnapshotRef.current = null;
+          if (!activeRef.current) return result?.error ?? null;
           if (result?.error) {
             if (result.haltAutosave) {
               haltedRef.current = true;
@@ -132,7 +147,7 @@ export function useAutosave({
         .catch((error: unknown) => {
           const message =
             error instanceof Error ? error.message : "保存请求失败";
-          setStatus("error");
+          if (activeRef.current) setStatus("error");
           return message;
         })
         .finally(() => {
@@ -148,6 +163,7 @@ export function useAutosave({
   );
 
   const flush = React.useCallback(async () => {
+    if (!activeRef.current) return;
     clearTimer();
     if (haltedRef.current) return;
     // A timer that fires mid-flight would otherwise no-op and drop the pending
@@ -156,7 +172,7 @@ export function useAutosave({
       armRef.current();
       return;
     }
-    const next = getContentRef.current();
+    const next = uncertainSnapshotRef.current ?? getContentRef.current();
     if (next === savedRef.current) {
       // Content is back at the persisted baseline. Converge any pending dirty
       // state — including a "saving" left over from a drifted re-arm — so the
@@ -170,6 +186,7 @@ export function useAutosave({
   }, [clearTimer, run]);
 
   const arm = React.useCallback(() => {
+    if (!activeRef.current) return;
     clearTimer();
     if (haltedRef.current) return;
     timerRef.current = setTimeout(() => {
@@ -185,6 +202,7 @@ export function useAutosave({
   });
 
   const notifyChange = React.useCallback(() => {
+    unloadGuardReleasedRef.current = false;
     if (haltedRef.current) return;
     if (statusRef.current !== "unsaved" && statusRef.current !== "saving") {
       setStatus("unsaved");
@@ -201,6 +219,7 @@ export function useAutosave({
       // any current request, then keep saving until the latest lazy snapshot is
       // the one known to be persisted.
       while (true) {
+        if (!activeRef.current) return { status: "saved" };
         clearTimer();
         const inFlight = inFlightRef.current;
         if (inFlight) {
@@ -209,7 +228,7 @@ export function useAutosave({
           continue;
         }
 
-        const next = getContentRef.current();
+        const next = uncertainSnapshotRef.current ?? getContentRef.current();
         if (next === savedRef.current && statusRef.current !== "error") {
           // Same convergence as the debounce path: we just cleared the timer that
           // would have healed, so settle a pending dirty state here instead of
@@ -235,17 +254,34 @@ export function useAutosave({
     (content: string) => {
       clearTimer();
       haltedRef.current = false;
+      uncertainSnapshotRef.current = null;
       savedRef.current = content;
       setStatus("idle");
     },
     [clearTimer],
   );
 
-  React.useEffect(() => clearTimer, [clearTimer]);
+  const restorePendingSave = React.useCallback((content: string) => {
+    haltedRef.current = false;
+    uncertainSnapshotRef.current = content;
+  }, []);
+
+  const releaseUnloadGuard = React.useCallback(() => {
+    unloadGuardReleasedRef.current = true;
+  }, []);
+
+  React.useEffect(() => {
+    activeRef.current = true;
+    return () => {
+      activeRef.current = false;
+      clearTimer();
+    };
+  }, [clearTimer]);
 
   React.useEffect(() => {
     if (!isDirty) return;
     const handler = (e: BeforeUnloadEvent) => {
+      if (unloadGuardReleasedRef.current) return;
       e.preventDefault();
       e.returnValue = "";
     };
@@ -260,5 +296,7 @@ export function useAutosave({
     flush: flushLatest,
     notifyChange,
     resetBaseline,
+    restorePendingSave,
+    releaseUnloadGuard,
   };
 }

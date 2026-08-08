@@ -129,6 +129,54 @@ describe("useAutosave", () => {
     expect(h.result.current.isDirty).toBe(true);
   });
 
+  it("retries an unknown-outcome snapshot before draining a later edit", async () => {
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValue({});
+    const h = setup({ initial: "a", onSave });
+
+    h.type("b");
+    await act(async () => {
+      await h.result.current.flush();
+    });
+    h.type("c");
+    await act(async () => {
+      await h.result.current.flush();
+    });
+
+    expect(onSave).toHaveBeenNthCalledWith(1, "b", "explicit");
+    expect(onSave).toHaveBeenNthCalledWith(2, "b", "explicit");
+    expect(onSave).toHaveBeenNthCalledWith(3, "c", "explicit");
+    expect(h.result.current.status).toBe("saved");
+    expect(h.result.current.isDirty).toBe(false);
+  });
+
+  it("replays a restored unknown-outcome snapshot before the latest draft", async () => {
+    const h = setup({ initial: "server-v1" });
+
+    h.setContent("latest local draft");
+    act(() => {
+      h.result.current.restorePendingSave("submitted before reload");
+      h.result.current.notifyChange();
+    });
+    await act(async () => {
+      await h.result.current.flush();
+    });
+
+    expect(h.onSave).toHaveBeenNthCalledWith(
+      1,
+      "submitted before reload",
+      "explicit",
+    );
+    expect(h.onSave).toHaveBeenNthCalledWith(
+      2,
+      "latest local draft",
+      "explicit",
+    );
+    expect(h.result.current.status).toBe("saved");
+  });
+
   it("halts background retries after a conflict until the user explicitly saves", async () => {
     const onSave = vi
       .fn<SaveFn>()
@@ -311,6 +359,33 @@ describe("useAutosave", () => {
     expect(h.result.current.isDirty).toBe(false);
   });
 
+  it("does not drain a trailing edit after the editor owner unmounts", async () => {
+    let resolveFirst!: (v: SaveResult) => void;
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockImplementationOnce(
+        () => new Promise<SaveResult>((resolve) => (resolveFirst = resolve)),
+      )
+      .mockResolvedValue({});
+    const h = setup({ initial: "a", onSave });
+
+    h.type("submitted");
+    let drain!: Promise<void>;
+    act(() => {
+      drain = h.result.current.save();
+    });
+    h.type("trailing");
+    h.unmount();
+
+    await act(async () => {
+      resolveFirst({});
+      await drain;
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith("submitted", "explicit");
+  });
+
   it("save() settles to saved (not stuck unsaved) when content reverted to the baseline", async () => {
     const h = setup({ initial: "a" });
 
@@ -387,6 +462,28 @@ describe("useAutosave", () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(h.onSave).not.toHaveBeenCalled();
+  });
+
+  it("releases the unload guard after local persistence and rearms it on new input", () => {
+    const h = setup({ initial: "a" });
+    h.type("b");
+
+    const dirtyUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(dirtyUnload);
+    expect(dirtyUnload.defaultPrevented).toBe(true);
+
+    act(() => h.result.current.releaseUnloadGuard());
+    const locallyPersistedUnload = new Event("beforeunload", {
+      cancelable: true,
+    });
+    window.dispatchEvent(locallyPersistedUnload);
+    expect(locallyPersistedUnload.defaultPrevented).toBe(false);
+
+    h.type("c");
+    const changedAgainUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(changedAgainUnload);
+    expect(changedAgainUnload.defaultPrevented).toBe(true);
+    h.unmount();
   });
 });
 

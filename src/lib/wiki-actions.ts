@@ -605,6 +605,12 @@ export async function updateWikiPage(data: {
   if (latestContentGeneration !== expectedContentGeneration) {
     return toUpdateConflict(latest);
   }
+  const requestedMatchesLatest =
+    latest.title === data.title &&
+    latest.content === data.content &&
+    (normalizedIcon === undefined || latest.icon === normalizedIcon) &&
+    (data.parentId === undefined || latest.parentId === data.parentId);
+  if (requestedMatchesLatest) return latest;
 
   if (data.baseContent !== undefined) {
     let mergedTitle = data.title;

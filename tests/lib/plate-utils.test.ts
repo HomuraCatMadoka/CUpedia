@@ -184,8 +184,19 @@ describe("normalizeInitialValue (#204 — SSR/CSR hydration id stability)", () =
     expect(missing).toEqual([]);
   });
 
-  it("returns undefined unchanged (create mode has no initialValue)", () => {
-    expect(normalizeInitialValue(undefined)).toBeUndefined();
+  it("normalizes a missing initial value to one deterministic empty block", () => {
+    const first = normalizeInitialValue(undefined);
+    const second = normalizeInitialValue(undefined);
+
+    expect(first).toEqual(second);
+    expect(first).toEqual([
+      expect.objectContaining({
+        id: expect.any(String),
+        type: "p",
+        children: [{ text: "" }],
+      }),
+    ]);
+    expect(JSON.stringify(first)).toEqual(expect.any(String));
   });
 
   it("does not mutate the input value", () => {

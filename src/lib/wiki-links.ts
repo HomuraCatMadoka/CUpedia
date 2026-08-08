@@ -37,6 +37,16 @@ function walk(nodes: Node[], targets: Set<string>): void {
   }
 }
 
+function getStandaloneWikiLinkTarget(block: unknown): string | null {
+  const node = block as Node;
+  if (node.type !== "p" || !Array.isArray(node.children)) return null;
+  const meaningfulChildren = node.children.filter(
+    (child) => !(typeof child.text === "string" && child.text.length === 0),
+  );
+  if (meaningfulChildren.length !== 1) return null;
+  return getWikiPageId(meaningfulChildren[0]);
+}
+
 /** Collect unique target page IDs from wiki-link nodes in Plate JSON content. */
 export function extractWikiLinkTargets(content: string): string[] {
   if (!content.trim()) return [];
@@ -60,19 +70,61 @@ export function stripLegacyChildPageLinks(
   childPageIds: ReadonlySet<string>,
 ): PlateValue {
   const filtered = value.filter((block) => {
-    const node = block as Node;
-    if (node.type !== "p" || !Array.isArray(node.children)) return true;
-    const meaningfulChildren = node.children.filter(
-      (child) => !(typeof child.text === "string" && child.text.length === 0),
-    );
-    if (meaningfulChildren.length !== 1) return true;
-    const targetId = getWikiPageId(meaningfulChildren[0]);
+    const targetId = getStandaloneWikiLinkTarget(block);
     return !targetId || !childPageIds.has(targetId);
   });
 
   return filtered.length > 0
     ? (filtered as PlateValue)
     : ([{ type: "p", children: [{ text: "" }] }] as PlateValue);
+}
+
+/**
+ * Reconstitute the stored document after editing a display projection.
+ *
+ * Direct-child links are hidden in the editor because the child-page region
+ * renders them canonically. They still belong to the stored document: if that
+ * child later moves elsewhere, the link becomes ordinary visible content.
+ * Preserve only links the editor was known to hide, while honoring deletion
+ * of every link that was visible to the editor.
+ */
+export function restoreLegacyChildPageLinks(
+  storedValue: PlateValue,
+  editorValue: PlateValue,
+  hiddenChildPageIds: ReadonlySet<string>,
+): PlateValue {
+  if (hiddenChildPageIds.size === 0) return editorValue;
+
+  const submittedCounts = new Map<string, number>();
+  for (const block of editorValue) {
+    const targetId = getStandaloneWikiLinkTarget(block);
+    if (!targetId || !hiddenChildPageIds.has(targetId)) continue;
+    submittedCounts.set(targetId, (submittedCounts.get(targetId) ?? 0) + 1);
+  }
+
+  const missing: { block: PlateValue[number]; index: number }[] = [];
+  storedValue.forEach((block, index) => {
+    const targetId = getStandaloneWikiLinkTarget(block);
+    if (!targetId || !hiddenChildPageIds.has(targetId)) return;
+
+    const submittedCount = submittedCounts.get(targetId) ?? 0;
+    if (submittedCount > 0) {
+      submittedCounts.set(targetId, submittedCount - 1);
+      return;
+    }
+    missing.push({ block, index });
+  });
+
+  if (missing.length === 0) return editorValue;
+  const restored = [...editorValue] as PlateValue;
+  for (const candidate of missing) {
+    restored.splice(
+      Math.min(candidate.index, restored.length),
+      0,
+      candidate.block,
+    );
+  }
+  return restored;
 }
 
 export function buildWikiLinkRows(

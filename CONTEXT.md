@@ -36,6 +36,10 @@ _Avoid_: Slug、页面路径、用标题指代稳定身份
 某个 User 在某个 Page ID 和浏览器编辑会话中尚未获服务器确认的恢复副本。它不公开、不代表离线编辑，也不是另一个服务器页面；服务器页面始终是公开权威版本。
 _Avoid_: Server draft、offline page、把 IndexedDB 草稿当作协作状态
 
+**Wiki edit session（Wiki 编辑会话）**:
+某个 User 对一个 Page ID 的一次连续编辑上下文，维持服务器已确认状态、至多一个结果未知的提交及其后的 Local draft 之间的因果顺序。刷新可以延续同一会话；另一个标签页是独立会话。
+_Avoid_: Autosave request、把 Local draft 或服务器页面单独称为编辑会话
+
 **Discussion（讨论）**:
 依附在 wiki 页面某段文字上的行内评论及其回复线程。任何登录 User 均可发起（与 Editor mode 无关，等同 Wikipedia talk page——锁定正文编辑也不锁讨论）；删除/标记解决限本人或 Admin。
 _Avoid_: Comment（口语可，但代码/表名以 Discussion 为准）

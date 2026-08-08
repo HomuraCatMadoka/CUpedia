@@ -3,17 +3,21 @@
 import * as React from "react";
 
 import {
-  classifyWikiDraft,
   createWikiDraftKey,
   WIKI_DRAFT_SCHEMA_VERSION,
-  type WikiDraftClassification,
   type WikiDraftRecord,
   type WikiDraftServerState,
 } from "@/lib/wiki-draft";
 import {
+  restoreWikiEditSession,
+  type WikiEditSessionAttention,
+} from "@/lib/wiki-edit-session";
+import {
   acknowledgeWikiDraft,
+  clearWikiDraftSubmitted,
   deleteWikiDraft,
   getWikiDraftSessionId,
+  markWikiDraftSubmitted,
   readWikiDraft,
   rebaseWikiDraft,
   writeWikiDraft,
@@ -26,7 +30,7 @@ interface UseWikiDraftOptions extends WikiDraftServerState {
   getSnapshot: () => string;
   onRecovery: (
     record: WikiDraftRecord,
-    classification: Exclude<WikiDraftClassification, "none">,
+    recovery: WikiEditSessionAttention,
   ) => void;
 }
 
@@ -40,6 +44,9 @@ export function useWikiDraft({
   getSnapshot,
   onRecovery,
 }: UseWikiDraftOptions) {
+  const recoveryIdentity = enabled ? `${userId}\u0000${pageId}` : null;
+  const [readyIdentity, setReadyIdentity] = React.useState<string | null>(null);
+  const ready = !enabled || readyIdentity === recoveryIdentity;
   const baselineRef = React.useRef({ version, contentGeneration, snapshot });
   const getSnapshotRef = React.useRef(getSnapshot);
   const onRecoveryRef = React.useRef(onRecovery);
@@ -50,10 +57,34 @@ export function useWikiDraft({
   const readyPromiseRef = React.useRef<Promise<void>>(Promise.resolve());
   const suspendedRef = React.useRef(false);
   const pendingChangeRef = React.useRef(false);
+  const submittedSnapshotRef = React.useRef<string | null>(null);
+  const recoveryDispositionRef =
+    React.useRef<WikiDraftRecord["recoveryDisposition"]>(undefined);
+  const activeIdentityRef = React.useRef({ userId, pageId });
+  const latestServerRef = React.useRef({
+    userId,
+    pageId,
+    version,
+    contentGeneration,
+    snapshot,
+  });
   React.useEffect(() => {
     getSnapshotRef.current = getSnapshot;
     onRecoveryRef.current = onRecovery;
   });
+  React.useEffect(() => {
+    latestServerRef.current = {
+      userId,
+      pageId,
+      version,
+      contentGeneration,
+      snapshot,
+    };
+  }, [contentGeneration, pageId, snapshot, userId, version]);
+  const belongsToCurrentIdentity = React.useCallback(() => {
+    const active = activeIdentityRef.current;
+    return active.userId === userId && active.pageId === pageId;
+  }, [pageId, userId]);
 
   const clearTimer = React.useCallback(() => {
     if (!timerRef.current) return;
@@ -62,17 +93,21 @@ export function useWikiDraft({
   }, []);
 
   const flush = React.useCallback(async () => {
+    if (!belongsToCurrentIdentity()) return;
     clearTimer();
-    const key = keyRef.current;
-    const sessionId = sessionIdRef.current;
-    if (!enabled || suspendedRef.current || !key) return;
+    if (!enabled || suspendedRef.current) return;
     if (!readyRef.current) await readyPromiseRef.current;
     if (!readyRef.current || suspendedRef.current) return;
+    const key = keyRef.current;
+    const sessionId = sessionIdRef.current;
+    if (!key) return;
     if (!sessionId) return;
 
     const draftSnapshot = getSnapshotRef.current();
     const base = baselineRef.current;
-    if (draftSnapshot === base.snapshot) {
+    const submittedSnapshot = submittedSnapshotRef.current;
+    if (draftSnapshot === base.snapshot && submittedSnapshot === null) {
+      if (recoveryDispositionRef.current === "manual") return;
       await deleteWikiDraft(key);
       return;
     }
@@ -84,13 +119,16 @@ export function useWikiDraft({
       baseVersion: base.version,
       contentGeneration: base.contentGeneration,
       baseSnapshot: base.snapshot,
+      ...(submittedSnapshot === null ? {} : { submittedSnapshot }),
       draftSnapshot,
       updatedAt: Date.now(),
     });
-  }, [clearTimer, enabled, pageId, userId]);
+  }, [belongsToCurrentIdentity, clearTimer, enabled, pageId, userId]);
 
   const notifyChange = React.useCallback(() => {
+    if (!belongsToCurrentIdentity()) return;
     if (!enabled || suspendedRef.current) return;
+    recoveryDispositionRef.current = undefined;
     if (!readyRef.current) {
       pendingChangeRef.current = true;
       return;
@@ -99,7 +137,7 @@ export function useWikiDraft({
     timerRef.current = setTimeout(() => {
       void flush().catch(() => {});
     }, LOCAL_PERSIST_DELAY_MS);
-  }, [clearTimer, enabled, flush]);
+  }, [belongsToCurrentIdentity, clearTimer, enabled, flush]);
 
   const acknowledge = React.useCallback(
     async (
@@ -109,28 +147,38 @@ export function useWikiDraft({
         "version" | "contentGeneration" | "snapshot"
       >,
     ) => {
+      if (!belongsToCurrentIdentity()) return;
       const key = keyRef.current;
       baselineRef.current = nextBase;
+      submittedSnapshotRef.current = null;
+      recoveryDispositionRef.current = undefined;
       if (key) {
         await acknowledgeWikiDraft(key, acknowledgedSnapshot, nextBase);
       }
     },
-    [],
+    [belongsToCurrentIdentity],
   );
 
   const discard = React.useCallback(async () => {
+    if (!belongsToCurrentIdentity()) return;
     const key = keyRef.current;
-    if (key) await deleteWikiDraft(key);
-  }, []);
+    submittedSnapshotRef.current = null;
+    recoveryDispositionRef.current = undefined;
+    if (key) {
+      await deleteWikiDraft(key);
+    }
+  }, [belongsToCurrentIdentity]);
 
   const resume = React.useCallback(() => {
+    if (!belongsToCurrentIdentity()) return;
     suspendedRef.current = false;
-  }, []);
+  }, [belongsToCurrentIdentity]);
 
   const suspend = React.useCallback(() => {
+    if (!belongsToCurrentIdentity()) return;
     clearTimer();
     suspendedRef.current = true;
-  }, [clearTimer]);
+  }, [belongsToCurrentIdentity, clearTimer]);
 
   const rebase = React.useCallback(
     async (
@@ -138,43 +186,92 @@ export function useWikiDraft({
         WikiDraftServerState,
         "version" | "contentGeneration" | "snapshot"
       >,
+      recoveryDisposition?: WikiDraftRecord["recoveryDisposition"],
     ) => {
+      if (!belongsToCurrentIdentity()) return;
       baselineRef.current = nextBase;
+      if (recoveryDisposition !== undefined) {
+        recoveryDispositionRef.current = recoveryDisposition;
+      }
       const key = keyRef.current;
-      if (key) await rebaseWikiDraft(key, nextBase);
+      if (key) await rebaseWikiDraft(key, nextBase, recoveryDisposition);
     },
-    [],
+    [belongsToCurrentIdentity],
   );
+
+  const markSubmitted = React.useCallback(
+    async (submittedSnapshot: string) => {
+      if (!enabled || !belongsToCurrentIdentity()) return;
+      if (!readyRef.current) await readyPromiseRef.current;
+      if (!belongsToCurrentIdentity()) return;
+      submittedSnapshotRef.current = submittedSnapshot;
+      const key = keyRef.current;
+      if (key) {
+        await markWikiDraftSubmitted(key, submittedSnapshot);
+      }
+    },
+    [belongsToCurrentIdentity, enabled],
+  );
+
+  const clearSubmitted = React.useCallback(async () => {
+    if (!belongsToCurrentIdentity()) return;
+    const key = keyRef.current;
+    submittedSnapshotRef.current = null;
+    if (key) {
+      await clearWikiDraftSubmitted(key);
+    }
+  }, [belongsToCurrentIdentity]);
 
   React.useEffect(() => {
     if (!enabled) return;
+    activeIdentityRef.current = { userId, pageId };
+    keyRef.current = null;
+    sessionIdRef.current = null;
+    suspendedRef.current = false;
+    pendingChangeRef.current = false;
+    submittedSnapshotRef.current = null;
+    const recoveryServer = latestServerRef.current;
     let cancelled = false;
     let resolveReady!: () => void;
     readyPromiseRef.current = new Promise<void>((resolve) => {
       resolveReady = resolve;
     });
-    const sessionId = getWikiDraftSessionId(userId, pageId);
-    const key = createWikiDraftKey({ userId, pageId, sessionId });
-    sessionIdRef.current = sessionId;
-    keyRef.current = key;
-    baselineRef.current = { version, contentGeneration, snapshot };
+    baselineRef.current = {
+      version: recoveryServer.version,
+      contentGeneration: recoveryServer.contentGeneration,
+      snapshot: recoveryServer.snapshot,
+    };
+    recoveryDispositionRef.current = undefined;
 
-    void readWikiDraft(key)
+    void getWikiDraftSessionId(userId, pageId)
+      .then(async (sessionId) => {
+        if (cancelled) return null;
+        const key = createWikiDraftKey({ userId, pageId, sessionId });
+        sessionIdRef.current = sessionId;
+        keyRef.current = key;
+        if (cancelled) return null;
+        return { key, record: await readWikiDraft(key) };
+      })
       .then(async (record) => {
-        if (cancelled) return;
-        if (record) {
-          const classification = classifyWikiDraft(record, {
-            userId,
-            pageId,
-            version,
-            contentGeneration,
-            snapshot,
+        if (cancelled || !record) return;
+        if (record.record) {
+          submittedSnapshotRef.current =
+            record.record.submittedSnapshot ?? null;
+          recoveryDispositionRef.current = record.record.recoveryDisposition;
+          const recovery = restoreWikiEditSession(record.record, {
+            userId: recoveryServer.userId,
+            pageId: recoveryServer.pageId,
+            version: recoveryServer.version,
+            contentGeneration: recoveryServer.contentGeneration,
+            snapshot: recoveryServer.snapshot,
           });
-          if (classification !== "none") {
+          if (recovery.kind !== "discard") {
             suspendedRef.current = true;
-            onRecoveryRef.current(record, classification);
+            onRecoveryRef.current(record.record, recovery);
           } else {
-            await deleteWikiDraft(key);
+            await deleteWikiDraft(record.key);
+            submittedSnapshotRef.current = null;
+            recoveryDispositionRef.current = undefined;
           }
         }
       })
@@ -182,6 +279,7 @@ export function useWikiDraft({
       .finally(() => {
         if (!cancelled) {
           readyRef.current = true;
+          setReadyIdentity(recoveryIdentity);
           if (pendingChangeRef.current && !suspendedRef.current) {
             pendingChangeRef.current = false;
             void flush().catch(() => {});
@@ -192,10 +290,11 @@ export function useWikiDraft({
 
     return () => {
       cancelled = true;
+      clearTimer();
       readyRef.current = false;
       resolveReady();
     };
-  }, [contentGeneration, enabled, flush, pageId, snapshot, userId, version]);
+  }, [clearTimer, enabled, flush, pageId, recoveryIdentity, userId]);
 
   React.useEffect(() => {
     if (!enabled) return;
@@ -214,6 +313,7 @@ export function useWikiDraft({
   React.useEffect(() => clearTimer, [clearTimer]);
 
   return {
+    ready,
     notifyChange,
     flush,
     acknowledge,
@@ -221,5 +321,7 @@ export function useWikiDraft({
     suspend,
     resume,
     rebase,
+    markSubmitted,
+    clearSubmitted,
   };
 }
