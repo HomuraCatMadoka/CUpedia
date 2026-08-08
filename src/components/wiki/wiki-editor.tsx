@@ -476,11 +476,23 @@ export function WikiEditor({
       delete shell.dataset.editorHydrated;
     }
   }, [wikiDraft.ready]);
-  const { flush: flushWikiDraft, rebase: rebaseWikiDraft } = wikiDraft;
-  const rebaseInitializedDraft = useCallback(
+  const { flush: flushWikiDraft, adopt: adoptWikiDraftBaseline } = wikiDraft;
+  const persistAdoptedWikiDraftBaseline = useCallback(
+    async (
+      nextBase: Parameters<typeof adoptWikiDraftBaseline>[0],
+    ): Promise<void> => {
+      try {
+        await adoptWikiDraftBaseline(nextBase);
+      } catch {
+        await flushWikiDraft();
+      }
+    },
+    [adoptWikiDraftBaseline, flushWikiDraft],
+  );
+  const adoptInitializedDraft = useCallback(
     async (result: WikiSubmitResult | null) => {
       if (!result?.version || !result.updatedAt) return;
-      await rebaseWikiDraft({
+      await persistAdoptedWikiDraftBaseline({
         version: result.version,
         contentGeneration: result.contentGeneration ?? 0,
         snapshot: serializeWikiEditSnapshot({
@@ -495,17 +507,23 @@ export function WikiEditor({
         }),
       });
     },
-    [initialContent, initialIcon, initialTitle, parentId, rebaseWikiDraft],
+    [
+      initialContent,
+      initialIcon,
+      initialTitle,
+      parentId,
+      persistAdoptedWikiDraftBaseline,
+    ],
   );
   useEffect(() => {
     if (!draftMode || !onInitialize) return;
     void initializeDraft().then(
       (result) => {
-        void rebaseInitializedDraft(result).catch(() => {});
+        void adoptInitializedDraft(result).catch(() => {});
       },
       () => {},
     );
-  }, [draftMode, initializeDraft, onInitialize, rebaseInitializedDraft]);
+  }, [adoptInitializedDraft, draftMode, initializeDraft, onInitialize]);
   const cancelMobileCommentDraft = useCallback(() => {
     clearDraftCommentMarks(editor);
     requestAnimationFrame(() => {
@@ -533,7 +551,7 @@ export function WikiEditor({
         const initialization = await initializeDraft();
         if (initialization?.error) return initialization;
         if (draftMode && initialization) {
-          await rebaseInitializedDraft(initialization).catch(() => {});
+          await adoptInitializedDraft(initialization).catch(() => {});
         }
         await wikiDraft.markSubmitted(nextSnapshot).catch(() => {});
         result = await onSubmit({
@@ -741,7 +759,7 @@ export function WikiEditor({
       initializeDraft,
       onSubmit,
       pageId,
-      rebaseInitializedDraft,
+      adoptInitializedDraft,
       userId,
       wikiDraft,
       wikiTree,
@@ -800,7 +818,9 @@ export function WikiEditor({
         baseParentIdRef.current = recoveredBase.parentId;
       }
 
-      void rebaseWikiDraft(recovery.baseline).catch(() => {});
+      void persistAdoptedWikiDraftBaseline(recovery.baseline).catch(() => {
+        setError("本地草稿保存失败，请重试。");
+      });
       resetAutosaveBaseline(recovery.baseline.snapshot);
       if (recovery.pendingSnapshot !== undefined) {
         restorePendingSave(recovery.pendingSnapshot);
@@ -821,7 +841,7 @@ export function WikiEditor({
     notifyChange,
     draftRecovery,
     recoveredDraft,
-    rebaseWikiDraft,
+    persistAdoptedWikiDraftBaseline,
     resetAutosaveBaseline,
     restorePendingSave,
     wikiDraft,
@@ -887,11 +907,13 @@ export function WikiEditor({
       setEditSummary("");
       editor.tf.setValue(parseContent(next.content));
       resetAutosaveBaseline(update.snapshot);
-      void rebaseWikiDraft({
+      void persistAdoptedWikiDraftBaseline({
         version: update.version,
         contentGeneration: update.contentGeneration,
         snapshot: update.snapshot,
-      }).catch(() => {});
+      }).catch(() => {
+        setError("本地草稿保存失败，请重试。");
+      });
       queueMicrotask(() => {
         applyingRemoteUpdateRef.current = false;
       });
@@ -900,7 +922,7 @@ export function WikiEditor({
       documentKind,
       editor,
       pageId,
-      rebaseWikiDraft,
+      persistAdoptedWikiDraftBaseline,
       resetAutosaveBaseline,
       userId,
     ],
@@ -1259,19 +1281,23 @@ export function WikiEditor({
         parentId: conflict.theirParentId,
         editSummary: editSummaryRef.current,
       });
-      if (discardLocal) {
-        await wikiDraft.discard();
-      } else {
-        await wikiDraft
-          .rebase(
+      try {
+        if (discardLocal) {
+          await wikiDraft.discard();
+        } else {
+          await wikiDraft.rebase(
             {
               version: conflict.theirVersion,
               contentGeneration: conflict.theirContentGeneration,
               snapshot: serverSnapshot,
             },
             "manual",
-          )
-          .catch(() => {});
+          );
+        }
+      } catch {
+        wikiDraft.resume();
+        setError("无法更新本地草稿，请重试。");
+        return;
       }
       editor.tf.setValue(parseContent(conflict.theirContent));
       titleRef.current = conflict.theirTitle;
@@ -2017,10 +2043,15 @@ export function WikiEditor({
                   setDraftRecovery(null);
                 }}
                 onDiscard={() => {
-                  void wikiDraft.discard().then(() => {
-                    wikiDraft.resume();
-                    setDraftRecovery(null);
-                  });
+                  void wikiDraft
+                    .discard()
+                    .then(() => {
+                      wikiDraft.resume();
+                      setDraftRecovery(null);
+                    })
+                    .catch(() => {
+                      setError("无法清除本地草稿，请重试。");
+                    });
                 }}
               />
             )}

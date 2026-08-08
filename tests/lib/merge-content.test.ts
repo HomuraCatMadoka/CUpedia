@@ -167,6 +167,16 @@ describe("threeWayMergeContent", () => {
     ]);
   });
 
+  it("does not combine concurrent edits inside one Unicode grapheme", async () => {
+    const base = doc(para("e\u0301"));
+    const mine = doc(para("a\u0301"));
+    const theirs = doc(para("e\u0300"));
+
+    await expect(threeWayMergeContent({ base, mine, theirs })).resolves.toEqual(
+      { clean: false },
+    );
+  });
+
   it("combines compatible formatting applied to the same text", async () => {
     const base = doc(para("NOL"));
     const theirs = doc({

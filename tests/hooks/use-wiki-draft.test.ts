@@ -780,6 +780,302 @@ describe("useWikiDraft", () => {
     );
   });
 
+  it("keeps persistence suspended until the caller handles a failed discard", async () => {
+    const hook = setup();
+    await act(async () => Promise.resolve());
+    storage.deleteWikiDraft.mockRejectedValueOnce(
+      new Error("IndexedDB delete failed"),
+    );
+
+    act(() => hook.result.current.suspend());
+    await expect(
+      act(async () => hook.result.current.discard()),
+    ).rejects.toThrow("IndexedDB delete failed");
+
+    hook.setSnapshot("edit after failed discard");
+    act(() => hook.result.current.notifyChange());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(storage.writeWikiDraft).not.toHaveBeenCalled();
+
+    act(() => {
+      hook.result.current.resume();
+      hook.result.current.notifyChange();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftSnapshot: "edit after failed discard",
+      }),
+    );
+  });
+
+  it("preserves a submitted snapshot when discarding its draft fails", async () => {
+    const hook = setup();
+    await act(async () => Promise.resolve());
+    await act(async () => hook.result.current.markSubmitted("submitted"));
+    storage.deleteWikiDraft.mockRejectedValueOnce(
+      new Error("IndexedDB delete failed"),
+    );
+
+    act(() => hook.result.current.suspend());
+    await expect(
+      act(async () => hook.result.current.discard()),
+    ).rejects.toThrow("IndexedDB delete failed");
+    act(() => hook.result.current.resume());
+    hook.setSnapshot("trailing edit");
+    storage.writeWikiDraft.mockClear();
+    await act(async () => hook.result.current.flush());
+
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        submittedSnapshot: "submitted",
+        draftSnapshot: "trailing edit",
+      }),
+    );
+  });
+
+  it("preserves manual recovery after a failed discard", async () => {
+    const hook = setup();
+    await act(async () => Promise.resolve());
+    await act(async () =>
+      hook.result.current.rebase(
+        {
+          version: 5,
+          contentGeneration: 2,
+          snapshot: "server-v5",
+        },
+        "manual",
+      ),
+    );
+    hook.setSnapshot("server-v5");
+    storage.deleteWikiDraft.mockRejectedValueOnce(
+      new Error("IndexedDB delete failed"),
+    );
+
+    act(() => hook.result.current.suspend());
+    await expect(
+      act(async () => hook.result.current.discard()),
+    ).rejects.toThrow("IndexedDB delete failed");
+    act(() => hook.result.current.resume());
+    storage.deleteWikiDraft.mockClear();
+    storage.writeWikiDraft.mockClear();
+    await act(async () => hook.result.current.flush());
+
+    expect(storage.deleteWikiDraft).not.toHaveBeenCalled();
+    expect(storage.writeWikiDraft).not.toHaveBeenCalled();
+  });
+
+  it("does not advance the in-memory baseline when durable rebase fails", async () => {
+    const hook = setup();
+    await act(async () => Promise.resolve());
+    hook.setSnapshot("local edit");
+    storage.rebaseWikiDraft.mockRejectedValueOnce(
+      new Error("IndexedDB rebase failed"),
+    );
+
+    await expect(
+      act(async () =>
+        hook.result.current.rebase(
+          {
+            version: 5,
+            contentGeneration: 2,
+            snapshot: "server-v5",
+          },
+          "manual",
+        ),
+      ),
+    ).rejects.toThrow("IndexedDB rebase failed");
+    storage.writeWikiDraft.mockClear();
+    await act(async () => hook.result.current.flush());
+
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseVersion: 4,
+        baseSnapshot: "server",
+        draftSnapshot: "local edit",
+      }),
+    );
+  });
+
+  it("waits for a durable rebase before flushing a resumed edit", async () => {
+    let finishRebase!: () => void;
+    storage.rebaseWikiDraft.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishRebase = resolve;
+        }),
+    );
+    const hook = setup();
+    await act(async () => Promise.resolve());
+
+    const rebasing = hook.result.current.rebase({
+      version: 5,
+      contentGeneration: 2,
+      snapshot: "server-v5",
+    });
+    hook.setSnapshot("edit after remote update");
+    act(() => {
+      hook.result.current.resume();
+      hook.result.current.notifyChange();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+
+    expect(storage.writeWikiDraft).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishRebase();
+      await rebasing;
+    });
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseVersion: 5,
+        baseSnapshot: "server-v5",
+        draftSnapshot: "edit after remote update",
+      }),
+    );
+  });
+
+  it("releases a waiting flush against the old baseline when rebase fails", async () => {
+    let failRebase!: (error: Error) => void;
+    storage.rebaseWikiDraft.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          failRebase = reject;
+        }),
+    );
+    const hook = setup();
+    await act(async () => Promise.resolve());
+
+    const rebasing = hook.result.current.rebase({
+      version: 5,
+      contentGeneration: 2,
+      snapshot: "server-v5",
+    });
+    hook.setSnapshot("edit while rebase fails");
+    act(() => hook.result.current.notifyChange());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(storage.writeWikiDraft).not.toHaveBeenCalled();
+
+    await act(async () => {
+      failRebase(new Error("IndexedDB rebase failed"));
+      await expect(rebasing).rejects.toThrow("IndexedDB rebase failed");
+      await Promise.resolve();
+    });
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseVersion: 4,
+        baseSnapshot: "server",
+        draftSnapshot: "edit while rebase fails",
+      }),
+    );
+  });
+
+  it("repairs an eagerly adopted baseline after its durable rebase fails", async () => {
+    let failAdoption!: (error: Error) => void;
+    storage.rebaseWikiDraft.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          failAdoption = reject;
+        }),
+    );
+    const hook = setup();
+    await act(async () => Promise.resolve());
+
+    const adopting = hook.result.current.adopt({
+      version: 5,
+      contentGeneration: 2,
+      snapshot: "server-v5",
+    });
+    hook.setSnapshot("edit based on server-v5");
+    act(() => hook.result.current.notifyChange());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(storage.writeWikiDraft).not.toHaveBeenCalled();
+
+    await act(async () => {
+      failAdoption(new Error("IndexedDB rebase failed"));
+      await expect(adopting).rejects.toThrow("IndexedDB rebase failed");
+      await Promise.resolve();
+    });
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseVersion: 5,
+        baseSnapshot: "server-v5",
+        draftSnapshot: "edit based on server-v5",
+      }),
+    );
+  });
+
+  it("does not let a pending Page A rebase block or mutate Page B", async () => {
+    let finishPageARebase!: () => void;
+    storage.rebaseWikiDraft.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishPageARebase = resolve;
+        }),
+    );
+    storage.getWikiDraftSessionId
+      .mockResolvedValueOnce("session-a")
+      .mockResolvedValueOnce("session-b");
+    let current = "page-a-server";
+    const hook = renderHook(
+      ({ pageId, snapshot }: { pageId: string; snapshot: string }) =>
+        useWikiDraft({
+          enabled: true,
+          userId: "user-1",
+          pageId,
+          version: 4,
+          contentGeneration: 2,
+          snapshot,
+          getSnapshot: () => current,
+          onRecovery: vi.fn(),
+        }),
+      { initialProps: { pageId: "page-a", snapshot: "page-a-server" } },
+    );
+    await act(async () => Promise.resolve());
+
+    const pageARebase = hook.result.current.rebase({
+      version: 5,
+      contentGeneration: 2,
+      snapshot: "page-a-server-v5",
+    });
+    current = "page-b-server";
+    hook.rerender({ pageId: "page-b", snapshot: "page-b-server" });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    current = "page-b-local";
+    act(() => hook.result.current.notifyChange());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(250);
+    });
+    expect(storage.writeWikiDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pageId: "page-b",
+        sessionId: "session-b",
+        baseSnapshot: "page-b-server",
+        draftSnapshot: "page-b-local",
+      }),
+    );
+
+    await act(async () => {
+      finishPageARebase();
+      await pageARebase;
+    });
+    expect(storage.writeWikiDraft).toHaveBeenCalledTimes(1);
+  });
+
   it("recovers a same-document outbox without waiting for an unresolved server response", async () => {
     const server = pageSnapshot("server");
     const submitted = pageSnapshot("submitted");

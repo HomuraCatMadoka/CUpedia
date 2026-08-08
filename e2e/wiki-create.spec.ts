@@ -2,7 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
-import { waitForHydratedWikiEditor } from "./helpers/wiki";
+import {
+  captureWikiPollingAction,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 
 async function query<T extends Record<string, unknown>>(
   text: string,
@@ -15,21 +18,6 @@ async function query<T extends Record<string, unknown>>(
   } finally {
     await client.end();
   }
-}
-
-async function captureWikiPollingAction(page: Page, pageId: string) {
-  const pollingRequestPromise = page.waitForRequest(
-    (request) =>
-      request.method() === "POST" &&
-      Boolean(request.headers()["next-action"]) &&
-      new URL(request.url()).pathname === `/wiki/${pageId}`,
-  );
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  const pollingRequest = await pollingRequestPromise;
-  const pollingAction = pollingRequest.headers()["next-action"];
-  await pollingRequest.response();
-  if (!pollingAction) throw new Error("Wiki polling action was not captured");
-  return pollingAction;
 }
 
 test.describe("#465 server-backed private Wiki drafts", () => {

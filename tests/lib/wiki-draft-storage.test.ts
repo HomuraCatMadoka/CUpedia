@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   acknowledgeWikiDraft,
@@ -13,6 +13,10 @@ import {
 import type { WikiDraftRecord } from "@/lib/wiki-draft";
 
 const unavailableSessionIds = new Set<string>();
+const originalIndexedDBDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "indexedDB",
+);
 
 const locks = {
   request: vi.fn(
@@ -153,6 +157,14 @@ beforeEach(() => {
   locks.request.mockClear();
   sessionStorage.clear();
   history.replaceState({}, "", "/wiki");
+});
+
+afterEach(() => {
+  if (originalIndexedDBDescriptor) {
+    Object.defineProperty(globalThis, "indexedDB", originalIndexedDBDescriptor);
+  } else {
+    Reflect.deleteProperty(globalThis, "indexedDB");
+  }
 });
 
 describe("getWikiDraftSessionId", () => {

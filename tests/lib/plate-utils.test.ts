@@ -196,7 +196,7 @@ describe("normalizeInitialValue (#204 — SSR/CSR hydration id stability)", () =
         children: [{ text: "" }],
       }),
     ]);
-    expect(JSON.stringify(first)).toEqual(expect.any(String));
+    expect(JSON.parse(JSON.stringify(first))).toEqual(first);
   });
 
   it("does not mutate the input value", () => {

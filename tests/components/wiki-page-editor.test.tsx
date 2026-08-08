@@ -127,6 +127,23 @@ describe("WikiPageEditor update checks", () => {
     expect(JSON.parse(update!.content)).toEqual([link]);
   });
 
+  it("does not fetch the tree or replace editor state when the version is unchanged", async () => {
+    const initialPage = page();
+    mocks.getWikiPageForEdit.mockResolvedValue(page({ version: 4 }));
+
+    const element = await WikiPageEditor({
+      page: initialPage,
+      pages: [],
+      userId: "user-1",
+    });
+    const checkForUpdate = element.props.onCheckForUpdate as (
+      currentVersion: number,
+    ) => Promise<unknown>;
+
+    await expect(checkForUpdate(4)).resolves.toBeNull();
+    expect(mocks.getWikiTree).not.toHaveBeenCalled();
+  });
+
   it("exposes the latest private draft revision to a passive editor", async () => {
     const initialDraft = {
       id: PAGE_ID,

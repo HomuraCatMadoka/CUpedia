@@ -5,6 +5,7 @@ import { Client } from "pg";
 
 import { loginAsAdmin } from "./helpers/auth";
 import {
+  captureWikiPollingAction,
   createUntitledWikiPage,
   waitForHydratedWikiEditor,
   wikiPageUrl,
@@ -338,7 +339,11 @@ async function waitForDraftResume(page: Page) {
   );
 }
 
-async function holdFirstSaveUntilReleased(page: Page, editPath: string) {
+async function holdFirstSaveUntilReleased(
+  page: Page,
+  editPath: string,
+  pollingAction: string,
+) {
   let release!: () => void;
   let markSeen!: () => void;
   let markCommitted!: () => void;
@@ -354,7 +359,11 @@ async function holdFirstSaveUntilReleased(page: Page, editPath: string) {
   let held = false;
 
   await page.route(`**${editPath}`, async (route) => {
-    if (route.request().method() !== "POST" || held) {
+    if (
+      route.request().method() !== "POST" ||
+      route.request().headers()["next-action"] === pollingAction ||
+      held
+    ) {
       await route.continue();
       return;
     }
@@ -367,6 +376,39 @@ async function holdFirstSaveUntilReleased(page: Page, editPath: string) {
   });
 
   return { release, seen, committed };
+}
+
+async function holdFirstSaveRequestUntilReleased(
+  page: Page,
+  editPath: string,
+  pollingAction: string,
+) {
+  let release!: () => void;
+  let markSeen!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const seen = new Promise<void>((resolve) => {
+    markSeen = resolve;
+  });
+  let held = false;
+
+  await page.route(`**${editPath}`, async (route) => {
+    if (
+      route.request().method() !== "POST" ||
+      route.request().headers()["next-action"] === pollingAction ||
+      held
+    ) {
+      await route.continue();
+      return;
+    }
+    held = true;
+    markSeen();
+    await gate;
+    await route.continue();
+  });
+
+  return { release, seen };
 }
 
 test.describe("#432 latest draft convergence", () => {
@@ -559,6 +601,7 @@ test.describe("#432 latest draft convergence", () => {
       await loginAsAdmin(pageB);
       await pageB.goto(`/wiki/${pageId}`);
       const editorB = await waitForHydratedWikiEditor(pageB);
+      const pollingAction = await captureWikiPollingAction(pageB, pageId);
 
       await pageB.bringToFront();
       await expect(editorB).toHaveAttribute("contenteditable", "true");
@@ -575,7 +618,11 @@ test.describe("#432 latest draft convergence", () => {
       );
       let held = false;
       await pageB.route(`**/wiki/${pageId}`, async (route) => {
-        if (route.request().method() !== "POST" || held) {
+        if (
+          route.request().method() !== "POST" ||
+          route.request().headers()["next-action"] === pollingAction ||
+          held
+        ) {
           await route.continue();
           return;
         }
@@ -829,8 +876,15 @@ test.describe("#432 latest draft convergence", () => {
     let droppedFirstResponse = false;
 
     await loginAsAdmin(page);
+    await page.goto(editPath);
+    await waitForHydratedWikiEditor(page);
+    const pollingAction = await captureWikiPollingAction(page, pageId);
     await page.route(`**${editPath}`, async (route) => {
-      if (route.request().method() !== "POST" || droppedFirstResponse) {
+      if (
+        route.request().method() !== "POST" ||
+        route.request().headers()["next-action"] === pollingAction ||
+        droppedFirstResponse
+      ) {
         await route.continue();
         return;
       }
@@ -839,8 +893,6 @@ test.describe("#432 latest draft convergence", () => {
       markCommitted();
       await route.abort("failed");
     });
-    await page.goto(editPath);
-    await waitForHydratedWikiEditor(page);
 
     await page.getByLabel("页面标题").fill(committedTitle);
     await committed;
@@ -881,9 +933,14 @@ test.describe("#432 latest draft convergence", () => {
     const finalTitle = `${submittedTitle} trailing`;
 
     await loginAsAdmin(page);
-    const firstSave = await holdFirstSaveUntilReleased(page, editPath);
     await page.goto(editPath);
     await waitForHydratedWikiEditor(page);
+    const pollingAction = await captureWikiPollingAction(page, pageId);
+    const firstSave = await holdFirstSaveUntilReleased(
+      page,
+      editPath,
+      pollingAction,
+    );
 
     await page.getByLabel("页面标题").fill(submittedTitle);
     await firstSave.seen;
@@ -931,9 +988,14 @@ test.describe("#432 latest draft convergence", () => {
     const finalTitle = `${submittedTitle} trailing`;
 
     await loginAsAdmin(page);
-    const firstSave = await holdFirstSaveUntilReleased(page, editPath);
     await page.goto(editPath);
     await waitForHydratedWikiEditor(page);
+    const pollingAction = await captureWikiPollingAction(page, pageId);
+    const firstSave = await holdFirstSaveUntilReleased(
+      page,
+      editPath,
+      pollingAction,
+    );
 
     await page.getByRole("button", { name: "页面设置" }).click();
     await page
@@ -993,8 +1055,15 @@ test.describe("#432 latest draft convergence", () => {
     let abortedFirstSave = false;
 
     await loginAsAdmin(page);
+    await page.goto(editPath);
+    await waitForHydratedWikiEditor(page);
+    const pollingAction = await captureWikiPollingAction(page, pageId);
     await page.route(`**${editPath}`, async (route) => {
-      if (route.request().method() !== "POST" || abortedFirstSave) {
+      if (
+        route.request().method() !== "POST" ||
+        route.request().headers()["next-action"] === pollingAction ||
+        abortedFirstSave
+      ) {
         await route.continue();
         return;
       }
@@ -1002,8 +1071,6 @@ test.describe("#432 latest draft convergence", () => {
       markAttempted();
       await route.abort("failed");
     });
-    await page.goto(editPath);
-    await waitForHydratedWikiEditor(page);
 
     await page.getByRole("button", { name: "页面设置" }).click();
     await page
@@ -1043,9 +1110,14 @@ test.describe("#432 latest draft convergence", () => {
     const editPath = `/wiki/${fixture.id}`;
 
     await loginAsAdmin(page);
-    const firstSave = await holdFirstSaveUntilReleased(page, editPath);
     await page.goto(editPath);
     const editor = await waitForHydratedWikiEditor(page);
+    const pollingAction = await captureWikiPollingAction(page, fixture.id);
+    const firstSave = await holdFirstSaveUntilReleased(
+      page,
+      editPath,
+      pollingAction,
+    );
 
     await formatText(page, "Alpha block.", "Control+b");
     await firstSave.seen;
@@ -1109,8 +1181,15 @@ test.describe("#432 latest draft convergence", () => {
     let droppedFirstResponse = false;
 
     await loginAsAdmin(page);
+    await page.goto(editPath);
+    await waitForHydratedWikiEditor(page);
+    const pollingAction = await captureWikiPollingAction(page, pageId);
     await page.route(`**${editPath}`, async (route) => {
-      if (route.request().method() !== "POST" || droppedFirstResponse) {
+      if (
+        route.request().method() !== "POST" ||
+        route.request().headers()["next-action"] === pollingAction ||
+        droppedFirstResponse
+      ) {
         await route.continue();
         return;
       }
@@ -1119,8 +1198,6 @@ test.describe("#432 latest draft convergence", () => {
       markCommitted();
       await route.abort("failed");
     });
-    await page.goto(editPath);
-    await waitForHydratedWikiEditor(page);
 
     await page.getByLabel("页面标题").fill(committedTitle);
     await committed;
@@ -1182,7 +1259,9 @@ test.describe("#432 latest draft convergence", () => {
 
     await createUntitledWikiPage(page);
     await waitForHydratedWikiEditor(page);
-    await page.getByLabel("标题").fill(`Guarded draft ${Date.now()}`);
+    await page
+      .getByLabel("页面标题", { exact: true })
+      .fill(`Guarded draft ${Date.now()}`);
 
     await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
     await page.getByRole("link", { name: "CUpedia" }).first().click();
@@ -1198,7 +1277,7 @@ test.describe("#432 latest draft convergence", () => {
     await page.goto(`/wiki/${MERGE_ID}`);
     await waitForHydratedWikiEditor(page);
 
-    await page.getByLabel("标题").fill(title);
+    await page.getByLabel("页面标题", { exact: true }).fill(title);
     await expect(page.getByText("未保存")).toBeVisible();
     await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("status", { name: "保存状态" })).toHaveText(
@@ -1209,7 +1288,9 @@ test.describe("#432 latest draft convergence", () => {
     ).toBeHidden();
 
     await page.goto(`/wiki/${MERGE_ID}`);
-    await expect(page.getByLabel("标题")).toHaveValue(title);
+    await expect(page.getByLabel("页面标题", { exact: true })).toHaveValue(
+      title,
+    );
   });
 
   test("a failed explicit save keeps the draft open with retryable feedback", async ({
@@ -1229,11 +1310,13 @@ test.describe("#432 latest draft convergence", () => {
 
     await page.goto(editPath);
     await waitForHydratedWikiEditor(page);
-    await page.getByLabel("标题").fill(draftTitle);
+    await page.getByLabel("页面标题", { exact: true }).fill(draftTitle);
     await page.keyboard.press("Control+s");
 
     await expect(page).toHaveURL(wikiPageUrl(FIXTURES.failure.id));
-    await expect(page.getByLabel("标题")).toHaveValue(draftTitle);
+    await expect(page.getByLabel("页面标题", { exact: true })).toHaveValue(
+      draftTitle,
+    );
     await expect(page.getByRole("alert", { name: "保存错误" })).toContainText(
       "保存失败，请检查网络后重试",
     );
@@ -1242,7 +1325,9 @@ test.describe("#432 latest draft convergence", () => {
     await expect(
       page.getByRole("dialog", { name: "恢复本地草稿" }),
     ).toHaveCount(0);
-    await expect(page.getByLabel("标题")).toHaveValue(draftTitle);
+    await expect(page.getByLabel("页面标题", { exact: true })).toHaveValue(
+      draftTitle,
+    );
     await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
       "data-autosave-status",
       "error",
@@ -1255,7 +1340,9 @@ test.describe("#432 latest draft convergence", () => {
     await expect(page.getByRole("alert", { name: "保存错误" })).toHaveCount(0);
     await page.reload();
     await waitForHydratedWikiEditor(page);
-    await expect(page.getByLabel("标题")).toHaveValue(draftTitle);
+    await expect(page.getByLabel("页面标题", { exact: true })).toHaveValue(
+      draftTitle,
+    );
   });
 
   test("background conflict pauses autosave passively until an explicit save", async ({
@@ -1327,7 +1414,16 @@ test.describe("#432 latest draft convergence", () => {
     await pageB.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageB);
 
-    await pageB.getByLabel("标题").fill(serverTitle);
+    const pollingAction = await captureWikiPollingAction(pageA, pageId);
+    const firstSave = await holdFirstSaveRequestUntilReleased(
+      pageA,
+      `/wiki/${pageId}`,
+      pollingAction,
+    );
+    await pageA.getByLabel("页面标题", { exact: true }).fill(mineTitle);
+    await firstSave.seen;
+
+    await pageB.getByLabel("页面标题", { exact: true }).fill(serverTitle);
     await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
       "data-autosave-status",
       "unsaved",
@@ -1339,17 +1435,21 @@ test.describe("#432 latest draft convergence", () => {
       { timeout: 15_000 },
     );
 
-    await pageA.getByLabel("标题").fill(mineTitle);
+    firstSave.release();
     await expect(
       pageA.getByRole("status", { name: "自动保存已暂停" }),
     ).toBeVisible({ timeout: 15_000 });
-    await expect(pageA.getByLabel("标题")).toHaveValue(mineTitle);
+    await expect(pageA.getByLabel("页面标题", { exact: true })).toHaveValue(
+      mineTitle,
+    );
 
     await pageA.keyboard.press("Control+s");
     await expect(pageA.getByRole("dialog", { name: "编辑冲突" })).toBeVisible();
 
     await pageB.goto(`/wiki/${pageId}`);
-    await expect(pageB.getByLabel("标题")).toHaveValue(serverTitle);
+    await expect(pageB.getByLabel("页面标题", { exact: true })).toHaveValue(
+      serverTitle,
+    );
 
     await contextA.close();
     await contextB.close();
@@ -1374,7 +1474,16 @@ test.describe("#432 latest draft convergence", () => {
     await pageB.goto(`/wiki/${pageId}`);
     await waitForHydratedWikiEditor(pageB);
 
-    await pageB.getByLabel("标题").fill(serverTitle);
+    const pollingAction = await captureWikiPollingAction(pageA, pageId);
+    const firstSave = await holdFirstSaveRequestUntilReleased(
+      pageA,
+      `/wiki/${pageId}`,
+      pollingAction,
+    );
+    await pageA.getByLabel("页面标题", { exact: true }).fill(mineTitle);
+    await firstSave.seen;
+
+    await pageB.getByLabel("页面标题", { exact: true }).fill(serverTitle);
     await pageB.keyboard.press("Control+s");
     await expect(pageB.getByTestId("wiki-editor-shell")).toHaveAttribute(
       "data-autosave-status",
@@ -1382,7 +1491,7 @@ test.describe("#432 latest draft convergence", () => {
       { timeout: 15_000 },
     );
 
-    await pageA.getByLabel("标题").fill(mineTitle);
+    firstSave.release();
     await expect(
       pageA.getByRole("status", { name: "自动保存已暂停" }),
     ).toBeVisible({ timeout: 15_000 });
@@ -1392,7 +1501,9 @@ test.describe("#432 latest draft convergence", () => {
     await expect(pageA.getByRole("dialog", { name: "编辑冲突" })).toHaveCount(
       0,
     );
-    await expect(pageA.getByLabel("标题")).toHaveValue(serverTitle);
+    await expect(pageA.getByLabel("页面标题", { exact: true })).toHaveValue(
+      serverTitle,
+    );
 
     // Let the conflict flow leave its two-frame suspension before reloading.
     // An immediate reload only exercises the temporary suspended guard and
@@ -1424,7 +1535,9 @@ test.describe("#432 latest draft convergence", () => {
 
     await pageB.reload();
     await waitForHydratedWikiEditor(pageB);
-    await expect(pageB.getByLabel("标题")).toHaveValue(serverTitle);
+    await expect(pageB.getByLabel("页面标题", { exact: true })).toHaveValue(
+      serverTitle,
+    );
 
     await contextA.close();
     await contextB.close();
@@ -1448,8 +1561,15 @@ test.describe("#431 authoritative autosave baseline", () => {
     let heldFirstSave = false;
 
     await loginAsAdmin(page);
+    await page.goto(editPath);
+    await waitForHydratedWikiEditor(page);
+    const pollingAction = await captureWikiPollingAction(page, pageId);
     await page.route(`**${editPath}`, async (route) => {
-      if (route.request().method() !== "POST" || heldFirstSave) {
+      if (
+        route.request().method() !== "POST" ||
+        route.request().headers()["next-action"] === pollingAction ||
+        heldFirstSave
+      ) {
         await route.continue();
         return;
       }
@@ -1459,8 +1579,6 @@ test.describe("#431 authoritative autosave baseline", () => {
       await firstResponseReleased;
       await route.fulfill({ response });
     });
-    await page.goto(editPath);
-    await waitForHydratedWikiEditor(page);
 
     await formatText(page, "Alpha block.", "Control+b");
     await firstCommitted;
@@ -1605,7 +1723,7 @@ test.describe("#431 authoritative autosave baseline", () => {
     await contextB.close();
   });
 
-  test("refreshing a trailing draft never overwrites a clean remote merge", async ({
+  test("a failed recovery discard preserves the trailing draft and clean remote merge", async ({
     browser,
   }) => {
     test.slow();
@@ -1638,11 +1756,16 @@ test.describe("#431 authoritative autosave baseline", () => {
       await loginAsAdmin(pageB);
       await pageB.goto(`/wiki/${pageId}`);
       await waitForHydratedWikiEditor(pageB);
+      const pollingAction = await captureWikiPollingAction(pageA, pageId);
 
       let postCount = 0;
       await pageA.route(`**/wiki/${pageId}`, async (route) => {
         if (route.request().method() !== "POST") {
           await route.continue();
+          return;
+        }
+        if (route.request().headers()["next-action"] === pollingAction) {
+          await route.abort("failed");
           return;
         }
         postCount += 1;
@@ -1689,9 +1812,47 @@ test.describe("#431 authoritative autosave baseline", () => {
       await expect(
         pageA.getByRole("dialog", { name: "恢复本地草稿" }),
       ).toBeVisible();
-      expect((await readLocalDraftSnapshot(pageA, pageId))?.content).toContain(
-        trailingMarker,
+      const localDraftBeforeDiscard = await readLocalDraftSnapshot(
+        pageA,
+        pageId,
       );
+      expect(localDraftBeforeDiscard?.content).toContain(trailingMarker);
+
+      await pageA.evaluate(() => {
+        const prototype = IDBObjectStore.prototype;
+        const originalDelete = prototype.delete;
+        let shouldFail = true;
+        Object.defineProperty(prototype, "delete", {
+          configurable: true,
+          writable: true,
+          value(this: IDBObjectStore, key: IDBValidKey | IDBKeyRange) {
+            if (shouldFail) {
+              shouldFail = false;
+              throw new DOMException(
+                "Simulated local draft deletion failure",
+                "InvalidStateError",
+              );
+            }
+            return originalDelete.call(this, key);
+          },
+        });
+      });
+      await pageA
+        .getByRole("button", {
+          name: "放弃本地草稿并加载服务器版本",
+        })
+        .click();
+      await expect(
+        pageA.getByRole("alert", { name: "保存错误" }),
+      ).toContainText("无法清除本地草稿，请重试。");
+      await pageA.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+
+      expect(await readLocalDraftSnapshot(pageA, pageId)).toEqual(
+        localDraftBeforeDiscard,
+      );
+      await expect(
+        pageA.getByRole("dialog", { name: "恢复本地草稿" }),
+      ).toBeVisible();
       await expect
         .poll(async () => JSON.stringify(await readPersistedContent(pageId)))
         .toContain(markerB);

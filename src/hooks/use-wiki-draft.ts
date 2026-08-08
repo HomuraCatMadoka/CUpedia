@@ -55,6 +55,7 @@ export function useWikiDraft({
   const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const readyRef = React.useRef(false);
   const readyPromiseRef = React.useRef<Promise<void>>(Promise.resolve());
+  const baselineBarrierRef = React.useRef<Promise<void>>(Promise.resolve());
   const suspendedRef = React.useRef(false);
   const pendingChangeRef = React.useRef(false);
   const submittedSnapshotRef = React.useRef<string | null>(null);
@@ -97,6 +98,14 @@ export function useWikiDraft({
     clearTimer();
     if (!enabled || suspendedRef.current) return;
     if (!readyRef.current) await readyPromiseRef.current;
+    if (!belongsToCurrentIdentity()) return;
+    if (!readyRef.current || suspendedRef.current) return;
+    while (true) {
+      const barrier = baselineBarrierRef.current;
+      await barrier;
+      if (barrier === baselineBarrierRef.current) break;
+    }
+    if (!belongsToCurrentIdentity()) return;
     if (!readyRef.current || suspendedRef.current) return;
     const key = keyRef.current;
     const sessionId = sessionIdRef.current;
@@ -162,11 +171,10 @@ export function useWikiDraft({
   const discard = React.useCallback(async () => {
     if (!belongsToCurrentIdentity()) return;
     const key = keyRef.current;
+    if (key) await deleteWikiDraft(key);
+    if (!belongsToCurrentIdentity()) return;
     submittedSnapshotRef.current = null;
     recoveryDispositionRef.current = undefined;
-    if (key) {
-      await deleteWikiDraft(key);
-    }
   }, [belongsToCurrentIdentity]);
 
   const resume = React.useCallback(() => {
@@ -180,21 +188,45 @@ export function useWikiDraft({
     suspendedRef.current = true;
   }, [belongsToCurrentIdentity, clearTimer]);
 
+  const adopt = React.useCallback(
+    (
+      nextBase: Pick<
+        WikiDraftServerState,
+        "version" | "contentGeneration" | "snapshot"
+      >,
+    ) => {
+      if (!belongsToCurrentIdentity()) return Promise.resolve();
+      const key = keyRef.current;
+      baselineRef.current = nextBase;
+      const transition = baselineBarrierRef.current.then(async () => {
+        if (key) await rebaseWikiDraft(key, nextBase);
+      });
+      baselineBarrierRef.current = transition.catch(() => {});
+      return transition;
+    },
+    [belongsToCurrentIdentity],
+  );
+
   const rebase = React.useCallback(
-    async (
+    (
       nextBase: Pick<
         WikiDraftServerState,
         "version" | "contentGeneration" | "snapshot"
       >,
       recoveryDisposition?: WikiDraftRecord["recoveryDisposition"],
     ) => {
-      if (!belongsToCurrentIdentity()) return;
-      baselineRef.current = nextBase;
-      if (recoveryDisposition !== undefined) {
-        recoveryDispositionRef.current = recoveryDisposition;
-      }
+      if (!belongsToCurrentIdentity()) return Promise.resolve();
       const key = keyRef.current;
-      if (key) await rebaseWikiDraft(key, nextBase, recoveryDisposition);
+      const transition = baselineBarrierRef.current.then(async () => {
+        if (key) await rebaseWikiDraft(key, nextBase, recoveryDisposition);
+        if (!belongsToCurrentIdentity()) return;
+        baselineRef.current = nextBase;
+        if (recoveryDisposition !== undefined) {
+          recoveryDispositionRef.current = recoveryDisposition;
+        }
+      });
+      baselineBarrierRef.current = transition.catch(() => {});
+      return transition;
     },
     [belongsToCurrentIdentity],
   );
@@ -227,6 +259,7 @@ export function useWikiDraft({
     activeIdentityRef.current = { userId, pageId };
     keyRef.current = null;
     sessionIdRef.current = null;
+    baselineBarrierRef.current = Promise.resolve();
     suspendedRef.current = false;
     pendingChangeRef.current = false;
     submittedSnapshotRef.current = null;
@@ -320,6 +353,7 @@ export function useWikiDraft({
     discard,
     suspend,
     resume,
+    adopt,
     rebase,
     markSubmitted,
     clearSubmitted,

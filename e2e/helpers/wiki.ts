@@ -9,6 +9,21 @@ export function wikiPageUrl(pageId: string) {
   return new RegExp(`/wiki/${pageId}$`);
 }
 
+export async function captureWikiPollingAction(page: Page, pageId: string) {
+  const pollingRequestPromise = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" &&
+      Boolean(request.headers()["next-action"]) &&
+      new URL(request.url()).pathname === `/wiki/${pageId}`,
+  );
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  const pollingRequest = await pollingRequestPromise;
+  const pollingAction = pollingRequest.headers()["next-action"];
+  await pollingRequest.response();
+  if (!pollingAction) throw new Error("Wiki polling action was not captured");
+  return pollingAction;
+}
+
 export async function waitForHydratedWikiEditor(page: Page): Promise<Locator> {
   const shell = page.locator(
     '[data-testid="wiki-editor-shell"][data-editor-hydrated="true"]',
