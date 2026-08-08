@@ -1,0 +1,19 @@
+[
+  {
+    "sourcePostId": 8285,
+    "sourceImageSha256": "ab0f49a17795607047c7979a7bef207408ba0d7e2fd2ef515fe616cbe816eb2c",
+    "reviewStatus": "prototype_visual_review",
+    "reviewedBy": "Codex visual inspection (prototype only)",
+    "reviewedAt": "2026-08-08T14:50:00Z",
+    "publishEligible": false,
+    "effectiveFrom": "2026-08-08T07:30:00+08:00",
+    "effectiveTo": null,
+    "openEndedPolicy": "start_date_only_then_reconfirm",
+    "effect": {
+      "kind": "stop_relocation",
+      "stopName": "University Station Bus Stop",
+      "routeIds": ["1a", "1b"],
+      "note": "Temporary relocation until the end of works; official notice TSP/ISI/2026/15."
+    }
+  }
+]

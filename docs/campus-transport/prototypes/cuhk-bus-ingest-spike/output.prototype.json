@@ -1,0 +1,4267 @@
+{
+  "prototype": true,
+  "parserVersion": "cuhk-bus-ingest-spike/1",
+  "generatedAt": "2026-08-08T15:24:03.551Z",
+  "question": "Can current CUHK public sources produce traceable canonical rows and today's departures without overstating certainty?",
+  "sourceSnapshots": [
+    {
+      "snapshotId": "cuhk-route-index:a47a0c7278e3c1e281dc3f8f6834f761986f9e056c672d33e3a7c903e359a739",
+      "sourceId": "cuhk-route-index",
+      "kind": "route_index_json",
+      "url": "https://transport.cuhk.edu.hk/wp-json/wp/v2/route?per_page=100",
+      "fetchedAt": "2026-08-08T15:23:58.539Z",
+      "sha256": "a47a0c7278e3c1e281dc3f8f6834f761986f9e056c672d33e3a7c903e359a739",
+      "byteLength": 20206,
+      "contentType": "application/json; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-stop-index:78f78377617e1c2195e8906fa832d940f1b288a28285a125dc46876e89053afe",
+      "sourceId": "cuhk-stop-index",
+      "kind": "stop_index_json",
+      "url": "https://transport.cuhk.edu.hk/wp-json/wp/v2/stop?per_page=100",
+      "fetchedAt": "2026-08-08T15:23:58.603Z",
+      "sha256": "78f78377617e1c2195e8906fa832d940f1b288a28285a125dc46876e89053afe",
+      "byteLength": 59302,
+      "contentType": "application/json; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-index:56617e2c9a9ec2ff3c0d5ac4fbc854dfff07441bdd02922de687459d5ca58927",
+      "sourceId": "cuhk-notice-index",
+      "kind": "notice_index_json",
+      "url": "https://transport.cuhk.edu.hk/wp-json/wp/v2/newsdetails?per_page=10",
+      "fetchedAt": "2026-08-08T15:23:58.483Z",
+      "sha256": "56617e2c9a9ec2ff3c0d5ac4fbc854dfff07441bdd02922de687459d5ca58927",
+      "byteLength": 14191,
+      "contentType": "application/json; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+      "sourceId": "cuhk-shuttle-current",
+      "kind": "schedule_pdf",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/documents/Shuttle.pdf",
+      "fetchedAt": "2026-08-08T15:23:58.395Z",
+      "sha256": "b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+      "byteLength": 274675,
+      "contentType": "application/pdf",
+      "lastModified": "Wed, 04 Feb 2026 02:51:23 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-shuttle-2024-25:064d3ace1f8278f367258863e6140d17767b0854efb5617933f0a47fe8ae7e97",
+      "sourceId": "cuhk-shuttle-2024-25",
+      "kind": "historical_schedule_pdf",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/documents/Shuttle_24-25.pdf",
+      "fetchedAt": "2026-08-08T15:23:58.409Z",
+      "sha256": "064d3ace1f8278f367258863e6140d17767b0854efb5617933f0a47fe8ae7e97",
+      "byteLength": 315989,
+      "contentType": "application/pdf",
+      "lastModified": "Wed, 30 Oct 2024 07:25:46 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": "2024-09-03",
+      "businessEffectiveTo": null,
+      "effectiveStatus": "parsed",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-almanac-2025-26:b3f8ae82fd97f364fab836783f82a9720e3a037f1915444525af4ad9e0389e0c",
+      "sourceId": "cuhk-almanac-2025-26",
+      "kind": "academic_calendar_html",
+      "url": "https://www.res.cuhk.edu.hk/general-information/almanac/university-almanac-2025-26/full-time-undergraduate-programmes-teaching-terms/",
+      "fetchedAt": "2026-08-08T15:23:58.706Z",
+      "sha256": "b3f8ae82fd97f364fab836783f82a9720e3a037f1915444525af4ad9e0389e0c",
+      "byteLength": 40095,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-almanac-2026-27:b4efaceb18485c0c31159bfbdd7cd7458eb1293f504fdfa2f252cda99e4b4cd4",
+      "sourceId": "cuhk-almanac-2026-27",
+      "kind": "academic_calendar_html",
+      "url": "https://www.res.cuhk.edu.hk/general-information/almanac/university-almanac-2026-27/full-time-undergraduate-programmes-teaching-terms/",
+      "fetchedAt": "2026-08-08T15:23:58.708Z",
+      "sha256": "b4efaceb18485c0c31159bfbdd7cd7458eb1293f504fdfa2f252cda99e4b4cd4",
+      "byteLength": 41662,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "hksarg-public-holidays:8d797fb380825eec3f53fe456cc85ad30e2f91635675081abb671eca3bfd757d",
+      "sourceId": "hksarg-public-holidays",
+      "kind": "public_holiday_json",
+      "url": "https://www.1823.gov.hk/common/ical/en.json",
+      "fetchedAt": "2026-08-08T15:23:58.379Z",
+      "sha256": "8d797fb380825eec3f53fe456cc85ad30e2f91635675081abb671eca3bfd757d",
+      "byteLength": 15520,
+      "contentType": "application/json",
+      "lastModified": "Mon, 18 May 2026 02:06:33 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-down:6677330b89c8f16c2f3e5bd051853a1e13245e9dcea068cf925c6650a0ab7155",
+      "sourceId": "cuhk-route-down",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/down/",
+      "fetchedAt": "2026-08-08T15:23:59.073Z",
+      "sha256": "6677330b89c8f16c2f3e5bd051853a1e13245e9dcea068cf925c6650a0ab7155",
+      "byteLength": 49208,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-up:25fdf2a1f6208d3196afe2d60b08c3a8c4fab735cc0d97eb16e80c26f2e49810",
+      "sourceId": "cuhk-route-up",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/up/",
+      "fetchedAt": "2026-08-08T15:23:59.080Z",
+      "sha256": "25fdf2a1f6208d3196afe2d60b08c3a8c4fab735cc0d97eb16e80c26f2e49810",
+      "byteLength": 48985,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-7:eb27011aa924cc70d50edbafd38ff9b57b86074d4dae6928538ed248c40c62e9",
+      "sourceId": "cuhk-route-7",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/7/",
+      "fetchedAt": "2026-08-08T15:23:59.175Z",
+      "sha256": "eb27011aa924cc70d50edbafd38ff9b57b86074d4dae6928538ed248c40c62e9",
+      "byteLength": 48445,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-6b:33064292b21605be4d4a35b590dde1a60ced1937fe28ca0883d6077fab4d9d8c",
+      "sourceId": "cuhk-route-6b",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/6b/",
+      "fetchedAt": "2026-08-08T15:23:59.111Z",
+      "sha256": "33064292b21605be4d4a35b590dde1a60ced1937fe28ca0883d6077fab4d9d8c",
+      "byteLength": 47648,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-h:9ea44224c9a786c81f6c56332872c5148f38b397ba2d4b8f3f0a8efd2118702b",
+      "sourceId": "cuhk-route-h",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/h/",
+      "fetchedAt": "2026-08-08T15:23:59.203Z",
+      "sha256": "9ea44224c9a786c81f6c56332872c5148f38b397ba2d4b8f3f0a8efd2118702b",
+      "byteLength": 55044,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-n:900e8ff9a1d86127be8765f1f5f17f490298ca5a5a36caa6978fc25585334ae8",
+      "sourceId": "cuhk-route-n",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/n/",
+      "fetchedAt": "2026-08-08T15:23:59.219Z",
+      "sha256": "900e8ff9a1d86127be8765f1f5f17f490298ca5a5a36caa6978fc25585334ae8",
+      "byteLength": 54838,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-8:083585fade55952a86cbdc2907b2f3cecc5439555147597fb476cc99090e2137",
+      "sourceId": "cuhk-route-8",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/8/",
+      "fetchedAt": "2026-08-08T15:24:00.743Z",
+      "sha256": "083585fade55952a86cbdc2907b2f3cecc5439555147597fb476cc99090e2137",
+      "byteLength": 54387,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-4:5a58b467f54a34ff4dbbad3f805a623e6a03f4477dc0c4ca4edfc52c68258e87",
+      "sourceId": "cuhk-route-4",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/4/",
+      "fetchedAt": "2026-08-08T15:23:59.214Z",
+      "sha256": "5a58b467f54a34ff4dbbad3f805a623e6a03f4477dc0c4ca4edfc52c68258e87",
+      "byteLength": 52936,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-3:5a4f709d7a31bcb452940e4beae5cfbcbc709e08dda9f41a9f0c2612626298b7",
+      "sourceId": "cuhk-route-3",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/3/",
+      "fetchedAt": "2026-08-08T15:23:59.719Z",
+      "sha256": "5a4f709d7a31bcb452940e4beae5cfbcbc709e08dda9f41a9f0c2612626298b7",
+      "byteLength": 52882,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-2:c161e75088e4e034467b90d444174bd9528ca809af7edca296e3f6abaed4fea4",
+      "sourceId": "cuhk-route-2",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/2/",
+      "fetchedAt": "2026-08-08T15:23:59.224Z",
+      "sha256": "c161e75088e4e034467b90d444174bd9528ca809af7edca296e3f6abaed4fea4",
+      "byteLength": 51336,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-6a:fc490dcc7d96af254fc2991a02c147dda79fb17328bbc85d03134d242d653718",
+      "sourceId": "cuhk-route-6a",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/6a/",
+      "fetchedAt": "2026-08-08T15:24:00.740Z",
+      "sha256": "fc490dcc7d96af254fc2991a02c147dda79fb17328bbc85d03134d242d653718",
+      "byteLength": 49069,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-5:6a3c3012cbcec21267cc9c1fef14dc970fa9b9f2a0f5134b125f1c6061a1c560",
+      "sourceId": "cuhk-route-5",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/5/",
+      "fetchedAt": "2026-08-08T15:23:59.719Z",
+      "sha256": "6a3c3012cbcec21267cc9c1fef14dc970fa9b9f2a0f5134b125f1c6061a1c560",
+      "byteLength": 48969,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-1b:7b454df0e5e8eb890b54d805f66ee144b30d4fc60f2e81dbde39b2f12f530d52",
+      "sourceId": "cuhk-route-1b",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/1b/",
+      "fetchedAt": "2026-08-08T15:23:59.230Z",
+      "sha256": "7b454df0e5e8eb890b54d805f66ee144b30d4fc60f2e81dbde39b2f12f530d52",
+      "byteLength": 50436,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-route-1a:8d1d36ae37495dde3024c2604ce3a4c15bb1b8633b571bdc41bdd81f689e62a0",
+      "sourceId": "cuhk-route-1a",
+      "kind": "route_html",
+      "url": "https://transport.cuhk.edu.hk/route/1a/",
+      "fetchedAt": "2026-08-08T15:23:59.217Z",
+      "sha256": "8d1d36ae37495dde3024c2604ce3a4c15bb1b8633b571bdc41bdd81f689e62a0",
+      "byteLength": 49826,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8285:afceafea3e31e78a4e6ba9d674106d9afa0b0ad161e2c9509e6cde9c3c6ff6c5",
+      "sourceId": "cuhk-notice-8285",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/bus-stop-temporary-relocation-university-station-2/",
+      "fetchedAt": "2026-08-08T15:24:01.125Z",
+      "sha256": "afceafea3e31e78a4e6ba9d674106d9afa0b0ad161e2c9509e6cde9c3c6ff6c5",
+      "byteLength": 40597,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8281:4a684169afaf61d4fa84b28c2f511b127abeee93f0945d2e944d901c435233d3",
+      "sourceId": "cuhk-notice-8281",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/bus-stop-temporary-relocation-s-h-ho-college/",
+      "fetchedAt": "2026-08-08T15:24:01.137Z",
+      "sha256": "4a684169afaf61d4fa84b28c2f511b127abeee93f0945d2e944d901c435233d3",
+      "byteLength": 40481,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8279:dd5ce64515c2a196917e1be7bb4fefacbece19db8e182a17ed6f38c576b2cf96",
+      "sourceId": "cuhk-notice-8279",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/bus-stop-temporary-relocation-shaw-college-17/",
+      "fetchedAt": "2026-08-08T15:24:01.118Z",
+      "sha256": "dd5ce64515c2a196917e1be7bb4fefacbece19db8e182a17ed6f38c576b2cf96",
+      "byteLength": 39765,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8272:98fafddd6641d433e8464da5d0eed20722931201e1051e52cd53f765d2de3b7f",
+      "sourceId": "cuhk-notice-8272",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/bus-stop-temporary-relocation-shaw-college-16/",
+      "fetchedAt": "2026-08-08T15:24:01.105Z",
+      "sha256": "98fafddd6641d433e8464da5d0eed20722931201e1051e52cd53f765d2de3b7f",
+      "byteLength": 40628,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8268:9565a88314310e4366cf35ed5601da271a1bf3f8d1fcb241e71f411e40ce37b4",
+      "sourceId": "cuhk-notice-8268",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/bus-stop-temporary-relocation-shaw-college-completed/",
+      "fetchedAt": "2026-08-08T15:24:01.109Z",
+      "sha256": "9565a88314310e4366cf35ed5601da271a1bf3f8d1fcb241e71f411e40ce37b4",
+      "byteLength": 40029,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8223:be440cfc6f73434f77e78875c6fe741fad0264831379ea7a486d238ea821752c",
+      "sourceId": "cuhk-notice-8223",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/p8223previewtrue/",
+      "fetchedAt": "2026-08-08T15:24:01.105Z",
+      "sha256": "be440cfc6f73434f77e78875c6fe741fad0264831379ea7a486d238ea821752c",
+      "byteLength": 40137,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8187:854be8ac998ee1919f9ff735bc472c3ffa34116d00687665b36e1b2f8051b197",
+      "sourceId": "cuhk-notice-8187",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/pslb-stop-temporary-suspension-2/",
+      "fetchedAt": "2026-08-08T15:24:01.154Z",
+      "sha256": "854be8ac998ee1919f9ff735bc472c3ffa34116d00687665b36e1b2f8051b197",
+      "byteLength": 40186,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8159:8bcab154f4b2200938e473f1962862a54b7c88f868411002dc020126fc713072",
+      "sourceId": "cuhk-notice-8159",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/bus-stop-temporary-relocation-shaw-college-15/",
+      "fetchedAt": "2026-08-08T15:24:01.138Z",
+      "sha256": "8bcab154f4b2200938e473f1962862a54b7c88f868411002dc020126fc713072",
+      "byteLength": 40370,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8145:827e7a13ad44a1f46b46d5bd7d67754df720b642fc563e60e1b46a441dc43a54",
+      "sourceId": "cuhk-notice-8145",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/school-bus-stop-of-route-2-3-4-5-6a-6b-7-temporary-relocation-completed/",
+      "fetchedAt": "2026-08-08T15:24:01.125Z",
+      "sha256": "827e7a13ad44a1f46b46d5bd7d67754df720b642fc563e60e1b46a441dc43a54",
+      "byteLength": 40884,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8094:1c38d0635924b0cfb39655d0a0947e2e42a79fddbd5be645b008f4e7bc65b22a",
+      "sourceId": "cuhk-notice-8094",
+      "kind": "notice_html",
+      "url": "https://transport.cuhk.edu.hk/newsdetails/bus-stop-temporary-relocation-shaw-college-14/",
+      "fetchedAt": "2026-08-08T15:24:01.127Z",
+      "sha256": "1c38d0635924b0cfb39655d0a0947e2e42a79fddbd5be645b008f4e7bc65b22a",
+      "byteLength": 39911,
+      "contentType": "text/html; charset=UTF-8",
+      "lastModified": null,
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8285-image-0:ab0f49a17795607047c7979a7bef207408ba0d7e2fd2ef515fe616cbe816eb2c",
+      "sourceId": "cuhk-notice-8285-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/TSP_ISI_2026_15_大學站校巴站臨時遷移-scaled.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.421Z",
+      "sha256": "ab0f49a17795607047c7979a7bef207408ba0d7e2fd2ef515fe616cbe816eb2c",
+      "byteLength": 393382,
+      "contentType": "image/jpeg",
+      "lastModified": "Fri, 07 Aug 2026 06:59:36 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8281-image-0:9e86c7ecae5fba6f6108eeadbcf7dbe4a01215bcffd8bb7deb0af2c0598736e4",
+      "sourceId": "cuhk-notice-8281-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/TSP_ISI_2026_13_善衡書院站臨時遷移-scaled.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.502Z",
+      "sha256": "9e86c7ecae5fba6f6108eeadbcf7dbe4a01215bcffd8bb7deb0af2c0598736e4",
+      "byteLength": 389291,
+      "contentType": "image/jpeg",
+      "lastModified": "Fri, 31 Jul 2026 07:20:30 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8279-image-0:66b184b95748c9464ee8eed65e47b380dd4e7348849a7d1565bdf23f1a271389",
+      "sourceId": "cuhk-notice-8279-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/TSP_ISI_2026_12_逸夫書院站臨時遷移.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.484Z",
+      "sha256": "66b184b95748c9464ee8eed65e47b380dd4e7348849a7d1565bdf23f1a271389",
+      "byteLength": 154813,
+      "contentType": "image/jpeg",
+      "lastModified": "Mon, 27 Jul 2026 07:26:31 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8272-image-0:cceb338e2d556ca6f01cc155aa657923f407b6bd156c49eee0fd4417e9bad66d",
+      "sourceId": "cuhk-notice-8272-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/TSP_ISI_2026_14_何善衡收費小巴站臨時遷移-scaled.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.491Z",
+      "sha256": "cceb338e2d556ca6f01cc155aa657923f407b6bd156c49eee0fd4417e9bad66d",
+      "byteLength": 340043,
+      "contentType": "image/jpeg",
+      "lastModified": "Fri, 31 Jul 2026 07:20:37 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8268-image-0:a0882ae5d6de53927bf7c19435643433c368cbd593121c9acf6be623e6dcfb3d",
+      "sourceId": "cuhk-notice-8268-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/TSP_ISI_2026_11_逸夫書院站臨時遷移.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.502Z",
+      "sha256": "a0882ae5d6de53927bf7c19435643433c368cbd593121c9acf6be623e6dcfb3d",
+      "byteLength": 187834,
+      "contentType": "image/jpeg",
+      "lastModified": "Mon, 27 Jul 2026 07:26:26 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8223-image-0:af5558dbe017e30f745421b5aaf25f8e5e477b4cb8490bf403d5e426aedc075c",
+      "sourceId": "cuhk-notice-8223-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/TSP_ISI_2026_10_重要車務資訊_收費小巴站臨時停用-scaled.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.509Z",
+      "sha256": "af5558dbe017e30f745421b5aaf25f8e5e477b4cb8490bf403d5e426aedc075c",
+      "byteLength": 350514,
+      "contentType": "image/jpeg",
+      "lastModified": "Fri, 10 Jul 2026 03:24:08 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8187-image-0:d19f4d66a75c55b589b4898d0dea173a483af282df01553c708c97e425414a31",
+      "sourceId": "cuhk-notice-8187-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/2026.05.30_收費小巴站臨時停用-scaled.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.496Z",
+      "sha256": "d19f4d66a75c55b589b4898d0dea173a483af282df01553c708c97e425414a31",
+      "byteLength": 348740,
+      "contentType": "image/jpeg",
+      "lastModified": "Fri, 29 May 2026 09:30:29 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8159-image-0:ed6366e4a89de7ed4b198e4ea2f54d5b42ef986d1e5807eb3b1e8756e1faf37e",
+      "sourceId": "cuhk-notice-8159-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/2026-03-27_Relocation.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.436Z",
+      "sha256": "ed6366e4a89de7ed4b198e4ea2f54d5b42ef986d1e5807eb3b1e8756e1faf37e",
+      "byteLength": 745312,
+      "contentType": "image/jpeg",
+      "lastModified": "Fri, 27 Mar 2026 00:40:57 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8145-image-0:d5400848d035e076da5c506a2c18aff7288b888f65dda46c24a201624db17210",
+      "sourceId": "cuhk-notice-8145-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/2026-02-07_RelocationBus-scaled-1.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.527Z",
+      "sha256": "d5400848d035e076da5c506a2c18aff7288b888f65dda46c24a201624db17210",
+      "byteLength": 526350,
+      "contentType": "image/jpeg",
+      "lastModified": "Tue, 10 Mar 2026 09:44:54 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    },
+    {
+      "snapshotId": "cuhk-notice-8094-image-0:9aa7808abdee3685488bfd4d740cf477fef2a21930bf0554f09945770e160fcb",
+      "sourceId": "cuhk-notice-8094-image-0",
+      "kind": "notice_image",
+      "url": "https://transport.cuhk.edu.hk/wp-content/uploads/news/Service_Information/2026.02.26-ShawRelocation.jpg",
+      "fetchedAt": "2026-08-08T15:24:01.406Z",
+      "sha256": "9aa7808abdee3685488bfd4d740cf477fef2a21930bf0554f09945770e160fcb",
+      "byteLength": 175057,
+      "contentType": "image/jpeg",
+      "lastModified": "Fri, 06 Feb 2026 01:10:09 GMT",
+      "parserVersion": "cuhk-bus-ingest-spike/1",
+      "businessEffectiveFrom": null,
+      "businessEffectiveTo": null,
+      "effectiveStatus": "not_encoded_by_source",
+      "persistedRawContent": false
+    }
+  ],
+  "extractedEvidence": {
+    "pdf": {
+      "current": {
+        "sourceSnapshotId": "cuhk-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+        "extractionTool": "pdftotext -layout",
+        "extractedTextSha256": "e288b554c972113ac6a3e4ef66e91b9cbbb640af61a0b2707b659eb8e4636656",
+        "extractedTextLength": 7617,
+        "scheduleWindows": [
+          "07:30-18:50",
+          "07:40-18:40",
+          "07:40-18:50",
+          "07:45-18:45",
+          "08:00-18:30",
+          "09:00-18:40"
+        ],
+        "effectiveFrom": null,
+        "semanticMarkers": {
+          "mondayToSaturday": true,
+          "publicHolidaySuspension": true,
+          "route8NonTeachingPattern": true
+        },
+        "canonicalUse": "cross_check_only"
+      },
+      "historical2024_25": {
+        "sourceSnapshotId": "cuhk-shuttle-2024-25:064d3ace1f8278f367258863e6140d17767b0854efb5617933f0a47fe8ae7e97",
+        "extractionTool": "pdftotext -layout",
+        "extractedTextSha256": "83dbefc8f0a0ef95fd75c336f24badbd072d56bfea3ced14cf1896e154e46b4c",
+        "extractedTextLength": 7686,
+        "scheduleWindows": [
+          "07:30-18:50",
+          "07:40-18:40",
+          "07:40-18:50",
+          "07:45-18:45",
+          "08:00-18:30",
+          "09:00-18:40"
+        ],
+        "effectiveFrom": "2024-09-03",
+        "semanticMarkers": {
+          "mondayToSaturday": true,
+          "publicHolidaySuspension": true,
+          "route8NonTeachingPattern": true
+        },
+        "canonicalUse": "cross_check_only"
+      },
+      "semanticComparison": {
+        "sameScheduleWindows": true,
+        "currentMissingHtmlWindows": [],
+        "historicalEffectiveFrom": "2024-09-03",
+        "currentEffectiveFrom": null
+      }
+    },
+    "academicCalendars": [
+      {
+        "sourceSnapshotId": "cuhk-almanac-2025-26:b3f8ae82fd97f364fab836783f82a9720e3a037f1915444525af4ad9e0389e0c",
+        "parseStatus": "parsed_needs_transport_rule_review",
+        "terms": [
+          {
+            "startDate": "2025-09-01",
+            "endDate": "2025-11-29"
+          },
+          {
+            "startDate": "2026-01-05",
+            "endDate": "2026-04-18"
+          }
+        ],
+        "readingWeeks": [
+          {
+            "startDate": "2026-03-02",
+            "endDate": "2026-03-07"
+          }
+        ]
+      },
+      {
+        "sourceSnapshotId": "cuhk-almanac-2026-27:b4efaceb18485c0c31159bfbdd7cd7458eb1293f504fdfa2f252cda99e4b4cd4",
+        "parseStatus": "parsed_needs_transport_rule_review",
+        "terms": [
+          {
+            "startDate": "2026-09-07",
+            "endDate": "2026-12-05"
+          },
+          {
+            "startDate": "2027-01-11",
+            "endDate": "2027-04-24"
+          }
+        ],
+        "readingWeeks": [
+          {
+            "startDate": "2027-03-08",
+            "endDate": "2027-03-13"
+          }
+        ]
+      }
+    ],
+    "publicHolidays": {
+      "sourceSnapshotId": "hksarg-public-holidays:8d797fb380825eec3f53fe456cc85ad30e2f91635675081abb671eca3bfd757d",
+      "eventCount": 51,
+      "events": [
+        {
+          "date": "2025-01-01",
+          "summary": "The first day of January",
+          "uid": "20250101@1823.gov.hk"
+        },
+        {
+          "date": "2025-01-29",
+          "summary": "Lunar New Year’s Day",
+          "uid": "20250129@1823.gov.hk"
+        },
+        {
+          "date": "2025-01-30",
+          "summary": "The second day of Lunar New Year",
+          "uid": "20250130@1823.gov.hk"
+        },
+        {
+          "date": "2025-01-31",
+          "summary": "The third day of Lunar New Year",
+          "uid": "20250131@1823.gov.hk"
+        },
+        {
+          "date": "2025-04-04",
+          "summary": "Ching Ming Festival",
+          "uid": "20250404@1823.gov.hk"
+        },
+        {
+          "date": "2025-04-18",
+          "summary": "Good Friday",
+          "uid": "20250418@1823.gov.hk"
+        },
+        {
+          "date": "2025-04-19",
+          "summary": "The day following Good Friday",
+          "uid": "20250419@1823.gov.hk"
+        },
+        {
+          "date": "2025-04-21",
+          "summary": "Easter Monday",
+          "uid": "20250421@1823.gov.hk"
+        },
+        {
+          "date": "2025-05-01",
+          "summary": "Labour Day",
+          "uid": "20250501@1823.gov.hk"
+        },
+        {
+          "date": "2025-05-05",
+          "summary": "The Birthday of the Buddha",
+          "uid": "20250505@1823.gov.hk"
+        },
+        {
+          "date": "2025-05-31",
+          "summary": "Tuen Ng Festival",
+          "uid": "20250531@1823.gov.hk"
+        },
+        {
+          "date": "2025-07-01",
+          "summary": "Hong Kong Special Administrative Region Establishment Day",
+          "uid": "20250701@1823.gov.hk"
+        },
+        {
+          "date": "2025-10-01",
+          "summary": "National Day",
+          "uid": "20251001@1823.gov.hk"
+        },
+        {
+          "date": "2025-10-07",
+          "summary": "The day following the Chinese Mid-Autumn Festival",
+          "uid": "20251007@1823.gov.hk"
+        },
+        {
+          "date": "2025-10-29",
+          "summary": "Chung Yeung Festival",
+          "uid": "20251029@1823.gov.hk"
+        },
+        {
+          "date": "2025-12-25",
+          "summary": "Christmas Day",
+          "uid": "20251225@1823.gov.hk"
+        },
+        {
+          "date": "2025-12-26",
+          "summary": "The first weekday after Christmas Day",
+          "uid": "20251226@1823.gov.hk"
+        },
+        {
+          "date": "2026-01-01",
+          "summary": "The first day of January",
+          "uid": "20260101@1823.gov.hk"
+        },
+        {
+          "date": "2026-02-17",
+          "summary": "Lunar New Year’s Day",
+          "uid": "20260217@1823.gov.hk"
+        },
+        {
+          "date": "2026-02-18",
+          "summary": "The second day of Lunar New Year",
+          "uid": "20260218@1823.gov.hk"
+        },
+        {
+          "date": "2026-02-19",
+          "summary": "The third day of Lunar New Year",
+          "uid": "20260219@1823.gov.hk"
+        },
+        {
+          "date": "2026-04-03",
+          "summary": "Good Friday",
+          "uid": "20260403@1823.gov.hk"
+        },
+        {
+          "date": "2026-04-04",
+          "summary": "The day following Good Friday",
+          "uid": "20260404@1823.gov.hk"
+        },
+        {
+          "date": "2026-04-06",
+          "summary": "The day following Ching Ming Festival",
+          "uid": "20260406@1823.gov.hk"
+        },
+        {
+          "date": "2026-04-07",
+          "summary": "The day following Easter Monday",
+          "uid": "20260407@1823.gov.hk"
+        },
+        {
+          "date": "2026-05-01",
+          "summary": "Labour Day",
+          "uid": "20260501@1823.gov.hk"
+        },
+        {
+          "date": "2026-05-25",
+          "summary": "The day following the Birthday of the Buddha",
+          "uid": "20260525@1823.gov.hk"
+        },
+        {
+          "date": "2026-06-19",
+          "summary": "Tuen Ng Festival",
+          "uid": "20260619@1823.gov.hk"
+        },
+        {
+          "date": "2026-07-01",
+          "summary": "Hong Kong Special Administrative Region Establishment Day",
+          "uid": "20260701@1823.gov.hk"
+        },
+        {
+          "date": "2026-09-26",
+          "summary": "The day following the Chinese Mid-Autumn Festival",
+          "uid": "20260926@1823.gov.hk"
+        },
+        {
+          "date": "2026-10-01",
+          "summary": "National Day",
+          "uid": "20261001@1823.gov.hk"
+        },
+        {
+          "date": "2026-10-19",
+          "summary": "The day following Chung Yeung Festival",
+          "uid": "20261019@1823.gov.hk"
+        },
+        {
+          "date": "2026-12-25",
+          "summary": "Christmas Day",
+          "uid": "20261225@1823.gov.hk"
+        },
+        {
+          "date": "2026-12-26",
+          "summary": "The first weekday after Christmas Day",
+          "uid": "20261226@1823.gov.hk"
+        },
+        {
+          "date": "2027-01-01",
+          "summary": "The first day of January",
+          "uid": "20270101@1823.gov.hk"
+        },
+        {
+          "date": "2027-02-06",
+          "summary": "Lunar New Year's Day",
+          "uid": "20270206@1823.gov.hk"
+        },
+        {
+          "date": "2027-02-08",
+          "summary": "The third day of Lunar New Year",
+          "uid": "20270208@1823.gov.hk"
+        },
+        {
+          "date": "2027-02-09",
+          "summary": "The fourth day of Lunar New Year",
+          "uid": "20270209@1823.gov.hk"
+        },
+        {
+          "date": "2027-03-26",
+          "summary": "Good Friday",
+          "uid": "20270326@1823.gov.hk"
+        },
+        {
+          "date": "2027-03-27",
+          "summary": "The day following Good Friday",
+          "uid": "20270327@1823.gov.hk"
+        },
+        {
+          "date": "2027-03-29",
+          "summary": "Easter Monday",
+          "uid": "20270329@1823.gov.hk"
+        },
+        {
+          "date": "2027-04-05",
+          "summary": "Ching Ming Festival",
+          "uid": "20270405@1823.gov.hk"
+        },
+        {
+          "date": "2027-05-01",
+          "summary": "Labour Day",
+          "uid": "20270501@1823.gov.hk"
+        },
+        {
+          "date": "2027-05-13",
+          "summary": "The Birthday of the Buddha",
+          "uid": "20270513@1823.gov.hk"
+        },
+        {
+          "date": "2027-06-09",
+          "summary": "Tuen Ng Festival",
+          "uid": "20270609@1823.gov.hk"
+        },
+        {
+          "date": "2027-07-01",
+          "summary": "Hong Kong Special Administrative Region Establishment Day",
+          "uid": "20270701@1823.gov.hk"
+        },
+        {
+          "date": "2027-09-16",
+          "summary": "The day following the Chinese Mid-Autumn Festival",
+          "uid": "20270916@1823.gov.hk"
+        },
+        {
+          "date": "2027-10-01",
+          "summary": "National Day",
+          "uid": "20271001@1823.gov.hk"
+        },
+        {
+          "date": "2027-10-08",
+          "summary": "Chung Yeung Festival",
+          "uid": "20271008@1823.gov.hk"
+        },
+        {
+          "date": "2027-12-25",
+          "summary": "Christmas Day",
+          "uid": "20271225@1823.gov.hk"
+        },
+        {
+          "date": "2027-12-27",
+          "summary": "The first weekday after Christmas Day",
+          "uid": "20271227@1823.gov.hk"
+        }
+      ],
+      "parseStatus": "parsed"
+    },
+    "noticeOcrDrafts": [
+      {
+        "sourceSnapshotId": "cuhk-notice-8285-image-0:ab0f49a17795607047c7979a7bef207408ba0d7e2fd2ef515fe616cbe816eb2c",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "6067e5bef571446c6a3bcdd8e3ac9565cfa7b9f604d92c29a588dd5c04321c7f",
+        "wordCount": 97,
+        "meanWordConfidence": 69.7,
+        "draft": {
+          "englishDate": "August 8, 2026",
+          "startTime": "7:30 a.m.",
+          "openEnded": true,
+          "routeIds": ["1a", "1b"],
+          "mentionsUniversityStation": true
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8281-image-0:9e86c7ecae5fba6f6108eeadbcf7dbe4a01215bcffd8bb7deb0af2c0598736e4",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "4b458ebaa9d277d83b2d24b43d9714f82d6b3e2182de7a2c0a0d4102a9693f75",
+        "wordCount": 100,
+        "meanWordConfidence": 64.4,
+        "draft": {
+          "englishDate": "August 1, 2026",
+          "startTime": "09:00 a.m.",
+          "openEnded": true,
+          "routeIds": ["1a", "1b", "m1a"],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8279-image-0:66b184b95748c9464ee8eed65e47b380dd4e7348849a7d1565bdf23f1a271389",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "20f5322a7036f8ee99192f11fcbbc96d4d4084628a471534e403adfb3447a56e",
+        "wordCount": 111,
+        "meanWordConfidence": 68.3,
+        "draft": {
+          "englishDate": null,
+          "startTime": null,
+          "openEnded": false,
+          "routeIds": [],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8272-image-0:cceb338e2d556ca6f01cc155aa657923f407b6bd156c49eee0fd4417e9bad66d",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "e8bdb660ad8960e8404fc84cbcd29b2e6418faffc6eb0d0d364ae0c7fe121c5b",
+        "wordCount": 106,
+        "meanWordConfidence": 64.3,
+        "draft": {
+          "englishDate": "August 3, 2026",
+          "startTime": "9:00 a.m.",
+          "openEnded": true,
+          "routeIds": [],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8268-image-0:a0882ae5d6de53927bf7c19435643433c368cbd593121c9acf6be623e6dcfb3d",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "09069c693369b701fb525b485e11cae05650886404147729fa5cb3a3182a15fa",
+        "wordCount": 107,
+        "meanWordConfidence": 71.1,
+        "draft": {
+          "englishDate": null,
+          "startTime": null,
+          "openEnded": false,
+          "routeIds": [],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8223-image-0:af5558dbe017e30f745421b5aaf25f8e5e477b4cb8490bf403d5e426aedc075c",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "f8b860a000c0de33f8b4eefd6c54f979016ae4521877e688c0b9683e609cc3a4",
+        "wordCount": 165,
+        "meanWordConfidence": 67.6,
+        "draft": {
+          "englishDate": "July 11, 2026",
+          "startTime": null,
+          "openEnded": false,
+          "routeIds": [],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8187-image-0:d19f4d66a75c55b589b4898d0dea173a483af282df01553c708c97e425414a31",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "245a132ddac17c869b972c317b1397ae1c62ccc710585d598c1dfbfc34e91b80",
+        "wordCount": 160,
+        "meanWordConfidence": 67.5,
+        "draft": {
+          "englishDate": "May 30, 2026",
+          "startTime": null,
+          "openEnded": false,
+          "routeIds": [],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8159-image-0:ed6366e4a89de7ed4b198e4ea2f54d5b42ef986d1e5807eb3b1e8756e1faf37e",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "6b7a4d270b5b6edc2061c0a0387b5e7621bbacde1460acfb6c3711f1863a11e4",
+        "wordCount": 128,
+        "meanWordConfidence": 67.8,
+        "draft": {
+          "englishDate": null,
+          "startTime": null,
+          "openEnded": false,
+          "routeIds": [],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8145-image-0:d5400848d035e076da5c506a2c18aff7288b888f65dda46c24a201624db17210",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "5ec7ad8f887f6946cae6505ccb7bb9babaad3a275f2af8b7df36a17bec714949",
+        "wordCount": 167,
+        "meanWordConfidence": 67.1,
+        "draft": {
+          "englishDate": "February 27, 2026",
+          "startTime": null,
+          "openEnded": false,
+          "routeIds": ["3", "4", "2", "5"],
+          "mentionsUniversityStation": true
+        },
+        "reviewStatus": "operator_review_required"
+      },
+      {
+        "sourceSnapshotId": "cuhk-notice-8094-image-0:9aa7808abdee3685488bfd4d740cf477fef2a21930bf0554f09945770e160fcb",
+        "extractionTool": "tesseract eng tsv",
+        "ocrTextSha256": "00f2ad03f66e87344a7a26ae03a26e1533eaebc221957af728d8ce2a10e7b4cb",
+        "wordCount": 115,
+        "meanWordConfidence": 61.2,
+        "draft": {
+          "englishDate": null,
+          "startTime": null,
+          "openEnded": false,
+          "routeIds": [],
+          "mentionsUniversityStation": false
+        },
+        "reviewStatus": "operator_review_required"
+      }
+    ]
+  },
+  "canonicalCandidates": {
+    "routes": [
+      {
+        "routeId": "down",
+        "sourceSnapshotId": "cuhk-route-down:6677330b89c8f16c2f3e5bd051853a1e13245e9dcea068cf925c6650a0ab7155",
+        "officialRoutePostId": 3565,
+        "publicName": "Down",
+        "sourceModifiedAt": "2026-03-30T10:16:16",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.073Z",
+          "sourceSnapshotId": "cuhk-route-down:6677330b89c8f16c2f3e5bd051853a1e13245e9dcea068cf925c6650a0ab7155",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "public_paid",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "07:00",
+            "endTime": "08:15",
+            "departureMinutes": [0, 15, 30, 45],
+            "serviceRuleRaw": "07:00-08:15 For Mon to Sat (Except Public Holiday)",
+            "departureRuleRaw": "Every 00, 15, 30, 45",
+            "parseStatus": "parsed"
+          },
+          {
+            "sourceOrdinal": 1,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 1
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 1
+              }
+            },
+            "startTime": "08:45",
+            "endTime": "21:15",
+            "departureMinutes": [15, 45],
+            "serviceRuleRaw": "08:45-21:15 For Sun & Public Holidays",
+            "departureRuleRaw": "Every 15, 45 ＃Every Mon - Fri at 08:45-17:45 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "New Asia College (Downward)",
+              "officialStopId": 7523,
+              "officialStopSlug": "new-asia-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Residences No. 3 (Downward)",
+              "officialStopId": 7526,
+              "officialStopSlug": "residences-no-3-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "Chan Chun Ha Hostel",
+              "officialStopId": 2828,
+              "officialStopSlug": "chan-chun-ha-hostel",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Residence No. 15",
+              "officialStopId": 2924,
+              "officialStopSlug": "residence-no-15",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "University Health Centre (Downward)",
+              "officialStopId": 7514,
+              "officialStopSlug": "university-health-centre-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "Ho Sin-Hang Engineering Bldg.",
+              "officialStopId": 3569,
+              "officialStopSlug": "ho-sin-hang-engineering-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Academic Bldg. No.1",
+              "officialStopId": 3544,
+              "officialStopSlug": "academic-bldg-no-1",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 10,
+              "sourceName": "C.C. Staff Quarters C",
+              "officialStopId": 3542,
+              "officialStopSlug": "c-c-staff-quarters-cd",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 11,
+              "sourceName": "Ho Tim Bldg.",
+              "officialStopId": 3572,
+              "officialStopSlug": "ho-tim-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 12,
+              "sourceName": "Y.I.A.P. (PSLB)",
+              "officialStopId": 4729,
+              "officialStopSlug": "y-i-a-p-pslb",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 13,
+              "sourceName": "Residences No.10 & 11",
+              "officialStopId": 3556,
+              "officialStopSlug": "residences-no-10-11",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 14,
+              "sourceName": "Univ. Station (PSLB)",
+              "officialStopId": 4248,
+              "officialStopSlug": "univ-station-pslb",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "up",
+        "sourceSnapshotId": "cuhk-route-up:25fdf2a1f6208d3196afe2d60b08c3a8c4fab735cc0d97eb16e80c26f2e49810",
+        "officialRoutePostId": 3539,
+        "publicName": "Up",
+        "sourceModifiedAt": "2026-03-30T10:16:16",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.080Z",
+          "sourceSnapshotId": "cuhk-route-up:25fdf2a1f6208d3196afe2d60b08c3a8c4fab735cc0d97eb16e80c26f2e49810",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "public_paid",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "08:30",
+            "endTime": "23:00",
+            "departureMinutes": [0, 30],
+            "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+            "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "Fung King Hey Bldg.",
+              "officialStopId": 2814,
+              "officialStopSlug": "fung-king-hey-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "University Library / Art Museum",
+              "officialStopId": 3550,
+              "officialStopSlug": "university-library",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Sir Run Run Shaw Hall",
+              "officialStopId": 2544,
+              "officialStopSlug": "sir-run-run-shaw-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "University Health Centre (Upward)",
+              "officialStopId": 3548,
+              "officialStopSlug": "university-health-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "Academic Bldg. No.1",
+              "officialStopId": 3544,
+              "officialStopSlug": "academic-bldg-no-1",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "C.C. Staff Quarters C",
+              "officialStopId": 3542,
+              "officialStopSlug": "c-c-staff-quarters-cd",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Wong Foo Yuan Bldg.",
+              "officialStopId": 3540,
+              "officialStopSlug": "wong-foo-yuan-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "United College (Upward)",
+              "officialStopId": 2816,
+              "officialStopSlug": "united-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "New Asia College (Upward)",
+              "officialStopId": 7521,
+              "officialStopSlug": "new-asia-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Residences No. 3 (Upward)",
+              "officialStopId": 3552,
+              "officialStopSlug": "residences-no-3-4",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 10,
+              "sourceName": "Lee Woo Sing College",
+              "officialStopId": 3554,
+              "officialStopSlug": "lee-woo-sing-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 11,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 12,
+              "sourceName": "Residence No. 15",
+              "officialStopId": 2924,
+              "officialStopSlug": "residence-no-15",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 13,
+              "sourceName": "Univ. Station (PSLB)",
+              "officialStopId": 4248,
+              "officialStopSlug": "univ-station-pslb",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 14,
+              "sourceName": "Residences No.10 & 11",
+              "officialStopId": 3556,
+              "officialStopSlug": "residences-no-10-11",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "7",
+        "sourceSnapshotId": "cuhk-route-7:eb27011aa924cc70d50edbafd38ff9b57b86074d4dae6928538ed248c40c62e9",
+        "officialRoutePostId": 2893,
+        "publicName": "7 Downward (Shaw)",
+        "sourceModifiedAt": "2026-04-21T08:50:32",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.175Z",
+          "sourceSnapshotId": "cuhk-route-7:eb27011aa924cc70d50edbafd38ff9b57b86074d4dae6928538ed248c40c62e9",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "08:18",
+            "endTime": "17:50",
+            "departureMinutes": [18, 50],
+            "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+            "departureRuleRaw": "18, 50",
+            "parseStatus": "parsed"
+          },
+          {
+            "sourceOrdinal": 1,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 1
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 1
+              }
+            },
+            "startTime": "08:18",
+            "endTime": "13:18",
+            "departureMinutes": [18, 50],
+            "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+            "departureRuleRaw": "18, 50",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Wu Yee Sun College (Downward)",
+              "officialStopId": 2826,
+              "officialStopSlug": "residences-no-3-4-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Station Piazza",
+              "officialStopId": 2812,
+              "officialStopSlug": "station-piazza",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Shaw College (Downward)",
+              "officialStopId": 2926,
+              "officialStopSlug": "shaw-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "Chung Chi Teaching Bldg.",
+              "officialStopId": 2810,
+              "officialStopSlug": "chung-chi-teaching-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "6b",
+        "sourceSnapshotId": "cuhk-route-6b:33064292b21605be4d4a35b590dde1a60ced1937fe28ca0883d6077fab4d9d8c",
+        "officialRoutePostId": 2890,
+        "publicName": "6B Downward (NA / UC)",
+        "sourceModifiedAt": "2026-04-21T08:50:32",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.111Z",
+          "sourceSnapshotId": "cuhk-route-6b:33064292b21605be4d4a35b590dde1a60ced1937fe28ca0883d6077fab4d9d8c",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "12:20",
+            "endTime": "17:20",
+            "departureMinutes": [20],
+            "serviceRuleRaw": "12:20 - 17:20 Mon to Fri; Teaching days only",
+            "departureRuleRaw": "20",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Station Piazza",
+              "officialStopId": 2812,
+              "officialStopSlug": "station-piazza",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Chung Chi Teaching Bldg.",
+              "officialStopId": 2810,
+              "officialStopSlug": "chung-chi-teaching-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "h",
+        "sourceSnapshotId": "cuhk-route-h:9ea44224c9a786c81f6c56332872c5148f38b397ba2d4b8f3f0a8efd2118702b",
+        "officialRoutePostId": 2885,
+        "publicName": "H Holidays Service",
+        "sourceModifiedAt": "2026-07-26T17:23:44",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.203Z",
+          "sourceSnapshotId": "cuhk-route-h:9ea44224c9a786c81f6c56332872c5148f38b397ba2d4b8f3f0a8efd2118702b",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "08:20",
+            "endTime": "23:20",
+            "departureMinutes": [0, 20, 40],
+            "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+            "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "Residence No. 10",
+              "officialStopId": 2967,
+              "officialStopSlug": "residence-no-10",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "CW Chu College (Downward)",
+              "officialStopId": 2832,
+              "officialStopSlug": "c-w-chu-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Area 39 (Upward)",
+              "officialStopId": 2939,
+              "officialStopSlug": "area-39-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Shaw College (Upward)",
+              "officialStopId": 2920,
+              "officialStopSlug": "shaw-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "Wu Yee Sun College (Upward)",
+              "officialStopId": 2918,
+              "officialStopSlug": "residences-no-3-4-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "New Asia Circle",
+              "officialStopId": 2943,
+              "officialStopSlug": "new-asia-circle",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "Sir Run Run Shaw Hall",
+              "officialStopId": 2544,
+              "officialStopSlug": "sir-run-run-shaw-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "Univ. Sports Centre",
+              "officialStopId": 2546,
+              "officialStopSlug": "univ-sports-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Postgraduate Hall 1",
+              "officialStopId": 3172,
+              "officialStopSlug": "jockey-club-postgraduate-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 10,
+              "sourceName": "Residence No. 15",
+              "officialStopId": 2924,
+              "officialStopSlug": "residence-no-15",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 11,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 12,
+              "sourceName": "Chan Chun Ha Hostel",
+              "officialStopId": 2828,
+              "officialStopSlug": "chan-chun-ha-hostel",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 13,
+              "sourceName": "Shaw College (Downward)",
+              "officialStopId": 2926,
+              "officialStopSlug": "shaw-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 14,
+              "sourceName": "Wu Yee Sun College (Downward)",
+              "officialStopId": 2826,
+              "officialStopSlug": "residences-no-3-4-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 15,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 16,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 17,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 18,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 19,
+              "sourceName": "Postgraduate Hall 1",
+              "officialStopId": 3172,
+              "officialStopSlug": "jockey-club-postgraduate-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 20,
+              "sourceName": "Univ. Station",
+              "officialStopId": 2552,
+              "officialStopSlug": "univ-station",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "n",
+        "sourceSnapshotId": "cuhk-route-n:900e8ff9a1d86127be8765f1f5f17f490298ca5a5a36caa6978fc25585334ae8",
+        "officialRoutePostId": 2883,
+        "publicName": "N Night Service",
+        "sourceModifiedAt": "2025-11-17T21:17:34",
+        "operatingStatus": {
+          "value": "normal_service",
+          "observedAt": "2026-08-08T15:23:59.219Z",
+          "sourceSnapshotId": "cuhk-route-n:900e8ff9a1d86127be8765f1f5f17f490298ca5a5a36caa6978fc25585334ae8",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "19:00",
+            "endTime": "23:30",
+            "departureMinutes": [0, 15, 30, 45],
+            "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+            "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "CW Chu College (Downward)",
+              "officialStopId": 2832,
+              "officialStopSlug": "c-w-chu-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Area 39 (Upward)",
+              "officialStopId": 2939,
+              "officialStopSlug": "area-39-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Shaw College (Upward)",
+              "officialStopId": 2920,
+              "officialStopSlug": "shaw-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Wu Yee Sun College (Upward)",
+              "officialStopId": 2918,
+              "officialStopSlug": "residences-no-3-4-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "New Asia Circle",
+              "officialStopId": 2943,
+              "officialStopSlug": "new-asia-circle",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Sir Run Run Shaw Hall",
+              "officialStopId": 2544,
+              "officialStopSlug": "sir-run-run-shaw-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "Univ. Sports Centre",
+              "officialStopId": 2546,
+              "officialStopSlug": "univ-sports-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "Postgraduate Hall 1",
+              "officialStopId": 3172,
+              "officialStopSlug": "jockey-club-postgraduate-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Residence No. 15",
+              "officialStopId": 2924,
+              "officialStopSlug": "residence-no-15",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 10,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 11,
+              "sourceName": "Chan Chun Ha Hostel",
+              "officialStopId": 2828,
+              "officialStopSlug": "chan-chun-ha-hostel",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 12,
+              "sourceName": "Shaw College (Downward)",
+              "officialStopId": 2926,
+              "officialStopSlug": "shaw-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 13,
+              "sourceName": "Wu Yee Sun College (Downward)",
+              "officialStopId": 2826,
+              "officialStopSlug": "residences-no-3-4-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 14,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 15,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 16,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 17,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 18,
+              "sourceName": "Postgraduate Hall 1",
+              "officialStopId": 3172,
+              "officialStopSlug": "jockey-club-postgraduate-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 19,
+              "sourceName": "Univ. Station",
+              "officialStopId": 2552,
+              "officialStopSlug": "univ-station",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "8",
+        "sourceSnapshotId": "cuhk-route-8:083585fade55952a86cbdc2907b2f3cecc5439555147597fb476cc99090e2137",
+        "officialRoutePostId": 2880,
+        "publicName": "8 Western Campus",
+        "sourceModifiedAt": "2026-03-30T10:16:16",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:24:00.743Z",
+          "sourceSnapshotId": "cuhk-route-8:083585fade55952a86cbdc2907b2f3cecc5439555147597fb476cc99090e2137",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "07:40",
+            "endTime": "18:40",
+            "departureMinutes": [0, 20, 40],
+            "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+            "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "New Asia Circle",
+              "officialStopId": 2943,
+              "officialStopSlug": "new-asia-circle",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Science Centre",
+              "officialStopId": 2916,
+              "officialStopSlug": "science-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Wu Yee Sun College (Downward)",
+              "officialStopId": 2826,
+              "officialStopSlug": "residences-no-3-4-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "Shaw College (Downward)",
+              "officialStopId": 2926,
+              "officialStopSlug": "shaw-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Chan Chun Ha Hostel",
+              "officialStopId": 2828,
+              "officialStopSlug": "chan-chun-ha-hostel",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "CW Chu College (Downward)",
+              "officialStopId": 2832,
+              "officialStopSlug": "c-w-chu-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Wu Yee Sun College (Upward)",
+              "officialStopId": 2918,
+              "officialStopSlug": "residences-no-3-4-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 10,
+              "sourceName": "Shaw College (Upward)",
+              "officialStopId": 2920,
+              "officialStopSlug": "shaw-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 11,
+              "sourceName": "Area 39 (Downward)",
+              "officialStopId": 2941,
+              "officialStopSlug": "area-39-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 12,
+              "sourceName": "Campus Circuit North",
+              "officialStopId": 2949,
+              "officialStopSlug": "campus-circuit-north",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 13,
+              "sourceName": "Campus Circuit East (Downward)",
+              "officialStopId": 2947,
+              "officialStopSlug": "campus-circuit-east-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 14,
+              "sourceName": "Univ. Station",
+              "officialStopId": 2552,
+              "officialStopSlug": "univ-station",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 15,
+              "sourceName": "Station Piazza",
+              "officialStopId": 2812,
+              "officialStopSlug": "station-piazza",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 16,
+              "sourceName": "Area 39 (Upward)",
+              "officialStopId": 2939,
+              "officialStopSlug": "area-39-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 17,
+              "sourceName": "Chung Chi Teaching Bldg.",
+              "officialStopId": 2810,
+              "officialStopSlug": "chung-chi-teaching-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "4",
+        "sourceSnapshotId": "cuhk-route-4:5a58b467f54a34ff4dbbad3f805a623e6a03f4477dc0c4ca4edfc52c68258e87",
+        "officialRoutePostId": 2878,
+        "publicName": "4 Campus Circuit",
+        "sourceModifiedAt": "2026-03-30T10:16:16",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.214Z",
+          "sourceSnapshotId": "cuhk-route-4:5a58b467f54a34ff4dbbad3f805a623e6a03f4477dc0c4ca4edfc52c68258e87",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "07:30",
+            "endTime": "18:50",
+            "departureMinutes": [10, 30, 50],
+            "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+            "departureRuleRaw": "10, 30, 50",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Residence No. 15",
+              "officialStopId": 2924,
+              "officialStopSlug": "residence-no-15",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "CW Chu College (Downward)",
+              "officialStopId": 2832,
+              "officialStopSlug": "c-w-chu-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Area 39 (Upward)",
+              "officialStopId": 2939,
+              "officialStopSlug": "area-39-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "CW Chu College (Upward)",
+              "officialStopId": 2936,
+              "officialStopSlug": "c-w-chu-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Campus Circuit East (Upward)",
+              "officialStopId": 2932,
+              "officialStopSlug": "campus-circuit-east-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Chan Chun Ha Hostel",
+              "officialStopId": 2828,
+              "officialStopSlug": "chan-chun-ha-hostel",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "Shaw College (Downward)",
+              "officialStopId": 2926,
+              "officialStopSlug": "shaw-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "Wu Yee Sun College (Downward)",
+              "officialStopId": 2826,
+              "officialStopSlug": "residences-no-3-4-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 10,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 11,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 12,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 13,
+              "sourceName": "Y.I.A.P.",
+              "officialStopId": 2913,
+              "officialStopSlug": "y-i-a-p",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 14,
+              "sourceName": "Univ. Station",
+              "officialStopId": 2552,
+              "officialStopSlug": "univ-station",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "3",
+        "sourceSnapshotId": "cuhk-route-3:5a4f709d7a31bcb452940e4beae5cfbcbc709e08dda9f41a9f0c2612626298b7",
+        "officialRoutePostId": 2869,
+        "publicName": "3 Shaw",
+        "sourceModifiedAt": "2026-03-30T10:16:16",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.719Z",
+          "sourceSnapshotId": "cuhk-route-3:5a4f709d7a31bcb452940e4beae5cfbcbc709e08dda9f41a9f0c2612626298b7",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "09:00",
+            "endTime": "18:40",
+            "departureMinutes": [0, 20, 40],
+            "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+            "departureRuleRaw": "00, 20, 40",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "CW Chu College (Downward)",
+              "officialStopId": 2832,
+              "officialStopSlug": "c-w-chu-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Shaw College (Upward)",
+              "officialStopId": 2920,
+              "officialStopSlug": "shaw-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Wu Yee Sun College (Upward)",
+              "officialStopId": 2918,
+              "officialStopSlug": "residences-no-3-4-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Fung King Hey Bldg.",
+              "officialStopId": 2814,
+              "officialStopSlug": "fung-king-hey-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "Science Centre",
+              "officialStopId": 2916,
+              "officialStopSlug": "science-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Univ. Sports Centre",
+              "officialStopId": 2546,
+              "officialStopSlug": "univ-sports-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Residence No. 15",
+              "officialStopId": 2924,
+              "officialStopSlug": "residence-no-15",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "Chan Chun Ha Hostel",
+              "officialStopId": 2828,
+              "officialStopSlug": "chan-chun-ha-hostel",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Shaw College (Downward)",
+              "officialStopId": 2926,
+              "officialStopSlug": "shaw-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 10,
+              "sourceName": "Wu Yee Sun College (Downward)",
+              "officialStopId": 2826,
+              "officialStopSlug": "residences-no-3-4-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 11,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 12,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 13,
+              "sourceName": "Y.I.A.P.",
+              "officialStopId": 2913,
+              "officialStopSlug": "y-i-a-p",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 14,
+              "sourceName": "Station Piazza",
+              "officialStopId": 2812,
+              "officialStopSlug": "station-piazza",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "2",
+        "sourceSnapshotId": "cuhk-route-2:c161e75088e4e034467b90d444174bd9528ca809af7edca296e3f6abaed4fea4",
+        "officialRoutePostId": 2865,
+        "publicName": "2 NA / UC",
+        "sourceModifiedAt": "2026-01-02T08:54:42",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.224Z",
+          "sourceSnapshotId": "cuhk-route-2:c161e75088e4e034467b90d444174bd9528ca809af7edca296e3f6abaed4fea4",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "07:45",
+            "endTime": "18:45",
+            "departureMinutes": [0, 15, 30, 45],
+            "serviceRuleRaw": "07:45 - 18:45 For Mon to Sat (Except Public Holidays)",
+            "departureRuleRaw": "＃00, 15, 30,＃45 ＃Buses departing from 31 to 00 minutes will stop at Sir Run Run Shaw Hall",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "United College (Upward)",
+              "officialStopId": 2816,
+              "officialStopSlug": "united-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Fung King Hey Bldg.",
+              "officialStopId": 2814,
+              "officialStopSlug": "fung-king-hey-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Sir Run Run Shaw Hall",
+              "officialStopId": 2544,
+              "officialStopSlug": "sir-run-run-shaw-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Univ. Sports Centre",
+              "officialStopId": 2546,
+              "officialStopSlug": "univ-sports-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "Station Piazza",
+              "officialStopId": 2812,
+              "officialStopSlug": "station-piazza",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Univ. Station",
+              "officialStopId": 2552,
+              "officialStopSlug": "univ-station",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "6a",
+        "sourceSnapshotId": "cuhk-route-6a:fc490dcc7d96af254fc2991a02c147dda79fb17328bbc85d03134d242d653718",
+        "officialRoutePostId": 2768,
+        "publicName": "6A Downward (CWC)",
+        "sourceModifiedAt": "2026-04-21T08:50:32",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:24:00.740Z",
+          "sourceSnapshotId": "cuhk-route-6a:fc490dcc7d96af254fc2991a02c147dda79fb17328bbc85d03134d242d653718",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "09:10",
+            "endTime": "17:10",
+            "departureMinutes": [10],
+            "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+            "departureRuleRaw": "10",
+            "parseStatus": "parsed"
+          },
+          {
+            "sourceOrdinal": 1,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 1
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 1
+              }
+            },
+            "startTime": "09:10",
+            "endTime": "13:10",
+            "departureMinutes": [10],
+            "serviceRuleRaw": "09:10 - 13:10 Sat; Teaching days only",
+            "departureRuleRaw": "10",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Wu Yee Sun College (Downward)",
+              "officialStopId": 2826,
+              "officialStopSlug": "residences-no-3-4-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Chan Chun Ha Hostel",
+              "officialStopId": 2828,
+              "officialStopSlug": "chan-chun-ha-hostel",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "U.C. Staff Residence",
+              "officialStopId": 2830,
+              "officialStopSlug": "u-c-staff-residence",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "United College (Downward)",
+              "officialStopId": 2818,
+              "officialStopSlug": "united-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "Station Piazza",
+              "officialStopId": 2812,
+              "officialStopSlug": "station-piazza",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "CW Chu College (Downward)",
+              "officialStopId": 2832,
+              "officialStopSlug": "c-w-chu-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 9,
+              "sourceName": "Chung Chi Teaching Bldg.",
+              "officialStopId": 2810,
+              "officialStopSlug": "chung-chi-teaching-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "5",
+        "sourceSnapshotId": "cuhk-route-5:6a3c3012cbcec21267cc9c1fef14dc970fa9b9f2a0f5134b125f1c6061a1c560",
+        "officialRoutePostId": 2766,
+        "publicName": "5 Upward",
+        "sourceModifiedAt": "2026-04-21T08:50:32",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.719Z",
+          "sourceSnapshotId": "cuhk-route-5:6a3c3012cbcec21267cc9c1fef14dc970fa9b9f2a0f5134b125f1c6061a1c560",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "09:18",
+            "endTime": "17:26",
+            "departureMinutes": [18, 22, 26],
+            "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+            "departureRuleRaw": "18, 22, 26",
+            "parseStatus": "parsed"
+          },
+          {
+            "sourceOrdinal": 1,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 1
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 1
+              }
+            },
+            "startTime": "09:18",
+            "endTime": "13:26",
+            "departureMinutes": [18, 22, 26],
+            "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+            "departureRuleRaw": "18, 22, 26",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "United College (Upward)",
+              "officialStopId": 2816,
+              "officialStopSlug": "united-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Fung King Hey Bldg.",
+              "officialStopId": 2814,
+              "officialStopSlug": "fung-king-hey-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Sir Run Run Shaw Hall",
+              "officialStopId": 2544,
+              "officialStopSlug": "sir-run-run-shaw-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Univ. Sports Centre",
+              "officialStopId": 2546,
+              "officialStopSlug": "univ-sports-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "New Asia College",
+              "officialStopId": 2820,
+              "officialStopSlug": "new-asia-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Wu Yee Sun College (Upward)",
+              "officialStopId": 2918,
+              "officialStopSlug": "residences-no-3-4-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Shaw College (Upward)",
+              "officialStopId": 2920,
+              "officialStopSlug": "shaw-college-upward",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 7,
+              "sourceName": "Chung Chi Teaching Bldg.",
+              "officialStopId": 2810,
+              "officialStopSlug": "chung-chi-teaching-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 8,
+              "sourceName": "CW Chu College (Downward)",
+              "officialStopId": 2832,
+              "officialStopSlug": "c-w-chu-college-downward",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "1b",
+        "sourceSnapshotId": "cuhk-route-1b:7b454df0e5e8eb890b54d805f66ee144b30d4fc60f2e81dbde39b2f12f530d52",
+        "officialRoutePostId": 2567,
+        "publicName": "1B Main Campus",
+        "sourceModifiedAt": "2026-01-08T18:46:56",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.230Z",
+          "sourceSnapshotId": "cuhk-route-1b:7b454df0e5e8eb890b54d805f66ee144b30d4fc60f2e81dbde39b2f12f530d52",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "08:00",
+            "endTime": "18:30",
+            "departureMinutes": [0, 30],
+            "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+            "departureRuleRaw": "00, 30",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "Sir Run Run Shaw Hall",
+              "officialStopId": 2544,
+              "officialStopSlug": "sir-run-run-shaw-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Univ. Sports Centre",
+              "officialStopId": 2546,
+              "officialStopSlug": "univ-sports-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Postgraduate Hall 1",
+              "officialStopId": 3172,
+              "officialStopSlug": "jockey-club-postgraduate-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 5,
+              "sourceName": "Postgraduate Hall 1",
+              "officialStopId": 3172,
+              "officialStopSlug": "jockey-club-postgraduate-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 6,
+              "sourceName": "Univ. Station",
+              "officialStopId": 2552,
+              "officialStopSlug": "univ-station",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      },
+      {
+        "routeId": "1a",
+        "sourceSnapshotId": "cuhk-route-1a:8d1d36ae37495dde3024c2604ce3a4c15bb1b8633b571bdc41bdd81f689e62a0",
+        "officialRoutePostId": 2554,
+        "publicName": "1A Main Campus",
+        "sourceModifiedAt": "2026-01-08T18:46:37",
+        "operatingStatus": {
+          "value": "non_service_hours",
+          "observedAt": "2026-08-08T15:23:59.217Z",
+          "sourceSnapshotId": "cuhk-route-1a:8d1d36ae37495dde3024c2604ce3a4c15bb1b8633b571bdc41bdd81f689e62a0",
+          "sourceProvidesStatusEffectiveInterval": false
+        },
+        "audience": "cuhk_students_and_staff",
+        "scheduleBands": [
+          {
+            "sourceOrdinal": 0,
+            "fieldLocators": {
+              "serviceWindow": {
+                "selector": ".rb-2-1",
+                "matchOrdinal": 0
+              },
+              "departureRule": {
+                "selector": ".rb-2-2",
+                "matchOrdinal": 0
+              }
+            },
+            "startTime": "07:40",
+            "endTime": "18:50",
+            "departureMinutes": [10, 20, 40, 50],
+            "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+            "departureRuleRaw": "Every 10, 20, 40, 50",
+            "parseStatus": "parsed"
+          }
+        ],
+        "patternCandidate": {
+          "stopCandidates": [
+            {
+              "sourceDomOrdinal": 0,
+              "sourceName": "Sir Run Run Shaw Hall",
+              "officialStopId": 2544,
+              "officialStopSlug": "sir-run-run-shaw-hall",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 1,
+              "sourceName": "Univ. Sports Centre",
+              "officialStopId": 2546,
+              "officialStopSlug": "univ-sports-centre",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 2,
+              "sourceName": "Univ. Admin. Bldg.",
+              "officialStopId": 2548,
+              "officialStopSlug": "univ-admin-bldg",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 3,
+              "sourceName": "S.H. Ho College",
+              "officialStopId": 2550,
+              "officialStopSlug": "s-h-ho-college",
+              "matchStatus": "matched_by_normalized_name"
+            },
+            {
+              "sourceDomOrdinal": 4,
+              "sourceName": "Univ. Station",
+              "officialStopId": 2552,
+              "officialStopSlug": "univ-station",
+              "matchStatus": "matched_by_normalized_name"
+            }
+          ],
+          "sequenceStatus": "manual_review_required_visual_layout",
+          "reason": "The official page uses separate left/right/bottom columns; DOM order is not travel order.",
+          "fieldLocators": [".route-stop-text", ".route-stop-bottom-text"]
+        }
+      }
+    ],
+    "officialStops": [
+      {
+        "stopId": "cuhk-wp-stop-7526",
+        "officialPostId": 7526,
+        "slug": "residences-no-3-downward",
+        "nameEn": "Residences No. 3 (Downward)",
+        "sourceModifiedAt": "2025-06-23T17:04:31",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-7523",
+        "officialPostId": 7523,
+        "slug": "new-asia-college-downward",
+        "nameEn": "New Asia College (Downward)",
+        "sourceModifiedAt": "2025-06-23T17:03:46",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-7521",
+        "officialPostId": 7521,
+        "slug": "new-asia-college-upward",
+        "nameEn": "New Asia College (Upward)",
+        "sourceModifiedAt": "2025-06-23T17:03:33",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-7514",
+        "officialPostId": 7514,
+        "slug": "university-health-centre-downward",
+        "nameEn": "University Health Centre (Downward)",
+        "sourceModifiedAt": "2025-06-23T17:00:43",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-4729",
+        "officialPostId": 4729,
+        "slug": "y-i-a-p-pslb",
+        "nameEn": "Y.I.A.P. (PSLB)",
+        "sourceModifiedAt": "2022-11-22T17:09:13",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-4248",
+        "officialPostId": 4248,
+        "slug": "univ-station-pslb",
+        "nameEn": "Univ. Station (PSLB)",
+        "sourceModifiedAt": "2021-08-02T15:17:27",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3572",
+        "officialPostId": 3572,
+        "slug": "ho-tim-bldg",
+        "nameEn": "Ho Tim Bldg.",
+        "sourceModifiedAt": "2022-11-22T17:07:37",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3569",
+        "officialPostId": 3569,
+        "slug": "ho-sin-hang-engineering-bldg",
+        "nameEn": "Ho Sin-Hang Engineering Bldg.",
+        "sourceModifiedAt": "2026-07-30T15:20:46",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3556",
+        "officialPostId": 3556,
+        "slug": "residences-no-10-11",
+        "nameEn": "Residences No.10 & 11",
+        "sourceModifiedAt": "2026-05-05T10:01:50",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3554",
+        "officialPostId": 3554,
+        "slug": "lee-woo-sing-college",
+        "nameEn": "Lee Woo Sing College",
+        "sourceModifiedAt": "2023-07-14T21:40:54",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3552",
+        "officialPostId": 3552,
+        "slug": "residences-no-3-4",
+        "nameEn": "Residences No. 3 (Upward)",
+        "sourceModifiedAt": "2025-06-23T17:04:15",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3550",
+        "officialPostId": 3550,
+        "slug": "university-library",
+        "nameEn": "University Library / Art Museum",
+        "sourceModifiedAt": "2025-06-23T16:59:38",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3548",
+        "officialPostId": 3548,
+        "slug": "university-health-centre",
+        "nameEn": "University Health Centre (Upward)",
+        "sourceModifiedAt": "2025-06-23T17:02:26",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3544",
+        "officialPostId": 3544,
+        "slug": "academic-bldg-no-1",
+        "nameEn": "Academic Bldg. No.1",
+        "sourceModifiedAt": "2026-01-02T08:56:16",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3542",
+        "officialPostId": 3542,
+        "slug": "c-c-staff-quarters-cd",
+        "nameEn": "C.C. Staff Quarters C",
+        "sourceModifiedAt": "2026-01-02T08:56:32",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3540",
+        "officialPostId": 3540,
+        "slug": "wong-foo-yuan-bldg",
+        "nameEn": "Wong Foo Yuan Bldg.",
+        "sourceModifiedAt": "2026-01-02T08:56:45",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-3172",
+        "officialPostId": 3172,
+        "slug": "jockey-club-postgraduate-hall",
+        "nameEn": "Postgraduate Hall 1",
+        "sourceModifiedAt": "2023-09-19T17:27:51",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2967",
+        "officialPostId": 2967,
+        "slug": "residence-no-10",
+        "nameEn": "Residence No. 10",
+        "sourceModifiedAt": "2026-05-05T10:00:56",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2949",
+        "officialPostId": 2949,
+        "slug": "campus-circuit-north",
+        "nameEn": "Campus Circuit North",
+        "sourceModifiedAt": "2025-09-25T15:57:56",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2947",
+        "officialPostId": 2947,
+        "slug": "campus-circuit-east-downward",
+        "nameEn": "Campus Circuit East (Downward)",
+        "sourceModifiedAt": "2025-09-25T15:57:42",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2943",
+        "officialPostId": 2943,
+        "slug": "new-asia-circle",
+        "nameEn": "New Asia Circle",
+        "sourceModifiedAt": "2026-07-26T17:24:32",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2941",
+        "officialPostId": 2941,
+        "slug": "area-39-downward",
+        "nameEn": "Area 39 (Downward)",
+        "sourceModifiedAt": "2025-09-25T15:56:06",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2939",
+        "officialPostId": 2939,
+        "slug": "area-39-upward",
+        "nameEn": "Area 39 (Upward)",
+        "sourceModifiedAt": "2025-09-25T07:34:26",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2936",
+        "officialPostId": 2936,
+        "slug": "c-w-chu-college-upward",
+        "nameEn": "CW Chu College (Upward)",
+        "sourceModifiedAt": "2024-10-30T15:19:19",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2932",
+        "officialPostId": 2932,
+        "slug": "campus-circuit-east-upward",
+        "nameEn": "Campus Circuit East (Upward)",
+        "sourceModifiedAt": "2021-07-19T14:22:24",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2926",
+        "officialPostId": 2926,
+        "slug": "shaw-college-downward",
+        "nameEn": "Shaw College (Downward)",
+        "sourceModifiedAt": "2026-07-26T17:24:03",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2924",
+        "officialPostId": 2924,
+        "slug": "residence-no-15",
+        "nameEn": "Residence No. 15",
+        "sourceModifiedAt": "2026-03-30T10:15:41",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2920",
+        "officialPostId": 2920,
+        "slug": "shaw-college-upward",
+        "nameEn": "Shaw College (Upward)",
+        "sourceModifiedAt": "2026-07-26T17:24:20",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2918",
+        "officialPostId": 2918,
+        "slug": "residences-no-3-4-upward",
+        "nameEn": "Wu Yee Sun College (Upward)",
+        "sourceModifiedAt": "2026-07-26T17:24:42",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2916",
+        "officialPostId": 2916,
+        "slug": "science-centre",
+        "nameEn": "Science Centre",
+        "sourceModifiedAt": "2023-12-11T12:32:48",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2913",
+        "officialPostId": 2913,
+        "slug": "y-i-a-p",
+        "nameEn": "Y.I.A.P.",
+        "sourceModifiedAt": "2026-01-02T08:57:51",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2897",
+        "officialPostId": 2897,
+        "slug": "blank",
+        "nameEn": "(Blank)",
+        "sourceModifiedAt": "2021-06-04T16:07:59",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2832",
+        "officialPostId": 2832,
+        "slug": "c-w-chu-college-downward",
+        "nameEn": "CW Chu College (Downward)",
+        "sourceModifiedAt": "2025-09-25T15:56:18",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2830",
+        "officialPostId": 2830,
+        "slug": "u-c-staff-residence",
+        "nameEn": "U.C. Staff Residence",
+        "sourceModifiedAt": "2026-03-30T10:16:01",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2828",
+        "officialPostId": 2828,
+        "slug": "chan-chun-ha-hostel",
+        "nameEn": "Chan Chun Ha Hostel",
+        "sourceModifiedAt": "2026-03-30T10:15:50",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2820",
+        "officialPostId": 2820,
+        "slug": "new-asia-college",
+        "nameEn": "New Asia College",
+        "sourceModifiedAt": "2023-02-09T11:12:43",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2818",
+        "officialPostId": 2818,
+        "slug": "united-college-downward",
+        "nameEn": "United College (Downward)",
+        "sourceModifiedAt": "2026-07-26T14:17:31",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2816",
+        "officialPostId": 2816,
+        "slug": "united-college-upward",
+        "nameEn": "United College (Upward)",
+        "sourceModifiedAt": "2021-07-19T14:24:13",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2826",
+        "officialPostId": 2826,
+        "slug": "residences-no-3-4-downward",
+        "nameEn": "Wu Yee Sun College (Downward)",
+        "sourceModifiedAt": "2025-09-25T07:35:53",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2814",
+        "officialPostId": 2814,
+        "slug": "fung-king-hey-bldg",
+        "nameEn": "Fung King Hey Bldg.",
+        "sourceModifiedAt": "2026-05-26T14:54:01",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2812",
+        "officialPostId": 2812,
+        "slug": "station-piazza",
+        "nameEn": "Station Piazza",
+        "sourceModifiedAt": "2026-01-02T08:58:27",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2810",
+        "officialPostId": 2810,
+        "slug": "chung-chi-teaching-bldg",
+        "nameEn": "Chung Chi Teaching Bldg.",
+        "sourceModifiedAt": "2026-01-02T08:57:30",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2552",
+        "officialPostId": 2552,
+        "slug": "univ-station",
+        "nameEn": "Univ. Station",
+        "sourceModifiedAt": "2021-12-29T09:32:44",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2550",
+        "officialPostId": 2550,
+        "slug": "s-h-ho-college",
+        "nameEn": "S.H. Ho College",
+        "sourceModifiedAt": "2023-02-13T15:06:34",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2548",
+        "officialPostId": 2548,
+        "slug": "univ-admin-bldg",
+        "nameEn": "Univ. Admin. Bldg.",
+        "sourceModifiedAt": "2023-02-13T15:05:45",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2546",
+        "officialPostId": 2546,
+        "slug": "univ-sports-centre",
+        "nameEn": "Univ. Sports Centre",
+        "sourceModifiedAt": "2026-07-26T17:25:12",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      },
+      {
+        "stopId": "cuhk-wp-stop-2544",
+        "officialPostId": 2544,
+        "slug": "sir-run-run-shaw-hall",
+        "nameEn": "Sir Run Run Shaw Hall",
+        "sourceModifiedAt": "2026-07-26T17:24:59",
+        "coordinates": null,
+        "campusMapPlaceId": null
+      }
+    ]
+  },
+  "today": {
+    "serviceDate": "2026-08-08",
+    "timezone": "Asia/Hong_Kong",
+    "explicitCalendarInputs": {
+      "publicHoliday": false,
+      "teachingDay": false
+    },
+    "derivedCalendarEvidence": {
+      "publicHoliday": false,
+      "teachingDay": false
+    },
+    "scheduleBands": [
+      {
+        "routeId": "down",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": ["07:00", "07:15", "07:30", "07:45", "08:00", "08:15"],
+        "evidence": {
+          "serviceRuleRaw": "07:00-08:15 For Mon to Sat (Except Public Holiday)",
+          "departureRuleRaw": "Every 00, 15, 30, 45",
+          "sourceSnapshotId": "cuhk-route-down:6677330b89c8f16c2f3e5bd051853a1e13245e9dcea068cf925c6650a0ab7155",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "down",
+        "sourceOrdinal": 1,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "08:45-21:15 For Sun & Public Holidays",
+          "departureRuleRaw": "Every 15, 45 ＃Every Mon - Fri at 08:45-17:45 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+          "sourceSnapshotId": "cuhk-route-down:6677330b89c8f16c2f3e5bd051853a1e13245e9dcea068cf925c6650a0ab7155",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 1
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 1
+            }
+          }
+        }
+      },
+      {
+        "routeId": "up",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "08:30",
+          "09:00",
+          "09:30",
+          "10:00",
+          "10:30",
+          "11:00",
+          "11:30",
+          "12:00",
+          "12:30",
+          "13:00",
+          "13:30",
+          "14:00",
+          "14:30",
+          "15:00",
+          "15:30",
+          "16:00",
+          "16:30",
+          "17:00",
+          "17:30",
+          "18:00",
+          "18:30",
+          "19:00",
+          "19:30",
+          "20:00",
+          "20:30",
+          "21:00",
+          "21:30",
+          "22:00",
+          "22:30",
+          "23:00"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+          "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+          "sourceSnapshotId": "cuhk-route-up:25fdf2a1f6208d3196afe2d60b08c3a8c4fab735cc0d97eb16e80c26f2e49810",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "7",
+        "sourceOrdinal": 0,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+          "departureRuleRaw": "18, 50",
+          "sourceSnapshotId": "cuhk-route-7:eb27011aa924cc70d50edbafd38ff9b57b86074d4dae6928538ed248c40c62e9",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "7",
+        "sourceOrdinal": 1,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+          "departureRuleRaw": "18, 50",
+          "sourceSnapshotId": "cuhk-route-7:eb27011aa924cc70d50edbafd38ff9b57b86074d4dae6928538ed248c40c62e9",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 1
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 1
+            }
+          }
+        }
+      },
+      {
+        "routeId": "6b",
+        "sourceOrdinal": 0,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "12:20 - 17:20 Mon to Fri; Teaching days only",
+          "departureRuleRaw": "20",
+          "sourceSnapshotId": "cuhk-route-6b:33064292b21605be4d4a35b590dde1a60ced1937fe28ca0883d6077fab4d9d8c",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "h",
+        "sourceOrdinal": 0,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+          "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+          "sourceSnapshotId": "cuhk-route-h:9ea44224c9a786c81f6c56332872c5148f38b397ba2d4b8f3f0a8efd2118702b",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "n",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "19:00",
+          "19:15",
+          "19:30",
+          "19:45",
+          "20:00",
+          "20:15",
+          "20:30",
+          "20:45",
+          "21:00",
+          "21:15",
+          "21:30",
+          "21:45",
+          "22:00",
+          "22:15",
+          "22:30",
+          "22:45",
+          "23:00",
+          "23:15",
+          "23:30"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+          "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+          "sourceSnapshotId": "cuhk-route-n:900e8ff9a1d86127be8765f1f5f17f490298ca5a5a36caa6978fc25585334ae8",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "8",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "07:40",
+          "08:00",
+          "08:20",
+          "08:40",
+          "09:00",
+          "09:20",
+          "09:40",
+          "10:00",
+          "10:20",
+          "10:40",
+          "11:00",
+          "11:20",
+          "11:40",
+          "12:00",
+          "12:20",
+          "12:40",
+          "13:00",
+          "13:20",
+          "13:40",
+          "14:00",
+          "14:20",
+          "14:40",
+          "15:00",
+          "15:20",
+          "15:40",
+          "16:00",
+          "16:20",
+          "16:40",
+          "17:00",
+          "17:20",
+          "17:40",
+          "18:00",
+          "18:20",
+          "18:40"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+          "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+          "sourceSnapshotId": "cuhk-route-8:083585fade55952a86cbdc2907b2f3cecc5439555147597fb476cc99090e2137",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "4",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "07:30",
+          "07:50",
+          "08:10",
+          "08:30",
+          "08:50",
+          "09:10",
+          "09:30",
+          "09:50",
+          "10:10",
+          "10:30",
+          "10:50",
+          "11:10",
+          "11:30",
+          "11:50",
+          "12:10",
+          "12:30",
+          "12:50",
+          "13:10",
+          "13:30",
+          "13:50",
+          "14:10",
+          "14:30",
+          "14:50",
+          "15:10",
+          "15:30",
+          "15:50",
+          "16:10",
+          "16:30",
+          "16:50",
+          "17:10",
+          "17:30",
+          "17:50",
+          "18:10",
+          "18:30",
+          "18:50"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+          "departureRuleRaw": "10, 30, 50",
+          "sourceSnapshotId": "cuhk-route-4:5a58b467f54a34ff4dbbad3f805a623e6a03f4477dc0c4ca4edfc52c68258e87",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "3",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "09:00",
+          "09:20",
+          "09:40",
+          "10:00",
+          "10:20",
+          "10:40",
+          "11:00",
+          "11:20",
+          "11:40",
+          "12:00",
+          "12:20",
+          "12:40",
+          "13:00",
+          "13:20",
+          "13:40",
+          "14:00",
+          "14:20",
+          "14:40",
+          "15:00",
+          "15:20",
+          "15:40",
+          "16:00",
+          "16:20",
+          "16:40",
+          "17:00",
+          "17:20",
+          "17:40",
+          "18:00",
+          "18:20",
+          "18:40"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+          "departureRuleRaw": "00, 20, 40",
+          "sourceSnapshotId": "cuhk-route-3:5a4f709d7a31bcb452940e4beae5cfbcbc709e08dda9f41a9f0c2612626298b7",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "2",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "07:45",
+          "08:00",
+          "08:15",
+          "08:30",
+          "08:45",
+          "09:00",
+          "09:15",
+          "09:30",
+          "09:45",
+          "10:00",
+          "10:15",
+          "10:30",
+          "10:45",
+          "11:00",
+          "11:15",
+          "11:30",
+          "11:45",
+          "12:00",
+          "12:15",
+          "12:30",
+          "12:45",
+          "13:00",
+          "13:15",
+          "13:30",
+          "13:45",
+          "14:00",
+          "14:15",
+          "14:30",
+          "14:45",
+          "15:00",
+          "15:15",
+          "15:30",
+          "15:45",
+          "16:00",
+          "16:15",
+          "16:30",
+          "16:45",
+          "17:00",
+          "17:15",
+          "17:30",
+          "17:45",
+          "18:00",
+          "18:15",
+          "18:30",
+          "18:45"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "07:45 - 18:45 For Mon to Sat (Except Public Holidays)",
+          "departureRuleRaw": "＃00, 15, 30,＃45 ＃Buses departing from 31 to 00 minutes will stop at Sir Run Run Shaw Hall",
+          "sourceSnapshotId": "cuhk-route-2:c161e75088e4e034467b90d444174bd9528ca809af7edca296e3f6abaed4fea4",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "6a",
+        "sourceOrdinal": 0,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+          "departureRuleRaw": "10",
+          "sourceSnapshotId": "cuhk-route-6a:fc490dcc7d96af254fc2991a02c147dda79fb17328bbc85d03134d242d653718",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "6a",
+        "sourceOrdinal": 1,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "09:10 - 13:10 Sat; Teaching days only",
+          "departureRuleRaw": "10",
+          "sourceSnapshotId": "cuhk-route-6a:fc490dcc7d96af254fc2991a02c147dda79fb17328bbc85d03134d242d653718",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 1
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 1
+            }
+          }
+        }
+      },
+      {
+        "routeId": "5",
+        "sourceOrdinal": 0,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+          "departureRuleRaw": "18, 22, 26",
+          "sourceSnapshotId": "cuhk-route-5:6a3c3012cbcec21267cc9c1fef14dc970fa9b9f2a0f5134b125f1c6061a1c560",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "5",
+        "sourceOrdinal": 1,
+        "active": false,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [],
+        "evidence": {
+          "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+          "departureRuleRaw": "18, 22, 26",
+          "sourceSnapshotId": "cuhk-route-5:6a3c3012cbcec21267cc9c1fef14dc970fa9b9f2a0f5134b125f1c6061a1c560",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 1
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 1
+            }
+          }
+        }
+      },
+      {
+        "routeId": "1b",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "08:00",
+          "08:30",
+          "09:00",
+          "09:30",
+          "10:00",
+          "10:30",
+          "11:00",
+          "11:30",
+          "12:00",
+          "12:30",
+          "13:00",
+          "13:30",
+          "14:00",
+          "14:30",
+          "15:00",
+          "15:30",
+          "16:00",
+          "16:30",
+          "17:00",
+          "17:30",
+          "18:00",
+          "18:30"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+          "departureRuleRaw": "00, 30",
+          "sourceSnapshotId": "cuhk-route-1b:7b454df0e5e8eb890b54d805f66ee144b30d4fc60f2e81dbde39b2f12f530d52",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      },
+      {
+        "routeId": "1a",
+        "sourceOrdinal": 0,
+        "active": true,
+        "originStopId": null,
+        "originStatus": "blocked_by_unverified_stop_sequence",
+        "departures": [
+          "07:40",
+          "07:50",
+          "08:10",
+          "08:20",
+          "08:40",
+          "08:50",
+          "09:10",
+          "09:20",
+          "09:40",
+          "09:50",
+          "10:10",
+          "10:20",
+          "10:40",
+          "10:50",
+          "11:10",
+          "11:20",
+          "11:40",
+          "11:50",
+          "12:10",
+          "12:20",
+          "12:40",
+          "12:50",
+          "13:10",
+          "13:20",
+          "13:40",
+          "13:50",
+          "14:10",
+          "14:20",
+          "14:40",
+          "14:50",
+          "15:10",
+          "15:20",
+          "15:40",
+          "15:50",
+          "16:10",
+          "16:20",
+          "16:40",
+          "16:50",
+          "17:10",
+          "17:20",
+          "17:40",
+          "17:50",
+          "18:10",
+          "18:20",
+          "18:40",
+          "18:50"
+        ],
+        "evidence": {
+          "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+          "departureRuleRaw": "Every 10, 20, 40, 50",
+          "sourceSnapshotId": "cuhk-route-1a:8d1d36ae37495dde3024c2604ce3a4c15bb1b8633b571bdc41bdd81f689e62a0",
+          "fieldLocators": {
+            "serviceWindow": {
+              "selector": ".rb-2-1",
+              "matchOrdinal": 0
+            },
+            "departureRule": {
+              "selector": ".rb-2-2",
+              "matchOrdinal": 0
+            }
+          }
+        }
+      }
+    ],
+    "operatorReviewDrafts": [
+      {
+        "sourcePostId": 8285,
+        "sourceImageSha256": "ab0f49a17795607047c7979a7bef207408ba0d7e2fd2ef515fe616cbe816eb2c",
+        "reviewStatus": "prototype_visual_review",
+        "reviewedBy": "Codex visual inspection (prototype only)",
+        "reviewedAt": "2026-08-08T14:50:00Z",
+        "publishEligible": false,
+        "effectiveFrom": "2026-08-08T07:30:00+08:00",
+        "effectiveTo": null,
+        "openEndedPolicy": "start_date_only_then_reconfirm",
+        "effect": {
+          "kind": "stop_relocation",
+          "stopName": "University Station Bus Stop",
+          "routeIds": ["1a", "1b"],
+          "note": "Temporary relocation until the end of works; official notice TSP/ISI/2026/15."
+        },
+        "sourceSnapshotId": "cuhk-notice-8285-image-0:ab0f49a17795607047c7979a7bef207408ba0d7e2fd2ef515fe616cbe816eb2c",
+        "validationErrors": [],
+        "appliesToServiceDate": true,
+        "activeAtGeneratedAt": true,
+        "releaseStatus": "production_operator_approval_required"
+      }
+    ],
+    "arrivalProjections": [],
+    "realtimeFeed": null,
+    "labels": {
+      "departures": "official_schedule_candidate_unpublished",
+      "intermediateArrivals": "not_available",
+      "realtime": "not_available"
+    }
+  },
+  "validation": {
+    "counts": {
+      "routePosts": 14,
+      "stopPosts": 47,
+      "scheduleBands": 18,
+      "departuresForDate": 267,
+      "noticePostsInspected": 10,
+      "noticeImagesHashed": 10
+    },
+    "blockingErrors": [],
+    "reviewQueue": [
+      {
+        "kind": "route_pattern_sequence",
+        "count": 14,
+        "reason": "Visual multi-column HTML does not encode travel order safely."
+      },
+      {
+        "kind": "unmatched_stop_names",
+        "count": 0,
+        "items": []
+      },
+      {
+        "kind": "notice_ocr_drafts",
+        "count": 10,
+        "reason": "OCR is a draft; effective interval and impact require an operator review linked to the image hash."
+      },
+      {
+        "kind": "pdf_change",
+        "count": 1,
+        "reason": "Current and 2024-25 PDF hashes differ; parsed schedule windows agree, while only the historical PDF exposes an effective date."
+      }
+    ],
+    "releaseGates": {
+      "routeLevelScheduleCandidates": true,
+      "orderedStopPatterns": false,
+      "datedNoticeOverrides": false,
+      "reason": "This spike stages candidates only; production publication requires reviewed source diffs, ordered patterns, and operator-approved notice overrides."
+    },
+    "publishDecision": "staged_candidates_require_operator_review"
+  }
+}
