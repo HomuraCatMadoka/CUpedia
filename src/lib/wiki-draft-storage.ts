@@ -15,6 +15,7 @@ const TAB_SESSION_KEY_PREFIX = "__cupediaWikiDraftSession:";
 const SESSION_LOCK_PREFIX = "cupedia-wiki-draft-session:";
 
 const claimedSessionIds = new Set<string>();
+let latestSessionClaim: string | null = null;
 const draftOperations = new Map<string, Promise<unknown>>();
 
 type StoredWikiDraft = WikiDraftRecord & { key: string };
@@ -42,6 +43,12 @@ function writeTabSessionId(key: string, sessionId: string) {
   } catch {
     // History state remains the fallback when storage is unavailable.
   }
+}
+
+function currentSessionDocumentUrl() {
+  const url = new URL(location.href);
+  url.hash = "";
+  return url.href;
 }
 
 async function tryClaimSessionId(sessionId: string) {
@@ -151,6 +158,9 @@ async function withDraftStore<T>(
 
 export async function getWikiDraftSessionId(userId: string, pageId: string) {
   const tabSessionKey = `${TAB_SESSION_KEY_PREFIX}${userId}:${pageId}`;
+  const claimToken = crypto.randomUUID();
+  latestSessionClaim = claimToken;
+  const sessionUrl = currentSessionDocumentUrl();
   const tabSessionId = readTabSessionId(tabSessionKey);
   const state = (history.state ?? {}) as Record<string, unknown>;
   const existing = state[HISTORY_SESSION_KEY] as
@@ -165,10 +175,23 @@ export async function getWikiDraftSessionId(userId: string, pageId: string) {
   const sessionId = await claimSessionId(
     tabSessionId ?? historySessionId ?? crypto.randomUUID(),
   );
+  // A superseded editor may finish after the tab moved elsewhere or after a
+  // newer incarnation of the same URL mounted. It cannot publish its session
+  // into either shared storage boundary.
+  const isLatestClaim = latestSessionClaim === claimToken;
+  if (currentSessionDocumentUrl() !== sessionUrl || !isLatestClaim) {
+    if (isLatestClaim) latestSessionClaim = null;
+    return sessionId;
+  }
+  latestSessionClaim = null;
   writeTabSessionId(tabSessionKey, sessionId);
+  // Session claiming can yield while the editor installs navigation guards or
+  // another local UI layer. Merge into the latest state so this async write
+  // cannot erase fields that were added after the initial read.
+  const latestState = (history.state ?? {}) as Record<string, unknown>;
   history.replaceState(
     {
-      ...state,
+      ...latestState,
       [HISTORY_SESSION_KEY]: { userId, pageId, sessionId },
     },
     "",

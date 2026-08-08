@@ -1225,8 +1225,10 @@ export function WikiEditor({
         detail: destination,
       }),
     );
+    // `replace` already loads the newly published public route. A second
+    // refresh can finish after that editor becomes interactive and replace
+    // an edit the user made immediately after publishing.
     router.replace(destination);
-    router.refresh();
   }, [
     ensureContributorSetup,
     flushAutosave,
