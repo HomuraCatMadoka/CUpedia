@@ -181,7 +181,13 @@ H 的 00 分、N 的 00 分、Route 2 的 31–00 分条件以及 Route 8 的非
 
 #### `ArrivalProjection`
 
-保存 `tripId`、`stopId`、预计时间、`calculatedAt`、方法、样本量/误差说明和输入版本。产品必须显示“预计”；删除该表不应损伤官方计划时刻。
+保存 `tripId`、`stopId`、预计时间或 P10/P50/P90 区间、`calculatedAt`、预测方法、样本量、校准误差、freshness 和全部输入/model revision IDs。它必须保留所依据的官方起点计划时间，不得覆盖 `StopTime`。产品必须显示“预计”和证据等级；删除该表不应损伤官方计划时刻。
+
+#### `TravelTimeObservation` 与 `PredictionModelRevision`
+
+未来若使用人工乘车记录、第三方历史样本或获授权 telemetry，原始 `TravelTimeObservation` 必须不可变地保存观测时间、候选 pattern/segment、耗时、定位精度、来源、许可状态与复核状态。匹配不确定时保留候选，不强行归入 Trip。
+
+`PredictionModelRevision` 保存方法、训练时间窗、输入 observation/content IDs、样本覆盖、按路线/时段的误差及区间校准结果、发布时间与状态。样本不足或许可未确认的数据只能作为 staging 弱先验；不能用固定两分钟、直线距离或假定速度生成看似精确的发布 ETA。
 
 #### `VehicleObservation`
 
@@ -282,6 +288,7 @@ Transport 不 import `CampusMapView`、插画数据、Region、Connection 或 dr
 | Published Trip / StopTime                | 阻塞，直到 pattern 与起点审核完成                    |
 | Image notice                             | OCR draft + operator review                          |
 | Stop–Place link / 步行段                 | 阻塞，直到 campus-map Place 与物理入口通过核对       |
+| 第三方或人工行车时间样本                 | 只进入 staging；需许可、pattern 匹配和校准审核       |
 | Arrival prediction / Vehicle observation | 无数据；不得生成                                     |
 
 因此第一阶段实现顺序应是：先审核 Stop inventory 与 Route patterns，再把今天的 departure candidates 升级为 Trip；campus-map 只在 verified Stop–Place link 出现后逐站接入。
@@ -289,3 +296,9 @@ Transport 不 import `CampusMapView`、插画数据、Region、Connection 或 dr
 ## GTFS 边界
 
 GTFS 是发布 adapter，不是 canonical schema。只有 Stop、按 `stop_sequence` 排序的 pattern、Trip，以及规范要求的首末站 arrival/departure 等必填事实都已审核时，才可从发布模型导出 GTFS 并运行 feed validator。当前路线级 `DepartureCandidate` 缺少有序站序、起点与逐站时刻，不能伪装成完整 GTFS feed。
+
+## 对补充 research report 的处理
+
+补充报告强化了“官方 schedule、不可变 observation、派生 prediction 三层分离”，以及预测必须展示不确定区间的要求，这些已纳入上述 schema。[CUHK 开源实现调研](https://github.com/HomuraCatMadoka/CUpedia/blob/research/cuhk-bus-code/docs/campus-transport/research/cuhk-and-campus-bus-open-source.md) 也确认 CUHK-bus-clock 的 2025 样本可证明“起点计划 + 站间经验耗时”的原型可行，但其 113 个有效耗时样本覆盖稀疏、数据权利未独立确认，因此只可作为未来弱先验，不能直接发布。
+
+报告声称当前官方页面可直接机械取得有序站序，这一点不采纳：我们的真实摄取只能稳定识别 stop post 与页面视觉分栏，不能证明 DOM ordinal 就是运营站序。报告建议的距离/速度 fallback、用户反馈、被动 GPS、信誉系统和机器学习路线也不进入第一阶段；其中预测研究可以保留为未来方向，但必须在获得有许可、可匹配且跨实际教学时段的观测后另开实现票据。
