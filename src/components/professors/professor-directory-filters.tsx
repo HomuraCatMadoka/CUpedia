@@ -180,7 +180,7 @@ export function ProfessorDirectoryFilters({
               setSuggestionsOpen(false);
             }
           }}
-          className="relative overflow-visible rounded-none bg-transparent p-0 [&_[data-slot=command-input-wrapper]]:p-0 [&_[data-slot=input-group]]:h-12 [&_[data-slot=input-group]]:rounded-xl [&_[data-slot=input-group]]:bg-background"
+          className="relative overflow-visible rounded-none bg-transparent p-0 [&_[data-slot=command-input-wrapper]]:p-0 [&_[data-slot=input-group]]:h-[3.125rem]! [&_[data-slot=input-group]]:rounded-xl [&_[data-slot=input-group]]:bg-background"
         >
           <CommandInput
             aria-label="搜索教授"
@@ -195,7 +195,7 @@ export function ProfessorDirectoryFilters({
             onKeyDown={(event) => {
               if (event.key === "Escape") setSuggestionsOpen(false);
             }}
-            className="h-auto"
+            className="h-auto text-base"
           />
           {suggestionsOpen ? (
             <CommandList className="absolute inset-x-0 top-[calc(100%+0.25rem)] z-20 max-h-64 rounded-xl border bg-popover p-1 shadow-md">
