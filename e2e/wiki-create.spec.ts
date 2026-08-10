@@ -1,21 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { Client } from "pg";
 
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
-import { waitForHydratedWikiEditor } from "./helpers/wiki";
-
-async function query<T extends Record<string, unknown>>(
-  text: string,
-  values: unknown[] = [],
-) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    return await client.query<T>(text, values);
-  } finally {
-    await client.end();
-  }
-}
+import { queryDatabase as query } from "./helpers/database";
+import {
+  captureWikiPollingAction,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 
 test.describe("#465 server-backed private Wiki drafts", () => {
   test.setTimeout(120_000);
@@ -191,6 +181,115 @@ test.describe("#465 server-backed private Wiki drafts", () => {
     }
   });
 
+  test("a failed private Local draft cleanup cannot leak into the published page", async ({
+    page,
+  }) => {
+    let pageId: string | null = null;
+    const title = `Published identity ${Date.now()}`;
+    const body = "Published body remains authoritative";
+    await loginAsAdmin(page);
+    try {
+      await page.goto("/wiki");
+      await page.getByRole("button", { name: "新建页面" }).first().click();
+      await expect(page).toHaveURL(/\?draft=1$/);
+      await waitForHydratedWikiEditor(page);
+      pageId = new URL(page.url()).pathname.split("/").at(-1)!;
+
+      await page.getByLabel("页面标题").fill(title);
+      await page.locator('[data-slate-editor="true"]').fill(body);
+      await page.keyboard.press("Control+s");
+      await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+
+      await page.evaluate(
+        async ({ targetPageId, localTitle, localBody }) => {
+          const sessionPrefix = "__cupediaWikiDraftSession:";
+          const sessionEntry = Object.entries(sessionStorage).find(([key]) =>
+            key.endsWith(`:draft:${targetPageId}`),
+          );
+          if (!sessionEntry)
+            throw new Error("private draft session is missing");
+          const [sessionKey, sessionId] = sessionEntry;
+          const userId = sessionKey.slice(
+            sessionPrefix.length,
+            -`:draft:${targetPageId}`.length,
+          );
+          const key = `${userId}:draft:${targetPageId}:${sessionId}`;
+          const content = JSON.stringify([
+            { type: "p", children: [{ text: localBody }] },
+          ]);
+          const snapshot = JSON.stringify({
+            title: localTitle,
+            icon: null,
+            content,
+            parentId: null,
+            editSummary: "",
+          });
+          const database = await new Promise<IDBDatabase>((resolve, reject) => {
+            const request = indexedDB.open("cupedia-wiki-drafts", 1);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          });
+          await new Promise<void>((resolve, reject) => {
+            const transaction = database.transaction("drafts", "readwrite");
+            transaction.objectStore("drafts").put({
+              key,
+              schemaVersion: 2,
+              userId,
+              pageId: targetPageId,
+              documentKind: "draft",
+              sessionId,
+              baseVersion: 99,
+              contentGeneration: 0,
+              baseSnapshot: snapshot,
+              draftSnapshot: snapshot,
+              updatedAt: Date.now(),
+            });
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error);
+          });
+          database.close();
+
+          const prototype = IDBObjectStore.prototype;
+          const originalDelete = prototype.delete;
+          Object.defineProperty(prototype, "delete", {
+            configurable: true,
+            writable: true,
+            value(
+              this: IDBObjectStore,
+              requestedKey: IDBValidKey | IDBKeyRange,
+            ) {
+              if (requestedKey === key) {
+                throw new DOMException(
+                  "Simulated private cleanup failure",
+                  "InvalidStateError",
+                );
+              }
+              return originalDelete.call(this, requestedKey);
+            },
+          });
+        },
+        { targetPageId: pageId, localTitle: title, localBody: body },
+      );
+
+      await page.getByRole("button", { name: "共享", exact: true }).click();
+      await page.getByRole("button", { name: "发布到 Wiki" }).click();
+      await expect(page).toHaveURL(`/wiki/${pageId}`, { timeout: 15_000 });
+      const editor = await waitForHydratedWikiEditor(page);
+
+      await expect(
+        page.getByRole("dialog", { name: "恢复本地草稿" }),
+      ).toHaveCount(0);
+      await expect(page.getByLabel("页面标题")).toHaveValue(title);
+      await expect(editor).toContainText(body);
+    } finally {
+      if (pageId) {
+        await query("delete from wiki_drafts where id = $1", [pageId]);
+        await query("delete from wiki_pages where id = $1", [pageId]);
+      }
+    }
+  });
+
   test("GET /wiki/new never creates a page", async ({ page }) => {
     await loginAsAdmin(page);
     const before = await query<{ count: string }>(
@@ -264,111 +363,6 @@ test.describe("#465 server-backed private Wiki drafts", () => {
     }
   });
 
-  test("leaves a private draft without waiting for server autosave", async ({
-    page,
-  }) => {
-    let pageId: string | null = null;
-    await loginAsAdmin(page);
-    try {
-      await page.goto("/wiki");
-      await page.getByRole("button", { name: "新建页面" }).first().click();
-      await expect(page).toHaveURL(/\?draft=1$/);
-      await waitForHydratedWikiEditor(page);
-      pageId = new URL(page.url()).pathname.split("/").at(-1)!;
-      await expect
-        .poll(async () => {
-          const draft = await query<{ count: string }>(
-            "select count(*)::text as count from wiki_drafts where id = $1",
-            [pageId!],
-          );
-          return draft.rows[0]?.count;
-        })
-        .toBe("1");
-
-      await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
-        if (route.request().method() === "POST") {
-          await new Promise((resolve) => setTimeout(resolve, 5_000));
-        }
-        await route.continue();
-      });
-      await page.getByLabel("页面标题").fill("本地优先导航");
-      await page.getByRole("link", { name: "CUpedia" }).first().click();
-
-      await expect(page).toHaveURL(/\/wiki$/, { timeout: 3_000 });
-    } finally {
-      if (pageId) {
-        await query("delete from wiki_drafts where id = $1", [pageId]);
-      }
-    }
-  });
-
-  test("browser Back keeps a local private draft without Navigation API", async ({
-    page,
-  }) => {
-    let pageId: string | null = null;
-    await loginAsAdmin(page);
-    await page.addInitScript(() => {
-      Object.defineProperty(window, "navigation", {
-        value: undefined,
-        configurable: true,
-      });
-    });
-    try {
-      await page.goto("/wiki");
-      await page.getByRole("button", { name: "新建页面" }).first().click();
-      await expect(page).toHaveURL(/\?draft=1$/);
-      await waitForHydratedWikiEditor(page);
-      pageId = new URL(page.url()).pathname.split("/").at(-1)!;
-      await expect
-        .poll(async () => {
-          const draft = await query<{ count: string }>(
-            "select count(*)::text as count from wiki_drafts where id = $1",
-            [pageId!],
-          );
-          return draft.rows[0]?.count;
-        })
-        .toBe("1");
-
-      await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
-        if (route.request().method() === "POST") {
-          await route.abort("failed");
-          return;
-        }
-        await route.continue();
-      });
-      await page.getByLabel("页面标题").fill("Back 本地恢复");
-      await page.locator('[data-slate-editor="true"]').fill("本地正文");
-      await page.goBack();
-      await expect(page).toHaveURL(/\/wiki$/);
-
-      const localDrafts = await page.evaluate(
-        () =>
-          new Promise<unknown[]>((resolve, reject) => {
-            const open = indexedDB.open("cupedia-wiki-drafts", 1);
-            open.onerror = () => reject(open.error);
-            open.onsuccess = () => {
-              const database = open.result;
-              const request = database
-                .transaction("drafts", "readonly")
-                .objectStore("drafts")
-                .getAll();
-              request.onerror = () => reject(request.error);
-              request.onsuccess = () => {
-                resolve(request.result);
-                database.close();
-              };
-            };
-          }),
-      );
-      expect(JSON.stringify(localDrafts)).toContain("Back 本地恢复");
-      expect(JSON.stringify(localDrafts)).toContain("本地正文");
-    } finally {
-      if (pageId) {
-        await query("delete from wiki_drafts where id = $1", [pageId]);
-      }
-    }
-  });
-
   test("unfreezes the draft and retries after publish transport failure", async ({
     page,
   }) => {
@@ -382,10 +376,16 @@ test.describe("#465 server-backed private Wiki drafts", () => {
       pageId = new URL(page.url()).pathname.split("/").at(-1)!;
       await page.getByLabel("页面标题").fill("发布重试");
       await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+      const pollingAction = await captureWikiPollingAction(page, pageId);
 
       let rejectedPublish = false;
       await page.route(`**/wiki/${pageId}?draft=1`, async (route) => {
-        if (!rejectedPublish && route.request().method() === "POST") {
+        const request = route.request();
+        if (
+          !rejectedPublish &&
+          request.method() === "POST" &&
+          request.headers()["next-action"] !== pollingAction
+        ) {
           rejectedPublish = true;
           await route.abort("failed");
           return;

@@ -3,6 +3,7 @@ import {
   buildWikiLinkRows,
   extractWikiLinkTargets,
   resolveWikiLinkUrls,
+  restoreLegacyChildPageLinks,
   stripLegacyChildPageLinks,
 } from "@/lib/wiki-links";
 import type { PlateValue } from "@/lib/plate-utils";
@@ -173,6 +174,72 @@ describe("stripLegacyChildPageLinks", () => {
     expect(
       stripLegacyChildPageLinks(value as PlateValue, new Set([PAGE_ONE])),
     ).toEqual([{ type: "p", children: [{ text: "" }] }]);
+  });
+});
+
+describe("restoreLegacyChildPageLinks", () => {
+  const standalone = {
+    type: "p",
+    children: [
+      { type: "a", pageId: PAGE_ONE, children: [{ text: "Child page" }] },
+    ],
+  };
+  const restoredStandalone = {
+    ...standalone,
+    id: "wiki-projection-0",
+    children: [
+      {
+        ...standalone.children[0],
+        id: "wiki-projection-0-0",
+      },
+    ],
+  };
+  const body = { type: "p", children: [{ text: "Edited body" }] };
+
+  it("restores a child link hidden by the editor projection", () => {
+    expect(
+      restoreLegacyChildPageLinks(
+        [standalone, body] as PlateValue,
+        [body] as PlateValue,
+        new Set([PAGE_ONE]),
+      ),
+    ).toEqual([restoredStandalone, body]);
+  });
+
+  it("does not resurrect a link that was visible and intentionally deleted", () => {
+    expect(
+      restoreLegacyChildPageLinks(
+        [standalone, body] as PlateValue,
+        [body] as PlateValue,
+        new Set(),
+      ),
+    ).toEqual([body]);
+  });
+
+  it("does not duplicate a hidden link already present in the submitted value", () => {
+    expect(
+      restoreLegacyChildPageLinks(
+        [standalone, body] as PlateValue,
+        [standalone, body] as PlateValue,
+        new Set([PAGE_ONE]),
+      ),
+    ).toEqual([standalone, body]);
+  });
+
+  it("preserves existing restored identities across later saves", () => {
+    const identifiedStandalone = {
+      ...standalone,
+      id: "stored-link",
+      children: [{ ...standalone.children[0], id: "stored-inline-link" }],
+    };
+
+    expect(
+      restoreLegacyChildPageLinks(
+        [identifiedStandalone, body] as PlateValue,
+        [body] as PlateValue,
+        new Set([PAGE_ONE]),
+      ),
+    ).toEqual([identifiedStandalone, body]);
   });
 });
 

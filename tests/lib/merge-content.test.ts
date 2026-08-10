@@ -66,6 +66,195 @@ describe("threeWayMergeContent", () => {
     expect(result.content).toBeUndefined();
   });
 
+  it("auto-merges consecutive formatting changes in the same paragraph", async () => {
+    const base = doc(para("香港实习 NOL 经验分享"));
+    const theirs = doc({
+      type: "p",
+      children: [
+        { text: "香港实习 " },
+        { text: "NOL", bold: true },
+        { text: " 经验分享" },
+      ],
+    });
+    const mine = doc({
+      type: "p",
+      children: [
+        { text: "香港实习 " },
+        { text: "NOL", bold: true },
+        { text: " " },
+        { text: "经验分享", italic: true },
+      ],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual(JSON.parse(mine));
+  });
+
+  it("auto-merges a remote text edit with local formatting elsewhere", async () => {
+    const base = doc(para("香港实习 NOL 经验分享"));
+    const theirs = doc(para("暑期实习 NOL 经验分享"));
+    const mine = doc({
+      type: "p",
+      children: [
+        { text: "香港实习 " },
+        { text: "NOL", bold: true },
+        { text: " 经验分享" },
+      ],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      {
+        type: "p",
+        children: [
+          { text: "暑期实习 " },
+          { text: "NOL", bold: true },
+          { text: " 经验分享" },
+        ],
+      },
+    ]);
+  });
+
+  it("auto-merges a remote heading change with local inline formatting", async () => {
+    const base = doc(para("经验分享"));
+    const theirs = doc({ type: "h2", children: [{ text: "经验分享" }] });
+    const mine = doc({
+      type: "p",
+      children: [{ text: "经验分享", bold: true }],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      { type: "h2", children: [{ text: "经验分享", bold: true }] },
+    ]);
+  });
+
+  it("preserves Chinese text and a joined emoji across formatting merges", async () => {
+    const family = "👨‍👩‍👧‍👦";
+    const base = doc(para(`${family} 香港实习`));
+    const theirs = doc({
+      type: "p",
+      children: [{ text: family, bold: true }, { text: " 香港实习" }],
+    });
+    const mine = doc({
+      type: "p",
+      children: [
+        { text: `${family} ` },
+        { text: "香港", italic: true },
+        { text: "实习" },
+      ],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      {
+        type: "p",
+        children: [
+          { text: family, bold: true },
+          { text: " " },
+          { text: "香港", italic: true },
+          { text: "实习" },
+        ],
+      },
+    ]);
+  });
+
+  it("does not combine concurrent edits inside one Unicode grapheme", async () => {
+    const base = doc(para("e\u0301"));
+    const mine = doc(para("a\u0301"));
+    const theirs = doc(para("e\u0300"));
+
+    await expect(threeWayMergeContent({ base, mine, theirs })).resolves.toEqual(
+      { clean: false },
+    );
+  });
+
+  it("combines compatible formatting applied to the same text", async () => {
+    const base = doc(para("NOL"));
+    const theirs = doc({
+      type: "p",
+      children: [{ text: "NOL", italic: true }],
+    });
+    const mine = doc({
+      type: "p",
+      children: [{ text: "NOL", bold: true }],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      {
+        type: "p",
+        children: [{ text: "NOL", bold: true, italic: true }],
+      },
+    ]);
+  });
+
+  it("merges removing one style with adding another style", async () => {
+    const base = doc({
+      type: "p",
+      children: [{ text: "NOL", bold: true }],
+    });
+    const theirs = doc(para("NOL"));
+    const mine = doc({
+      type: "p",
+      children: [{ text: "NOL", bold: true, italic: true }],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      { type: "p", children: [{ text: "NOL", italic: true }] },
+    ]);
+  });
+
+  it("keeps a conflict when the same formatting property diverges", async () => {
+    const base = doc(para("NOL"));
+    const theirs = doc({
+      type: "p",
+      children: [{ text: "NOL", color: "#0000ff" }],
+    });
+    const mine = doc({
+      type: "p",
+      children: [{ text: "NOL", color: "#ff0000" }],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result).toEqual({ clean: false });
+  });
+
+  it("keeps a valid empty text leaf while merging empty-block formatting", async () => {
+    const base = doc(para(""));
+    const theirs = doc({ type: "h2", children: [{ text: "" }] });
+    const mine = doc({
+      type: "p",
+      align: "center",
+      children: [{ text: "" }],
+    });
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      {
+        type: "h2",
+        align: "center",
+        children: [{ text: "" }],
+      },
+    ]);
+  });
+
   it("treats an identical edit on both sides as a clean, non-conflicting merge", async () => {
     const base = paras("alpha", "bravo", "charlie");
     const mine = paras("alpha", "BRAVO", "charlie");
@@ -127,6 +316,108 @@ describe("threeWayMergeContent", () => {
     expect(text).toContain("mine add");
   });
 
+  it("preserves distinct node ids for repeated blocks in a clean merge", async () => {
+    const withId = (text: string, id: string) => ({
+      type: "p",
+      id,
+      children: [{ text }],
+    });
+    const base = doc(
+      withId("same", "base-a"),
+      withId("same", "base-b"),
+      withId("tail", "base-c"),
+    );
+    const mine = doc(
+      withId("same", "mine-a"),
+      withId("same", "mine-b"),
+      withId("tail local", "mine-c"),
+    );
+    const theirs = doc(
+      withId("same", "their-a"),
+      withId("same", "their-b"),
+      withId("tail", "their-c"),
+    );
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(
+      (JSON.parse(result.content!) as { id: string }[]).map(
+        (block) => block.id,
+      ),
+    ).toEqual(["mine-a", "mine-b", "mine-c"]);
+  });
+
+  it("merges formatting applied to different repeated paragraphs", async () => {
+    const block = (id: string, marks: Record<string, boolean> = {}) => ({
+      id,
+      type: "p",
+      children: [{ text: "same", ...marks }],
+    });
+    const base = doc(block("a"), block("b"));
+    const mine = doc(block("a", { bold: true }), block("b"));
+    const theirs = doc(block("a"), block("b", { italic: true }));
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      block("a", { bold: true }),
+      block("b", { italic: true }),
+    ]);
+  });
+
+  it("uses block identity when one repeated paragraph is deleted and the other is formatted", async () => {
+    const block = (id: string, marks: Record<string, boolean> = {}) => ({
+      id,
+      type: "p",
+      children: [{ text: "same", ...marks }],
+    });
+    const base = doc(block("a"), block("b"));
+    const mine = doc(block("b", { bold: true }));
+    const theirs = doc(block("b"));
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([block("b", { bold: true })]);
+  });
+
+  it("keeps a repeated-block insertion distinct from formatting an existing copy", async () => {
+    const block = (id: string, marks: Record<string, boolean> = {}) => ({
+      id,
+      type: "p",
+      children: [{ text: "same", ...marks }],
+    });
+    const base = doc(block("a"), block("b"));
+    const mine = doc(block("new"), block("a"), block("b"));
+    const theirs = doc(block("a"), block("b", { italic: true }));
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result.clean).toBe(true);
+    expect(JSON.parse(result.content!)).toEqual([
+      block("new"),
+      block("a"),
+      block("b", { italic: true }),
+    ]);
+  });
+
+  it("does not auto-merge deleting and formatting the same repeated block", async () => {
+    const block = (id: string, marks: Record<string, boolean> = {}) => ({
+      id,
+      type: "p",
+      children: [{ text: "same", ...marks }],
+    });
+    const base = doc(block("a"), block("b"));
+    const mine = doc(block("b"));
+    const theirs = doc(block("a", { bold: true }), block("b"));
+
+    await expect(threeWayMergeContent({ base, mine, theirs })).resolves.toEqual(
+      { clean: false },
+    );
+  });
+
   it("detects a conflict when both sides edit the same rich block", async () => {
     const mineCallout = { ...CALLOUT, variant: "warning" };
     const theirCallout = { ...CALLOUT, variant: "danger" };
@@ -138,5 +429,17 @@ describe("threeWayMergeContent", () => {
 
     expect(result.clean).toBe(false);
     expect(result.content).toBeUndefined();
+  });
+
+  it("does not leaf-merge independent edits inside an equation block", async () => {
+    const mineEquation = { ...EQUATION, texExpression: "x + 1" };
+    const theirEquation = { ...EQUATION, align: "center" };
+    const base = doc(EQUATION);
+    const mine = doc(mineEquation);
+    const theirs = doc(theirEquation);
+
+    const result = await threeWayMergeContent({ base, mine, theirs });
+
+    expect(result).toEqual({ clean: false });
   });
 });

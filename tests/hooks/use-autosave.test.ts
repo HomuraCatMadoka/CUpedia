@@ -95,6 +95,118 @@ describe("useAutosave", () => {
     expect(h.result.current.status).toBe("saved");
   });
 
+  it("does not serialize or autosave while a write fence is held", async () => {
+    const h = setup({ initial: "a" });
+
+    h.type("edit before composition");
+    let release!: () => void;
+    act(() => {
+      release = h.result.current.holdSaves();
+    });
+    h.setContent("provisional composition");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(h.getContent).not.toHaveBeenCalled();
+    expect(h.onSave).not.toHaveBeenCalled();
+
+    h.setContent("committed composition");
+    act(() => {
+      h.result.current.notifyChange();
+      release();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(h.onSave).toHaveBeenCalledTimes(1);
+    expect(h.onSave).toHaveBeenCalledWith("committed composition", "autosave");
+  });
+
+  it("waits for a write fence before an explicit flush reads the snapshot", async () => {
+    const h = setup({ initial: "a" });
+    let release!: () => void;
+    act(() => {
+      release = h.result.current.holdSaves();
+    });
+    h.type("provisional composition");
+
+    let flush!: ReturnType<typeof h.result.current.flush>;
+    let settled = false;
+    act(() => {
+      flush = h.result.current.flush().then((result) => {
+        settled = true;
+        return result;
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(h.getContent).not.toHaveBeenCalled();
+    expect(h.onSave).not.toHaveBeenCalled();
+    expect(settled).toBe(false);
+
+    h.setContent("committed composition");
+    act(() => {
+      h.result.current.notifyChange();
+      release();
+    });
+    await act(async () => {
+      await flush;
+    });
+
+    expect(h.onSave).toHaveBeenCalledTimes(1);
+    expect(h.onSave).toHaveBeenCalledWith("committed composition", "explicit");
+    expect(settled).toBe(true);
+  });
+
+  it("keeps nested write fences held until their last idempotent release", async () => {
+    const h = setup({ initial: "a" });
+    h.type("nested composition");
+    let releaseOuter!: () => void;
+    let releaseInner!: () => void;
+    act(() => {
+      releaseOuter = h.result.current.holdSaves();
+      releaseInner = h.result.current.holdSaves();
+    });
+
+    act(() => {
+      releaseOuter();
+      releaseOuter();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(h.onSave).not.toHaveBeenCalled();
+
+    act(() => releaseInner());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(h.onSave).toHaveBeenCalledTimes(1);
+    expect(h.onSave).toHaveBeenCalledWith("nested composition", "autosave");
+  });
+
+  it("settles a flush waiting on a write fence when the owner unmounts", async () => {
+    const h = setup({ initial: "a" });
+    let release!: () => void;
+    act(() => {
+      release = h.result.current.holdSaves();
+    });
+    h.type("composition abandoned by navigation");
+
+    let flush!: ReturnType<typeof h.result.current.flush>;
+    act(() => {
+      flush = h.result.current.flush();
+    });
+    h.unmount();
+
+    await expect(flush).resolves.toEqual({ status: "saved" });
+    release();
+    expect(h.onSave).not.toHaveBeenCalled();
+  });
+
   it("surfaces error status when onSave returns an error", async () => {
     const onSave = vi
       .fn<SaveFn>()
@@ -127,6 +239,54 @@ describe("useAutosave", () => {
     });
     expect(h.result.current.status).toBe("error");
     expect(h.result.current.isDirty).toBe(true);
+  });
+
+  it("retries an unknown-outcome snapshot before draining a later edit", async () => {
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValue({});
+    const h = setup({ initial: "a", onSave });
+
+    h.type("b");
+    await act(async () => {
+      await h.result.current.flush();
+    });
+    h.type("c");
+    await act(async () => {
+      await h.result.current.flush();
+    });
+
+    expect(onSave).toHaveBeenNthCalledWith(1, "b", "explicit");
+    expect(onSave).toHaveBeenNthCalledWith(2, "b", "explicit");
+    expect(onSave).toHaveBeenNthCalledWith(3, "c", "explicit");
+    expect(h.result.current.status).toBe("saved");
+    expect(h.result.current.isDirty).toBe(false);
+  });
+
+  it("replays a restored unknown-outcome snapshot before the latest draft", async () => {
+    const h = setup({ initial: "server-v1" });
+
+    h.setContent("latest local draft");
+    act(() => {
+      h.result.current.restorePendingSave("submitted before reload");
+      h.result.current.notifyChange();
+    });
+    await act(async () => {
+      await h.result.current.flush();
+    });
+
+    expect(h.onSave).toHaveBeenNthCalledWith(
+      1,
+      "submitted before reload",
+      "explicit",
+    );
+    expect(h.onSave).toHaveBeenNthCalledWith(
+      2,
+      "latest local draft",
+      "explicit",
+    );
+    expect(h.result.current.status).toBe("saved");
   });
 
   it("halts background retries after a conflict until the user explicitly saves", async () => {
@@ -311,6 +471,33 @@ describe("useAutosave", () => {
     expect(h.result.current.isDirty).toBe(false);
   });
 
+  it("does not drain a trailing edit after the editor owner unmounts", async () => {
+    let resolveFirst!: (v: SaveResult) => void;
+    const onSave = vi
+      .fn<SaveFn>()
+      .mockImplementationOnce(
+        () => new Promise<SaveResult>((resolve) => (resolveFirst = resolve)),
+      )
+      .mockResolvedValue({});
+    const h = setup({ initial: "a", onSave });
+
+    h.type("submitted");
+    let drain!: Promise<void>;
+    act(() => {
+      drain = h.result.current.save();
+    });
+    h.type("trailing");
+    h.unmount();
+
+    await act(async () => {
+      resolveFirst({});
+      await drain;
+    });
+
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave).toHaveBeenCalledWith("submitted", "explicit");
+  });
+
   it("save() settles to saved (not stuck unsaved) when content reverted to the baseline", async () => {
     const h = setup({ initial: "a" });
 
@@ -387,6 +574,28 @@ describe("useAutosave", () => {
       await vi.advanceTimersByTimeAsync(3000);
     });
     expect(h.onSave).not.toHaveBeenCalled();
+  });
+
+  it("releases the unload guard after local persistence and rearms it on new input", () => {
+    const h = setup({ initial: "a" });
+    h.type("b");
+
+    const dirtyUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(dirtyUnload);
+    expect(dirtyUnload.defaultPrevented).toBe(true);
+
+    act(() => h.result.current.releaseUnloadGuard());
+    const locallyPersistedUnload = new Event("beforeunload", {
+      cancelable: true,
+    });
+    window.dispatchEvent(locallyPersistedUnload);
+    expect(locallyPersistedUnload.defaultPrevented).toBe(false);
+
+    h.type("c");
+    const changedAgainUnload = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(changedAgainUnload);
+    expect(changedAgainUnload.defaultPrevented).toBe(true);
+    h.unmount();
   });
 });
 

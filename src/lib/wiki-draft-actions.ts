@@ -6,11 +6,11 @@ import { connection } from "next/server";
 
 import { db } from "@/db";
 import { wikiDrafts, wikiLinks, wikiPages, wikiRevisions } from "@/db/schema";
-import { getOptionalUser, requireEditor } from "@/lib/auth-guard";
-import { assertContributorComplete } from "@/lib/contributor-account";
-import { extractWikiLinkTargets } from "@/lib/wiki-links";
-import { normalizeWikiIcon } from "@/lib/wiki-icon";
-import { CREATE_REVISION_SUMMARY } from "@/lib/revision-coalescing";
+import { getOptionalUser, requireEditor } from "./auth-guard";
+import { assertContributorComplete } from "./contributor-account";
+import { extractWikiLinkTargets } from "./wiki-links";
+import { normalizeWikiIcon } from "./wiki-icon";
+import { CREATE_REVISION_SUMMARY } from "./revision-coalescing";
 
 const CLIENT_PAGE_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -92,6 +92,24 @@ async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
   if (rows.length > 0) await tx.insert(wikiLinks).values(rows);
 }
 
+function refreshPublishedWikiPageBestEffort(pageId: string) {
+  const refreshes = [
+    () => revalidateTag("wiki-pages", "max"),
+    () => updateTag("wiki-pages"),
+    () => revalidateTag("wiki-search-corpus", "max"),
+    () => revalidatePath("/wiki", "layout"),
+    () => revalidatePath(`/wiki/${pageId}`),
+  ];
+  for (const refresh of refreshes) {
+    try {
+      refresh();
+    } catch {
+      // The database mutation is already committed. Cache refresh failures
+      // must not turn a successful publish into a retryable mutation error.
+    }
+  }
+}
+
 export async function getOwnWikiDraft(pageId: string) {
   if (!CLIENT_PAGE_ID_RE.test(pageId)) return null;
   const user = await getOptionalUser();
@@ -170,6 +188,10 @@ export async function updateWikiDraft(data: {
   content: string;
   parentId?: string | null;
   expectedVersion: number;
+  baseTitle?: string;
+  baseIcon?: string | null;
+  baseContent?: string;
+  baseParentId?: string | null;
 }) {
   const user = await assertContributorComplete(await requireEditor());
   assertDraftId(data.pageId);
@@ -179,11 +201,8 @@ export async function updateWikiDraft(data: {
 
   const normalizedIcon =
     data.icon === undefined ? undefined : normalizeWikiIcon(data.icon);
-  const updated = await db.transaction(async (tx) => {
-    if (data.parentId) {
-      await assertDraftParent(tx, user.id, data.pageId, data.parentId);
-    }
-    return tx
+  const updateAtVersion = (tx: Tx, expectedVersion: number) =>
+    tx
       .update(wikiDrafts)
       .set({
         title: data.title,
@@ -197,10 +216,15 @@ export async function updateWikiDraft(data: {
         and(
           eq(wikiDrafts.id, data.pageId),
           eq(wikiDrafts.createdBy, user.id),
-          eq(wikiDrafts.version, data.expectedVersion),
+          eq(wikiDrafts.version, expectedVersion),
         ),
       )
       .returning();
+  const updated = await db.transaction(async (tx) => {
+    if (data.parentId) {
+      await assertDraftParent(tx, user.id, data.pageId, data.parentId);
+    }
+    return updateAtVersion(tx, data.expectedVersion);
   });
   if (updated[0]) return updated[0];
 
@@ -211,15 +235,52 @@ export async function updateWikiDraft(data: {
     ),
   });
   if (!latest) throw new Error("Page not found");
+  const requestedMatchesLatest =
+    latest.title === data.title &&
+    latest.content === data.content &&
+    (normalizedIcon === undefined || latest.icon === normalizedIcon) &&
+    (data.parentId === undefined || latest.parentId === data.parentId);
+  if (requestedMatchesLatest) return latest;
+
+  const baseIcon =
+    data.baseIcon === undefined ? undefined : normalizeWikiIcon(data.baseIcon);
+  const latestMatchesBase =
+    data.baseTitle !== undefined &&
+    data.baseContent !== undefined &&
+    data.baseIcon !== undefined &&
+    data.baseParentId !== undefined &&
+    latest.title === data.baseTitle &&
+    latest.content === data.baseContent &&
+    latest.icon === baseIcon &&
+    latest.parentId === data.baseParentId;
+  if (latestMatchesBase) {
+    const retried = await db.transaction(async (tx) => {
+      if (data.parentId) {
+        await assertDraftParent(tx, user.id, data.pageId, data.parentId);
+      }
+      return updateAtVersion(tx, latest.version);
+    });
+    if (retried[0]) return retried[0];
+  }
+
+  const conflicting = latestMatchesBase
+    ? await db.query.wikiDrafts.findFirst({
+        where: and(
+          eq(wikiDrafts.id, data.pageId),
+          eq(wikiDrafts.createdBy, user.id),
+        ),
+      })
+    : latest;
+  if (!conflicting) throw new Error("Page not found");
   return {
     conflict: true as const,
-    theirContent: latest.content,
-    theirTitle: latest.title,
-    theirIcon: latest.icon,
-    theirParentId: latest.parentId,
-    theirVersion: latest.version,
+    theirContent: conflicting.content,
+    theirTitle: conflicting.title,
+    theirIcon: conflicting.icon,
+    theirParentId: conflicting.parentId,
+    theirVersion: conflicting.version,
     theirContentGeneration: 0,
-    theirUpdatedAt: new Date(latest.updatedAt).toISOString(),
+    theirUpdatedAt: new Date(conflicting.updatedAt).toISOString(),
   };
 }
 
@@ -295,11 +356,7 @@ export async function publishWikiDraft(pageId: string) {
     published = concurrent;
   }
 
-  revalidateTag("wiki-pages", "max");
-  updateTag("wiki-pages");
-  revalidateTag("wiki-search-corpus", "max");
-  revalidatePath("/wiki", "layout");
-  revalidatePath(`/wiki/${published.id}`);
+  refreshPublishedWikiPageBestEffort(published.id);
   return published;
 }
 

@@ -8,6 +8,7 @@ const {
   mockAssign,
   mockConfirm,
   mockEnsureContributorSetup,
+  mockPreloadWikiEditor,
   mockProjectUpsert,
   mockRollback,
   navigation,
@@ -15,6 +16,7 @@ const {
   mockAssign: vi.fn(),
   mockConfirm: vi.fn(),
   mockEnsureContributorSetup: vi.fn().mockResolvedValue(true),
+  mockPreloadWikiEditor: vi.fn(),
   mockProjectUpsert: vi.fn(() => "mutation-1"),
   mockRollback: vi.fn(),
   navigation: { pathname: "/wiki" },
@@ -40,6 +42,10 @@ vi.mock("@/components/wiki/wiki-tree-provider", () => ({
     confirm: mockConfirm,
     rollback: mockRollback,
   }),
+}));
+
+vi.mock("@/components/wiki/wiki-editor-lazy", () => ({
+  preloadWikiEditor: mockPreloadWikiEditor,
 }));
 
 import { WikiCreateButton } from "@/components/wiki/wiki-create-button";

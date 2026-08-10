@@ -14,5 +14,6 @@ export function preloadWikiEditor() {
 }
 
 export function WikiEditorLazy(props: WikiEditorProps) {
-  return <LazyWikiEditor {...props} />;
+  const identity = `${props.userId ?? ""}:${props.pageId ?? ""}:${props.draftMode ? "draft" : "page"}`;
+  return <LazyWikiEditor key={identity} {...props} />;
 }

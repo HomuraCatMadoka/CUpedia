@@ -2,6 +2,10 @@ import { normalizeStaticValue, type Value } from "platejs";
 
 export type PlateValue = Value;
 
+const EMPTY_VALUE: PlateValue = [
+  { type: "p", children: [{ text: "" }] },
+] as PlateValue;
+
 /**
  * Assign deterministic `static-NNNN` ids (and a fixed metadata timestamp) to a
  * value before it is handed to `usePlateEditor`. The edit page renders the
@@ -16,14 +20,9 @@ export type PlateValue = Value;
  */
 export function normalizeInitialValue(
   value: PlateValue | undefined,
-): PlateValue | undefined {
-  if (value === undefined) return value;
-  return normalizeStaticValue(value) as PlateValue;
+): PlateValue {
+  return normalizeStaticValue(value ?? EMPTY_VALUE) as PlateValue;
 }
-
-const EMPTY_VALUE: PlateValue = [
-  { type: "p", children: [{ text: "" }] },
-] as PlateValue;
 
 export function parseContent(content: string): PlateValue {
   if (!content.trim()) return EMPTY_VALUE;
