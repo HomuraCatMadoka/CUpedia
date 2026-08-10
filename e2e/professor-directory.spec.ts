@@ -391,6 +391,32 @@ test("scrolls the professor course picker on mobile", async ({ page }) => {
     .toBeGreaterThan(0);
 });
 
+test("mobile professor search matches course search without triggering iOS focus zoom", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 851 });
+
+  await page.goto("/courses");
+  const courseSearch = page.getByRole("searchbox", { name: "搜索课程" });
+  const courseSearchMetrics = await courseSearch.evaluate((element) => ({
+    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+    height: element.getBoundingClientRect().height,
+  }));
+
+  await page.goto("/professors");
+  const professorSearch = page.getByRole("combobox", { name: "搜索教授" });
+  const professorSearchMetrics = await professorSearch.evaluate((element) => ({
+    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+    height: element
+      .closest('[data-slot="input-group"]')!
+      .getBoundingClientRect().height,
+  }));
+
+  expect(professorSearchMetrics.fontSize).toBeGreaterThanOrEqual(16);
+  expect(professorSearchMetrics.fontSize).toBe(courseSearchMetrics.fontSize);
+  expect(professorSearchMetrics.height).toBe(courseSearchMetrics.height);
+});
+
 test("searches a professor, opens the card, and binds a course review", async ({
   page,
 }, testInfo) => {
