@@ -145,6 +145,40 @@ export const wikiRevisions = pgTable(
   (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
 );
 
+export const wikiPageSubmissionReceipts = pgTable(
+  "wiki_page_submission_receipts",
+  {
+    id: uuid("id").primaryKey(),
+    pageId: uuid("page_id")
+      .notNull()
+      .references(() => wikiPages.id, { onDelete: "cascade" }),
+    submittedBy: uuid("submitted_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    // Usually null: a direct write is reconstructed from the replayed,
+    // fingerprint-bound request. Clean merges store only fields that differ.
+    committedPageOverride: jsonb("committed_page_override").$type<{
+      title?: string;
+      icon?: string | null;
+      content?: string;
+      parentId?: string | null;
+    }>(),
+    committedVersion: integer("committed_version").notNull(),
+    committedContentGeneration: integer(
+      "committed_content_generation",
+    ).notNull(),
+    committedUpdatedAt: timestamp("committed_updated_at").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("wiki_page_submission_receipts_page_id_idx").on(table.pageId),
+    index("wiki_page_submission_receipts_submitted_by_idx").on(
+      table.submittedBy,
+    ),
+  ],
+);
+
 export const wikiLinks = pgTable(
   "wiki_links",
   {

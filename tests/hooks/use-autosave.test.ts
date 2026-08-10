@@ -95,6 +95,118 @@ describe("useAutosave", () => {
     expect(h.result.current.status).toBe("saved");
   });
 
+  it("does not serialize or autosave while a write fence is held", async () => {
+    const h = setup({ initial: "a" });
+
+    h.type("edit before composition");
+    let release!: () => void;
+    act(() => {
+      release = h.result.current.holdSaves();
+    });
+    h.setContent("provisional composition");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(h.getContent).not.toHaveBeenCalled();
+    expect(h.onSave).not.toHaveBeenCalled();
+
+    h.setContent("committed composition");
+    act(() => {
+      h.result.current.notifyChange();
+      release();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+
+    expect(h.onSave).toHaveBeenCalledTimes(1);
+    expect(h.onSave).toHaveBeenCalledWith("committed composition", "autosave");
+  });
+
+  it("waits for a write fence before an explicit flush reads the snapshot", async () => {
+    const h = setup({ initial: "a" });
+    let release!: () => void;
+    act(() => {
+      release = h.result.current.holdSaves();
+    });
+    h.type("provisional composition");
+
+    let flush!: ReturnType<typeof h.result.current.flush>;
+    let settled = false;
+    act(() => {
+      flush = h.result.current.flush().then((result) => {
+        settled = true;
+        return result;
+      });
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(h.getContent).not.toHaveBeenCalled();
+    expect(h.onSave).not.toHaveBeenCalled();
+    expect(settled).toBe(false);
+
+    h.setContent("committed composition");
+    act(() => {
+      h.result.current.notifyChange();
+      release();
+    });
+    await act(async () => {
+      await flush;
+    });
+
+    expect(h.onSave).toHaveBeenCalledTimes(1);
+    expect(h.onSave).toHaveBeenCalledWith("committed composition", "explicit");
+    expect(settled).toBe(true);
+  });
+
+  it("keeps nested write fences held until their last idempotent release", async () => {
+    const h = setup({ initial: "a" });
+    h.type("nested composition");
+    let releaseOuter!: () => void;
+    let releaseInner!: () => void;
+    act(() => {
+      releaseOuter = h.result.current.holdSaves();
+      releaseInner = h.result.current.holdSaves();
+    });
+
+    act(() => {
+      releaseOuter();
+      releaseOuter();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(h.onSave).not.toHaveBeenCalled();
+
+    act(() => releaseInner());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1000);
+    });
+    expect(h.onSave).toHaveBeenCalledTimes(1);
+    expect(h.onSave).toHaveBeenCalledWith("nested composition", "autosave");
+  });
+
+  it("settles a flush waiting on a write fence when the owner unmounts", async () => {
+    const h = setup({ initial: "a" });
+    let release!: () => void;
+    act(() => {
+      release = h.result.current.holdSaves();
+    });
+    h.type("composition abandoned by navigation");
+
+    let flush!: ReturnType<typeof h.result.current.flush>;
+    act(() => {
+      flush = h.result.current.flush();
+    });
+    h.unmount();
+
+    await expect(flush).resolves.toEqual({ status: "saved" });
+    release();
+    expect(h.onSave).not.toHaveBeenCalled();
+  });
+
   it("surfaces error status when onSave returns an error", async () => {
     const onSave = vi
       .fn<SaveFn>()

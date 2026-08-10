@@ -1,6 +1,6 @@
 import { diff3Merge } from "node-diff3";
 
-import { parseContent, type PlateValue } from "@/lib/plate-utils";
+import { parseContent, type PlateValue } from "./plate-utils";
 
 /** Sentinel woven between block keys; a NUL char never collides with a
  * canonical key (which always serializes a block object as `{…}`). */

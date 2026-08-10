@@ -12,5 +12,5 @@ wiki 编辑的三方合并（`src/lib/merge-content.ts` 的 `threeWayMergeConten
 
 - `threeWayMergeContent` 签名不变；`mergeMarkdown` 及合并路径上的 `toMarkdown`/`fromMarkdown` 退场（`toMarkdown` 仍服务历史 / diff 路径，不删）。
 - 默认冲突粒度仍是**顶层块**：落在不同块的编辑一律自动合并（相邻与否都合并——块键之间织入稳定分隔哨兵）。对于 children 全为文字 leaf 的普通段落、标题、引用，允许第二层保守合并：文字位置不同、或同一文字上互不冲突的 mark / 块属性可以合并；同一属性取不同值、删除与修改同一块、以及 equation / callout / table 等富结构块仍退回手动解决。这样排版 autosave 的连续提交不会产生假冲突，同时不对复杂节点猜测意图。
-- `normalizeInitialValue` 会为缺少身份的顶层元素生成确定性 ID，编辑和保存后 ID 随块持久化，因此重复文字块必须用 ID 定位，不能靠“第几个相同段落”猜测。只有三方都带唯一 ID、且两份后代至少保留一个 base ID 时才启用身份路径；旧数据或确实易变的 ID 继续走规范内容 fallback。内容相等比较仍递归剥掉 `id`，避免把身份本身误当正文差异。
+- `normalizeInitialValue` 会为缺少身份的顶层元素生成确定性 ID，编辑和保存后 ID 随块持久化；服务器把投影中隐藏的 legacy 子页面链接补回时，也必须先为恢复出的整棵元素子树补齐稳定且不冲突的 ID。因此重复文字块必须用 ID 定位，不能靠“第几个相同段落”猜测。只有三方都带唯一 ID、且两份后代至少保留一个 base ID 时才启用身份路径；旧数据或确实易变的 ID 继续走规范内容 fallback。内容相等比较仍递归剥掉 `id`，避免把身份本身误当正文差异。
 - 冲突 UX 按触发路径分流：**后台 autosave** 撞冲突用被动提示条（静默停 autosave、让用户继续打字），**显式 Cmd+S** 撞冲突才弹 modal。理由是区分"停留 vs 离开"意图——autosave 是环境性的、用户还在写；Cmd+S 是用户主动保存、准备离开，需要不可错过的强反馈。块级 diff3 落地后改动不同块的编辑无损自动合并，modal 只在"两人同改一个顶层块"的罕见情况才弹。

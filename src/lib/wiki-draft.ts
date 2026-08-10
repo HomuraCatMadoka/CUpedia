@@ -1,7 +1,8 @@
-export const WIKI_DRAFT_SCHEMA_VERSION = 1 as const;
+import type { WikiDocumentKind } from "./wiki-sync";
 
-export interface WikiDraftRecord {
-  schemaVersion: typeof WIKI_DRAFT_SCHEMA_VERSION;
+export const WIKI_DRAFT_SCHEMA_VERSION = 2 as const;
+
+interface WikiDraftRecordFields {
   userId: string;
   pageId: string;
   sessionId: string;
@@ -10,46 +11,69 @@ export interface WikiDraftRecord {
   baseSnapshot: string;
   /** Last request sent without a confirmed response; survives reloads. */
   submittedSnapshot?: string;
-  /** Drafts rejected by conflict detection must never be replayed silently. */
-  recoveryDisposition?: "manual";
+  /** Causal identity for current-schema submissions. */
+  submitted?: WikiDraftSubmission;
+  /** Recovery fences that must never be replayed as an ordinary local edit. */
+  recoveryDisposition?: "manual" | "legacy-ambiguous";
   draftSnapshot: string;
   updatedAt: number;
+}
+
+export interface WikiDraftSubmission {
+  id: string;
+  snapshot: string;
+}
+
+export interface WikiDraftRecord extends WikiDraftRecordFields {
+  schemaVersion: typeof WIKI_DRAFT_SCHEMA_VERSION;
+  documentKind: WikiDocumentKind;
+}
+
+/** The only Local draft format deployed before document-kind isolation. */
+export interface LegacyWikiDraftRecord extends WikiDraftRecordFields {
+  schemaVersion: 1;
+  documentKind?: undefined;
 }
 
 export interface WikiDraftServerState {
   userId: string;
   pageId: string;
+  documentKind: WikiDocumentKind;
   version: number;
   contentGeneration: number;
   snapshot: string;
 }
 
+export type WikiDraftBaseline = Pick<
+  WikiDraftServerState,
+  "version" | "contentGeneration" | "snapshot"
+>;
+
+/** Orders server baselines by causal generation first, then revision version. */
+export function compareWikiDraftBaselines(
+  left: WikiDraftBaseline,
+  right: WikiDraftBaseline,
+) {
+  if (left.contentGeneration !== right.contentGeneration) {
+    return left.contentGeneration - right.contentGeneration;
+  }
+  return left.version - right.version;
+}
+
 export function createWikiDraftKey(
+  record: Pick<
+    WikiDraftRecord,
+    "userId" | "pageId" | "documentKind" | "sessionId"
+  >,
+) {
+  return `${record.userId}:${record.documentKind}:${record.pageId}:${record.sessionId}`;
+}
+
+/** Key format deployed before Local drafts distinguished document kinds. */
+export function createLegacyWikiDraftKey(
   record: Pick<WikiDraftRecord, "userId" | "pageId" | "sessionId">,
 ) {
   return `${record.userId}:${record.pageId}:${record.sessionId}`;
-}
-
-export function resolveAcknowledgedWikiDraft(
-  record: WikiDraftRecord,
-  acknowledgedSnapshot: string,
-  nextBase?: Pick<
-    WikiDraftServerState,
-    "version" | "contentGeneration" | "snapshot"
-  >,
-) {
-  const settled = { ...record };
-  delete settled.submittedSnapshot;
-  if (record.draftSnapshot === acknowledgedSnapshot) {
-    return null;
-  }
-  if (!nextBase) return settled;
-  return {
-    ...settled,
-    baseVersion: nextBase.version,
-    contentGeneration: nextBase.contentGeneration,
-    baseSnapshot: nextBase.snapshot,
-  };
 }
 
 type DraftNode = {

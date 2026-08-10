@@ -10,13 +10,25 @@ export function wikiPageUrl(pageId: string) {
 }
 
 export async function captureWikiPollingAction(page: Page, pageId: string) {
-  const pollingRequestPromise = page.waitForRequest(
-    (request) =>
-      request.method() === "POST" &&
-      Boolean(request.headers()["next-action"]) &&
-      new URL(request.url()).pathname === `/wiki/${pageId}`,
-  );
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  let captured = false;
+  const pollingRequestPromise = page
+    .waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        Boolean(request.headers()["next-action"]) &&
+        new URL(request.url()).pathname === `/wiki/${pageId}`,
+    )
+    .then((request) => {
+      captured = true;
+      return request;
+    });
+  // The recovery-ready marker is committed by an earlier React effect than
+  // the focus polling listener. Retry across that narrow passive-effect gap
+  // instead of letting one missed synthetic focus hang the whole spec.
+  for (let attempt = 0; attempt < 20 && !captured; attempt += 1) {
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await Promise.race([pollingRequestPromise, page.waitForTimeout(50)]);
+  }
   const pollingRequest = await pollingRequestPromise;
   const pollingAction = pollingRequest.headers()["next-action"];
   await pollingRequest.response();

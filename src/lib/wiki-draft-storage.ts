@@ -1,11 +1,19 @@
 "use client";
 
 import {
+  compareWikiDraftBaselines,
+  createLegacyWikiDraftKey,
   createWikiDraftKey,
-  resolveAcknowledgedWikiDraft,
+  WIKI_DRAFT_SCHEMA_VERSION,
+  type LegacyWikiDraftRecord,
   type WikiDraftRecord,
   type WikiDraftServerState,
-} from "@/lib/wiki-draft";
+} from "./wiki-draft";
+import {
+  rejectWikiEditSessionSubmission,
+  settleWikiEditSessionSubmission,
+} from "./wiki-edit-session";
+import type { WikiDocumentKind } from "./wiki-sync";
 
 const DATABASE_NAME = "cupedia-wiki-drafts";
 const STORE_NAME = "drafts";
@@ -18,7 +26,28 @@ const claimedSessionIds = new Set<string>();
 let latestSessionClaim: string | null = null;
 const draftOperations = new Map<string, Promise<unknown>>();
 
-type StoredWikiDraft = WikiDraftRecord & { key: string };
+type StoredWikiDraft = Omit<
+  WikiDraftRecord,
+  "schemaVersion" | "documentKind"
+> & {
+  key: string;
+  schemaVersion: number;
+  documentKind?: WikiDocumentKind;
+};
+
+export interface WikiDraftLegacyMigration {
+  legacyKey: string;
+  documentKind: WikiDocumentKind;
+}
+
+type WikiDraftTailRecord = Omit<
+  WikiDraftRecord,
+  "submitted" | "submittedSnapshot"
+>;
+
+interface WikiDraftTailExpectation {
+  expectedSubmissionId?: string;
+}
 
 function serializeDraftOperation<T>(key: string, run: () => Promise<T>) {
   const previous = draftOperations.get(key) ?? Promise.resolve();
@@ -42,6 +71,14 @@ function writeTabSessionId(key: string, sessionId: string) {
     sessionStorage.setItem(key, sessionId);
   } catch {
     // History state remains the fallback when storage is unavailable.
+  }
+}
+
+function removeTabSessionId(key: string) {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // The document-kind key and history state still fence future sessions.
   }
 }
 
@@ -97,9 +134,10 @@ async function claimSessionId(candidate: string) {
   return sessionId;
 }
 
-function toWikiDraftRecord(stored: StoredWikiDraft): WikiDraftRecord {
-  return {
-    schemaVersion: stored.schemaVersion,
+function toWikiDraftRecord(
+  stored: StoredWikiDraft,
+): WikiDraftRecord | LegacyWikiDraftRecord | null {
+  const fields = {
     userId: stored.userId,
     pageId: stored.pageId,
     sessionId: stored.sessionId,
@@ -107,9 +145,24 @@ function toWikiDraftRecord(stored: StoredWikiDraft): WikiDraftRecord {
     contentGeneration: stored.contentGeneration,
     baseSnapshot: stored.baseSnapshot,
     submittedSnapshot: stored.submittedSnapshot,
+    submitted: stored.submitted,
     recoveryDisposition: stored.recoveryDisposition,
     draftSnapshot: stored.draftSnapshot,
     updatedAt: stored.updatedAt,
+  };
+  if (stored.schemaVersion === 1 && stored.documentKind === undefined) {
+    return { ...fields, schemaVersion: 1 };
+  }
+  if (
+    stored.schemaVersion !== WIKI_DRAFT_SCHEMA_VERSION ||
+    stored.documentKind === undefined
+  ) {
+    return null;
+  }
+  return {
+    ...fields,
+    schemaVersion: WIKI_DRAFT_SCHEMA_VERSION,
+    documentKind: stored.documentKind,
   };
 }
 
@@ -123,8 +176,16 @@ function requestResult<T>(request: IDBRequest<T>) {
 function transactionDone(transaction: IDBTransaction) {
   return new Promise<void>((resolve, reject) => {
     transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(transaction.error);
-    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () =>
+      reject(
+        transaction.error ??
+          new DOMException("IndexedDB transaction aborted", "AbortError"),
+      );
+    transaction.onerror = () =>
+      reject(
+        transaction.error ??
+          new DOMException("IndexedDB transaction failed", "UnknownError"),
+      );
   });
 }
 
@@ -148,27 +209,52 @@ async function withDraftStore<T>(
   const database = await openDraftDatabase();
   try {
     const transaction = database.transaction(STORE_NAME, mode);
-    const result = await run(transaction.objectStore(STORE_NAME));
-    await transactionDone(transaction);
-    return result;
+    const completion = transactionDone(transaction);
+    try {
+      const result = await run(transaction.objectStore(STORE_NAME));
+      await completion;
+      return result;
+    } catch (error) {
+      try {
+        transaction.abort();
+      } catch {
+        // The transaction may already have aborted because a request failed.
+      }
+      await completion.catch(() => undefined);
+      throw error;
+    }
   } finally {
     database.close();
   }
 }
 
-export async function getWikiDraftSessionId(userId: string, pageId: string) {
-  const tabSessionKey = `${TAB_SESSION_KEY_PREFIX}${userId}:${pageId}`;
+export async function getWikiDraftSessionId(
+  userId: string,
+  pageId: string,
+  documentKind: WikiDocumentKind = "page",
+) {
+  const tabSessionKey = `${TAB_SESSION_KEY_PREFIX}${userId}:${documentKind}:${pageId}`;
+  const legacyTabSessionKey = `${TAB_SESSION_KEY_PREFIX}${userId}:${pageId}`;
   const claimToken = crypto.randomUUID();
   latestSessionClaim = claimToken;
   const sessionUrl = currentSessionDocumentUrl();
-  const tabSessionId = readTabSessionId(tabSessionKey);
+  const currentTabSessionId = readTabSessionId(tabSessionKey);
+  const legacyTabSessionId = readTabSessionId(legacyTabSessionKey);
+  const tabSessionId = currentTabSessionId ?? legacyTabSessionId;
   const state = (history.state ?? {}) as Record<string, unknown>;
   const existing = state[HISTORY_SESSION_KEY] as
-    | { userId?: string; pageId?: string; sessionId?: string }
+    | {
+        userId?: string;
+        pageId?: string;
+        documentKind?: WikiDocumentKind;
+        sessionId?: string;
+      }
     | undefined;
   const historySessionId =
     existing?.userId === userId &&
     existing.pageId === pageId &&
+    (existing.documentKind === documentKind ||
+      existing.documentKind === undefined) &&
     existing.sessionId
       ? existing.sessionId
       : null;
@@ -185,6 +271,9 @@ export async function getWikiDraftSessionId(userId: string, pageId: string) {
   }
   latestSessionClaim = null;
   writeTabSessionId(tabSessionKey, sessionId);
+  if (legacyTabSessionId) {
+    removeTabSessionId(legacyTabSessionKey);
+  }
   // Session claiming can yield while the editor installs navigation guards or
   // another local UI layer. Merge into the latest state so this async write
   // cannot erase fields that were added after the initial read.
@@ -192,7 +281,7 @@ export async function getWikiDraftSessionId(userId: string, pageId: string) {
   history.replaceState(
     {
       ...latestState,
-      [HISTORY_SESSION_KEY]: { userId, pageId, sessionId },
+      [HISTORY_SESSION_KEY]: { userId, pageId, documentKind, sessionId },
     },
     "",
     location.href,
@@ -200,61 +289,217 @@ export async function getWikiDraftSessionId(userId: string, pageId: string) {
   return sessionId;
 }
 
-export async function readWikiDraft(key: string) {
+export async function readWikiDraft(
+  key: string,
+  legacyMigration?: WikiDraftLegacyMigration,
+) {
   return serializeDraftOperation(key, () =>
-    withDraftStore("readonly", async (store) => {
+    withDraftStore(
+      legacyMigration ? "readwrite" : "readonly",
+      async (store) => {
+        const stored = await requestResult(
+          store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
+        );
+        if (stored) {
+          const record = toWikiDraftRecord(stored);
+          if (!record || record.documentKind === undefined) {
+            throw new Error("Unsupported wiki draft record at the current key");
+          }
+          if (createWikiDraftKey(record) !== key) {
+            throw new Error(
+              "Wiki draft record identity does not match its key",
+            );
+          }
+          if (legacyMigration) {
+            await requestResult(store.delete(legacyMigration.legacyKey));
+          }
+          return record;
+        }
+        if (!legacyMigration) return null;
+
+        const legacyStored = await requestResult(
+          store.get(legacyMigration.legacyKey) as IDBRequest<
+            StoredWikiDraft | undefined
+          >,
+        );
+        if (!legacyStored) return null;
+        const legacyRecord = toWikiDraftRecord(legacyStored);
+        if (!legacyRecord) {
+          throw new Error("Unsupported legacy wiki draft record");
+        }
+        if (
+          createLegacyWikiDraftKey(legacyRecord) !== legacyMigration.legacyKey
+        ) {
+          throw new Error("Legacy wiki draft identity does not match its key");
+        }
+
+        const migratedRecord: WikiDraftRecord =
+          legacyRecord.documentKind === undefined
+            ? {
+                ...legacyRecord,
+                schemaVersion: WIKI_DRAFT_SCHEMA_VERSION,
+                documentKind: legacyMigration.documentKind,
+                ...(legacyMigration.documentKind === "page"
+                  ? { recoveryDisposition: "legacy-ambiguous" as const }
+                  : {}),
+              }
+            : legacyRecord;
+        if (
+          migratedRecord.documentKind !== legacyMigration.documentKind ||
+          createWikiDraftKey(migratedRecord) !== key
+        ) {
+          throw new Error(
+            "Migrated wiki draft identity does not match its key",
+          );
+        }
+
+        await requestResult(store.put({ ...migratedRecord, key }));
+        await requestResult(store.delete(legacyMigration.legacyKey));
+        return migratedRecord;
+      },
+    ),
+  );
+}
+
+export async function persistWikiDraftTail(
+  record: WikiDraftTailRecord,
+  expectation: WikiDraftTailExpectation = {},
+) {
+  const key = createWikiDraftKey(record);
+  return serializeDraftOperation(key, () =>
+    withDraftStore("readwrite", async (store) => {
       const stored = await requestResult(
         store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
       );
-      if (!stored) return null;
-      return toWikiDraftRecord(stored);
+      if (
+        expectation.expectedSubmissionId !== undefined &&
+        stored?.submitted?.id !== expectation.expectedSubmissionId
+      ) {
+        return { kind: "missing-outbox" as const };
+      }
+      const retainsStoredBaseline =
+        stored !== undefined &&
+        compareWikiDraftBaselines(
+          {
+            version: record.baseVersion,
+            contentGeneration: record.contentGeneration,
+            snapshot: record.baseSnapshot,
+          },
+          {
+            version: stored.baseVersion,
+            contentGeneration: stored.contentGeneration,
+            snapshot: stored.baseSnapshot,
+          },
+        ) < 0;
+      const next: StoredWikiDraft = {
+        ...record,
+        ...(retainsStoredBaseline
+          ? {
+              baseVersion: stored.baseVersion,
+              contentGeneration: stored.contentGeneration,
+              baseSnapshot: stored.baseSnapshot,
+            }
+          : {}),
+        key,
+      };
+      if (stored) {
+        // A normal draft flush may update the local tail, but only the
+        // submission prepare/settle operations own the durable outbox.
+        if (stored.submitted) {
+          next.submitted = stored.submitted;
+        } else if (stored.submittedSnapshot !== undefined) {
+          next.submittedSnapshot = stored.submittedSnapshot;
+        }
+      }
+      await requestResult(store.put(next));
+      return { kind: "persisted" as const };
     }),
   );
 }
 
 export async function writeWikiDraft(record: WikiDraftRecord) {
+  const submitted = record.submitted;
+  const tail = { ...record };
+  delete tail.submitted;
+  delete tail.submittedSnapshot;
+  const result = await persistWikiDraftTail(
+    tail,
+    submitted ? { expectedSubmissionId: submitted.id } : undefined,
+  );
+  if (result.kind === "missing-outbox") {
+    throw new Error("WIKI_DRAFT_OUTBOX_MISSING");
+  }
+}
+
+export async function prepareWikiDraftSubmission(
+  record: WikiDraftRecord & {
+    submitted: NonNullable<WikiDraftRecord["submitted"]>;
+  },
+) {
   const key = createWikiDraftKey(record);
   await serializeDraftOperation(key, () =>
     withDraftStore("readwrite", async (store) => {
-      const stored = await requestResult(
-        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
-      );
-      await requestResult(
-        store.put({
-          ...record,
-          ...(stored?.submittedSnapshot
-            ? { submittedSnapshot: stored.submittedSnapshot }
-            : {}),
-          key,
-        }),
-      );
+      await requestResult(store.put({ ...record, key }));
     }),
   );
 }
 
-export async function markWikiDraftSubmitted(key: string, snapshot: string) {
-  await serializeDraftOperation(key, () =>
+export async function settleWikiDraftSubmission(
+  key: string,
+  settlement: Omit<
+    Parameters<typeof settleWikiEditSessionSubmission>[1],
+    "deleteIfClean" | "latestDraftSnapshot"
+  > & {
+    deleteIfClean: boolean | (() => boolean);
+    latestDraftSnapshot?: string | (() => string | undefined);
+  },
+) {
+  return serializeDraftOperation(key, () =>
     withDraftStore("readwrite", async (store) => {
       const stored = await requestResult(
         store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
       );
-      if (!stored) return;
-      await requestResult(
-        store.put({ ...stored, submittedSnapshot: snapshot, key }),
-      );
+      if (!stored) return { kind: "missing" as const };
+      const record = toWikiDraftRecord(stored);
+      if (!record?.documentKind) return { kind: "missing" as const };
+      const result = settleWikiEditSessionSubmission(record, {
+        ...settlement,
+        latestDraftSnapshot:
+          typeof settlement.latestDraftSnapshot === "function"
+            ? settlement.latestDraftSnapshot()
+            : settlement.latestDraftSnapshot,
+        deleteIfClean:
+          typeof settlement.deleteIfClean === "function"
+            ? settlement.deleteIfClean()
+            : settlement.deleteIfClean,
+      });
+      if (result.kind === "stale") return result;
+      if (result.record) {
+        await requestResult(store.put({ ...result.record, key }));
+      } else {
+        await requestResult(store.delete(key));
+      }
+      return result;
     }),
   );
 }
 
-export async function clearWikiDraftSubmitted(key: string) {
-  await serializeDraftOperation(key, () =>
+export async function rejectWikiDraftSubmission(
+  key: string,
+  submissionId: string,
+) {
+  return serializeDraftOperation(key, () =>
     withDraftStore("readwrite", async (store) => {
       const stored = await requestResult(
         store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
       );
-      if (!stored?.submittedSnapshot) return;
-      delete stored.submittedSnapshot;
-      await requestResult(store.put(stored));
+      if (!stored) return { kind: "missing" as const };
+      const record = toWikiDraftRecord(stored);
+      if (!record?.documentKind) return { kind: "missing" as const };
+      const result = rejectWikiEditSessionSubmission(record, submissionId);
+      if (result.kind === "stale") return result;
+      await requestResult(store.put({ ...result.record, key }));
+      return result;
     }),
   );
 }
@@ -263,34 +508,6 @@ export async function deleteWikiDraft(key: string) {
   await serializeDraftOperation(key, () =>
     withDraftStore("readwrite", async (store) => {
       await requestResult(store.delete(key));
-    }),
-  );
-}
-
-export async function acknowledgeWikiDraft(
-  key: string,
-  acknowledgedSnapshot: string,
-  nextBase: Pick<
-    WikiDraftServerState,
-    "version" | "contentGeneration" | "snapshot"
-  >,
-) {
-  await serializeDraftOperation(key, () =>
-    withDraftStore("readwrite", async (store) => {
-      const stored = await requestResult(
-        store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
-      );
-      if (!stored) return;
-      const next = resolveAcknowledgedWikiDraft(
-        toWikiDraftRecord(stored),
-        acknowledgedSnapshot,
-        nextBase,
-      );
-      if (next) {
-        await requestResult(store.put({ ...next, key }));
-      } else {
-        await requestResult(store.delete(key));
-      }
     }),
   );
 }
@@ -309,12 +526,22 @@ export async function rebaseWikiDraft(
         store.get(key) as IDBRequest<StoredWikiDraft | undefined>,
       );
       if (!stored) return;
+      const advancesBaseline =
+        compareWikiDraftBaselines(nextBase, {
+          version: stored.baseVersion,
+          contentGeneration: stored.contentGeneration,
+          snapshot: stored.baseSnapshot,
+        }) >= 0;
       await requestResult(
         store.put({
           ...stored,
-          baseVersion: nextBase.version,
-          contentGeneration: nextBase.contentGeneration,
-          baseSnapshot: nextBase.snapshot,
+          ...(advancesBaseline
+            ? {
+                baseVersion: nextBase.version,
+                contentGeneration: nextBase.contentGeneration,
+                baseSnapshot: nextBase.snapshot,
+              }
+            : {}),
           ...(recoveryDisposition ? { recoveryDisposition } : {}),
         }),
       );

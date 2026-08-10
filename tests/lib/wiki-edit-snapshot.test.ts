@@ -18,10 +18,48 @@ const snapshot = {
 };
 
 describe("wiki edit snapshot codec", () => {
+  it("keeps the causal hidden-child projection and canonicalizes it as a set", () => {
+    const serialized = serializeWikiEditSnapshot({
+      ...snapshot,
+      hiddenChildPageIds: ["child-b", "child-a", "child-b"],
+    });
+
+    expect(parseWikiEditSnapshot(serialized)).toEqual({
+      ...snapshot,
+      hiddenChildPageIds: ["child-a", "child-b"],
+    });
+  });
+
+  it("preserves an explicit empty projection instead of decoding it as legacy", () => {
+    const serialized = serializeWikiEditSnapshot({
+      ...snapshot,
+      hiddenChildPageIds: [],
+    });
+
+    expect(JSON.parse(serialized)).toHaveProperty("hiddenChildPageIds", []);
+    expect(parseWikiEditSnapshot(serialized)).toEqual({
+      ...snapshot,
+      hiddenChildPageIds: [],
+    });
+  });
+
+  it("does not consider snapshots with different editable projections equal", () => {
+    expect(
+      sameWikiPageSnapshot(
+        serializeWikiEditSnapshot(snapshot),
+        serializeWikiEditSnapshot({
+          ...snapshot,
+          hiddenChildPageIds: ["child-a"],
+        }),
+      ),
+    ).toBe(false);
+  });
+
   it("round-trips the complete editor snapshot", () => {
-    expect(parseWikiEditSnapshot(serializeWikiEditSnapshot(snapshot))).toEqual(
-      snapshot,
-    );
+    expect(parseWikiEditSnapshot(serializeWikiEditSnapshot(snapshot))).toEqual({
+      ...snapshot,
+      hiddenChildPageIds: [],
+    });
   });
 
   it("normalizes legacy snapshots without an edit summary", () => {

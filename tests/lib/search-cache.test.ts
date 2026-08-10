@@ -12,6 +12,7 @@ const {
   mockDbUpdate,
   mockDbTransaction,
   mockDbQueryWikiPages,
+  mockDbQueryWikiPageSubmissionReceipts,
   mockDbQueryWikiRevisions,
   mockAssertContributorComplete,
   mockEq,
@@ -51,6 +52,7 @@ const {
     mockDbUpdate: vi.fn(),
     mockDbTransaction: vi.fn(),
     mockDbQueryWikiPages: { findFirst: vi.fn() },
+    mockDbQueryWikiPageSubmissionReceipts: { findFirst: vi.fn() },
     mockDbQueryWikiRevisions: { findFirst: vi.fn(), findMany: vi.fn() },
     mockAssertContributorComplete: vi.fn(async (user) => user),
     mockEq: vi.fn(),
@@ -69,6 +71,7 @@ vi.mock("@/db", () => ({
     transaction: (fn: (...a: unknown[]) => unknown) => mockDbTransaction(fn),
     query: {
       wikiPages: mockDbQueryWikiPages,
+      wikiPageSubmissionReceipts: mockDbQueryWikiPageSubmissionReceipts,
       wikiRevisions: mockDbQueryWikiRevisions,
     },
   },
@@ -90,6 +93,11 @@ vi.mock("@/db/schema", () => ({
     id: "id",
     pageId: "pageId",
     createdAt: "createdAt",
+  },
+  wikiPageSubmissionReceipts: {
+    id: "submissionId",
+    pageId: "pageId",
+    submittedBy: "submittedBy",
   },
   wikiLinks: {
     sourceId: "sourceId",
@@ -169,6 +177,8 @@ beforeEach(() => {
   cacheStore.clear();
   mockDbQueryWikiPages.findFirst.mockReset();
   mockDbQueryWikiPages.findFirst.mockResolvedValue(undefined);
+  mockDbQueryWikiPageSubmissionReceipts.findFirst.mockReset();
+  mockDbQueryWikiPageSubmissionReceipts.findFirst.mockResolvedValue(undefined);
 });
 
 function makeHierarchyTx(ids = ["1"]) {
@@ -487,6 +497,30 @@ describe("cache invalidation — revalidateTag called", () => {
       expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
+  });
+
+  it("returns a committed update when cache invalidation fails", async () => {
+    mockDbQueryWikiPages.findFirst.mockResolvedValue({
+      id: "1",
+      updatedAt: new Date("2024-01-01"),
+      version: 1,
+    });
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => fn(makeWriteTx(null).tx),
+    );
+    mockRevalidateTag.mockImplementationOnce(() => {
+      throw new Error("cache unavailable");
+    });
+
+    await expect(
+      updateWikiPage({
+        pageId: "1",
+        title: "Updated",
+        content: "new",
+        expectedVersion: 1,
+        expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+      }),
+    ).resolves.toMatchObject({ id: "1", version: 2 });
   });
 
   it("keeps outgoing link rows for existing soft-deleted targets", async () => {
@@ -955,45 +989,6 @@ describe("search corpus refresh — structural vs content", () => {
     };
   }
 
-  it("treats an already-applied retry as success without another write", async () => {
-    const submitted = PLATE("submitted edit");
-    const latest = {
-      id: "1",
-      title: "Submitted",
-      icon: null,
-      content: submitted,
-      parentId: null,
-      updatedAt: new Date("2024-01-02"),
-      version: 2,
-      contentGeneration: 0,
-    };
-    mockDbQueryWikiPages.findFirst
-      .mockResolvedValueOnce({
-        ...latest,
-        title: "Base",
-        content: PLATE("base"),
-        updatedAt: new Date("2024-01-01"),
-        version: 1,
-      })
-      .mockResolvedValueOnce(latest);
-    mockDbTransaction.mockImplementation(
-      async (fn: (...a: unknown[]) => unknown) => fn(makeConflictTx()),
-    );
-
-    const result = await updateWikiPage({
-      pageId: "1",
-      title: "Submitted",
-      content: submitted,
-      baseTitle: "Base",
-      baseContent: PLATE("base"),
-      expectedVersion: 1,
-      expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
-    });
-
-    expect(result).toBe(latest);
-    expect(mockDbTransaction).toHaveBeenCalledTimes(1);
-  });
-
   it("merged branch preserves a concurrent rename when the local title is unchanged", async () => {
     let call = 0;
     mockDbQueryWikiPages.findFirst.mockImplementation(async () => {
@@ -1080,6 +1075,57 @@ describe("search corpus refresh — structural vs content", () => {
     });
     expect(mockRevalidateTag).toHaveBeenCalledWith("wiki-pages", "max");
     expect(mockRevalidateTag).not.toHaveBeenCalledWith(CORPUS, "max");
+  });
+
+  it("returns a committed clean merge when cache invalidation fails", async () => {
+    let call = 0;
+    mockDbQueryWikiPages.findFirst.mockImplementation(async () => {
+      call += 1;
+      return call === 1
+        ? {
+            id: "1",
+            title: "A",
+            icon: null,
+            content: PLATE("shared"),
+            parentId: null,
+            updatedAt: new Date("2024-01-01"),
+            version: 1,
+            contentGeneration: 0,
+          }
+        : {
+            id: "1",
+            title: "B",
+            icon: null,
+            content: PLATE("shared"),
+            parentId: null,
+            updatedAt: new Date("2024-01-02"),
+            version: 2,
+            contentGeneration: 0,
+          };
+    });
+    let firstWrite = true;
+    mockDbTransaction.mockImplementation(
+      async (fn: (...a: unknown[]) => unknown) => {
+        const tx = firstWrite ? makeConflictTx() : makeWriteTx();
+        firstWrite = false;
+        return fn(tx);
+      },
+    );
+    mockRevalidateTag.mockImplementationOnce(() => {
+      throw new Error("cache unavailable");
+    });
+
+    await expect(
+      updateWikiPage({
+        pageId: "1",
+        title: "A",
+        content: PLATE("X body edit"),
+        baseTitle: "A",
+        baseContent: PLATE("shared"),
+        expectedVersion: 1,
+        expectedUpdatedAt: "2024-01-01T00:00:00.000Z",
+      }),
+    ).resolves.toMatchObject({ id: "1", version: 2 });
   });
 
   it("does not semantically merge a draft from before a rollback generation", async () => {

@@ -184,6 +184,16 @@ describe("restoreLegacyChildPageLinks", () => {
       { type: "a", pageId: PAGE_ONE, children: [{ text: "Child page" }] },
     ],
   };
+  const restoredStandalone = {
+    ...standalone,
+    id: "wiki-projection-0",
+    children: [
+      {
+        ...standalone.children[0],
+        id: "wiki-projection-0-0",
+      },
+    ],
+  };
   const body = { type: "p", children: [{ text: "Edited body" }] };
 
   it("restores a child link hidden by the editor projection", () => {
@@ -193,7 +203,7 @@ describe("restoreLegacyChildPageLinks", () => {
         [body] as PlateValue,
         new Set([PAGE_ONE]),
       ),
-    ).toEqual([standalone, body]);
+    ).toEqual([restoredStandalone, body]);
   });
 
   it("does not resurrect a link that was visible and intentionally deleted", () => {
@@ -214,6 +224,22 @@ describe("restoreLegacyChildPageLinks", () => {
         new Set([PAGE_ONE]),
       ),
     ).toEqual([standalone, body]);
+  });
+
+  it("preserves existing restored identities across later saves", () => {
+    const identifiedStandalone = {
+      ...standalone,
+      id: "stored-link",
+      children: [{ ...standalone.children[0], id: "stored-inline-link" }],
+    };
+
+    expect(
+      restoreLegacyChildPageLinks(
+        [identifiedStandalone, body] as PlateValue,
+        [body] as PlateValue,
+        new Set([PAGE_ONE]),
+      ),
+    ).toEqual([identifiedStandalone, body]);
   });
 });
 

@@ -1,44 +1,22 @@
 import { getDiscussions } from "@/lib/discussion-actions";
-import {
-  deleteWikiPage,
-  getWikiPageForEdit,
-  getWikiTree,
-  updateWikiPage,
-} from "@/lib/wiki-actions";
-import {
-  createWikiDraft,
-  deleteWikiDraft,
-  getOwnWikiDraft,
-  publishWikiDraft,
-  updateWikiDraft,
-  type WikiDraft,
-} from "@/lib/wiki-draft-actions";
-import { stripTitleHeading } from "@/lib/headings";
+import { getWikiPageForEdit, getWikiTree } from "@/lib/wiki-actions";
+import type { WikiDraft } from "@/lib/wiki-draft-actions";
 import { parseContent } from "@/lib/plate-utils";
 import {
-  resolveWikiLinkUrls,
-  restoreLegacyChildPageLinks,
-  stripLegacyChildPageLinks,
-} from "@/lib/wiki-links";
+  checkPrivateWikiDraftEditorUpdate,
+  checkWikiPageEditorUpdate,
+  deletePrivateWikiDraftFromEditor,
+  deleteWikiPageFromEditor,
+  initializePrivateWikiDraft,
+  publishPrivateWikiDraftFromEditor,
+  savePrivateWikiDraftFromEditor,
+  submitWikiPageEditorUpdate,
+} from "@/lib/wiki-editor-actions";
+import { toWikiEditorValue } from "@/lib/wiki-editor-projection";
 import { WikiEditorLazy } from "@/components/wiki/wiki-editor-lazy";
 
 type EditablePage = NonNullable<Awaited<ReturnType<typeof getWikiPageForEdit>>>;
 type WikiTree = Awaited<ReturnType<typeof getWikiTree>>;
-
-function toEditorValue(
-  page: Pick<EditablePage, "content" | "title">,
-  childPageIds: string[],
-) {
-  return stripTitleHeading(
-    resolveWikiLinkUrls(
-      stripLegacyChildPageLinks(
-        parseContent(page.content),
-        new Set(childPageIds),
-      ),
-    ),
-    page.title,
-  );
-}
 
 function collectDescendantIds(
   pages: { id: string; parentId: string | null }[],
@@ -83,118 +61,11 @@ export async function WikiPageEditor({
   const excludedParentIds = collectDescendantIds(pages, pageId);
   const childPages = pages.filter((candidate) => candidate.parentId === pageId);
   const childPageIds = childPages.map((child) => child.id);
-
-  async function handleCheckForUpdate(currentVersion: number) {
-    "use server";
-    const latest = await getWikiPageForEdit(pageId);
-    if (!latest || latest.version === currentVersion) return null;
-    const latestTree = await getWikiTree();
-    const latestChildPageIds = latestTree
-      .filter((candidate) => candidate.parentId === pageId)
-      .map((child) => child.id);
-    return {
-      id: latest.id,
-      parentId: latest.parentId,
-      title: latest.title,
-      icon: latest.icon,
-      content: JSON.stringify(toEditorValue(latest, latestChildPageIds)),
-      version: latest.version,
-      contentGeneration: latest.contentGeneration,
-      updatedAt: new Date(latest.updatedAt).toISOString(),
-    };
-  }
-
-  async function handleUpdate(data: {
-    title: string;
-    icon?: string | null;
-    content: string;
-    editSummary?: string;
-    parentId?: string | null;
-    expectedVersion?: number;
-    expectedContentGeneration?: number;
-    expectedUpdatedAt?: string;
-    baseTitle?: string;
-    baseIcon?: string | null;
-    baseContent?: string;
-    baseParentId?: string | null;
-  }) {
-    "use server";
-    try {
-      const storedPage = await getWikiPageForEdit(pageId);
-      if (!storedPage) throw new Error("Page not found");
-      const hiddenChildPageIds = new Set(childPageIds);
-      const storedValue = parseContent(storedPage.content);
-      const restoreEditorProjection = (content: string) =>
-        JSON.stringify(
-          restoreLegacyChildPageLinks(
-            storedValue,
-            parseContent(content),
-            hiddenChildPageIds,
-          ),
-        );
-      const updated = await updateWikiPage({
-        pageId,
-        title: data.title,
-        icon: data.icon,
-        content: restoreEditorProjection(data.content),
-        editSummary: data.editSummary,
-        parentId: data.parentId,
-        expectedVersion: data.expectedVersion!,
-        expectedContentGeneration: data.expectedContentGeneration!,
-        expectedUpdatedAt: data.expectedUpdatedAt!,
-        baseTitle: data.baseTitle,
-        baseIcon: data.baseIcon,
-        baseContent:
-          data.baseContent === undefined
-            ? undefined
-            : restoreEditorProjection(data.baseContent),
-        baseParentId: data.baseParentId,
-      });
-      const latestTree = await getWikiTree();
-      const latestChildPageIds = latestTree
-        .filter((candidate) => candidate.parentId === pageId)
-        .map((child) => child.id);
-      if ("conflict" in updated) {
-        return {
-          conflict: true as const,
-          theirContent: JSON.stringify(
-            toEditorValue(
-              {
-                title: updated.theirTitle,
-                content: updated.theirContent,
-              },
-              latestChildPageIds,
-            ),
-          ),
-          theirTitle: updated.theirTitle,
-          theirIcon: updated.theirIcon,
-          theirParentId: updated.theirParentId,
-          theirVersion: updated.theirVersion,
-          theirContentGeneration: updated.theirContentGeneration,
-          theirUpdatedAt: updated.theirUpdatedAt,
-        };
-      }
-      return {
-        id: updated.id,
-        parentId: updated.parentId,
-        title: updated.title,
-        icon: updated.icon,
-        content: JSON.stringify(toEditorValue(updated, latestChildPageIds)),
-        version: updated.version,
-        contentGeneration: updated.contentGeneration,
-        updatedAt: new Date(updated.updatedAt).toISOString(),
-      };
-    } catch (error: unknown) {
-      return {
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async function handleDelete() {
-    "use server";
-    await deleteWikiPage(pageId);
-  }
+  const handleCheckForUpdate = checkWikiPageEditorUpdate.bind(null, pageId);
+  const handleUpdate = submitWikiPageEditorUpdate.bind(null, {
+    pageId,
+  });
+  const handleDelete = deleteWikiPageFromEditor.bind(null, pageId);
 
   return (
     <WikiEditorLazy
@@ -203,7 +74,8 @@ export async function WikiPageEditor({
       pageId={pageId}
       initialTitle={page.title}
       initialIcon={page.icon}
-      initialValue={toEditorValue(page, childPageIds)}
+      initialValue={toWikiEditorValue(page, childPageIds)}
+      initialHiddenChildPageIds={childPageIds}
       parentId={page.parentId}
       expectedVersion={page.version}
       expectedContentGeneration={page.contentGeneration}
@@ -242,114 +114,18 @@ export function WikiDraftPageEditor({
   pages: WikiTree;
   userId: string;
 }) {
-  async function handleInitialize() {
-    "use server";
-    try {
-      const created = await createWikiDraft({ id: pageId, parentId });
-      return {
-        id: created.id,
-        parentId: created.parentId,
-        title: created.title,
-        icon: created.icon,
-        content: created.content,
-        version: created.version,
-        contentGeneration: 0,
-        updatedAt: new Date(created.updatedAt).toISOString(),
-      };
-    } catch (error: unknown) {
-      return {
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async function handleCheckForUpdate(currentVersion: number) {
-    "use server";
-    const latest = await getOwnWikiDraft(pageId);
-    if (!latest || latest.version === currentVersion) return null;
-    return {
-      id: latest.id,
-      parentId: latest.parentId,
-      title: latest.title,
-      icon: latest.icon,
-      content: latest.content,
-      version: latest.version,
-      contentGeneration: 0,
-      updatedAt: new Date(latest.updatedAt).toISOString(),
-    };
-  }
-
-  async function handleSave(data: {
-    title: string;
-    icon?: string | null;
-    content: string;
-    editSummary?: string;
-    parentId?: string | null;
-    expectedVersion?: number;
-    expectedContentGeneration?: number;
-    expectedUpdatedAt?: string;
-    baseTitle?: string;
-    baseIcon?: string | null;
-    baseContent?: string;
-    baseParentId?: string | null;
-  }) {
-    "use server";
-    try {
-      const updated = await updateWikiDraft({
-        pageId,
-        title: data.title,
-        icon: data.icon,
-        content: data.content,
-        parentId: data.parentId,
-        expectedVersion: data.expectedVersion!,
-        baseTitle: data.baseTitle,
-        baseIcon: data.baseIcon,
-        baseContent: data.baseContent,
-        baseParentId: data.baseParentId,
-      });
-      if ("conflict" in updated) return updated;
-      return {
-        id: updated.id,
-        parentId: updated.parentId,
-        title: updated.title,
-        icon: updated.icon,
-        content: updated.content,
-        version: updated.version,
-        contentGeneration: 0,
-        updatedAt: new Date(updated.updatedAt).toISOString(),
-      };
-    } catch (error: unknown) {
-      return {
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async function handlePublish() {
-    "use server";
-    try {
-      const published = await publishWikiDraft(pageId);
-      return {
-        id: published.id,
-        parentId: published.parentId,
-        title: published.title,
-        icon: published.icon,
-        content: published.content,
-        version: published.version,
-        contentGeneration: published.contentGeneration,
-        updatedAt: new Date(published.updatedAt).toISOString(),
-      };
-    } catch (error: unknown) {
-      return {
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  }
-
-  async function handleDelete() {
-    "use server";
-    await deleteWikiDraft(pageId);
-  }
+  const handleInitialize = initializePrivateWikiDraft.bind(
+    null,
+    pageId,
+    parentId,
+  );
+  const handleCheckForUpdate = checkPrivateWikiDraftEditorUpdate.bind(
+    null,
+    pageId,
+  );
+  const handleSave = savePrivateWikiDraftFromEditor.bind(null, pageId);
+  const handlePublish = publishPrivateWikiDraftFromEditor.bind(null, pageId);
+  const handleDelete = deletePrivateWikiDraftFromEditor.bind(null, pageId);
 
   return (
     <WikiEditorLazy

@@ -11,6 +11,7 @@ export interface EditConflict {
   theirVersion: number;
   theirContentGeneration: number;
   theirUpdatedAt: string;
+  theirHiddenChildPageIds: string[];
 }
 
 export interface EditConflictField {

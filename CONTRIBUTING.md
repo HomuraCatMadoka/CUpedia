@@ -91,7 +91,10 @@ duplicate work. Once accepted, reference the discussion in your PR.
 
 - Follow the existing code style (ESLint + Prettier, enforced via the pre-commit hook).
 - Server Components by default; `"use client"` only when necessary.
-- All wiki mutations go through `src/lib/wiki-actions.ts`.
+- Public Page mutations go through `src/lib/wiki-actions.ts`; owner-private
+  draft mutations go through `src/lib/wiki-draft-actions.ts`. Editor-facing
+  server-action adapters may orchestrate those gateways from
+  `src/lib/wiki-editor-actions.ts` but must not write Wiki tables directly.
 - DB schema changes must commit both `src/db/schema.ts` and the generated
   migration (`pnpm drizzle-kit generate`). Never edit migration files by hand,
   and never use `drizzle-kit push`.

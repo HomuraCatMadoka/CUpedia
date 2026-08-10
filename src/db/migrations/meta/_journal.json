@@ -463,6 +463,13 @@
       "when": 1785992003305,
       "tag": "0065_hesitant_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1786366518048,
+      "tag": "0066_flashy_iron_fist",
+      "breakpoints": true
     }
   ]
 }

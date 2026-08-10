@@ -6,11 +6,11 @@ import { connection } from "next/server";
 
 import { db } from "@/db";
 import { wikiDrafts, wikiLinks, wikiPages, wikiRevisions } from "@/db/schema";
-import { getOptionalUser, requireEditor } from "@/lib/auth-guard";
-import { assertContributorComplete } from "@/lib/contributor-account";
-import { extractWikiLinkTargets } from "@/lib/wiki-links";
-import { normalizeWikiIcon } from "@/lib/wiki-icon";
-import { CREATE_REVISION_SUMMARY } from "@/lib/revision-coalescing";
+import { getOptionalUser, requireEditor } from "./auth-guard";
+import { assertContributorComplete } from "./contributor-account";
+import { extractWikiLinkTargets } from "./wiki-links";
+import { normalizeWikiIcon } from "./wiki-icon";
+import { CREATE_REVISION_SUMMARY } from "./revision-coalescing";
 
 const CLIENT_PAGE_ID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -90,6 +90,24 @@ async function syncWikiLinks(tx: Tx, sourceId: string, content: string) {
     .filter((id) => valid.has(id))
     .map((targetId) => ({ sourceId, targetId }));
   if (rows.length > 0) await tx.insert(wikiLinks).values(rows);
+}
+
+function refreshPublishedWikiPageBestEffort(pageId: string) {
+  const refreshes = [
+    () => revalidateTag("wiki-pages", "max"),
+    () => updateTag("wiki-pages"),
+    () => revalidateTag("wiki-search-corpus", "max"),
+    () => revalidatePath("/wiki", "layout"),
+    () => revalidatePath(`/wiki/${pageId}`),
+  ];
+  for (const refresh of refreshes) {
+    try {
+      refresh();
+    } catch {
+      // The database mutation is already committed. Cache refresh failures
+      // must not turn a successful publish into a retryable mutation error.
+    }
+  }
 }
 
 export async function getOwnWikiDraft(pageId: string) {
@@ -338,11 +356,7 @@ export async function publishWikiDraft(pageId: string) {
     published = concurrent;
   }
 
-  revalidateTag("wiki-pages", "max");
-  updateTag("wiki-pages");
-  revalidateTag("wiki-search-corpus", "max");
-  revalidatePath("/wiki", "layout");
-  revalidatePath(`/wiki/${published.id}`);
+  refreshPublishedWikiPageBestEffort(published.id);
   return published;
 }
 

@@ -1,7 +1,12 @@
 "use server";
 
 import { db } from "@/db";
-import { wikiPages, wikiRevisions, wikiLinks } from "@/db/schema";
+import {
+  wikiLinks,
+  wikiPages,
+  wikiPageSubmissionReceipts,
+  wikiRevisions,
+} from "@/db/schema";
 import {
   eq,
   isNull,
@@ -19,18 +24,22 @@ import {
   revalidateTag,
   updateTag,
 } from "next/cache";
-import { requireAdmin, requireEditor } from "@/lib/auth-guard";
-import { assertContributorComplete } from "@/lib/contributor-account";
-import { searchPages } from "@/lib/search";
-import { extractText } from "@/lib/plate-utils";
-import { extractWikiLinkTargets, isWikiPageId } from "@/lib/wiki-links";
-import { threeWayMergeContent } from "@/lib/merge-content";
-import { normalizeWikiIcon } from "@/lib/wiki-icon";
+import { requireAdmin, requireEditor } from "./auth-guard";
+import { assertContributorComplete } from "./contributor-account";
+import { searchPages } from "./search";
+import { extractText } from "./plate-utils";
+import { extractWikiLinkTargets, isWikiPageId } from "./wiki-links";
+import { threeWayMergeContent } from "./merge-content";
+import { normalizeWikiIcon } from "./wiki-icon";
+import {
+  fingerprintWikiPageSubmission,
+  type WikiPageSubmissionPayload,
+} from "./wiki-page-submission";
 import {
   shouldCoalesceRevision,
   CREATE_REVISION_SUMMARY,
   ROLLBACK_REVISION_SUMMARY_PREFIX,
-} from "@/lib/revision-coalescing";
+} from "./revision-coalescing";
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -101,6 +110,26 @@ const SEARCH_CORPUS_TAG = "wiki-search-corpus";
 const SEARCH_CORPUS_REVALIDATE_SECONDS = 5 * 60;
 function revalidateSearchCorpus() {
   revalidateTag(SEARCH_CORPUS_TAG, "max");
+}
+
+function finalizeCommittedWikiPageUpdate({
+  pageId,
+  pageStructureChanged,
+  titleChanged,
+}: {
+  pageId: string;
+  pageStructureChanged: boolean;
+  titleChanged: boolean;
+}) {
+  try {
+    revalidateTag("wiki-pages", "max");
+    revalidatePath(`/wiki/${pageId}`);
+    if (pageStructureChanged) updateTag("wiki-pages");
+    if (titleChanged) revalidateSearchCorpus();
+  } catch {
+    // The database mutation is already committed. Cache projection is
+    // best-effort and must never relabel that authoritative result as failed.
+  }
 }
 
 /** Rewrite the outgoing wiki-link rows for a source page from its content. */
@@ -401,6 +430,87 @@ export interface UpdateConflict {
 }
 
 type WikiPageRow = typeof wikiPages.$inferSelect;
+type WikiPageSubmissionWritePayload = Pick<
+  WikiPageSubmissionPayload,
+  "title" | "icon" | "content" | "parentId"
+>;
+type CommittedPageOverride = NonNullable<
+  typeof wikiPageSubmissionReceipts.$inferInsert.committedPageOverride
+>;
+
+async function hasCommittedWikiPageSubmission({
+  submissionId,
+  pageId,
+  userId,
+  requestFingerprint,
+}: {
+  submissionId: string;
+  pageId: string;
+  userId: string;
+  requestFingerprint: string;
+}) {
+  const receipt = await db.query.wikiPageSubmissionReceipts.findFirst({
+    where: eq(wikiPageSubmissionReceipts.id, submissionId),
+  });
+  if (!receipt) return null;
+  if (
+    receipt.pageId !== pageId ||
+    receipt.submittedBy !== userId ||
+    receipt.requestFingerprint !== requestFingerprint
+  ) {
+    throw new Error("SUBMISSION_ID_CONFLICT");
+  }
+  return receipt;
+}
+
+function toCommittedWikiPage(
+  current: WikiPageRow,
+  receipt: typeof wikiPageSubmissionReceipts.$inferSelect,
+  request: WikiPageSubmissionWritePayload,
+): WikiPageRow {
+  const override = receipt.committedPageOverride ?? {};
+  const hasOverride = (field: keyof CommittedPageOverride) =>
+    Object.prototype.hasOwnProperty.call(override, field);
+  const icon = hasOverride("icon") ? override.icon : request.icon;
+  const parentId = hasOverride("parentId")
+    ? override.parentId
+    : request.parentId;
+  if (icon === undefined || parentId === undefined) {
+    throw new Error("Invalid submission receipt");
+  }
+  return {
+    ...current,
+    title: hasOverride("title") ? override.title! : request.title,
+    icon,
+    content: hasOverride("content") ? override.content! : request.content,
+    parentId,
+    updatedBy: receipt.submittedBy,
+    updatedAt: receipt.committedUpdatedAt,
+    version: receipt.committedVersion,
+    contentGeneration: receipt.committedContentGeneration,
+  };
+}
+
+function toCommittedPageOverride(
+  committed: WikiPageRow,
+  request: WikiPageSubmissionWritePayload,
+): CommittedPageOverride | null {
+  const override: CommittedPageOverride = {};
+  if (committed.title !== request.title) override.title = committed.title;
+  if (request.icon === undefined || committed.icon !== request.icon) {
+    override.icon = committed.icon;
+  }
+  if (committed.content !== request.content) {
+    override.content = committed.content;
+  }
+  if (
+    request.parentId === undefined ||
+    committed.parentId !== request.parentId
+  ) {
+    override.parentId = committed.parentId;
+  }
+  return Object.keys(override).length > 0 ? override : null;
+}
 
 function toUpdateConflict(page: WikiPageRow): UpdateConflict {
   return {
@@ -438,6 +548,7 @@ async function writeWikiPage(
     icon?: string | null;
     content: string;
     editSummary?: string;
+    submissionId?: string;
     parentId?: string | null;
     expectedVersion: number;
     expectedContentGeneration: number;
@@ -447,6 +558,8 @@ async function writeWikiPage(
   pageId: string,
   options?: {
     validateParentChange?: boolean;
+    submissionFingerprint?: string;
+    submissionRequest?: WikiPageSubmissionWritePayload;
   },
 ): Promise<WikiPageRow> {
   const expectedUpdatedAt = new Date(data.expectedUpdatedAt);
@@ -535,30 +648,58 @@ async function writeWikiPage(
     }
 
     await syncWikiLinks(tx, pageId, data.content);
+    if (data.submissionId) {
+      if (!options?.submissionFingerprint || !options.submissionRequest) {
+        throw new Error("Missing submission identity");
+      }
+      await tx.insert(wikiPageSubmissionReceipts).values({
+        id: data.submissionId,
+        pageId,
+        submittedBy: userId,
+        requestFingerprint: options.submissionFingerprint,
+        committedPageOverride: toCommittedPageOverride(
+          updated[0],
+          options.submissionRequest,
+        ),
+        committedVersion: updated[0].version,
+        committedContentGeneration: updated[0].contentGeneration,
+        committedUpdatedAt: updated[0].updatedAt,
+      });
+    }
     return updated[0];
   });
 }
 
-export async function updateWikiPage(data: {
-  pageId: string;
-  title: string;
-  icon?: string | null;
-  content: string;
-  editSummary?: string;
-  parentId?: string | null;
-  expectedVersion: number;
-  expectedContentGeneration?: number;
-  expectedUpdatedAt: string;
-  /** Ancestor title for scalar three-way merge. */
-  baseTitle?: string;
-  /** Ancestor page icon for scalar three-way merge. */
-  baseIcon?: string | null;
-  /** Ancestor content (editor's initialValue) for three-way merge. */
-  baseContent?: string;
-  /** Ancestor parent for scalar three-way merge. */
-  baseParentId?: string | null;
-}): Promise<WikiPageRow | UpdateConflict> {
+export async function updateWikiPage(
+  data: {
+    pageId: string;
+    title: string;
+    icon?: string | null;
+    content: string;
+    editSummary?: string;
+    submissionId?: string;
+    parentId?: string | null;
+    expectedVersion: number;
+    expectedContentGeneration?: number;
+    expectedUpdatedAt: string;
+    /** Ancestor title for scalar three-way merge. */
+    baseTitle?: string;
+    /** Ancestor page icon for scalar three-way merge. */
+    baseIcon?: string | null;
+    /** Ancestor content (editor's initialValue) for three-way merge. */
+    baseContent?: string;
+    /** Ancestor parent for scalar three-way merge. */
+    baseParentId?: string | null;
+  },
+  options?: {
+    /** Logical editor payload before hidden storage projection is restored. */
+    submissionPayload?: WikiPageSubmissionPayload;
+  },
+): Promise<WikiPageRow | UpdateConflict> {
   const user = await assertContributorComplete(await requireEditor());
+  if (data.submissionId && !isWikiPageId(data.submissionId)) {
+    throw new Error("Invalid submission id");
+  }
   const normalizedIcon =
     data.icon === undefined ? undefined : normalizeWikiIcon(data.icon);
   const expectedContentGeneration = data.expectedContentGeneration ?? 0;
@@ -567,11 +708,37 @@ export async function updateWikiPage(data: {
     expectedContentGeneration,
     ...(data.icon === undefined ? {} : { icon: normalizedIcon }),
   };
+  if (
+    options?.submissionPayload &&
+    options.submissionPayload.pageId !== data.pageId
+  ) {
+    throw new Error("Invalid submission payload");
+  }
+  const submissionFingerprint = data.submissionId
+    ? fingerprintWikiPageSubmission(
+        options?.submissionPayload ?? normalizedData,
+      )
+    : undefined;
+  // Receipt reconstruction follows the immutable logical command, not a
+  // projection rebuilt from mutable tree state during a later replay. If the
+  // committed storage representation adds hidden legacy child links, the
+  // difference is persisted as the exceptional content override.
+  const submissionRequest = options?.submissionPayload ?? normalizedData;
 
   const existing = await db.query.wikiPages.findFirst({
     where: and(eq(wikiPages.id, data.pageId), isNull(wikiPages.deletedAt)),
   });
   if (!existing) throw new Error("Page not found");
+  if (data.submissionId && submissionFingerprint) {
+    const receipt = await hasCommittedWikiPageSubmission({
+      submissionId: data.submissionId,
+      pageId: data.pageId,
+      userId: user.id,
+      requestFingerprint: submissionFingerprint,
+    });
+    if (receipt)
+      return toCommittedWikiPage(existing, receipt, submissionRequest);
+  }
 
   // A title change is structural (title carries search weight 2); a body-only
   // edit is not, so it rides the corpus's time-based refresh. See ADR 0011.
@@ -584,13 +751,14 @@ export async function updateWikiPage(data: {
   try {
     const result = await writeWikiPage(normalizedData, user.id, existing.id, {
       validateParentChange: parentChanged,
+      submissionFingerprint,
+      submissionRequest,
     });
-    revalidateTag("wiki-pages", "max");
-    revalidatePath(`/wiki/${result.id}`);
-    if (titleChanged || parentChanged || iconChanged) {
-      updateTag("wiki-pages");
-    }
-    if (titleChanged) revalidateSearchCorpus();
+    finalizeCommittedWikiPageUpdate({
+      pageId: result.id,
+      pageStructureChanged: titleChanged || parentChanged || iconChanged,
+      titleChanged,
+    });
     return result;
   } catch (e) {
     if (!(e instanceof Error && e.message === "EDIT_CONFLICT")) throw e;
@@ -600,6 +768,15 @@ export async function updateWikiPage(data: {
     where: and(eq(wikiPages.id, existing.id), isNull(wikiPages.deletedAt)),
   });
   if (!latest) throw new Error("Page not found");
+  if (data.submissionId && submissionFingerprint) {
+    const receipt = await hasCommittedWikiPageSubmission({
+      submissionId: data.submissionId,
+      pageId: data.pageId,
+      userId: user.id,
+      requestFingerprint: submissionFingerprint,
+    });
+    if (receipt) return toCommittedWikiPage(latest, receipt, submissionRequest);
+  }
   const theirUpdatedAt = new Date(latest.updatedAt).toISOString();
   const latestContentGeneration = latest.contentGeneration ?? 0;
   if (latestContentGeneration !== expectedContentGeneration) {
@@ -610,7 +787,14 @@ export async function updateWikiPage(data: {
     latest.content === data.content &&
     (normalizedIcon === undefined || latest.icon === normalizedIcon) &&
     (data.parentId === undefined || latest.parentId === data.parentId);
-  if (requestedMatchesLatest) return latest;
+  if (requestedMatchesLatest && !data.submissionId) {
+    finalizeCommittedWikiPageUpdate({
+      pageId: latest.id,
+      pageStructureChanged: titleChanged || parentChanged || iconChanged,
+      titleChanged,
+    });
+    return latest;
+  }
 
   if (data.baseContent !== undefined) {
     let mergedTitle = data.title;
@@ -676,6 +860,8 @@ export async function updateWikiPage(data: {
             validateParentChange:
               mergedParentId !== undefined &&
               mergedParentId !== latest.parentId,
+            submissionFingerprint,
+            submissionRequest,
           },
         );
       } catch (error) {
@@ -691,18 +877,15 @@ export async function updateWikiPage(data: {
         if (!newest) throw new Error("Page not found");
         return toUpdateConflict(newest);
       }
-      revalidateTag("wiki-pages", "max");
-      revalidatePath(`/wiki/${result.id}`);
-      if (
-        mergedTitle !== latest.title ||
-        (mergedParentId !== undefined && mergedParentId !== latest.parentId) ||
-        (mergedIcon !== undefined && mergedIcon !== latest.icon)
-      ) {
-        updateTag("wiki-pages");
-      }
-      if (mergedTitle !== latest.title) {
-        revalidateSearchCorpus();
-      }
+      finalizeCommittedWikiPageUpdate({
+        pageId: result.id,
+        pageStructureChanged:
+          mergedTitle !== latest.title ||
+          (mergedParentId !== undefined &&
+            mergedParentId !== latest.parentId) ||
+          (mergedIcon !== undefined && mergedIcon !== latest.icon),
+        titleChanged: mergedTitle !== latest.title,
+      });
       return result;
     }
   }
