@@ -28,6 +28,7 @@ DEPARTMENT = """
 def person_html(name, slug, email="person@cuhk.edu.hk", title="Assistant Professor"):
     encoded = base64.b64encode(f"mailto:{email}".encode()).decode()
     return f"""
+    <head><meta property="og:image" content="https://research.cuhk.edu.hk/files-asset/123/photo.jpg/"></head>
     <body data-page="persons"><script>
       {{"id":"9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2","title":"{name}","recordType":"person"}}
     </script><div class="person-vcard-wrapper">
@@ -57,7 +58,21 @@ class StaffScraperTest(unittest.TestCase):
         self.assertEqual(person["email"], "person@cuhk.edu.hk")
         self.assertEqual(person["profileUrl"], url)
         self.assertEqual(person["externalId"], "9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2")
+        self.assertEqual(
+            person["imageUrl"],
+            "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/",
+        )
         self.assertEqual(person["affiliations"][0]["title"], "Assistant Professor")
+
+    def test_rejects_non_portal_open_graph_image(self):
+        html = person_html("Professor SHAO Baihao", "baihao-shao").replace(
+            "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/",
+            "https://example.test/tracker.jpg",
+        )
+        person = subject.parse_person(
+            html, "https://research.cuhk.edu.hk/en/persons/baihao-shao/"
+        )
+        self.assertIsNone(person["imageUrl"])
 
     def test_reads_department_preview_and_expected_count(self):
         self.assertEqual(

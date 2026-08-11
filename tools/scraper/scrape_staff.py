@@ -131,6 +131,21 @@ def decode_email(link) -> str | None:
     return text.lower() if "@" in text else None
 
 
+def portal_image_url(soup: BeautifulSoup) -> str | None:
+    node = soup.select_one('meta[property="og:image"]')
+    value = node.get("content", "").strip() if node else ""
+    if not value:
+        return None
+    parsed = urllib.parse.urlsplit(value)
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != "research.cuhk.edu.hk"
+        or not parsed.path.startswith("/files-asset/")
+    ):
+        return None
+    return urllib.parse.urlunsplit(("https", parsed.hostname, parsed.path, "", ""))
+
+
 def parse_person(html: str, source_url: str) -> dict:
     soup = BeautifulSoup(html, "html.parser")
     card = soup.select_one(".person-vcard-wrapper")
@@ -206,6 +221,7 @@ def parse_person(html: str, source_url: str) -> dict:
         "name": name,
         "email": decode_email(email_link),
         "profileUrl": url,
+        "imageUrl": portal_image_url(soup),
         "affiliations": affiliations,
     }
 
@@ -680,6 +696,16 @@ def main() -> None:
         help="refetch profiles instead of using the resumable cache",
     )
     parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="override the resumable profile cache directory",
+    )
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="write the directory outside the default data directory",
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=1,
@@ -700,7 +726,9 @@ def main() -> None:
 
     session = common.session()
     data_dir = common.ensure_data_dir()
-    fetcher = PortalFetcher(data_dir / "staff-directory-cache", args.pause, args.refresh)
+    fetcher = PortalFetcher(
+        args.cache_dir or data_dir / "staff-directory-cache", args.pause, args.refresh
+    )
     organisations = []
     preview_urls = []
     expected_counts = {}
@@ -758,7 +786,8 @@ def main() -> None:
     add_staff_coverage(result, expected_counts, mode)
     result["scope"]["complete"] = staff_coverage_complete(result, mode)
     filename = "staff-directory.preview.json" if args.preview else "staff-directory.json"
-    out = data_dir / filename
+    out = args.output or data_dir / filename
+    out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"done: {result['stats']} -> {out}")
 

@@ -137,11 +137,12 @@ async function publishCurrentWikiDraft(page: Page, title: string) {
   await expect(page).toHaveURL(/\?draft=1&parent=[0-9a-f-]{36}$/i, {
     timeout: 30_000,
   });
+  const draftPageId = new URL(page.url()).pathname.split("/").at(-1)!;
   await page.getByLabel("页面标题").fill(title);
   await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "共享", exact: true }).click();
   await page.getByRole("button", { name: "发布到 Wiki" }).click();
-  await expect(page).toHaveURL(/\/wiki\/[0-9a-f-]{36}$/i, {
+  await expect(page).toHaveURL(new RegExp(`/wiki/${draftPageId}$`, "i"), {
     timeout: 15_000,
   });
 }
@@ -751,6 +752,7 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
       await dragHandle.dragTo(diningRow, {
         targetPosition: { x: 40, y: 2 },
       });
+      await expect(page.getByText("页面顺序已更新")).toBeVisible();
 
       const childLinks = page
         .getByRole("region", { name: "子页面" })

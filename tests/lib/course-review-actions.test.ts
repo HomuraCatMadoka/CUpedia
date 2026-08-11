@@ -1308,6 +1308,32 @@ describe("getCourseProfessorStats", () => {
 });
 
 describe("getCourseEnrollmentHistory", () => {
+  it("vacancy 缺失时保留开课记录并返回未知已选人数", async () => {
+    queueRows([
+      {
+        academicYear: "2026-27",
+        term: "Term 1",
+        classCode: "CSCI5120",
+        component: "LEC",
+        quota: 60,
+        vacancy: null,
+        instructors: ["Professor CHENG James"],
+        capturedAt: new Date("2026-08-06T00:00:00Z"),
+      },
+    ]);
+
+    await expect(getCourseEnrollmentHistory("CSCI5120")).resolves.toEqual([
+      {
+        academicYear: "2026-27",
+        term: "Term 1",
+        section: null,
+        enrolled: null,
+        quota: 60,
+        instructors: ["Professor CHENG James"],
+      },
+    ]);
+  });
+
   it("按班别分别返回主组件人数，避免重复计算导修课", async () => {
     const capturedAt = new Date("2026-07-13T00:00:00Z");
     queueRows([
@@ -1731,6 +1757,27 @@ describe("getCourses（学科筛选 #267）", () => {
     expect(offset()).toHaveBeenCalledWith(48);
   });
 
+  it("页码超出范围时回到最后一页", async () => {
+    queueRows([{ total: 60 }], [{ ...COURSE }], [], []);
+
+    const result = await getCourses({ page: 999 });
+
+    expect(result.page).toBe(2);
+    expect(result.courses).toHaveLength(1);
+    expect(offset()).toHaveBeenCalledOnce();
+    expect(offset()).toHaveBeenCalledWith(48);
+  });
+
+  it("非有限页码不会传入数据库 offset", async () => {
+    queueRows([{ total: 60 }], [{ ...COURSE }], [], []);
+
+    const result = await getCourses({ page: Number.POSITIVE_INFINITY });
+
+    expect(result.page).toBe(1);
+    expect(offset()).toHaveBeenCalledOnce();
+    expect(offset()).toHaveBeenCalledWith(0);
+  });
+
   it("支持按最新评价和评价人数排序", async () => {
     queueRows([{ total: 1 }], [{ ...COURSE }], [], []);
     await getCourses({ sort: "latest" });
@@ -1746,12 +1793,20 @@ describe("getCourses（学科筛选 #267）", () => {
     expect(sqlText(ratingCountOrder)).not.toContain("nulls last");
   });
 
-  it("返回最后评论时间，不混入评分时间", async () => {
+  it("分别返回最后评论时间和最近评价时间", async () => {
     const latestReview = new Date("2026-07-19T12:30:00.000Z");
+    const latestRating = new Date("2026-07-20T08:15:00.000Z");
     queueRows(
       [{ total: 1 }],
       [{ ...COURSE }],
-      [{ code: COURSE.code, avg: "4.5", cnt: 2 }],
+      [
+        {
+          code: COURSE.code,
+          avg: "4.5",
+          cnt: 2,
+          latestAt: latestRating,
+        },
+      ],
       [{ code: COURSE.code, cnt: 1, latestAt: latestReview }],
     );
 
@@ -1762,6 +1817,7 @@ describe("getCourses（学科筛选 #267）", () => {
       ratingCount: 2,
       reviewCount: 1,
       latestCommentAt: latestReview.toISOString(),
+      latestEvaluationAt: latestRating.toISOString(),
     });
   });
 });

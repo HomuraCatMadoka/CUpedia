@@ -61,6 +61,8 @@ export function ProfessorDirectoryFilters({
   );
   const [query, setQuery] = useState(initialQuery ?? "");
   const [options, setOptions] = useState<ProfessorDirectorySearchOption[]>([]);
+  const [searchError, setSearchError] = useState("");
+  const [searchAttempt, setSearchAttempt] = useState(0);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [searching, startSearch] = useTransition();
   const searchRequest = useRef(0);
@@ -115,20 +117,33 @@ export function ProfessorDirectoryFilters({
             value,
             department || undefined,
           );
-          if (request === searchRequest.current) setOptions(matches);
+          if (request === searchRequest.current) {
+            setOptions(matches);
+            setSearchError("");
+          }
         } catch {
-          if (request === searchRequest.current) setOptions([]);
+          if (request === searchRequest.current) {
+            setOptions([]);
+            setSearchError("搜索失败，请重试");
+          }
         }
       });
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [department, query]);
+  }, [department, query, searchAttempt]);
+
+  function retrySearch() {
+    searchRequest.current += 1;
+    setSearchError("");
+    setSearchAttempt((attempt) => attempt + 1);
+  }
 
   function updateProfessorQuery(value: string) {
     searchRequest.current += 1;
     filterState.current.query = value;
     setQuery(value);
     setOptions([]);
+    setSearchError("");
     setSuggestionsOpen(Boolean(value.trim()));
   }
 
@@ -165,7 +180,7 @@ export function ProfessorDirectoryFilters({
               setSuggestionsOpen(false);
             }
           }}
-          className="relative overflow-visible rounded-none bg-transparent p-0 [&_[data-slot=command-input-wrapper]]:p-0 [&_[data-slot=input-group]]:h-12 [&_[data-slot=input-group]]:rounded-xl [&_[data-slot=input-group]]:bg-background"
+          className="relative overflow-visible rounded-none bg-transparent p-0 [&_[data-slot=command-input-wrapper]]:p-0 [&_[data-slot=input-group]]:h-[3.125rem]! [&_[data-slot=input-group]]:rounded-xl [&_[data-slot=input-group]]:bg-background"
         >
           <CommandInput
             aria-label="搜索教授"
@@ -180,13 +195,25 @@ export function ProfessorDirectoryFilters({
             onKeyDown={(event) => {
               if (event.key === "Escape") setSuggestionsOpen(false);
             }}
-            className="h-auto"
+            className="h-auto text-base"
           />
           {suggestionsOpen ? (
             <CommandList className="absolute inset-x-0 top-[calc(100%+0.25rem)] z-20 max-h-64 rounded-xl border bg-popover p-1 shadow-md">
               <div aria-live="polite">
                 <CommandEmpty>
-                  {searching ? "搜索中…" : "没有匹配的教授"}
+                  {searching ? (
+                    "搜索中…"
+                  ) : searchError ? (
+                    <button
+                      type="button"
+                      onClick={retrySearch}
+                      className="min-h-11 rounded-md px-3 underline underline-offset-4"
+                    >
+                      搜索失败，点击重试
+                    </button>
+                  ) : (
+                    "没有匹配的教授"
+                  )}
                 </CommandEmpty>
               </div>
               {options.map((option) => (

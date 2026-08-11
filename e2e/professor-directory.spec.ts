@@ -256,11 +256,15 @@ test.afterAll(async () => {
 test("ignores a stale department filter instead of showing an empty directory", async ({
   page,
 }) => {
-  await page.goto("/professors?department=department-that-no-longer-exists");
+  await page.goto(
+    "/professors?q=%20%20&department=department-that-no-longer-exists",
+  );
 
   await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
     2,
   );
+  await expect(page.getByText(/全部 \d+ 位教授/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "清除筛选" })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "按学系或学院筛选" }),
   ).toContainText("全部学系");
@@ -387,6 +391,58 @@ test("shows three professor cards in one row on mobile", async ({ page }) => {
     items.map((item) => Math.round(item.getBoundingClientRect().top)),
   );
   expect(new Set(cardTops).size).toBe(1);
+});
+
+test("scrolls the professor course picker on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto(`/professors/${PUBLIC_ID}`);
+  await page.getByRole("button", { name: /查看全部 \d+ 门并搜索课程/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "选择课程评价" });
+  const results = dialog
+    .getByRole("heading", { name: "目前收录" })
+    .locator("../..")
+    .locator("..");
+
+  await expect
+    .poll(() =>
+      results.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    )
+    .toBeGreaterThan(0);
+
+  await results.hover();
+  await page.mouse.wheel(0, 800);
+  await expect
+    .poll(() => results.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
+test("mobile professor search matches course search without triggering iOS focus zoom", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 851 });
+
+  await page.goto("/courses");
+  const courseSearch = page.getByRole("searchbox", { name: "搜索课程" });
+  const courseSearchMetrics = await courseSearch.evaluate((element) => ({
+    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+    height: element.getBoundingClientRect().height,
+  }));
+
+  await page.goto("/professors");
+  const professorSearch = page.getByRole("combobox", { name: "搜索教授" });
+  const professorSearchMetrics = await professorSearch.evaluate((element) => ({
+    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+    height: element
+      .closest('[data-slot="input-group"]')!
+      .getBoundingClientRect().height,
+  }));
+
+  expect(professorSearchMetrics.fontSize).toBeGreaterThanOrEqual(16);
+  expect(professorSearchMetrics.fontSize).toBe(courseSearchMetrics.fontSize);
+  expect(professorSearchMetrics.height).toBe(courseSearchMetrics.height);
 });
 
 test("searches a professor, opens the card, and binds a course review", async ({

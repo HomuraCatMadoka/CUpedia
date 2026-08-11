@@ -3,7 +3,7 @@ import { Client } from "pg";
 import { randomUUID } from "node:crypto";
 import { loginAsAdmin } from "./helpers/auth";
 import { PAGE_IDS } from "../scripts/seed-data";
-import { wikiPageUrl } from "./helpers/wiki";
+import { waitForHydratedWikiEditor, wikiPageUrl } from "./helpers/wiki";
 
 /**
  * Wiki editor reliability and conflict handling.
@@ -95,11 +95,14 @@ async function updatePageAsLegacyDeployment(pageId: string) {
 
 /** Focus the editor and type a marker into the first block, then confirm dirty. */
 async function typeMarker(page: Page, marker: string) {
-  const editor = page.locator('[role="textbox"]').first();
-  await expect(editor).toBeVisible();
+  const editor = await waitForHydratedWikiEditor(page);
   await editor.click();
   await page.keyboard.type(" " + marker);
-  await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+    "data-autosave-status",
+    /unsaved|saving/,
+    { timeout: 5_000 },
+  );
 }
 
 test.describe("#94 editor reliability", () => {
@@ -109,8 +112,7 @@ test.describe("#94 editor reliability", () => {
 
   test("autosave shows 已保存 after debounce", async ({ page }) => {
     await page.goto(`/wiki/${PAGE_IDS.welcome}`);
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
 
     const marker = "autosave-" + Date.now();
     await editor.click();
@@ -148,7 +150,7 @@ test.describe("#94 editor reliability", () => {
   }) => {
     const pageId = await insertPageWithMicrosecondTimestamp();
     await page.goto(`/wiki/${pageId}`);
-    await expect(page.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(page);
 
     await updatePageAsLegacyDeployment(pageId);
     await typeMarker(page, `new-client-${Date.now()}`);
@@ -163,13 +165,16 @@ test.describe("#94 editor reliability", () => {
     page,
   }) => {
     await page.goto(`/wiki/${PAGE_IDS.campusLife}`);
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
 
     const marker = `navigation-flush-${Date.now()}`;
     await editor.click();
     await page.keyboard.type(` ${marker}`);
-    await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      /unsaved|saving/,
+      { timeout: 5_000 },
+    );
 
     await page
       .getByRole("link", { name: "Welcome to CUpedia", exact: true })
@@ -183,13 +188,16 @@ test.describe("#94 editor reliability", () => {
 
   test("Cmd/Ctrl+S triggers a save", async ({ page }) => {
     await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
-    const editor = page.locator('[role="textbox"]').first();
-    await expect(editor).toBeVisible();
+    const editor = await waitForHydratedWikiEditor(page);
 
     const marker = "cmd-s-" + Date.now();
     await editor.click();
     await page.keyboard.type(" " + marker);
-    await expect(page.getByText("未保存")).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByTestId("wiki-editor-shell")).toHaveAttribute(
+      "data-autosave-status",
+      /unsaved|saving/,
+      { timeout: 5_000 },
+    );
 
     const mod = process.platform === "darwin" ? "Meta" : "Control";
     await page.keyboard.press(`${mod}+s`);
@@ -234,7 +242,7 @@ test.describe("#96 edit conflict merge flow", () => {
     const pageA = await ctxA.newPage();
     await loginAsAdmin(pageA);
     await pageA.goto(`/wiki/${CONFLICT_PAGE_ID}`);
-    await expect(pageA.locator('[role="textbox"]').first()).toBeVisible();
+    await waitForHydratedWikiEditor(pageA);
 
     const ctxB = await browser.newContext();
     const pageB = await ctxB.newPage();

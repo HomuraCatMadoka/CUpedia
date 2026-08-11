@@ -390,6 +390,8 @@
     "linkSelector": ":scope",
     "nameSelector": ".pp-name",
     "groupHeadingSelector": "h2",
+    "enrichProfiles": true,
+    "profileImageSelector": ".content-2col-image.profile-image img",
     "minimumEntries": 28
   },
   {
@@ -417,6 +419,8 @@
     "nameSelector": "td:first-child",
     "emailSelector": "td:nth-child(4)",
     "groupHeadingSelector": "h3",
+    "enrichProfiles": true,
+    "profileImageSelector": ".field-name-body .col-md-5 img",
     "minimumEntries": 24
   },
   {
@@ -430,6 +434,8 @@
     "nameSelector": "td:first-child",
     "emailSelector": "td:nth-child(4)",
     "groupHeadingSelector": "h3",
+    "enrichProfiles": true,
+    "profileImageSelector": ".field-name-body .col-md-5 img",
     "minimumEntries": 17
   },
   {
@@ -443,6 +449,8 @@
     "nameSelector": "td:first-child",
     "emailSelector": "td:nth-child(4)",
     "groupHeadingSelector": "h3",
+    "enrichProfiles": true,
+    "profileImageSelector": ".field-name-body .col-md-5 img",
     "minimumEntries": 6
   },
   {
@@ -524,6 +532,7 @@
     "titleSelector": ".staff_title",
     "enrichProfiles": true,
     "profileEmailSelector": ".people_info a[href^='mailto:']",
+    "profileImageSelector": ".people_info img",
     "minimumEntries": 50
   },
   {
@@ -571,13 +580,11 @@
     "organisationUrls": [
       "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
     ],
-    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/full-time-staff/",
-    "entrySelector": ".staff-card",
-    "linkSelector": ".research-area > a[href]",
-    "nameSelector": ".staff-title h4",
-    "titleSelector": ".staff-title .sub-title",
-    "emailSelector": ".meta-block.mail",
-    "imageSelector": ".staff-img img",
+    "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?paged=1&type=457&max_posts=-1",
+    "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+    "adapter": "eng_staff_api",
+    "allowedAppointmentKinds": ["regular"],
+    "sourceIdentityHost": "www.eng.cuhk.edu.hk",
     "minimumEntries": 12
   },
   {
@@ -585,13 +592,10 @@
     "organisationUrls": [
       "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
     ],
-    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/adjunct-professors/",
-    "entrySelector": ".staff-card",
-    "linkSelector": ".research-area > a[href]",
-    "nameSelector": ".staff-title h4",
-    "titleSelector": ".staff-title .sub-title",
-    "emailSelector": ".meta-block.mail",
-    "imageSelector": ".staff-img img",
+    "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?positions=adjunct-professors&paged=1&type=457&max_posts=-1",
+    "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+    "adapter": "eng_staff_api",
+    "sourceIdentityHost": "www.eng.cuhk.edu.hk",
     "appointmentOverride": "adjunct",
     "minimumEntries": 3
   },
@@ -600,13 +604,10 @@
     "organisationUrls": [
       "https://research.cuhk.edu.hk/en/organisations/department-of-english/"
     ],
-    "directoryUrl": "https://www.eng.cuhk.edu.hk/people/academic-staff/emeritus-professors/",
-    "entrySelector": ".staff-card",
-    "linkSelector": ".research-area > a[href]",
-    "nameSelector": ".staff-title h4",
-    "titleSelector": ".staff-title .sub-title",
-    "emailSelector": ".meta-block.mail",
-    "imageSelector": ".staff-img img",
+    "directoryUrl": "https://eng.cuhk.edu.hk/wp-content/themes/cuhk-arts-sub/api_staffs.php?positions=emeritus-professors&paged=1&type=457&max_posts=-1",
+    "sourceUrl": "https://eng.cuhk.edu.hk/people/academic-staff/",
+    "adapter": "eng_staff_api",
+    "sourceIdentityHost": "www.eng.cuhk.edu.hk",
     "appointmentOverride": "emeritus",
     "minimumEntries": 1
   },
@@ -653,6 +654,8 @@
     "nameSelector": ".people-link h5 a",
     "titleSelector": "h6",
     "emailSelector": "a[href^='mailto:']",
+    "enrichProfiles": true,
+    "profileImageSelector": "main .elementor-widget-image img",
     "minimumEntries": 25,
     "minimumVerifiedProfiles": 20
   },
@@ -741,6 +744,8 @@
     "nameSelector": "h5.normal",
     "titleSelector": ".col-block p",
     "emailSelector": "a[href^='mailto:']",
+    "enrichProfiles": true,
+    "profileImageSelector": ".col-sm-2.offset-4 img",
     "minimumEntries": 30,
     "minimumVerifiedProfiles": 7
   },
@@ -817,6 +822,8 @@
     "linkSelector": ".staff_name a",
     "nameSelector": ".staff_name a",
     "titleSelector": ".staff_post",
+    "enrichProfiles": true,
+    "profileImageSelector": ".staff_image img",
     "minimumEntries": 25,
     "minimumVerifiedProfiles": 10
   },
@@ -832,6 +839,8 @@
     "titleSelector": ".elementor-widget-text-editor .elementor-widget-container",
     "enrichProfiles": true,
     "profileEmailSelector": "a[href^='mailto:']",
+    "profileImageSelector": "meta[property='og:image']",
+    "profileImageAttribute": "content",
     "minimumEntries": 12,
     "minimumVerifiedProfiles": 10
   },

@@ -499,6 +499,7 @@ function MobileFilterDrawer({
   const [open, setOpen] = useState(false);
   const [selectedCredits, setSelectedCredits] = useState(credits ?? "");
   const [selectedLevel, setSelectedLevel] = useState(level ?? "");
+  const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hasActiveFilters = open
     ? Boolean(selectedCredits || selectedLevel)
@@ -514,12 +515,15 @@ function MobileFilterDrawer({
 
   function selectCredits(value: string) {
     setSelectedCredits(value);
-    onApply(value, selectedLevel);
   }
 
   function selectLevel(value: string) {
     setSelectedLevel(value);
-    onApply(selectedCredits, value);
+  }
+
+  function apply() {
+    onApply(selectedCredits, selectedLevel);
+    setOpen(false);
   }
 
   return (
@@ -547,6 +551,7 @@ function MobileFilterDrawer({
           <Drawer.Backdrop className="fixed inset-0 z-40 bg-black/30 opacity-100 backdrop-blur-[1px] transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0 md:hidden" />
           <Drawer.Viewport className="pointer-events-none fixed inset-0 z-50 flex items-end overflow-hidden md:hidden">
             <Drawer.Popup
+              initialFocus={closeRef}
               finalFocus={triggerRef}
               className="pointer-events-auto w-full translate-y-0 rounded-t-3xl bg-background shadow-2xl outline-none transition-transform duration-300 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full"
             >
@@ -556,6 +561,13 @@ function MobileFilterDrawer({
                   <Drawer.Title className="text-lg font-semibold tracking-tight">
                     筛选课程
                   </Drawer.Title>
+                  <Drawer.Close
+                    ref={closeRef}
+                    className="ml-auto flex size-11 touch-manipulation items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                    aria-label="关闭课程筛选"
+                  >
+                    <XIcon aria-hidden="true" className="size-4" />
+                  </Drawer.Close>
                 </div>
 
                 <div className="space-y-6 px-4 pt-5">
@@ -571,6 +583,15 @@ function MobileFilterDrawer({
                     options={LEVEL_OPTIONS}
                     onChange={selectLevel}
                   />
+                </div>
+                <div className="px-4 pt-6">
+                  <button
+                    type="button"
+                    onClick={apply}
+                    className="flex min-h-11 w-full touch-manipulation items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                  >
+                    查看课程
+                  </button>
                 </div>
               </Drawer.Content>
             </Drawer.Popup>

@@ -10,7 +10,16 @@ import {
   waitFor,
 } from "@testing-library/react";
 
-const { push, refresh, signOut, toastError } = vi.hoisted(() => ({
+const {
+  achievementNoticeCount,
+  markAchievementNoticesSeen,
+  push,
+  refresh,
+  signOut,
+  toastError,
+} = vi.hoisted(() => ({
+  achievementNoticeCount: vi.fn(),
+  markAchievementNoticesSeen: vi.fn(),
   push: vi.fn(),
   refresh: vi.fn(),
   signOut: vi.fn(),
@@ -18,6 +27,7 @@ const { push, refresh, signOut, toastError } = vi.hoisted(() => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/courses",
   useRouter: () => ({ push, refresh }),
 }));
 
@@ -38,6 +48,11 @@ vi.mock("@/hooks/use-mounted", () => ({
 
 vi.mock("sonner", () => ({
   toast: { error: toastError },
+}));
+
+vi.mock("@/lib/achievement-notice-actions", () => ({
+  getAchievementNoticeCount: achievementNoticeCount,
+  markAchievementNoticesSeen,
 }));
 
 vi.mock("@/components/layout/command-search", () => ({
@@ -69,11 +84,14 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 }));
 
 import { Navbar } from "@/components/layout/navbar";
+import { AchievementNoticesSeen } from "@/components/courses/achievement-notices-seen";
 
 describe("Navbar sign-out", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     signOut.mockResolvedValue({ error: null });
+    achievementNoticeCount.mockResolvedValue(0);
+    markAchievementNoticesSeen.mockResolvedValue(undefined);
   });
 
   it("navigates to login and refreshes after sign-out succeeds", async () => {
@@ -118,5 +136,38 @@ describe("Navbar sign-out", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "我的成就" }));
     expect(push).toHaveBeenCalledWith("/courses/achievements");
+  });
+
+  it("shows achievement notices on the visible account trigger", async () => {
+    achievementNoticeCount.mockResolvedValue(3);
+
+    render(<Navbar />);
+
+    expect(
+      (await screen.findByTestId("achievement-notice-badge")).textContent,
+    ).toBe("3");
+  });
+
+  it("clears the badge after achievement notices are marked as seen", async () => {
+    let finishMarking!: () => void;
+    achievementNoticeCount.mockResolvedValue(3);
+    markAchievementNoticesSeen.mockReturnValue(
+      new Promise<void>((resolve) => {
+        finishMarking = resolve;
+      }),
+    );
+
+    render(
+      <>
+        <Navbar />
+        <AchievementNoticesSeen unseenCount={3} />
+      </>,
+    );
+
+    await screen.findByTestId("achievement-notice-badge");
+    await act(async () => finishMarking());
+    await waitFor(() =>
+      expect(screen.queryByTestId("achievement-notice-badge")).toBeNull(),
+    );
   });
 });

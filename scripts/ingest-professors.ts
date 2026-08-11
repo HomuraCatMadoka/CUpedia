@@ -39,7 +39,7 @@ async function main() {
       component: string;
       section: string;
       quota: number;
-      vacancy: number;
+      vacancy: number | null;
       instructors: string[];
     }>;
   };
