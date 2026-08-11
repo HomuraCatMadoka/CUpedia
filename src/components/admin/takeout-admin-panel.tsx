@@ -179,7 +179,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
+            className="rounded-full bg-[var(--canteen-ink)] text-white hover:bg-[var(--canteen-ink)]/90"
           >
             添加外卖店
           </Button>

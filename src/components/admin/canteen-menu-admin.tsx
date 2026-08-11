@@ -342,7 +342,7 @@ export function CanteenMenuAdmin({
   return (
     <CanteenShell
       eyebrow={
-        <Link href={listPath} className="hover:text-[var(--canteen-purple)]">
+        <Link href={listPath} className="hover:text-[var(--canteen-link)]">
           ← 食堂列表
         </Link>
       }
@@ -402,7 +402,7 @@ export function CanteenMenuAdmin({
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
+            className="rounded-full bg-[var(--canteen-ink)] text-white hover:bg-[var(--canteen-ink)]/90"
           >
             添加菜品
           </Button>
@@ -451,7 +451,7 @@ export function CanteenMenuAdmin({
                     <MealPeriodsBadges periods={item.mealPeriods} />
                     <MenuItemPrice
                       pricing={item.pricing}
-                      className="font-mono text-sm text-[var(--canteen-purple)]"
+                      className="font-mono text-sm text-[var(--canteen-link)]"
                     />
                   </div>
                   <div className="mt-2">
