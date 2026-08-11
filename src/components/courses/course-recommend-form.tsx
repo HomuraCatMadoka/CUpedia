@@ -23,7 +23,6 @@ import {
   getCourseProfessorStats,
   getCourseReviews,
   isCourseProfessorOptional,
-  listRecommendedCourses,
   type CourseProfessorStats,
   type CourseRatingState,
   type CourseReviewView,
@@ -64,8 +63,6 @@ export function CourseRecommendForm({
   const [courseState, setCourseState] = useState<LoadedCourseState | null>(
     null,
   );
-  const [recommends, setRecommends] =
-    useState<RecommendedCourseItem[]>(initialRecommends);
   const [expandedCode, setExpandedCode] = useState<string | null>(null);
   const [reviewsByCode, setReviewsByCode] = useState<
     Record<string, CourseReviewView[]>
@@ -74,16 +71,12 @@ export function CourseRecommendForm({
   const [searching, startSearch] = useTransition();
   const [loadingCourse, startLoadCourse] = useTransition();
   const [loadingReviews, startLoadReviews] = useTransition();
-  const [refreshingList, startRefreshList] = useTransition();
-  const [pendingEditorScroll, setPendingEditorScroll] = useState(false);
+  const [refreshingReviews, startRefreshReviews] = useTransition();
+  const pendingEditorScroll = useRef(false);
   const searchRequest = useRef(0);
   const loadRequest = useRef(0);
   const reviewRequest = useRef(0);
   const initialHydrated = useRef(false);
-
-  useEffect(() => {
-    setRecommends(initialRecommends);
-  }, [initialRecommends]);
 
   function handleCourseQuery(value: string) {
     const request = ++searchRequest.current;
@@ -149,22 +142,19 @@ export function CourseRecommendForm({
     setCourseOptions([]);
   }
 
-  function refreshRecommends() {
-    startRefreshList(async () => {
+  function refreshExpandedReviews() {
+    if (!expandedCode) return;
+    const code = expandedCode;
+    startRefreshReviews(async () => {
       try {
-        const next = await listRecommendedCourses();
-        setRecommends(next);
-        if (expandedCode) {
-          const reviews = await getCourseReviews(expandedCode);
-          setReviewsByCode((current) => ({
-            ...current,
-            [expandedCode]: reviews,
-          }));
-        }
+        const reviews = await getCourseReviews(code);
+        setReviewsByCode((current) => ({
+          ...current,
+          [code]: reviews,
+        }));
       } catch {
-        // Keep the current board if refresh fails.
+        // Keep the current reviews if refresh fails.
       }
-      router.refresh();
     });
   }
 
@@ -199,17 +189,17 @@ export function CourseRecommendForm({
       router.push("/login");
       return;
     }
-    setPendingEditorScroll(true);
+    pendingEditorScroll.current = true;
     loadCourse({ code: item.code, title: item.title });
   }
 
   useEffect(() => {
-    if (!pendingEditorScroll || !selectedCourse || !courseState) return;
-    setPendingEditorScroll(false);
+    if (!pendingEditorScroll.current || !selectedCourse || !courseState) return;
+    pendingEditorScroll.current = false;
     document
       .getElementById("course-recommend-editor")
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [pendingEditorScroll, selectedCourse, courseState]);
+  }, [selectedCourse, courseState]);
 
   useEffect(() => {
     if (!initialCode || initialHydrated.current || !isAuthenticated) return;
@@ -337,17 +327,17 @@ export function CourseRecommendForm({
             <div className="border-t pt-4">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <p className="text-sm font-medium">推荐课程</p>
-                {refreshingList && (
+                {refreshingReviews && (
                   <span className="text-xs text-muted-foreground">更新中…</span>
                 )}
               </div>
-              {recommends.length === 0 ? (
+              {initialRecommends.length === 0 ? (
                 <p className="py-3 text-sm text-muted-foreground">
                   还没有推荐，提交测评后会出现在这里
                 </p>
               ) : (
                 <ul className="divide-y border-y">
-                  {recommends.map((item) => {
+                  {initialRecommends.map((item) => {
                     const expanded = expandedCode === item.code;
                     const reviews = reviewsByCode[item.code];
                     return (
@@ -443,7 +433,7 @@ export function CourseRecommendForm({
             isAuthenticated={isAuthenticated}
             professorOptional={courseState.professorOptional}
             defaultEditing
-            onSubmitted={refreshRecommends}
+            onSubmitted={refreshExpandedReviews}
           />
         </div>
       ) : null}
