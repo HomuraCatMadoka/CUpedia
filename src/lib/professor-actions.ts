@@ -1,6 +1,16 @@
 "use server";
 
-import { and, asc, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  ne,
+  or,
+  sql,
+  type SQLWrapper,
+} from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db } from "@/db";
@@ -38,6 +48,26 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const STAFF_PERSON_ID = sql.raw('"staff_people"."id"');
 const COURSE_CODE = sql.raw('"courses"."code"');
+
+function selectableDirectoryOrganisation(
+  organisationId: SQLWrapper,
+  organisationType: SQLWrapper,
+) {
+  return sql<boolean>`(
+    ${organisationType} in ('department', 'school')
+    or (
+      ${organisationType} = 'faculty'
+      and not exists (
+        select 1
+        from ${staffOrganisations} child_organisation
+        where child_organisation.faculty_id = ${organisationId}
+          and child_organisation.id <> ${organisationId}
+          and child_organisation.is_current = true
+          and child_organisation.organisation_type in ('department', 'school')
+      )
+    )
+  )`;
+}
 
 export type ProfessorDirectoryFilter = {
   q?: string;
@@ -183,7 +213,10 @@ const getDirectoryCorpus = unstable_cache(
           where affiliation.person_id = ${STAFF_PERSON_ID}
             and affiliation.is_current = true
             and organisation.is_current = true
-            and organisation.organisation_type in ('department', 'school')
+            and ${selectableDirectoryOrganisation(
+              sql.raw("organisation.id"),
+              sql.raw("organisation.organisation_type"),
+            )}
         ), array[]::text[])`,
         rating: sql<number | null>`(
           select avg(rating.score)::double precision
@@ -210,7 +243,7 @@ const getDirectoryCorpus = unstable_cache(
       .innerJoin(staffPeople, eq(courseInstructors.personId, staffPeople.id))
       .where(eq(staffPeople.identityKind, "official"))
       .orderBy(asc(staffPeople.canonicalName), asc(courseInstructors.publicId)),
-  ["professor-directory-corpus-v5"],
+  ["professor-directory-corpus-v6"],
   { revalidate: 300, tags: ["professor-catalog"] },
 );
 
@@ -237,15 +270,15 @@ const getDirectoryDepartments = unstable_cache(
           eq(staffPeople.identityKind, "official"),
           eq(staffOrganisationAffiliations.isCurrent, true),
           eq(staffOrganisations.isCurrent, true),
-          inArray(staffOrganisations.organisationType, [
-            "department",
-            "school",
-          ]),
+          selectableDirectoryOrganisation(
+            staffOrganisations.id,
+            staffOrganisations.organisationType,
+          ),
         ),
       )
       .groupBy(staffOrganisations.id, staffOrganisations.name)
       .orderBy(asc(staffOrganisations.name), asc(staffOrganisations.id)),
-  ["professor-directory-departments-v1"],
+  ["professor-directory-departments-v2"],
   { revalidate: 300, tags: ["professor-catalog"] },
 );
 

@@ -22,6 +22,7 @@ const SCHOOL_PUBLIC_ID = "9c9ecaeb-3ff4-4d28-8bb1-f77d86f9b9d7";
 const SCHOOL_ID = "e2e-professor-directory-school";
 const SCHOOL_PROFESSOR_NAME = "Professor E2E SCHOOL";
 const SCHOOL_PROFILE_URL = "https://www.pharmacy.cuhk.edu.hk/people/e2e-school";
+const UNITARY_FACULTY_ID = "e2e-professor-directory-unitary-faculty";
 const DIRECTORY_PERSON_IDS = [PERSON_ID, SECOND_PERSON_ID, SCHOOL_PERSON_ID];
 const DIRECTORY_ORGANISATION_IDS = [
   DEPARTMENT_ID,
@@ -29,6 +30,7 @@ const DIRECTORY_ORGANISATION_IDS = [
   MULTI_DEPARTMENT_ID,
   SCHOOL_ID,
   FACULTY_ID,
+  UNITARY_FACULTY_ID,
 ];
 
 async function withDatabase(
@@ -53,7 +55,8 @@ test.beforeAll(async () => {
          ($2, 'Department of Computer Science and Engineering', 'department', 'https://www.cse.cuhk.edu.hk/e2e', 'e2e'),
          ($3, 'Department of Mathematics', 'department', 'https://www.math.cuhk.edu.hk/e2e', 'e2e'),
          ($4, 'Department of Statistics and Data Science', 'department', 'https://www.sta.cuhk.edu.hk/e2e', 'e2e'),
-         ($5, 'School of Pharmacy', 'school', 'https://www.pharmacy.cuhk.edu.hk/e2e', 'e2e')
+         ($5, 'School of Pharmacy', 'school', 'https://www.pharmacy.cuhk.edu.hk/e2e', 'e2e'),
+         ($6, 'Faculty of Law', 'faculty', 'https://www.law.cuhk.edu.hk/e2e', 'e2e')
        on conflict (id) do update set name = excluded.name`,
       [
         FACULTY_ID,
@@ -61,6 +64,7 @@ test.beforeAll(async () => {
         SECOND_DEPARTMENT_ID,
         MULTI_DEPARTMENT_ID,
         SCHOOL_ID,
+        UNITARY_FACULTY_ID,
       ],
     );
     await client.query(
@@ -104,7 +108,7 @@ test.beforeAll(async () => {
          (person_id, organisation_id, source_url)
        values
          ($1, $2, $7), ($1, $3, $7), ($1, $4, $7),
-         ($5, $6, $8), ($9, $10, $11)
+         ($5, $6, $8), ($9, $10, $11), ($9, $12, $13)
        on conflict (person_id, organisation_id) do update set is_current = true`,
       [
         PERSON_ID,
@@ -118,6 +122,8 @@ test.beforeAll(async () => {
         SCHOOL_PERSON_ID,
         SCHOOL_ID,
         SCHOOL_PROFILE_URL,
+        UNITARY_FACULTY_ID,
+        "https://www.law.cuhk.edu.hk/e2e",
       ],
     );
     await client.query(
@@ -337,6 +343,28 @@ test("includes professors affiliated only with a school", async ({ page }) => {
     page.getByRole("heading", { name: SCHOOL_PROFESSOR_NAME }),
   ).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`department=${SCHOOL_ID}`));
+});
+
+test("includes a unitary faculty but excludes faculties with teaching units", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto("/professors");
+  await page.getByRole("button", { name: "按学系或学院筛选" }).click();
+  const organisationSearch = page.getByPlaceholder("搜索学系或学院…");
+
+  await organisationSearch.fill("Faculty of Engineering");
+  await expect(
+    page.getByRole("option", { name: /Faculty of Engineering/ }),
+  ).toHaveCount(0);
+
+  await organisationSearch.fill("Faculty of Law");
+  await page.getByRole("option", { name: /Faculty of Law/ }).click();
+  await expect(page).toHaveURL(new RegExp(`department=${UNITARY_FACULTY_ID}`));
+  await expect(page.getByText("找到 1 位教授")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: SCHOOL_PROFESSOR_NAME }),
+  ).toBeVisible();
 });
 
 test("applies sorting and review filters immediately", async ({ page }) => {
