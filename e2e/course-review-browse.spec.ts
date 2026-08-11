@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+import { expectBottomSheetViewportToStayStill } from "./helpers/mobile-bottom-sheet";
+
 test("ignores a whitespace-only course query", async ({ page }) => {
   await page.goto("/courses?q=%20%20");
 
@@ -34,44 +36,19 @@ test("mobile drawers do not scroll their viewport while opening", async ({
   await page.setViewportSize({ width: 393, height: 667 });
   await page.goto("/courses");
 
-  async function expectStableOpening(
-    triggerName: string,
-    viewportTestId: string,
-    closeName: string,
-  ) {
-    const maximumScrollTop = page.evaluate(async (testId) => {
-      const deadline = performance.now() + 400;
-      let maximum = 0;
-
-      while (performance.now() < deadline) {
-        const viewport = document.querySelector<HTMLElement>(
-          `[data-testid="${testId}"]`,
-        );
-        maximum = Math.max(maximum, viewport?.scrollTop ?? 0);
-        await new Promise(requestAnimationFrame);
-      }
-
-      return maximum;
-    }, viewportTestId);
-
-    await page.getByRole("button", { name: triggerName, exact: true }).click();
-    expect(await maximumScrollTop).toBeLessThanOrEqual(1);
-    await page.getByRole("button", { name: closeName }).click();
-  }
-
-  await expectStableOpening(
-    "全部学科",
-    "mobile-subject-picker-viewport",
-    "关闭学科选择",
-  );
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "全部学科",
+    viewportTestId: "mobile-subject-picker-viewport",
+    closeName: "关闭学科选择",
+  });
 
   await page.reload();
 
-  await expectStableOpening(
-    "筛选",
-    "mobile-course-filter-viewport",
-    "关闭课程筛选",
-  );
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "筛选",
+    viewportTestId: "mobile-course-filter-viewport",
+    closeName: "关闭课程筛选",
+  });
 });
 
 test("#266 public browse, search, credits filter, and detail", async ({

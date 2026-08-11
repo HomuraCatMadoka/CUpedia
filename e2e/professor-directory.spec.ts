@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { expect, test } from "@playwright/test";
 
 import { loginWithPassword } from "./helpers/auth";
+import { expectBottomSheetViewportToStayStill } from "./helpers/mobile-bottom-sheet";
 
 const PERSON_ID = "e2e-professor-directory-person";
 const PUBLIC_ID = "7a7ca8c9-1dd2-4b06-8ff9-d55b64d7f7b5";
@@ -398,35 +399,17 @@ test("mobile directory drawers do not scroll their viewport while opening", asyn
 }) => {
   await page.setViewportSize({ width: 393, height: 667 });
 
-  async function expectStableOpening(
-    triggerName: string,
-    viewportTestId: string,
-  ) {
-    await page.goto("/professors");
-    const maximumScrollTop = page.evaluate(async (testId) => {
-      const deadline = performance.now() + 400;
-      let maximum = 0;
-
-      while (performance.now() < deadline) {
-        const viewport = document.querySelector<HTMLElement>(
-          `[data-testid="${testId}"]`,
-        );
-        maximum = Math.max(maximum, viewport?.scrollTop ?? 0);
-        await new Promise(requestAnimationFrame);
-      }
-
-      return maximum;
-    }, viewportTestId);
-
-    await page.getByRole("button", { name: triggerName, exact: true }).click();
-    expect(await maximumScrollTop).toBeLessThanOrEqual(1);
-  }
-
-  await expectStableOpening(
-    "按学系或学院筛选",
-    "mobile-professor-department-viewport",
-  );
-  await expectStableOpening("筛选", "mobile-professor-filter-viewport");
+  await page.goto("/professors");
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "按学系或学院筛选",
+    viewportTestId: "mobile-professor-department-viewport",
+    closeName: "关闭学系选择",
+  });
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "筛选",
+    viewportTestId: "mobile-professor-filter-viewport",
+    closeName: "关闭教授筛选",
+  });
 });
 
 test("scrolls the professor course picker on mobile", async ({ page }) => {
