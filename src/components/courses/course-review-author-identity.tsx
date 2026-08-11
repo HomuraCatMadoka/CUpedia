@@ -8,6 +8,7 @@ import type { EquippedPersonTitle } from "@/lib/user-avatar";
 type CourseReviewAuthorIdentityProps = {
   nickname: string | null;
   showcaseId: string | null;
+  hideAvatar?: boolean;
 } & (
   | {
       achievements: PublicAchievementSummary[];
@@ -28,7 +29,7 @@ type CourseReviewAuthorIdentityProps = {
 export function CourseReviewAuthorIdentity(
   props: CourseReviewAuthorIdentityProps,
 ) {
-  const { nickname, showcaseId } = props;
+  const { nickname, showcaseId, hideAvatar = false } = props;
 
   if (props.variant !== "reply") {
     const sortedAchievements = [...props.achievements].sort((a, b) => {
@@ -39,7 +40,7 @@ export function CourseReviewAuthorIdentity(
         a.badgeCode.localeCompare(b.badgeCode)
       );
     });
-    const avatar = (
+    const avatar = hideAvatar ? null : (
       <AchievementAvatar
         image={props.avatarUrl}
         size="sm"
@@ -51,17 +52,19 @@ export function CourseReviewAuthorIdentity(
         data-comment-level="review"
         className="flex min-w-0 items-start gap-3"
       >
-        {showcaseId ? (
-          <Link
-            aria-label={`${nickname ?? "用户"}的成就橱窗`}
-            className="shrink-0"
-            href={`/courses/achievements/showcase/${showcaseId}`}
-          >
-            {avatar}
-          </Link>
-        ) : (
-          avatar
-        )}
+        {avatar ? (
+          showcaseId ? (
+            <Link
+              aria-label={`${nickname ?? "用户"}的成就橱窗`}
+              className="shrink-0"
+              href={`/courses/achievements/showcase/${showcaseId}`}
+            >
+              {avatar}
+            </Link>
+          ) : (
+            avatar
+          )
+        ) : null}
         <div className="min-w-0 pt-0.5">
           <span className="block truncate">
             {showcaseId && nickname ? (

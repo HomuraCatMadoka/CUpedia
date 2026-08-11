@@ -132,6 +132,8 @@ export function CourseReviewEditor({
   isAuthenticated,
   professorOptional,
   requiredProfessor,
+  defaultEditing = false,
+  onSubmitted,
 }: {
   code: string;
   ratingState: CourseRatingState;
@@ -140,11 +142,14 @@ export function CourseReviewEditor({
   isAuthenticated: boolean;
   professorOptional: boolean;
   requiredProfessor?: ProfessorOption;
+  /** Open the write form immediately (e.g. standalone /rec page). */
+  defaultEditing?: boolean;
+  onSubmitted?: () => void;
 }) {
   const router = useRouter();
   const { ensureContributorSetup } = useContributorSetup();
   const isPublished = ratingState.lastScore !== null;
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(defaultEditing);
   const [content, setContent] = useState(ratingState.lastContent);
   const [academicYear, setAcademicYear] = useState(
     ratingState.lastAcademicYear ?? "",
@@ -256,6 +261,7 @@ export function CourseReviewEditor({
           });
         }
         setEditing(false);
+        onSubmitted?.();
         router.refresh();
       } catch (e) {
         const message = e instanceof Error ? e.message : "提交失败";

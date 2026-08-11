@@ -126,12 +126,14 @@ export function CourseReviewCard({
   isAuthenticated,
   targetReplyId,
   targetReplyOffset,
+  hideAvatar = false,
 }: {
   code: string;
   review: CourseReviewView;
   isAuthenticated: boolean;
   targetReplyId?: string;
   targetReplyOffset?: number;
+  hideAvatar?: boolean;
 }) {
   const router = useRouter();
   const [deleting, startDelete] = useTransition();
@@ -174,6 +176,7 @@ export function CourseReviewCard({
             avatarUrl={review.authorAvatarUrl}
             equippedTitle={review.authorEquippedTitle}
             achievementLabel="作者成就"
+            hideAvatar={hideAvatar}
           />
         </div>
         <span className="text-xs text-muted-foreground">
