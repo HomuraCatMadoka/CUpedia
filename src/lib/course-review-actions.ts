@@ -729,6 +729,44 @@ export async function getCourses(
   };
 }
 
+export type RecommendedCourseItem = {
+  code: string;
+  title: string;
+  ratingCount: number;
+  ratedByMe: boolean;
+};
+
+/** Courses that already have ratings — the live board for /rec. */
+export async function listRecommendedCourses(): Promise<RecommendedCourseItem[]> {
+  const user = await getOptionalUser();
+  const rows = await db
+    .select({
+      code: courses.code,
+      title: courses.title,
+      ratingCount: count(courseRatings.id),
+      ratedByMe: user
+        ? sql<boolean>`bool_or(${courseRatings.userId} = ${user.id})`
+        : sql<boolean>`false`,
+      latestAt: sql<Date>`max(${courseRatings.createdAt})`,
+    })
+    .from(courseRatings)
+    .innerJoin(courses, eq(courses.code, courseRatings.courseCode))
+    .groupBy(courses.code, courses.title)
+    .orderBy(
+      desc(sql`max(${courseRatings.createdAt})`),
+      desc(count(courseRatings.id)),
+      asc(courses.code),
+    )
+    .limit(100);
+
+  return rows.map((row) => ({
+    code: row.code,
+    title: row.title,
+    ratingCount: Number(row.ratingCount),
+    ratedByMe: Boolean(row.ratedByMe),
+  }));
+}
+
 /** Subject codes, database-backed display names, and course counts. */
 export async function getSubjects(): Promise<
   { subject: string; name: string | null; count: number }[]
@@ -1692,6 +1730,7 @@ export async function submitCourseReview(
   revalidatePath(`/courses/${course.code}`);
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
+  revalidatePath("/rec");
   revalidatePath("/professors");
   updateTag("professor-catalog");
   for (const professor of selectedProfessorsInOrder) {
@@ -1784,6 +1823,7 @@ export async function deleteCourseReviewSubmission(
   revalidatePath("/courses");
   revalidatePath("/courses/my-reviews");
   revalidatePath("/courses/achievements");
+  revalidatePath("/rec");
   revalidatePath("/professors");
   revalidatePath("/professors/[publicId]", "page");
   updateTag("professor-catalog");
