@@ -393,6 +393,42 @@ test("shows three professor cards in one row on mobile", async ({ page }) => {
   expect(new Set(cardTops).size).toBe(1);
 });
 
+test("mobile directory drawers do not scroll their viewport while opening", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 667 });
+
+  async function expectStableOpening(
+    triggerName: string,
+    viewportTestId: string,
+  ) {
+    await page.goto("/professors");
+    const maximumScrollTop = page.evaluate(async (testId) => {
+      const deadline = performance.now() + 400;
+      let maximum = 0;
+
+      while (performance.now() < deadline) {
+        const viewport = document.querySelector<HTMLElement>(
+          `[data-testid="${testId}"]`,
+        );
+        maximum = Math.max(maximum, viewport?.scrollTop ?? 0);
+        await new Promise(requestAnimationFrame);
+      }
+
+      return maximum;
+    }, viewportTestId);
+
+    await page.getByRole("button", { name: triggerName, exact: true }).click();
+    expect(await maximumScrollTop).toBeLessThanOrEqual(1);
+  }
+
+  await expectStableOpening(
+    "按学系或学院筛选",
+    "mobile-professor-department-viewport",
+  );
+  await expectStableOpening("筛选", "mobile-professor-filter-viewport");
+});
+
 test("scrolls the professor course picker on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 });
   await page.goto(`/professors/${PUBLIC_ID}`);

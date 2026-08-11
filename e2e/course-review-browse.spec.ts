@@ -12,6 +12,68 @@ test("ignores a whitespace-only course query", async ({ page }) => {
   );
 });
 
+test("mobile filter sheet keeps its heading inside the visual viewport", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 360 });
+  await page.goto("/courses");
+
+  await page.getByRole("button", { name: "筛选" }).click();
+
+  const dialogHeading = page.getByRole("heading", { name: "筛选课程" });
+  await expect(dialogHeading).toBeAttached();
+
+  const box = await dialogHeading.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+});
+
+test("mobile drawers do not scroll their viewport while opening", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 667 });
+  await page.goto("/courses");
+
+  async function expectStableOpening(
+    triggerName: string,
+    viewportTestId: string,
+    closeName: string,
+  ) {
+    const maximumScrollTop = page.evaluate(async (testId) => {
+      const deadline = performance.now() + 400;
+      let maximum = 0;
+
+      while (performance.now() < deadline) {
+        const viewport = document.querySelector<HTMLElement>(
+          `[data-testid="${testId}"]`,
+        );
+        maximum = Math.max(maximum, viewport?.scrollTop ?? 0);
+        await new Promise(requestAnimationFrame);
+      }
+
+      return maximum;
+    }, viewportTestId);
+
+    await page.getByRole("button", { name: triggerName, exact: true }).click();
+    expect(await maximumScrollTop).toBeLessThanOrEqual(1);
+    await page.getByRole("button", { name: closeName }).click();
+  }
+
+  await expectStableOpening(
+    "全部学科",
+    "mobile-subject-picker-viewport",
+    "关闭学科选择",
+  );
+
+  await page.reload();
+
+  await expectStableOpening(
+    "筛选",
+    "mobile-course-filter-viewport",
+    "关闭课程筛选",
+  );
+});
+
 test("#266 public browse, search, credits filter, and detail", async ({
   page,
 }) => {

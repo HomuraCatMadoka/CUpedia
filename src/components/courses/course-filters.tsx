@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Drawer } from "@base-ui/react/drawer";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CheckIcon,
@@ -24,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import {
   Popover,
   PopoverContent,
@@ -371,7 +371,6 @@ function MobileSubjectPicker({
   onSelect: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = subjects.find((option) => option.subject === subject);
 
@@ -408,81 +407,60 @@ function MobileSubjectPicker({
         />
       </button>
 
-      <Drawer.Root open={open} onOpenChange={setOpen} swipeDirection="down">
-        <Drawer.Portal>
-          <Drawer.Backdrop className="fixed inset-0 z-40 bg-black/30 opacity-100 backdrop-blur-[1px] transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0 md:hidden" />
-          <Drawer.Viewport className="pointer-events-none fixed inset-0 z-50 flex items-end overflow-hidden md:hidden">
-            <Drawer.Popup
-              initialFocus={closeRef}
-              finalFocus={triggerRef}
-              className="pointer-events-auto max-h-[82dvh] w-full translate-y-0 rounded-t-3xl bg-background shadow-2xl outline-none transition-transform duration-300 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full"
-            >
-              <Drawer.Content className="flex max-h-[82dvh] flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
-                <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-border" />
-                <div className="flex min-h-14 shrink-0 items-center border-b px-4">
-                  <Drawer.Title className="text-lg font-semibold tracking-tight">
-                    选择学科
-                  </Drawer.Title>
-                  <Drawer.Close
-                    ref={closeRef}
-                    className="ml-auto flex size-11 touch-manipulation items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    aria-label="关闭学科选择"
+      <MobileBottomSheet
+        open={open}
+        onOpenChange={setOpen}
+        finalFocus={triggerRef}
+        title="选择学科"
+        closeLabel="关闭学科选择"
+        viewportTestId="mobile-subject-picker-viewport"
+      >
+        <Command className="min-h-0 rounded-none! bg-background p-3 pt-2">
+          <CommandInput placeholder="搜索学科代码或名称…" />
+          <CommandList className="max-h-[58dvh] overscroll-contain">
+            <CommandEmpty>没有匹配的学科</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="全部学科"
+                onSelect={() => pick("")}
+                className="min-h-12 rounded-lg px-3"
+              >
+                <CheckIcon
+                  className={cn(
+                    "mr-2 size-4",
+                    subject ? "opacity-0" : "opacity-100",
+                  )}
+                />
+                <span className="text-muted-foreground">全部学科</span>
+              </CommandItem>
+              {subjects.map((option) => (
+                <CommandItem
+                  key={option.subject}
+                  value={`${option.subject} ${option.name ?? ""}`}
+                  onSelect={() => pick(option.subject)}
+                  className="grid min-h-12 grid-cols-[1rem_4.25rem_minmax(0,1fr)] rounded-lg px-3 [&>svg:last-child]:hidden"
+                >
+                  <CheckIcon
+                    className={cn(
+                      "size-4",
+                      subject === option.subject ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span className="font-mono text-sm font-medium">
+                    {option.subject}
+                  </span>
+                  <span
+                    className="truncate text-muted-foreground"
+                    title={option.name ?? undefined}
                   >
-                    <XIcon aria-hidden="true" className="size-4" />
-                  </Drawer.Close>
-                </div>
-                <Command className="min-h-0 rounded-none! bg-background p-3 pt-2">
-                  <CommandInput placeholder="搜索学科代码或名称…" />
-                  <CommandList className="max-h-[58dvh] overscroll-contain">
-                    <CommandEmpty>没有匹配的学科</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        value="全部学科"
-                        onSelect={() => pick("")}
-                        className="min-h-12 rounded-lg px-3"
-                      >
-                        <CheckIcon
-                          className={cn(
-                            "mr-2 size-4",
-                            subject ? "opacity-0" : "opacity-100",
-                          )}
-                        />
-                        <span className="text-muted-foreground">全部学科</span>
-                      </CommandItem>
-                      {subjects.map((option) => (
-                        <CommandItem
-                          key={option.subject}
-                          value={`${option.subject} ${option.name ?? ""}`}
-                          onSelect={() => pick(option.subject)}
-                          className="grid min-h-12 grid-cols-[1rem_4.25rem_minmax(0,1fr)] rounded-lg px-3 [&>svg:last-child]:hidden"
-                        >
-                          <CheckIcon
-                            className={cn(
-                              "size-4",
-                              subject === option.subject
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          <span className="font-mono text-sm font-medium">
-                            {option.subject}
-                          </span>
-                          <span
-                            className="truncate text-muted-foreground"
-                            title={option.name ?? undefined}
-                          >
-                            {option.name ?? "—"}
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </Drawer.Content>
-            </Drawer.Popup>
-          </Drawer.Viewport>
-        </Drawer.Portal>
-      </Drawer.Root>
+                    {option.name ?? "—"}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </MobileBottomSheet>
     </>
   );
 }
@@ -499,7 +477,6 @@ function MobileFilterDrawer({
   const [open, setOpen] = useState(false);
   const [selectedCredits, setSelectedCredits] = useState(credits ?? "");
   const [selectedLevel, setSelectedLevel] = useState(level ?? "");
-  const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const hasActiveFilters = open
     ? Boolean(selectedCredits || selectedLevel)
@@ -546,58 +523,40 @@ function MobileFilterDrawer({
         筛选
       </button>
 
-      <Drawer.Root open={open} onOpenChange={changeOpen} swipeDirection="down">
-        <Drawer.Portal>
-          <Drawer.Backdrop className="fixed inset-0 z-40 bg-black/30 opacity-100 backdrop-blur-[1px] transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0 md:hidden" />
-          <Drawer.Viewport className="pointer-events-none fixed inset-0 z-50 flex items-end overflow-hidden md:hidden">
-            <Drawer.Popup
-              initialFocus={closeRef}
-              finalFocus={triggerRef}
-              className="pointer-events-auto w-full translate-y-0 rounded-t-3xl bg-background shadow-2xl outline-none transition-transform duration-300 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full"
-            >
-              <Drawer.Content className="pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-                <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-border" />
-                <div className="flex min-h-14 items-center border-b px-4">
-                  <Drawer.Title className="text-lg font-semibold tracking-tight">
-                    筛选课程
-                  </Drawer.Title>
-                  <Drawer.Close
-                    ref={closeRef}
-                    className="ml-auto flex size-11 touch-manipulation items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    aria-label="关闭课程筛选"
-                  >
-                    <XIcon aria-hidden="true" className="size-4" />
-                  </Drawer.Close>
-                </div>
-
-                <div className="space-y-6 px-4 pt-5">
-                  <MobileChoiceGroup
-                    label="学分"
-                    value={selectedCredits}
-                    options={CREDIT_OPTIONS}
-                    onChange={selectCredits}
-                  />
-                  <MobileChoiceGroup
-                    label="课程等级"
-                    value={selectedLevel}
-                    options={LEVEL_OPTIONS}
-                    onChange={selectLevel}
-                  />
-                </div>
-                <div className="px-4 pt-6">
-                  <button
-                    type="button"
-                    onClick={apply}
-                    className="flex min-h-11 w-full touch-manipulation items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                  >
-                    查看课程
-                  </button>
-                </div>
-              </Drawer.Content>
-            </Drawer.Popup>
-          </Drawer.Viewport>
-        </Drawer.Portal>
-      </Drawer.Root>
+      <MobileBottomSheet
+        open={open}
+        onOpenChange={changeOpen}
+        finalFocus={triggerRef}
+        title="筛选课程"
+        closeLabel="关闭课程筛选"
+        height="viewport"
+        bottomPadding="none"
+        viewportTestId="mobile-course-filter-viewport"
+      >
+        <div className="min-h-0 flex-1 touch-pan-y space-y-6 overflow-y-auto overscroll-contain px-4 py-5">
+          <MobileChoiceGroup
+            label="学分"
+            value={selectedCredits}
+            options={CREDIT_OPTIONS}
+            onChange={selectCredits}
+          />
+          <MobileChoiceGroup
+            label="课程等级"
+            value={selectedLevel}
+            options={LEVEL_OPTIONS}
+            onChange={selectLevel}
+          />
+        </div>
+        <div className="shrink-0 border-t bg-background px-4 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={apply}
+            className="flex min-h-11 w-full touch-manipulation items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            查看课程
+          </button>
+        </div>
+      </MobileBottomSheet>
     </>
   );
 }
