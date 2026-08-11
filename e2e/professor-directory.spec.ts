@@ -2,6 +2,7 @@ import { Client } from "pg";
 import { expect, test } from "@playwright/test";
 
 import { loginWithPassword } from "./helpers/auth";
+import { expectBottomSheetViewportToStayStill } from "./helpers/mobile-bottom-sheet";
 
 const PERSON_ID = "e2e-professor-directory-person";
 const PUBLIC_ID = "7a7ca8c9-1dd2-4b06-8ff9-d55b64d7f7b5";
@@ -391,6 +392,24 @@ test("shows three professor cards in one row on mobile", async ({ page }) => {
     items.map((item) => Math.round(item.getBoundingClientRect().top)),
   );
   expect(new Set(cardTops).size).toBe(1);
+});
+
+test("mobile directory drawers do not scroll their viewport while opening", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 667 });
+
+  await page.goto("/professors");
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "按学系或学院筛选",
+    viewportTestId: "mobile-professor-department-viewport",
+    closeName: "关闭学系选择",
+  });
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "筛选",
+    viewportTestId: "mobile-professor-filter-viewport",
+    closeName: "关闭教授筛选",
+  });
 });
 
 test("scrolls the professor course picker on mobile", async ({ page }) => {
