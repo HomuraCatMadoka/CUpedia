@@ -25,20 +25,33 @@ TARGETS = {
 
 
 def main() -> None:
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     for name, url in TARGETS.items():
         qr = qrcode.QRCode(
             version=None,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=16,
-            border=2,
+            border=4,
         )
         qr.add_data(url)
         qr.make(fit=True)
         img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
         img = img.resize((1024, 1024), Image.Resampling.NEAREST)
+
         path = OUT_DIR / f"{name}.png"
-        img.save(path, format="PNG", optimize=True)
-        decoded = [d.data.decode() for d in decode(Image.open(path))]
+        tmp_path = OUT_DIR / f".{name}.png.tmp"
+        img.save(tmp_path, format="PNG", optimize=True)
+        try:
+            with Image.open(tmp_path) as saved:
+                decoded = [d.data.decode() for d in decode(saved)]
+            if decoded != [url]:
+                raise RuntimeError(
+                    f"{name}: decode mismatch, expected {[url]!r}, got {decoded!r}"
+                )
+            tmp_path.replace(path)
+        except Exception:
+            tmp_path.unlink(missing_ok=True)
+            raise
         print(f"{name}: {path.name} -> {decoded}")
 
 
