@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { QrCode } from "lucide-react";
+import { ExternalLink, QrCode } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function CanteenQrBadge({
@@ -63,33 +63,50 @@ export function CanteenQrBadge({
 export function CanteenQrAction({
   src,
   canteenName,
+  orderingUrl,
 }: {
   src: string | null;
   canteenName: string;
+  orderingUrl?: string | null;
 }) {
-  if (!src) return null;
+  if (!src && !orderingUrl) return null;
 
   return (
-    <>
-      <CanteenQrBadge
-        src={src}
-        canteenName={canteenName}
-        className="hidden sm:flex"
-      />
-      <details className="canteen-mobile-qr sm:hidden">
-        <summary>
-          <QrCode className="size-5" aria-hidden />
-          <span className="canteen-mobile-qr-label">扫码下单</span>
-        </summary>
-        <div className="canteen-mobile-qr-sheet">
+    <div className="flex items-center gap-2">
+      {orderingUrl ? (
+        <a
+          href={orderingUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-[var(--canteen-ink)] shadow-sm transition hover:bg-black/[0.03]"
+        >
+          <ExternalLink className="size-4" aria-hidden />
+          官方点餐
+        </a>
+      ) : null}
+      {src ? (
+        <>
           <CanteenQrBadge
             src={src}
             canteenName={canteenName}
-            caption="扫码下单"
+            className="hidden sm:flex"
           />
-        </div>
-      </details>
-    </>
+          <details className="canteen-mobile-qr sm:hidden">
+            <summary>
+              <QrCode className="size-5" aria-hidden />
+              <span className="canteen-mobile-qr-label">二维码</span>
+            </summary>
+            <div className="canteen-mobile-qr-sheet">
+              <CanteenQrBadge
+                src={src}
+                canteenName={canteenName}
+                caption="官方点餐"
+              />
+            </div>
+          </details>
+        </>
+      ) : null}
+    </div>
   );
 }
 

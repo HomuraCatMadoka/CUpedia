@@ -644,6 +644,12 @@ payment component 还会依服务器响应选择动态 URL、二维码或创建�
 
 ### PINME：最终提交按钮前后
 
+2026-08-13 补充运行时验证：后端使用官方 bundle 的签名算法调用匿名
+`GET /api/account/token`，再以返回的临时 bearer token 调用只读
+`GET /api/home/product-menus`。NA `store_id=5500` 实时返回 HTTP 200、业务
+`code=200`，包含 21 个分组和 164 个商品。该链路不依赖 Cloudflare
+浏览器 cookie；token 仅应存在于单次同步内存中，不进入数据库、日志或快照哈希。
+
 不创建真实订单时可验证到：
 
 - 原始门店/桌号/takeout route 是否可达；

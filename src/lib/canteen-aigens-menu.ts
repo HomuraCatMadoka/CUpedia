@@ -6,14 +6,17 @@ import type { MenuSyncInput } from "./canteen-types";
 
 const EXCLUDED_CATEGORIES = new Set(["飲品", "零食", "外賣包裝"]);
 
-export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
+export function buildAigensMenuSyncPayload(
+  input: unknown,
+  externalStoreId: string,
+): MenuSyncInput {
   const products = parseAigensMenuProducts(input, {
     excludedCategories: EXCLUDED_CATEGORIES,
   });
 
   const items = assignMealPeriodSortOrder(
     products.map((product) => ({
-      externalKey: `${product.backendId}:${product.periods[0]}`,
+      externalKey: `${product.backendId}:${[...product.periods].sort().at(0) ?? "allday"}`,
       name: product.name,
       priceOptions: [
         {
@@ -31,8 +34,12 @@ export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
   );
 
   return {
-    source: "aigens:102830",
+    source: `aigens:${externalStoreId}`,
     takeOverLegacyItems: true,
     items,
   };
+}
+
+export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
+  return buildAigensMenuSyncPayload(input, "102830");
 }

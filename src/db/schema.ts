@@ -1282,6 +1282,94 @@ export const canteens = pgTable("canteens", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const CANTEEN_MENU_SOURCE_PROVIDERS = [
+  "aigens",
+  "ichef",
+  "pinme",
+  "qmai",
+] as const;
+export type CanteenMenuSourceProvider =
+  (typeof CANTEEN_MENU_SOURCE_PROVIDERS)[number];
+
+export type CanteenMenuSourceConfig = Record<string, unknown>;
+
+export const canteenMenuSources = pgTable(
+  "canteen_menu_sources",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    provider: text("provider").$type<CanteenMenuSourceProvider>().notNull(),
+    externalStoreId: text("external_store_id").notNull(),
+    config: jsonb("config")
+      .$type<CanteenMenuSourceConfig>()
+      .notNull()
+      .default({}),
+    enabled: boolean("enabled").notNull().default(true),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+    lastSnapshotHash: text("last_snapshot_hash"),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("canteen_menu_sources_canteen_uidx").on(table.canteenId),
+    uniqueIndex("canteen_menu_sources_provider_store_uidx").on(
+      table.provider,
+      table.externalStoreId,
+    ),
+    index("canteen_menu_sources_enabled_idx").on(table.enabled),
+    check(
+      "canteen_menu_sources_provider_chk",
+      sql`${table.provider} in ('aigens', 'ichef', 'pinme', 'qmai')`,
+    ),
+    check(
+      "canteen_menu_sources_store_id_chk",
+      sql`length(trim(${table.externalStoreId})) between 1 and 200`,
+    ),
+  ],
+);
+
+export const CANTEEN_ORDERING_HANDOFF_PROVIDERS = [
+  "aigens",
+  "ichef",
+  "pinme",
+  "qmai",
+  "external",
+] as const;
+export type CanteenOrderingHandoffProvider =
+  (typeof CANTEEN_ORDERING_HANDOFF_PROVIDERS)[number];
+
+export const canteenOrderingHandoffs = pgTable(
+  "canteen_ordering_handoffs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    canteenId: uuid("canteen_id")
+      .notNull()
+      .references(() => canteens.id, { onDelete: "cascade" }),
+    provider: text("provider")
+      .$type<CanteenOrderingHandoffProvider>()
+      .notNull(),
+    url: text("url").notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("canteen_ordering_handoffs_canteen_uidx").on(table.canteenId),
+    check(
+      "canteen_ordering_handoffs_provider_chk",
+      sql`${table.provider} in ('aigens', 'ichef', 'pinme', 'qmai', 'external')`,
+    ),
+    check(
+      "canteen_ordering_handoffs_url_chk",
+      sql`length(trim(${table.url})) between 1 and 2000`,
+    ),
+  ],
+);
+
 export const canteenMenuItems = pgTable(
   "canteen_menu_items",
   {
@@ -1318,12 +1406,34 @@ export const canteenMenuItems = pgTable(
   ],
 );
 
-export const canteensRelations = relations(canteens, ({ many }) => ({
+export const canteensRelations = relations(canteens, ({ many, one }) => ({
   menuItems: many(canteenMenuItems),
+  menuSource: one(canteenMenuSources),
+  orderingHandoff: one(canteenOrderingHandoffs),
   importDrafts: many(menuImportDrafts),
   danmakuMessages: many(canteenDanmakuMessages),
   shameVotes: many(canteenShameVotes),
 }));
+
+export const canteenMenuSourcesRelations = relations(
+  canteenMenuSources,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [canteenMenuSources.canteenId],
+      references: [canteens.id],
+    }),
+  }),
+);
+
+export const canteenOrderingHandoffsRelations = relations(
+  canteenOrderingHandoffs,
+  ({ one }) => ({
+    canteen: one(canteens, {
+      fields: [canteenOrderingHandoffs.canteenId],
+      references: [canteens.id],
+    }),
+  }),
+);
 
 export const canteenMenuItemsRelations = relations(
   canteenMenuItems,

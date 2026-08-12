@@ -8,6 +8,8 @@ import {
   sessions,
   wikiLinks,
   canteens,
+  canteenMenuSources,
+  canteenOrderingHandoffs,
   canteenMenuItems,
   canteenMenuItemPrices,
   canteenDishVotes,
@@ -100,6 +102,27 @@ describe("schema", () => {
     expect(cols.externalKey).toBeDefined();
     expect(cols.isAvailable).toBeDefined();
     expect(cols.lastSyncedAt).toBeDefined();
+  });
+
+  it("canteenMenuSources stores provider configuration and sync state", () => {
+    const cols = getTableColumns(canteenMenuSources);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.provider).toBeDefined();
+    expect(cols.externalStoreId).toBeDefined();
+    expect(cols.config).toBeDefined();
+    expect(cols.enabled).toBeDefined();
+    expect(cols.lastAttemptAt).toBeDefined();
+    expect(cols.lastSuccessAt).toBeDefined();
+    expect(cols.lastSnapshotHash).toBeDefined();
+    expect(cols.lastError).toBeDefined();
+  });
+
+  it("canteenOrderingHandoffs stores stable official ordering URLs", () => {
+    const cols = getTableColumns(canteenOrderingHandoffs);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.provider).toBeDefined();
+    expect(cols.url).toBeDefined();
+    expect(cols.enabled).toBeDefined();
   });
 
   it("canteenMenuItemPrices stores labelled minor-unit prices", () => {

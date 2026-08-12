@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { getCanteenById, getCanteenMenuItems } from "@/lib/canteen-actions";
+import {
+  getCanteenById,
+  getCanteenMenuItems,
+  getCanteenOrderingHandoff,
+} from "@/lib/canteen-actions";
 import {
   getMenuItemVoteCounts,
   getMyVotesForCanteen,
@@ -83,6 +87,7 @@ export default async function CanteenMenuPage({
     sessionUser,
     danmaku,
     danmakuViewer,
+    orderingHandoff,
   ] = await Promise.all([
     getCanteenMenuItems(id),
     getMenuItemVoteCounts(id).catch(softEmpty({})),
@@ -106,6 +111,9 @@ export default async function CanteenMenuPage({
           throw error;
         }),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
+    mock
+      ? Promise.resolve(null)
+      : getCanteenOrderingHandoff(id).catch(softEmpty(null)),
   ]);
   const currentUserId =
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
@@ -124,7 +132,13 @@ export default async function CanteenMenuPage({
       subtitle={canteen.location ?? undefined}
       announcement={canteen.announcement}
       className="canteen-detail-page"
-      action={<CanteenQrAction src={qrSrc} canteenName={canteen.name} />}
+      action={
+        <CanteenQrAction
+          src={qrSrc}
+          canteenName={canteen.name}
+          orderingUrl={orderingHandoff?.url}
+        />
+      }
       topContent={
         <DanmakuBanner
           initialMessages={danmaku}

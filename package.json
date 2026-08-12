@@ -23,6 +23,7 @@
     "audit:handbook": "node --import tsx scripts/audit-handbook.ts",
     "audit:handbook:spark": "node --import tsx scripts/handbook-reference.ts",
     "generate:handbook:spark": "node --import tsx scripts/generate-handbook-reference.ts",
+    "canteen:menu-source:set": "node --import tsx scripts/configure-canteen-menu-source.ts",
     "oracle:check": "node --import tsx scripts/oracle-check.ts",
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
     "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run",

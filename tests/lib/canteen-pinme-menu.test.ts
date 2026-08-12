@@ -1,0 +1,142 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildPinmeMenuSyncPayload,
+  createPinmeSignedParams,
+} from "@/lib/canteen-pinme-menu";
+import { fetchPinmeMenu } from "@/lib/canteen-menu-source-adapters";
+import { vi } from "vitest";
+
+describe("PINME menu adapter", () => {
+  it("creates deterministic signed anonymous token params", () => {
+    expect(Object.fromEntries(createPinmeSignedParams("5500", 123))).toEqual({
+      store_id: "5500",
+      ts: "123",
+      sign: "2602177AEB330578D1AB75735A3CFBBC",
+    });
+  });
+
+  it("normalizes groups, products and price variants", () => {
+    const result = buildPinmeMenuSyncPayload(
+      {
+        code: 200,
+        data: {
+          group: [
+            {
+              local_name: "粉麵",
+              start_time: "11:00",
+              end_time: "20:00",
+              products: [
+                {
+                  product_id: "425657",
+                  status: "1",
+                  local_name: "喇沙魚旦烏冬",
+                  prices: [
+                    {
+                      status: "1",
+                      takeout_price: "46.0000",
+                      productStandardItem: { local_name: "標準" },
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      },
+      "5500",
+    );
+    expect(result.source).toBe("pinme:5500");
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        externalKey: "425657",
+        name: "喇沙魚旦烏冬",
+        mealPeriods: ["lunch", "dinner"],
+        priceOptions: [
+          { label: null, amountMinor: 4600, currency: "HKD", sortOrder: 0 },
+        ],
+      }),
+    ]);
+  });
+
+  it("merges products repeated across menu groups by external identity", () => {
+    const product = {
+      product_id: "318774",
+      status: "1",
+      local_name: "小種鮮奶茶",
+      price: "18.0000",
+    };
+    const result = buildPinmeMenuSyncPayload(
+      {
+        code: 200,
+        data: {
+          group: [
+            {
+              local_name: "早餐",
+              start_time: "07:00",
+              end_time: "11:00",
+              products: [product],
+            },
+            {
+              local_name: "下午茶",
+              start_time: "14:00",
+              end_time: "18:00",
+              products: [product],
+            },
+          ],
+        },
+      },
+      "5500",
+    );
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        externalKey: "318774",
+        mealPeriods: ["breakfast", "lunch", "dinner"],
+      }),
+    );
+  });
+
+  it("keeps the anonymous token inside the two-request adapter", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ code: 200, data: { token: "temporary" } }),
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 200,
+            data: {
+              group: [
+                {
+                  local_name: "飯類",
+                  products: [
+                    {
+                      product_id: "1",
+                      status: "1",
+                      local_name: "叉燒飯",
+                      price: "38.0000",
+                    },
+                  ],
+                },
+              ],
+            },
+          }),
+        ),
+      );
+
+    const payload = await fetchPinmeMenu("5500", { fetchImpl });
+    expect(payload.items).toHaveLength(1);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(String(fetchImpl.mock.calls[0][0])).toContain("/api/account/token?");
+    expect(String(fetchImpl.mock.calls[1][0])).toContain(
+      "/api/home/product-menus?",
+    );
+    expect(
+      new Headers(fetchImpl.mock.calls[1][1]?.headers).get("Authorization"),
+    ).toBe("Bearer temporary");
+  });
+});
