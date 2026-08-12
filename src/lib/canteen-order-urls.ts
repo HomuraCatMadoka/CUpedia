@@ -12,6 +12,10 @@ const CANTEEN_ORDER_URLS: Record<string, string> = {
   "9539dbf3-3f22-4749-b532-e42357e0be96": "https://www.ebeneezers.com/",
   "Cafe Tolo":
     "https://meal.pin2eat.com/v2/package_store/pages/store/home?store_id=4899#index",
+  "CU CAFE":
+    "https://csd.order.place/home/store/112891?_aigens_source=scan&catMode=false&mode=prekiosk",
+  "The Green":
+    "https://meal.pin2eat.com/v2/package_store/pages/store/home?store_id=5581",
 };
 
 /** Ordering page URL for a canteen, or null when not configured. */
