@@ -135,11 +135,29 @@ describe("announcement admin actions", () => {
       ...baseInput,
       published: true,
       publishAt,
+      sendNotification: true,
     });
 
     expect(mocks.values).toHaveBeenCalledWith(
-      expect.objectContaining({ publishedAt: new Date(publishAt) }),
+      expect.objectContaining({
+        publishedAt: new Date(publishAt),
+        notifyOnPublish: false,
+      }),
     );
+  });
+
+  it("rejects a backdated schedule instead of using it as an immediate publication", async () => {
+    await expect(
+      createAnnouncement({
+        ...baseInput,
+        published: true,
+        publishAt: "2020-01-01T00:00:00.000Z",
+        sendNotification: true,
+      }),
+    ).rejects.toThrow("计划发布时间必须晚于当前时间");
+
+    expect(mocks.values).not.toHaveBeenCalled();
+    expect(mocks.execute).not.toHaveBeenCalled();
   });
 
   it("publishes an existing schedule immediately when its time is cleared", async () => {
@@ -239,7 +257,7 @@ describe("announcement admin actions", () => {
     expect(mocks.execute).not.toHaveBeenCalled();
   });
 
-  it("preserves and broadcasts a due schedule's pending first notification", async () => {
+  it("clears legacy pending notification state after a schedule becomes public", async () => {
     mocks.limit.mockResolvedValue([
       {
         publishedAt: new Date("2026-08-12T10:00:00Z"),
@@ -249,18 +267,6 @@ describe("announcement admin actions", () => {
         notificationSentAt: null,
       },
     ]);
-    mocks.returning
-      .mockReset()
-      .mockResolvedValueOnce([{ id: announcementId, title: "只修改标题" }])
-      .mockResolvedValueOnce([
-        {
-          id: announcementId,
-          title: "只修改标题",
-          actorId: "admin-1",
-          publishedAt: new Date("2026-08-12T10:00:00Z"),
-        },
-      ]);
-
     await updateAnnouncement(announcementId, {
       ...baseInput,
       title: "只修改标题",
@@ -268,8 +274,8 @@ describe("announcement admin actions", () => {
     });
 
     expect(mocks.set).toHaveBeenCalledWith(
-      expect.objectContaining({ notifyOnPublish: true }),
+      expect.objectContaining({ notifyOnPublish: false }),
     );
-    expect(mocks.execute).toHaveBeenCalledOnce();
+    expect(mocks.execute).not.toHaveBeenCalled();
   });
 });

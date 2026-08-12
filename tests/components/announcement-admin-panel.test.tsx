@@ -259,6 +259,24 @@ describe("AnnouncementAdminPanel", () => {
     expect(screen.getByRole("button", { name: "保存为草稿" })).toBeTruthy();
   });
 
+  it("does not offer notification delivery for a scheduled publication", () => {
+    render(
+      <AnnouncementAdminPanel announcements={[]} serverNow={SERVER_NOW} />,
+    );
+
+    fireEvent.change(screen.getByLabelText("标题"), {
+      target: { value: "排期公告" },
+    });
+    fireEvent.change(screen.getByLabelText("正文"), {
+      target: { value: "稍后自动显示" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发布…" }));
+    fireEvent.click(screen.getByRole("radio", { name: "定时发布" }));
+
+    expect(screen.getByLabelText("计划发布时间")).toBeTruthy();
+    expect(screen.queryByRole("checkbox", { name: /发送站内通知/ })).toBeNull();
+  });
+
   it("restores a selected announcement from the URL-backed initial id", () => {
     render(
       <AnnouncementAdminPanel

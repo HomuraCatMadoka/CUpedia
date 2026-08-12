@@ -475,7 +475,8 @@ export function AnnouncementAdminPanel({
           : null,
       expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
       published,
-      sendNotification: published && form.sendNotification,
+      sendNotification:
+        publicationMode === "immediate" && form.sendNotification,
     };
   }
 
@@ -982,7 +983,7 @@ export function AnnouncementAdminPanel({
                             publishAt:
                               value === "scheduled" ? current.publishAt : "",
                             sendNotification:
-                              value === "draft"
+                              value !== "immediate"
                                 ? false
                                 : current.sendNotification,
                           }))
@@ -1020,7 +1021,7 @@ export function AnnouncementAdminPanel({
             {!notificationAlreadySent &&
               !isAlreadyPublic &&
               selectedLifecycle !== "withdrawn" &&
-              form.publicationMode !== "draft" && (
+              form.publicationMode === "immediate" && (
                 <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
                   <input
                     type="checkbox"

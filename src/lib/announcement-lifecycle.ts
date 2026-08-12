@@ -56,17 +56,27 @@ export function resolveAnnouncementPublication(
 
 export function resolveAnnouncementNotificationIntent(
   existing: AnnouncementNotificationState,
-  input: { published: boolean; sendNotification: boolean },
+  input: {
+    published: boolean;
+    publishAt: Date | null;
+    sendNotification: boolean;
+  },
   now: Date,
 ): boolean {
   if (existing.notificationSentAt) return existing.notifyOnPublish;
+
+  // Without a background scheduler, only an announcement published now can
+  // create notification records. Future publication remains a visibility
+  // schedule and must not leave an undeliverable notification intent behind.
+  if (input.publishAt && input.publishAt > now) return false;
 
   const lifecycle = getAnnouncementLifecycle(existing, now);
   if (lifecycle === "draft" || lifecycle === "scheduled") {
     return input.published && input.sendNotification;
   }
-  if (lifecycle === "published") {
-    return input.published && existing.notifyOnPublish;
-  }
+  // Immediate publication delivers in the same transaction. A public record
+  // that still has no notification timestamp is stale scheduler-era state,
+  // not a deferred delivery to preserve during later edits.
+  if (lifecycle === "published") return false;
   return false;
 }
