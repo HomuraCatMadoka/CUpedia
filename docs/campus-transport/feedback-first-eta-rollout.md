@@ -10,7 +10,7 @@
 - `ArrivalObservation`、重建出的 `ArrivalEvent`、候选班次概率、不可变模型版本与各站 residual 修正均进入 PostgreSQL。
 - 首版学习器采用可解释的稳健经验贝叶斯 residual：中位数抵抗异常反馈，样本量通过 shrinkage 决定相对 cold-start prior 的权重；样本不足不发布局部修正。
 - 模型任务默认读取最近 28 天观测，按服务日期做时间前推 holdout；只有候选 MAE 改善且 P90 未明显退化时才标记为可审核，管理员确认后才原子切换 champion。
-- Vercel cron 每日香港时间 03:30 触发一次受 `CRON_SECRET` 保护的训练；也可运行 `pnpm campus-bus:train-model` 手动回放。
+- 灰度阶段只将匿名到站反馈写入 PostgreSQL，不配置 Vercel cron，也不会自动训练、晋升模型或修改前台预计。训练、审核与回滚代码先保留，待反馈覆盖达到要求后再启用；届时仍可运行 `pnpm campus-bus:train-model` 手动回放。
 - 匿名反馈全部保存；防滥用只按单向 hash 后的网络来源限制写入速率，默认每 10 分钟 12 次，不把正常的多人反馈或同车多条反馈直接删除。
 
 ## 当前进度（2026-08-11）
