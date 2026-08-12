@@ -1,0 +1,109 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  CameraRequestGate,
+  cameraPolicyFor,
+  deriveCameraPadding,
+  type ScreenRect,
+} from "@/lib/campus-map/camera-policy";
+
+const desktopMap: ScreenRect = {
+  top: 0,
+  right: 1440,
+  bottom: 900,
+  left: 0,
+};
+
+describe("campus map camera policy", () => {
+  it("derives right padding from a desktop side panel's actual overlap", () => {
+    expect(
+      deriveCameraPadding(desktopMap, {
+        top: 20,
+        right: 1420,
+        bottom: 880,
+        left: 1000,
+      }),
+    ).toEqual({ top: 24, right: 444, bottom: 24, left: 24 });
+  });
+
+  it("derives bottom padding from a mobile sheet without a breakpoint", () => {
+    const map = { top: 0, right: 390, bottom: 844, left: 0 };
+    expect(
+      deriveCameraPadding(map, {
+        top: 504,
+        right: 390,
+        bottom: 844,
+        left: 0,
+      }),
+    ).toEqual({ top: 24, right: 24, bottom: 364, left: 24 });
+  });
+
+  it("uses only the base safe gap for a panel outside the map", () => {
+    expect(
+      deriveCameraPadding(desktopMap, {
+        top: 0,
+        right: 1800,
+        bottom: 900,
+        left: 1500,
+      }),
+    ).toEqual({ top: 24, right: 24, bottom: 24, left: 24 });
+  });
+
+  it("clips a partially off-screen panel to the map before measuring", () => {
+    expect(
+      deriveCameraPadding(desktopMap, {
+        top: -50,
+        right: 1500,
+        bottom: 950,
+        left: 1200,
+      }),
+    ).toEqual({ top: 24, right: 264, bottom: 24, left: 24 });
+  });
+
+  it("preserves zoom for map clicks and sheet layout changes", () => {
+    expect(cameraPolicyFor("map-selection", desktopMap, null)?.zoom).toEqual({
+      kind: "preserve",
+    });
+    expect(cameraPolicyFor("sheet-layout", desktopMap, null)?.zoom).toEqual({
+      kind: "preserve",
+    });
+  });
+
+  it("caps zoom for search, deep links, and precise facilities", () => {
+    expect(cameraPolicyFor("search-selection", desktopMap, null)).toMatchObject(
+      {
+        zoom: { kind: "fit", maxZoom: 17.2 },
+        animate: true,
+      },
+    );
+    expect(cameraPolicyFor("deep-link", desktopMap, null)).toMatchObject({
+      zoom: { kind: "fit", maxZoom: 17.2 },
+      animate: false,
+    });
+    expect(
+      cameraPolicyFor("facility-selection", desktopMap, null)?.zoom,
+    ).toEqual({
+      kind: "fit",
+      maxZoom: 18.5,
+    });
+  });
+
+  it.each(["building-floor", "building-amenity", "building-query"] as const)(
+    "does not move the camera for %s",
+    (reason) => {
+      expect(cameraPolicyFor(reason, desktopMap, null)).toBeNull();
+    },
+  );
+
+  it("invalidates stale async camera requests", () => {
+    const gate = new CameraRequestGate();
+    const science = gate.begin();
+    const library = gate.begin();
+
+    expect(science.isCurrent()).toBe(false);
+    expect(library.isCurrent()).toBe(true);
+
+    gate.invalidate();
+    expect(library.isCurrent()).toBe(false);
+  });
+});
