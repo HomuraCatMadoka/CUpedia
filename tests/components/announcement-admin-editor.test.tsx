@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnnouncementAdminEditor } from "@/components/admin/announcement-admin-editor";
 import {
   EMPTY_ANNOUNCEMENT_FORM,
+  announcementToFormState,
   useAnnouncementAdminEditor,
 } from "@/components/admin/use-announcement-admin-editor";
 import type { AdminAnnouncement } from "@/lib/announcement-types";
@@ -74,7 +75,10 @@ function Harness({ onSubmit = vi.fn() }: { onSubmit?: () => void }) {
   );
 }
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("AnnouncementAdminEditor", () => {
   it("initializes values and owns dirty/reset presentation", () => {
@@ -102,6 +106,16 @@ describe("AnnouncementAdminEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存草稿" }));
 
     expect(onSubmit).toHaveBeenCalledOnce();
+  });
+
+  it("delegates mobile return and hides the editor", () => {
+    const view = render(<Harness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "返回公告列表" }));
+
+    expect(view.container.querySelector("form")?.className).toContain(
+      "hidden lg:block",
+    );
   });
 
   it("maps server errors to a field and focuses it", () => {
@@ -136,5 +150,73 @@ describe("AnnouncementAdminEditor", () => {
     const alert = screen.getByRole("alert");
     expect(alert.textContent).toBe("保存暂不可用");
     expect(document.activeElement).toBe(alert);
+  });
+});
+
+describe("announcementToFormState", () => {
+  it.each([
+    {
+      name: "scheduled",
+      announcement: {
+        ...selected,
+        priority: 50,
+        publishedAt: "2099-08-13T10:00:00.000Z",
+        expiresAt: "2099-08-14T10:00:00.000Z",
+        notifyOnPublish: true,
+      },
+      expected: {
+        priority: "50",
+        publicationMode: "scheduled",
+        hasPublishAt: true,
+        hasExpiresAt: true,
+        sendNotification: true,
+      },
+    },
+    {
+      name: "withdrawn",
+      announcement: {
+        ...selected,
+        publishedAt: "2026-08-10T10:00:00.000Z",
+        withdrawnAt: "2026-08-11T10:00:00.000Z",
+        expiresAt: "2026-08-12T10:00:00.000Z",
+        notifyOnPublish: true,
+      },
+      expected: {
+        priority: "10",
+        publicationMode: "draft",
+        hasPublishAt: false,
+        hasExpiresAt: false,
+        sendNotification: false,
+      },
+    },
+    {
+      name: "already notified",
+      announcement: {
+        ...selected,
+        publishedAt: "2026-08-10T10:00:00.000Z",
+        notificationSentAt: "2026-08-10T10:00:00.000Z",
+        notifyOnPublish: true,
+      },
+      expected: {
+        priority: "10",
+        publicationMode: "immediate",
+        hasPublishAt: true,
+        hasExpiresAt: false,
+        sendNotification: false,
+      },
+    },
+  ])("preserves $name lifecycle values", ({ announcement, expected }) => {
+    const form = announcementToFormState(
+      announcement,
+      new Date("2026-08-12T12:00:00.000Z"),
+    );
+
+    expect(form.title).toBe(announcement.title);
+    expect(form.content).toBe(announcement.content);
+    expect(form.priority).toBe(expected.priority);
+    expect(form.publicationMode).toBe(expected.publicationMode);
+    expect(Boolean(form.publishAt)).toBe(expected.hasPublishAt);
+    expect(Boolean(form.expiresAt)).toBe(expected.hasExpiresAt);
+    expect(form.sendNotification).toBe(expected.sendNotification);
   });
 });
