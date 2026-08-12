@@ -216,6 +216,8 @@ describe("useAnnouncementAdminOperations", () => {
         expect.objectContaining({ published: false, sendNotification: false }),
       ),
     );
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("公告已撤回");
+    expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 
   it("deletes a draft and clears the selected editor", async () => {
