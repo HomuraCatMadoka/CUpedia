@@ -23,15 +23,19 @@ export function CourseSearch({ initialQuery = "" }: { initialQuery?: string }) {
 
   return (
     <form onSubmit={submit} className="relative w-full">
-      <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-muted-foreground">
-        <SearchIcon className="h-5 w-5" />
+      <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 text-muted-foreground">
+        <SearchIcon aria-hidden="true" className="h-5 w-5" />
       </span>
       <input
-        type="text"
+        type="search"
+        aria-label="搜索课程"
+        name="course-query"
+        autoComplete="off"
+        spellCheck={false}
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="搜索课程代码或名称..."
-        className="w-full rounded-xl border bg-background py-3 pr-4 pl-11 text-sm placeholder-muted-foreground transition-colors focus:border-foreground focus:outline-none"
+        placeholder="搜索课程代码或名称…"
+        className="min-h-11 w-full rounded-xl border bg-background py-3 pr-4 pl-11 text-base placeholder-muted-foreground transition-colors focus:border-foreground focus:outline-none"
       />
     </form>
   );

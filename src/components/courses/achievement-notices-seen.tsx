@@ -10,7 +10,11 @@ export function AchievementNoticesSeen({
   unseenCount: number;
 }) {
   useEffect(() => {
-    if (unseenCount > 0) void markAchievementNoticesSeen();
+    if (unseenCount > 0) {
+      void markAchievementNoticesSeen().then(() => {
+        window.dispatchEvent(new Event("achievement-notices-seen"));
+      });
+    }
   }, [unseenCount]);
   return null;
 }

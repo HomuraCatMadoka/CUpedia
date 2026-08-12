@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { Client } from "pg";
 
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
+import { waitForHydratedWikiEditor } from "./helpers/wiki";
 
 async function query<T extends Record<string, unknown>>(
   text: string,
@@ -33,7 +34,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
         /\/wiki\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\?draft=1$/i,
         { timeout: 30_000 },
       );
-      await expect(page.getByTestId("wiki-editor-shell")).toBeVisible();
+      await waitForHydratedWikiEditor(page);
       await expect(
         page.getByRole("button", { name: "完成", exact: true }),
       ).toBeHidden();
@@ -272,6 +273,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
       await page.goto("/wiki");
       await page.getByRole("button", { name: "新建页面" }).first().click();
       await expect(page).toHaveURL(/\?draft=1$/);
+      await waitForHydratedWikiEditor(page);
       pageId = new URL(page.url()).pathname.split("/").at(-1)!;
       await expect
         .poll(async () => {
@@ -315,6 +317,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
       await page.goto("/wiki");
       await page.getByRole("button", { name: "新建页面" }).first().click();
       await expect(page).toHaveURL(/\?draft=1$/);
+      await waitForHydratedWikiEditor(page);
       pageId = new URL(page.url()).pathname.split("/").at(-1)!;
       await expect
         .poll(async () => {
@@ -375,6 +378,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
       await page.goto("/wiki");
       await page.getByRole("button", { name: "新建页面" }).first().click();
       await expect(page).toHaveURL(/\?draft=1$/);
+      await waitForHydratedWikiEditor(page);
       pageId = new URL(page.url()).pathname.split("/").at(-1)!;
       await page.getByLabel("页面标题").fill("发布重试");
       await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
@@ -423,7 +427,7 @@ test.describe("#465 server-backed private Wiki drafts", () => {
       await createButton.click();
       await expect(page).toHaveURL(/\?draft=1$/);
       pageIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
-      await expect(createButton).not.toHaveAttribute("aria-busy");
+      await waitForHydratedWikiEditor(page);
 
       await createButton.click();
       await expect

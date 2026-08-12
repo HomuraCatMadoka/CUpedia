@@ -13,6 +13,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@campus-transport-data": path.resolve(
+        __dirname,
+        "./docs/campus-transport/data",
+      ),
       "katex/dist/katex.min.css": path.resolve(__dirname, "./tests/empty.css"),
     },
   },

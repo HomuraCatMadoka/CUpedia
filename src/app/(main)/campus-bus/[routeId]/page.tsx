@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
-import { CampusRouteView } from "@/components/campus-transport/route-2-view";
+import { CampusRouteView } from "@/components/campus-transport/campus-route-view";
 import {
   campusBusRoutes,
   getCampusBusRoute,

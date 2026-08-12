@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+// ref #582
+
 const MOBILE_VIEWPORT = { width: 393, height: 852 };
 const IN_SERVICE_HONG_KONG_TIME = new Date("2026-08-10T00:00:00.000Z");
 

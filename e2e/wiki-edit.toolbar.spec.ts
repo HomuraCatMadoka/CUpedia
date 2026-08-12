@@ -116,6 +116,11 @@ async function selectText(page: Page, text: string) {
     .toBe(text);
 }
 
+async function openWikiEditor(page: Page, pageId: string) {
+  await page.goto(`/wiki/${pageId}`);
+  await waitForHydratedWikiEditor(page);
+}
+
 test.describe("#203 contextual desktop toolbar", () => {
   test.beforeAll(async () => {
     gettingStartedBaseline = await readWikiContent(PAGE_IDS.gettingStarted);
@@ -134,7 +139,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("the document opens in a quiet default state without a format toolbar", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.richContent}`);
+    await openWikiEditor(page, PAGE_IDS.richContent);
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();
@@ -148,7 +153,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("selecting text opens the contextual format toolbar and collapsing the selection closes it", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     await selectText(page, "New to CUHK?");
 
@@ -171,7 +176,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("Escape selects the current block with a full-row Notion-style highlight", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")
@@ -208,7 +213,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("arrow keys move a block selection and Shift extends it", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const blocks = page.getByTestId("wiki-editor-block");
     const editor = page.locator('[data-slate-editor="true"]');
@@ -239,7 +244,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("Enter returns a selected text block to inline editing", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")
@@ -258,7 +263,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("Command+D duplicates a selected block and selects the copy", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const matchingBlocks = page
       .getByTestId("wiki-editor-block")
@@ -278,7 +283,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("Delete removes the selected block without requiring its menu", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")
@@ -295,8 +300,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
-    await waitForHydratedWikiEditor(page);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const document = page.getByTestId("wiki-editor-document");
     const before = await document.boundingBox();
@@ -355,7 +359,7 @@ test.describe("#203 contextual desktop toolbar", () => {
 
     try {
       await loginAsAdmin(touchPage, baseURL ?? "");
-      await touchPage.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+      await openWikiEditor(touchPage, PAGE_IDS.gettingStarted);
 
       const block = touchPage
         .getByTestId("wiki-editor-block")
@@ -375,7 +379,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")
@@ -402,7 +406,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   test("Command+/ opens the action menu for the selected block", async ({
     page,
   }) => {
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     await selectText(page, "New to CUHK?");
     await page.keyboard.press("Escape");
@@ -420,7 +424,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")
@@ -460,7 +464,7 @@ test.describe("#203 contextual desktop toolbar", () => {
   }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")
@@ -495,7 +499,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")
@@ -518,7 +522,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const caretBlock = page
       .getByTestId("wiki-editor-block")
@@ -544,7 +548,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const matchingBlocks = page
       .getByTestId("wiki-editor-block")
@@ -565,8 +569,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
-    await waitForHydratedWikiEditor(page);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const headingBlock = page
       .getByTestId("wiki-editor-block")
@@ -603,7 +606,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
+    await openWikiEditor(page, PAGE_IDS.gettingStarted);
 
     const block = page
       .getByTestId("wiki-editor-block")

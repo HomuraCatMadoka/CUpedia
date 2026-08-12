@@ -48,6 +48,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                     "externalId": "9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2",
                     "name": "Professor Ada LOVELACE",
                     "profileUrl": "https://example.test/ada/",
+                    "imageUrl": "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/",
                     "affiliations": [
                         {
                             "organisation": "Centre for Example",
@@ -82,6 +83,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
                 "source": "cuhk_research_portal",
                 "source_key": "9cc21ee7-0fb4-43c8-a250-8e62ac6b86f2",
                 "profile_url": "https://example.test/ada/",
+                "image_url": "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/",
                 "source_url": "https://example.test/ada/",
             }],
         )
@@ -181,6 +183,7 @@ class RenderStaffDirectoryImportTest(unittest.TestCase):
         sql = subject.render_sql(subject.build_payload(self.directory()))
         self.assertIn("missing_runs + 1 < 2", sql)
         self.assertIn("insert into staff_person_sources", sql)
+        self.assertIn("image_url = excluded.image_url", sql)
         self.assertIn("update staff_person_sources", sql)
         self.assertIn("payload->'managed_person_sources'", sql)
         self.assertNotIn(

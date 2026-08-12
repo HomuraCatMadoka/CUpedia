@@ -14,10 +14,11 @@ import {
 import {
   applyPredictionAdjustmentsToRoutes,
   CAMPUS_BUS_MODEL_ALGORITHM,
+  candidateBeatsChampion,
   evaluatePredictionAdjustments,
+  predictionAdjustmentFromStorage,
   reconstructArrivalEvidence,
   trainCandidateModel,
-  type CampusBusPredictionAdjustment,
 } from "@/lib/campus-transport/prediction-model";
 import {
   campusBusRoutes,
@@ -32,7 +33,7 @@ export type CampusBusModelRunResult = {
   modelRevisionId: string;
   observationCount: number;
   promoted: boolean;
-  status: "champion" | "candidate" | "insufficient";
+  status: "candidate" | "insufficient";
 };
 
 export async function getChampionCampusBusRoutes() {
@@ -47,21 +48,7 @@ export async function getChampionCampusBusRoutes() {
     .select()
     .from(campusBusPredictionAdjustments)
     .where(eq(campusBusPredictionAdjustments.modelRevisionId, champion.id));
-  const adjustments = adjustmentRows.map(
-    (row) =>
-      ({
-        routeId: row.routeId,
-        patternId: row.patternId,
-        stopOccurrenceId: row.stopOccurrenceId,
-        timeBand: row.timeBand,
-        residualSeconds: row.residualSeconds,
-        eventCount: row.eventCount,
-        serviceDayCount: row.serviceDayCount,
-        medianResidualSeconds: row.medianResidualSeconds,
-        medianAbsoluteDeviationSeconds: row.medianAbsoluteDeviationSeconds,
-        shrinkageWeight: row.shrinkageWeight,
-      }) as CampusBusPredictionAdjustment,
-  );
+  const adjustments = adjustmentRows.map(predictionAdjustmentFromStorage);
   return applyPredictionAdjustmentsToRoutes(
     campusBusRoutes,
     adjustments,
@@ -94,8 +81,6 @@ export async function rebuildCampusBusPredictionModel(
         stopOccurrenceId: campusBusArrivalObservations.stopOccurrenceId,
         observedArrivalAt: campusBusArrivalObservations.observedArrivalAt,
         receivedAt: campusBusArrivalObservations.receivedAt,
-        candidatePatternId: campusBusArrivalObservations.candidatePatternId,
-        candidateDepartureAt: campusBusArrivalObservations.candidateDepartureAt,
       })
       .from(campusBusArrivalObservations)
       .where(
@@ -140,41 +125,11 @@ export async function rebuildCampusBusPredictionModel(
     const championEvaluation = previousChampion
       ? evaluatePredictionAdjustments(
           validationEvents,
-          previousAdjustments.map(
-            (row) =>
-              ({
-                routeId: row.routeId,
-                patternId: row.patternId,
-                stopOccurrenceId: row.stopOccurrenceId,
-                timeBand: row.timeBand,
-                residualSeconds: row.residualSeconds,
-                eventCount: row.eventCount,
-                serviceDayCount: row.serviceDayCount,
-                medianResidualSeconds: row.medianResidualSeconds,
-                medianAbsoluteDeviationSeconds:
-                  row.medianAbsoluteDeviationSeconds,
-                shrinkageWeight: row.shrinkageWeight,
-              }) as CampusBusPredictionAdjustment,
-          ),
+          previousAdjustments.map(predictionAdjustmentFromStorage),
         )
       : null;
-    const beatsCurrentChampion =
-      !championEvaluation ||
-      (candidate.evaluation.candidateMaeSeconds !== null &&
-        candidate.evaluation.candidateP90Seconds !== null &&
-        championEvaluation.candidateMaeSeconds !== null &&
-        championEvaluation.candidateP90Seconds !== null &&
-        candidate.evaluation.candidateMaeSeconds <
-          championEvaluation.candidateMaeSeconds &&
-        candidate.evaluation.candidateP90Seconds <=
-          championEvaluation.candidateP90Seconds + 30);
-    const shouldPromote = candidate.shouldPromote && beatsCurrentChampion;
     const status: CampusBusModelRunResult["status"] =
-      candidate.adjustments.length === 0
-        ? "insufficient"
-        : shouldPromote
-          ? "champion"
-          : "candidate";
+      candidate.adjustments.length === 0 ? "insufficient" : "candidate";
     const snapshotHash = createHash("sha256")
       .update(
         observations
@@ -185,12 +140,6 @@ export async function rebuildCampusBusPredictionModel(
           .join("\n"),
       )
       .digest("hex");
-    if (status === "champion" && previousChampion) {
-      await tx
-        .update(campusBusPredictionModelRevisions)
-        .set({ status: "retired" })
-        .where(eq(campusBusPredictionModelRevisions.id, previousChampion.id));
-    }
     const [revision] = await tx
       .insert(campusBusPredictionModelRevisions)
       .values({
@@ -208,8 +157,12 @@ export async function rebuildCampusBusPredictionModel(
         metrics: {
           baseline: candidate.evaluation,
           previousChampion: championEvaluation,
+          readyForAdminReview:
+            candidate.shouldPromote &&
+            (!championEvaluation ||
+              candidateBeatsChampion(candidate.evaluation, championEvaluation)),
         },
-        promotedAt: status === "champion" ? new Date() : null,
+        promotedAt: null,
       })
       .returning({ id: campusBusPredictionModelRevisions.id });
 
@@ -269,7 +222,7 @@ export async function rebuildCampusBusPredictionModel(
       eventCount: reconstructed.events.length,
       modelRevisionId: revision.id,
       observationCount: observations.length,
-      promoted: status === "champion",
+      promoted: false,
       status,
     };
   });

@@ -1,5 +1,5 @@
 {
-  "id": "4eaeed46-922c-4dc8-a16d-049c81d992f5",
+  "id": "b83e468f-7aa0-4706-8b33-c12751cf9ff0",
   "prevId": "6f6b3bd2-a77a-4cbc-abc6-c6965b8a8458",
   "version": "7",
   "dialect": "postgresql",
@@ -1247,136 +1247,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.campus_bus_arrival_observations": {
-      "name": "campus_bus_arrival_observations",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "route_id": {
-          "name": "route_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stop_id": {
-          "name": "stop_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stop_occurrence_id": {
-          "name": "stop_occurrence_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "observed_arrival_at": {
-          "name": "observed_arrival_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "received_at": {
-          "name": "received_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "model_revision_id": {
-          "name": "model_revision_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "projection_id": {
-          "name": "projection_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "candidate_pattern_id": {
-          "name": "candidate_pattern_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "candidate_departure_at": {
-          "name": "candidate_departure_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "submitted_anonymously": {
-          "name": "submitted_anonymously",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        }
-      },
-      "indexes": {
-        "campus_bus_arrival_observations_route_stop_time_idx": {
-          "name": "campus_bus_arrival_observations_route_stop_time_idx",
-          "columns": [
-            {
-              "expression": "route_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "stop_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "observed_arrival_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "campus_bus_arrival_observations_received_at_idx": {
-          "name": "campus_bus_arrival_observations_received_at_idx",
-          "columns": [
-            {
-              "expression": "received_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "campus_bus_arrival_observations_time_window_chk": {
-          "name": "campus_bus_arrival_observations_time_window_chk",
-          "value": "\"campus_bus_arrival_observations\".\"observed_arrival_at\" >= \"campus_bus_arrival_observations\".\"received_at\" - interval '15 minutes'\n        AND \"campus_bus_arrival_observations\".\"observed_arrival_at\" <= \"campus_bus_arrival_observations\".\"received_at\" + interval '2 minutes'"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.canteen_danmaku_messages": {
       "name": "canteen_danmaku_messages",
       "schema": "",
@@ -2367,7 +2237,7 @@
           "name": "vacancy",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "instructors": {
           "name": "instructors",

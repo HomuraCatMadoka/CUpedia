@@ -10,12 +10,6 @@ import { getChampionCampusBusRoute } from "@/lib/campus-transport/prediction-mod
 const MAX_PAST_MILLISECONDS = 15 * 60_000;
 const MAX_FUTURE_MILLISECONDS = 2 * 60_000;
 
-type PredictionContext = {
-  departureAt?: unknown;
-  modelRevisionId?: unknown;
-  patternId?: unknown;
-};
-
 function objectValue(value: unknown): Record<string, unknown> | null {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return null;
@@ -68,43 +62,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const rawPredictionContext = objectValue(
-    body.predictionContext,
-  ) as PredictionContext | null;
-  const candidatePattern = route.patterns.find(
-    (pattern) => pattern.id === rawPredictionContext?.patternId,
-  );
-  const candidateDepartureAt = new Date(
-    typeof rawPredictionContext?.departureAt === "string"
-      ? rawPredictionContext.departureAt
-      : NaN,
-  );
-  const hasValidPredictionContext =
-    rawPredictionContext?.modelRevisionId ===
-      (route.predictionRevisionId ?? route.datasetId) &&
-    Boolean(candidatePattern) &&
-    Number.isFinite(candidateDepartureAt.getTime());
-  const projectionId = hasValidPredictionContext
-    ? [
-        route.predictionRevisionId ?? route.datasetId,
-        candidatePattern!.id,
-        stop.id,
-        candidateDepartureAt.toISOString(),
-      ].join(":")
-    : null;
-
   try {
     const observation = await insertArrivalObservation(
       {
-        candidateDepartureAt: hasValidPredictionContext
-          ? candidateDepartureAt
-          : null,
-        candidatePatternId: hasValidPredictionContext
-          ? candidatePattern!.id
-          : null,
-        modelRevisionId: route.predictionRevisionId ?? route.datasetId,
         observedArrivalAt,
-        projectionId,
         receivedAt,
         routeId: route.routeId,
         stopId: stop.stopId,

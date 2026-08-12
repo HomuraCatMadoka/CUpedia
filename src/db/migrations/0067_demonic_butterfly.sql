@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX "campus_bus_prediction_revisions_champion_uq" ON "campus_bus_prediction_model_revisions" USING btree ("status") WHERE "campus_bus_prediction_model_revisions"."status" = 'champion';

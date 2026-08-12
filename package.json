@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
-    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then drizzle-kit migrate && pnpm import:department-professors; fi && next build --webpack",
+    "vercel-build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then drizzle-kit migrate && pnpm import:department-professors && pnpm import:professor-source-enrichments; fi && next build --webpack",
     "start": "next start",
     "bootstrap": "tsx scripts/setup.ts",
     "lint": "eslint",
@@ -18,6 +18,7 @@
     "ingest:courses": "node --import tsx scripts/ingest-courses.ts",
     "ingest:professors": "node --import tsx scripts/ingest-professors.ts",
     "import:department-professors": "node --import tsx scripts/import-department-professor-profiles.ts",
+    "import:professor-source-enrichments": "node --import tsx scripts/import-professor-source-enrichments.ts",
     "ingest:skeleton": "node --import tsx scripts/ingest-skeleton.ts",
     "audit:handbook": "node --import tsx scripts/audit-handbook.ts",
     "audit:handbook:spark": "node --import tsx scripts/handbook-reference.ts",

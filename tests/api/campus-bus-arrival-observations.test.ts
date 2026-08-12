@@ -22,8 +22,6 @@ vi.mock("@/lib/campus-transport/prediction-model-cache", async () => {
 });
 
 import { POST } from "@/app/api/campus-bus/arrival-observations/route";
-import { route2ViewData } from "@/lib/campus-transport/routes-data";
-
 const NOW = new Date("2026-08-10T00:10:00.000Z");
 
 function request(body: unknown) {
@@ -77,15 +75,11 @@ describe("POST /api/campus-bus/arrival-observations", () => {
     );
   });
 
-  it("stores the prediction context shown with an in-service arrival", async () => {
+  it("ignores client fields beyond route, stop, and arrival time", async () => {
     const response = await POST(
       request({
         observedArrivalAt: "2026-08-10T00:09:00.000Z",
-        predictionContext: {
-          departureAt: "2026-08-10T00:00:00.000Z",
-          modelRevisionId: route2ViewData.datasetId,
-          patternId: "2:default",
-        },
+        predictionContext: { patternId: "2:default" },
         routeId: "2",
         stopOccurrenceId: "cuhk-wp-stop-2550#1",
       }),
@@ -93,11 +87,14 @@ describe("POST /api/campus-bus/arrival-observations", () => {
 
     expect(response.status).toBe(201);
     expect(insertArrivalObservationMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        candidateDepartureAt: new Date("2026-08-10T00:00:00.000Z"),
-        candidatePatternId: "2:default",
-        projectionId: `${route2ViewData.datasetId}:2:default:cuhk-wp-stop-2550#1:2026-08-10T00:00:00.000Z`,
-      }),
+      {
+        observedArrivalAt: new Date("2026-08-10T00:09:00.000Z"),
+        receivedAt: NOW,
+        routeId: "2",
+        stopId: "cuhk-wp-stop-2550",
+        stopOccurrenceId: "cuhk-wp-stop-2550#1",
+        submittedAnonymously: true,
+      },
       "hashed-key",
       NOW,
     );

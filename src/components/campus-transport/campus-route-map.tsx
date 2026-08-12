@@ -12,7 +12,7 @@ import {
 } from "@/lib/campus-transport/campus-bus";
 import { cn } from "@/lib/utils";
 
-import styles from "./route-2-map.module.css";
+import styles from "./campus-route-map.module.css";
 
 const LANDSD_BASEMAP_URL =
   "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/basemap/WGS84/{z}/{x}/{y}.png";

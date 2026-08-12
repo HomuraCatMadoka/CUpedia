@@ -27,6 +27,7 @@ export async function createUntitledWikiPage(page: Page) {
   }
   await page.getByRole("button", { name: "新建页面" }).first().click();
   await page.waitForURL(/\?draft=1(?:&|$)/, { timeout: 30_000 });
+  await waitForHydratedWikiEditor(page);
   const pageId = new URL(page.url()).pathname.split("/").at(-1)!;
   await page.getByLabel("页面标题").fill(`E2E Untitled ${pageId.slice(0, 8)}`);
   await expect(page.getByTestId("wiki-autosave-status")).toHaveText("已保存", {
@@ -34,6 +35,6 @@ export async function createUntitledWikiPage(page: Page) {
   });
   await page.getByRole("button", { name: "共享", exact: true }).click();
   await page.getByRole("button", { name: "发布到 Wiki", exact: true }).click();
-  await page.waitForURL(canonicalWikiPageUrl, { timeout: 30_000 });
+  await expect(page).toHaveURL(wikiPageUrl(pageId), { timeout: 30_000 });
   return pageId;
 }

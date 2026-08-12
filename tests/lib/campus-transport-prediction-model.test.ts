@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   applyPredictionAdjustments,
+  candidateBeatsChampion,
   reconstructArrivalEvidence,
   trainCandidateModel,
   type ReconstructedArrivalEvent,
@@ -37,6 +38,45 @@ function event(
 }
 
 describe("campus bus feedback model", () => {
+  it("requires a candidate to beat the current champion on the same holdout", () => {
+    expect(
+      candidateBeatsChampion(
+        {
+          eventCount: 20,
+          baselineMaeSeconds: 180,
+          baselineP90Seconds: 300,
+          candidateMaeSeconds: 110,
+          candidateP90Seconds: 210,
+        },
+        {
+          eventCount: 20,
+          baselineMaeSeconds: 180,
+          baselineP90Seconds: 300,
+          candidateMaeSeconds: 100,
+          candidateP90Seconds: 205,
+        },
+      ),
+    ).toBe(false);
+    expect(
+      candidateBeatsChampion(
+        {
+          eventCount: 20,
+          baselineMaeSeconds: 180,
+          baselineP90Seconds: 300,
+          candidateMaeSeconds: 90,
+          candidateP90Seconds: 220,
+        },
+        {
+          eventCount: 20,
+          baselineMaeSeconds: 180,
+          baselineP90Seconds: 300,
+          candidateMaeSeconds: 100,
+          candidateP90Seconds: 205,
+        },
+      ),
+    ).toBe(true);
+  });
+
   it("keeps ambiguous trip candidates but only reconstructs a unique event", () => {
     const stopOccurrenceId = "cuhk-wp-stop-2550#1";
     const result = reconstructArrivalEvidence(
@@ -47,8 +87,6 @@ describe("campus bus feedback model", () => {
           stopOccurrenceId,
           observedArrivalAt: new Date("2026-08-10T08:14:00+08:00"),
           receivedAt: new Date("2026-08-10T08:14:30+08:00"),
-          candidatePatternId: "2:default",
-          candidateDepartureAt: new Date("2026-08-10T08:00:00+08:00"),
         },
         {
           id: "ambiguous",
@@ -56,8 +94,6 @@ describe("campus bus feedback model", () => {
           stopOccurrenceId,
           observedArrivalAt: new Date("2026-08-10T08:21:30+08:00"),
           receivedAt: new Date("2026-08-10T08:22:00+08:00"),
-          candidatePatternId: null,
-          candidateDepartureAt: null,
         },
       ],
       [route2ViewData],
@@ -84,8 +120,6 @@ describe("campus bus feedback model", () => {
           new Date("2026-08-10T08:14:00+08:00").getTime() + seconds * 1_000,
         ),
         receivedAt: new Date("2026-08-10T08:15:00+08:00"),
-        candidatePatternId: "2:default",
-        candidateDepartureAt: new Date("2026-08-10T08:00:00+08:00"),
       })),
       [route2ViewData],
     );

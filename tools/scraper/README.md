@@ -13,6 +13,7 @@ tools/scraper/scrape_staff.py     →  scripts/data/staff-directory.json
 tools/scraper/scrape_department_profiles.py → scripts/data/staff-department-profiles.json
 tools/scraper/analyze_department_profile_coverage.py → read-only production coverage report
 tools/scraper/render_department_profile_import.py → scripts/data/staff-department-profiles-import.sql
+tools/scraper/merge_department_profile_images.py → enrich a complete SQL snapshot from fresh scoped portraits
 tools/scraper/resolve_staff_pilot.py → scripts/data/staff-engineering-report.json
 tools/scraper/compare_staff_production.py → scripts/data/staff-production-validation.json
 tools/scraper/render_staff_directory_import.py → scripts/data/staff-directory-import.sql
@@ -39,7 +40,7 @@ python scrape_courses.py --catalog-only          # refresh subjects.json only
 # Current Handbook Major Programme schemes (latest four admission years)
 python scrape_handbook.py
 
-# Official teaching timetable instructors
+# Official teaching timetable instructors (UG + 5000+ RPG/TPG/PGDE)
 python scrape_timetable.py --subjects ACCT,CSCI --year 2025-26
 pnpm ingest:professors
 # Read-only export of the current linked production snapshot for migration rehearsal:
@@ -56,6 +57,12 @@ python scrape_department_profiles.py --source cse-faculty --source physics-teach
 python scrape_department_profiles.py
 python analyze_department_profile_coverage.py ../../scripts/data/staff-department-profiles.json
 python render_department_profile_import.py
+# When one unrelated roster is temporarily unavailable, merge only fresh,
+# verified null→portrait enrichments into the last complete SQL snapshot:
+python merge_department_profile_images.py \
+  --snapshot ../../src/db/data/department-professor-profiles.sql \
+  --report ../../scripts/data/staff-department-profiles.json \
+  --output ../../src/db/data/department-professor-profiles.sql
 # Fast partial smoke test against a couple of department overview pages:
 python scrape_staff.py --departments department-of-biomedical-engineering,department-of-computer-science-and-engineering --preview --pause 0.25
 # A scoped full run can overlap a few profile requests while still spacing
@@ -116,10 +123,14 @@ subject, and re-running continues where it stopped (`--fresh` to ignore it).
 - **Detail fields by stable control id** — `parse_detail` reads the verified
   ASP.NET ids (`uc_course_lbl_course` / `_units` / `_acad_career` /
   `_crse_descrlong`, `uc_course_tc_enrl_requirement`, `uc_course_ddl_class_term`)
-  rather than fragile table positions. `career` drives the UG filter downstream
-  in `normalizeCourse`.
-- **Verified end-to-end** against the live site (ACCT/CSCI/MATH → 301 raw rows →
-  172 UG after `normalizeCourse`, 0 malformed). The Handbook now redirects Major
+  rather than fragile table positions. `normalizeCourse` keeps undergraduate
+  courses plus postgraduate courses numbered 5000 or above.
+- **Postgraduate timetable** — changing academic career requires an ASP.NET
+  postback before submitting the subject search. RPG tables omit the Vacancy
+  column, so their enrollment snapshots store an unknown vacancy and the UI
+  displays `-` instead of inventing a value.
+- **Verified end-to-end** against the live site (ACCT/CSCI/MATH → 301 raw rows,
+  0 malformed). The Handbook now redirects Major
   requirements to Browse Program Information; `scrape_handbook.py` queries its
   current academic year and three preceding years, keeps only Major schemes, and
   writes a traceable manifest. Long ASP.NET sessions are renewed automatically.

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isProfessorCardEligible,
+  selectProfessorImages,
   selectProfessorDepartmentSource,
   selectProfessorProfile,
   type ProfessorCardSource,
@@ -17,6 +18,7 @@ function source(
     profileVerifiedAt: "2026-08-05T00:00:00Z",
     appointmentKind: "regular",
     isCurrent: true,
+    imageUrl: "https://www.cse.cuhk.edu.hk/people/person.jpg",
     ...values,
   };
 }
@@ -89,6 +91,42 @@ describe("professor card source selection", () => {
       kind: "research_portal",
       url: "https://research.cuhk.edu.hk/person/",
     });
+  });
+
+  it("orders department and Portal portraits as runtime fallbacks", () => {
+    const portal = source({
+      source: "cuhk_research_portal",
+      sourceKey: "portal-person",
+      profileUrl: "https://research.cuhk.edu.hk/en/persons/person/",
+      imageUrl: "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/",
+    });
+    expect(
+      selectProfessorImages(
+        [source(), portal],
+        "/api/professor-portraits/person-id",
+      ),
+    ).toEqual([
+      "https://www.cse.cuhk.edu.hk/people/person.jpg",
+      "/api/professor-portraits/person-id",
+      portal.imageUrl,
+    ]);
+    expect(selectProfessorImages([source({ imageUrl: null }), portal])).toEqual(
+      [portal.imageUrl],
+    );
+  });
+
+  it("deduplicates identical department and Portal portraits", () => {
+    const imageUrl = "https://research.cuhk.edu.hk/files-asset/123/photo.jpg/";
+    expect(
+      selectProfessorImages([
+        source({ imageUrl }),
+        source({
+          source: "cuhk_research_portal",
+          sourceKey: "portal-person",
+          imageUrl,
+        }),
+      ]),
+    ).toEqual([imageUrl]);
   });
 
   it("returns null when neither official profile is usable", () => {

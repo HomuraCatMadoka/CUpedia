@@ -1,6 +1,6 @@
 {
-  "id": "df30865d-f516-4dfa-bae4-41a761e8717c",
-  "prevId": "4eaeed46-922c-4dc8-a16d-049c81d992f5",
+  "id": "c6cb8e82-90e9-463e-a7fc-5a79826bbaf2",
+  "prevId": "b83e468f-7aa0-4706-8b33-c12751cf9ff0",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1526,30 +1526,6 @@
           "notNull": true,
           "default": "now()"
         },
-        "model_revision_id": {
-          "name": "model_revision_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "projection_id": {
-          "name": "projection_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "candidate_pattern_id": {
-          "name": "candidate_pattern_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "candidate_departure_at": {
-          "name": "candidate_departure_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "submitted_anonymously": {
           "name": "submitted_anonymously",
           "type": "boolean",
@@ -1597,6 +1573,42 @@
           "columns": [
             {
               "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_arrival_observations_arrival_at_idx": {
+          "name": "campus_bus_arrival_observations_arrival_at_idx",
+          "columns": [
+            {
+              "expression": "observed_arrival_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_arrival_observations_route_time_idx": {
+          "name": "campus_bus_arrival_observations_route_time_idx",
+          "columns": [
+            {
+              "expression": "route_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "observed_arrival_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1800,6 +1812,32 @@
           "primaryKey": false,
           "notNull": true
         },
+        "run_kind": {
+          "name": "run_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'automated'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parameters": {
+          "name": "parameters",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "route_scope": {
+          "name": "route_scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "parent_revision_id": {
           "name": "parent_revision_id",
           "type": "uuid",
@@ -1895,9 +1933,92 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "campus_bus_prediction_revisions_parent_idx": {
+          "name": "campus_bus_prediction_revisions_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_prediction_revisions_creator_idx": {
+          "name": "campus_bus_prediction_revisions_creator_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"campus_bus_prediction_model_revisions\".\"created_by\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_prediction_revisions_kind_created_idx": {
+          "name": "campus_bus_prediction_revisions_kind_created_idx",
+          "columns": [
+            {
+              "expression": "run_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_prediction_revisions_champion_uq": {
+          "name": "campus_bus_prediction_revisions_champion_uq",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"campus_bus_prediction_model_revisions\".\"status\" = 'champion'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
+        "campus_bus_prediction_model_revisions_created_by_users_id_fk": {
+          "name": "campus_bus_prediction_model_revisions_created_by_users_id_fk",
+          "tableFrom": "campus_bus_prediction_model_revisions",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
         "campus_bus_prediction_model_revisions_parent_revision_id_campus_bus_prediction_model_revisions_id_fk": {
           "name": "campus_bus_prediction_model_revisions_parent_revision_id_campus_bus_prediction_model_revisions_id_fk",
           "tableFrom": "campus_bus_prediction_model_revisions",
@@ -1915,6 +2036,10 @@
         "campus_bus_prediction_revisions_status_chk": {
           "name": "campus_bus_prediction_revisions_status_chk",
           "value": "\"campus_bus_prediction_model_revisions\".\"status\" in ('candidate', 'champion', 'retired', 'insufficient')"
+        },
+        "campus_bus_prediction_revisions_run_kind_chk": {
+          "name": "campus_bus_prediction_revisions_run_kind_chk",
+          "value": "\"campus_bus_prediction_model_revisions\".\"run_kind\" in ('automated', 'experiment')"
         },
         "campus_bus_prediction_revisions_counts_chk": {
           "name": "campus_bus_prediction_revisions_counts_chk",
@@ -3028,7 +3153,7 @@
           "name": "vacancy",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "instructors": {
           "name": "instructors",

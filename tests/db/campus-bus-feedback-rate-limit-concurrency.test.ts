@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { count, eq } from "drizzle-orm";
+import { count, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -24,11 +24,17 @@ describe.skipIf(!hasDb)("campus bus concurrent feedback rate limit", () => {
   });
 
   afterAll(async () => {
+    await database?.execute(
+      sql`alter table campus_bus_arrival_observations disable trigger campus_bus_arrival_observations_immutable`,
+    );
     await database
       ?.delete(campusBusArrivalObservations)
       .where(
         eq(campusBusArrivalObservations.rateLimitKeyHash, rateLimitKeyHash),
       );
+    await database?.execute(
+      sql`alter table campus_bus_arrival_observations enable trigger campus_bus_arrival_observations_immutable`,
+    );
     if (previousLimit === undefined) {
       delete process.env.CAMPUS_BUS_FEEDBACK_RATE_LIMIT_PER_10_MIN;
     } else {
@@ -38,15 +44,14 @@ describe.skipIf(!hasDb)("campus bus concurrent feedback rate limit", () => {
   });
 
   it("atomically caps concurrent anonymous writes", async () => {
-    const now = new Date();
+    const now = new Date("2000-01-01T00:00:00.000Z");
     const attempts = Array.from({ length: 8 }, (_, index) =>
       insertArrivalObservation(
         {
-          modelRevisionId: "test-cold-start",
           observedArrivalAt: new Date(now.getTime() - index * 1_000),
-          routeId: "2",
-          stopId: "cuhk-wp-stop-2550",
-          stopOccurrenceId: "cuhk-wp-stop-2550#1",
+          routeId: "test-only",
+          stopId: "test-stop",
+          stopOccurrenceId: "test-stop#1",
           submittedAnonymously: true,
         },
         rateLimitKeyHash,
@@ -69,5 +74,23 @@ describe.skipIf(!hasDb)("campus bus concurrent feedback rate limit", () => {
         eq(campusBusArrivalObservations.rateLimitKeyHash, rateLimitKeyHash),
       );
     expect(rows[0]?.value).toBe(3);
+  });
+
+  it("rejects mutation or deletion of stored observations", async () => {
+    await expect(
+      database
+        .update(campusBusArrivalObservations)
+        .set({ routeId: "mutated" })
+        .where(
+          eq(campusBusArrivalObservations.rateLimitKeyHash, rateLimitKeyHash),
+        ),
+    ).rejects.toThrow("campus bus arrival observations are immutable");
+    await expect(
+      database
+        .delete(campusBusArrivalObservations)
+        .where(
+          eq(campusBusArrivalObservations.rateLimitKeyHash, rateLimitKeyHash),
+        ),
+    ).rejects.toThrow("campus bus arrival observations are immutable");
   });
 });

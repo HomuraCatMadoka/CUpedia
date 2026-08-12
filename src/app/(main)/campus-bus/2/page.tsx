@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { CampusRouteView } from "@/components/campus-transport/route-2-view";
+import { CampusRouteView } from "@/components/campus-transport/campus-route-view";
 import { getChampionCampusBusRoute } from "@/lib/campus-transport/prediction-model-cache";
 
 export const dynamic = "force-dynamic";

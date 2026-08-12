@@ -24,7 +24,8 @@ export async function POST(
     }
     if (
       code === "MODEL_EXPERIMENT_NOT_PROMOTABLE" ||
-      code === "MODEL_EXPERIMENT_STALE"
+      code === "MODEL_EXPERIMENT_STALE" ||
+      code === "MODEL_EXPERIMENT_NOT_BETTER_THAN_CHAMPION"
     ) {
       return NextResponse.json({ error: code }, { status: 409 });
     }

@@ -17,8 +17,6 @@ export type ArrivalObservationForModel = {
   stopOccurrenceId: string;
   observedArrivalAt: Date;
   receivedAt: Date;
-  candidatePatternId: string | null;
-  candidateDepartureAt: Date | null;
 };
 
 export type TripMatchCandidate = {
@@ -67,6 +65,42 @@ export type ModelEvaluation = {
   candidateMaeSeconds: number | null;
   candidateP90Seconds: number | null;
 };
+
+type StoredPredictionAdjustment = Omit<
+  CampusBusPredictionAdjustment,
+  "timeBand"
+> & { timeBand: string };
+
+export function predictionAdjustmentFromStorage(
+  row: StoredPredictionAdjustment,
+): CampusBusPredictionAdjustment {
+  return {
+    routeId: row.routeId,
+    patternId: row.patternId,
+    stopOccurrenceId: row.stopOccurrenceId,
+    timeBand: row.timeBand as PredictionTimeBand,
+    residualSeconds: row.residualSeconds,
+    eventCount: row.eventCount,
+    serviceDayCount: row.serviceDayCount,
+    medianResidualSeconds: row.medianResidualSeconds,
+    medianAbsoluteDeviationSeconds: row.medianAbsoluteDeviationSeconds,
+    shrinkageWeight: row.shrinkageWeight,
+  };
+}
+
+export function candidateBeatsChampion(
+  candidate: ModelEvaluation,
+  champion: ModelEvaluation,
+) {
+  return Boolean(
+    candidate.candidateMaeSeconds !== null &&
+    candidate.candidateP90Seconds !== null &&
+    champion.candidateMaeSeconds !== null &&
+    champion.candidateP90Seconds !== null &&
+    candidate.candidateMaeSeconds < champion.candidateMaeSeconds &&
+    candidate.candidateP90Seconds <= champion.candidateP90Seconds + 30,
+  );
+}
 
 export type CandidateModel = {
   algorithm: typeof CAMPUS_BUS_MODEL_ALGORITHM;
@@ -151,22 +185,16 @@ export function reconstructArrivalEvidence(
           observation.observedArrivalAt.getTime() / 1_000 -
             arrival.arrivalAt / 1_000,
         );
-        const contextMatches =
-          observation.candidatePatternId === arrival.patternId &&
-          observation.candidateDepartureAt?.getTime() === arrival.departureAt;
         return {
           arrival,
-          contextMatches,
           distanceSeconds,
-          likelihood:
-            Math.exp(-0.5 * (distanceSeconds / likelihoodScaleSeconds) ** 2) *
-            (contextMatches ? 1.5 : 1),
+          likelihood: Math.exp(
+            -0.5 * (distanceSeconds / likelihoodScaleSeconds) ** 2,
+          ),
         };
       })
       .filter(
-        (candidate) =>
-          candidate.distanceSeconds <= candidateWindowSeconds ||
-          candidate.contextMatches,
+        (candidate) => candidate.distanceSeconds <= candidateWindowSeconds,
       )
       .sort((left, right) => right.likelihood - left.likelihood);
     const likelihoodTotal = scheduled.reduce(

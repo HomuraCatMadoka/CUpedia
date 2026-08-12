@@ -3,12 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { rebuildMock } = vi.hoisted(() => ({ rebuildMock: vi.fn() }));
 
-const { revalidateTagMock } = vi.hoisted(() => ({
-  revalidateTagMock: vi.fn(),
-}));
-
-vi.mock("next/cache", () => ({ revalidateTag: revalidateTagMock }));
-
 vi.mock("@/lib/campus-transport/prediction-model-store", () => ({
   rebuildCampusBusPredictionModel: rebuildMock,
 }));
@@ -30,7 +24,6 @@ describe("GET /api/internal/campus-bus/train-model", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "test-cron-secret";
     rebuildMock.mockReset();
-    revalidateTagMock.mockReset();
     rebuildMock.mockResolvedValue({
       adjustmentCount: 0,
       eventCount: 0,
@@ -61,20 +54,21 @@ describe("GET /api/internal/campus-bus/train-model", () => {
     expect(rebuildMock).toHaveBeenCalledOnce();
   });
 
-  it("expires the passenger cache after promoting a champion", async () => {
+  it("stores an eligible daily run as a candidate without promoting it", async () => {
     rebuildMock.mockResolvedValueOnce({
       adjustmentCount: 2,
       eventCount: 12,
       modelRevisionId: "revision-2",
       observationCount: 14,
-      promoted: true,
-      status: "champion",
+      promoted: false,
+      status: "candidate",
     });
 
     const response = await GET(request("test-cron-secret"));
     expect(response.status).toBe(200);
-    expect(revalidateTagMock).toHaveBeenCalledWith("campus-bus-model", {
-      expire: 0,
+    await expect(response.json()).resolves.toMatchObject({
+      promoted: false,
+      status: "candidate",
     });
   });
 });

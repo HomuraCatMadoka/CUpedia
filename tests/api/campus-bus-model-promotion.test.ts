@@ -48,4 +48,12 @@ describe("POST campus bus experiment promotion", () => {
     const response = await POST(new Request("http://localhost"), context);
     expect(response.status).toBe(409);
   });
+
+  it("rejects an experiment that does not beat the current champion", async () => {
+    promoteMock.mockRejectedValueOnce(
+      new Error("MODEL_EXPERIMENT_NOT_BETTER_THAN_CHAMPION"),
+    );
+    const response = await POST(new Request("http://localhost"), context);
+    expect(response.status).toBe(409);
+  });
 });

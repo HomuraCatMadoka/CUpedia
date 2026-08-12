@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag } from "next/cache";
 
 import { rebuildCampusBusPredictionModel } from "@/lib/campus-transport/prediction-model-store";
 
@@ -16,6 +15,5 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await rebuildCampusBusPredictionModel();
-  if (result.promoted) revalidateTag("campus-bus-model", { expire: 0 });
   return NextResponse.json(result);
 }

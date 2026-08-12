@@ -2,6 +2,8 @@ import { Client } from "pg";
 import { expect, test } from "@playwright/test";
 
 import { loginWithPassword } from "./helpers/auth";
+import { expectBottomSheetViewportToStayStill } from "./helpers/mobile-bottom-sheet";
+import { emulateColorScheme } from "./helpers/theme";
 
 const PERSON_ID = "e2e-professor-directory-person";
 const PUBLIC_ID = "7a7ca8c9-1dd2-4b06-8ff9-d55b64d7f7b5";
@@ -22,6 +24,7 @@ const SCHOOL_PUBLIC_ID = "9c9ecaeb-3ff4-4d28-8bb1-f77d86f9b9d7";
 const SCHOOL_ID = "e2e-professor-directory-school";
 const SCHOOL_PROFESSOR_NAME = "Professor E2E SCHOOL";
 const SCHOOL_PROFILE_URL = "https://www.pharmacy.cuhk.edu.hk/people/e2e-school";
+const UNITARY_FACULTY_ID = "e2e-professor-directory-unitary-faculty";
 const DIRECTORY_PERSON_IDS = [PERSON_ID, SECOND_PERSON_ID, SCHOOL_PERSON_ID];
 const DIRECTORY_ORGANISATION_IDS = [
   DEPARTMENT_ID,
@@ -29,6 +32,7 @@ const DIRECTORY_ORGANISATION_IDS = [
   MULTI_DEPARTMENT_ID,
   SCHOOL_ID,
   FACULTY_ID,
+  UNITARY_FACULTY_ID,
 ];
 
 async function withDatabase(
@@ -53,7 +57,8 @@ test.beforeAll(async () => {
          ($2, 'Department of Computer Science and Engineering', 'department', 'https://www.cse.cuhk.edu.hk/e2e', 'e2e'),
          ($3, 'Department of Mathematics', 'department', 'https://www.math.cuhk.edu.hk/e2e', 'e2e'),
          ($4, 'Department of Statistics and Data Science', 'department', 'https://www.sta.cuhk.edu.hk/e2e', 'e2e'),
-         ($5, 'School of Pharmacy', 'school', 'https://www.pharmacy.cuhk.edu.hk/e2e', 'e2e')
+         ($5, 'School of Pharmacy', 'school', 'https://www.pharmacy.cuhk.edu.hk/e2e', 'e2e'),
+         ($6, 'Faculty of Law', 'faculty', 'https://www.law.cuhk.edu.hk/e2e', 'e2e')
        on conflict (id) do update set name = excluded.name`,
       [
         FACULTY_ID,
@@ -61,6 +66,7 @@ test.beforeAll(async () => {
         SECOND_DEPARTMENT_ID,
         MULTI_DEPARTMENT_ID,
         SCHOOL_ID,
+        UNITARY_FACULTY_ID,
       ],
     );
     await client.query(
@@ -104,7 +110,7 @@ test.beforeAll(async () => {
          (person_id, organisation_id, source_url)
        values
          ($1, $2, $7), ($1, $3, $7), ($1, $4, $7),
-         ($5, $6, $8), ($9, $10, $11)
+         ($5, $6, $8), ($9, $10, $11), ($9, $12, $13)
        on conflict (person_id, organisation_id) do update set is_current = true`,
       [
         PERSON_ID,
@@ -118,6 +124,8 @@ test.beforeAll(async () => {
         SCHOOL_PERSON_ID,
         SCHOOL_ID,
         SCHOOL_PROFILE_URL,
+        UNITARY_FACULTY_ID,
+        "https://www.law.cuhk.edu.hk/e2e",
       ],
     );
     await client.query(
@@ -250,11 +258,15 @@ test.afterAll(async () => {
 test("ignores a stale department filter instead of showing an empty directory", async ({
   page,
 }) => {
-  await page.goto("/professors?department=department-that-no-longer-exists");
+  await page.goto(
+    "/professors?q=%20%20&department=department-that-no-longer-exists",
+  );
 
   await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
     2,
   );
+  await expect(page.getByText(/全部 \d+ 位教授/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "清除筛选" })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "按学系或学院筛选" }),
   ).toContainText("全部学系");
@@ -335,6 +347,28 @@ test("includes professors affiliated only with a school", async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`department=${SCHOOL_ID}`));
 });
 
+test("includes a unitary faculty but excludes faculties with teaching units", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await page.goto("/professors");
+  await page.getByRole("button", { name: "按学系或学院筛选" }).click();
+  const organisationSearch = page.getByPlaceholder("搜索学系或学院…");
+
+  await organisationSearch.fill("Faculty of Engineering");
+  await expect(
+    page.getByRole("option", { name: /Faculty of Engineering/ }),
+  ).toHaveCount(0);
+
+  await organisationSearch.fill("Faculty of Law");
+  await page.getByRole("option", { name: /Faculty of Law/ }).click();
+  await expect(page).toHaveURL(new RegExp(`department=${UNITARY_FACULTY_ID}`));
+  await expect(page.getByText("找到 1 位教授")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: SCHOOL_PROFESSOR_NAME }),
+  ).toBeVisible();
+});
+
 test("applies sorting and review filters immediately", async ({ page }) => {
   await page.goto("/professors");
 
@@ -359,6 +393,76 @@ test("shows three professor cards in one row on mobile", async ({ page }) => {
     items.map((item) => Math.round(item.getBoundingClientRect().top)),
   );
   expect(new Set(cardTops).size).toBe(1);
+});
+
+test("mobile directory drawers do not scroll their viewport while opening", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 667 });
+
+  await page.goto("/professors");
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "按学系或学院筛选",
+    viewportTestId: "mobile-professor-department-viewport",
+    closeName: "关闭学系选择",
+  });
+  await expectBottomSheetViewportToStayStill(page, {
+    triggerName: "筛选",
+    viewportTestId: "mobile-professor-filter-viewport",
+    closeName: "关闭教授筛选",
+  });
+});
+
+test("scrolls the professor course picker on mobile", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto(`/professors/${PUBLIC_ID}`);
+  await page.getByRole("button", { name: /查看全部 \d+ 门并搜索课程/ }).click();
+
+  const dialog = page.getByRole("dialog", { name: "选择课程评价" });
+  const results = dialog
+    .getByRole("heading", { name: "目前收录" })
+    .locator("../..")
+    .locator("..");
+
+  await expect
+    .poll(() =>
+      results.evaluate(
+        (element) => element.scrollHeight - element.clientHeight,
+      ),
+    )
+    .toBeGreaterThan(0);
+
+  await results.hover();
+  await page.mouse.wheel(0, 800);
+  await expect
+    .poll(() => results.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+});
+
+test("mobile professor search matches course search without triggering iOS focus zoom", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 393, height: 851 });
+
+  await page.goto("/courses");
+  const courseSearch = page.getByRole("searchbox", { name: "搜索课程" });
+  const courseSearchMetrics = await courseSearch.evaluate((element) => ({
+    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+    height: element.getBoundingClientRect().height,
+  }));
+
+  await page.goto("/professors");
+  const professorSearch = page.getByRole("combobox", { name: "搜索教授" });
+  const professorSearchMetrics = await professorSearch.evaluate((element) => ({
+    fontSize: Number.parseFloat(getComputedStyle(element).fontSize),
+    height: element
+      .closest('[data-slot="input-group"]')!
+      .getBoundingClientRect().height,
+  }));
+
+  expect(professorSearchMetrics.fontSize).toBeGreaterThanOrEqual(16);
+  expect(professorSearchMetrics.fontSize).toBe(courseSearchMetrics.fontSize);
+  expect(professorSearchMetrics.height).toBe(courseSearchMetrics.height);
 });
 
 test("searches a professor, opens the card, and binds a course review", async ({
@@ -393,13 +497,13 @@ test("searches a professor, opens the card, and binds a course review", async ({
     caret: "initial",
   });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await emulateColorScheme(page, "dark");
   await page.screenshot({
     path: testInfo.outputPath("professor-directory-dark.png"),
     fullPage: true,
     caret: "initial",
   });
-  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await emulateColorScheme(page, "light");
 
   await page.getByRole("combobox", { name: "搜索教授" }).fill("E2E CHAN");
   await expect(
@@ -440,13 +544,13 @@ test("searches a professor, opens the card, and binds a course review", async ({
     caret: "initial",
   });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await emulateColorScheme(page, "dark");
   await page.screenshot({
     path: testInfo.outputPath("professor-detail-dark.png"),
     fullPage: true,
     caret: "initial",
   });
-  await page.evaluate(() => document.documentElement.classList.remove("dark"));
+  await emulateColorScheme(page, "light");
 
   await page.getByRole("button", { name: /查看全部 \d+ 门并搜索课程/ }).click();
   await page

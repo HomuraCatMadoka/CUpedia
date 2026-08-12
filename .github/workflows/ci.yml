@@ -116,6 +116,9 @@ jobs:
           - project: chromium-wiki
             browser: chromium
             install_args: --only-shell
+          - project: chromium-wiki-editor
+            browser: chromium
+            install_args: --only-shell
           - project: webkit-mobile
             browser: webkit
             install_args: --with-deps --only-shell

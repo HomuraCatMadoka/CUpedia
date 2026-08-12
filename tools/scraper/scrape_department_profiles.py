@@ -35,7 +35,10 @@ EMAIL = re.compile(
 )
 CJK = re.compile(r"[\u3400-\u9fff]+")
 PLACEHOLDER_IMAGES = {
+    "male-photo-e1582797285842.jpg",
     "men.jpg",
+    "placeholder_240.png",
+    "placeholder-portrait-male.png",
     "sharing-logo.jpg",
     "placeholder-portrait-male-e1776937960820.png",
 }
@@ -92,17 +95,45 @@ def photo_url(
     return url if Path(image_name).suffix in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"} else None
 
 
+def selected_image_value(image, attribute: str | None = None) -> str | None:
+    if not image:
+        return None
+    if attribute == "style":
+        match = re.search(
+            r"background-image\s*:\s*url\(['\"]?([^)'\"]+)",
+            image.get("style", ""),
+            re.I,
+        )
+        return match.group(1) if match else None
+    if attribute:
+        return image.get(attribute)
+    value = image.get("data-src")
+    if image.get("srcset"):
+        value = image["srcset"].split(",")[-1].strip().split()[0]
+    return value or image.get("src")
+
+
 def clean_name(value: str) -> str:
     value = CJK.sub("", unicodedata.normalize("NFKC", value))
     value = re.sub(r"\(\s*\)|\[\s*\]", "", value)
     return re.sub(r"\s+", " ", value).strip(" ,|-/")
 
 
-def source_identity_key(record: dict, config_key: str) -> str:
+def source_identity_key(
+    record: dict,
+    config_key: str,
+    source_identity_host: str | None = None,
+) -> str:
     if record.get("profileUrl"):
         parsed = urlsplit(record["profileUrl"])
         path = parsed.path.rstrip("/") or "/"
-        return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, ""))
+        return urlunsplit((
+            parsed.scheme,
+            source_identity_host or parsed.netloc,
+            path,
+            parsed.query,
+            "",
+        ))
     if record.get("email"):
         return f"email:{record['email']}"
     signature = "|".join(name_signature(record["name"]))
@@ -262,6 +293,27 @@ def parse_json_directory(payload: str, config: dict) -> list[dict]:
                 "sourceUrl": config["directoryUrl"],
                 "imageUrl": photo_url(config["directoryUrl"], image),
             })
+    elif config["adapter"] == "eng_staff_api":
+        allowed_appointments = set(config.get("allowedAppointmentKinds", []))
+        for row in value["posts"]:
+            kind = config.get("appointmentOverride") or appointment_kind(
+                row.get("positions")
+            )
+            if allowed_appointments and kind not in allowed_appointments:
+                continue
+            records.append({
+                "name": clean_name(row["title"]),
+                "title": row.get("sub_title") or row.get("positions"),
+                "appointmentKind": kind,
+                "email": email_in_text(row.get("email") or ""),
+                "profileUrl": official_url(
+                    config["directoryUrl"], row.get("permalink")
+                ),
+                "sourceUrl": config["sourceUrl"],
+                "imageUrl": photo_url(
+                    config["directoryUrl"], row.get("img_url")
+                ),
+            })
     else:
         raise ValueError(f"Unknown directory adapter: {config['adapter']}")
     return records
@@ -300,16 +352,7 @@ def parse_directory(html: str, config: dict) -> list[dict]:
             heading = entry.find_previous(config["groupHeadingSelector"])
             group = heading.get_text(" ", strip=True) if heading else None
         category = entry.get(config["categoryAttribute"]) if config.get("categoryAttribute") else None
-        image_value = None
-        if image:
-            if config.get("imageAttribute") == "style":
-                match = re.search(r"background-image\s*:\s*url\(['\"]?([^)'\"]+)", image.get("style", ""), re.I)
-                image_value = match.group(1) if match else None
-            else:
-                image_value = image.get("data-src")
-                if image.get("srcset"):
-                    image_value = image["srcset"].split(",")[-1].strip().split()[0]
-                image_value = image_value or image.get("src")
+        image_value = selected_image_value(image, config.get("imageAttribute"))
         inferred_appointment = appointment_kind(
             " ".join(filter(None, [category, group, title]))
         )
@@ -346,13 +389,35 @@ def parse_directory(html: str, config: dict) -> list[dict]:
     return list(deduplicated.values())
 
 
-def enrich_from_profile(record: dict, html: str, selector: str | None = None) -> dict:
+def enrich_from_profile(
+    record: dict,
+    html: str,
+    email_selector: str | None = None,
+    image_selector: str | None = None,
+    image_attribute: str | None = None,
+    allowed_image_hosts: list[str] | None = None,
+) -> dict:
     """Fill roster omissions from the person's official department page."""
     soup = BeautifulSoup(html, "html.parser")
-    nodes = soup.select(selector) if selector else []
+    nodes = soup.select(email_selector) if email_selector else []
     email_text = " ".join(node.get_text(" ", strip=True) for node in nodes)
     email = record.get("email") or email_in_text(email_text)
-    return {**record, "email": email}
+    image = soup.select_one(image_selector) if image_selector else None
+    image_url = record.get("imageUrl")
+    if not image_url and image:
+        image_url = photo_url(
+            record["profileUrl"],
+            selected_image_value(image, image_attribute),
+            allowed_image_hosts,
+        )
+    return {**record, "email": email, "imageUrl": image_url}
+
+
+def needs_profile_enrichment(record: dict, config: dict) -> bool:
+    return bool(
+        (config.get("profileEmailSelector") and not record.get("email"))
+        or (config.get("profileImageSelector") and not record.get("imageUrl"))
+    )
 
 
 class CachedFetcher:
@@ -535,14 +600,17 @@ def match_record(
     suggested_candidates = []
     if not candidates:
         candidates_by_id = {}
-        signature = set(name_signature(record["name"]))
+        signature = meaningful_name_tokens(record["name"])
         if len(signature) >= 2:
             for organisation_url in config["organisationUrls"]:
                 for person in by_org.get(organisation_url, {}).values():
-                    candidate_signature = set(name_signature(person["name"]))
-                    if signature < candidate_signature:
+                    candidate_signature = meaningful_name_tokens(person["name"])
+                    if alias_signatures_match(signature, candidate_signature):
                         candidates_by_id[person["personId"]] = person
         suggested_candidates = list(candidates_by_id.values())
+        if len(suggested_candidates) == 1:
+            candidates = suggested_candidates
+            matched_by = "organisation_alias"
     if len(candidates) != 1:
         return {
             **record,
@@ -560,8 +628,21 @@ def match_record(
         "personId": person["personId"],
         "canonicalName": person["name"],
         "source": source,
-        "sourceKey": source_identity_key(record, config["key"]),
+        "sourceKey": source_identity_key(
+            record,
+            config["key"],
+            config.get("sourceIdentityHost"),
+        ),
     }
+
+
+def meaningful_name_tokens(value: str) -> set[str]:
+    return {token for token in name_signature(value) if len(token) >= 2}
+
+
+def alias_signatures_match(left: set[str], right: set[str]) -> bool:
+    """Match an added/omitted English alias without guessing between people."""
+    return len(left) >= 2 and len(right) >= 2 and (left <= right or right <= left)
 
 
 def names_compatible(left: str, right: str) -> bool:
@@ -706,6 +787,9 @@ def build_report(
                     record,
                     profile_pages[record["profileUrl"]],
                     config.get("profileEmailSelector"),
+                    config.get("profileImageSelector"),
+                    config.get("profileImageAttribute"),
+                    config.get("allowedImageHosts"),
                 )
                 if record.get("profileUrl") in profile_pages else record
                 for record in records
@@ -720,7 +804,14 @@ def build_report(
             else:
                 unresolved.append({"sourceKey": config["key"], **record})
         observed_source_keys = sorted(
-            {source_identity_key(record, config["key"]) for record in records}
+            {
+                source_identity_key(
+                    record,
+                    config["key"],
+                    config.get("sourceIdentityHost"),
+                )
+                for record in records
+            }
         )
         identities_complete = len(observed_source_keys) == len(records)
         if not identities_complete:
@@ -845,7 +936,7 @@ def main() -> None:
         directory_host = urlsplit(config["directoryUrl"]).hostname
         profile_urls = {
             record["profileUrl"] for record in records
-            if not record.get("email")
+            if needs_profile_enrichment(record, config)
             and record.get("profileUrl")
             and urlsplit(record["profileUrl"]).hostname == directory_host
         }

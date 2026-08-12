@@ -93,12 +93,6 @@ export const campusBusArrivalObservations = pgTable(
     receivedAt: timestamp("received_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
-    modelRevisionId: text("model_revision_id").notNull(),
-    projectionId: text("projection_id"),
-    candidatePatternId: text("candidate_pattern_id"),
-    candidateDepartureAt: timestamp("candidate_departure_at", {
-      withTimezone: true,
-    }),
     submittedAnonymously: boolean("submitted_anonymously")
       .notNull()
       .default(true),
@@ -1359,7 +1353,7 @@ export const courseEnrollments = pgTable(
     component: text("component").notNull(),
     section: text("section").notNull(),
     quota: integer("quota").notNull(),
-    vacancy: integer("vacancy").notNull(),
+    vacancy: integer("vacancy"),
     instructors: text("instructors").array().notNull(),
     capturedAt: timestamp("captured_at").notNull(),
   },

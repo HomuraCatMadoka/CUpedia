@@ -37,6 +37,7 @@ type SerializableExperiment = {
   baselineMaeSeconds: number | null;
   candidateMaeSeconds: number | null;
   candidateP90Seconds: number | null;
+  championMaeSeconds: number | null;
   shouldPromote: boolean;
   promotedAt: string | null;
 };
@@ -138,8 +139,8 @@ export function ModelLab({
         result.status === "insufficient"
           ? "實驗已保存，但資料量不足以產生校正。"
           : result.shouldPromote
-            ? "實驗已保存，驗證結果優於冷啟動。"
-            : "實驗已保存，驗證結果未優於冷啟動。",
+            ? "實驗已保存，驗證結果符合上線門檻。"
+            : "實驗已保存，驗證結果未達上線門檻。",
       );
       router.refresh();
     } catch {
@@ -339,7 +340,7 @@ export function ModelLab({
               {isAdmin ? "最近實驗" : "我的實驗"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              比較冷啟動與候選模型在留出資料上的誤差。
+              比較冷啟動、目前線上模型與候選模型在同一留出資料上的誤差。
             </p>
           </div>
         </div>
@@ -402,13 +403,21 @@ export function ModelLab({
                     )}
                   </div>
 
-                  <dl className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-4">
+                  <dl className="mt-5 grid grid-cols-2 gap-x-5 gap-y-4 sm:grid-cols-5">
                     <div>
                       <dt className="text-xs text-muted-foreground">
                         原始 MAE
                       </dt>
                       <dd className="mt-1 font-semibold tabular-nums">
                         {minutes(experiment.baselineMaeSeconds)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        線上 MAE
+                      </dt>
+                      <dd className="mt-1 font-semibold tabular-nums">
+                        {minutes(experiment.championMaeSeconds)}
                       </dd>
                     </div>
                     <div>

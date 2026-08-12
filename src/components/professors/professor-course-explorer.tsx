@@ -160,7 +160,7 @@ export function ProfessorCourseExplorer({
       <DialogContent
         initialFocus={closeRef}
         showCloseButton={false}
-        className="top-auto bottom-0 left-0 max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 gap-0 overflow-hidden rounded-b-none rounded-t-xl p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[min(70dvh,640px)] sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+        className="top-auto bottom-0 left-0 max-h-[85dvh] w-full max-w-none translate-x-0 translate-y-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 overflow-hidden rounded-b-none rounded-t-xl p-0 sm:top-1/2 sm:bottom-auto sm:left-1/2 sm:max-h-[min(70dvh,640px)] sm:max-w-xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
       >
         <DialogClose
           ref={closeRef}

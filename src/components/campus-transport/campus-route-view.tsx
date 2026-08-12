@@ -34,7 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 
 const CampusRouteMap = dynamic(
-  () => import("./route-2-map").then((module) => module.CampusRouteMap),
+  () => import("./campus-route-map").then((module) => module.CampusRouteMap),
   {
     ssr: false,
     loading: () => (
@@ -154,14 +154,12 @@ function ArrivalBoard({
 }
 
 function FeedbackDialog({
-  board,
   now,
   onOpenChange,
   open,
   route,
   stop,
 }: {
-  board: CampusBusStopBoard;
   now: number;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -176,8 +174,6 @@ function FeedbackDialog({
   async function submitFeedback(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
-    const candidate = board.upcomingArrivals[0];
-
     try {
       const response = await fetch("/api/campus-bus/arrival-observations", {
         method: "POST",
@@ -186,13 +182,6 @@ function FeedbackDialog({
           observedArrivalAt: new Date(selectedTime).toISOString(),
           routeId: route.routeId,
           stopOccurrenceId: stop.id,
-          predictionContext: candidate
-            ? {
-                departureAt: new Date(candidate.departureAt).toISOString(),
-                modelRevisionId: route.predictionRevisionId ?? route.datasetId,
-                patternId: candidate.patternId,
-              }
-            : null,
         }),
       });
       if (!response.ok) {
@@ -608,7 +597,6 @@ export function CampusRouteView({
 
       {feedbackOpen && (
         <FeedbackDialog
-          board={boards.get(selectedStop.id)!}
           now={now}
           route={route}
           stop={selectedStop}

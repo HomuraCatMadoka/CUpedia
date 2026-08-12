@@ -12,8 +12,12 @@ import {
 import type { ModelExperimentParameters } from "@/lib/campus-transport/model-experiment";
 import {
   CAMPUS_BUS_MODEL_ALGORITHM,
+  candidateBeatsChampion,
+  evaluatePredictionAdjustments,
+  predictionAdjustmentFromStorage,
   reconstructArrivalEvidence,
   trainCandidateModel,
+  type ModelEvaluation,
 } from "@/lib/campus-transport/prediction-model";
 import { campusBusRoutes } from "@/lib/campus-transport/routes-data";
 
@@ -35,6 +39,7 @@ export type ModelExperimentSummary = {
   baselineMaeSeconds: number | null;
   candidateMaeSeconds: number | null;
   candidateP90Seconds: number | null;
+  championMaeSeconds: number | null;
   shouldPromote: boolean;
   promotedAt: Date | null;
 };
@@ -45,6 +50,7 @@ type StoredMetrics = {
     candidateMaeSeconds?: number | null;
     candidateP90Seconds?: number | null;
   };
+  currentChampion?: ModelEvaluation | null;
   shouldPromote?: boolean;
 };
 
@@ -54,6 +60,7 @@ function metricsSummary(value: unknown) {
     baselineMaeSeconds: metrics.candidate?.baselineMaeSeconds ?? null,
     candidateMaeSeconds: metrics.candidate?.candidateMaeSeconds ?? null,
     candidateP90Seconds: metrics.candidate?.candidateP90Seconds ?? null,
+    championMaeSeconds: metrics.currentChampion?.candidateMaeSeconds ?? null,
     shouldPromote: metrics.shouldPromote === true,
   };
 }
@@ -184,8 +191,6 @@ export async function runModelExperiment(
         stopOccurrenceId: campusBusArrivalObservations.stopOccurrenceId,
         observedArrivalAt: campusBusArrivalObservations.observedArrivalAt,
         receivedAt: campusBusArrivalObservations.receivedAt,
-        candidatePatternId: campusBusArrivalObservations.candidatePatternId,
-        candidateDepartureAt: campusBusArrivalObservations.candidateDepartureAt,
       })
       .from(campusBusArrivalObservations)
       .where(
@@ -222,6 +227,28 @@ export async function runModelExperiment(
         orderBy: (table, { desc }) => [desc(table.promotedAt)],
       },
     );
+    const validationDates = new Set(candidate.validationServiceDates);
+    const validationEvents = reconstructed.events.filter((event) =>
+      validationDates.has(event.serviceDate),
+    );
+    const championAdjustments = champion
+      ? await tx
+          .select()
+          .from(campusBusPredictionAdjustments)
+          .where(
+            eq(campusBusPredictionAdjustments.modelRevisionId, champion.id),
+          )
+      : [];
+    const championEvaluation = champion
+      ? evaluatePredictionAdjustments(
+          validationEvents,
+          championAdjustments.map(predictionAdjustmentFromStorage),
+        )
+      : null;
+    const beatsCurrentChampion = championEvaluation
+      ? candidateBeatsChampion(candidate.evaluation, championEvaluation)
+      : true;
+    const shouldPromote = candidate.shouldPromote && beatsCurrentChampion;
     const snapshotHash = createHash("sha256")
       .update(
         observations
@@ -241,7 +268,8 @@ export async function runModelExperiment(
         createdBy,
         metrics: {
           candidate: candidate.evaluation,
-          shouldPromote: candidate.shouldPromote,
+          currentChampion: championEvaluation,
+          shouldPromote,
         },
         observationCutoffAt,
         parameters,
@@ -272,7 +300,7 @@ export async function runModelExperiment(
       adjustmentCount: candidate.adjustments.length,
       eventCount: reconstructed.events.length,
       evaluation: candidate.evaluation,
-      shouldPromote: candidate.shouldPromote,
+      shouldPromote,
       sourceObservationCount: observations.length,
       status,
     };
@@ -307,6 +335,23 @@ export async function promoteModelExperiment(revisionId: string) {
     }
     if ((experiment.parentRevisionId ?? null) !== (champion?.id ?? null)) {
       throw new Error("MODEL_EXPERIMENT_STALE");
+    }
+    const storedMetrics = (experiment.metrics ?? {}) as StoredMetrics;
+    if (
+      champion &&
+      (!storedMetrics.currentChampion ||
+        !candidateBeatsChampion(
+          {
+            baselineMaeSeconds: null,
+            baselineP90Seconds: null,
+            candidateMaeSeconds: metrics.candidateMaeSeconds,
+            candidateP90Seconds: metrics.candidateP90Seconds,
+            eventCount: experiment.validationEventCount,
+          },
+          storedMetrics.currentChampion,
+        ))
+    ) {
+      throw new Error("MODEL_EXPERIMENT_NOT_BETTER_THAN_CHAMPION");
     }
     if (champion) {
       await tx
