@@ -90,7 +90,8 @@ export function groupMenuItemsBySvgKey(
     const bKnown = KNOWN_SECTION_KEYS.has(b);
     if (aKnown && bKnown) {
       return (
-        MENU_SECTION_RANK[a as DishSvgKey] - MENU_SECTION_RANK[b as DishSvgKey]
+        MENU_SECTION_RANK[a as DishSvgKey] -
+        MENU_SECTION_RANK[b as DishSvgKey]
       );
     }
     if (aKnown !== bKnown) return aKnown ? -1 : 1;

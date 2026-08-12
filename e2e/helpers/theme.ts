@@ -11,7 +11,9 @@ export async function emulateColorScheme(page: Page, scheme: "dark" | "light") {
   await page.emulateMedia({ colorScheme: scheme });
   await expect
     .poll(() =>
-      page.evaluate(() => document.documentElement.classList.contains("dark")),
+      page.evaluate(() =>
+        document.documentElement.classList.contains("dark"),
+      ),
     )
     .toBe(scheme === "dark");
 }
