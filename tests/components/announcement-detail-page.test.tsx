@@ -26,7 +26,7 @@ describe("AnnouncementDetailPage", () => {
       }),
     );
 
-    expect(screen.getByRole("heading", { name: "消息不存在" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "公告不存在" })).toBeTruthy();
     expect(
       screen.getByRole("link", { name: "返回全部公告" }).getAttribute("href"),
     ).toBe("/announcements");

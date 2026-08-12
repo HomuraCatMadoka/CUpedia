@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
+import { PgDialect } from "drizzle-orm/pg-core";
 
 const { requireAuth, queue, select, update, chain } = vi.hoisted(() => {
   const rows: unknown[] = [];
@@ -53,6 +54,10 @@ const where = () => chain.where as Mock;
 const offset = () => chain.offset as Mock;
 const set = () => chain.set as Mock;
 
+function queryText(clause: unknown): string {
+  return new PgDialect().sqlToQuery(clause as never).sql;
+}
+
 function sqlValues(value: unknown): unknown[] {
   if (Array.isArray(value)) return value.flatMap(sqlValues);
   if (!value || typeof value !== "object") return [value];
@@ -74,6 +79,9 @@ describe("notification reads", () => {
     await expect(getUnreadNotificationCount()).resolves.toBe(7);
 
     expect(sqlValues(where().mock.calls[0][0])).toContain("recipient");
+    expect(queryText(where().mock.calls[0][0])).toContain(
+      '"announcements"."withdrawn_at" is null',
+    );
   });
 
   it("returns 10 newest notifications with current actor identity and no reply body", async () => {
@@ -143,6 +151,9 @@ describe("notification reads", () => {
       ],
       hasMore: false,
     });
+    expect(queryText(where().mock.calls.at(-1)?.[0])).toContain(
+      '"announcements"."withdrawn_at" is null',
+    );
   });
 
   it("normalizes an invalid pagination offset to the first page", async () => {

@@ -4,7 +4,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { announcements } from "@/db/schema";
+import { announcements, notifications } from "@/db/schema";
 import { broadcastAnnouncementIfDue } from "@/lib/announcement-broadcast";
 import { resolveAnnouncementPublication } from "@/lib/announcement-lifecycle";
 import { adminListAnnouncements as queryAdminListAnnouncements } from "@/lib/announcement-queries";
@@ -117,6 +117,12 @@ export async function updateAnnouncement(
       .where(eq(announcements.id, id))
       .returning({ id: announcements.id, title: announcements.title });
     if (!updated) throw new Error("公告不存在");
+
+    if (withdrawnAt && !existing.withdrawnAt) {
+      await tx
+        .delete(notifications)
+        .where(eq(notifications.announcementId, updated.id));
+    }
 
     await broadcastAnnouncementIfDue(tx, updated.id, now);
   });

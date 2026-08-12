@@ -12,7 +12,9 @@ const mocks = vi.hoisted(() => {
   const from = vi.fn(() => ({ where: selectWhere }));
   const select = vi.fn(() => ({ from }));
   const execute = vi.fn();
-  const tx = { insert, update, select, execute };
+  const deleteWhere = vi.fn();
+  const deleteRow = vi.fn(() => ({ where: deleteWhere }));
+  const tx = { insert, update, select, execute, delete: deleteRow };
   return {
     requireAdmin: vi.fn(),
     revalidatePath: vi.fn(),
@@ -27,6 +29,8 @@ const mocks = vi.hoisted(() => {
     insert,
     limit,
     execute,
+    deleteWhere,
+    deleteRow,
   };
 });
 
@@ -212,5 +216,23 @@ describe("announcement admin actions", () => {
         withdrawnAt: expect.any(Date),
       }),
     );
+    expect(mocks.deleteRow).toHaveBeenCalledOnce();
+  });
+
+  it("does not remove notifications when cancelling an unpublished schedule", async () => {
+    mocks.limit.mockResolvedValue([
+      {
+        publishedAt: new Date("2099-09-01T10:00:00.000Z"),
+        withdrawnAt: null,
+        notificationSentAt: null,
+      },
+    ]);
+
+    await updateAnnouncement(announcementId, {
+      ...baseInput,
+      published: false,
+    });
+
+    expect(mocks.deleteRow).not.toHaveBeenCalled();
   });
 });
