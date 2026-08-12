@@ -1,6 +1,12 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["hkg1"],
+  "crons": [
+    {
+      "path": "/api/internal/campus-bus/train-model",
+      "schedule": "30 19 * * *"
+    }
+  ],
   "git": {
     "deploymentEnabled": {
       "*": false,

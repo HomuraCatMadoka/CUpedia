@@ -1,0 +1,2134 @@
+{
+  "schemaVersion": "cuhk-cold-start-projection/2",
+  "generatorVersion": "cuhk-cold-start/4",
+  "datasetId": "cold-start-dataset:8:dcd22e0251c4a6b3",
+  "seedModelRevisionId": "cold-start:8:dcd22e0251c4a6b3",
+  "status": "staging_only",
+  "route": {
+    "routeId": "8",
+    "nameEn": "8 Western Campus",
+    "nameZhHant": "8 西部線",
+    "officialUrl": "https://transport.cuhk.edu.hk/tc/route/8/"
+  },
+  "service": {
+    "scheduleBands": [
+      {
+        "startTime": "07:40",
+        "endTime": "18:40",
+        "serviceDayRule": "monday_saturday_except_public_holidays",
+        "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)"
+      }
+    ],
+    "publicHolidayDates": [
+      "2025-01-01",
+      "2025-01-29",
+      "2025-01-30",
+      "2025-01-31",
+      "2025-04-04",
+      "2025-04-18",
+      "2025-04-19",
+      "2025-04-21",
+      "2025-05-01",
+      "2025-05-05",
+      "2025-05-31",
+      "2025-07-01",
+      "2025-10-01",
+      "2025-10-07",
+      "2025-10-29",
+      "2025-12-25",
+      "2025-12-26",
+      "2026-01-01",
+      "2026-02-17",
+      "2026-02-18",
+      "2026-02-19",
+      "2026-04-03",
+      "2026-04-04",
+      "2026-04-06",
+      "2026-04-07",
+      "2026-05-01",
+      "2026-05-25",
+      "2026-06-19",
+      "2026-07-01",
+      "2026-09-26",
+      "2026-10-01",
+      "2026-10-19",
+      "2026-12-25",
+      "2026-12-26",
+      "2027-01-01",
+      "2027-02-06",
+      "2027-02-08",
+      "2027-02-09",
+      "2027-03-26",
+      "2027-03-27",
+      "2027-03-29",
+      "2027-04-05",
+      "2027-05-01",
+      "2027-05-13",
+      "2027-06-09",
+      "2027-07-01",
+      "2027-09-16",
+      "2027-10-01",
+      "2027-10-08",
+      "2027-12-25",
+      "2027-12-27"
+    ],
+    "publicHolidaySourceRef": "hksarg-public-holidays:8d797fb380825eec3f53fe456cc85ad30e2f91635675081abb671eca3bfd757d",
+    "academicTerms": [
+      {
+        "sourceRef": "cuhk-almanac-2025-26:3ca90e6656f35d087b59281fd781b0a2fcfa587bc374bb2687b61e94b9b567d5",
+        "startDate": "2025-09-01",
+        "endDate": "2025-11-29"
+      },
+      {
+        "sourceRef": "cuhk-almanac-2025-26:3ca90e6656f35d087b59281fd781b0a2fcfa587bc374bb2687b61e94b9b567d5",
+        "startDate": "2026-01-05",
+        "endDate": "2026-04-18"
+      },
+      {
+        "sourceRef": "cuhk-almanac-2026-27:a84ddeb7ee24708c98ed748412c8d5581825644ab2f605606d07f04453c60d2c",
+        "startDate": "2026-09-07",
+        "endDate": "2026-12-05"
+      },
+      {
+        "sourceRef": "cuhk-almanac-2026-27:a84ddeb7ee24708c98ed748412c8d5581825644ab2f605606d07f04453c60d2c",
+        "startDate": "2027-01-11",
+        "endDate": "2027-04-24"
+      }
+    ],
+    "readingWeeks": [
+      {
+        "sourceRef": "cuhk-almanac-2025-26:3ca90e6656f35d087b59281fd781b0a2fcfa587bc374bb2687b61e94b9b567d5",
+        "startDate": "2026-03-02",
+        "endDate": "2026-03-07"
+      },
+      {
+        "sourceRef": "cuhk-almanac-2026-27:a84ddeb7ee24708c98ed748412c8d5581825644ab2f605606d07f04453c60d2c",
+        "startDate": "2027-03-08",
+        "endDate": "2027-03-13"
+      }
+    ]
+  },
+  "derivedFrom": {
+    "communityPriorSha256": "a30ebf1d1a263ad2adecf164893e6fc12df54d615f713db962ac7139d6c39845",
+    "parserVersion": "cuhk-public-data-merge/6",
+    "snapshotGeneratedAt": "2026-08-11T11:14:25.650Z",
+    "snapshotSha256": "baed1ac6f985ab38bb5972085cf13c7c5fd76187d3e15e96a6afe489f0b10138"
+  },
+  "publicationBlockers": [
+    "bus_clock_data_license_unresolved",
+    "not_validated_against_independent_arrival_truth",
+    "segment_priors_have_no_route_scope",
+    "fallback_paths_can_include_unserved_intermediate_stops",
+    "cumulative_intervals_are_not_joint_trip_quantiles"
+  ],
+  "coverage": {
+    "patterns": 2,
+    "stopProjections": 33,
+    "availableStopProjections": 33,
+    "unavailableStopProjections": 0,
+    "uniqueObservedSegmentPairs": 15
+  },
+  "patterns": [
+    {
+      "patternId": "8:teaching-day",
+      "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+      "activation": {
+        "departureMinutes": [0, 20, 40],
+        "serviceDayType": "teaching_day"
+      },
+      "confidence": "high_official_map_plus_independent_code_cross_check",
+      "sourceRefs": [
+        "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+        "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+        "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900"
+      ],
+      "segments": [
+        {
+          "fromStopId": "cuhk-wp-stop-2939",
+          "fromStopSequence": 1,
+          "toStopId": "cuhk-wp-stop-2832",
+          "toStopSequence": 2,
+          "baselineSeconds": 70,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 28,
+            "p50Seconds": 98,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2832",
+          "fromStopSequence": 2,
+          "toStopId": "cuhk-wp-stop-2830",
+          "toStopSequence": 3,
+          "baselineSeconds": 80,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 61,
+            "p50Seconds": 141,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2830",
+          "fromStopSequence": 3,
+          "toStopId": "cuhk-wp-stop-2828",
+          "toStopSequence": 4,
+          "baselineSeconds": 60,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 5,
+            "p50Seconds": 55,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 3,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2828",
+          "fromStopSequence": 4,
+          "toStopId": "cuhk-wp-stop-2926",
+          "toStopSequence": 5,
+          "baselineSeconds": 135,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 17,
+            "p50Seconds": 118,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 3,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2926",
+          "fromStopSequence": 5,
+          "toStopId": "cuhk-wp-stop-2826",
+          "toStopSequence": 6,
+          "baselineSeconds": 74,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 31,
+            "p50Seconds": 105,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 3,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2826",
+          "fromStopSequence": 6,
+          "toStopId": "cuhk-wp-stop-2548",
+          "toStopSequence": 7,
+          "baselineSeconds": 101,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 11,
+            "p50Seconds": 112,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2548",
+          "fromStopSequence": 7,
+          "toStopId": "cuhk-wp-stop-2916",
+          "toStopSequence": 8,
+          "baselineSeconds": 126,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 35,
+            "p50Seconds": 161,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2916",
+          "fromStopSequence": 8,
+          "toStopId": "cuhk-wp-stop-2943",
+          "toStopSequence": 9,
+          "baselineSeconds": 87,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 24,
+            "p50Seconds": 111,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2943",
+          "fromStopSequence": 9,
+          "toStopId": "cuhk-wp-stop-2818",
+          "toStopSequence": 10,
+          "baselineSeconds": 48,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 3,
+            "p50Seconds": 51,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2818",
+          "fromStopSequence": 10,
+          "toStopId": "cuhk-wp-stop-2918",
+          "toStopSequence": 11,
+          "baselineSeconds": 52,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 9.5,
+            "p50Seconds": 61.5,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2918",
+          "fromStopSequence": 11,
+          "toStopId": "cuhk-wp-stop-2920",
+          "toStopSequence": 12,
+          "baselineSeconds": 90,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 3,
+            "p50Seconds": 93,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 4,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2920",
+          "fromStopSequence": 12,
+          "toStopId": "cuhk-wp-stop-2941",
+          "toStopSequence": 13,
+          "baselineSeconds": 160,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 18,
+            "p50Seconds": 178,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2941",
+          "fromStopSequence": 13,
+          "toStopId": "cuhk-wp-stop-2949",
+          "toStopSequence": 14,
+          "baselineSeconds": 75,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 63,
+            "p50Seconds": 138,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2949",
+          "fromStopSequence": 14,
+          "toStopId": "cuhk-wp-stop-2947",
+          "toStopSequence": 15,
+          "baselineSeconds": 86,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 80.5,
+            "p50Seconds": 166.5,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2947",
+          "fromStopSequence": 15,
+          "toStopId": "cuhk-wp-stop-2552",
+          "toStopSequence": 16,
+          "baselineSeconds": 80,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 9,
+            "p50Seconds": 89,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        }
+      ],
+      "projections": [
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2939",
+          "stopSequence": 1,
+          "stopNameEn": "Area 39 (Upward)",
+          "stopNameZhHant": "39區（上行）",
+          "cumulativeOffsetSeconds": 0,
+          "p10Seconds": 0,
+          "p50Seconds": 0,
+          "p90Seconds": 0,
+          "intervalMethod": "origin",
+          "sourceKind": "official-origin",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "origin",
+          "baselineSourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5"
+          ],
+          "offsetConfidence": "official",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 0,
+            "segmentSamplesTotal": 0,
+            "bottleneckSampleCount": 0,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": []
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2832",
+          "stopSequence": 2,
+          "stopNameEn": "CW Chu College (Downward)",
+          "stopNameZhHant": "敬文書院（下行）",
+          "cumulativeOffsetSeconds": 70,
+          "p10Seconds": null,
+          "p50Seconds": 70,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 1,
+            "segmentSamplesTotal": 1,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2830",
+          "stopSequence": 3,
+          "stopNameEn": "U.C. Staff Residence",
+          "stopNameZhHant": "聯合苑",
+          "cumulativeOffsetSeconds": 150,
+          "p10Seconds": null,
+          "p50Seconds": 150,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 2,
+            "segmentSamplesTotal": 2,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2828",
+          "stopSequence": 4,
+          "stopNameEn": "Chan Chun Ha Hostel",
+          "stopNameZhHant": "陳震夏宿舍",
+          "cumulativeOffsetSeconds": 210,
+          "p10Seconds": null,
+          "p50Seconds": 210,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 3,
+            "segmentSamplesTotal": 5,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2926",
+          "stopSequence": 5,
+          "stopNameEn": "Shaw College (Downward)",
+          "stopNameZhHant": "逸夫書院（下行）",
+          "cumulativeOffsetSeconds": 345,
+          "p10Seconds": null,
+          "p50Seconds": 345,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 4,
+            "segmentSamplesTotal": 8,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2826",
+          "stopSequence": 6,
+          "stopNameEn": "Wu Yee Sun College (Downward)",
+          "stopNameZhHant": "伍宜孫書院（下行）",
+          "cumulativeOffsetSeconds": 419,
+          "p10Seconds": null,
+          "p50Seconds": 419,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 5,
+            "segmentSamplesTotal": 11,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2548",
+          "stopSequence": 7,
+          "stopNameEn": "Univ. Admin. Bldg.",
+          "stopNameZhHant": "大學行政樓",
+          "cumulativeOffsetSeconds": 520,
+          "p10Seconds": null,
+          "p50Seconds": 520,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 6,
+            "segmentSamplesTotal": 13,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2916",
+          "stopSequence": 8,
+          "stopNameEn": "Science Centre",
+          "stopNameZhHant": "科學館",
+          "cumulativeOffsetSeconds": 646,
+          "p10Seconds": null,
+          "p50Seconds": 646,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 7,
+            "segmentSamplesTotal": 14,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2943",
+          "stopSequence": 9,
+          "stopNameEn": "New Asia Circle",
+          "stopNameZhHant": "新亞坊",
+          "cumulativeOffsetSeconds": 733,
+          "p10Seconds": null,
+          "p50Seconds": 733,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 8,
+            "segmentSamplesTotal": 15,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2818",
+          "stopSequence": 10,
+          "stopNameEn": "United College (Downward)",
+          "stopNameZhHant": "聯合書院（下行）",
+          "cumulativeOffsetSeconds": 781,
+          "p10Seconds": null,
+          "p50Seconds": 781,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 9,
+            "segmentSamplesTotal": 17,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2918",
+          "stopSequence": 11,
+          "stopNameEn": "Wu Yee Sun College (Upward)",
+          "stopNameZhHant": "伍宜孫書院（上行）",
+          "cumulativeOffsetSeconds": 833,
+          "p10Seconds": null,
+          "p50Seconds": 833,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 10,
+            "segmentSamplesTotal": 19,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2920",
+          "stopSequence": 12,
+          "stopNameEn": "Shaw College (Upward)",
+          "stopNameZhHant": "逸夫書院（上行）",
+          "cumulativeOffsetSeconds": 923,
+          "p10Seconds": null,
+          "p50Seconds": 923,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 11,
+            "segmentSamplesTotal": 23,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2941",
+          "stopSequence": 13,
+          "stopNameEn": "Area 39 (Downward)",
+          "stopNameZhHant": "39區（下行）",
+          "cumulativeOffsetSeconds": 1083,
+          "p10Seconds": null,
+          "p50Seconds": 1083,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 12,
+            "segmentSamplesTotal": 24,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2949",
+          "stopSequence": 14,
+          "stopNameEn": "Campus Circuit North",
+          "stopNameZhHant": "環迴北站",
+          "cumulativeOffsetSeconds": 1158,
+          "p10Seconds": null,
+          "p50Seconds": 1158,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 13,
+            "segmentSamplesTotal": 25,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2947",
+          "stopSequence": 15,
+          "stopNameEn": "Campus Circuit East (Downward)",
+          "stopNameZhHant": "環迴東站（下行）",
+          "cumulativeOffsetSeconds": 1244,
+          "p10Seconds": null,
+          "p50Seconds": 1244,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 14,
+            "segmentSamplesTotal": 27,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:teaching-day:601c1a79dd39312b",
+          "stopId": "cuhk-wp-stop-2552",
+          "stopSequence": 16,
+          "stopNameEn": "Univ. Station",
+          "stopNameZhHant": "大學站",
+          "cumulativeOffsetSeconds": 1324,
+          "p10Seconds": null,
+          "p50Seconds": 1324,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 15,
+            "segmentSamplesTotal": 29,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": true,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "patternId": "8:non-teaching-day",
+      "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+      "activation": {
+        "departureMinutes": [0, 20, 40],
+        "serviceDayType": "non_teaching_day"
+      },
+      "confidence": "high_official_map_plus_independent_code_cross_check",
+      "sourceRefs": [
+        "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+        "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+        "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900"
+      ],
+      "segments": [
+        {
+          "fromStopId": "cuhk-wp-stop-2939",
+          "fromStopSequence": 1,
+          "toStopId": "cuhk-wp-stop-2832",
+          "toStopSequence": 2,
+          "baselineSeconds": 70,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 28,
+            "p50Seconds": 98,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2832",
+          "fromStopSequence": 2,
+          "toStopId": "cuhk-wp-stop-2830",
+          "toStopSequence": 3,
+          "baselineSeconds": 80,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 61,
+            "p50Seconds": 141,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2830",
+          "fromStopSequence": 3,
+          "toStopId": "cuhk-wp-stop-2828",
+          "toStopSequence": 4,
+          "baselineSeconds": 60,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 5,
+            "p50Seconds": 55,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 3,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2828",
+          "fromStopSequence": 4,
+          "toStopId": "cuhk-wp-stop-2926",
+          "toStopSequence": 5,
+          "baselineSeconds": 135,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 17,
+            "p50Seconds": 118,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 3,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2926",
+          "fromStopSequence": 5,
+          "toStopId": "cuhk-wp-stop-2826",
+          "toStopSequence": 6,
+          "baselineSeconds": 74,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 31,
+            "p50Seconds": 105,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 3,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2826",
+          "fromStopSequence": 6,
+          "toStopId": "cuhk-wp-stop-2548",
+          "toStopSequence": 7,
+          "baselineSeconds": 101,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 11,
+            "p50Seconds": 112,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2548",
+          "fromStopSequence": 7,
+          "toStopId": "cuhk-wp-stop-2916",
+          "toStopSequence": 8,
+          "baselineSeconds": 126,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 35,
+            "p50Seconds": 161,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2916",
+          "fromStopSequence": 8,
+          "toStopId": "cuhk-wp-stop-2943",
+          "toStopSequence": 9,
+          "baselineSeconds": 87,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 24,
+            "p50Seconds": 111,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2943",
+          "fromStopSequence": 9,
+          "toStopId": "cuhk-wp-stop-2818",
+          "toStopSequence": 10,
+          "baselineSeconds": 48,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 3,
+            "p50Seconds": 51,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2818",
+          "fromStopSequence": 10,
+          "toStopId": "cuhk-wp-stop-2918",
+          "toStopSequence": 11,
+          "baselineSeconds": 52,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 9.5,
+            "p50Seconds": 61.5,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2918",
+          "fromStopSequence": 11,
+          "toStopId": "cuhk-wp-stop-2920",
+          "toStopSequence": 12,
+          "baselineSeconds": 90,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 3,
+            "p50Seconds": 93,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 4,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2920",
+          "fromStopSequence": 12,
+          "toStopId": "cuhk-wp-stop-2941",
+          "toStopSequence": 13,
+          "baselineSeconds": 160,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 18,
+            "p50Seconds": 178,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2941",
+          "fromStopSequence": 13,
+          "toStopId": "cuhk-wp-stop-2949",
+          "toStopSequence": 14,
+          "baselineSeconds": 75,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 63,
+            "p50Seconds": 138,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 1,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2949",
+          "fromStopSequence": 14,
+          "toStopId": "cuhk-wp-stop-2947",
+          "toStopSequence": 15,
+          "baselineSeconds": 86,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": 80.5,
+            "p50Seconds": 166.5,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 2,
+            "sourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2947",
+          "fromStopSequence": 15,
+          "toStopId": "cuhk-wp-stop-2812",
+          "toStopSequence": 16,
+          "baselineSeconds": 105,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": null,
+            "p50Seconds": null,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 0,
+            "sourceRefs": []
+          }
+        },
+        {
+          "fromStopId": "cuhk-wp-stop-2812",
+          "fromStopSequence": 16,
+          "toStopId": "cuhk-wp-stop-2810",
+          "toStopSequence": 17,
+          "baselineSeconds": 70,
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "confidence": "weak_prior",
+          "sensitivityCheck": {
+            "absoluteDifferenceSeconds": null,
+            "p50Seconds": null,
+            "routeScope": "mixed_or_unknown",
+            "sampleCount": 0,
+            "sourceRefs": []
+          }
+        }
+      ],
+      "projections": [
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2939",
+          "stopSequence": 1,
+          "stopNameEn": "Area 39 (Upward)",
+          "stopNameZhHant": "39區（上行）",
+          "cumulativeOffsetSeconds": 0,
+          "p10Seconds": 0,
+          "p50Seconds": 0,
+          "p90Seconds": 0,
+          "intervalMethod": "origin",
+          "sourceKind": "official-origin",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "origin",
+          "baselineSourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5"
+          ],
+          "offsetConfidence": "official",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 0,
+            "segmentSamplesTotal": 0,
+            "bottleneckSampleCount": 0,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": []
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2832",
+          "stopSequence": 2,
+          "stopNameEn": "CW Chu College (Downward)",
+          "stopNameZhHant": "敬文書院（下行）",
+          "cumulativeOffsetSeconds": 70,
+          "p10Seconds": null,
+          "p50Seconds": 70,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 1,
+            "segmentSamplesTotal": 1,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2830",
+          "stopSequence": 3,
+          "stopNameEn": "U.C. Staff Residence",
+          "stopNameZhHant": "聯合苑",
+          "cumulativeOffsetSeconds": 150,
+          "p10Seconds": null,
+          "p50Seconds": 150,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 2,
+            "segmentSamplesTotal": 2,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2828",
+          "stopSequence": 4,
+          "stopNameEn": "Chan Chun Ha Hostel",
+          "stopNameZhHant": "陳震夏宿舍",
+          "cumulativeOffsetSeconds": 210,
+          "p10Seconds": null,
+          "p50Seconds": 210,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 3,
+            "segmentSamplesTotal": 5,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2926",
+          "stopSequence": 5,
+          "stopNameEn": "Shaw College (Downward)",
+          "stopNameZhHant": "逸夫書院（下行）",
+          "cumulativeOffsetSeconds": 345,
+          "p10Seconds": null,
+          "p50Seconds": 345,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 4,
+            "segmentSamplesTotal": 8,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2826",
+          "stopSequence": 6,
+          "stopNameEn": "Wu Yee Sun College (Downward)",
+          "stopNameZhHant": "伍宜孫書院（下行）",
+          "cumulativeOffsetSeconds": 419,
+          "p10Seconds": null,
+          "p50Seconds": 419,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 5,
+            "segmentSamplesTotal": 11,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2548",
+          "stopSequence": 7,
+          "stopNameEn": "Univ. Admin. Bldg.",
+          "stopNameZhHant": "大學行政樓",
+          "cumulativeOffsetSeconds": 520,
+          "p10Seconds": null,
+          "p50Seconds": 520,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 6,
+            "segmentSamplesTotal": 13,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2916",
+          "stopSequence": 8,
+          "stopNameEn": "Science Centre",
+          "stopNameZhHant": "科學館",
+          "cumulativeOffsetSeconds": 646,
+          "p10Seconds": null,
+          "p50Seconds": 646,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 7,
+            "segmentSamplesTotal": 14,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2943",
+          "stopSequence": 9,
+          "stopNameEn": "New Asia Circle",
+          "stopNameZhHant": "新亞坊",
+          "cumulativeOffsetSeconds": 733,
+          "p10Seconds": null,
+          "p50Seconds": 733,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 8,
+            "segmentSamplesTotal": 15,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2818",
+          "stopSequence": 10,
+          "stopNameEn": "United College (Downward)",
+          "stopNameZhHant": "聯合書院（下行）",
+          "cumulativeOffsetSeconds": 781,
+          "p10Seconds": null,
+          "p50Seconds": 781,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 9,
+            "segmentSamplesTotal": 17,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2918",
+          "stopSequence": 11,
+          "stopNameEn": "Wu Yee Sun College (Upward)",
+          "stopNameZhHant": "伍宜孫書院（上行）",
+          "cumulativeOffsetSeconds": 833,
+          "p10Seconds": null,
+          "p50Seconds": 833,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 10,
+            "segmentSamplesTotal": 19,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2920",
+          "stopSequence": 12,
+          "stopNameEn": "Shaw College (Upward)",
+          "stopNameZhHant": "逸夫書院（上行）",
+          "cumulativeOffsetSeconds": 923,
+          "p10Seconds": null,
+          "p50Seconds": 923,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 11,
+            "segmentSamplesTotal": 23,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2941",
+          "stopSequence": 13,
+          "stopNameEn": "Area 39 (Downward)",
+          "stopNameZhHant": "39區（下行）",
+          "cumulativeOffsetSeconds": 1083,
+          "p10Seconds": null,
+          "p50Seconds": 1083,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 12,
+            "segmentSamplesTotal": 24,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2949",
+          "stopSequence": 14,
+          "stopNameEn": "Campus Circuit North",
+          "stopNameZhHant": "環迴北站",
+          "cumulativeOffsetSeconds": 1158,
+          "p10Seconds": null,
+          "p50Seconds": 1158,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 13,
+            "segmentSamplesTotal": 25,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2947",
+          "stopSequence": 15,
+          "stopNameEn": "Campus Circuit East (Downward)",
+          "stopNameZhHant": "環迴東站（下行）",
+          "cumulativeOffsetSeconds": 1244,
+          "p10Seconds": null,
+          "p50Seconds": 1244,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 14,
+            "segmentSamplesTotal": 27,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2812",
+          "stopSequence": 16,
+          "stopNameEn": "Station Piazza",
+          "stopNameZhHant": "大學站廣場",
+          "cumulativeOffsetSeconds": 1349,
+          "p10Seconds": null,
+          "p50Seconds": 1349,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 14,
+            "segmentSamplesTotal": 27,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        },
+        {
+          "patternRevisionId": "8:non-teaching-day:b8dc3cd00072d2c5",
+          "stopId": "cuhk-wp-stop-2810",
+          "stopSequence": 17,
+          "stopNameEn": "Chung Chi Teaching Bldg.",
+          "stopNameZhHant": "崇基教學樓",
+          "cumulativeOffsetSeconds": 1419,
+          "p10Seconds": null,
+          "p50Seconds": 1419,
+          "p90Seconds": null,
+          "intervalMethod": "community-route-point-estimate",
+          "sourceKind": "community-prior",
+          "sourceRefs": [
+            "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+            "cuhk-pdf-shuttle-current:b3262eae15303816d7410878b07842ecc32539c22056d731716c90b32914d09d",
+            "cuhk-route-zh-hant-8:bf29fd96cc27b5e6828ec953f411f422ca09e73b2655a89cb104367501161ad5",
+            "bus-clock-bus-data:a681a50220639f5a61c6e05a367d33621a6e1f04b7e3383a9075f59cf1364900",
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+            "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+          ],
+          "sampleCount": 0,
+          "serviceDayCount": null,
+          "fallbackLevel": "community-route-baseline",
+          "baselineSourceRefs": [
+            "cu-bus-app-v1.18:c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+          ],
+          "offsetConfidence": "weak_prior",
+          "publicationStatus": "staging_only",
+          "evidence": {
+            "segmentCount": 14,
+            "segmentSamplesTotal": 27,
+            "bottleneckSampleCount": 1,
+            "serviceDayCount": null,
+            "routeScope": "mixed_or_unknown",
+            "containsReviewMatch": false,
+            "segmentSourceRefs": [
+              "bus-clock-station-times:cd377a27107543c97f74e2ea1efe98298dcb9f2d624558b868daea1a5bea2dc9"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -119,4 +119,14 @@ describe("Navbar sign-out", () => {
     fireEvent.click(screen.getByRole("button", { name: "我的成就" }));
     expect(push).toHaveBeenCalledWith("/courses/achievements");
   });
+
+  it("labels the CU Bus entry as testing and links to the route list", () => {
+    render(<Navbar />);
+
+    expect(
+      screen
+        .getByRole("link", { name: "CU Bus · 測試中" })
+        .getAttribute("href"),
+    ).toBe("/campus-bus");
+  });
 });
