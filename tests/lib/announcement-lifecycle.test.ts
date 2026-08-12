@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getAnnouncementLifecycle,
+  resolveAnnouncementNotificationIntent,
   resolveAnnouncementPublication,
 } from "@/lib/announcement-lifecycle";
 
@@ -74,4 +75,113 @@ describe("announcement lifecycle", () => {
       ),
     ).toEqual({ publishedAt: now, withdrawnAt: null });
   });
+
+  it.each([
+    ["draft opts in", null, null, null, false, null, true, true, true],
+    ["draft stays private", null, null, null, false, null, false, true, false],
+    [
+      "scheduled changes its choice",
+      future,
+      null,
+      null,
+      true,
+      null,
+      true,
+      false,
+      false,
+    ],
+    [
+      "due schedule keeps pending delivery",
+      past,
+      null,
+      null,
+      true,
+      null,
+      true,
+      false,
+      true,
+    ],
+    [
+      "published opt-out cannot opt in later",
+      past,
+      null,
+      null,
+      false,
+      null,
+      true,
+      true,
+      false,
+    ],
+    [
+      "withdrawal clears pending delivery",
+      past,
+      null,
+      null,
+      true,
+      null,
+      false,
+      true,
+      false,
+    ],
+    [
+      "expired delivery stays cancelled",
+      past,
+      null,
+      past,
+      true,
+      null,
+      true,
+      true,
+      false,
+    ],
+    [
+      "withdrawn announcement cannot notify on republish",
+      past,
+      past,
+      null,
+      true,
+      null,
+      true,
+      true,
+      false,
+    ],
+    [
+      "sent delivery remains recorded",
+      past,
+      null,
+      null,
+      true,
+      past,
+      true,
+      false,
+      true,
+    ],
+  ] as const)(
+    "%s",
+    (
+      _name,
+      publishedAt,
+      withdrawnAt,
+      expiresAt,
+      notifyOnPublish,
+      notificationSentAt,
+      published,
+      sendNotification,
+      expected,
+    ) => {
+      expect(
+        resolveAnnouncementNotificationIntent(
+          {
+            publishedAt,
+            withdrawnAt,
+            expiresAt,
+            notifyOnPublish,
+            notificationSentAt,
+          },
+          { published, sendNotification },
+          now,
+        ),
+      ).toBe(expected);
+    },
+  );
 });

@@ -11,6 +11,11 @@ export type AnnouncementTimestamps = {
   expiresAt: Date | null;
 };
 
+export type AnnouncementNotificationState = AnnouncementTimestamps & {
+  notifyOnPublish: boolean;
+  notificationSentAt: Date | null;
+};
+
 export function getAnnouncementLifecycle(
   announcement: AnnouncementTimestamps,
   now: Date,
@@ -47,4 +52,21 @@ export function resolveAnnouncementPublication(
     publishedAt: input.publishAt ?? now,
     withdrawnAt: null,
   };
+}
+
+export function resolveAnnouncementNotificationIntent(
+  existing: AnnouncementNotificationState,
+  input: { published: boolean; sendNotification: boolean },
+  now: Date,
+): boolean {
+  if (existing.notificationSentAt) return existing.notifyOnPublish;
+
+  const lifecycle = getAnnouncementLifecycle(existing, now);
+  if (lifecycle === "draft" || lifecycle === "scheduled") {
+    return input.published && input.sendNotification;
+  }
+  if (lifecycle === "published") {
+    return input.published && existing.notifyOnPublish;
+  }
+  return false;
 }

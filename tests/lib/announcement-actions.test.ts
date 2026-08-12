@@ -237,4 +237,33 @@ describe("announcement admin actions", () => {
     expect(announcementUpdate?.notifyOnPublish).toBe(false);
     expect(mocks.execute).not.toHaveBeenCalled();
   });
+
+  it("preserves and broadcasts a due schedule's pending first notification", async () => {
+    mocks.limit.mockResolvedValue([
+      {
+        publishedAt: new Date("2026-08-12T10:00:00Z"),
+        withdrawnAt: null,
+        expiresAt: null,
+        notifyOnPublish: true,
+        notificationSentAt: null,
+      },
+    ]);
+    mocks.returning
+      .mockReset()
+      .mockResolvedValueOnce([{ id: announcementId, title: "只修改标题" }])
+      .mockResolvedValueOnce([
+        { id: announcementId, title: "只修改标题", actorId: "admin-1" },
+      ]);
+
+    await updateAnnouncement(announcementId, {
+      ...baseInput,
+      title: "只修改标题",
+      published: true,
+    });
+
+    expect(mocks.set).toHaveBeenCalledWith(
+      expect.objectContaining({ notifyOnPublish: true }),
+    );
+    expect(mocks.execute).toHaveBeenCalledOnce();
+  });
 });
