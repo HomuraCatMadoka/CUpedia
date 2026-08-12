@@ -117,6 +117,8 @@ export function AnnouncementAdminPanel({
           selected={selected}
           lifecycle={selectedLifecycle}
           isAlreadyPublic={operations.isAlreadyPublic}
+          canDelete={operations.canDelete}
+          canWithdraw={operations.canWithdraw}
           isPending={operations.isPending}
           editor={editor}
           onSubmit={operations.handleSubmit}

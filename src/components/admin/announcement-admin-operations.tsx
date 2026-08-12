@@ -75,6 +75,8 @@ export function useAnnouncementAdminOperations({
     useState<AnnouncementFormState | null>(null);
   const { form, setForm } = editor;
   const isAlreadyPublic = lifecycle === "published" || lifecycle === "expired";
+  const canDelete = selected !== null && selected.publishedAt === null;
+  const canWithdraw = selected !== null && isAlreadyPublic;
 
   function toInput(publicationMode = form.publicationMode): AnnouncementInput {
     return {
@@ -196,16 +198,18 @@ export function useAnnouncementAdminOperations({
   return {
     isPending,
     isAlreadyPublic,
+    canDelete,
+    canWithdraw,
     handleSubmit,
     openSettings: () => {
       setPublishDialogBaseline(form);
       setPublishDialogOpen(true);
     },
     requestDelete: () => {
-      if (selected) setDeleteTarget(selected);
+      if (canDelete) setDeleteTarget(selected);
     },
     requestWithdraw: () => {
-      if (selected) setWithdrawTarget(selected);
+      if (canWithdraw) setWithdrawTarget(selected);
     },
     dialogs: (
       <AnnouncementAdminOperationDialogs
@@ -354,7 +358,9 @@ function AnnouncementAdminOperationDialogs({
                 <Label htmlFor="announcement-publish-at">计划发布时间</Label>
                 <Input
                   id="announcement-publish-at"
+                  name="publishAt"
                   type="datetime-local"
+                  autoComplete="off"
                   value={form.publishAt}
                   aria-invalid={editor.error?.field === "publishAt"}
                   onChange={(event) => {
@@ -408,7 +414,9 @@ function AnnouncementAdminOperationDialogs({
                   <Label htmlFor="announcement-expiry">自动下线（可选）</Label>
                   <Input
                     id="announcement-expiry"
+                    name="expiresAt"
                     type="datetime-local"
+                    autoComplete="off"
                     value={form.expiresAt}
                     aria-invalid={editor.error?.field === "expiresAt"}
                     onChange={(event) => {
@@ -429,7 +437,9 @@ function AnnouncementAdminOperationDialogs({
                   <Label htmlFor="announcement-priority">首页排序</Label>
                   <select
                     id="announcement-priority"
-                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm"
+                    name="priority"
+                    autoComplete="off"
+                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                     value={form.priority}
                     onChange={(event) =>
                       setForm((current) => ({

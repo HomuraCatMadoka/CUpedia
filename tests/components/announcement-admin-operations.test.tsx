@@ -14,9 +14,15 @@ const mocks = vi.hoisted(() => ({
   createAnnouncement: vi.fn(),
   deleteAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),
+  refresh: vi.fn(),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
 }));
 
 vi.mock("@/lib/announcement-actions", () => mocks);
+vi.mock("sonner", () => ({
+  toast: { success: mocks.toastSuccess, error: mocks.toastError },
+}));
 
 import { useAnnouncementAdminOperations } from "@/components/admin/announcement-admin-operations";
 import {
@@ -65,7 +71,7 @@ function Harness({
     lifecycle,
     lifecycleNow: NOW,
     editor,
-    onRefresh: vi.fn(),
+    onRefresh: mocks.refresh,
     onDeletedSelection,
   });
 
@@ -115,6 +121,8 @@ describe("useAnnouncementAdminOperations", () => {
         }),
       ),
     );
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("公告已发布");
+    expect(mocks.refresh).toHaveBeenCalledOnce();
   });
 
   it("schedules without offering or retaining a notification intent", async () => {
@@ -226,5 +234,59 @@ describe("useAnnouncementAdminOperations", () => {
       expect(mocks.deleteAnnouncement).toHaveBeenCalledWith(draft.id),
     );
     expect(onDeletedSelection).toHaveBeenCalledOnce();
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("公告已删除");
+    expect(mocks.refresh).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    {
+      name: "scheduled",
+      selected: { ...draft, publishedAt: "2099-08-13T10:00:00.000Z" },
+      lifecycle: "scheduled" as const,
+    },
+    {
+      name: "withdrawn",
+      selected: {
+        ...draft,
+        publishedAt: "2026-08-10T10:00:00.000Z",
+        withdrawnAt: "2026-08-11T10:00:00.000Z",
+      },
+      lifecycle: "withdrawn" as const,
+    },
+  ])(
+    "rejects invalid delete and withdraw flows for $name records",
+    ({ selected, lifecycle }) => {
+      render(<Harness selected={selected} lifecycle={lifecycle} />);
+
+      fireEvent.click(screen.getByRole("button", { name: "删除" }));
+      fireEvent.click(screen.getByRole("button", { name: "撤回" }));
+
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    },
+  );
+
+  it("does not let a public record enter the delete flow", () => {
+    const published = {
+      ...draft,
+      publishedAt: "2026-08-10T10:00:00.000Z",
+    };
+    render(<Harness selected={published} lifecycle="published" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("reports a failed mutation without refreshing", async () => {
+    mocks.createAnnouncement.mockRejectedValueOnce(new Error("保存暂不可用"));
+    render(<Harness />);
+
+    fireEvent.click(screen.getByRole("button", { name: "发布" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认发布" }));
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith("保存暂不可用"),
+    );
+    expect(mocks.refresh).not.toHaveBeenCalled();
   });
 });
