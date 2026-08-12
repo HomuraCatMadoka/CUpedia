@@ -1,18 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { AnnouncementAdminEditor } from "@/components/admin/announcement-admin-editor";
 import { AnnouncementAdminList } from "@/components/admin/announcement-admin-list";
 import {
   ANNOUNCEMENT_DATE_FORMATTER,
-  ANNOUNCEMENT_LIFECYCLE_BADGE_VARIANTS,
-  ANNOUNCEMENT_LIFECYCLE_LABELS,
   announcementLifecycleOf,
-  announcementOfflineReason,
 } from "@/components/admin/announcement-admin-presentation";
+import {
+  EMPTY_ANNOUNCEMENT_FORM,
+  announcementToFormState,
+  useAnnouncementAdminEditor,
+  type AnnouncementFormState,
+} from "@/components/admin/use-announcement-admin-editor";
 import { useUnsavedAnnouncementNavigation } from "@/components/admin/use-unsaved-announcement-navigation";
 import {
   AlertDialog,
@@ -24,7 +27,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,94 +39,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   createAnnouncement,
   deleteAnnouncement,
   updateAnnouncement,
 } from "@/lib/announcement-actions";
 import {
-  ANNOUNCEMENT_CONTENT_MAX_LENGTH,
-  ANNOUNCEMENT_TITLE_MAX_LENGTH,
   type AdminAnnouncement,
   type AnnouncementInput,
 } from "@/lib/announcement-types";
-
-type FormState = {
-  title: string;
-  content: string;
-  priority: string;
-  publishAt: string;
-  expiresAt: string;
-  publicationMode: PublicationMode;
-  sendNotification: boolean;
-};
-
-type PublicationMode = "draft" | "immediate" | "scheduled";
-type FormField = "title" | "content" | "priority" | "publishAt" | "expiresAt";
-
-type FormError = {
-  message: string;
-  field: FormField | null;
-};
-
-const EMPTY_FORM: FormState = {
-  title: "",
-  content: "",
-  priority: "0",
-  publishAt: "",
-  expiresAt: "",
-  publicationMode: "draft",
-  sendNotification: false,
-};
-
-const FIELD_IDS: Record<FormField, string> = {
-  title: "announcement-title",
-  content: "announcement-content",
-  priority: "announcement-priority",
-  publishAt: "announcement-publish-at",
-  expiresAt: "announcement-expiry",
-};
-
-function toLocalDateTimeInput(iso: string | null): string {
-  if (!iso) return "";
-  const date = new Date(iso);
-  const offset = date.getTimezoneOffset() * 60_000;
-  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
-}
 
 function formatDateTime(value: string): string | null {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? null
     : ANNOUNCEMENT_DATE_FORMATTER.format(date);
-}
-
-function toFormState(announcement: AdminAnnouncement, now: Date): FormState {
-  const lifecycle = announcementLifecycleOf(announcement, now);
-  return {
-    title: announcement.title,
-    content: announcement.content,
-    priority: String(announcement.priority),
-    publishAt:
-      lifecycle === "withdrawn"
-        ? ""
-        : toLocalDateTimeInput(announcement.publishedAt),
-    expiresAt:
-      lifecycle === "withdrawn"
-        ? ""
-        : toLocalDateTimeInput(announcement.expiresAt),
-    publicationMode:
-      lifecycle === "scheduled"
-        ? "scheduled"
-        : lifecycle === "draft" || lifecycle === "withdrawn"
-          ? "draft"
-          : "immediate",
-    sendNotification:
-      lifecycle !== "withdrawn" &&
-      announcement.notifyOnPublish &&
-      !announcement.notificationSentAt,
-  };
 }
 
 export function AnnouncementAdminPanel({
@@ -140,8 +69,8 @@ export function AnnouncementAdminPanel({
   const initialAnnouncement =
     announcements.find((item) => item.id === initialAnnouncementId) ?? null;
   const initialForm = initialAnnouncement
-    ? toFormState(initialAnnouncement, new Date(serverNow))
-    : EMPTY_FORM;
+    ? announcementToFormState(initialAnnouncement, new Date(serverNow))
+    : EMPTY_ANNOUNCEMENT_FORM;
   const [lifecycleNowMs, setLifecycleNowMs] = useState(() =>
     new Date(serverNow).getTime(),
   );
@@ -152,18 +81,16 @@ export function AnnouncementAdminPanel({
   const [deleteTarget, setDeleteTarget] = useState<AdminAnnouncement | null>(
     null,
   );
-  const [form, setForm] = useState<FormState>(initialForm);
-  const [baselineForm, setBaselineForm] = useState<FormState>(initialForm);
   const [withdrawTarget, setWithdrawTarget] =
     useState<AdminAnnouncement | null>(null);
   const [publishDialogOpen, setPublishDialogOpen] = useState(false);
   const [publishDialogBaseline, setPublishDialogBaseline] =
-    useState<FormState | null>(null);
-  const [formError, setFormError] = useState<FormError | null>(null);
-  const [mobileEditing, setMobileEditing] = useState(
-    initialAnnouncement !== null,
-  );
-  const formErrorRef = useRef<HTMLParagraphElement>(null);
+    useState<AnnouncementFormState | null>(null);
+  const editor = useAnnouncementAdminEditor({
+    initialForm,
+    initiallyOpen: initialAnnouncement !== null,
+  });
+  const { form, setForm } = editor;
   const lifecycleNow = new Date(lifecycleNowMs);
   const selected = announcements.find((item) => item.id === selectedId) ?? null;
   const selectedLifecycle = selected
@@ -171,11 +98,10 @@ export function AnnouncementAdminPanel({
     : "draft";
   const isAlreadyPublic =
     selectedLifecycle === "published" || selectedLifecycle === "expired";
-  const isDirty = JSON.stringify(form) !== JSON.stringify(baselineForm);
   const { confirmDiscardChanges } = useUnsavedAnnouncementNavigation({
-    isDirty,
+    isDirty: editor.isDirty,
   });
-  const editorOpen = mobileEditing || selected !== null;
+  const editorOpen = editor.mobileEditing || selected !== null;
 
   useEffect(() => {
     const serverEpoch = new Date(serverNow).getTime();
@@ -188,12 +114,9 @@ export function AnnouncementAdminPanel({
 
   function chooseAnnouncement(announcement: AdminAnnouncement) {
     if (!confirmDiscardChanges()) return;
-    const nextForm = toFormState(announcement, lifecycleNow);
+    const nextForm = announcementToFormState(announcement, lifecycleNow);
     setSelectedId(announcement.id);
-    setForm(nextForm);
-    setBaselineForm(nextForm);
-    setFormError(null);
-    setMobileEditing(true);
+    editor.open(nextForm);
     const url = new URL(window.location.href);
     url.searchParams.set("announcement", announcement.id);
     window.history.replaceState(window.history.state, "", url);
@@ -202,10 +125,7 @@ export function AnnouncementAdminPanel({
   function startNewAnnouncement() {
     if (!confirmDiscardChanges()) return;
     setSelectedId(null);
-    setForm(EMPTY_FORM);
-    setBaselineForm(EMPTY_FORM);
-    setFormError(null);
-    setMobileEditing(true);
+    editor.open(EMPTY_ANNOUNCEMENT_FORM);
     const url = new URL(window.location.href);
     url.searchParams.delete("announcement");
     window.history.replaceState(window.history.state, "", url);
@@ -213,45 +133,10 @@ export function AnnouncementAdminPanel({
 
   function returnToList() {
     if (!confirmDiscardChanges()) return;
-    setMobileEditing(false);
+    editor.close();
     const url = new URL(window.location.href);
     url.searchParams.delete("announcement");
     window.history.replaceState(window.history.state, "", url);
-  }
-
-  function fieldForError(message: string): FormField | null {
-    if (message.includes("标题")) return "title";
-    if (message.includes("内容")) return "content";
-    if (message.includes("优先级")) return "priority";
-    if (message.includes("失效时间")) return "expiresAt";
-    if (message.includes("发布时间")) return "publishAt";
-    return null;
-  }
-
-  function showFormError(error: unknown, fallback: string) {
-    const message = error instanceof Error ? error.message : fallback;
-    const field = fieldForError(message);
-    setFormError({ message, field });
-    toast.error(message);
-    window.requestAnimationFrame(() => {
-      const target = field
-        ? document.getElementById(FIELD_IDS[field])
-        : formErrorRef.current;
-      target?.focus();
-    });
-  }
-
-  function clearFieldError(field: FormField) {
-    setFormError((current) => (current?.field === field ? null : current));
-  }
-
-  function fieldError(field: FormField) {
-    if (formError?.field !== field) return null;
-    return (
-      <p className="text-sm text-destructive" role="alert">
-        {formError.message}
-      </p>
-    );
   }
 
   function toInput(publicationMode = form.publicationMode): AnnouncementInput {
@@ -272,7 +157,7 @@ export function AnnouncementAdminPanel({
   }
 
   function saveAnnouncement(input: AnnouncementInput) {
-    setFormError(null);
+    editor.setError(null);
     startTransition(async () => {
       try {
         if (selectedId) {
@@ -286,8 +171,7 @@ export function AnnouncementAdminPanel({
                 sendNotification: false,
                 publicationMode: "draft" as const,
               };
-          setForm(savedForm);
-          setBaselineForm(savedForm);
+          editor.markSaved(savedForm);
         } else {
           await createAnnouncement(input);
           toast.success(
@@ -297,13 +181,12 @@ export function AnnouncementAdminPanel({
                 : "公告已发布"
               : "草稿已保存",
           );
-          setForm(EMPTY_FORM);
-          setBaselineForm(EMPTY_FORM);
-          setMobileEditing(false);
+          editor.markSaved(EMPTY_ANNOUNCEMENT_FORM);
+          editor.close();
         }
         router.refresh();
       } catch (error) {
-        showFormError(error, "保存失败");
+        editor.reportError(error, "保存失败");
       }
     });
   }
@@ -339,19 +222,18 @@ export function AnnouncementAdminPanel({
     startTransition(async () => {
       try {
         await updateAnnouncement(withdrawTarget.id, toInput("draft"));
-        const withdrawnForm: FormState = {
+        const withdrawnForm: AnnouncementFormState = {
           ...form,
           publicationMode: "draft",
           publishAt: "",
           expiresAt: "",
         };
-        setForm(withdrawnForm);
-        setBaselineForm(withdrawnForm);
+        editor.markSaved(withdrawnForm);
         setWithdrawTarget(null);
         toast.success("公告已撤回");
         router.refresh();
       } catch (error) {
-        showFormError(error, "撤回失败");
+        editor.reportError(error, "撤回失败");
       }
     });
   }
@@ -363,16 +245,14 @@ export function AnnouncementAdminPanel({
         await deleteAnnouncement(deleteTarget.id);
         if (selectedId === deleteTarget.id) {
           setSelectedId(null);
-          setForm(EMPTY_FORM);
-          setBaselineForm(EMPTY_FORM);
-          setFormError(null);
-          setMobileEditing(false);
+          editor.markSaved(EMPTY_ANNOUNCEMENT_FORM);
+          editor.close();
         }
         setDeleteTarget(null);
         toast.success("公告已删除");
         router.refresh();
       } catch (error) {
-        showFormError(error, "删除失败");
+        editor.reportError(error, "删除失败");
       }
     });
   }
@@ -401,177 +281,25 @@ export function AnnouncementAdminPanel({
           announcements={announcements}
           now={lifecycleNow}
           selectedId={selectedId}
-          hiddenOnMobile={mobileEditing}
+          hiddenOnMobile={editor.mobileEditing}
           onSelect={chooseAnnouncement}
         />
 
-        <form
-          className={`${mobileEditing ? "block" : selected ? "hidden lg:block" : "hidden"} overflow-hidden rounded-xl border bg-background`}
+        <AnnouncementAdminEditor
+          selected={selected}
+          lifecycle={selectedLifecycle}
+          isAlreadyPublic={isAlreadyPublic}
+          isPending={isPending}
+          editor={editor}
           onSubmit={handleSubmit}
-        >
-          <header className="sticky top-0 z-10 flex items-start gap-3 border-b bg-background/95 px-4 py-4 backdrop-blur lg:px-5">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              aria-label="返回公告列表"
-              onClick={returnToList}
-            >
-              <ArrowLeftIcon aria-hidden="true" />
-            </Button>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold text-balance">
-                  {selected ? form.title || "未命名公告" : "新建公告"}
-                </h2>
-                {selected && (
-                  <Badge
-                    variant={
-                      ANNOUNCEMENT_LIFECYCLE_BADGE_VARIANTS[selectedLifecycle]
-                    }
-                  >
-                    {ANNOUNCEMENT_LIFECYCLE_LABELS[selectedLifecycle]}
-                  </Badge>
-                )}
-                {isDirty && (
-                  <span className="text-xs text-muted-foreground">未保存</span>
-                )}
-                {selected?.notificationSentAt && (
-                  <span className="text-xs text-muted-foreground">已通知</span>
-                )}
-              </div>
-              {selected && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {announcementOfflineReason(selectedLifecycle)
-                    ? `${announcementOfflineReason(selectedLifecycle)}；首次发布于 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.publishedAt!))}`
-                    : selectedLifecycle === "scheduled" && selected.publishedAt
-                      ? `计划 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.publishedAt))} 发布`
-                      : selected.publishedAt
-                        ? `首次发布于 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.publishedAt))}`
-                        : `更新于 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.updatedAt))}`}
-                </p>
-              )}
-            </div>
-            {selected && (selected.publishedAt === null || isAlreadyPublic) && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                disabled={isPending || isDirty}
-                onClick={() =>
-                  selected.publishedAt === null
-                    ? setDeleteTarget(selected)
-                    : setWithdrawTarget(selected)
-                }
-              >
-                {selected.publishedAt === null ? "删除" : "撤回"}
-              </Button>
-            )}
-          </header>
-
-          <div className="space-y-5 p-4 pb-28 lg:p-5 lg:pb-5">
-            {formError?.field === null && (
-              <p
-                ref={formErrorRef}
-                className="mt-2 text-sm text-destructive outline-none"
-                role="alert"
-                aria-live="assertive"
-                tabIndex={-1}
-              >
-                {formError.message}
-              </p>
-            )}
-
-            <section aria-label="公告内容" className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="announcement-title">标题</Label>
-                <Input
-                  id="announcement-title"
-                  name="title"
-                  autoComplete="off"
-                  required
-                  maxLength={ANNOUNCEMENT_TITLE_MAX_LENGTH}
-                  aria-invalid={formError?.field === "title"}
-                  value={form.title}
-                  onChange={(event) => {
-                    clearFieldError("title");
-                    setForm((current) => ({
-                      ...current,
-                      title: event.target.value,
-                    }));
-                  }}
-                />
-                {fieldError("title")}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="announcement-content">正文</Label>
-                <Textarea
-                  id="announcement-content"
-                  name="content"
-                  autoComplete="off"
-                  required
-                  rows={10}
-                  maxLength={ANNOUNCEMENT_CONTENT_MAX_LENGTH}
-                  aria-invalid={formError?.field === "content"}
-                  value={form.content}
-                  onChange={(event) => {
-                    clearFieldError("content");
-                    setForm((current) => ({
-                      ...current,
-                      content: event.target.value,
-                    }));
-                  }}
-                />
-                {fieldError("content")}
-                <p className="text-right font-mono text-xs tabular-nums text-muted-foreground">
-                  {form.content.length} / {ANNOUNCEMENT_CONTENT_MAX_LENGTH}
-                </p>
-              </div>
-            </section>
-          </div>
-
-          <footer className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur lg:sticky lg:inset-auto lg:bottom-0 lg:px-5">
-            <span className="text-xs text-muted-foreground">
-              {isPending ? "正在保存…" : isDirty ? "未保存" : ""}
-            </span>
-            <div className="flex gap-2">
-              {!isAlreadyPublic && (
-                <Button type="submit" variant="outline" disabled={isPending}>
-                  {selectedLifecycle === "scheduled" ? "保存更改" : "保存草稿"}
-                </Button>
-              )}
-              {isAlreadyPublic ? (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() => {
-                      setPublishDialogBaseline(form);
-                      setPublishDialogOpen(true);
-                    }}
-                  >
-                    设置…
-                  </Button>
-                  <Button type="submit" disabled={isPending}>
-                    保存更改
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  type="submit"
-                  name="intent"
-                  value="publish"
-                  disabled={isPending}
-                >
-                  {selectedLifecycle === "scheduled" ? "发布设置…" : "发布…"}
-                </Button>
-              )}
-            </div>
-          </footer>
-        </form>
+          onReturnToList={returnToList}
+          onOpenSettings={() => {
+            setPublishDialogBaseline(form);
+            setPublishDialogOpen(true);
+          }}
+          onDelete={() => selected && setDeleteTarget(selected)}
+          onWithdraw={() => selected && setWithdrawTarget(selected)}
+        />
 
         {!editorOpen && (
           <section className="hidden min-h-80 items-center justify-center rounded-xl border border-dashed text-center lg:flex">
@@ -665,17 +393,21 @@ export function AnnouncementAdminPanel({
                   name="publishAt"
                   autoComplete="off"
                   type="datetime-local"
-                  aria-invalid={formError?.field === "publishAt"}
+                  aria-invalid={editor.error?.field === "publishAt"}
                   value={form.publishAt}
                   onChange={(event) => {
-                    clearFieldError("publishAt");
+                    editor.clearFieldError("publishAt");
                     setForm((current) => ({
                       ...current,
                       publishAt: event.target.value,
                     }));
                   }}
                 />
-                {fieldError("publishAt")}
+                {editor.error?.field === "publishAt" && (
+                  <p className="text-sm text-destructive" role="alert">
+                    {editor.error.message}
+                  </p>
+                )}
               </div>
             )}
 
@@ -719,17 +451,21 @@ export function AnnouncementAdminPanel({
                     name="expiresAt"
                     autoComplete="off"
                     type="datetime-local"
-                    aria-invalid={formError?.field === "expiresAt"}
+                    aria-invalid={editor.error?.field === "expiresAt"}
                     value={form.expiresAt}
                     onChange={(event) => {
-                      clearFieldError("expiresAt");
+                      editor.clearFieldError("expiresAt");
                       setForm((current) => ({
                         ...current,
                         expiresAt: event.target.value,
                       }));
                     }}
                   />
-                  {fieldError("expiresAt")}
+                  {editor.error?.field === "expiresAt" && (
+                    <p className="text-sm text-destructive" role="alert">
+                      {editor.error.message}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="announcement-priority">首页排序</Label>
