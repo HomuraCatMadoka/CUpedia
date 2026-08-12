@@ -96,6 +96,7 @@ describe("announcement admin actions", () => {
           id: announcementId,
           title: "迎新资料已更新",
           actorId: "admin-1",
+          publishedAt: new Date("2026-08-12T10:00:00Z"),
         },
       ]);
     await createAnnouncement({
@@ -252,7 +253,12 @@ describe("announcement admin actions", () => {
       .mockReset()
       .mockResolvedValueOnce([{ id: announcementId, title: "只修改标题" }])
       .mockResolvedValueOnce([
-        { id: announcementId, title: "只修改标题", actorId: "admin-1" },
+        {
+          id: announcementId,
+          title: "只修改标题",
+          actorId: "admin-1",
+          publishedAt: new Date("2026-08-12T10:00:00Z"),
+        },
       ]);
 
     await updateAnnouncement(announcementId, {

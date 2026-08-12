@@ -12,7 +12,7 @@ const ANNOUNCEMENT_BROADCAST_BATCH_SIZE = 10;
 
 async function insertAnnouncementNotifications(
   tx: AnnouncementTransaction,
-  announcement: { id: string; title: string },
+  announcement: { id: string; title: string; publishedAt: Date },
   actorId: string | null,
 ) {
   await tx.execute(sql`
@@ -34,6 +34,7 @@ async function insertAnnouncementNotifications(
       ${announcement.id}::uuid
     from ${users}
     where ${users.banned} = false
+      and ${users.createdAt} <= ${announcement.publishedAt}
     on conflict do nothing
   `);
 }
@@ -51,9 +52,18 @@ export async function broadcastAnnouncementIfDue(
       id: announcements.id,
       title: announcements.title,
       actorId: announcements.updatedBy,
+      publishedAt: announcements.publishedAt,
     });
-  if (claimed) {
-    await insertAnnouncementNotifications(tx, claimed, claimed.actorId);
+  if (claimed?.publishedAt) {
+    await insertAnnouncementNotifications(
+      tx,
+      {
+        id: claimed.id,
+        title: claimed.title,
+        publishedAt: claimed.publishedAt,
+      },
+      claimed.actorId,
+    );
     return true;
   }
   return false;
