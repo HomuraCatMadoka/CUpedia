@@ -203,12 +203,13 @@ describe("schema", () => {
     expect(replyCols.createdAt).toBeDefined();
   });
 
-  it("notifications keep generic metadata and read state without source foreign keys", () => {
+  it("notifications keep generic metadata, read state, and announcement identity", () => {
     const cols = getTableColumns(notifications);
     expect(cols.recipientId).toBeDefined();
     expect(cols.actorId).toBeDefined();
     expect(cols.kind).toBeDefined();
     expect(cols.metadata).toBeDefined();
+    expect(cols.announcementId).toBeDefined();
     expect(cols.readAt).toBeDefined();
     expect(cols.createdAt).toBeDefined();
     expect("reviewId" in cols).toBe(false);
@@ -221,7 +222,9 @@ describe("schema", () => {
     expect(cols.content).toBeDefined();
     expect(cols.priority).toBeDefined();
     expect(cols.publishedAt).toBeDefined();
+    expect(cols.withdrawnAt).toBeDefined();
     expect(cols.expiresAt).toBeDefined();
+    expect(cols.notifyOnPublish).toBeDefined();
     expect(cols.notificationSentAt).toBeDefined();
     expect(cols.createdBy).toBeDefined();
     expect(cols.updatedBy).toBeDefined();

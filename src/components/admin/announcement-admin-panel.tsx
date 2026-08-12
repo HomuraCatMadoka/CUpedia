@@ -45,6 +45,7 @@ type FormState = {
   title: string;
   content: string;
   priority: string;
+  publishAt: string;
   expiresAt: string;
   published: boolean;
   sendNotification: boolean;
@@ -54,6 +55,7 @@ const EMPTY_FORM: FormState = {
   title: "",
   content: "",
   priority: "0",
+  publishAt: "",
   expiresAt: "",
   published: false,
   sendNotification: false,
@@ -71,9 +73,12 @@ function toFormState(announcement: AdminAnnouncement): FormState {
     title: announcement.title,
     content: announcement.content,
     priority: String(announcement.priority),
+    publishAt: toLocalDateTimeInput(announcement.publishedAt),
     expiresAt: toLocalDateTimeInput(announcement.expiresAt),
-    published: announcement.publishedAt !== null,
-    sendNotification: false,
+    published:
+      announcement.publishedAt !== null && announcement.withdrawnAt === null,
+    sendNotification:
+      announcement.notifyOnPublish && !announcement.notificationSentAt,
   };
 }
 
@@ -107,6 +112,7 @@ export function AnnouncementAdminPanel({
       title: form.title,
       content: form.content,
       priority: Number(form.priority),
+      publishAt: form.publishAt ? new Date(form.publishAt).toISOString() : null,
       expiresAt: form.expiresAt ? new Date(form.expiresAt).toISOString() : null,
       published: form.published,
       sendNotification: form.sendNotification,
@@ -185,7 +191,16 @@ export function AnnouncementAdminPanel({
                   <Badge
                     variant={announcement.publishedAt ? "default" : "secondary"}
                   >
-                    {announcement.publishedAt ? "已发布" : "草稿"}
+                    {announcement.withdrawnAt
+                      ? "已撤回"
+                      : announcement.expiresAt &&
+                          new Date(announcement.expiresAt) <= new Date()
+                        ? "已失效"
+                        : announcement.publishedAt
+                          ? new Date(announcement.publishedAt) > new Date()
+                            ? "待发布"
+                            : "已发布"
+                          : "草稿"}
                   </Badge>
                 </span>
                 <span className="mt-1 block text-xs text-muted-foreground">
@@ -250,7 +265,7 @@ export function AnnouncementAdminPanel({
             </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="announcement-priority">优先级（0–100）</Label>
               <Input
@@ -264,6 +279,23 @@ export function AnnouncementAdminPanel({
                   setForm((current) => ({
                     ...current,
                     priority: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="announcement-publish-at">
+                发布时间（留空为立即）
+              </Label>
+              <Input
+                id="announcement-publish-at"
+                type="datetime-local"
+                disabled={!form.published}
+                value={form.publishAt}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    publishAt: event.target.value,
                   }))
                 }
               />
@@ -287,9 +319,9 @@ export function AnnouncementAdminPanel({
           <div className="space-y-4 border-t pt-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label htmlFor="announcement-published">立即发布</Label>
+                <Label htmlFor="announcement-published">发布公告</Label>
                 <p className="text-xs text-muted-foreground">
-                  关闭后保存为草稿，已发布公告会从前台撤下。
+                  可立即或定时发布；关闭后保存为草稿或撤回已发布公告。
                 </p>
               </div>
               <Switch

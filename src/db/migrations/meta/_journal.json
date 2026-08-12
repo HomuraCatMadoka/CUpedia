@@ -470,6 +470,13 @@
       "when": 1786473158411,
       "tag": "0066_far_sunset_bain",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1786505543265,
+      "tag": "0067_silky_korg",
+      "breakpoints": true
     }
   ]
 }

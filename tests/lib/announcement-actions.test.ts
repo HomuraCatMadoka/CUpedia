@@ -55,6 +55,7 @@ const baseInput = {
   content: "请查看最新入学指南。",
   priority: 20,
   expiresAt: null,
+  publishAt: null,
   published: false,
   sendNotification: false,
 };
@@ -63,9 +64,9 @@ const announcementId = "00000000-0000-4000-a100-000000000001";
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requireAdmin.mockResolvedValue({ id: "admin-1", role: "admin" });
-  mocks.returning.mockResolvedValue([
-    { id: announcementId, title: "迎新资料已更新" },
-  ]);
+  mocks.returning
+    .mockResolvedValueOnce([{ id: announcementId, title: "迎新资料已更新" }])
+    .mockResolvedValue([]);
   mocks.execute.mockResolvedValue(undefined);
 });
 
@@ -87,6 +88,16 @@ describe("announcement admin actions", () => {
   });
 
   it("broadcasts once when a new announcement is published with notification enabled", async () => {
+    mocks.returning
+      .mockReset()
+      .mockResolvedValueOnce([{ id: announcementId, title: "迎新资料已更新" }])
+      .mockResolvedValueOnce([
+        {
+          id: announcementId,
+          title: "迎新资料已更新",
+          actorId: "admin-1",
+        },
+      ]);
     await createAnnouncement({
       ...baseInput,
       published: true,
@@ -94,7 +105,6 @@ describe("announcement admin actions", () => {
     });
 
     expect(mocks.execute).toHaveBeenCalledOnce();
-    expect(mocks.update).toHaveBeenCalledOnce();
     expect(mocks.set).toHaveBeenCalledWith({
       notificationSentAt: expect.any(Date),
     });
@@ -115,6 +125,42 @@ describe("announcement admin actions", () => {
     });
 
     expect(mocks.execute).not.toHaveBeenCalled();
-    expect(mocks.update).toHaveBeenCalledOnce();
+  });
+
+  it("stores a future publication time instead of publishing immediately", async () => {
+    const publishAt = "2026-09-01T10:00:00.000Z";
+
+    await createAnnouncement({
+      ...baseInput,
+      published: true,
+      publishAt,
+    });
+
+    expect(mocks.values).toHaveBeenCalledWith(
+      expect.objectContaining({ publishedAt: new Date(publishAt) }),
+    );
+  });
+
+  it("keeps publication history when withdrawing an announcement", async () => {
+    const originalPublication = new Date("2026-08-11T10:00:00Z");
+    mocks.limit.mockResolvedValue([
+      {
+        publishedAt: originalPublication,
+        withdrawnAt: null,
+        notificationSentAt: null,
+      },
+    ]);
+
+    await updateAnnouncement(announcementId, {
+      ...baseInput,
+      published: false,
+    });
+
+    expect(mocks.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publishedAt: originalPublication,
+        withdrawnAt: expect.any(Date),
+      }),
+    );
   });
 });

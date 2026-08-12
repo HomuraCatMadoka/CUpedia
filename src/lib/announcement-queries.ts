@@ -1,4 +1,15 @@
-import { and, asc, count, desc, eq, gt, isNull, lte, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  isNotNull,
+  isNull,
+  lte,
+  or,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 import { announcements } from "@/db/schema";
@@ -12,7 +23,15 @@ import {
 function activeAnnouncementWhere(now: Date) {
   return and(
     lte(announcements.publishedAt, now),
+    isNull(announcements.withdrawnAt),
     or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
+  );
+}
+
+function publishedAnnouncementWhere(now: Date) {
+  return and(
+    isNotNull(announcements.publishedAt),
+    lte(announcements.publishedAt, now),
   );
 }
 
@@ -64,7 +83,7 @@ export async function listPublicAnnouncements(page = 1): Promise<{
 }> {
   const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
   const now = new Date();
-  const where = activeAnnouncementWhere(now);
+  const where = publishedAnnouncementWhere(now);
   const [totalRow] = await db
     .select({ value: count() })
     .from(announcements)
@@ -104,7 +123,9 @@ export async function getPublicAnnouncement(
       publishedAt: announcements.publishedAt,
     })
     .from(announcements)
-    .where(and(eq(announcements.id, id), activeAnnouncementWhere(new Date())))
+    .where(
+      and(eq(announcements.id, id), publishedAnnouncementWhere(new Date())),
+    )
     .limit(1);
   return row ? toPublicAnnouncement(row) : null;
 }
@@ -120,8 +141,10 @@ export async function adminListAnnouncements(): Promise<AdminAnnouncement[]> {
     content: row.content,
     priority: row.priority,
     publishedAt: row.publishedAt?.toISOString() ?? null,
+    withdrawnAt: row.withdrawnAt?.toISOString() ?? null,
     expiresAt: row.expiresAt?.toISOString() ?? null,
     notificationSentAt: row.notificationSentAt?.toISOString() ?? null,
+    notifyOnPublish: row.notifyOnPublish,
     updatedAt: row.updatedAt.toISOString(),
   }));
 }

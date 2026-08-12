@@ -8,6 +8,7 @@ export type AnnouncementInput = {
   title: string;
   content: string;
   priority: number;
+  publishAt: string | null;
   expiresAt: string | null;
   published: boolean;
   sendNotification: boolean;
@@ -26,8 +27,10 @@ export type AdminAnnouncement = {
   content: string;
   priority: number;
   publishedAt: string | null;
+  withdrawnAt: string | null;
   expiresAt: string | null;
   notificationSentAt: string | null;
+  notifyOnPublish: boolean;
   updatedAt: string;
 };
 
@@ -40,6 +43,7 @@ export function parseAnnouncementInput(input: AnnouncementInput): {
   content: string;
   priority: number;
   expiresAt: Date | null;
+  publishAt: Date | null;
   published: boolean;
   sendNotification: boolean;
 } {
@@ -67,11 +71,18 @@ export function parseAnnouncementInput(input: AnnouncementInput): {
     if (Number.isNaN(expiresAt.getTime())) throw new Error("失效时间无效");
   }
 
+  let publishAt: Date | null = null;
+  if (input.publishAt) {
+    publishAt = new Date(input.publishAt);
+    if (Number.isNaN(publishAt.getTime())) throw new Error("发布时间无效");
+  }
+
   return {
     title,
     content,
     priority,
     expiresAt,
+    publishAt,
     published: input.published === true,
     sendNotification: input.sendNotification === true,
   };

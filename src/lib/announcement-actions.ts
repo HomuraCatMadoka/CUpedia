@@ -1,10 +1,14 @@
 "use server";
 
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
-import { announcements, notifications, users } from "@/db/schema";
+import { announcements } from "@/db/schema";
+import {
+  broadcastAnnouncementIfDue,
+  broadcastDueAnnouncements,
+} from "@/lib/announcement-broadcast";
 import { adminListAnnouncements as queryAdminListAnnouncements } from "@/lib/announcement-queries";
 import {
   isAnnouncementId,
@@ -21,28 +25,9 @@ function revalidateAnnouncementPages(id?: string) {
   if (id) revalidatePath(`/announcements/${id}`);
 }
 
-async function broadcastAnnouncement(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
-  announcement: { id: string; title: string },
-  actorId: string,
-) {
-  await tx.execute(sql`
-    insert into ${notifications} (recipient_id, actor_id, kind, metadata)
-    select
-      ${users.id},
-      ${actorId}::uuid,
-      'announcement_published',
-      jsonb_build_object(
-        'announcementId', ${announcement.id},
-        'title', ${announcement.title}
-      )
-    from ${users}
-    where ${users.banned} = false
-  `);
-}
-
 export async function adminListAnnouncements(): Promise<AdminAnnouncement[]> {
   await requireAdmin();
+  await broadcastDueAnnouncements();
   return queryAdminListAnnouncements();
 }
 
@@ -52,7 +37,8 @@ export async function createAnnouncement(
   const admin = await requireAdmin();
   const parsed = parseAnnouncementInput(input);
   const now = new Date();
-  if (parsed.published && parsed.expiresAt && parsed.expiresAt <= now) {
+  const publishedAt = parsed.published ? (parsed.publishAt ?? now) : null;
+  if (publishedAt && parsed.expiresAt && parsed.expiresAt <= publishedAt) {
     throw new Error("失效时间必须晚于发布时间");
   }
 
@@ -63,8 +49,10 @@ export async function createAnnouncement(
         title: parsed.title,
         content: parsed.content,
         priority: parsed.priority,
-        publishedAt: parsed.published ? now : null,
+        publishedAt,
+        withdrawnAt: null,
         expiresAt: parsed.expiresAt,
+        notifyOnPublish: parsed.published && parsed.sendNotification,
         createdBy: admin.id,
         updatedBy: admin.id,
         createdAt: now,
@@ -73,13 +61,7 @@ export async function createAnnouncement(
       .returning({ id: announcements.id, title: announcements.title });
     if (!row) throw new Error("公告创建失败");
 
-    if (parsed.published && parsed.sendNotification) {
-      await broadcastAnnouncement(tx, row, admin.id);
-      await tx
-        .update(announcements)
-        .set({ notificationSentAt: now })
-        .where(eq(announcements.id, row.id));
-    }
+    await broadcastAnnouncementIfDue(tx, row.id, now);
     return row;
   });
 
@@ -100,6 +82,7 @@ export async function updateAnnouncement(
     const [existing] = await tx
       .select({
         publishedAt: announcements.publishedAt,
+        withdrawnAt: announcements.withdrawnAt,
         notificationSentAt: announcements.notificationSentAt,
       })
       .from(announcements)
@@ -107,7 +90,16 @@ export async function updateAnnouncement(
       .limit(1);
     if (!existing) throw new Error("公告不存在");
 
-    const publishedAt = parsed.published ? (existing.publishedAt ?? now) : null;
+    const wasPublic = Boolean(
+      existing.publishedAt && existing.publishedAt <= now,
+    );
+    const publishedAt = parsed.published
+      ? (parsed.publishAt ??
+        (existing.withdrawnAt ? now : (existing.publishedAt ?? now)))
+      : wasPublic
+        ? existing.publishedAt
+        : null;
+    const withdrawnAt = parsed.published ? null : wasPublic ? now : null;
     if (publishedAt && parsed.expiresAt && parsed.expiresAt <= publishedAt) {
       throw new Error("失效时间必须晚于发布时间");
     }
@@ -119,7 +111,12 @@ export async function updateAnnouncement(
         content: parsed.content,
         priority: parsed.priority,
         publishedAt,
+        withdrawnAt,
         expiresAt: parsed.expiresAt,
+        notifyOnPublish:
+          !existing.notificationSentAt && parsed.published
+            ? parsed.sendNotification
+            : undefined,
         updatedBy: admin.id,
         updatedAt: now,
       })
@@ -127,17 +124,7 @@ export async function updateAnnouncement(
       .returning({ id: announcements.id, title: announcements.title });
     if (!updated) throw new Error("公告不存在");
 
-    if (
-      parsed.published &&
-      parsed.sendNotification &&
-      !existing.notificationSentAt
-    ) {
-      await broadcastAnnouncement(tx, updated, admin.id);
-      await tx
-        .update(announcements)
-        .set({ notificationSentAt: now })
-        .where(eq(announcements.id, id));
-    }
+    await broadcastAnnouncementIfDue(tx, updated.id, now);
   });
 
   revalidateAnnouncementPages(id);

@@ -12,6 +12,7 @@ const validInput = {
   content: "  请查看最新入学指南。  ",
   priority: 20,
   expiresAt: "2026-09-01T00:00:00.000Z",
+  publishAt: "2026-08-20T00:00:00.000Z",
   published: true,
   sendNotification: true,
 };
@@ -23,6 +24,7 @@ describe("parseAnnouncementInput", () => {
       content: "请查看最新入学指南。",
       priority: 20,
       expiresAt: new Date("2026-09-01T00:00:00.000Z"),
+      publishAt: new Date("2026-08-20T00:00:00.000Z"),
       published: true,
       sendNotification: true,
     });
@@ -53,6 +55,9 @@ describe("parseAnnouncementInput", () => {
     expect(() =>
       parseAnnouncementInput({ ...validInput, expiresAt: "invalid" }),
     ).toThrow("失效时间无效");
+    expect(() =>
+      parseAnnouncementInput({ ...validInput, publishAt: "invalid" }),
+    ).toThrow("发布时间无效");
   });
 });
 

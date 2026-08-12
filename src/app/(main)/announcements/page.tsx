@@ -30,7 +30,7 @@ export default async function AnnouncementsPage({
         </div>
         <h1 className="mt-2 text-3xl font-bold">全部公告</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          当前共有 {result.total} 条有效公告，每页显示 10 条。
+          当前收录 {result.total} 条已发布公告，每页显示 10 条。
         </p>
       </header>
 

@@ -1225,7 +1225,9 @@ export const announcements = pgTable(
     content: text("content").notNull(),
     priority: integer("priority").notNull().default(0),
     publishedAt: timestamp("published_at"),
+    withdrawnAt: timestamp("withdrawn_at"),
     expiresAt: timestamp("expires_at"),
+    notifyOnPublish: boolean("notify_on_publish").notNull().default(false),
     notificationSentAt: timestamp("notification_sent_at"),
     createdBy: uuid("created_by").references(() => users.id, {
       onDelete: "set null",
@@ -1279,6 +1281,9 @@ export const notifications = pgTable(
     }),
     kind: text("kind").$type<NotificationKind>().notNull(),
     metadata: jsonb("metadata").$type<NotificationMetadata>().notNull(),
+    announcementId: uuid("announcement_id").references(() => announcements.id, {
+      onDelete: "cascade",
+    }),
     readAt: timestamp("read_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -1291,6 +1296,9 @@ export const notifications = pgTable(
       table.recipientId,
       table.readAt,
     ),
+    uniqueIndex("notifications_announcement_recipient_uq")
+      .on(table.announcementId, table.recipientId)
+      .where(sql`${table.kind} = 'announcement_published'`),
     check(
       "notifications_kind_check",
       sql`${table.kind} in ('course_review_reply', 'announcement_published')`,
