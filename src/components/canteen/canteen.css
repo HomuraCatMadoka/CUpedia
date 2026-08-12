@@ -1256,10 +1256,10 @@
   gap: 0.35rem;
   min-height: 2.75rem;
   padding: 0.45rem 0.85rem;
-  border: 1px solid color-mix(in srgb, var(--canteen-accent) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--canteen-link) 28%, transparent);
   border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--canteen-accent) 10%, white);
-  color: var(--canteen-accent);
+  background: color-mix(in srgb, var(--canteen-link) 10%, white);
+  color: var(--canteen-link);
   font-size: 0.8125rem;
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -1274,8 +1274,9 @@
 }
 
 .canteen-zone .canteen-order-btn:hover {
-  background: color-mix(in srgb, var(--canteen-accent) 16%, white);
-  border-color: color-mix(in srgb, var(--canteen-accent) 42%, transparent);
+  background: color-mix(in srgb, var(--canteen-link) 16%, white);
+  border-color: color-mix(in srgb, var(--canteen-link) 42%, transparent);
+  color: var(--canteen-focus);
 }
 
 .canteen-zone .canteen-order-btn:focus-visible {
