@@ -191,14 +191,18 @@ test.describe("campus bus Route 2 mobile journey", () => {
     await expect(dialog.getByText("2 新聯線", { exact: true })).toBeVisible();
     await expect(dialog.getByText("善衡書院", { exact: true })).toBeVisible();
     await expect(dialog.getByText("現在", { exact: true })).toBeVisible();
-    await expect(
-      dialog.getByRole("button", { name: "到站時間加一分鐘" }),
-    ).toBeDisabled();
+    const addMinute = dialog.getByRole("button", {
+      name: "到站時間加一分鐘",
+    });
+    await expect(addMinute).toBeEnabled();
+
+    await addMinute.click();
+    await addMinute.click();
+    await expect(dialog.getByText("2 分鐘後", { exact: true })).toBeVisible();
+    await expect(addMinute).toBeDisabled();
 
     await dialog.getByRole("button", { name: "到站時間減一分鐘" }).click();
-    await expect(dialog.getByText("1 分鐘前", { exact: true })).toBeVisible();
-    await dialog.getByRole("button", { name: "到站時間加一分鐘" }).click();
-    await expect(dialog.getByText("現在", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("1 分鐘後", { exact: true })).toBeVisible();
 
     const responsePromise = page.waitForResponse(
       (response) =>
@@ -208,6 +212,13 @@ test.describe("campus bus Route 2 mobile journey", () => {
     await dialog.getByRole("button", { name: "提交", exact: true }).click();
     const response = await responsePromise;
     expect(response.status()).toBe(201);
+    const submitted = response.request().postDataJSON() as {
+      observedArrivalAt: string;
+    };
+    const submittedOffset =
+      new Date(submitted.observedArrivalAt).getTime() - Date.now();
+    expect(submittedOffset).toBeGreaterThanOrEqual(59_000);
+    expect(submittedOffset).toBeLessThanOrEqual(60_000);
     await expect(dialog).toBeHidden();
 
     const acknowledgement = page.getByText("謝謝，你的到站時間已提交。");
