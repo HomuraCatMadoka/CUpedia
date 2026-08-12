@@ -5,17 +5,15 @@ import Link from "next/link";
 import { AnnouncementPanel } from "@/components/homepage/announcement-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { broadcastDueAnnouncements } from "@/lib/announcement-broadcast";
 import {
-  countPublicAnnouncements,
+  countPublishedAnnouncements,
   listFeaturedAnnouncements,
 } from "@/lib/announcement-queries";
 
 export default async function HomePage() {
-  await broadcastDueAnnouncements();
   const [announcements, announcementCount] = await Promise.all([
     listFeaturedAnnouncements(),
-    countPublicAnnouncements(),
+    countPublishedAnnouncements(),
   ]);
   const modules = [
     { title: "SG Wiki", href: "/wiki", description: "Survival Guides 百科" },

@@ -106,7 +106,7 @@ async function cleanup() {
 }
 
 async function openNotificationCenter(page: Page) {
-  await page.getByRole("button", { name: /通知/ }).click();
+  await page.getByRole("button", { name: /^通知(?:，\d+ 条未读)?$/ }).click();
   return page.locator('[data-slot="popover-content"]');
 }
 

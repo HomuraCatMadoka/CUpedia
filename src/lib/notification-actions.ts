@@ -10,7 +10,6 @@ import {
   type CourseReviewReplyNotificationMetadata,
 } from "@/db/schema";
 import { requireAuth } from "@/lib/auth-guard";
-import { broadcastDueAnnouncements } from "@/lib/announcement-broadcast";
 
 const PAGE_SIZE = 10;
 
@@ -42,7 +41,6 @@ export type NotificationPage = {
 
 export async function getUnreadNotificationCount(): Promise<number> {
   const user = await requireAuth();
-  await broadcastDueAnnouncements();
   const [row] = await db
     .select({ value: count() })
     .from(notifications)
@@ -54,7 +52,6 @@ export async function getUnreadNotificationCount(): Promise<number> {
 
 export async function getNotifications(offset = 0): Promise<NotificationPage> {
   const user = await requireAuth();
-  await broadcastDueAnnouncements();
   const safeOffset = Number.isFinite(offset)
     ? Math.max(0, Math.floor(offset))
     : 0;

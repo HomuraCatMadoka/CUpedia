@@ -5,10 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { db } from "@/db";
 import { announcements } from "@/db/schema";
-import {
-  broadcastAnnouncementIfDue,
-  broadcastDueAnnouncements,
-} from "@/lib/announcement-broadcast";
+import { broadcastAnnouncementIfDue } from "@/lib/announcement-broadcast";
 import { adminListAnnouncements as queryAdminListAnnouncements } from "@/lib/announcement-queries";
 import {
   isAnnouncementId,
@@ -27,7 +24,6 @@ function revalidateAnnouncementPages(id?: string) {
 
 export async function adminListAnnouncements(): Promise<AdminAnnouncement[]> {
   await requireAdmin();
-  await broadcastDueAnnouncements();
   return queryAdminListAnnouncements();
 }
 

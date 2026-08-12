@@ -35,10 +35,6 @@ vi.mock("@/lib/auth-guard", () => ({
   requireAuth: (...args: unknown[]) => requireAuth(...args),
 }));
 
-vi.mock("@/lib/announcement-broadcast", () => ({
-  broadcastDueAnnouncements: vi.fn(),
-}));
-
 vi.mock("@/db", () => ({
   db: {
     select: () => select(),

@@ -67,11 +67,11 @@ export async function listFeaturedAnnouncements(
   return rows.map(toPublicAnnouncement);
 }
 
-export async function countPublicAnnouncements(): Promise<number> {
+export async function countPublishedAnnouncements(): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(announcements)
-    .where(activeAnnouncementWhere(new Date()));
+    .where(publishedAnnouncementWhere(new Date()));
   return Number(row?.value ?? 0);
 }
 

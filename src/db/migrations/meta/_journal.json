@@ -477,6 +477,13 @@
       "when": 1786505543265,
       "tag": "0067_silky_korg",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1786508373721,
+      "tag": "0068_flashy_gunslinger",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getTableColumns } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import {
   users,
   wikiDrafts,
@@ -214,6 +215,12 @@ describe("schema", () => {
     expect(cols.createdAt).toBeDefined();
     expect("reviewId" in cols).toBe(false);
     expect("replyId" in cols).toBe(false);
+    expect(
+      getTableConfig(notifications).checks.some(
+        (constraint) =>
+          constraint.name === "notifications_announcement_identity_check",
+      ),
+    ).toBe(true);
   });
 
   it("announcements keep publication, expiry, priority, and notification state", () => {

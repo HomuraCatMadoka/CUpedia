@@ -1,4 +1,4 @@
-import { and, eq, gt, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { announcements, notifications, users } from "@/db/schema";
@@ -6,6 +6,8 @@ import { announcements, notifications, users } from "@/db/schema";
 type AnnouncementTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
 >[0];
+
+const ANNOUNCEMENT_BROADCAST_BATCH_SIZE = 10;
 
 async function insertAnnouncementNotifications(
   tx: AnnouncementTransaction,
@@ -39,7 +41,7 @@ export async function broadcastAnnouncementIfDue(
   tx: AnnouncementTransaction,
   id: string,
   now: Date,
-) {
+): Promise<boolean> {
   const [claimed] = await tx
     .update(announcements)
     .set({ notificationSentAt: now })
@@ -50,7 +52,6 @@ export async function broadcastAnnouncementIfDue(
         isNull(announcements.notificationSentAt),
         isNull(announcements.withdrawnAt),
         lte(announcements.publishedAt, now),
-        or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
       ),
     )
     .returning({
@@ -60,10 +61,12 @@ export async function broadcastAnnouncementIfDue(
     });
   if (claimed) {
     await insertAnnouncementNotifications(tx, claimed, claimed.actorId);
+    return true;
   }
+  return false;
 }
 
-export async function broadcastDueAnnouncements(): Promise<void> {
+export async function broadcastDueAnnouncements(): Promise<number> {
   const now = new Date();
   const due = await db
     .select({ id: announcements.id })
@@ -74,12 +77,17 @@ export async function broadcastDueAnnouncements(): Promise<void> {
         isNull(announcements.notificationSentAt),
         isNull(announcements.withdrawnAt),
         lte(announcements.publishedAt, now),
-        or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
       ),
+    )
+    .orderBy(asc(announcements.publishedAt))
+    .limit(ANNOUNCEMENT_BROADCAST_BATCH_SIZE);
+
+  let processed = 0;
+  for (const { id } of due) {
+    const claimed = await db.transaction((tx) =>
+      broadcastAnnouncementIfDue(tx, id, now),
     );
-  await Promise.all(
-    due.map(({ id }) =>
-      db.transaction((tx) => broadcastAnnouncementIfDue(tx, id, now)),
-    ),
-  );
+    if (claimed) processed += 1;
+  }
+  return processed;
 }

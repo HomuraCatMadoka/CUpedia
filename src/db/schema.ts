@@ -1303,6 +1303,10 @@ export const notifications = pgTable(
       "notifications_kind_check",
       sql`${table.kind} in ('course_review_reply', 'announcement_published')`,
     ),
+    check(
+      "notifications_announcement_identity_check",
+      sql`(${table.kind} = 'announcement_published' and ${table.announcementId} is not null) or (${table.kind} <> 'announcement_published' and ${table.announcementId} is null)`,
+    ),
   ],
 );
 
