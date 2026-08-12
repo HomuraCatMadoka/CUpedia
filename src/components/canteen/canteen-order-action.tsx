@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function CanteenOrderAction({
@@ -19,7 +20,11 @@ export function CanteenOrderAction({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className={cn("canteen-order-btn", className)}
+      className={cn(
+        buttonVariants({ variant: "ghost" }),
+        "canteen-order-btn",
+        className,
+      )}
       aria-label={`${canteenName} ${label}`}
     >
       <span>{label}</span>

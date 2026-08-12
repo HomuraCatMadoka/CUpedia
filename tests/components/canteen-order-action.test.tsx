@@ -27,6 +27,7 @@ describe("CanteenOrderAction", () => {
     );
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.getAttribute("rel")).toContain("noreferrer");
     expect(link.textContent).toContain("点击点餐");
   });
 });
