@@ -52,7 +52,8 @@ export async function createAnnouncement(
         publishedAt,
         withdrawnAt: null,
         expiresAt: parsed.expiresAt,
-        notifyOnPublish: parsed.published && parsed.sendNotification,
+        notifyOnPublish:
+          Boolean(publishedAt && publishedAt <= now) && parsed.sendNotification,
         createdBy: admin.id,
         updatedBy: admin.id,
         createdAt: now,
@@ -102,7 +103,7 @@ export async function updateAnnouncement(
     }
     const notifyOnPublish = resolveAnnouncementNotificationIntent(
       existing,
-      parsed,
+      { ...parsed, publishAt: publishedAt },
       now,
     );
 

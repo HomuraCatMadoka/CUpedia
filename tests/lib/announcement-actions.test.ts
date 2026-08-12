@@ -135,10 +135,14 @@ describe("announcement admin actions", () => {
       ...baseInput,
       published: true,
       publishAt,
+      sendNotification: true,
     });
 
     expect(mocks.values).toHaveBeenCalledWith(
-      expect.objectContaining({ publishedAt: new Date(publishAt) }),
+      expect.objectContaining({
+        publishedAt: new Date(publishAt),
+        notifyOnPublish: false,
+      }),
     );
   });
 
@@ -239,7 +243,7 @@ describe("announcement admin actions", () => {
     expect(mocks.execute).not.toHaveBeenCalled();
   });
 
-  it("preserves and broadcasts a due schedule's pending first notification", async () => {
+  it("clears legacy pending notification state after a schedule becomes public", async () => {
     mocks.limit.mockResolvedValue([
       {
         publishedAt: new Date("2026-08-12T10:00:00Z"),
@@ -249,18 +253,6 @@ describe("announcement admin actions", () => {
         notificationSentAt: null,
       },
     ]);
-    mocks.returning
-      .mockReset()
-      .mockResolvedValueOnce([{ id: announcementId, title: "只修改标题" }])
-      .mockResolvedValueOnce([
-        {
-          id: announcementId,
-          title: "只修改标题",
-          actorId: "admin-1",
-          publishedAt: new Date("2026-08-12T10:00:00Z"),
-        },
-      ]);
-
     await updateAnnouncement(announcementId, {
       ...baseInput,
       title: "只修改标题",
@@ -268,8 +260,8 @@ describe("announcement admin actions", () => {
     });
 
     expect(mocks.set).toHaveBeenCalledWith(
-      expect.objectContaining({ notifyOnPublish: true }),
+      expect.objectContaining({ notifyOnPublish: false }),
     );
-    expect(mocks.execute).toHaveBeenCalledOnce();
+    expect(mocks.execute).not.toHaveBeenCalled();
   });
 });

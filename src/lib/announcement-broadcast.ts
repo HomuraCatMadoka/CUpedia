@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { announcements, notifications, users } from "@/db/schema";
@@ -7,8 +7,6 @@ import { notificationDueCondition } from "@/lib/announcement-conditions";
 type AnnouncementTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
 >[0];
-
-const ANNOUNCEMENT_BROADCAST_BATCH_SIZE = 10;
 
 async function insertAnnouncementNotifications(
   tx: AnnouncementTransaction,
@@ -67,23 +65,4 @@ export async function broadcastAnnouncementIfDue(
     return true;
   }
   return false;
-}
-
-export async function broadcastDueAnnouncements(): Promise<number> {
-  const now = new Date();
-  const due = await db
-    .select({ id: announcements.id })
-    .from(announcements)
-    .where(notificationDueCondition(now))
-    .orderBy(asc(announcements.publishedAt))
-    .limit(ANNOUNCEMENT_BROADCAST_BATCH_SIZE);
-
-  let processed = 0;
-  for (const { id } of due) {
-    const claimed = await db.transaction((tx) =>
-      broadcastAnnouncementIfDue(tx, id, now),
-    );
-    if (claimed) processed += 1;
-  }
-  return processed;
 }
