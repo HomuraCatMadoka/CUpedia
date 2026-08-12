@@ -56,7 +56,8 @@ type FormState = {
 };
 
 type PublicationMode = "draft" | "immediate" | "scheduled";
-type LifecycleFilter = "all" | AnnouncementLifecycle;
+type ManagementStatus = "draft" | "scheduled" | "live" | "offline";
+type StatusFilter = "all" | ManagementStatus;
 
 type FormField = "title" | "content" | "priority" | "publishAt" | "expiresAt";
 
@@ -78,9 +79,9 @@ const EMPTY_FORM: FormState = {
 const LIFECYCLE_LABELS: Record<AnnouncementLifecycle, string> = {
   draft: "草稿",
   scheduled: "待发布",
-  published: "已发布",
-  expired: "已失效",
-  withdrawn: "已撤回",
+  published: "已上线",
+  expired: "已下线",
+  withdrawn: "已下线",
 };
 
 const LIFECYCLE_BADGE_VARIANTS: Record<
@@ -94,13 +95,12 @@ const LIFECYCLE_BADGE_VARIANTS: Record<
   withdrawn: "destructive",
 };
 
-const FILTERS: Array<{ value: LifecycleFilter; label: string }> = [
+const FILTERS: Array<{ value: StatusFilter; label: string }> = [
   { value: "all", label: "全部" },
   { value: "draft", label: "草稿" },
   { value: "scheduled", label: "待发布" },
-  { value: "published", label: "已发布" },
-  { value: "expired", label: "已失效" },
-  { value: "withdrawn", label: "已撤回" },
+  { value: "live", label: "已上线" },
+  { value: "offline", label: "已下线" },
 ];
 const ANNOUNCEMENTS_PER_PAGE = 10;
 
@@ -130,6 +130,20 @@ function lifecycleOf(
     },
     now,
   );
+}
+
+function managementStatusOf(
+  lifecycle: AnnouncementLifecycle,
+): ManagementStatus {
+  if (lifecycle === "published") return "live";
+  if (lifecycle === "expired" || lifecycle === "withdrawn") return "offline";
+  return lifecycle;
+}
+
+function offlineReason(lifecycle: AnnouncementLifecycle): string | null {
+  if (lifecycle === "expired") return "到期下线";
+  if (lifecycle === "withdrawn") return "手动撤回";
+  return null;
 }
 
 function toLocalDateTimeInput(iso: string | null): string {
@@ -201,7 +215,7 @@ export function AnnouncementAdminPanel({
   const [publicationInput, setPublicationInput] =
     useState<AnnouncementInput | null>(null);
   const [formError, setFormError] = useState<FormError | null>(null);
-  const [filter, setFilter] = useState<LifecycleFilter>("all");
+  const [filter, setFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [mobileEditing, setMobileEditing] = useState(
@@ -219,16 +233,15 @@ export function AnnouncementAdminPanel({
   const isDirtyRef = useRef(isDirty);
   const lifecycleCounts = useMemo(() => {
     const lifecycleNow = new Date(lifecycleNowMs);
-    const counts: Record<LifecycleFilter, number> = {
+    const counts: Record<StatusFilter, number> = {
       all: announcements.length,
       draft: 0,
       scheduled: 0,
-      published: 0,
-      expired: 0,
-      withdrawn: 0,
+      live: 0,
+      offline: 0,
     };
     for (const announcement of announcements) {
-      counts[lifecycleOf(announcement, lifecycleNow)] += 1;
+      counts[managementStatusOf(lifecycleOf(announcement, lifecycleNow))] += 1;
     }
     return counts;
   }, [announcements, lifecycleNowMs]);
@@ -238,7 +251,7 @@ export function AnnouncementAdminPanel({
     return announcements.filter((announcement) => {
       const lifecycle = lifecycleOf(announcement, lifecycleNow);
       return (
-        (filter === "all" || lifecycle === filter) &&
+        (filter === "all" || managementStatusOf(lifecycle) === filter) &&
         (!normalizedQuery ||
           announcement.title
             .toLocaleLowerCase("zh-HK")
@@ -636,6 +649,7 @@ export function AnnouncementAdminPanel({
             ) : (
               paginatedAnnouncements.map((announcement) => {
                 const lifecycle = lifecycleOf(announcement, lifecycleNow);
+                const reason = offlineReason(lifecycle);
                 return (
                   <button
                     key={announcement.id}
@@ -657,7 +671,8 @@ export function AnnouncementAdminPanel({
                     </span>
                     <span className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
                       <span>
-                        {lifecycle === "scheduled" ? "计划" : "更新"}{" "}
+                        {reason ??
+                          (lifecycle === "scheduled" ? "计划" : "更新")}{" "}
                         {DATE_FORMATTER.format(
                           new Date(
                             lifecycle === "scheduled" &&
@@ -744,11 +759,13 @@ export function AnnouncementAdminPanel({
               </div>
               {selected && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {selectedLifecycle === "scheduled" && selected.publishedAt
-                    ? `计划 ${DATE_FORMATTER.format(new Date(selected.publishedAt))} 发布`
-                    : selected.publishedAt
-                      ? `首次发布于 ${DATE_FORMATTER.format(new Date(selected.publishedAt))}`
-                      : `更新于 ${DATE_FORMATTER.format(new Date(selected.updatedAt))}`}
+                  {offlineReason(selectedLifecycle)
+                    ? `${offlineReason(selectedLifecycle)}；首次发布于 ${DATE_FORMATTER.format(new Date(selected.publishedAt!))}`
+                    : selectedLifecycle === "scheduled" && selected.publishedAt
+                      ? `计划 ${DATE_FORMATTER.format(new Date(selected.publishedAt))} 发布`
+                      : selected.publishedAt
+                        ? `首次发布于 ${DATE_FORMATTER.format(new Date(selected.publishedAt))}`
+                        : `更新于 ${DATE_FORMATTER.format(new Date(selected.updatedAt))}`}
                 </p>
               )}
             </div>
