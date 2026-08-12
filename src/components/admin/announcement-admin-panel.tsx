@@ -17,6 +17,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -212,8 +221,9 @@ export function AnnouncementAdminPanel({
   const [baselineForm, setBaselineForm] = useState<FormState>(initialForm);
   const [withdrawTarget, setWithdrawTarget] =
     useState<AdminAnnouncement | null>(null);
-  const [publicationInput, setPublicationInput] =
-    useState<AnnouncementInput | null>(null);
+  const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+  const [publishDialogBaseline, setPublishDialogBaseline] =
+    useState<FormState | null>(null);
   const [formError, setFormError] = useState<FormError | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
@@ -268,6 +278,8 @@ export function AnnouncementAdminPanel({
     (currentPage - 1) * ANNOUNCEMENTS_PER_PAGE,
     currentPage * ANNOUNCEMENTS_PER_PAGE,
   );
+  const showListTools = announcements.length > ANNOUNCEMENTS_PER_PAGE;
+  const editorOpen = mobileEditing || selected !== null;
 
   useEffect(() => {
     isDirtyRef.current = isDirty;
@@ -493,6 +505,7 @@ export function AnnouncementAdminPanel({
           );
           setForm(EMPTY_FORM);
           setBaselineForm(EMPTY_FORM);
+          setMobileEditing(false);
         }
         router.refresh();
       } catch (error) {
@@ -503,12 +516,28 @@ export function AnnouncementAdminPanel({
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const input = toInput();
-    if (!isAlreadyPublic && input.published) {
-      setPublicationInput(input);
+    const intent = (event.nativeEvent as SubmitEvent).submitter?.getAttribute(
+      "value",
+    );
+    if (!isAlreadyPublic && intent === "publish") {
+      setPublishDialogBaseline(form);
+      setForm((current) => ({
+        ...current,
+        publicationMode:
+          current.publicationMode === "draft"
+            ? "immediate"
+            : current.publicationMode,
+      }));
+      setPublishDialogOpen(true);
       return;
     }
-    saveAnnouncement(input);
+    saveAnnouncement(
+      toInput(
+        isAlreadyPublic || selectedLifecycle === "scheduled"
+          ? form.publicationMode
+          : "draft",
+      ),
+    );
   }
 
   function handleWithdraw() {
@@ -543,6 +572,7 @@ export function AnnouncementAdminPanel({
           setForm(EMPTY_FORM);
           setBaselineForm(EMPTY_FORM);
           setFormError(null);
+          setMobileEditing(false);
         }
         setDeleteTarget(null);
         toast.success("公告已删除");
@@ -559,23 +589,14 @@ export function AnnouncementAdminPanel({
     ? formatDateTime(form.publishAt)
     : null;
   const usesPresetPriority = ["0", "50", "100"].includes(form.priority);
-  const submitLabel = isAlreadyPublic
-    ? "保存更改"
-    : form.publicationMode === "draft"
-      ? "保存草稿"
-      : form.publicationMode === "scheduled"
-        ? "确认排期"
-        : "立即发布";
+  const publishLabel = scheduledPublication ? "确认排期" : "确认发布";
+  const publishDialogActionLabel =
+    form.publicationMode === "draft" ? "保存为草稿" : publishLabel;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">公告管理</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            首页最多展示 3 条有效公告；完整列表每页显示 10 条。
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold">公告管理</h1>
         <Button type="button" variant="outline" onClick={startNewAnnouncement}>
           新建公告
         </Button>
@@ -586,61 +607,58 @@ export function AnnouncementAdminPanel({
           aria-label="公告列表"
           className={mobileEditing ? "hidden space-y-4 lg:block" : "space-y-4"}
         >
-          <div className="relative">
-            <SearchIcon
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              name="announcementSearch"
-              autoComplete="off"
-              aria-label="搜索公告标题"
-              placeholder="搜索公告标题…"
-              className="pl-9"
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPage(1);
-              }}
-            />
-          </div>
-          <div
-            className="flex gap-1 overflow-x-auto pb-1"
-            aria-label="按状态筛选"
-          >
-            {FILTERS.map((item) => (
-              <Button
-                key={item.value}
-                type="button"
-                size="sm"
-                variant={filter === item.value ? "secondary" : "ghost"}
-                aria-pressed={filter === item.value}
-                onClick={() => {
-                  setFilter(item.value);
+          {showListTools && (
+            <div className="relative">
+              <SearchIcon
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                name="announcementSearch"
+                autoComplete="off"
+                aria-label="搜索公告标题"
+                placeholder="搜索公告标题…"
+                className="pl-9"
+                value={query}
+                onChange={(event) => {
+                  setQuery(event.target.value);
                   setPage(1);
                 }}
-              >
-                {item.label}
-                <span className="tabular-nums text-muted-foreground">
-                  {lifecycleCounts[item.value]}
-                </span>
-              </Button>
-            ))}
-          </div>
+              />
+            </div>
+          )}
+          {showListTools && (
+            <div
+              className="flex gap-1 overflow-x-auto pb-1"
+              aria-label="按状态筛选"
+            >
+              {FILTERS.map((item) => (
+                <Button
+                  key={item.value}
+                  type="button"
+                  size="sm"
+                  variant={filter === item.value ? "secondary" : "ghost"}
+                  aria-pressed={filter === item.value}
+                  onClick={() => {
+                    setFilter(item.value);
+                    setPage(1);
+                  }}
+                >
+                  {item.label}
+                  <span className="tabular-nums text-muted-foreground">
+                    {lifecycleCounts[item.value]}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          )}
           <div className="space-y-2">
             {announcements.length === 0 ? (
               <div className="rounded-xl border border-dashed p-8 text-center">
                 <p className="text-sm font-medium">还没有公告</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  创建第一条公告，保存为草稿后再决定发布时间。
+                  点击右上角“新建公告”开始创建。
                 </p>
-                <Button
-                  className="mt-4"
-                  type="button"
-                  onClick={startNewAnnouncement}
-                >
-                  创建公告
-                </Button>
               </div>
             ) : visibleAnnouncements.length === 0 ? (
               <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
@@ -682,14 +700,13 @@ export function AnnouncementAdminPanel({
                           ),
                         )}
                       </span>
-                      <span className="inline-flex items-center gap-1">
-                        <BellIcon className="size-3" aria-hidden="true" />
-                        {announcement.notificationSentAt
-                          ? "已通知"
-                          : announcement.notifyOnPublish
-                            ? "待通知"
-                            : "不通知"}
-                      </span>
+                      {announcement.notifyOnPublish &&
+                        !announcement.notificationSentAt && (
+                          <span className="inline-flex items-center gap-1">
+                            <BellIcon className="size-3" aria-hidden="true" />
+                            待通知
+                          </span>
+                        )}
                     </span>
                   </button>
                 );
@@ -729,7 +746,7 @@ export function AnnouncementAdminPanel({
         </section>
 
         <form
-          className={`${mobileEditing ? "block" : "hidden lg:block"} overflow-hidden rounded-xl border bg-background`}
+          className={`${mobileEditing ? "block" : selected ? "hidden lg:block" : "hidden"} overflow-hidden rounded-xl border bg-background`}
           onSubmit={handleSubmit}
         >
           <header className="sticky top-0 z-10 flex items-start gap-3 border-b bg-background/95 px-4 py-4 backdrop-blur lg:px-5">
@@ -756,6 +773,9 @@ export function AnnouncementAdminPanel({
                 {isDirty && (
                   <span className="text-xs text-muted-foreground">未保存</span>
                 )}
+                {selected?.notificationSentAt && (
+                  <span className="text-xs text-muted-foreground">已通知</span>
+                )}
               </div>
               {selected && (
                 <p className="mt-1 text-xs text-muted-foreground">
@@ -769,16 +789,25 @@ export function AnnouncementAdminPanel({
                 </p>
               )}
             </div>
+            {selected && (selected.publishedAt === null || isAlreadyPublic) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                disabled={isPending || isDirty}
+                onClick={() =>
+                  selected.publishedAt === null
+                    ? setDeleteTarget(selected)
+                    : setWithdrawTarget(selected)
+                }
+              >
+                {selected.publishedAt === null ? "删除" : "撤回"}
+              </Button>
+            )}
           </header>
 
-          <div className="space-y-7 p-4 pb-28 lg:p-5 lg:pb-5">
-            {selected?.notificationSentAt && (
-              <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-                此公告已于{` `}
-                {DATE_FORMATTER.format(new Date(selected.notificationSentAt))}
-                {` `}同步到通知中心，再次保存不会重复发送。
-              </p>
-            )}
+          <div className="space-y-5 p-4 pb-28 lg:p-5 lg:pb-5">
             {formError?.field === null && (
               <p
                 ref={formErrorRef}
@@ -791,18 +820,7 @@ export function AnnouncementAdminPanel({
               </p>
             )}
 
-            <section
-              aria-labelledby="announcement-content-heading"
-              className="space-y-4"
-            >
-              <div>
-                <h3 id="announcement-content-heading" className="font-semibold">
-                  公告内容
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  首页显示摘要，完整正文在公告详情页展示。
-                </p>
-              </div>
+            <section aria-label="公告内容" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="announcement-title">标题</Label>
                 <Input
@@ -848,101 +866,189 @@ export function AnnouncementAdminPanel({
                 </p>
               </div>
             </section>
+          </div>
 
-            <section
-              aria-labelledby="announcement-publish-heading"
-              className="space-y-4 border-t pt-6"
-            >
-              <div>
-                <h3 id="announcement-publish-heading" className="font-semibold">
-                  发布设置
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  明确选择保存结果，避免误发公告。
-                </p>
-              </div>
-              {!isAlreadyPublic ? (
-                <fieldset className="grid gap-2 sm:grid-cols-3">
-                  <legend className="sr-only">发布方式</legend>
+          <footer className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur lg:sticky lg:inset-auto lg:bottom-0 lg:px-5">
+            <span className="text-xs text-muted-foreground">
+              {isPending ? "正在保存…" : isDirty ? "未保存" : ""}
+            </span>
+            <div className="flex gap-2">
+              {!isAlreadyPublic && (
+                <Button type="submit" variant="outline" disabled={isPending}>
+                  {selectedLifecycle === "scheduled" ? "保存更改" : "保存草稿"}
+                </Button>
+              )}
+              {isAlreadyPublic ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() => {
+                      setPublishDialogBaseline(form);
+                      setPublishDialogOpen(true);
+                    }}
+                  >
+                    设置…
+                  </Button>
+                  <Button type="submit" disabled={isPending}>
+                    保存更改
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="submit"
+                  name="intent"
+                  value="publish"
+                  disabled={isPending}
+                >
+                  {selectedLifecycle === "scheduled" ? "发布设置…" : "发布…"}
+                </Button>
+              )}
+            </div>
+          </footer>
+        </form>
+
+        {!editorOpen && (
+          <section className="hidden min-h-80 items-center justify-center rounded-xl border border-dashed text-center lg:flex">
+            <div>
+              <p className="font-medium">选择一条公告查看详情</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                或新建一条公告
+              </p>
+            </div>
+          </section>
+        )}
+      </div>
+
+      <Dialog
+        open={publishDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && publishDialogBaseline) {
+            setForm(publishDialogBaseline);
+            setPublishDialogBaseline(null);
+          }
+          setPublishDialogOpen(open);
+        }}
+      >
+        <DialogContent
+          className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg"
+          showCloseButton={false}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {isAlreadyPublic ? "公告设置" : "发布公告"}
+            </DialogTitle>
+            <DialogDescription>
+              {isAlreadyPublic
+                ? "调整自动下线时间和首页排序。"
+                : "选择发布时间；其他选项可按需设置。"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-1">
+            {!isAlreadyPublic && (
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">发布时间</legend>
+                <div className="grid gap-2 sm:grid-cols-2">
                   {(
                     [
-                      ["draft", "保存为草稿", "仅管理员可见"],
-                      ["immediate", "立即发布", "保存后立即公开"],
-                      ["scheduled", "定时发布", "在指定时间公开"],
+                      ...(selectedLifecycle === "scheduled"
+                        ? [["draft", "取消排期"] as const]
+                        : []),
+                      ["immediate", "立即发布"],
+                      ["scheduled", "定时发布"],
                     ] as const
-                  ).map(([value, label, description]) => (
+                  ).map(([value, label]) => (
                     <label
                       key={value}
-                      className={`cursor-pointer rounded-lg border p-3 transition-colors ${
+                      className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 ${
                         form.publicationMode === value
                           ? "border-foreground bg-accent"
-                          : "hover:bg-accent/50"
+                          : ""
                       }`}
                     >
-                      <span className="flex items-center gap-2 text-sm font-medium">
-                        <input
-                          type="radio"
-                          name="publicationMode"
-                          aria-label={label}
-                          value={value}
-                          checked={form.publicationMode === value}
-                          onChange={() =>
-                            setForm((current) => ({
-                              ...current,
-                              publicationMode: value,
-                              publishAt:
-                                value === "scheduled" ? current.publishAt : "",
-                              sendNotification:
-                                value === "draft"
-                                  ? false
-                                  : current.sendNotification,
-                            }))
-                          }
-                        />
-                        {label}
-                      </span>
-                      <span className="mt-1 block pl-5 text-xs text-muted-foreground">
-                        {description}
-                      </span>
+                      <input
+                        type="radio"
+                        name="dialogPublicationMode"
+                        value={value}
+                        checked={form.publicationMode === value}
+                        onChange={() =>
+                          setForm((current) => ({
+                            ...current,
+                            publicationMode: value,
+                            publishAt:
+                              value === "scheduled" ? current.publishAt : "",
+                            sendNotification:
+                              value === "draft"
+                                ? false
+                                : current.sendNotification,
+                          }))
+                        }
+                      />
+                      <span className="text-sm font-medium">{label}</span>
                     </label>
                   ))}
-                </fieldset>
-              ) : (
-                <p className="rounded-lg border bg-muted/40 px-3 py-2 text-sm">
-                  公告已经公开；保存只会更新内容，不会改变首次发布时间。
-                </p>
+                </div>
+              </fieldset>
+            )}
+
+            {scheduledPublication && !isAlreadyPublic && (
+              <div className="space-y-2">
+                <Label htmlFor="announcement-publish-at">计划发布时间</Label>
+                <Input
+                  id="announcement-publish-at"
+                  name="publishAt"
+                  autoComplete="off"
+                  type="datetime-local"
+                  aria-invalid={formError?.field === "publishAt"}
+                  value={form.publishAt}
+                  onChange={(event) => {
+                    clearFieldError("publishAt");
+                    setForm((current) => ({
+                      ...current,
+                      publishAt: event.target.value,
+                    }));
+                  }}
+                />
+                {fieldError("publishAt")}
+              </div>
+            )}
+
+            {!notificationAlreadySent &&
+              !isAlreadyPublic &&
+              form.publicationMode !== "draft" && (
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
+                  <input
+                    type="checkbox"
+                    name="sendNotification"
+                    className="mt-0.5 size-4"
+                    checked={form.sendNotification}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        sendNotification: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>
+                    <span className="block text-sm font-medium">
+                      发送站内通知
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      每条公告只发送一次。
+                    </span>
+                  </span>
+                </label>
               )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {(form.publicationMode === "scheduled" || isAlreadyPublic) && (
-                  <div className="space-y-2">
-                    <Label htmlFor="announcement-publish-at">
-                      {isAlreadyPublic
-                        ? "首次发布时间（不可修改）"
-                        : "计划发布时间"}
-                    </Label>
-                    <Input
-                      id="announcement-publish-at"
-                      name="publishAt"
-                      autoComplete="off"
-                      type="datetime-local"
-                      required={form.publicationMode === "scheduled"}
-                      disabled={isAlreadyPublic}
-                      aria-invalid={formError?.field === "publishAt"}
-                      value={form.publishAt}
-                      onChange={(event) => {
-                        clearFieldError("publishAt");
-                        setForm((current) => ({
-                          ...current,
-                          publishAt: event.target.value,
-                        }));
-                      }}
-                    />
-                    {fieldError("publishAt")}
-                  </div>
-                )}
+            <details className="rounded-lg border px-3 py-2">
+              <summary className="cursor-pointer text-sm font-medium">
+                更多设置
+              </summary>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="announcement-expiry">失效时间（可选）</Label>
+                  <Label htmlFor="announcement-expiry">自动下线（可选）</Label>
                   <Input
                     id="announcement-expiry"
                     name="expiresAt"
@@ -960,144 +1066,69 @@ export function AnnouncementAdminPanel({
                   />
                   {fieldError("expiresAt")}
                 </div>
-              </div>
-
-              <div className="space-y-2 sm:max-w-xs">
-                <Label htmlFor="announcement-priority">展示优先级</Label>
-                <select
-                  id="announcement-priority"
-                  name="priority"
-                  autoComplete="off"
-                  className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                  value={form.priority}
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      priority: event.target.value,
-                    }))
-                  }
-                >
-                  {!usesPresetPriority && (
-                    <option value={form.priority}>
-                      自定义（{form.priority}）
-                    </option>
-                  )}
-                  <option value="0">普通</option>
-                  <option value="50">重要</option>
-                  <option value="100">置顶</option>
-                </select>
-                <p className="text-xs text-muted-foreground">
-                  优先级较高的公告会优先出现在首页。
-                </p>
-              </div>
-            </section>
-
-            <section
-              aria-labelledby="announcement-notification-heading"
-              className="space-y-3 border-t pt-6"
-            >
-              <div>
-                <h3
-                  id="announcement-notification-heading"
-                  className="font-semibold"
-                >
-                  通知设置
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  每条公告只发送一次；后续编辑不会重复通知。
-                </p>
-              </div>
-              <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60">
-                <input
-                  type="checkbox"
-                  name="sendNotification"
-                  className="mt-0.5 size-4"
-                  checked={form.sendNotification}
-                  disabled={
-                    form.publicationMode === "draft" ||
-                    notificationAlreadySent ||
-                    isAlreadyPublic
-                  }
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      sendNotification: event.target.checked,
-                    }))
-                  }
-                />
-                <span>
-                  <span className="block text-sm font-medium">
-                    发布时发送站内通知
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    发送给发布时所有未封禁用户。
-                  </span>
-                </span>
-              </label>
-            </section>
-
-            {(selected && !selected.publishedAt) ||
-            (isAlreadyPublic && selected) ? (
-              <section
-                aria-labelledby="announcement-danger-heading"
-                className="space-y-3 border-t pt-6"
-              >
-                <div>
-                  <h3
-                    id="announcement-danger-heading"
-                    className="font-semibold text-destructive"
+                <div className="space-y-2">
+                  <Label htmlFor="announcement-priority">首页排序</Label>
+                  <select
+                    id="announcement-priority"
+                    name="priority"
+                    autoComplete="off"
+                    className="h-9 w-full rounded-lg border border-input bg-background px-3 text-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    value={form.priority}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        priority: event.target.value,
+                      }))
+                    }
                   >
-                    危险操作
-                  </h3>
-                  <p className="text-xs text-muted-foreground">
-                    {selected && !selected.publishedAt
-                      ? "草稿可永久删除。"
-                      : "撤回后公告会从所有公开页面下线。"}
-                  </p>
+                    {!usesPresetPriority && (
+                      <option value={form.priority}>
+                        自定义（{form.priority}）
+                      </option>
+                    )}
+                    <option value="0">普通</option>
+                    <option value="50">重要</option>
+                    <option value="100">置顶</option>
+                  </select>
                 </div>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={isPending || isDirty}
-                  onClick={() =>
-                    selected && !selected.publishedAt
-                      ? setDeleteTarget(selected)
-                      : selected && setWithdrawTarget(selected)
-                  }
-                >
-                  {selected && !selected.publishedAt ? "删除草稿" : "撤回公告"}
-                </Button>
-                {isDirty && (
-                  <p className="text-xs text-muted-foreground">
-                    请先保存或放弃当前更改。
-                  </p>
-                )}
-              </section>
-            ) : null}
+              </div>
+            </details>
 
-            <div className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-              {isAlreadyPublic
-                ? "将保存内容更改，不会重复发送通知。"
-                : form.publicationMode === "draft"
-                  ? "将保存为草稿，仅管理员可见。"
-                  : form.publicationMode === "scheduled"
+            {!isAlreadyPublic && (
+              <p className="rounded-lg bg-muted px-3 py-2 text-sm">
+                {form.publicationMode === "draft"
+                  ? "将取消排期并保存为草稿。"
+                  : scheduledPublication
                     ? formattedSchedule
-                      ? `将于 ${formattedSchedule} 发布${form.sendNotification ? "，并发送站内通知。" : "。"}`
+                      ? `将于 ${formattedSchedule} 发布${form.sendNotification ? "，并发送通知。" : "。"}`
                       : "请选择计划发布时间。"
-                    : `保存后立即公开${form.sendNotification ? "，并发送站内通知。" : "。"}`}
-            </div>
+                    : `确认后立即上线${form.sendNotification ? "，并发送通知。" : "。"}`}
+              </p>
+            )}
           </div>
 
-          <footer className="fixed inset-x-0 bottom-0 z-20 flex items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur lg:sticky lg:inset-auto lg:bottom-0 lg:px-5">
-            <span className="text-xs text-muted-foreground">
-              {isDirty ? "有未保存更改" : "所有更改已保存"}
-            </span>
-            <Button type="submit" disabled={isPending}>
-              {isPending ? "正在处理…" : submitLabel}
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>
+              取消
+            </DialogClose>
+            <Button
+              type="button"
+              disabled={
+                isPending ||
+                (!isAlreadyPublic && scheduledPublication && !formattedSchedule)
+              }
+              onClick={() => {
+                const input = toInput();
+                setPublishDialogBaseline(null);
+                setPublishDialogOpen(false);
+                saveAnnouncement(input);
+              }}
+            >
+              {isAlreadyPublic ? "保存设置" : publishDialogActionLabel}
             </Button>
-          </footer>
-        </form>
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog
         open={deleteTarget !== null}
@@ -1139,43 +1170,6 @@ export function AnnouncementAdminPanel({
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction disabled={isPending} onClick={handleWithdraw}>
               确认撤回
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog
-        open={publicationInput !== null}
-        onOpenChange={(open) => {
-          if (!open) setPublicationInput(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {scheduledPublication ? "确认排期发布？" : "确认立即发布？"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {scheduledPublication
-                ? `公告将在 ${formattedSchedule ?? "所选时间"} 自动公开。`
-                : "公告保存后会立即公开。"}
-              {form.sendNotification
-                ? "届时会向当前未封禁用户发送一次站内通知。"
-                : "此次不会发送站内通知。"}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>返回检查</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isPending}
-              onClick={() => {
-                if (!publicationInput) return;
-                const input = publicationInput;
-                setPublicationInput(null);
-                saveAnnouncement(input);
-              }}
-            >
-              {scheduledPublication ? "确认排期" : "确认发布"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
