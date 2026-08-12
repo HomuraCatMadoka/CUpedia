@@ -37,6 +37,9 @@ export async function createAnnouncement(
   const admin = await requireAdmin();
   const parsed = parseAnnouncementInput(input);
   const now = new Date();
+  if (parsed.published && parsed.publishAt && parsed.publishAt <= now) {
+    throw new Error("计划发布时间必须晚于当前时间");
+  }
   const publishedAt = parsed.published ? (parsed.publishAt ?? now) : null;
   if (publishedAt && parsed.expiresAt && parsed.expiresAt <= publishedAt) {
     throw new Error("失效时间必须晚于发布时间");
@@ -53,7 +56,9 @@ export async function createAnnouncement(
         withdrawnAt: null,
         expiresAt: parsed.expiresAt,
         notifyOnPublish:
-          Boolean(publishedAt && publishedAt <= now) && parsed.sendNotification,
+          parsed.published &&
+          parsed.publishAt === null &&
+          parsed.sendNotification,
         createdBy: admin.id,
         updatedBy: admin.id,
         createdAt: now,
@@ -78,6 +83,9 @@ export async function updateAnnouncement(
   const admin = await requireAdmin();
   const parsed = parseAnnouncementInput(input);
   const now = new Date();
+  if (parsed.published && parsed.publishAt && parsed.publishAt <= now) {
+    throw new Error("计划发布时间必须晚于当前时间");
+  }
 
   await db.transaction(async (tx) => {
     const [existing] = await tx
@@ -103,7 +111,7 @@ export async function updateAnnouncement(
     }
     const notifyOnPublish = resolveAnnouncementNotificationIntent(
       existing,
-      { ...parsed, publishAt: publishedAt },
+      parsed,
       now,
     );
 

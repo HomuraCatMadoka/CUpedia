@@ -33,7 +33,7 @@ beforeEach(() => {
 });
 
 describe("broadcastAnnouncementIfDue", () => {
-  it("limits delayed broadcasts to users present at first publication", async () => {
+  it("limits immediate publication recipients to users present at publication", async () => {
     const publishedAt = new Date("2026-08-12T10:00:00Z");
     mocks.returning.mockResolvedValueOnce([
       {

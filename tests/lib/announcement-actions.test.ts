@@ -146,6 +146,20 @@ describe("announcement admin actions", () => {
     );
   });
 
+  it("rejects a backdated schedule instead of using it as an immediate publication", async () => {
+    await expect(
+      createAnnouncement({
+        ...baseInput,
+        published: true,
+        publishAt: "2020-01-01T00:00:00.000Z",
+        sendNotification: true,
+      }),
+    ).rejects.toThrow("计划发布时间必须晚于当前时间");
+
+    expect(mocks.values).not.toHaveBeenCalled();
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
   it("publishes an existing schedule immediately when its time is cleared", async () => {
     const scheduledAt = new Date("2026-09-01T10:00:00.000Z");
     mocks.limit.mockResolvedValue([
