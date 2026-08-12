@@ -203,6 +203,7 @@ test.describe("campus bus Route 2 mobile journey", () => {
 
     await dialog.getByRole("button", { name: "到站時間減一分鐘" }).click();
     await expect(dialog.getByText("1 分鐘後", { exact: true })).toBeVisible();
+    const browserNow = await page.evaluate(() => Date.now());
 
     const responsePromise = page.waitForResponse(
       (response) =>
@@ -216,7 +217,7 @@ test.describe("campus bus Route 2 mobile journey", () => {
       observedArrivalAt: string;
     };
     const submittedOffset =
-      new Date(submitted.observedArrivalAt).getTime() - Date.now();
+      new Date(submitted.observedArrivalAt).getTime() - browserNow;
     expect(submittedOffset).toBeGreaterThanOrEqual(59_000);
     expect(submittedOffset).toBeLessThanOrEqual(60_000);
     await expect(dialog).toBeHidden();
