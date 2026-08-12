@@ -1,15 +1,23 @@
-import Link from "next/link";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+import Link from "next/link";
+
+import { AnnouncementPanel } from "@/components/homepage/announcement-panel";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  countPublishedAnnouncements,
+  listFeaturedAnnouncements,
+} from "@/lib/announcement-queries";
+
+export default async function HomePage() {
+  const [announcements, announcementCount] = await Promise.all([
+    listFeaturedAnnouncements(),
+    countPublishedAnnouncements(),
+  ]);
   const modules = [
     { title: "SG Wiki", href: "/wiki", description: "Survival Guides 百科" },
-    {
-      title: "课程",
-      href: "/courses",
-      description: "课程测评",
-    },
+    { title: "课程", href: "/courses", description: "课程测评" },
     {
       title: "分院帽",
       href: "/college-picker",
@@ -38,27 +46,34 @@ export default function HomePage() {
         <p className="mt-2 text-muted-foreground">你的中大百科全书</p>
       </div>
 
+      <AnnouncementPanel
+        announcements={announcements}
+        total={announcementCount}
+      />
+
       <div className="relative z-10 grid grid-cols-2 gap-4 md:grid-cols-3">
-        {modules.map((m) =>
-          m.disabled ? (
-            <Card key={m.href} className="cursor-not-allowed opacity-60">
+        {modules.map((module) =>
+          module.disabled ? (
+            <Card key={module.href} className="cursor-not-allowed opacity-60">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{m.title}</CardTitle>
+                  <CardTitle className="text-lg">{module.title}</CardTitle>
                   <Badge variant="secondary" className="text-xs">
                     即将上线
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">{m.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {module.description}
+                </p>
               </CardHeader>
             </Card>
           ) : (
-            <Link key={m.href} href={m.href}>
+            <Link key={module.href} href={module.href}>
               <Card className="transition-shadow hover:shadow-md">
                 <CardHeader>
-                  <CardTitle className="text-lg">{m.title}</CardTitle>
+                  <CardTitle className="text-lg">{module.title}</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {m.description}
+                    {module.description}
                   </p>
                 </CardHeader>
               </Card>

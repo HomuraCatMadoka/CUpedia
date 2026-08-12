@@ -55,6 +55,7 @@ services:
       AUTH_SECRET: ${AUTH_SECRET}
       AUTH_URL: ${AUTH_URL}
       AUTH_TRUST_HOST: "true"
+      CRON_SECRET: ${CRON_SECRET:-}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
@@ -69,6 +70,19 @@ services:
     depends_on:
       - db
       - minio
+    profiles:
+      - production
+
+  announcement-scheduler:
+    image: curlimages/curl:8.16.0
+    environment:
+      CRON_SECRET: ${CRON_SECRET:-}
+    entrypoint: ["/bin/sh", "/opt/cupedia/run-announcement-scheduler.sh"]
+    volumes:
+      - ./scripts/run-announcement-scheduler.sh:/opt/cupedia/run-announcement-scheduler.sh:ro
+    depends_on:
+      - app
+    restart: unless-stopped
     profiles:
       - production
 

@@ -1217,13 +1217,57 @@ export const courseReviewReplies = pgTable(
   ],
 );
 
-export const NOTIFICATION_KINDS = ["course_review_reply"] as const;
+export const announcements = pgTable(
+  "announcements",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: text("title").notNull(),
+    content: text("content").notNull(),
+    priority: integer("priority").notNull().default(0),
+    publishedAt: timestamp("published_at"),
+    withdrawnAt: timestamp("withdrawn_at"),
+    expiresAt: timestamp("expires_at"),
+    notifyOnPublish: boolean("notify_on_publish").notNull().default(false),
+    notificationSentAt: timestamp("notification_sent_at"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedBy: uuid("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("announcements_publication_idx").on(
+      table.publishedAt,
+      table.expiresAt,
+      table.priority,
+    ),
+    check(
+      "announcements_expiry_after_publication_check",
+      sql`${table.expiresAt} is null or ${table.publishedAt} is null or ${table.expiresAt} > ${table.publishedAt}`,
+    ),
+  ],
+);
+
+export const NOTIFICATION_KINDS = [
+  "course_review_reply",
+  "announcement_published",
+] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 export type CourseReviewReplyNotificationMetadata = {
   courseCode: string;
   reviewId: string;
   replyId: string;
 };
+export type AnnouncementNotificationMetadata = {
+  announcementId: string;
+  title: string;
+};
+export type NotificationMetadata =
+  | CourseReviewReplyNotificationMetadata
+  | AnnouncementNotificationMetadata;
 
 export const notifications = pgTable(
   "notifications",
@@ -1236,9 +1280,8 @@ export const notifications = pgTable(
       onDelete: "set null",
     }),
     kind: text("kind").$type<NotificationKind>().notNull(),
-    metadata: jsonb("metadata")
-      .$type<CourseReviewReplyNotificationMetadata>()
-      .notNull(),
+    metadata: jsonb("metadata").$type<NotificationMetadata>().notNull(),
+    announcementId: uuid("announcement_id"),
     readAt: timestamp("read_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -1251,9 +1294,16 @@ export const notifications = pgTable(
       table.recipientId,
       table.readAt,
     ),
+    uniqueIndex("notifications_announcement_recipient_uq")
+      .on(table.announcementId, table.recipientId)
+      .where(sql`${table.kind} = 'announcement_published'`),
     check(
       "notifications_kind_check",
-      sql`${table.kind} in ('course_review_reply')`,
+      sql`${table.kind} in ('course_review_reply', 'announcement_published')`,
+    ),
+    check(
+      "notifications_announcement_identity_check",
+      sql`(${table.kind} = 'announcement_published' and ${table.announcementId} is not null) or (${table.kind} <> 'announcement_published' and ${table.announcementId} is null)`,
     ),
   ],
 );

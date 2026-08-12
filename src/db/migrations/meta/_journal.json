@@ -463,6 +463,34 @@
       "when": 1785992003305,
       "tag": "0065_hesitant_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1786473158411,
+      "tag": "0066_far_sunset_bain",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1786505543265,
+      "tag": "0067_silky_korg",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1786508373721,
+      "tag": "0068_flashy_gunslinger",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1786534336967,
+      "tag": "0069_chunky_wraith",
+      "breakpoints": true
     }
   ]
 }

@@ -27,6 +27,7 @@ import {
   professorStaffIdentities,
   staffPeople,
   staffPersonSources,
+  announcements,
 } from "../src/db/schema";
 import {
   USER_IDS,
@@ -35,8 +36,10 @@ import {
   REVISION_IDS,
   CANTEEN_IDS,
   MENU_ITEM_IDS,
+  ANNOUNCEMENT_IDS,
   PASSWORD,
   SEED_USERS,
+  SEED_ANNOUNCEMENTS,
   SEED_PROFESSOR,
   buildSeedData,
 } from "./seed-data";
@@ -77,6 +80,11 @@ async function main() {
 
   await db.transaction(async (tx) => {
     // Clear existing seed rows (reverse FK order) so the script is idempotent.
+    await tx
+      .delete(announcements)
+      .where(
+        sql`${announcements.id} IN (${uuidIn(Object.values(ANNOUNCEMENT_IDS))})`,
+      );
     await tx
       .delete(wikiRevisions)
       .where(
@@ -126,6 +134,24 @@ async function main() {
     }
 
     console.log(`  Created ${SEED_USERS.length} users`);
+
+    for (const announcement of SEED_ANNOUNCEMENTS) {
+      const publishedAt = new Date(
+        now.getTime() - announcement.publishedDaysAgo * 24 * 60 * 60 * 1000,
+      );
+      await tx.insert(announcements).values({
+        id: announcement.id,
+        title: announcement.title,
+        content: announcement.content,
+        priority: announcement.priority,
+        publishedAt,
+        createdBy: USER_IDS.admin,
+        updatedBy: USER_IDS.admin,
+        createdAt: publishedAt,
+        updatedAt: publishedAt,
+      });
+    }
+    console.log(`  Created ${SEED_ANNOUNCEMENTS.length} announcements`);
 
     for (const p of pages) {
       await tx.insert(wikiPages).values({
