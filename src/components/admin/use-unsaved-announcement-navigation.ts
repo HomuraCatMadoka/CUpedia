@@ -67,12 +67,6 @@ export function useUnsavedAnnouncementNavigation({
         return;
       }
 
-      if (!stayedOnGuardedUrl) {
-        skipNextTraversal = true;
-        window.history.back();
-        return;
-      }
-
       window.history.pushState(
         {
           ...window.history.state,
