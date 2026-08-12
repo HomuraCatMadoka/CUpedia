@@ -101,6 +101,7 @@ describe("notification reads", () => {
     expect(result.notifications).toHaveLength(10);
     expect(result.notifications[0]).toEqual({
       id: "notification-1",
+      kind: "course_review_reply",
       actorNickname: "Current Alice",
       actorAvatarUrl: "/current-avatar.png",
       courseCode: "CSCI3150",
@@ -111,6 +112,37 @@ describe("notification reads", () => {
     expect(result.notifications[0]).not.toHaveProperty("content");
     expect(result.notifications[0]).not.toHaveProperty("achievements");
     expect(offset()).toHaveBeenCalledWith(0);
+  });
+
+  it("maps announcement notifications to their announcement detail page", async () => {
+    queue.push([
+      {
+        id: "notification-announcement",
+        kind: "announcement_published",
+        metadata: {
+          announcementId: "announcement-1",
+          title: "迎新资料已更新",
+        },
+        readAt: null,
+        createdAt: new Date("2026-08-12T10:00:00Z"),
+        actorNickname: "Admin",
+        actorAvatarUrl: null,
+      },
+    ]);
+
+    await expect(getNotifications()).resolves.toEqual({
+      notifications: [
+        {
+          id: "notification-announcement",
+          kind: "announcement_published",
+          title: "迎新资料已更新",
+          createdAt: "2026-08-12T10:00:00.000Z",
+          href: "/announcements/announcement-1",
+          read: false,
+        },
+      ],
+      hasMore: false,
+    });
   });
 
   it("normalizes an invalid pagination offset to the first page", async () => {

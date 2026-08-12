@@ -22,6 +22,7 @@ import {
   professorCourses,
   courseReviews,
   courseReviewReplies,
+  announcements,
   notifications,
 } from "@/db/schema";
 
@@ -212,5 +213,17 @@ describe("schema", () => {
     expect(cols.createdAt).toBeDefined();
     expect("reviewId" in cols).toBe(false);
     expect("replyId" in cols).toBe(false);
+  });
+
+  it("announcements keep publication, expiry, priority, and notification state", () => {
+    const cols = getTableColumns(announcements);
+    expect(cols.title).toBeDefined();
+    expect(cols.content).toBeDefined();
+    expect(cols.priority).toBeDefined();
+    expect(cols.publishedAt).toBeDefined();
+    expect(cols.expiresAt).toBeDefined();
+    expect(cols.notificationSentAt).toBeDefined();
+    expect(cols.createdBy).toBeDefined();
+    expect(cols.updatedBy).toBeDefined();
   });
 });

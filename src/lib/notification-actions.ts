@@ -3,20 +3,36 @@
 import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
-import { notifications, users } from "@/db/schema";
+import {
+  notifications,
+  users,
+  type AnnouncementNotificationMetadata,
+  type CourseReviewReplyNotificationMetadata,
+} from "@/db/schema";
 import { requireAuth } from "@/lib/auth-guard";
 
 const PAGE_SIZE = 10;
 
-export type NotificationView = {
+type NotificationViewBase = {
   id: string;
-  actorNickname: string;
-  actorAvatarUrl: string | null;
-  courseCode: string;
   createdAt: string;
   href: string;
   read: boolean;
 };
+
+export type NotificationView = NotificationViewBase &
+  (
+    | {
+        kind: "course_review_reply";
+        actorNickname: string;
+        actorAvatarUrl: string | null;
+        courseCode: string;
+      }
+    | {
+        kind: "announcement_published";
+        title: string;
+      }
+  );
 
 export type NotificationPage = {
   notifications: NotificationView[];
@@ -57,19 +73,34 @@ export async function getNotifications(offset = 0): Promise<NotificationPage> {
     .offset(safeOffset);
 
   return {
-    notifications: rows.slice(0, PAGE_SIZE).map((row) => {
+    notifications: rows.slice(0, PAGE_SIZE).map((row): NotificationView => {
+      const base = {
+        id: row.id,
+        createdAt: row.createdAt.toISOString(),
+        read: row.readAt !== null,
+      };
+      if (row.kind === "announcement_published") {
+        const metadata = row.metadata as AnnouncementNotificationMetadata;
+        return {
+          ...base,
+          kind: "announcement_published",
+          title: metadata.title,
+          href: `/announcements/${metadata.announcementId}`,
+        };
+      }
+
+      const metadata = row.metadata as CourseReviewReplyNotificationMetadata;
       const query = new URLSearchParams({
-        review: row.metadata.reviewId,
-        reply: row.metadata.replyId,
+        review: metadata.reviewId,
+        reply: metadata.replyId,
       });
       return {
-        id: row.id,
+        ...base,
+        kind: "course_review_reply",
         actorNickname: row.actorNickname || "用户",
         actorAvatarUrl: row.actorAvatarUrl,
-        courseCode: row.metadata.courseCode,
-        createdAt: row.createdAt.toISOString(),
-        href: `/courses/${encodeURIComponent(row.metadata.courseCode)}?${query.toString()}`,
-        read: row.readAt !== null,
+        courseCode: metadata.courseCode,
+        href: `/courses/${encodeURIComponent(metadata.courseCode)}?${query.toString()}`,
       };
     }),
     hasMore: rows.length > PAGE_SIZE,

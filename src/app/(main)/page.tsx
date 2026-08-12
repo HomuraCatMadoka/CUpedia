@@ -1,71 +1,97 @@
-import Link from "next/link";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const modules = [
-    { title: "SG Wiki", href: "/wiki", description: "Survival Guides 百科" },
-    {
-      title: "课程",
-      href: "/courses",
-      description: "课程测评",
-    },
-    {
-      title: "分院帽",
-      href: "/college-picker",
-      description: "书院志愿推荐",
-    },
-    {
-      title: "山城食记",
-      href: "/canteen",
-      description: "还有食堂能吃吗",
-      disabled: false,
-    },
-    { title: "生活", href: "/life", description: "生活指南", disabled: true },
-    {
-      title: "交换",
-      href: "/exchange",
-      description: "交换经验",
-      disabled: true,
-    },
-    { title: "求职", href: "/career", description: "求职资源", disabled: true },
-  ];
+import Link from "next/link";
+import {
+  BookOpenIcon,
+  GraduationCapIcon,
+  MapIcon,
+  UtensilsIcon,
+} from "lucide-react";
+
+import { AnnouncementPanel } from "@/components/homepage/announcement-panel";
+import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  countPublicAnnouncements,
+  listFeaturedAnnouncements,
+} from "@/lib/announcement-queries";
+
+const modules = [
+  {
+    title: "SG Wiki",
+    href: "/wiki",
+    description: "Survival Guides 百科",
+    icon: BookOpenIcon,
+  },
+  {
+    title: "课程",
+    href: "/courses",
+    description: "课程测评",
+    icon: GraduationCapIcon,
+  },
+  {
+    title: "分院帽",
+    href: "/college-picker",
+    description: "书院志愿推荐",
+    icon: MapIcon,
+  },
+  {
+    title: "山城食记",
+    href: "/canteen",
+    description: "还有食堂能吃吗",
+    icon: UtensilsIcon,
+  },
+] as const;
+
+export default async function HomePage() {
+  const [announcements, announcementCount] = await Promise.all([
+    listFeaturedAnnouncements(),
+    countPublicAnnouncements(),
+  ]);
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6">
-      <div className="text-center">
+    <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6">
+      <header className="text-center">
         <h1 className="text-3xl font-bold">CUpedia</h1>
         <p className="mt-2 text-muted-foreground">你的中大百科全书</p>
-      </div>
+      </header>
 
-      <div className="relative z-10 grid grid-cols-2 gap-4 md:grid-cols-3">
-        {modules.map((m) =>
-          m.disabled ? (
-            <Card key={m.href} className="cursor-not-allowed opacity-60">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">{m.title}</CardTitle>
-                  <Badge variant="secondary" className="text-xs">
-                    即将上线
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{m.description}</p>
-              </CardHeader>
-            </Card>
-          ) : (
-            <Link key={m.href} href={m.href}>
-              <Card className="transition-shadow hover:shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg">{m.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    {m.description}
-                  </p>
-                </CardHeader>
-              </Card>
-            </Link>
-          ),
-        )}
-      </div>
+      <AnnouncementPanel
+        announcements={announcements}
+        total={announcementCount}
+      />
+
+      <section>
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">
+          常用入口
+        </h2>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          {modules.map((module) => {
+            const Icon = module.icon;
+            return (
+              <Link
+                key={module.href}
+                href={module.href}
+                className="block h-full"
+              >
+                <Card className="h-full transition-shadow hover:shadow-md">
+                  <CardHeader>
+                    <Icon
+                      className="size-5 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <div className="mt-2">
+                      <CardTitle className="text-lg">{module.title}</CardTitle>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {module.description}
+                      </p>
+                    </div>
+                  </CardHeader>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }
