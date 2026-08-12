@@ -134,7 +134,7 @@ test.describe.serial("#446 global notification center", () => {
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(390);
 
-    await page.getByRole("button", { name: /通知/ }).click();
+    await page.getByRole("button", { name: /^通知(?:，\d+ 条未读)?$/ }).click();
     await expect(popover).toBeHidden();
     popover = await openNotificationCenter(page);
     await page.keyboard.press("Escape");

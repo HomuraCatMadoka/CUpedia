@@ -3,7 +3,12 @@ import { adminListAnnouncements } from "@/lib/announcement-actions";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminAnnouncementsPage() {
+export default async function AdminAnnouncementsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ announcement?: string }>;
+}) {
+  const { announcement } = await searchParams;
   const announcements = await adminListAnnouncements();
   const serverNow = new Date().toISOString();
   return (
@@ -11,6 +16,7 @@ export default async function AdminAnnouncementsPage() {
       key={serverNow}
       announcements={announcements}
       serverNow={serverNow}
+      initialAnnouncementId={announcement}
     />
   );
 }

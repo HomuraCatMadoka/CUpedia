@@ -27,8 +27,8 @@ async function insertAnnouncementNotifications(
       ${actorId}::uuid,
       'announcement_published',
       jsonb_build_object(
-        'announcementId', ${announcement.id},
-        'title', ${announcement.title}
+        'announcementId', ${announcement.id}::text,
+        'title', ${announcement.title}::text
       ),
       ${announcement.id}::uuid
     from ${users}

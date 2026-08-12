@@ -72,13 +72,10 @@ describe("AnnouncementAdminPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /已发布公告/ }));
 
     expect(
-      (
-        screen.getByLabelText(
-          "首次发布时间（发布后不可修改）",
-        ) as HTMLInputElement
-      ).disabled,
+      (screen.getByLabelText("首次发布时间（不可修改）") as HTMLInputElement)
+        .disabled,
     ).toBe(true);
-    expect(screen.queryByLabelText("发布公告")).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
     expect(screen.getByRole("button", { name: "保存更改" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "撤回公告" }));
@@ -182,7 +179,7 @@ describe("AnnouncementAdminPanel", () => {
     fireEvent.change(screen.getByLabelText("正文"), {
       target: { value: "公告正文" },
     });
-    fireEvent.click(screen.getByRole("switch", { name: "发布公告" }));
+    fireEvent.click(screen.getByRole("radio", { name: "立即发布" }));
     fireEvent.click(screen.getByRole("button", { name: "立即发布" }));
 
     expect(screen.getByRole("alertdialog").textContent).toContain(
@@ -202,13 +199,17 @@ describe("AnnouncementAdminPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: /已撤回公告/ }));
 
     expect(
-      (screen.getByLabelText("发布时间（留空为立即）") as HTMLInputElement)
-        .value,
-    ).toBe("");
+      (
+        screen.getByRole("radio", {
+          name: "保存为草稿",
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+    expect(screen.queryByLabelText("计划发布时间")).toBeNull();
     expect(
       (screen.getByLabelText("失效时间（可选）") as HTMLInputElement).value,
     ).toBe("");
-    expect(screen.getByRole("switch", { name: "发布公告" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "立即发布" })).toBeTruthy();
   });
 
   it("clears a schedule and its notification choice when returning to draft", () => {
@@ -221,22 +222,33 @@ describe("AnnouncementAdminPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /待发布公告/ }));
     expect(
-      (screen.getByLabelText("发布时间（留空为立即）") as HTMLInputElement)
-        .value,
+      (screen.getByLabelText("计划发布时间") as HTMLInputElement).value,
     ).not.toBe("");
 
-    fireEvent.click(screen.getByRole("switch", { name: "发布公告" }));
+    fireEvent.click(screen.getByRole("radio", { name: "保存为草稿" }));
 
-    expect(
-      (screen.getByLabelText("发布时间（留空为立即）") as HTMLInputElement)
-        .value,
-    ).toBe("");
+    expect(screen.queryByLabelText("计划发布时间")).toBeNull();
     expect(
       (
-        screen.getByRole("switch", {
-          name: "同步到通知中心",
+        screen.getByRole("checkbox", {
+          name: /发布时发送站内通知/,
         }) as HTMLButtonElement
-      ).getAttribute("aria-checked"),
-    ).toBe("false");
+      ).getAttribute("checked"),
+    ).toBeNull();
+  });
+
+  it("restores a selected announcement from the URL-backed initial id", () => {
+    render(
+      <AnnouncementAdminPanel
+        announcements={[published]}
+        serverNow={SERVER_NOW}
+        initialAnnouncementId={published.id}
+      />,
+    );
+
+    expect((screen.getByLabelText("标题") as HTMLInputElement).value).toBe(
+      "已发布公告",
+    );
+    expect(screen.getByText("首次发布于", { exact: false })).toBeTruthy();
   });
 });
