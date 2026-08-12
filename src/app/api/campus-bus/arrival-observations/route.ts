@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { insertArrivalObservation } from "@/lib/campus-transport/arrival-observation-store";
 import {
-  arrivalFeedbackRateLimitKey,
-  insertArrivalObservation,
-} from "@/lib/campus-transport/arrival-observation-store";
+  CAMPUS_BUS_FEEDBACK_SESSION_COOKIE,
+  getCampusBusFeedbackSession,
+} from "@/lib/campus-transport/feedback-session";
 import { getCampusBusRoute } from "@/lib/campus-transport/routes-data";
 import { getChampionCampusBusRoute } from "@/lib/campus-transport/prediction-model-cache";
 
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const feedbackSession = getCampusBusFeedbackSession(request);
     const observation = await insertArrivalObservation(
       {
         observedArrivalAt,
@@ -72,14 +74,28 @@ export async function POST(request: NextRequest) {
         stopOccurrenceId: stop.id,
         submittedAnonymously: true,
       },
-      arrivalFeedbackRateLimitKey(request),
+      feedbackSession.sessionId,
       receivedAt,
     );
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       { observationId: observation.id },
       { status: 201 },
     );
+    if (feedbackSession.cookie) {
+      response.cookies.set(
+        CAMPUS_BUS_FEEDBACK_SESSION_COOKIE,
+        feedbackSession.cookie.value,
+        {
+          httpOnly: true,
+          maxAge: feedbackSession.cookie.maxAge,
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        },
+      );
+    }
+    return response;
   } catch (error) {
     if (
       error instanceof Error &&

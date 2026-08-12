@@ -15,11 +15,32 @@ export type CampusBusStop = {
 
 export type CampusBusPattern = {
   id: string;
+  revisionId: string;
+  confidence: string;
+  sourceRefs: string[];
   departureMinutes: number[];
   serviceDayType: string;
   projections: Array<{
     stopOccurrenceId: string;
     p50Seconds: number;
+    p10Seconds: number | null;
+    p90Seconds: number | null;
+    sourceKind: string;
+    sourceRefs: string[];
+    sampleCount: number;
+    serviceDayCount: number | null;
+    fallbackLevel: string;
+    offsetConfidence: string;
+    publicationStatus: "staging_only";
+    evidence: {
+      segmentCount: number;
+      segmentSamplesTotal: number;
+      bottleneckSampleCount: number;
+      serviceDayCount: number | null;
+      routeScope: string;
+      containsReviewMatch: boolean;
+      segmentSourceRefs: string[];
+    };
     timeBandAdjustments?: Array<{
       residualSeconds: number;
       timeBand: CampusBusPredictionTimeBand;
@@ -59,6 +80,13 @@ export type CampusBusRoute = {
   academicTerms: Array<{ startDate: string; endDate: string }>;
   code: string;
   datasetId: string;
+  datasetProvenance: {
+    parserVersion: string;
+    snapshotGeneratedAt: string;
+    snapshotSha256: string;
+    communityPriorSha256?: string;
+  };
+  seedModelRevisionId: string;
   defaultStopId: string;
   frequencyLabel: string;
   map: CampusBusRouteMap;
@@ -77,6 +105,69 @@ export type CampusBusRoute = {
   stops: CampusBusStop[];
   subtitle: string;
 };
+
+type CampusBusPassengerProjection = Pick<
+  CampusBusPattern["projections"][number],
+  "p50Seconds" | "stopOccurrenceId" | "timeBandAdjustments"
+>;
+
+type CampusBusPassengerPattern = Pick<
+  CampusBusPattern,
+  "departureMinutes" | "id" | "serviceDayType"
+> & {
+  projections: CampusBusPassengerProjection[];
+};
+
+export type CampusBusPassengerRoute = Pick<
+  CampusBusRoute,
+  | "academicTerms"
+  | "code"
+  | "defaultStopId"
+  | "frequencyLabel"
+  | "map"
+  | "publicHolidayDates"
+  | "readingWeeks"
+  | "routeId"
+  | "routeNameZhHant"
+  | "serviceBands"
+  | "serviceHoursLabel"
+  | "slug"
+  | "stops"
+  | "subtitle"
+> & {
+  patterns: CampusBusPassengerPattern[];
+};
+
+export function toCampusBusPassengerRoute(
+  route: CampusBusRoute,
+): CampusBusPassengerRoute {
+  return {
+    academicTerms: route.academicTerms,
+    code: route.code,
+    defaultStopId: route.defaultStopId,
+    frequencyLabel: route.frequencyLabel,
+    map: route.map,
+    patterns: route.patterns.map((pattern) => ({
+      departureMinutes: pattern.departureMinutes,
+      id: pattern.id,
+      projections: pattern.projections.map((projection) => ({
+        p50Seconds: projection.p50Seconds,
+        stopOccurrenceId: projection.stopOccurrenceId,
+        timeBandAdjustments: projection.timeBandAdjustments,
+      })),
+      serviceDayType: pattern.serviceDayType,
+    })),
+    publicHolidayDates: route.publicHolidayDates,
+    readingWeeks: route.readingWeeks,
+    routeId: route.routeId,
+    routeNameZhHant: route.routeNameZhHant,
+    serviceBands: route.serviceBands,
+    serviceHoursLabel: route.serviceHoursLabel,
+    slug: route.slug,
+    stops: route.stops,
+    subtitle: route.subtitle,
+  };
+}
 
 export type CampusBusArrival = {
   arrivalAt: number;
@@ -195,7 +286,7 @@ export function getCampusBusPredictionTimeBand(
 }
 
 function projectionResidualSeconds(
-  projection: CampusBusPattern["projections"][number],
+  projection: CampusBusPassengerProjection,
   departureAt: number,
 ) {
   const timeBand = getCampusBusPredictionTimeBand(departureAt);
@@ -210,7 +301,7 @@ function projectionResidualSeconds(
   );
 }
 
-function isTeachingDay(dateKey: string, route: CampusBusRoute) {
+function isTeachingDay(dateKey: string, route: CampusBusPassengerRoute) {
   const withinTerm = route.academicTerms.some(
     (term) => dateKey >= term.startDate && dateKey <= term.endDate,
   );
@@ -223,7 +314,7 @@ function isTeachingDay(dateKey: string, route: CampusBusRoute) {
 function serviceBandRuns(
   band: CampusBusServiceBand,
   date: HongKongDateParts,
-  route: CampusBusRoute,
+  route: CampusBusPassengerRoute,
 ) {
   const publicHoliday = route.publicHolidayDates.includes(date.dateKey);
   const teachingDay = isTeachingDay(date.dateKey, route);
@@ -249,7 +340,7 @@ function formatMinutesOfDay(minutes: number) {
 }
 
 export function getCampusBusServiceHoursLabel(
-  route: CampusBusRoute,
+  route: CampusBusPassengerRoute,
   now: number,
 ) {
   const date = getHongKongDateParts(now);
@@ -265,19 +356,25 @@ export function getCampusBusServiceHoursLabel(
   return `${formatMinutesOfDay(startMinutes)}-${formatMinutesOfDay(endMinutes)}`;
 }
 
-function activePatternDayTypes(date: HongKongDateParts, route: CampusBusRoute) {
+function activePatternDayTypes(
+  date: HongKongDateParts,
+  route: CampusBusPassengerRoute,
+) {
   return new Set([
     "scheduled_service_day",
     isTeachingDay(date.dateKey, route) ? "teaching_day" : "non_teaching_day",
   ]);
 }
 
-function scheduledDeparturesForDate(now: number, route: CampusBusRoute) {
+function scheduledDeparturesForDate(
+  now: number,
+  route: CampusBusPassengerRoute,
+) {
   const date = getHongKongDateParts(now);
   const patternDayTypes = activePatternDayTypes(date, route);
   const departures: Array<{
     departureAt: number;
-    pattern: CampusBusPattern;
+    pattern: CampusBusPassengerPattern;
   }> = [];
 
   for (const band of route.serviceBands) {
@@ -316,7 +413,7 @@ function scheduledDeparturesForDate(now: number, route: CampusBusRoute) {
 }
 
 export function getCampusBusScheduledArrivals(
-  route: CampusBusRoute,
+  route: CampusBusPassengerRoute,
   stopOccurrenceId: string,
   serviceDateTimestamp: number,
 ) {
@@ -349,7 +446,7 @@ export function getCampusBusScheduledArrivals(
 }
 
 export function getCampusBusStopBoard(
-  route: CampusBusRoute,
+  route: CampusBusPassengerRoute,
   stopOccurrenceId: string,
   now: number,
 ): CampusBusStopBoard {

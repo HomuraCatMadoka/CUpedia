@@ -3,6 +3,8 @@ import Link from "next/link";
 import { BusFrontIcon, FlaskConicalIcon } from "lucide-react";
 
 import { CampusBusRouteList } from "@/components/campus-transport/campus-bus-route-list";
+import { toCampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
+import { campusBusModelOperationsEnabled } from "@/lib/campus-transport/model-operations";
 import { getChampionCampusBusRoutes } from "@/lib/campus-transport/prediction-model-cache";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +16,10 @@ export const metadata: Metadata = {
 };
 
 export default async function CampusBusPage() {
-  const campusBusRoutes = await getChampionCampusBusRoutes();
+  const campusBusRoutes = (await getChampionCampusBusRoutes()).map(
+    toCampusBusPassengerRoute,
+  );
+  const modelOperationsEnabled = campusBusModelOperationsEnabled();
   return (
     <main className="min-h-full w-full min-w-0 flex-1 bg-[#f5f3f7] px-0 py-0 sm:px-4 sm:py-6 dark:bg-background">
       <section className="w-full overflow-hidden bg-background shadow-sm ring-1 ring-black/5 sm:rounded-2xl">
@@ -30,14 +35,16 @@ export default async function CampusBusPage() {
               </p>
             </div>
           </div>
-          <Link
-            href="/campus-bus/lab"
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-white/10 px-3 text-sm font-medium text-white transition-colors hover:bg-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-          >
-            <FlaskConicalIcon className="size-4" aria-hidden="true" />
-            <span className="hidden sm:inline">模型實驗室</span>
-            <span className="sm:hidden">實驗室</span>
-          </Link>
+          {modelOperationsEnabled ? (
+            <Link
+              href="/campus-bus/lab"
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-white/10 px-3 text-sm font-medium text-white transition-colors hover:bg-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            >
+              <FlaskConicalIcon className="size-4" aria-hidden="true" />
+              <span className="hidden sm:inline">模型實驗室</span>
+              <span className="sm:hidden">實驗室</span>
+            </Link>
+          ) : null}
         </header>
 
         {/* This route is force-dynamic and seeds the client-side status clock. */}

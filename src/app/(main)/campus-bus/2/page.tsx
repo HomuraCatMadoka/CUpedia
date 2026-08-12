@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { CampusRouteView } from "@/components/campus-transport/campus-route-view";
+import { toCampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
 import { getChampionCampusBusRoute } from "@/lib/campus-transport/prediction-model-cache";
 
 export const dynamic = "force-dynamic";
@@ -16,5 +17,11 @@ export default async function Route2Page() {
   if (!route) return null;
   // This route is force-dynamic and the timestamp seeds a client-side clock.
   // eslint-disable-next-line react-hooks/purity
-  return <CampusRouteView route={route} initialNow={Date.now()} />;
+  const initialNow = Date.now();
+  return (
+    <CampusRouteView
+      route={toCampusBusPassengerRoute(route)}
+      initialNow={initialNow}
+    />
+  );
 }

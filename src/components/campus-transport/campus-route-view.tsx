@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  type CampusBusRoute,
+  type CampusBusPassengerRoute,
   type CampusBusStop,
   type CampusBusStopBoard,
   formatHongKongTime,
@@ -50,7 +50,10 @@ const CampusRouteMap = dynamic(
 const NEARBY_THRESHOLD_METERS = 220;
 const NEARBY_PAIR_TOLERANCE_METERS = 100;
 
-function getStatusText(board: CampusBusStopBoard, route: CampusBusRoute) {
+function getStatusText(
+  board: CampusBusStopBoard,
+  route: CampusBusPassengerRoute,
+) {
   switch (board.serviceStatus) {
     case "not_service_day":
       return `今日不提供 ${route.code} 線服務`;
@@ -79,7 +82,7 @@ function distanceInMeters(from: LngLat, to: LngLat) {
   return 2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine));
 }
 
-function stopsNearestTo(coordinates: LngLat, route: CampusBusRoute) {
+function stopsNearestTo(coordinates: LngLat, route: CampusBusPassengerRoute) {
   return route.stops
     .reduce<Array<{ distance: number; stop: CampusBusStop }>>(
       (nearby, stop) => {
@@ -99,7 +102,7 @@ function ArrivalBoard({
   route,
 }: {
   board: CampusBusStopBoard;
-  route: CampusBusRoute;
+  route: CampusBusPassengerRoute;
 }) {
   if (!board.upcomingArrivals.length) {
     return (
@@ -163,7 +166,7 @@ function FeedbackDialog({
   now: number;
   onOpenChange: (open: boolean) => void;
   open: boolean;
-  route: CampusBusRoute;
+  route: CampusBusPassengerRoute;
   stop: CampusBusStop;
 }) {
   const [minuteOffset, setMinuteOffset] = useState(0);
@@ -298,7 +301,7 @@ export function CampusRouteView({
   route,
 }: {
   initialNow: number;
-  route: CampusBusRoute;
+  route: CampusBusPassengerRoute;
 }) {
   const initialStopId = route.stops.some(
     (stop) => stop.id === route.defaultStopId,

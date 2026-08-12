@@ -1,15 +1,19 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { insertArrivalObservationMock } = vi.hoisted(() => {
+const { feedbackSessionMock, insertArrivalObservationMock } = vi.hoisted(() => {
   return {
+    feedbackSessionMock: vi.fn(),
     insertArrivalObservationMock: vi.fn(),
   };
 });
 
 vi.mock("@/lib/campus-transport/arrival-observation-store", () => ({
-  arrivalFeedbackRateLimitKey: vi.fn(() => "hashed-key"),
   insertArrivalObservation: insertArrivalObservationMock,
+}));
+vi.mock("@/lib/campus-transport/feedback-session", () => ({
+  CAMPUS_BUS_FEEDBACK_SESSION_COOKIE: "campus_bus_feedback_session",
+  getCampusBusFeedbackSession: feedbackSessionMock,
 }));
 
 vi.mock("@/lib/campus-transport/prediction-model-cache", async () => {
@@ -43,6 +47,10 @@ describe("POST /api/campus-bus/arrival-observations", () => {
     insertArrivalObservationMock.mockResolvedValue({
       id: "11111111-1111-4111-8111-111111111111",
     });
+    feedbackSessionMock.mockReturnValue({
+      cookie: null,
+      sessionId: "22222222-2222-4222-8222-222222222222",
+    });
   });
 
   afterEach(() => {
@@ -70,7 +78,7 @@ describe("POST /api/campus-bus/arrival-observations", () => {
         stopOccurrenceId: "cuhk-wp-stop-2550#1",
         submittedAnonymously: true,
       }),
-      "hashed-key",
+      "22222222-2222-4222-8222-222222222222",
       NOW,
     );
   });
@@ -95,8 +103,28 @@ describe("POST /api/campus-bus/arrival-observations", () => {
         stopOccurrenceId: "cuhk-wp-stop-2550#1",
         submittedAnonymously: true,
       },
-      "hashed-key",
+      "22222222-2222-4222-8222-222222222222",
       NOW,
+    );
+  });
+
+  it("sets a signed anonymous session cookie on the first submission", async () => {
+    feedbackSessionMock.mockReturnValueOnce({
+      cookie: { maxAge: 3600, value: "signed-cookie" },
+      sessionId: "22222222-2222-4222-8222-222222222222",
+    });
+
+    const response = await POST(
+      request({
+        observedArrivalAt: "2026-08-10T00:09:00.000Z",
+        routeId: "2",
+        stopOccurrenceId: "cuhk-wp-stop-2550#1",
+      }),
+    );
+
+    expect(response.status).toBe(201);
+    expect(response.headers.get("set-cookie")).toContain(
+      "campus_bus_feedback_session=signed-cookie",
     );
   });
 

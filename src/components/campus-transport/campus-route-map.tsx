@@ -6,7 +6,7 @@ import maplibregl, { type Marker } from "maplibre-gl";
 import { toast } from "sonner";
 
 import {
-  type CampusBusRoute,
+  type CampusBusPassengerRoute,
   type CampusBusStop,
   type LngLat,
 } from "@/lib/campus-transport/campus-bus";
@@ -23,7 +23,7 @@ const LANDSD_TERMS_URL = "https://api.portal.hkmapservice.gov.hk/tc";
 type CampusRouteMapProps = {
   onSelectStop: (stopId: string) => void;
   onUserLocated: (coordinates: LngLat) => void;
-  route: CampusBusRoute;
+  route: CampusBusPassengerRoute;
   selectedStopId: string;
   stops: CampusBusStop[];
 };
@@ -64,48 +64,54 @@ export function CampusRouteMap({
       route.map.stopCoordinates[stops[0]?.id];
     if (!initialCenter) return;
 
-    const map = new maplibregl.Map({
-      attributionControl: false,
-      center: [...initialCenter],
-      cooperativeGestures: true,
-      dragRotate: false,
-      container,
-      maxZoom: 19,
-      minZoom: 14,
-      pitchWithRotate: false,
-      touchPitch: false,
-      style: {
-        version: 8,
-        sources: {
-          landsd: {
-            type: "raster",
-            tiles: [LANDSD_BASEMAP_URL],
-            tileSize: 256,
-            minzoom: 10,
-            maxzoom: 20,
-            attribution: `© <a href="${LANDSD_TERMS_URL}" target="_blank">Map from Lands Department</a> · route data <a href="${route.map.sourceUrl}" target="_blank">${route.map.attribution}</a>`,
+    let map: maplibregl.Map;
+    try {
+      map = new maplibregl.Map({
+        attributionControl: false,
+        center: [...initialCenter],
+        cooperativeGestures: true,
+        dragRotate: false,
+        container,
+        maxZoom: 19,
+        minZoom: 14,
+        pitchWithRotate: false,
+        touchPitch: false,
+        style: {
+          version: 8,
+          sources: {
+            landsd: {
+              type: "raster",
+              tiles: [LANDSD_BASEMAP_URL],
+              tileSize: 256,
+              minzoom: 10,
+              maxzoom: 20,
+              attribution: `© <a href="${LANDSD_TERMS_URL}" target="_blank">Map from Lands Department</a> · route data <a href="${route.map.sourceUrl}" target="_blank">${route.map.attribution}</a>`,
+            },
+            "landsd-labels": {
+              type: "raster",
+              tiles: [LANDSD_LABEL_URL],
+              tileSize: 256,
+              maxzoom: 20,
+            },
           },
-          "landsd-labels": {
-            type: "raster",
-            tiles: [LANDSD_LABEL_URL],
-            tileSize: 256,
-            maxzoom: 20,
-          },
+          layers: [
+            { id: "landsd", type: "raster", source: "landsd" },
+            {
+              id: "landsd-labels",
+              type: "raster",
+              source: "landsd-labels",
+            },
+          ],
         },
-        layers: [
-          { id: "landsd", type: "raster", source: "landsd" },
-          {
-            id: "landsd-labels",
-            type: "raster",
-            source: "landsd-labels",
-          },
-        ],
-      },
-      zoom: 16.35,
-    });
+        zoom: 16.35,
+      });
+    } catch {
+      const fallbackTimer = window.setTimeout(() => setMapUnavailable(true), 0);
+      return () => window.clearTimeout(fallbackTimer);
+    }
 
-    const onMapError = () => setMapUnavailable(true);
-    map.on("error", onMapError);
+    const handleWebGlContextLost = () => setMapUnavailable(true);
+    map.on("webglcontextlost", handleWebGlContextLost);
 
     const resizeObserver = new ResizeObserver(() => map.resize());
     resizeObserver.observe(container);
@@ -196,7 +202,7 @@ export function CampusRouteMap({
       userMarkerRef.current = null;
       markerElements.clear();
       resizeObserver.disconnect();
-      map.off("error", onMapError);
+      map.off("webglcontextlost", handleWebGlContextLost);
       map.remove();
       mapRef.current = null;
     };

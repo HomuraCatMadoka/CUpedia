@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { adminMock, promoteMock, revalidateTagMock } = vi.hoisted(() => ({
   adminMock: vi.fn(),
@@ -19,12 +19,31 @@ const context = {
 };
 
 describe("POST campus bus experiment promotion", () => {
+  const previousFlag = process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+
   beforeEach(() => {
+    process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = "true";
     adminMock.mockReset();
     promoteMock.mockReset();
     revalidateTagMock.mockReset();
     adminMock.mockResolvedValue({ id: "admin-1", role: "admin" });
     promoteMock.mockResolvedValue({ id: "revision-1" });
+  });
+
+  afterEach(() => {
+    if (previousFlag === undefined) {
+      delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    } else {
+      process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = previousFlag;
+    }
+  });
+
+  it("keeps promotion unavailable during feedback-only rollout", async () => {
+    delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    const response = await POST(new Request("http://localhost"), context);
+    expect(response.status).toBe(404);
+    expect(adminMock).not.toHaveBeenCalled();
+    expect(promoteMock).not.toHaveBeenCalled();
   });
 
   it("rejects non-admin callers", async () => {

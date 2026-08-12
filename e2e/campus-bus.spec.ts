@@ -8,16 +8,16 @@ const IN_SERVICE_HONG_KONG_TIME = new Date("2026-08-10T00:00:00.000Z");
 test.describe("campus bus catalog layout", () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
-  test("shows the testing entry and model lab link", async ({ page }) => {
+  test("shows the testing entry without enabling model operations", async ({
+    page,
+  }) => {
     const response = await page.goto("/campus-bus");
     expect(response?.status()).toBe(200);
 
     await expect(
       page.getByRole("link", { name: "CU Bus · 測試中" }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "模型實驗室" }),
-    ).toHaveAttribute("href", "/campus-bus/lab");
+    await expect(page.getByRole("link", { name: "模型實驗室" })).toHaveCount(0);
   });
 
   test("fills the available main shell width", async ({ page }) => {
@@ -33,11 +33,13 @@ test.describe("campus bus catalog layout", () => {
   });
 });
 
-test.describe("campus bus model lab access", () => {
-  test("requires sign-in before opening the lab", async ({ page }) => {
+test.describe("campus bus model lab rollout", () => {
+  test("keeps the lab unavailable during feedback-only rollout", async ({
+    page,
+  }) => {
     await page.goto("/campus-bus/lab");
 
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByText("404")).toBeVisible();
   });
 });
 
@@ -113,6 +115,22 @@ test.describe("campus bus Route 2 mobile journey", () => {
         name: "地政總署 · Map from Lands Department",
       }),
     ).toBeVisible();
+  });
+
+  test("keeps the map usable when one raster tile fails", async ({ page }) => {
+    let failedOneTile = false;
+    await page.route("**/gs/api/v1.0.0/xyz/**", async (route) => {
+      if (!failedOneTile) {
+        failedOneTile = true;
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.reload();
+    await expect(page.getByRole("button", { name: "我的位置" })).toBeVisible();
+    await expect(page.getByText("地圖暫時無法載入")).toHaveCount(0);
   });
 
   test("selecting a partial-service stop keeps the map and stop board synchronized", async ({

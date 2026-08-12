@@ -3,11 +3,15 @@ import { revalidateTag } from "next/cache";
 
 import { getAdminUserForApi } from "@/lib/auth-guard";
 import { rollbackCampusBusModel } from "@/lib/campus-transport/model-experiment-store";
+import { campusBusModelOperationsEnabled } from "@/lib/campus-transport/model-operations";
 
 export async function POST(
   _request: Request,
   context: { params: Promise<{ revisionId: string }> },
 ) {
+  if (!campusBusModelOperationsEnabled()) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
   if (!(await getAdminUserForApi())) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }

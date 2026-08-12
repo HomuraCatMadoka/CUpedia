@@ -36,7 +36,25 @@ import {
 } from "@/lib/campus-transport/route-2-map";
 
 type RawProjection = {
+  evidence: {
+    segmentCount: number;
+    segmentSamplesTotal: number;
+    bottleneckSampleCount: number;
+    serviceDayCount: number | null;
+    routeScope: string;
+    containsReviewMatch: boolean;
+    segmentSourceRefs: string[];
+  };
+  fallbackLevel: string;
+  offsetConfidence: string;
+  p10Seconds: number | null;
   p50Seconds: number | null;
+  p90Seconds: number | null;
+  publicationStatus: "staging_only";
+  sampleCount: number;
+  serviceDayCount: number | null;
+  sourceKind: string;
+  sourceRefs: string[];
   stopId: string;
   stopNameEn: string;
   stopNameZhHant: string;
@@ -45,13 +63,23 @@ type RawProjection = {
 
 type RawColdStartDataset = {
   datasetId: string;
+  derivedFrom: {
+    communityPriorSha256?: string;
+    parserVersion: string;
+    snapshotGeneratedAt: string;
+    snapshotSha256: string;
+  };
+  seedModelRevisionId: string;
   patterns: Array<{
     activation: {
       departureMinutes: number[];
       serviceDayType: string;
     };
+    confidence: string;
     patternId: string;
+    patternRevisionId: string;
     projections: RawProjection[];
+    sourceRefs: string[];
   }>;
   route: {
     nameEn: string;
@@ -255,16 +283,32 @@ function buildRoute(
   const patterns: CampusBusPattern[] = rawDataset.patterns.map((pattern) => {
     const ids = occurrenceIds(pattern.projections);
     return {
+      confidence: pattern.confidence,
       id: pattern.patternId,
+      revisionId: pattern.patternRevisionId,
       departureMinutes: [...pattern.activation.departureMinutes],
       serviceDayType: pattern.activation.serviceDayType,
+      sourceRefs: [...pattern.sourceRefs],
       projections: pattern.projections.flatMap((projection, index) =>
         projection.p50Seconds === null
           ? []
           : [
               {
+                evidence: {
+                  ...projection.evidence,
+                  segmentSourceRefs: [...projection.evidence.segmentSourceRefs],
+                },
+                fallbackLevel: projection.fallbackLevel,
+                offsetConfidence: projection.offsetConfidence,
+                p10Seconds: projection.p10Seconds,
                 stopOccurrenceId: ids[index],
                 p50Seconds: projection.p50Seconds,
+                p90Seconds: projection.p90Seconds,
+                publicationStatus: projection.publicationStatus,
+                sampleCount: projection.sampleCount,
+                serviceDayCount: projection.serviceDayCount,
+                sourceKind: projection.sourceKind,
+                sourceRefs: [...projection.sourceRefs],
               },
             ],
       ),
@@ -337,6 +381,7 @@ function buildRoute(
     })),
     code: rawDataset.route.routeId.toUpperCase(),
     datasetId: rawDataset.datasetId,
+    datasetProvenance: { ...rawDataset.derivedFrom },
     defaultStopId: metadata.defaultStopId ?? stops[0]?.id ?? "",
     frequencyLabel: formatFrequency(patterns),
     map: { ...map, stopCoordinates: { ...map.stopCoordinates } },
@@ -348,6 +393,7 @@ function buildRoute(
       endDate: week.endDate,
     })),
     routeId: rawDataset.route.routeId,
+    seedModelRevisionId: rawDataset.seedModelRevisionId,
     routeNameEn: rawDataset.route.nameEn,
     routeNameZhHant: rawDataset.route.nameZhHant,
     serviceBands,

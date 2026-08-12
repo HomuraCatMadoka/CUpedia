@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { ArrowLeftIcon, FlaskConicalIcon } from "lucide-react";
 
 import { ModelLab } from "@/components/campus-transport/model-lab";
 import { requireAuth } from "@/lib/auth-guard";
 import { getModelLabOverview } from "@/lib/campus-transport/model-experiment-store";
+import { campusBusModelOperationsEnabled } from "@/lib/campus-transport/model-operations";
 import { campusBusRoutes } from "@/lib/campus-transport/routes-data";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 export default async function CampusBusModelLabPage() {
+  if (!campusBusModelOperationsEnabled()) notFound();
   const user = await requireAuth();
   const overview = await getModelLabOverview(user);
 

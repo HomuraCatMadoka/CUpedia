@@ -3,8 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUserForApi } from "@/lib/auth-guard";
 import { parseModelExperimentParameters } from "@/lib/campus-transport/model-experiment";
 import { runModelExperiment } from "@/lib/campus-transport/model-experiment-store";
+import { campusBusModelOperationsEnabled } from "@/lib/campus-transport/model-operations";
 
 export async function POST(request: NextRequest) {
+  if (!campusBusModelOperationsEnabled()) {
+    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  }
   const user = await getAuthenticatedUserForApi();
   if (!user) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });

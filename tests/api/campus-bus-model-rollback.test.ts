@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { adminMock, revalidateTagMock, rollbackMock } = vi.hoisted(() => ({
   adminMock: vi.fn(),
@@ -17,12 +17,31 @@ import { POST } from "@/app/api/admin/campus-bus/model-revisions/[revisionId]/ro
 const context = { params: Promise.resolve({ revisionId: "revision-1" }) };
 
 describe("POST campus bus model rollback", () => {
+  const previousFlag = process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+
   beforeEach(() => {
+    process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = "true";
     adminMock.mockReset();
     revalidateTagMock.mockReset();
     rollbackMock.mockReset();
     adminMock.mockResolvedValue({ id: "admin-1", role: "admin" });
     rollbackMock.mockResolvedValue({ id: "revision-1" });
+  });
+
+  afterEach(() => {
+    if (previousFlag === undefined) {
+      delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    } else {
+      process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = previousFlag;
+    }
+  });
+
+  it("keeps rollback unavailable during feedback-only rollout", async () => {
+    delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    const response = await POST(new Request("http://localhost"), context);
+    expect(response.status).toBe(404);
+    expect(adminMock).not.toHaveBeenCalled();
+    expect(rollbackMock).not.toHaveBeenCalled();
   });
 
   it("requires an admin", async () => {

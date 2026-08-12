@@ -7,17 +7,17 @@ import { useEffect, useMemo, useState } from "react";
 import {
   getCampusBusServiceHoursLabel,
   getCampusBusStopBoard,
-  type CampusBusRoute,
+  type CampusBusPassengerRoute,
 } from "@/lib/campus-transport/campus-bus";
 
 type RouteListMode = "available" | "all";
 
 type CampusBusRouteListProps = {
   initialNow: number;
-  routes: CampusBusRoute[];
+  routes: CampusBusPassengerRoute[];
 };
 
-function routeStatus(route: CampusBusRoute, now: number) {
+function routeStatus(route: CampusBusPassengerRoute, now: number) {
   const statuses = route.stops.map(
     (stop) => getCampusBusStopBoard(route, stop.id, now).serviceStatus,
   );
@@ -31,7 +31,7 @@ function routeStatus(route: CampusBusRoute, now: number) {
   return "not_service_day";
 }
 
-function statusLabel(route: CampusBusRoute, now: number) {
+function statusLabel(route: CampusBusPassengerRoute, now: number) {
   const status = routeStatus(route, now);
   switch (status) {
     case "in_service":

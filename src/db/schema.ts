@@ -96,7 +96,6 @@ export const campusBusArrivalObservations = pgTable(
     submittedAnonymously: boolean("submitted_anonymously")
       .notNull()
       .default(true),
-    rateLimitKeyHash: text("rate_limit_key_hash"),
   },
   (table) => [
     index("campus_bus_arrival_observations_route_stop_time_idx").on(
@@ -114,13 +113,29 @@ export const campusBusArrivalObservations = pgTable(
       table.routeId,
       table.observedArrivalAt,
     ),
-    index("campus_bus_arrival_observations_rate_limit_idx")
-      .on(table.rateLimitKeyHash, table.receivedAt)
-      .where(sql`${table.rateLimitKeyHash} is not null`),
     check(
       "campus_bus_arrival_observations_time_window_chk",
       sql`${table.observedArrivalAt} >= ${table.receivedAt} - interval '15 minutes'
         AND ${table.observedArrivalAt} <= ${table.receivedAt} + interval '2 minutes'`,
+    ),
+  ],
+);
+
+export const campusBusFeedbackRateLimits = pgTable(
+  "campus_bus_feedback_rate_limits",
+  {
+    sessionId: uuid("session_id").primaryKey(),
+    windowStartedAt: timestamp("window_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    submissionCount: integer("submission_count").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("campus_bus_feedback_rate_limits_expires_at_idx").on(table.expiresAt),
+    check(
+      "campus_bus_feedback_rate_limits_submission_count_chk",
+      sql`${table.submissionCount} >= 0`,
     ),
   ],
 );

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { currentUserMock, runExperimentMock } = vi.hoisted(() => ({
   currentUserMock: vi.fn(),
@@ -25,11 +25,30 @@ function request(body: unknown) {
 }
 
 describe("POST /api/campus-bus/model-experiments", () => {
+  const previousFlag = process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+
   beforeEach(() => {
+    process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = "true";
     currentUserMock.mockReset();
     runExperimentMock.mockReset();
     currentUserMock.mockResolvedValue({ id: "user-1", role: "user" });
     runExperimentMock.mockResolvedValue({ id: "experiment-1" });
+  });
+
+  afterEach(() => {
+    if (previousFlag === undefined) {
+      delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    } else {
+      process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = previousFlag;
+    }
+  });
+
+  it("keeps experiment writes disabled during feedback-only rollout", async () => {
+    delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    const response = await POST(request(modelExperimentDefaults));
+    expect(response.status).toBe(404);
+    expect(currentUserMock).not.toHaveBeenCalled();
+    expect(runExperimentMock).not.toHaveBeenCalled();
   });
 
   it("requires a signed-in contributor", async () => {

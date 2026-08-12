@@ -4,6 +4,7 @@ import {
   getCampusBusServiceHoursLabel,
   getCampusBusStopBoard,
   hongKongWallTimeToEpoch,
+  toCampusBusPassengerRoute,
 } from "@/lib/campus-transport/campus-bus";
 import {
   campusBusRoutes,
@@ -75,6 +76,54 @@ describe("campus bus route catalog", () => {
       "cuhk-wp-stop-3172#1",
       "cuhk-wp-stop-3172#2",
     ]);
+  });
+
+  it("retains cold-start provenance, confidence, and uncertainty at runtime", () => {
+    const route = getCampusBusRoute("2")!;
+    const projection = route.patterns[0].projections[1];
+
+    expect(route.seedModelRevisionId).toMatch(/^cold-start:2:/);
+    expect(route.datasetProvenance).toMatchObject({
+      parserVersion: expect.any(String),
+      snapshotGeneratedAt: expect.any(String),
+      snapshotSha256: expect.any(String),
+    });
+    expect(route.patterns[0]).toMatchObject({
+      confidence: expect.any(String),
+      revisionId: expect.stringMatching(/^2:/),
+      sourceRefs: expect.arrayContaining([
+        expect.stringMatching(/^cuhk-route-2:/),
+      ]),
+    });
+    expect(projection).toMatchObject({
+      offsetConfidence: "weak_prior",
+      publicationStatus: "staging_only",
+      p10Seconds: null,
+      p90Seconds: null,
+      sampleCount: 0,
+      sourceKind: "community-prior",
+    });
+    expect(projection.sourceRefs).toEqual(
+      expect.arrayContaining([expect.stringMatching(/^cu-bus-app-v1\.18:/)]),
+    );
+    expect(projection.evidence.segmentSamplesTotal).toBeGreaterThan(0);
+  });
+
+  it("keeps provenance server-side when creating the passenger view", () => {
+    const route = getCampusBusRoute("2")!;
+    const passengerRoute = toCampusBusPassengerRoute(route);
+
+    expect(passengerRoute).not.toHaveProperty("datasetProvenance");
+    expect(passengerRoute.patterns[0]).not.toHaveProperty("sourceRefs");
+    expect(passengerRoute.patterns[0].projections[0]).toEqual(
+      expect.objectContaining({
+        p50Seconds: expect.any(Number),
+        stopOccurrenceId: expect.any(String),
+      }),
+    );
+    expect(passengerRoute.patterns[0].projections[0]).not.toHaveProperty(
+      "evidence",
+    );
   });
 
   it.each([

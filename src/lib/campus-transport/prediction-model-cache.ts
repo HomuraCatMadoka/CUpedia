@@ -1,9 +1,10 @@
 import { unstable_cache } from "next/cache";
 
+import { campusBusModelOperationsEnabled } from "@/lib/campus-transport/model-operations";
 import { getChampionCampusBusRoutes as readChampionCampusBusRoutes } from "@/lib/campus-transport/prediction-model-store";
 import { campusBusRoutes } from "@/lib/campus-transport/routes-data";
 
-async function readPassengerCampusBusRoutes() {
+async function readReviewedCampusBusRoutes() {
   try {
     return await readChampionCampusBusRoutes();
   } catch {
@@ -11,11 +12,16 @@ async function readPassengerCampusBusRoutes() {
   }
 }
 
-export const getChampionCampusBusRoutes = unstable_cache(
-  readPassengerCampusBusRoutes,
+const getCachedReviewedCampusBusRoutes = unstable_cache(
+  readReviewedCampusBusRoutes,
   ["campus-bus-champion-routes-v1"],
   { revalidate: 300, tags: ["campus-bus-model"] },
 );
+
+export async function getChampionCampusBusRoutes() {
+  if (!campusBusModelOperationsEnabled()) return campusBusRoutes;
+  return getCachedReviewedCampusBusRoutes();
+}
 
 export async function getChampionCampusBusRoute(routeId: string) {
   const routes = await getChampionCampusBusRoutes();

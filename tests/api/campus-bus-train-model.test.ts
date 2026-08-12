@@ -20,8 +20,10 @@ function request(token?: string) {
 
 describe("GET /api/internal/campus-bus/train-model", () => {
   const previousSecret = process.env.CRON_SECRET;
+  const previousFlag = process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
 
   beforeEach(() => {
+    process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = "true";
     process.env.CRON_SECRET = "test-cron-secret";
     rebuildMock.mockReset();
     rebuildMock.mockResolvedValue({
@@ -35,7 +37,20 @@ describe("GET /api/internal/campus-bus/train-model", () => {
   });
 
   afterEach(() => {
-    process.env.CRON_SECRET = previousSecret;
+    if (previousSecret === undefined) delete process.env.CRON_SECRET;
+    else process.env.CRON_SECRET = previousSecret;
+    if (previousFlag === undefined) {
+      delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    } else {
+      process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED = previousFlag;
+    }
+  });
+
+  it("stays unavailable during feedback-only rollout", async () => {
+    delete process.env.CAMPUS_BUS_MODEL_OPERATIONS_ENABLED;
+    const response = await GET(request("test-cron-secret"));
+    expect(response.status).toBe(404);
+    expect(rebuildMock).not.toHaveBeenCalled();
   });
 
   it("rejects requests without the deployment cron secret", async () => {
