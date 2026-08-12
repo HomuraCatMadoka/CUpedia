@@ -47,18 +47,28 @@ export function useUnsavedAnnouncementNavigation({
       );
     }
 
-    let handlingTraversal = false;
+    let skipNextTraversal = false;
     const handleHistoryNavigation = (event: PopStateEvent) => {
       const nextState = event.state as Record<string, unknown> | null;
-      if (
-        nextState?.[HISTORY_GUARD_STATE_KEY] === guardToken ||
-        handlingTraversal
-      ) {
+      if (skipNextTraversal) {
+        skipNextTraversal = false;
+        return;
+      }
+      if (nextState?.[HISTORY_GUARD_STATE_KEY] === guardToken) {
         return;
       }
 
+      const stayedOnGuardedUrl = window.location.href === guardedUrl;
       if (confirmDiscardChanges()) {
-        handlingTraversal = true;
+        if (stayedOnGuardedUrl) {
+          skipNextTraversal = true;
+          window.history.back();
+        }
+        return;
+      }
+
+      if (!stayedOnGuardedUrl) {
+        skipNextTraversal = true;
         window.history.back();
         return;
       }

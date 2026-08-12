@@ -94,6 +94,29 @@ describe("useUnsavedAnnouncementNavigation", () => {
     expect(back).toHaveBeenCalledOnce();
   });
 
+  it("allows an accepted forward traversal away from the guarded page", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    render(<NavigationHarness isDirty />);
+
+    window.history.replaceState({}, "", "/admin/users");
+    fireEvent.popState(window, { state: {} });
+
+    expect(back).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe("/admin/users");
+  });
+
+  it("returns to the guarded page after a cancelled forward traversal", () => {
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    render(<NavigationHarness isDirty />);
+
+    window.history.replaceState({}, "", "/admin/users");
+    fireEvent.popState(window, { state: {} });
+
+    expect(back).toHaveBeenCalledOnce();
+  });
+
   it("reuses an existing guard and follows current dirty state", () => {
     window.history.replaceState(
       { cupediaAnnouncementNavigationGuardToken: "existing-guard" },
