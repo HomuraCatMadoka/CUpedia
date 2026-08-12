@@ -253,7 +253,7 @@ function FeedbackDialog({
                   size="icon-lg"
                   className="size-11 rounded-none"
                   onClick={() => setMinuteOffset((offset) => offset + 1)}
-                  disabled={minuteOffset >= 0}
+                  disabled={minuteOffset >= 2}
                   aria-label="到站時間加一分鐘"
                 >
                   <PlusIcon />
@@ -261,7 +261,11 @@ function FeedbackDialog({
               </div>
             </div>
             <span className="mt-1 block text-sm text-muted-foreground">
-              {minuteOffset === 0 ? "現在" : `${Math.abs(minuteOffset)} 分鐘前`}
+              {minuteOffset === 0
+                ? "現在"
+                : minuteOffset < 0
+                  ? `${Math.abs(minuteOffset)} 分鐘前`
+                  : `${minuteOffset} 分鐘後`}
             </span>
           </div>
 

@@ -18,6 +18,7 @@ import { modelExperimentDefaults } from "@/lib/campus-transport/model-experiment
 type SerializableExperiment = {
   id: string;
   authorName: string;
+  runKind: string;
   createdAt: string;
   status: string;
   routeScope: string | null;
@@ -166,6 +167,26 @@ export function ModelLab({
         return;
       }
       toast.success("已提升為線上模型，乘客端快取正在更新。");
+      router.refresh();
+    } catch {
+      toast.error("網絡連接失敗，請稍後再試。");
+    } finally {
+      setPromotingId(null);
+    }
+  }
+
+  async function rollback(revisionId: string) {
+    setPromotingId(revisionId);
+    try {
+      const response = await fetch(
+        `/api/admin/campus-bus/model-revisions/${revisionId}/rollback`,
+        { method: "POST" },
+      );
+      if (!response.ok) {
+        toast.error("未能回退到這個模型版本。");
+        return;
+      }
+      toast.success("已回退線上模型，乘客端快取正在更新。");
       router.refresh();
     } catch {
       toast.error("網絡連接失敗，請稍後再試。");
@@ -361,6 +382,7 @@ export function ModelLab({
                 experiment.status === "candidate" &&
                 experiment.routeScope === null &&
                 experiment.shouldPromote;
+              const canRollback = isAdmin && experiment.status === "retired";
               return (
                 <article
                   key={experiment.id}
@@ -377,6 +399,11 @@ export function ModelLab({
                             ? `${experiment.routeScope} 號線`
                             : "全部路線"}
                         </span>
+                        {experiment.runKind === "automated" && (
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            定期候選
+                          </span>
+                        )}
                         {experiment.status === "champion" && (
                           <span className="rounded-full bg-[#5b2a73]/10 px-2 py-0.5 text-xs font-medium text-[#5b2a73] dark:text-purple-200">
                             線上版本
@@ -399,6 +426,19 @@ export function ModelLab({
                         {promotingId === experiment.id
                           ? "提升中…"
                           : "提升為線上模型"}
+                      </Button>
+                    )}
+                    {canRollback && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-9 border-[#5b2a73]/30 text-[#5b2a73]"
+                        disabled={promotingId === experiment.id}
+                        onClick={() => rollback(experiment.id)}
+                      >
+                        {promotingId === experiment.id
+                          ? "回退中…"
+                          : "回退到此版本"}
                       </Button>
                     )}
                   </div>

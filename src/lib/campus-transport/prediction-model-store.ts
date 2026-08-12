@@ -155,9 +155,9 @@ export async function rebuildCampusBusPredictionModel(
         sourceObservationCount: observations.length,
         snapshotHash,
         metrics: {
-          baseline: candidate.evaluation,
-          previousChampion: championEvaluation,
-          readyForAdminReview:
+          candidate: candidate.evaluation,
+          currentChampion: championEvaluation,
+          shouldPromote:
             candidate.shouldPromote &&
             (!championEvaluation ||
               candidateBeatsChampion(candidate.evaluation, championEvaluation)),

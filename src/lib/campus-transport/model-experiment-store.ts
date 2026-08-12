@@ -29,6 +29,7 @@ export type ModelLabViewer = { id: string; role: string };
 export type ModelExperimentSummary = {
   id: string;
   authorName: string;
+  runKind: string;
   createdAt: Date;
   status: string;
   routeScope: string | null;
@@ -68,7 +69,7 @@ function metricsSummary(value: unknown) {
 export async function getModelLabOverview(viewer: ModelLabViewer) {
   const experimentVisibility =
     viewer.role === "admin"
-      ? eq(campusBusPredictionModelRevisions.runKind, "experiment")
+      ? undefined
       : and(
           eq(campusBusPredictionModelRevisions.runKind, "experiment"),
           eq(campusBusPredictionModelRevisions.createdBy, viewer.id),
@@ -106,6 +107,7 @@ export async function getModelLabOverview(viewer: ModelLabViewer) {
           campusBusPredictionModelRevisions.validationEventCount,
         metrics: campusBusPredictionModelRevisions.metrics,
         promotedAt: campusBusPredictionModelRevisions.promotedAt,
+        runKind: campusBusPredictionModelRevisions.runKind,
       })
       .from(campusBusPredictionModelRevisions)
       .leftJoin(
@@ -137,8 +139,11 @@ export async function getModelLabOverview(viewer: ModelLabViewer) {
     champion: champion ?? null,
     experiments: experiments.map((experiment) => ({
       id: experiment.id,
+      runKind: experiment.runKind,
       authorName:
-        experiment.authorName || experiment.authorEmail || "已删除用户",
+        experiment.runKind === "automated"
+          ? "每日訓練"
+          : experiment.authorName || experiment.authorEmail || "已刪除用戶",
       createdAt: experiment.createdAt,
       status: experiment.status,
       routeScope: experiment.routeScope,
@@ -322,7 +327,7 @@ export async function promoteModelExperiment(revisionId: string) {
         orderBy: (table, { desc }) => [desc(table.promotedAt)],
       }),
     ]);
-    if (!experiment || experiment.runKind !== "experiment") {
+    if (!experiment) {
       throw new Error("MODEL_EXPERIMENT_NOT_FOUND");
     }
     const metrics = metricsSummary(experiment.metrics);
@@ -365,5 +370,39 @@ export async function promoteModelExperiment(revisionId: string) {
       .set({ promotedAt, status: "champion" })
       .where(eq(campusBusPredictionModelRevisions.id, revisionId));
     return { id: revisionId, promotedAt };
+  });
+}
+
+export async function rollbackCampusBusModel(revisionId: string) {
+  return db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtextextended('campus-bus:prediction-model', 0))`,
+    );
+    const [target, champion] = await Promise.all([
+      tx.query.campusBusPredictionModelRevisions.findFirst({
+        columns: { id: true, status: true },
+        where: eq(campusBusPredictionModelRevisions.id, revisionId),
+      }),
+      tx.query.campusBusPredictionModelRevisions.findFirst({
+        columns: { id: true },
+        where: eq(campusBusPredictionModelRevisions.status, "champion"),
+        orderBy: (table, { desc }) => [desc(table.promotedAt)],
+      }),
+    ]);
+    if (!target || target.status !== "retired") {
+      throw new Error("MODEL_ROLLBACK_TARGET_NOT_FOUND");
+    }
+    if (champion) {
+      await tx
+        .update(campusBusPredictionModelRevisions)
+        .set({ status: "retired" })
+        .where(eq(campusBusPredictionModelRevisions.id, champion.id));
+    }
+    const promotedAt = new Date();
+    await tx
+      .update(campusBusPredictionModelRevisions)
+      .set({ promotedAt, status: "champion" })
+      .where(eq(campusBusPredictionModelRevisions.id, target.id));
+    return { id: target.id, promotedAt };
   });
 }
