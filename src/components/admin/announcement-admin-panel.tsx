@@ -1,10 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeftIcon, BellIcon, SearchIcon } from "lucide-react";
+import { ArrowLeftIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { AnnouncementAdminList } from "@/components/admin/announcement-admin-list";
+import {
+  ANNOUNCEMENT_DATE_FORMATTER,
+  ANNOUNCEMENT_LIFECYCLE_BADGE_VARIANTS,
+  ANNOUNCEMENT_LIFECYCLE_LABELS,
+  announcementLifecycleOf,
+  announcementOfflineReason,
+} from "@/components/admin/announcement-admin-presentation";
 import { useUnsavedAnnouncementNavigation } from "@/components/admin/use-unsaved-announcement-navigation";
 import {
   AlertDialog,
@@ -36,24 +44,11 @@ import {
   updateAnnouncement,
 } from "@/lib/announcement-actions";
 import {
-  getAnnouncementLifecycle,
-  type AnnouncementLifecycle,
-} from "@/lib/announcement-lifecycle";
-import {
   ANNOUNCEMENT_CONTENT_MAX_LENGTH,
   ANNOUNCEMENT_TITLE_MAX_LENGTH,
   type AdminAnnouncement,
   type AnnouncementInput,
 } from "@/lib/announcement-types";
-
-const DATE_FORMATTER = new Intl.DateTimeFormat("zh-HK", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-  timeZone: "Asia/Hong_Kong",
-});
 
 type FormState = {
   title: string;
@@ -66,9 +61,6 @@ type FormState = {
 };
 
 type PublicationMode = "draft" | "immediate" | "scheduled";
-type ManagementStatus = "draft" | "scheduled" | "live" | "offline";
-type StatusFilter = "all" | ManagementStatus;
-
 type FormField = "title" | "content" | "priority" | "publishAt" | "expiresAt";
 
 type FormError = {
@@ -86,34 +78,6 @@ const EMPTY_FORM: FormState = {
   sendNotification: false,
 };
 
-const LIFECYCLE_LABELS: Record<AnnouncementLifecycle, string> = {
-  draft: "草稿",
-  scheduled: "待发布",
-  published: "已发布",
-  expired: "已失效",
-  withdrawn: "已撤回",
-};
-
-const LIFECYCLE_BADGE_VARIANTS: Record<
-  AnnouncementLifecycle,
-  "default" | "secondary" | "outline" | "destructive"
-> = {
-  draft: "secondary",
-  scheduled: "outline",
-  published: "default",
-  expired: "secondary",
-  withdrawn: "destructive",
-};
-
-const FILTERS: Array<{ value: StatusFilter; label: string }> = [
-  { value: "all", label: "全部" },
-  { value: "draft", label: "草稿" },
-  { value: "scheduled", label: "待发布" },
-  { value: "live", label: "已上线" },
-  { value: "offline", label: "已下线" },
-];
-const ANNOUNCEMENTS_PER_PAGE = 10;
-
 const FIELD_IDS: Record<FormField, string> = {
   title: "announcement-title",
   content: "announcement-content",
@@ -121,40 +85,6 @@ const FIELD_IDS: Record<FormField, string> = {
   publishAt: "announcement-publish-at",
   expiresAt: "announcement-expiry",
 };
-
-function lifecycleOf(
-  announcement: AdminAnnouncement,
-  now: Date,
-): AnnouncementLifecycle {
-  return getAnnouncementLifecycle(
-    {
-      publishedAt: announcement.publishedAt
-        ? new Date(announcement.publishedAt)
-        : null,
-      withdrawnAt: announcement.withdrawnAt
-        ? new Date(announcement.withdrawnAt)
-        : null,
-      expiresAt: announcement.expiresAt
-        ? new Date(announcement.expiresAt)
-        : null,
-    },
-    now,
-  );
-}
-
-function managementStatusOf(
-  lifecycle: AnnouncementLifecycle,
-): ManagementStatus {
-  if (lifecycle === "published") return "live";
-  if (lifecycle === "expired" || lifecycle === "withdrawn") return "offline";
-  return lifecycle;
-}
-
-function offlineReason(lifecycle: AnnouncementLifecycle): string | null {
-  if (lifecycle === "expired") return "到期下线";
-  if (lifecycle === "withdrawn") return "手动撤回";
-  return null;
-}
 
 function toLocalDateTimeInput(iso: string | null): string {
   if (!iso) return "";
@@ -165,11 +95,13 @@ function toLocalDateTimeInput(iso: string | null): string {
 
 function formatDateTime(value: string): string | null {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : DATE_FORMATTER.format(date);
+  return Number.isNaN(date.getTime())
+    ? null
+    : ANNOUNCEMENT_DATE_FORMATTER.format(date);
 }
 
 function toFormState(announcement: AdminAnnouncement, now: Date): FormState {
-  const lifecycle = lifecycleOf(announcement, now);
+  const lifecycle = announcementLifecycleOf(announcement, now);
   return {
     title: announcement.title,
     content: announcement.content,
@@ -228,9 +160,6 @@ export function AnnouncementAdminPanel({
   const [publishDialogBaseline, setPublishDialogBaseline] =
     useState<FormState | null>(null);
   const [formError, setFormError] = useState<FormError | null>(null);
-  const [filter, setFilter] = useState<StatusFilter>("all");
-  const [query, setQuery] = useState("");
-  const [page, setPage] = useState(1);
   const [mobileEditing, setMobileEditing] = useState(
     initialAnnouncement !== null,
   );
@@ -238,7 +167,7 @@ export function AnnouncementAdminPanel({
   const lifecycleNow = new Date(lifecycleNowMs);
   const selected = announcements.find((item) => item.id === selectedId) ?? null;
   const selectedLifecycle = selected
-    ? lifecycleOf(selected, lifecycleNow)
+    ? announcementLifecycleOf(selected, lifecycleNow)
     : "draft";
   const isAlreadyPublic =
     selectedLifecycle === "published" || selectedLifecycle === "expired";
@@ -246,44 +175,6 @@ export function AnnouncementAdminPanel({
   const { confirmDiscardChanges } = useUnsavedAnnouncementNavigation({
     isDirty,
   });
-  const lifecycleCounts = useMemo(() => {
-    const lifecycleNow = new Date(lifecycleNowMs);
-    const counts: Record<StatusFilter, number> = {
-      all: announcements.length,
-      draft: 0,
-      scheduled: 0,
-      live: 0,
-      offline: 0,
-    };
-    for (const announcement of announcements) {
-      counts[managementStatusOf(lifecycleOf(announcement, lifecycleNow))] += 1;
-    }
-    return counts;
-  }, [announcements, lifecycleNowMs]);
-  const visibleAnnouncements = useMemo(() => {
-    const lifecycleNow = new Date(lifecycleNowMs);
-    const normalizedQuery = query.trim().toLocaleLowerCase("zh-HK");
-    return announcements.filter((announcement) => {
-      const lifecycle = lifecycleOf(announcement, lifecycleNow);
-      return (
-        (filter === "all" || managementStatusOf(lifecycle) === filter) &&
-        (!normalizedQuery ||
-          announcement.title
-            .toLocaleLowerCase("zh-HK")
-            .includes(normalizedQuery))
-      );
-    });
-  }, [announcements, filter, lifecycleNowMs, query]);
-  const pageCount = Math.max(
-    1,
-    Math.ceil(visibleAnnouncements.length / ANNOUNCEMENTS_PER_PAGE),
-  );
-  const currentPage = Math.min(page, pageCount);
-  const paginatedAnnouncements = visibleAnnouncements.slice(
-    (currentPage - 1) * ANNOUNCEMENTS_PER_PAGE,
-    currentPage * ANNOUNCEMENTS_PER_PAGE,
-  );
-  const showListTools = announcements.length > ANNOUNCEMENTS_PER_PAGE;
   const editorOpen = mobileEditing || selected !== null;
 
   useEffect(() => {
@@ -506,147 +397,13 @@ export function AnnouncementAdminPanel({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(18rem,0.72fr)_minmax(0,1.28fr)]">
-        <section
-          aria-label="公告列表"
-          className={mobileEditing ? "hidden space-y-4 lg:block" : "space-y-4"}
-        >
-          {showListTools && (
-            <div className="relative">
-              <SearchIcon
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                name="announcementSearch"
-                autoComplete="off"
-                aria-label="搜索公告标题"
-                placeholder="搜索公告标题…"
-                className="pl-9"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-          )}
-          {showListTools && (
-            <div
-              className="flex gap-1 overflow-x-auto pb-1"
-              aria-label="按状态筛选"
-            >
-              {FILTERS.map((item) => (
-                <Button
-                  key={item.value}
-                  type="button"
-                  size="sm"
-                  variant={filter === item.value ? "secondary" : "ghost"}
-                  aria-pressed={filter === item.value}
-                  onClick={() => {
-                    setFilter(item.value);
-                    setPage(1);
-                  }}
-                >
-                  {item.label}
-                  <span className="tabular-nums text-muted-foreground">
-                    {lifecycleCounts[item.value]}
-                  </span>
-                </Button>
-              ))}
-            </div>
-          )}
-          <div className="space-y-2">
-            {announcements.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-8 text-center">
-                <p className="text-sm font-medium">还没有公告</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  点击右上角“新建公告”开始创建。
-                </p>
-              </div>
-            ) : visibleAnnouncements.length === 0 ? (
-              <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                没有符合当前条件的公告
-              </p>
-            ) : (
-              paginatedAnnouncements.map((announcement) => {
-                const lifecycle = lifecycleOf(announcement, lifecycleNow);
-                const reason = offlineReason(lifecycle);
-                return (
-                  <button
-                    key={announcement.id}
-                    type="button"
-                    onClick={() => chooseAnnouncement(announcement)}
-                    className={`w-full rounded-xl border p-3 text-left transition-colors hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none ${
-                      selectedId === announcement.id
-                        ? "border-foreground bg-accent"
-                        : ""
-                    }`}
-                  >
-                    <span className="flex min-w-0 items-start justify-between gap-2">
-                      <span className="line-clamp-2 min-w-0 font-medium">
-                        {announcement.title}
-                      </span>
-                      <Badge variant={LIFECYCLE_BADGE_VARIANTS[lifecycle]}>
-                        {LIFECYCLE_LABELS[lifecycle]}
-                      </Badge>
-                    </span>
-                    <span className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span>
-                        {reason ??
-                          (lifecycle === "scheduled" ? "计划" : "更新")}{" "}
-                        {DATE_FORMATTER.format(
-                          new Date(
-                            lifecycle === "scheduled" &&
-                              announcement.publishedAt
-                              ? announcement.publishedAt
-                              : announcement.updatedAt,
-                          ),
-                        )}
-                      </span>
-                      {announcement.notifyOnPublish &&
-                        !announcement.notificationSentAt && (
-                          <span className="inline-flex items-center gap-1">
-                            <BellIcon className="size-3" aria-hidden="true" />
-                            待通知
-                          </span>
-                        )}
-                    </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
-          {visibleAnnouncements.length > ANNOUNCEMENTS_PER_PAGE && (
-            <nav
-              aria-label="公告列表分页"
-              className="flex items-center justify-between gap-3"
-            >
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={currentPage === 1}
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-              >
-                上一页
-              </Button>
-              <span className="text-xs tabular-nums text-muted-foreground">
-                第 {currentPage} / {pageCount} 页
-              </span>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={currentPage === pageCount}
-                onClick={() =>
-                  setPage((current) => Math.min(pageCount, current + 1))
-                }
-              >
-                下一页
-              </Button>
-            </nav>
-          )}
-        </section>
+        <AnnouncementAdminList
+          announcements={announcements}
+          now={lifecycleNow}
+          selectedId={selectedId}
+          hiddenOnMobile={mobileEditing}
+          onSelect={chooseAnnouncement}
+        />
 
         <form
           className={`${mobileEditing ? "block" : selected ? "hidden lg:block" : "hidden"} overflow-hidden rounded-xl border bg-background`}
@@ -669,8 +426,12 @@ export function AnnouncementAdminPanel({
                   {selected ? form.title || "未命名公告" : "新建公告"}
                 </h2>
                 {selected && (
-                  <Badge variant={LIFECYCLE_BADGE_VARIANTS[selectedLifecycle]}>
-                    {LIFECYCLE_LABELS[selectedLifecycle]}
+                  <Badge
+                    variant={
+                      ANNOUNCEMENT_LIFECYCLE_BADGE_VARIANTS[selectedLifecycle]
+                    }
+                  >
+                    {ANNOUNCEMENT_LIFECYCLE_LABELS[selectedLifecycle]}
                   </Badge>
                 )}
                 {isDirty && (
@@ -682,13 +443,13 @@ export function AnnouncementAdminPanel({
               </div>
               {selected && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {offlineReason(selectedLifecycle)
-                    ? `${offlineReason(selectedLifecycle)}；首次发布于 ${DATE_FORMATTER.format(new Date(selected.publishedAt!))}`
+                  {announcementOfflineReason(selectedLifecycle)
+                    ? `${announcementOfflineReason(selectedLifecycle)}；首次发布于 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.publishedAt!))}`
                     : selectedLifecycle === "scheduled" && selected.publishedAt
-                      ? `计划 ${DATE_FORMATTER.format(new Date(selected.publishedAt))} 发布`
+                      ? `计划 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.publishedAt))} 发布`
                       : selected.publishedAt
-                        ? `首次发布于 ${DATE_FORMATTER.format(new Date(selected.publishedAt))}`
-                        : `更新于 ${DATE_FORMATTER.format(new Date(selected.updatedAt))}`}
+                        ? `首次发布于 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.publishedAt))}`
+                        : `更新于 ${ANNOUNCEMENT_DATE_FORMATTER.format(new Date(selected.updatedAt))}`}
                 </p>
               )}
             </div>
