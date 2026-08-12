@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeftIcon, BellIcon, SearchIcon } from "lucide-react";
 import { toast } from "sonner";
 
+import { useUnsavedAnnouncementNavigation } from "@/components/admin/use-unsaved-announcement-navigation";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -242,7 +243,9 @@ export function AnnouncementAdminPanel({
   const isAlreadyPublic =
     selectedLifecycle === "published" || selectedLifecycle === "expired";
   const isDirty = JSON.stringify(form) !== JSON.stringify(baselineForm);
-  const isDirtyRef = useRef(isDirty);
+  const { confirmDiscardChanges } = useUnsavedAnnouncementNavigation({
+    isDirty,
+  });
   const lifecycleCounts = useMemo(() => {
     const lifecycleNow = new Date(lifecycleNowMs);
     const counts: Record<StatusFilter, number> = {
@@ -284,10 +287,6 @@ export function AnnouncementAdminPanel({
   const editorOpen = mobileEditing || selected !== null;
 
   useEffect(() => {
-    isDirtyRef.current = isDirty;
-  }, [isDirty]);
-
-  useEffect(() => {
     const serverEpoch = new Date(serverNow).getTime();
     const monotonicStart = performance.now();
     const timer = window.setInterval(() => {
@@ -295,105 +294,6 @@ export function AnnouncementAdminPanel({
     }, 30_000);
     return () => window.clearInterval(timer);
   }, [serverNow]);
-
-  useEffect(() => {
-    const state = window.history.state as {
-      cupediaAnnouncementNavigationGuardToken?: string;
-    } | null;
-    const existingToken = state?.cupediaAnnouncementNavigationGuardToken;
-    const guardToken =
-      existingToken ?? `announcement-${Date.now()}-${Math.random()}`;
-    const guardedUrl = window.location.href;
-    if (!existingToken) {
-      window.history.pushState(
-        {
-          ...window.history.state,
-          cupediaAnnouncementNavigationGuardToken: guardToken,
-        },
-        "",
-        guardedUrl,
-      );
-    }
-
-    let handlingTraversal = false;
-    const handleHistoryNavigation = (event: PopStateEvent) => {
-      const nextToken = (
-        event.state as {
-          cupediaAnnouncementNavigationGuardToken?: string;
-        } | null
-      )?.cupediaAnnouncementNavigationGuardToken;
-      if (nextToken === guardToken || handlingTraversal) return;
-
-      if (
-        !isDirtyRef.current ||
-        window.confirm("当前公告有未保存更改，确定要放弃这些更改吗？")
-      ) {
-        handlingTraversal = true;
-        window.history.back();
-        return;
-      }
-
-      window.history.pushState(
-        {
-          ...window.history.state,
-          cupediaAnnouncementNavigationGuardToken: guardToken,
-        },
-        "",
-        guardedUrl,
-      );
-    };
-    window.addEventListener("popstate", handleHistoryNavigation);
-    return () => {
-      window.removeEventListener("popstate", handleHistoryNavigation);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isDirty) return;
-    const preventUnsavedExit = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    const preventUnsavedNavigation = (event: MouseEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const link = target.closest<HTMLAnchorElement>("a[href]");
-      if (!link || link.target === "_blank" || link.hasAttribute("download")) {
-        return;
-      }
-      const destination = new URL(link.href, window.location.href);
-      if (
-        destination.origin === window.location.origin &&
-        destination.href !== window.location.href &&
-        !window.confirm("当前公告有未保存更改，确定要放弃这些更改吗？")
-      ) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
-    window.addEventListener("beforeunload", preventUnsavedExit);
-    document.addEventListener("click", preventUnsavedNavigation, true);
-    return () => {
-      window.removeEventListener("beforeunload", preventUnsavedExit);
-      document.removeEventListener("click", preventUnsavedNavigation, true);
-    };
-  }, [isDirty]);
-
-  function confirmDiscardChanges() {
-    return (
-      !isDirty || window.confirm("当前公告有未保存更改，确定要放弃这些更改吗？")
-    );
-  }
 
   function chooseAnnouncement(announcement: AdminAnnouncement) {
     if (!confirmDiscardChanges()) return;
