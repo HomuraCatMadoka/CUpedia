@@ -7,7 +7,8 @@ import { emulateColorScheme } from "./helpers/theme";
 
 const PERSON_ID = "e2e-professor-directory-person";
 const PUBLIC_ID = "7a7ca8c9-1dd2-4b06-8ff9-d55b64d7f7b5";
-const PROFESSOR_NAME = "Professor E2E CHAN";
+const PROFESSOR_NAME = "Professor CHAN Tai Man";
+const RENDERED_PROFESSOR_NAME = "Prof. Chan Tai Man";
 const FACULTY_ID = "e2e-professor-directory-faculty";
 const DEPARTMENT_ID = "e2e-professor-directory-department";
 const COURSE_CODE = "CSCI1130";
@@ -22,7 +23,8 @@ const MULTI_DEPARTMENT_ID = "e2e-professor-directory-statistics";
 const SCHOOL_PERSON_ID = "e2e-professor-directory-school-person";
 const SCHOOL_PUBLIC_ID = "9c9ecaeb-3ff4-4d28-8bb1-f77d86f9b9d7";
 const SCHOOL_ID = "e2e-professor-directory-school";
-const SCHOOL_PROFESSOR_NAME = "Professor E2E SCHOOL";
+const SCHOOL_PROFESSOR_NAME = "Professor WONG Sau Lan";
+const RENDERED_SCHOOL_PROFESSOR_NAME = "Prof. Wong Sau Lan";
 const SCHOOL_PROFILE_URL = "https://www.pharmacy.cuhk.edu.hk/people/e2e-school";
 const UNITARY_FACULTY_ID = "e2e-professor-directory-unitary-faculty";
 const DIRECTORY_PERSON_IDS = [PERSON_ID, SECOND_PERSON_ID, SCHOOL_PERSON_ID];
@@ -262,7 +264,7 @@ test("ignores a stale department filter instead of showing an empty directory", 
     "/professors?q=%20%20&department=department-that-no-longer-exists",
   );
 
-  await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
+  await expect(page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME })).toHaveCount(
     2,
   );
   await expect(page.getByText(/全部 \d+ 位教授/)).toBeVisible();
@@ -277,14 +279,14 @@ test("keeps same-name professors distinct and scopes autocomplete by department"
 }) => {
   await page.goto("/professors");
   const professorSearch = page.getByRole("combobox", { name: "搜索教授" });
-  await professorSearch.fill("E2E CHAN");
+  await professorSearch.fill("CHAN Tai");
   await expect(
-    page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }),
+    page.getByRole("option", { name: new RegExp(RENDERED_PROFESSOR_NAME) }),
   ).toHaveCount(2);
 
   await professorSearch.fill("");
   await expect(
-    page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }),
+    page.getByRole("option", { name: new RegExp(RENDERED_PROFESSOR_NAME) }),
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "按学系或学院筛选" }).click();
@@ -295,9 +297,9 @@ test("keeps same-name professors distinct and scopes autocomplete by department"
   );
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
 
-  await professorSearch.fill("E2E CHAN");
+  await professorSearch.fill("CHAN Tai");
   const scopedMatch = page.getByRole("option", {
-    name: new RegExp(PROFESSOR_NAME),
+    name: new RegExp(RENDERED_PROFESSOR_NAME),
   });
   await expect(scopedMatch).toHaveCount(1);
   await expect(scopedMatch).toContainText("Department of Mathematics");
@@ -313,7 +315,7 @@ test("finds aliases without duplicating a professor with multiple affiliations",
 
   await professorSearch.fill("測試陳");
   const aliasMatch = page.getByRole("option", {
-    name: new RegExp(PROFESSOR_NAME),
+    name: new RegExp(RENDERED_PROFESSOR_NAME),
   });
   await expect(aliasMatch).toHaveCount(1);
 
@@ -326,7 +328,7 @@ test("finds aliases without duplicating a professor with multiple affiliations",
   await expect(page).toHaveURL(new RegExp(`department=${MULTI_DEPARTMENT_ID}`));
 
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
-  await expect(page.getByRole("heading", { name: PROFESSOR_NAME })).toHaveCount(
+  await expect(page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME })).toHaveCount(
     1,
   );
   await professorSearch.fill("測試陳");
@@ -342,7 +344,7 @@ test("includes professors affiliated only with a school", async ({ page }) => {
 
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: SCHOOL_PROFESSOR_NAME }),
+    page.getByRole("heading", { name: RENDERED_SCHOOL_PROFESSOR_NAME }),
   ).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`department=${SCHOOL_ID}`));
 });
@@ -365,7 +367,7 @@ test("includes a unitary faculty but excludes faculties with teaching units", as
   await expect(page).toHaveURL(new RegExp(`department=${UNITARY_FACULTY_ID}`));
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: SCHOOL_PROFESSOR_NAME }),
+    page.getByRole("heading", { name: RENDERED_SCHOOL_PROFESSOR_NAME }),
   ).toBeVisible();
 });
 
@@ -483,7 +485,7 @@ test("searches a professor, opens the card, and binds a course review", async ({
   await expect(page).toHaveURL(new RegExp(`department=${DEPARTMENT_ID}`));
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: PROFESSOR_NAME }),
+    page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME }),
   ).toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("professor-directory.png"),
@@ -505,13 +507,13 @@ test("searches a professor, opens the card, and binds a course review", async ({
   });
   await emulateColorScheme(page, "light");
 
-  await page.getByRole("combobox", { name: "搜索教授" }).fill("E2E CHAN");
+  await page.getByRole("combobox", { name: "搜索教授" }).fill("CHAN Tai");
   await expect(
-    page.getByRole("option", { name: new RegExp(PROFESSOR_NAME) }),
+    page.getByRole("option", { name: new RegExp(RENDERED_PROFESSOR_NAME) }),
   ).toBeVisible();
   await page.goto(`/professors/${PUBLIC_ID}`);
   await expect(
-    page.getByRole("heading", { name: PROFESSOR_NAME }),
+    page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /^院系主页/ })).toHaveAttribute(
     "href",
@@ -570,13 +572,13 @@ test("searches a professor, opens the card, and binds a course review", async ({
   );
   const unlistedProfessorField = page.getByRole("group", { name: "任课教授" });
   await expect(
-    unlistedProfessorField.getByText(PROFESSOR_NAME, { exact: true }),
+    unlistedProfessorField.getByText(RENDERED_PROFESSOR_NAME, { exact: true }),
   ).toBeVisible();
   await expect(
     unlistedProfessorField.getByText("已绑定", { exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: `移除 ${PROFESSOR_NAME}` }),
+    page.getByRole("button", { name: `移除 ${RENDERED_PROFESSOR_NAME}` }),
   ).toHaveCount(0);
 
   await page.goto(`/professors/${PUBLIC_ID}`);
@@ -587,14 +589,14 @@ test("searches a professor, opens the card, and binds a course review", async ({
   );
   const professorField = page.getByRole("group", { name: "任课教授" });
   await expect(
-    professorField.getByText(PROFESSOR_NAME, { exact: true }),
+    professorField.getByText(RENDERED_PROFESSOR_NAME, { exact: true }),
   ).toBeVisible();
   await expect(
     professorField.getByText("已绑定", { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "返回教授详情" })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: `移除 ${PROFESSOR_NAME}` }),
+    page.getByRole("button", { name: `移除 ${RENDERED_PROFESSOR_NAME}` }),
   ).toHaveCount(0);
 
   await page.getByLabel("学年").selectOption({ index: 1 });
