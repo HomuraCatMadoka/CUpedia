@@ -1,0 +1,1 @@
+ALTER TABLE "canteen_menu_sources" ADD CONSTRAINT "canteen_menu_sources_qmai_disabled_chk" CHECK ("canteen_menu_sources"."provider" <> 'qmai' or "canteen_menu_sources"."enabled" = false);

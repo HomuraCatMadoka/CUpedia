@@ -64,12 +64,15 @@ export function CanteenQrAction({
   src,
   canteenName,
   orderingUrl,
+  orderingQrSrc,
 }: {
   src: string | null;
   canteenName: string;
   orderingUrl?: string | null;
+  orderingQrSrc?: string | null;
 }) {
-  if (!src && !orderingUrl) return null;
+  const qrSrc = orderingQrSrc ?? src;
+  if (!qrSrc && !orderingUrl) return null;
 
   return (
     <div className="flex items-center gap-2">
@@ -84,10 +87,10 @@ export function CanteenQrAction({
           官方点餐
         </a>
       ) : null}
-      {src ? (
+      {qrSrc ? (
         <>
           <CanteenQrBadge
-            src={src}
+            src={qrSrc}
             canteenName={canteenName}
             className="hidden sm:flex"
           />
@@ -98,7 +101,7 @@ export function CanteenQrAction({
             </summary>
             <div className="canteen-mobile-qr-sheet">
               <CanteenQrBadge
-                src={src}
+                src={qrSrc}
                 canteenName={canteenName}
                 caption="官方点餐"
               />

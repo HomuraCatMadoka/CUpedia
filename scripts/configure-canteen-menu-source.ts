@@ -16,6 +16,16 @@ function argument(name: string): string | undefined {
   return index === -1 ? undefined : process.argv[index + 1];
 }
 
+function configArgument(): Record<string, unknown> {
+  const value = argument("--config");
+  if (!value) return {};
+  const parsed = JSON.parse(value) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("INVALID_MENU_SOURCE_CONFIG");
+  }
+  return parsed as Record<string, unknown>;
+}
+
 async function main() {
   const requestedCanteenId = argument("--canteen-id");
   const requestedCanteenName = argument("--canteen-name")?.trim();
@@ -25,6 +35,8 @@ async function main() {
   const externalStoreId = argument("--store-id")?.trim();
   const handoffProvider = argument("--handoff-provider");
   const handoffUrl = argument("--handoff-url");
+  const config = configArgument();
+  const allowLegacyTakeover = process.argv.includes("--allow-legacy-takeover");
   if (
     (!requestedCanteenId && !requestedCanteenName) ||
     !provider ||
@@ -32,9 +44,10 @@ async function main() {
     !externalStoreId
   ) {
     throw new Error(
-      "Usage: pnpm canteen:menu-source:set -- (--canteen-id <uuid> | --canteen-name <exact name>) --provider <aigens|ichef|pinme|qmai> --store-id <id> [--handoff-provider <provider>] [--handoff-url <https-url>] [--dry-run]",
+      "Usage: pnpm canteen:menu-source:set -- (--canteen-id <uuid> | --canteen-name <exact name>) --provider <aigens|ichef|pinme> --store-id <id> [--config <json>] [--allow-legacy-takeover] [--handoff-provider <provider>] [--handoff-url <https-url>] [--dry-run]",
     );
   }
+  if (provider === "qmai") throw new Error("QMAI_MENU_SOURCE_NOT_SUPPORTED");
   const canteen = await db.query.canteens.findFirst({
     where: requestedCanteenId
       ? eq(canteens.id, requestedCanteenId)
@@ -48,7 +61,7 @@ async function main() {
     const menu = await fetchMenuFromProvider({
       provider,
       externalStoreId,
-      config: {},
+      config,
     });
     const url = handoffUrl ? parseOrderingHandoffUrl(handoffUrl) : null;
     process.stdout.write(
@@ -69,14 +82,24 @@ async function main() {
 
   const [source] = await db
     .insert(canteenMenuSources)
-    .values({ canteenId, provider, externalStoreId })
+    .values({
+      canteenId,
+      provider,
+      externalStoreId,
+      config,
+      allowLegacyTakeover,
+    })
     .onConflictDoUpdate({
       target: canteenMenuSources.canteenId,
       set: {
         provider,
         externalStoreId,
+        config,
         enabled: true,
+        allowLegacyTakeover,
         lastSnapshotHash: null,
+        observedState: null,
+        lastErrorCode: null,
         lastError: null,
         updatedAt: new Date(),
       },

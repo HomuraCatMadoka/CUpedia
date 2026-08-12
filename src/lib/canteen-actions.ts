@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   canteenMenuItemPrices,
   canteenMenuItems,
+  canteenMenuSources,
   canteenOrderingHandoffs,
   canteens,
 } from "@/db/schema";
@@ -69,6 +70,25 @@ export async function getCanteenOrderingHandoff(
     )
     .limit(1);
   return rows[0] ?? null;
+}
+
+export async function getCanteenMenuFreshness(canteenId: string): Promise<{
+  lastSuccessAt: Date | null;
+  stale: boolean;
+} | null> {
+  if (isCanteenMockMode()) return null;
+  const source = await db.query.canteenMenuSources.findFirst({
+    where: eq(canteenMenuSources.canteenId, canteenId),
+    columns: { lastSuccessAt: true },
+  });
+  if (!source) return null;
+  const staleBefore = Date.now() - 48 * 60 * 60 * 1_000;
+  return {
+    lastSuccessAt: source.lastSuccessAt,
+    stale:
+      source.lastSuccessAt === null ||
+      source.lastSuccessAt.getTime() < staleBefore,
+  };
 }
 
 export async function getCanteenMenuItems(

@@ -35,7 +35,7 @@ export function buildAigensMenuSyncPayload(
 
   return {
     source: `aigens:${externalStoreId}`,
-    takeOverLegacyItems: true,
+    takeOverLegacyItems: false,
     items,
   };
 }

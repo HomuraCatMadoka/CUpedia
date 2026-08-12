@@ -139,4 +139,24 @@ describe("PINME menu adapter", () => {
       new Headers(fetchImpl.mock.calls[1][1]?.headers).get("Authorization"),
     ).toBe("Bearer temporary");
   });
+
+  it("rejects malformed product collections before normalization", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 200, data: { token: "token" } })),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 200,
+            data: { group: [{ local_name: "飯類", products: null }] },
+          }),
+        ),
+      );
+
+    await expect(fetchPinmeMenu("5500", { fetchImpl })).rejects.toThrow(
+      "INVALID_PINME_MENU",
+    );
+  });
 });

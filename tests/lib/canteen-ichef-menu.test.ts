@@ -1,18 +1,20 @@
 import { describe, expect, it, vi } from "vitest";
-import {
-  buildIchefMenuSyncPayload,
-  mealPeriodsForIchefHour,
-} from "@/lib/canteen-ichef-menu";
+import { buildIchefMenuSyncPayload } from "@/lib/canteen-ichef-menu";
+import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
 import { fetchIchefMenu } from "@/lib/canteen-menu-source-adapters";
 
 describe("iCHEF menu adapter", () => {
   it("maps menu-hour ranges to every overlapping meal period", () => {
-    expect(mealPeriodsForIchefHour("08:00", "10:30")).toEqual(["breakfast"]);
-    expect(mealPeriodsForIchefHour("11:00", "20:01")).toEqual([
+    expect(mealPeriodsForOperatingWindow("08:00", "10:30")).toEqual([
+      "breakfast",
+    ]);
+    expect(mealPeriodsForOperatingWindow("11:00", "20:01")).toEqual([
       "lunch",
       "dinner",
     ]);
-    expect(mealPeriodsForIchefHour(undefined, "20:01")).toEqual(["allday"]);
+    expect(mealPeriodsForOperatingWindow(undefined, "20:01")).toEqual([
+      "allday",
+    ]);
   });
 
   it("deduplicates products shared by categories and preserves all periods", () => {
@@ -46,7 +48,7 @@ describe("iCHEF menu adapter", () => {
 
     expect(payload).toMatchObject({
       source: "ichef:store-1",
-      takeOverLegacyItems: true,
+      takeOverLegacyItems: false,
     });
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0]).toMatchObject({
@@ -118,6 +120,24 @@ describe("iCHEF menu adapter", () => {
   it("rejects empty snapshots before they can deactivate existing dishes", () => {
     expect(() => buildIchefMenuSyncPayload("store-1", [], [])).toThrow(
       "EMPTY_ICHEF_MENU",
+    );
+  });
+
+  it("rejects malformed GraphQL menu DTOs before normalization", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            restaurant: {
+              onlineOrderingMenu: { menuHoursSnapshot: "not-an-array" },
+            },
+          },
+        }),
+      ),
+    );
+
+    await expect(fetchIchefMenu("UQftKWxU", { fetchImpl })).rejects.toThrow(
+      "INVALID_ICHEF_MENU",
     );
   });
 });

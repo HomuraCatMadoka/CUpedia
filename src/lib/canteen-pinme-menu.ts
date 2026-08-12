@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
-import { mealPeriodsForIchefHour } from "@/lib/canteen-ichef-menu";
+import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type {
   MenuSyncInput,
@@ -96,7 +96,7 @@ export function buildPinmeMenuSyncPayload(
     const group = object(groupValue);
     if (!group) continue;
     const categoryName = text(group.local_name ?? group.en_name) ?? "其他";
-    const mealPeriods = mealPeriodsForIchefHour(
+    const mealPeriods = mealPeriodsForOperatingWindow(
       text(group.start_time) ?? undefined,
       text(group.end_time) ?? undefined,
     );
@@ -130,7 +130,7 @@ export function buildPinmeMenuSyncPayload(
   if (items.length === 0) throw new Error("EMPTY_PINME_MENU");
   return {
     source: `pinme:${externalStoreId}`,
-    takeOverLegacyItems: true,
+    takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
   };
 }

@@ -41,7 +41,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
 
     expect(payload).toMatchObject({
       source: "aigens:102830",
-      takeOverLegacyItems: true,
+      takeOverLegacyItems: false,
     });
     expect(payload.items).toHaveLength(2);
     expect(payload.items.map((item) => item.externalKey)).toEqual([

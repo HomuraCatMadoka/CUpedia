@@ -1,10 +1,7 @@
 import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
+import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
-import type {
-  MealPeriod,
-  MealPeriodAssignment,
-  MenuSyncInput,
-} from "@/lib/canteen-types";
+import type { MealPeriodAssignment, MenuSyncInput } from "@/lib/canteen-types";
 
 type IchefMenuHour = {
   startTime?: string;
@@ -24,36 +21,6 @@ type IchefCategory = {
   menuItemsSnapshot?: IchefMenuItem[];
 };
 
-const PERIOD_WINDOWS: Array<{
-  period: MealPeriod;
-  start: number;
-  end: number;
-}> = [
-  { period: "breakfast", start: 0, end: 11 * 60 },
-  { period: "lunch", start: 11 * 60, end: 17 * 60 },
-  { period: "dinner", start: 17 * 60, end: 24 * 60 },
-];
-
-function minutes(value: string | undefined): number | null {
-  if (!value || !/^\d{2}:\d{2}$/.test(value)) return null;
-  const [hours, mins] = value.split(":").map(Number);
-  if (hours > 23 || mins > 59) return null;
-  return hours * 60 + mins;
-}
-
-export function mealPeriodsForIchefHour(
-  startTime: string | undefined,
-  endTime: string | undefined,
-): MealPeriodAssignment[] {
-  const start = minutes(startTime);
-  const end = minutes(endTime);
-  if (start === null || end === null || end <= start) return ["allday"];
-  const periods = PERIOD_WINDOWS.filter(
-    (window) => start < window.end && end > window.start,
-  ).map((window) => window.period);
-  return periods.length > 0 ? periods : ["allday"];
-}
-
 function parseAmountMinor(price: unknown): number {
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
     throw new Error("INVALID_ICHEF_PRICE");
@@ -70,7 +37,7 @@ export function buildIchefMenuSyncPayload(
 ): MenuSyncInput {
   const periodsByCategory = new Map<string, Set<MealPeriodAssignment>>();
   for (const hour of menuHours) {
-    const periods = mealPeriodsForIchefHour(hour.startTime, hour.endTime);
+    const periods = mealPeriodsForOperatingWindow(hour.startTime, hour.endTime);
     for (const categoryUuid of hour.categorySnapshotUuids ?? []) {
       const assigned = periodsByCategory.get(categoryUuid) ?? new Set();
       periods.forEach((period) => assigned.add(period));
@@ -124,7 +91,7 @@ export function buildIchefMenuSyncPayload(
   if (items.length === 0) throw new Error("EMPTY_ICHEF_MENU");
   return {
     source: `ichef:${externalStoreId}`,
-    takeOverLegacyItems: true,
+    takeOverLegacyItems: false,
     items,
   };
 }

@@ -1307,9 +1307,14 @@ export const canteenMenuSources = pgTable(
       .notNull()
       .default({}),
     enabled: boolean("enabled").notNull().default(true),
+    allowLegacyTakeover: boolean("allow_legacy_takeover")
+      .notNull()
+      .default(false),
     lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
     lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
     lastSnapshotHash: text("last_snapshot_hash"),
+    observedState: text("observed_state"),
+    lastErrorCode: text("last_error_code"),
     lastError: text("last_error"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -1328,6 +1333,10 @@ export const canteenMenuSources = pgTable(
     check(
       "canteen_menu_sources_store_id_chk",
       sql`length(trim(${table.externalStoreId})) between 1 and 200`,
+    ),
+    check(
+      "canteen_menu_sources_qmai_disabled_chk",
+      sql`${table.provider} <> 'qmai' or ${table.enabled} = false`,
     ),
   ],
 );

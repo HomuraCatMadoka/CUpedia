@@ -57,6 +57,149 @@ export type MenuSource = {
   config?: CanteenMenuSourceConfig;
 };
 
+type JsonObject = Record<string, unknown>;
+
+function object(value: unknown): JsonObject | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonObject)
+    : null;
+}
+
+function optionalString(value: unknown): value is string | undefined {
+  return value === undefined || typeof value === "string";
+}
+
+function configString(
+  config: CanteenMenuSourceConfig | undefined,
+  key: string,
+  fallback: string,
+): string {
+  const value = config?.[key];
+  if (value === undefined) return fallback;
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("INVALID_MENU_SOURCE_CONFIG");
+  }
+  return value.trim();
+}
+
+function assertOnlyConfigKeys(
+  config: CanteenMenuSourceConfig | undefined,
+  allowed: readonly string[],
+): void {
+  if (!config) return;
+  const allowedKeys = new Set(allowed);
+  if (Object.keys(config).some((key) => !allowedKeys.has(key))) {
+    throw new Error("INVALID_MENU_SOURCE_CONFIG");
+  }
+}
+
+function validateIchefData(payload: unknown) {
+  const result = object(payload);
+  const data = object(result?.data);
+  if (
+    !result ||
+    !data ||
+    (Array.isArray(result.errors) && result.errors.length)
+  ) {
+    throw new Error("ICHEF_GRAPHQL_ERROR");
+  }
+  const restaurant = object(data.restaurant);
+  const menu = object(restaurant?.onlineOrderingMenu);
+  if (!restaurant || !menu) throw new Error("INVALID_ICHEF_MENU");
+  const hours = menu.menuHoursSnapshot;
+  if (
+    hours !== undefined &&
+    (!Array.isArray(hours) ||
+      !hours.every((value) => {
+        const hour = object(value);
+        return (
+          hour !== null &&
+          optionalString(hour.startTime) &&
+          optionalString(hour.endTime) &&
+          (hour.categorySnapshotUuids === undefined ||
+            (Array.isArray(hour.categorySnapshotUuids) &&
+              hour.categorySnapshotUuids.every(
+                (uuid) => typeof uuid === "string",
+              )))
+        );
+      }))
+  ) {
+    throw new Error("INVALID_ICHEF_MENU");
+  }
+  const categories = menu.categoriesSnapshot;
+  if (
+    categories !== undefined &&
+    (!Array.isArray(categories) ||
+      !categories.every((value) => {
+        const category = object(value);
+        return (
+          category !== null &&
+          optionalString(category.uuid) &&
+          optionalString(category.name) &&
+          (category.menuItemsSnapshot === undefined ||
+            (Array.isArray(category.menuItemsSnapshot) &&
+              category.menuItemsSnapshot.every((itemValue) => {
+                const item = object(itemValue);
+                return (
+                  item !== null &&
+                  optionalString(item.uuid) &&
+                  optionalString(item.name) &&
+                  (item.price === undefined || typeof item.price === "number")
+                );
+              })))
+        );
+      }))
+  ) {
+    throw new Error("INVALID_ICHEF_MENU");
+  }
+  return data as {
+    restaurant: {
+      onlineOrderingMenu: {
+        menuHoursSnapshot?: Array<{
+          startTime?: string;
+          endTime?: string;
+          categorySnapshotUuids?: string[];
+        }>;
+        categoriesSnapshot?: Array<{
+          uuid?: string;
+          name?: string;
+          menuItemsSnapshot?: Array<{
+            uuid?: string;
+            name?: string;
+            price?: number;
+          }>;
+        }>;
+      };
+    };
+  };
+}
+
+function validatePinmeMenu(payload: unknown): void {
+  const root = object(payload);
+  const data = object(root?.data);
+  if (Number(root?.code) !== 200 || !data || !Array.isArray(data.group)) {
+    throw new Error("INVALID_PINME_MENU");
+  }
+  for (const value of data.group) {
+    const group = object(value);
+    if (!group || !Array.isArray(group.products)) {
+      throw new Error("INVALID_PINME_MENU");
+    }
+    for (const productValue of group.products) {
+      const product = object(productValue);
+      if (
+        !product ||
+        (product.product_id !== undefined &&
+          typeof product.product_id !== "string" &&
+          typeof product.product_id !== "number") ||
+        (product.prices !== undefined && !Array.isArray(product.prices))
+      ) {
+        throw new Error("INVALID_PINME_MENU");
+      }
+    }
+  }
+}
+
 async function fetchJson(
   url: string,
   init: RequestInit,
@@ -97,37 +240,20 @@ async function ichefGraphql(
     },
     fetchImpl,
   );
-  const result = payload as { data?: unknown; errors?: unknown[] };
-  if (result.errors?.length || !result.data)
-    throw new Error("ICHEF_GRAPHQL_ERROR");
-  return result.data as {
-    restaurant?: {
-      onlineOrderingMenu?: {
-        menuHoursSnapshot?: Array<{
-          startTime?: string;
-          endTime?: string;
-          categorySnapshotUuids?: string[];
-        }>;
-        categoriesSnapshot?: Array<{
-          uuid?: string;
-          name?: string;
-          menuItemsSnapshot?: Array<{
-            uuid?: string;
-            name?: string;
-            price?: number;
-          }>;
-        }>;
-      };
-    };
-  };
+  return validateIchefData(payload);
 }
 
 export async function fetchIchefMenu(
   externalStoreId: string,
   options: FetchMenuOptions = {},
+  config?: CanteenMenuSourceConfig,
 ): Promise<MenuSyncInput> {
   const fetchImpl = options.fetchImpl ?? fetch;
-  const common = { publicId: externalStoreId, platformType: ICHEF_PLATFORM };
+  assertOnlyConfigKeys(config, ["platformType"]);
+  const common = {
+    publicId: externalStoreId,
+    platformType: configString(config, "platformType", ICHEF_PLATFORM),
+  };
   const hoursData = await ichefGraphql(
     "menuHoursSnapshotQuery",
     common,
@@ -154,18 +280,26 @@ export async function fetchIchefMenu(
 export async function fetchAigensMenu(
   externalStoreId: string,
   options: FetchMenuOptions = {},
+  config?: CanteenMenuSourceConfig,
 ): Promise<MenuSyncInput> {
   if (!/^\d+$/.test(externalStoreId))
     throw new Error("INVALID_AIGENS_STORE_ID");
+  assertOnlyConfigKeys(config, [
+    "locale",
+    "open",
+    "menu",
+    "groupId",
+    "country",
+  ]);
   const url = new URL(
     `https://aigensstoreapp.appspot.com/api/v1/menu/store/${externalStoreId}.json`,
   );
   url.search = new URLSearchParams({
-    locale: "default",
-    open: "true",
-    menu: "prekiosk",
-    groupId: "1000",
-    country: "hk",
+    locale: configString(config, "locale", "default"),
+    open: configString(config, "open", "true"),
+    menu: configString(config, "menu", "prekiosk"),
+    groupId: configString(config, "groupId", "1000"),
+    country: configString(config, "country", "hk"),
   }).toString();
   const payload = await fetchJson(
     url.toString(),
@@ -178,12 +312,14 @@ export async function fetchAigensMenu(
 export async function fetchPinmeMenu(
   externalStoreId: string,
   options: FetchMenuOptions = {},
+  config?: CanteenMenuSourceConfig,
 ): Promise<MenuSyncInput> {
   if (!/^\d+$/.test(externalStoreId)) throw new Error("INVALID_PINME_STORE_ID");
+  assertOnlyConfigKeys(config, ["langcode", "takeout", "orderSubType"]);
   const fetchImpl = options.fetchImpl ?? fetch;
   const headers = {
     "Store-id": externalStoreId,
-    langcode: "zh-Hant",
+    langcode: configString(config, "langcode", "zh-Hant"),
   };
   const tokenPayload = (await fetchJson(
     `https://meal.pin2eat.com/api/account/token?${createPinmeSignedParams(externalStoreId)}`,
@@ -196,8 +332,8 @@ export async function fetchPinmeMenu(
   }
   const query = new URLSearchParams({
     store_id: externalStoreId,
-    takeout: "1",
-    order_sub_type: "1",
+    takeout: configString(config, "takeout", "1"),
+    order_sub_type: configString(config, "orderSubType", "1"),
   });
   const payload = await fetchJson(
     `https://meal.pin2eat.com/api/home/product-menus?${query}`,
@@ -207,6 +343,7 @@ export async function fetchPinmeMenu(
     },
     fetchImpl,
   );
+  validatePinmeMenu(payload);
   return buildPinmeMenuSyncPayload(payload, externalStoreId);
 }
 
@@ -216,11 +353,11 @@ export function fetchMenuFromProvider(
 ): Promise<MenuSyncInput> {
   switch (source.provider) {
     case "aigens":
-      return fetchAigensMenu(source.externalStoreId, options);
+      return fetchAigensMenu(source.externalStoreId, options, source.config);
     case "ichef":
-      return fetchIchefMenu(source.externalStoreId, options);
+      return fetchIchefMenu(source.externalStoreId, options, source.config);
     case "pinme":
-      return fetchPinmeMenu(source.externalStoreId, options);
+      return fetchPinmeMenu(source.externalStoreId, options, source.config);
     case "qmai":
       throw new Error("QMAI_MENU_SOURCE_NOT_SUPPORTED");
   }

@@ -477,6 +477,20 @@
       "when": 1786556162890,
       "tag": "0067_canteen-ordering-handoffs",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1786560885132,
+      "tag": "0068_canteen-menu-source-health",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1786561448574,
+      "tag": "0069_canteen-qmai-disabled",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,12 @@ function safeError(error: unknown): string {
   return message.slice(0, MAX_ERROR_LENGTH);
 }
 
+function errorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : "UNKNOWN_SYNC_ERROR";
+  const code = message.match(/^[A-Z][A-Z0-9_]*(?:_\d{3})?/)?.[0];
+  return code ?? "UNKNOWN_SYNC_ERROR";
+}
+
 async function syncSource(
   source: typeof canteenMenuSources.$inferSelect,
 ): Promise<MenuSourceSyncResult> {
@@ -38,7 +44,10 @@ async function syncSource(
     .where(eq(canteenMenuSources.id, source.id));
 
   try {
-    const input = await fetchMenuFromProvider(source);
+    const fetched = await fetchMenuFromProvider(source);
+    const input = source.allowLegacyTakeover
+      ? { ...fetched, takeOverLegacyItems: true }
+      : fetched;
     if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
     const hash = snapshotHash(input);
     if (hash === source.lastSnapshotHash) {
@@ -46,7 +55,10 @@ async function syncSource(
         .update(canteenMenuSources)
         .set({
           lastSuccessAt: new Date(),
+          observedState: "available",
+          lastErrorCode: null,
           lastError: null,
+          allowLegacyTakeover: false,
           updatedAt: new Date(),
         })
         .where(eq(canteenMenuSources.id, source.id));
@@ -72,7 +84,10 @@ async function syncSource(
       .set({
         lastSuccessAt: completedAt,
         lastSnapshotHash: hash,
+        observedState: "available",
+        lastErrorCode: null,
         lastError: null,
+        allowLegacyTakeover: false,
         updatedAt: completedAt,
       })
       .where(eq(canteenMenuSources.id, source.id));
@@ -84,15 +99,21 @@ async function syncSource(
     };
   } catch (error) {
     const message = safeError(error);
+    const code = errorCode(error);
     await db
       .update(canteenMenuSources)
-      .set({ lastError: message, updatedAt: new Date() })
+      .set({
+        observedState: "error",
+        lastErrorCode: code,
+        lastError: message,
+        updatedAt: new Date(),
+      })
       .where(eq(canteenMenuSources.id, source.id));
     return {
       sourceId: source.id,
       canteenId: source.canteenId,
       status: "failed",
-      error: message,
+      error: code,
     };
   }
 }
