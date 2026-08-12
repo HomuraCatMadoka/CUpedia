@@ -220,6 +220,7 @@ describe("announcement admin actions", () => {
       {
         publishedAt: originalPublication,
         withdrawnAt: new Date("2026-08-11T12:00:00Z"),
+        notifyOnPublish: true,
         notificationSentAt: null,
       },
     ]);
@@ -233,7 +234,7 @@ describe("announcement admin actions", () => {
     const announcementUpdate = (mocks.set.mock.calls as unknown[][])
       .map((call) => call[0] as { notifyOnPublish?: boolean } | undefined)
       .find((value) => value && "notifyOnPublish" in value);
-    expect(announcementUpdate?.notifyOnPublish).toBeUndefined();
+    expect(announcementUpdate?.notifyOnPublish).toBe(false);
     expect(mocks.execute).not.toHaveBeenCalled();
   });
 });

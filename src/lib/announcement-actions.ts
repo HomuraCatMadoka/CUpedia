@@ -109,9 +109,10 @@ export async function updateAnnouncement(
         publishedAt,
         withdrawnAt,
         expiresAt: parsed.expiresAt,
-        notifyOnPublish:
-          existing.notificationSentAt || hasBeenPublic
-            ? undefined
+        notifyOnPublish: existing.notificationSentAt
+          ? undefined
+          : hasBeenPublic
+            ? false
             : parsed.published
               ? parsed.sendNotification
               : false,
