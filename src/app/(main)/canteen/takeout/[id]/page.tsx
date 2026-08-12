@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { getTakeoutById, getTakeoutMenuItems } from "@/lib/takeout-actions";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
+import { CanteenOrderAction } from "@/components/canteen/canteen-order-action";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MealPeriodsBadges } from "@/components/canteen/meal-period-badge";
 import { MenuItemPrice } from "@/components/canteen/menu-item-price";
+import { resolveCanteenOrderUrl } from "@/lib/canteen-order-urls";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,7 @@ export default async function TakeoutMenuPage({
   if (!takeout) notFound();
 
   const items = await getTakeoutMenuItems(id);
+  const orderUrl = resolveCanteenOrderUrl(id, takeout.name);
 
   return (
     <CanteenShell
@@ -25,6 +28,9 @@ export default async function TakeoutMenuPage({
       title={takeout.name}
       subtitle={takeout.location ?? undefined}
       announcement={takeout.announcement}
+      action={
+        <CanteenOrderAction href={orderUrl} canteenName={takeout.name} />
+      }
     >
       {items.length === 0 ? (
         <div className="canteen-fade-in border border-dashed border-[var(--canteen-line)] bg-[var(--canteen-tray)] px-1 py-10 text-center sm:rounded-2xl sm:py-16">

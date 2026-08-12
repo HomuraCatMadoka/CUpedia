@@ -41,7 +41,7 @@ describe("canteen order urls", () => {
     );
   });
 
-  it("resolves ichef and ebeneezers links", () => {
+  it("resolves ichef, ebeneezers, and Cafe Tolo links", () => {
     expect(resolveCanteenOrderUrl("mc-can")).toBe(
       "https://shop.ichefpos.com/store/UQftKWxU/instore/qrcode?tableName=VDE",
     );
@@ -51,6 +51,9 @@ describe("canteen order urls", () => {
     expect(
       resolveCanteenOrderUrl("9539dbf3-3f22-4749-b532-e42357e0be96"),
     ).toBe("https://www.ebeneezers.com/");
+    expect(resolveCanteenOrderUrl("Cafe Tolo")).toBe(
+      "https://meal.pin2eat.com/v2/package_store/pages/store/home?store_id=4899#index",
+    );
   });
 
   it("prefers the first matching key", () => {

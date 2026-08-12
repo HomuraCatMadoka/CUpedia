@@ -14,6 +14,7 @@ https://meal.pin2eat.com/store/5198/takeout   # uc-can
 https://meal.pin2eat.com/store/5500/takeout   # na-can
 https://shop.ichefpos.com/store/UQftKWxU/instore/qrcode?tableName=VDE  # mc-can
 https://www.ebeneezers.com/                 # Ebeneezer's
+https://meal.pin2eat.com/v2/package_store/pages/store/home?store_id=4899#index  # Cafe Tolo
 ```
 
 本目录下的 PNG 为历史二维码资产，页面不再展示。需要时可参考 `scripts/regen-canteen-qr.py` 重新生成。

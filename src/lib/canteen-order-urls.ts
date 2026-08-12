@@ -10,6 +10,8 @@ const CANTEEN_ORDER_URLS: Record<string, string> = {
     "https://shop.ichefpos.com/store/UQftKWxU/instore/qrcode?tableName=VDE",
   "Ebeneezer's": "https://www.ebeneezers.com/",
   "9539dbf3-3f22-4749-b532-e42357e0be96": "https://www.ebeneezers.com/",
+  "Cafe Tolo":
+    "https://meal.pin2eat.com/v2/package_store/pages/store/home?store_id=4899#index",
 };
 
 /** Ordering page URL for a canteen, or null when not configured. */
