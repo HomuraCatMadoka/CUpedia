@@ -32,6 +32,7 @@ function publishedAnnouncementWhere(now: Date) {
   return and(
     isNotNull(announcements.publishedAt),
     lte(announcements.publishedAt, now),
+    isNull(announcements.withdrawnAt),
   );
 }
 
