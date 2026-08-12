@@ -1,6 +1,6 @@
 {
-  "id": "18a08af4-2361-45c5-9f31-52f19d5f5c03",
-  "prevId": "01bdec62-9f2c-473b-8154-cd01b34c238c",
+  "id": "5b9604e3-28e5-4985-8c77-1e2886bcd939",
+  "prevId": "9ad775a6-78fb-4d91-aeb4-76c2aab32b6b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3980,15 +3980,6 @@
           "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
-        },
-        "notifications_announcement_id_announcements_id_fk": {
-          "name": "notifications_announcement_id_announcements_id_fk",
-          "tableFrom": "notifications",
-          "tableTo": "announcements",
-          "columnsFrom": ["announcement_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -3998,6 +3989,10 @@
         "notifications_kind_check": {
           "name": "notifications_kind_check",
           "value": "\"notifications\".\"kind\" in ('course_review_reply', 'announcement_published')"
+        },
+        "notifications_announcement_identity_check": {
+          "name": "notifications_announcement_identity_check",
+          "value": "(\"notifications\".\"kind\" = 'announcement_published' and \"notifications\".\"announcement_id\" is not null) or (\"notifications\".\"kind\" <> 'announcement_published' and \"notifications\".\"announcement_id\" is null)"
         }
       },
       "isRLSEnabled": false
