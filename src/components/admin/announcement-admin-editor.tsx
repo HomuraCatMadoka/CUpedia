@@ -28,6 +28,8 @@ export function AnnouncementAdminEditor({
   selected,
   lifecycle,
   isAlreadyPublic,
+  canDelete,
+  canWithdraw,
   isPending,
   editor,
   onSubmit,
@@ -39,6 +41,8 @@ export function AnnouncementAdminEditor({
   selected: AdminAnnouncement | null;
   lifecycle: AnnouncementLifecycle;
   isAlreadyPublic: boolean;
+  canDelete: boolean;
+  canWithdraw: boolean;
   isPending: boolean;
   editor: AnnouncementAdminEditorController;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
@@ -103,16 +107,16 @@ export function AnnouncementAdminEditor({
             </p>
           )}
         </div>
-        {selected && (selected.publishedAt === null || isAlreadyPublic) && (
+        {selected && (canDelete || canWithdraw) && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             className="text-destructive hover:text-destructive"
             disabled={isPending || isDirty}
-            onClick={selected.publishedAt === null ? onDelete : onWithdraw}
+            onClick={canDelete ? onDelete : onWithdraw}
           >
-            {selected.publishedAt === null ? "删除" : "撤回"}
+            {canDelete ? "删除" : "撤回"}
           </Button>
         )}
       </header>
