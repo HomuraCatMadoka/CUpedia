@@ -3,6 +3,11 @@
 import Image from "next/image";
 import { useState } from "react";
 
+import {
+  formatProfessorNameText,
+  getProfessorInitials,
+} from "@/lib/professor-name-format";
+
 export function ProfessorPortrait({
   imageUrls,
   name,
@@ -14,12 +19,8 @@ export function ProfessorPortrait({
 }) {
   const [failedUrls, setFailedUrls] = useState<Set<string>>(() => new Set());
   const imageUrl = imageUrls.find((url) => !failedUrls.has(url)) ?? null;
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("");
+  const displayName = formatProfessorNameText(name);
+  const initials = getProfessorInitials(name);
 
   return (
     <div
@@ -34,7 +35,7 @@ export function ProfessorPortrait({
       {!imageUrl ? (
         <div
           role="img"
-          aria-label={`${name} 的头像占位`}
+          aria-label={`${displayName} 的头像占位`}
           className={`flex size-full items-center justify-center font-medium tracking-[-0.04em] text-muted-foreground ${variant === "icon" ? "text-lg" : variant === "directory" ? "text-xl sm:text-2xl" : "text-2xl"}`}
         >
           {initials}
@@ -42,7 +43,7 @@ export function ProfessorPortrait({
       ) : (
         <Image
           src={imageUrl}
-          alt={`${name} 的官方头像`}
+          alt={`${displayName} 的官方头像`}
           fill
           priority={variant === "portrait"}
           sizes={

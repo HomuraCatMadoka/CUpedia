@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
+import { formatProfessorName } from "@/lib/professor-name-format";
 import { selectProfessorProfile } from "@/lib/professor-card-source";
 
 export const metadata: Metadata = {
@@ -120,7 +121,7 @@ export default function ProfessorCardMockupPage() {
 
             <div className="min-w-0">
               <h1 className="text-3xl font-semibold tracking-[-0.035em] text-balance sm:text-4xl">
-                {professor.name}
+                {formatProfessorName(professor.name)}
               </h1>
               <p className="mt-2 text-sm font-medium">{professor.title}</p>
               <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
