@@ -141,6 +141,56 @@ describe("announcement admin actions", () => {
     );
   });
 
+  it("publishes an existing schedule immediately when its time is cleared", async () => {
+    const scheduledAt = new Date("2026-09-01T10:00:00.000Z");
+    mocks.limit.mockResolvedValue([
+      {
+        publishedAt: scheduledAt,
+        withdrawnAt: null,
+        notificationSentAt: null,
+      },
+    ]);
+
+    await updateAnnouncement(announcementId, {
+      ...baseInput,
+      published: true,
+      publishAt: null,
+    });
+
+    const update = (mocks.set.mock.calls as unknown[][])
+      .map((call) => call[0] as { publishedAt?: Date } | undefined)
+      .find((value) => value?.publishedAt !== undefined);
+    expect(update).toBeDefined();
+    if (!update?.publishedAt) throw new Error("missing publication update");
+    expect(update.publishedAt).toBeInstanceOf(Date);
+    expect(update.publishedAt.getTime()).not.toBe(scheduledAt.getTime());
+  });
+
+  it("clears notification delivery when cancelling a scheduled publication", async () => {
+    mocks.limit.mockResolvedValue([
+      {
+        publishedAt: new Date("2099-09-01T10:00:00.000Z"),
+        withdrawnAt: null,
+        expiresAt: null,
+        notificationSentAt: null,
+      },
+    ]);
+
+    await updateAnnouncement(announcementId, {
+      ...baseInput,
+      published: false,
+      sendNotification: false,
+    });
+
+    expect(mocks.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        publishedAt: null,
+        withdrawnAt: null,
+        notifyOnPublish: false,
+      }),
+    );
+  });
+
   it("keeps publication history when withdrawing an announcement", async () => {
     const originalPublication = new Date("2026-08-11T10:00:00Z");
     mocks.limit.mockResolvedValue([

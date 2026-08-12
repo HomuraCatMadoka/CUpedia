@@ -29,12 +29,17 @@ describe("docker-compose local bootstrap contract", () => {
   });
 
   it("schedules protected announcement broadcasts in the production profile", () => {
-    expect(compose).toMatch(/CRON_SECRET:\s*\$\{CRON_SECRET/);
+    expect(compose).toMatch(/CRON_SECRET:\s*\$\{CRON_SECRET:-\}/);
     expect(compose).toMatch(/announcement-scheduler:/);
     expect(compose).toMatch(/run-announcement-scheduler\.sh/);
     expect(announcementScheduler).toMatch(/api\/cron\/announcements/);
     expect(announcementScheduler).toMatch(
       /Authorization: Bearer \$CRON_SECRET/,
+    );
+    expect(announcementScheduler).toMatch(/--connect-timeout\s+\d+/);
+    expect(announcementScheduler).toMatch(/--max-time\s+\d+/);
+    expect(announcementScheduler).toMatch(
+      /CRON_SECRET is required for the announcement scheduler/,
     );
   });
 });

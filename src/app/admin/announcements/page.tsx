@@ -5,5 +5,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminAnnouncementsPage() {
   const announcements = await adminListAnnouncements();
-  return <AnnouncementAdminPanel announcements={announcements} />;
+  const serverNow = new Date().toISOString();
+  return (
+    <AnnouncementAdminPanel
+      key={serverNow}
+      announcements={announcements}
+      serverNow={serverNow}
+    />
+  );
 }

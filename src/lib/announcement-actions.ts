@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { announcements } from "@/db/schema";
 import { broadcastAnnouncementIfDue } from "@/lib/announcement-broadcast";
+import { resolveAnnouncementPublication } from "@/lib/announcement-lifecycle";
 import { adminListAnnouncements as queryAdminListAnnouncements } from "@/lib/announcement-queries";
 import {
   isAnnouncementId,
@@ -79,6 +80,7 @@ export async function updateAnnouncement(
       .select({
         publishedAt: announcements.publishedAt,
         withdrawnAt: announcements.withdrawnAt,
+        expiresAt: announcements.expiresAt,
         notificationSentAt: announcements.notificationSentAt,
       })
       .from(announcements)
@@ -86,16 +88,11 @@ export async function updateAnnouncement(
       .limit(1);
     if (!existing) throw new Error("公告不存在");
 
-    const wasPublic = Boolean(
-      existing.publishedAt && existing.publishedAt <= now,
+    const { publishedAt, withdrawnAt } = resolveAnnouncementPublication(
+      existing,
+      parsed,
+      now,
     );
-    const publishedAt = parsed.published
-      ? (parsed.publishAt ??
-        (existing.withdrawnAt ? now : (existing.publishedAt ?? now)))
-      : wasPublic
-        ? existing.publishedAt
-        : null;
-    const withdrawnAt = parsed.published ? null : wasPublic ? now : null;
     if (publishedAt && parsed.expiresAt && parsed.expiresAt <= publishedAt) {
       throw new Error("失效时间必须晚于发布时间");
     }
@@ -109,10 +106,11 @@ export async function updateAnnouncement(
         publishedAt,
         withdrawnAt,
         expiresAt: parsed.expiresAt,
-        notifyOnPublish:
-          !existing.notificationSentAt && parsed.published
+        notifyOnPublish: existing.notificationSentAt
+          ? undefined
+          : parsed.published
             ? parsed.sendNotification
-            : undefined,
+            : false,
         updatedBy: admin.id,
         updatedAt: now,
       })

@@ -9,6 +9,8 @@ fi
 
 while true; do
   curl --fail --silent --show-error \
+    --connect-timeout 5 \
+    --max-time 30 \
     --header "Authorization: Bearer $CRON_SECRET" \
     http://app:3000/api/cron/announcements || true
   sleep 60

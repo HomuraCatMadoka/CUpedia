@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 
 import { getPublicAnnouncement } from "@/lib/announcement-queries";
 
@@ -22,7 +21,23 @@ export default async function AnnouncementDetailPage({
 }) {
   const { id } = await params;
   const announcement = await getPublicAnnouncement(id);
-  if (!announcement) notFound();
+  if (!announcement) {
+    return (
+      <div className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold text-balance">消息不存在</h1>
+        <p className="mt-3 text-sm text-pretty text-muted-foreground">
+          这条公告可能尚未发布、已被撤回，或链接无效。
+        </p>
+        <Link
+          href="/announcements"
+          className="mt-6 inline-flex min-h-11 items-center gap-1 rounded-md px-3 text-sm font-medium hover:bg-accent focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        >
+          <ArrowLeftIcon className="size-4" aria-hidden="true" />
+          返回全部公告
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
