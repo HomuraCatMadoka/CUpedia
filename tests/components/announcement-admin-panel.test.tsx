@@ -234,6 +234,7 @@ describe("AnnouncementAdminPanel", () => {
     expect(screen.queryByLabelText("计划发布时间")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "发布…" }));
     expect(screen.getByRole("radio", { name: "立即发布" })).toBeTruthy();
+    expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.getByText("更多设置")).toBeTruthy();
   });
 

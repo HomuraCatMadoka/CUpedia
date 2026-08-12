@@ -96,6 +96,9 @@ export async function updateAnnouncement(
     if (publishedAt && parsed.expiresAt && parsed.expiresAt <= publishedAt) {
       throw new Error("失效时间必须晚于发布时间");
     }
+    const hasBeenPublic =
+      existing.withdrawnAt !== null ||
+      (existing.publishedAt !== null && existing.publishedAt <= now);
 
     const [updated] = await tx
       .update(announcements)
@@ -106,11 +109,12 @@ export async function updateAnnouncement(
         publishedAt,
         withdrawnAt,
         expiresAt: parsed.expiresAt,
-        notifyOnPublish: existing.notificationSentAt
-          ? undefined
-          : parsed.published
-            ? parsed.sendNotification
-            : false,
+        notifyOnPublish:
+          existing.notificationSentAt || hasBeenPublic
+            ? undefined
+            : parsed.published
+              ? parsed.sendNotification
+              : false,
         updatedBy: admin.id,
         updatedAt: now,
       })

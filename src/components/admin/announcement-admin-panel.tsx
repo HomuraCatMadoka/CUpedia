@@ -188,7 +188,9 @@ function toFormState(announcement: AdminAnnouncement, now: Date): FormState {
           ? "draft"
           : "immediate",
     sendNotification:
-      announcement.notifyOnPublish && !announcement.notificationSentAt,
+      lifecycle !== "withdrawn" &&
+      announcement.notifyOnPublish &&
+      !announcement.notificationSentAt,
   };
 }
 
@@ -1017,6 +1019,7 @@ export function AnnouncementAdminPanel({
 
             {!notificationAlreadySent &&
               !isAlreadyPublic &&
+              selectedLifecycle !== "withdrawn" &&
               form.publicationMode !== "draft" && (
                 <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3">
                   <input

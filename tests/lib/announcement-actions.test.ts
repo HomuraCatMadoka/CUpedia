@@ -213,4 +213,27 @@ describe("announcement admin actions", () => {
       }),
     );
   });
+
+  it("does not enable notifications when republishing a withdrawn announcement", async () => {
+    const originalPublication = new Date("2026-08-11T10:00:00Z");
+    mocks.limit.mockResolvedValue([
+      {
+        publishedAt: originalPublication,
+        withdrawnAt: new Date("2026-08-11T12:00:00Z"),
+        notificationSentAt: null,
+      },
+    ]);
+
+    await updateAnnouncement(announcementId, {
+      ...baseInput,
+      published: true,
+      sendNotification: true,
+    });
+
+    const announcementUpdate = (mocks.set.mock.calls as unknown[][])
+      .map((call) => call[0] as { notifyOnPublish?: boolean } | undefined)
+      .find((value) => value && "notifyOnPublish" in value);
+    expect(announcementUpdate?.notifyOnPublish).toBeUndefined();
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
 });
