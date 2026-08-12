@@ -30,6 +30,18 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 **外部菜单同步**: Admin 粘贴含 `source`、`items[].externalKey` 的完整来源快照，必须先 dry-run 再应用。匹配优先使用外部身份；首次可用规范化菜名 + 餐段集合接管唯一旧菜。来源中消失的菜改为 `isAvailable = false`，不删除 UUID、投票或评论。Aigens 仍可按来源餐段拆成多行（`backendId:lunch` 等）；Admin 多餐段赋值则共享同一 UUID 的赞踩。`takeOverLegacyItems: true` 只用于经过预览确认的首次全量接管。有分类时保留店家分类作 `svgKey`，不以菜名重分类。善衡生成器为 `scripts/generate-shho-menu-sync.ts`，当前快照见 [`data/shho-menu-sync.json`](data/shho-menu-sync.json)，审核结果见 [`data/shho-menu-sync-report.md`](data/shho-menu-sync-report.md)。
 _Avoid_: 用菜名作为长期同步 key；先清空菜单再导入；把普通追加导入当全量来源快照；无 dry-run 直接接管 legacy 菜品；有店家分类时再按菜名重分。
 
+**菜单来源（Menu source）**: 周期性读取某个供应商门店菜单的配置与同步状态。它标识 provider、外部门店身份及非敏感读取参数；其职责止于产生规范化菜单快照。供应商响应先经过单次同步期间的临时 provider schema，数据库只保存公开展示和稳定关联所需的字段。
+_Avoid_: 把上游完整 JSON、匿名 token、会员身份、购物车、优惠码或支付状态写入菜单来源；在页面或 cron 中直接拼供应商请求。
+
+**菜单快照（Menu snapshot）**: 某一观察时刻从菜单来源取得并通过 provider schema 校验的完整公开菜单事实。快照可因营业时段、停售或库存而变化；空响应不自动表示整店永久下架。规范化后才成为本系统的菜品与价格选项。
+_Avoid_: 把一次抓取当成供应商永久目录；闭店或上游故障时用空快照覆盖最近成功菜单。
+
+**点餐交接（Ordering handoff）**: 将用户交给供应商官方页面继续选择规格、使用本人优惠、创建订单并付款的稳定入口。交接保存人工确认的完整 URL 及 provider；其 mode、table、multi/location 等参数是入口身份的一部分。它与菜单来源相互独立：同一食堂可从公开 API 同步菜单，却通过品牌域名或扫码 URL 点餐。
+_Avoid_: 从 `externalStoreId` 猜点餐 URL；把 QR 图片路径当业务入口；保存带临时 session/order/token 的 URL；由 CUpedia 代理真实下单或支付。
+
+**促销提示（Promotion notice）**: 从公开菜单或活动规则观察到的非权威优惠说明。它只用于提示用户去官方页面确认资格与实付金额，不代表本系统授予优惠。
+_Avoid_: 把客户端计算的会员价当权威价格；保存卡号、会员等级、coupon redemption 或供应商登录态。
+
 **硬删除（Hard delete）**: 食堂与菜品无 `deletedAt`；删除行时 DB `ON DELETE CASCADE` 清理关联 votes 与 comments。
 _Avoid_: 沿用 wiki 的软删除模式。
 
@@ -51,3 +63,4 @@ _Avoid_: 与菜品赞踩表混用；把日榜做成 upsert/可取消。
 - [0009 — 食堂匿名投票写权限](../adr/0009-canteen-anonymous-vote-only.md)（含菜品赞踩与💩堂榜点踩）
 - [0013 — 食堂价格选项与稳定 API 边界](../adr/0013-canteen-pricing-api-boundary.md)
 - [0014 — 外部菜单同步保留菜品身份与历史](../adr/0014-canteen-external-menu-sync.md)
+- [0021 — 菜单同步与点餐交接分离](../adr/0021-separate-menu-sync-from-ordering-handoff.md)
