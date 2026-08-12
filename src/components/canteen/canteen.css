@@ -1249,68 +1249,38 @@
   width: 100%;
 }
 
-.canteen-zone .canteen-mobile-qr {
-  position: relative;
-  z-index: 40;
-}
-
-.canteen-zone .canteen-mobile-qr > summary {
-  display: flex;
-  width: auto;
-  min-width: 2.75rem;
-  height: auto;
-  min-height: 2.75rem;
-  flex-direction: column;
+.canteen-zone .canteen-order-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.15rem;
-  border: 1px solid var(--canteen-line);
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--canteen-accent) 28%, transparent);
   border-radius: 0.75rem;
-  background: var(--canteen-tray);
-  padding: 0.35rem 0.45rem 0.3rem;
-  color: var(--canteen-ink);
-  cursor: pointer;
-  list-style: none;
+  background: color-mix(in srgb, var(--canteen-accent) 10%, white);
+  color: var(--canteen-accent);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  text-decoration: none;
+  white-space: nowrap;
   touch-action: manipulation;
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    color 140ms ease;
 }
 
-.canteen-zone .canteen-mobile-qr > summary::-webkit-details-marker {
-  display: none;
+.canteen-zone .canteen-order-btn:hover {
+  background: color-mix(in srgb, var(--canteen-accent) 16%, white);
+  border-color: color-mix(in srgb, var(--canteen-accent) 42%, transparent);
 }
 
-.canteen-zone .canteen-mobile-qr > summary:focus-visible {
+.canteen-zone .canteen-order-btn:focus-visible {
   outline: 2px solid var(--canteen-focus);
   outline-offset: 2px;
-}
-
-.canteen-zone .canteen-mobile-qr-label {
-  font-size: 0.55rem;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--canteen-muted);
-  white-space: nowrap;
-}
-
-.canteen-zone .canteen-mobile-qr-sheet {
-  position: absolute;
-  z-index: 50;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--canteen-line);
-  border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.96);
-  padding: 0.75rem;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.14);
-  backdrop-filter: blur(20px) saturate(1.35);
-  -webkit-backdrop-filter: blur(20px) saturate(1.35);
-}
-
-.canteen-zone .canteen-mobile-qr-sheet .canteen-qr-badge > div {
-  width: 8rem;
-  height: 8rem;
 }
 
 .canteen-zone .canteen-detail-hero {

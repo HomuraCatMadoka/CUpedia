@@ -1,10 +1,12 @@
-import { mkdirSync, writeFileSync, rmSync } from "node:fs";
-import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+import { resolveCanteenOrderUrl } from "@/lib/canteen-order-urls";
 import {
   resolveCanteenIconSrc,
   resolveCanteenQrSrc,
 } from "@/lib/canteen-assets";
+import { mkdirSync, writeFileSync, rmSync } from "node:fs";
+import path from "node:path";
+import { afterEach } from "vitest";
 
 const qrDir = path.join(process.cwd(), "public", "assets", "canteen-qr");
 const iconDir = path.join(process.cwd(), "public", "assets", "canteen-icons");
@@ -20,6 +22,42 @@ afterEach(() => {
       }
     }
   }
+});
+
+describe("canteen order urls", () => {
+  it("returns null when no mapping exists", () => {
+    expect(resolveCanteenOrderUrl("unknown-canteen")).toBeNull();
+  });
+
+  it("resolves pin-me takeout links by canteen name", () => {
+    expect(resolveCanteenOrderUrl("ws-can")).toBe(
+      "https://meal.pin2eat.com/store/4898/takeout",
+    );
+    expect(resolveCanteenOrderUrl("uc-can")).toBe(
+      "https://meal.pin2eat.com/store/5198/takeout",
+    );
+    expect(resolveCanteenOrderUrl("na-can")).toBe(
+      "https://meal.pin2eat.com/store/5500/takeout",
+    );
+  });
+
+  it("resolves ichef and ebeneezers links", () => {
+    expect(resolveCanteenOrderUrl("mc-can")).toBe(
+      "https://shop.ichefpos.com/store/UQftKWxU/instore/qrcode?tableName=VDE",
+    );
+    expect(resolveCanteenOrderUrl("Ebeneezer's")).toBe(
+      "https://www.ebeneezers.com/",
+    );
+    expect(
+      resolveCanteenOrderUrl("9539dbf3-3f22-4749-b532-e42357e0be96"),
+    ).toBe("https://www.ebeneezers.com/");
+  });
+
+  it("prefers the first matching key", () => {
+    expect(resolveCanteenOrderUrl("missing", "ws-can")).toBe(
+      "https://meal.pin2eat.com/store/4898/takeout",
+    );
+  });
 });
 
 describe("canteen asset paths", () => {
