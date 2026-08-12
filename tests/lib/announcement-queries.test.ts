@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   whereClauses: [] as unknown[],
+  orderByClauses: [] as unknown[],
 }));
 
 vi.mock("@/db", () => ({
@@ -12,9 +13,10 @@ vi.mock("@/db", () => ({
         where: (clause: unknown) => {
           mocks.whereClauses.push(clause);
           return {
-            orderBy: () => ({
-              limit: () => ({ offset: async () => [] }),
-            }),
+            orderBy: (...clauses: unknown[]) => {
+              mocks.orderByClauses.push(...clauses);
+              return { limit: () => ({ offset: async () => [] }) };
+            },
             limit: async () => [],
             then: (resolve: (value: unknown[]) => unknown) => resolve([]),
           };
@@ -35,6 +37,7 @@ function queryText(clause: unknown): string {
 
 beforeEach(() => {
   mocks.whereClauses.length = 0;
+  mocks.orderByClauses.length = 0;
 });
 
 describe("public announcement visibility", () => {
@@ -51,6 +54,14 @@ describe("public announcement visibility", () => {
 
     expect(queryText(mocks.whereClauses.at(-1))).toContain(
       '"announcements"."withdrawn_at" is null',
+    );
+  });
+
+  it("uses a unique tiebreaker for archive pagination", async () => {
+    await listPublicAnnouncements();
+
+    expect(queryText(mocks.orderByClauses.at(-1))).toContain(
+      '"announcements"."id" desc',
     );
   });
 });

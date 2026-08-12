@@ -206,6 +206,7 @@ describe("schema", () => {
 
   it("notifications keep generic metadata, read state, and announcement identity", () => {
     const cols = getTableColumns(notifications);
+    const config = getTableConfig(notifications);
     expect(cols.recipientId).toBeDefined();
     expect(cols.actorId).toBeDefined();
     expect(cols.kind).toBeDefined();
@@ -216,11 +217,16 @@ describe("schema", () => {
     expect("reviewId" in cols).toBe(false);
     expect("replyId" in cols).toBe(false);
     expect(
-      getTableConfig(notifications).checks.some(
+      config.checks.some(
         (constraint) =>
           constraint.name === "notifications_announcement_identity_check",
       ),
     ).toBe(true);
+    expect(
+      config.foreignKeys.some((foreignKey) =>
+        foreignKey.reference().columns.includes(cols.announcementId),
+      ),
+    ).toBe(false);
   });
 
   it("announcements keep publication, expiry, priority, and notification state", () => {

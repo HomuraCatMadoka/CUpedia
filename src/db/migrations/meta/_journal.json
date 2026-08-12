@@ -484,6 +484,13 @@
       "when": 1786508373721,
       "tag": "0068_flashy_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1786534336967,
+      "tag": "0069_chunky_wraith",
+      "breakpoints": true
     }
   ]
 }

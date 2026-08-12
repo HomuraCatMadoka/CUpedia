@@ -1,10 +1,9 @@
 "use server";
 
-import { and, count, desc, eq, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
-  announcements,
   notifications,
   users,
   type AnnouncementNotificationMetadata,
@@ -13,13 +12,6 @@ import {
 import { requireAuth } from "@/lib/auth-guard";
 
 const PAGE_SIZE = 10;
-
-function visibleNotificationWhere(recipientId: string) {
-  return and(
-    eq(notifications.recipientId, recipientId),
-    or(isNull(notifications.announcementId), isNull(announcements.withdrawnAt)),
-  );
-}
 
 type NotificationViewBase = {
   id: string;
@@ -52,9 +44,8 @@ export async function getUnreadNotificationCount(): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(notifications)
-    .leftJoin(announcements, eq(notifications.announcementId, announcements.id))
     .where(
-      and(visibleNotificationWhere(user.id), isNull(notifications.readAt)),
+      and(eq(notifications.recipientId, user.id), isNull(notifications.readAt)),
     );
   return Number(row?.value ?? 0);
 }
@@ -76,8 +67,7 @@ export async function getNotifications(offset = 0): Promise<NotificationPage> {
     })
     .from(notifications)
     .leftJoin(users, eq(notifications.actorId, users.id))
-    .leftJoin(announcements, eq(notifications.announcementId, announcements.id))
-    .where(visibleNotificationWhere(user.id))
+    .where(eq(notifications.recipientId, user.id))
     .orderBy(desc(notifications.createdAt), desc(notifications.id))
     .limit(PAGE_SIZE + 1)
     .offset(safeOffset);

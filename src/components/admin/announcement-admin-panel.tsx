@@ -88,9 +88,9 @@ const EMPTY_FORM: FormState = {
 const LIFECYCLE_LABELS: Record<AnnouncementLifecycle, string> = {
   draft: "草稿",
   scheduled: "待发布",
-  published: "已上线",
-  expired: "已下线",
-  withdrawn: "已下线",
+  published: "已发布",
+  expired: "已失效",
+  withdrawn: "已撤回",
 };
 
 const LIFECYCLE_BADGE_VARIANTS: Record<

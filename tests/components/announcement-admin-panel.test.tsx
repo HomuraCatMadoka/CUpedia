@@ -54,6 +54,13 @@ const withdrawn: AdminAnnouncement = {
   withdrawnAt: "2026-08-12T10:00:00.000Z",
 };
 
+const expired: AdminAnnouncement = {
+  ...published,
+  id: "00000000-0000-4000-a100-000000000004",
+  title: "到期公告",
+  expiresAt: "2026-08-12T10:00:00.000Z",
+};
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -61,6 +68,32 @@ afterEach(() => {
 });
 
 describe("AnnouncementAdminPanel", () => {
+  it("groups offline announcements without hiding their lifecycle", () => {
+    const drafts = Array.from({ length: 9 }, (_, index) => ({
+      ...published,
+      id: `00000000-0000-4000-a200-${String(index + 1).padStart(12, "0")}`,
+      title: `草稿 ${index + 1}`,
+      publishedAt: null,
+      notificationSentAt: null,
+      notifyOnPublish: false,
+    }));
+    render(
+      <AnnouncementAdminPanel
+        announcements={[expired, withdrawn, ...drafts]}
+        serverNow={SERVER_NOW}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /已下线/ }));
+
+    expect(
+      screen.getByRole("button", { name: /到期公告/ }).textContent,
+    ).toContain("已失效");
+    expect(
+      screen.getByRole("button", { name: /已撤回公告/ }).textContent,
+    ).toContain("已撤回");
+  });
+
   it("summarizes a published announcement and confirms withdrawal", () => {
     render(
       <AnnouncementAdminPanel

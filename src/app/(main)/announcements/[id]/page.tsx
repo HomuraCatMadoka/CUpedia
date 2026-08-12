@@ -24,7 +24,7 @@ export default async function AnnouncementDetailPage({
   if (!announcement) {
     return (
       <div className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-balance">公告不存在</h1>
+        <h1 className="text-2xl font-bold text-balance">消息不存在</h1>
         <p className="mt-3 text-sm text-pretty text-muted-foreground">
           这条公告可能尚未发布、已被撤回，或链接无效。
         </p>

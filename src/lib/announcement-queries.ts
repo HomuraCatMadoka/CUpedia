@@ -1,40 +1,17 @@
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  gt,
-  isNotNull,
-  isNull,
-  lte,
-  or,
-} from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { announcements } from "@/db/schema";
+import {
+  activeAnnouncementCondition,
+  publishedAnnouncementCondition,
+} from "@/lib/announcement-conditions";
 import {
   ANNOUNCEMENT_PAGE_SIZE,
   type AdminAnnouncement,
   type PublicAnnouncement,
   isAnnouncementId,
 } from "@/lib/announcement-types";
-
-function activeAnnouncementWhere(now: Date) {
-  return and(
-    lte(announcements.publishedAt, now),
-    isNull(announcements.withdrawnAt),
-    or(isNull(announcements.expiresAt), gt(announcements.expiresAt, now)),
-  );
-}
-
-function publishedAnnouncementWhere(now: Date) {
-  return and(
-    isNotNull(announcements.publishedAt),
-    lte(announcements.publishedAt, now),
-    isNull(announcements.withdrawnAt),
-  );
-}
 
 function toPublicAnnouncement(row: {
   id: string;
@@ -62,7 +39,7 @@ export async function listFeaturedAnnouncements(
       publishedAt: announcements.publishedAt,
     })
     .from(announcements)
-    .where(activeAnnouncementWhere(new Date()))
+    .where(activeAnnouncementCondition(new Date()))
     .orderBy(desc(announcements.priority), desc(announcements.publishedAt))
     .limit(Math.max(1, Math.min(3, Math.floor(limit))));
   return rows.map(toPublicAnnouncement);
@@ -72,7 +49,7 @@ export async function countPublishedAnnouncements(): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(announcements)
-    .where(publishedAnnouncementWhere(new Date()));
+    .where(publishedAnnouncementCondition(new Date()));
   return Number(row?.value ?? 0);
 }
 
@@ -84,7 +61,7 @@ export async function listPublicAnnouncements(page = 1): Promise<{
 }> {
   const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
   const now = new Date();
-  const where = publishedAnnouncementWhere(now);
+  const where = publishedAnnouncementCondition(now);
   const [totalRow] = await db
     .select({ value: count() })
     .from(announcements)
@@ -101,7 +78,11 @@ export async function listPublicAnnouncements(page = 1): Promise<{
     })
     .from(announcements)
     .where(where)
-    .orderBy(desc(announcements.publishedAt), desc(announcements.priority))
+    .orderBy(
+      desc(announcements.publishedAt),
+      desc(announcements.priority),
+      desc(announcements.id),
+    )
     .limit(ANNOUNCEMENT_PAGE_SIZE)
     .offset((currentPage - 1) * ANNOUNCEMENT_PAGE_SIZE);
   return {
@@ -125,7 +106,7 @@ export async function getPublicAnnouncement(
     })
     .from(announcements)
     .where(
-      and(eq(announcements.id, id), publishedAnnouncementWhere(new Date())),
+      and(eq(announcements.id, id), publishedAnnouncementCondition(new Date())),
     )
     .limit(1);
   return row ? toPublicAnnouncement(row) : null;

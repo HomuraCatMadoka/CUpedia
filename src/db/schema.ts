@@ -1281,9 +1281,7 @@ export const notifications = pgTable(
     }),
     kind: text("kind").$type<NotificationKind>().notNull(),
     metadata: jsonb("metadata").$type<NotificationMetadata>().notNull(),
-    announcementId: uuid("announcement_id").references(() => announcements.id, {
-      onDelete: "cascade",
-    }),
+    announcementId: uuid("announcement_id"),
     readAt: timestamp("read_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
