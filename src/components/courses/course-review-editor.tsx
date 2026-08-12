@@ -120,6 +120,9 @@ function parseReviewTags(tags: string[]): CourseReviewTags {
     attendance: COURSE_REVIEW_TAG_OPTIONS.attendance.find((tag) =>
       tags.includes(tag),
     ),
+    language: COURSE_REVIEW_TAG_OPTIONS.language.find((tag) =>
+      tags.includes(tag),
+    ),
     custom: tags.filter((tag) => !PRESET_TAGS.has(tag)),
   };
 }
@@ -642,9 +645,16 @@ export function CourseReviewEditor({
                         ? "Grade"
                         : dimension === "enrollment"
                           ? "抢课难度"
-                          : "考勤要求"}
+                          : dimension === "attendance"
+                            ? "考勤要求"
+                            : "课堂语言"}
                   </p>
-                  <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/70 p-1">
+                  <div
+                    className={cn(
+                      "grid gap-1 rounded-lg bg-muted/70 p-1",
+                      options.length === 3 ? "grid-cols-3" : "grid-cols-2",
+                    )}
+                  >
                     {options.map((tag) => (
                       <button
                         key={tag}

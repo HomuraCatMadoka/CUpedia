@@ -7,6 +7,7 @@ export const COURSE_REVIEW_TAG_OPTIONS = {
   grade: ["靓 grade", "烂 grade"],
   enrollment: ["课难抢", "点击即送"],
   attendance: ["要 attendance", "无 attendance"],
+  language: ["普通话", "英语", "粤语"],
 } as const;
 
 /** Stable database values keyed by the labels currently shown in the UI. */
@@ -18,6 +19,7 @@ export const COURSE_REVIEW_TAG_STORAGE_VALUES = {
     "要 attendance": "required",
     "无 attendance": "not_required",
   },
+  language: { 普通话: "mandarin", 英语: "english", 粤语: "cantonese" },
 } as const;
 
 export type CourseReviewTags = {
@@ -25,5 +27,6 @@ export type CourseReviewTags = {
   grade?: (typeof COURSE_REVIEW_TAG_OPTIONS.grade)[number];
   enrollment?: (typeof COURSE_REVIEW_TAG_OPTIONS.enrollment)[number];
   attendance?: (typeof COURSE_REVIEW_TAG_OPTIONS.attendance)[number];
+  language?: (typeof COURSE_REVIEW_TAG_OPTIONS.language)[number];
   custom?: string[];
 };

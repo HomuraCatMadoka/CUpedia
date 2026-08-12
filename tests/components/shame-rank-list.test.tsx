@@ -322,7 +322,7 @@ describe("ShameRankList", () => {
     expect(screen.getByText(/投票已截止/)).toBeTruthy();
   });
 
-  it("hides unranked canteens until the full ranking is expanded", () => {
+  it("defaults to expanded and can collapse to hide unranked canteens", () => {
     const canteens = Array.from({ length: 20 }, (_, index) =>
       canteen(String(index), `${index + 1} 号食堂`),
     );
@@ -338,12 +338,16 @@ describe("ShameRankList", () => {
       />,
     );
 
-    expect(screen.getAllByRole("listitem")).toHaveLength(3);
-    expect(screen.getByText("尚未上榜 · 17 家食堂")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /查看完整榜单（20）/ }));
-
+    // Default: all 20 items visible with collapse button
     expect(screen.getAllByRole("listitem")).toHaveLength(20);
     expect(screen.getByRole("list", { name: "尚未上榜的食堂" })).toBeTruthy();
+    expect(screen.getByText("收起榜单 ↑")).toBeTruthy();
+
+    // Collapse → only top 10 ranked visible
+    fireEvent.click(screen.getByRole("button", { name: "收起榜单 ↑" }));
+
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByText("尚未上榜 · 17 家食堂")).toBeTruthy();
+    expect(screen.getByText(/查看完整榜单（20）/)).toBeTruthy();
   });
 });

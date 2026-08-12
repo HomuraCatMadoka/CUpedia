@@ -6,8 +6,8 @@ test("ref #485: logged-in voter can rapidly exceed the shame-rank rate limit", a
 }) => {
   await loginWithPassword(page, "user@test.com", "password123");
   await page.goto("/canteen/shit-rank");
-  await page.getByRole("button", { name: /查看完整榜单/ }).click();
 
+  // Default expanded — vote button is immediately visible
   const voteButton = page.getByRole("button", {
     name: "投 💩 给 演示食堂",
   });
