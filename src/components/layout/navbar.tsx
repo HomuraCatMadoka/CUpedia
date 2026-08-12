@@ -23,7 +23,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CommandSearch } from "@/components/layout/command-search";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
 import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 
@@ -162,7 +161,6 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             </Link>
           </div>
           <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
-            <ThemeToggle />
             <CommandSearch />
             {mounted && session?.user ? (
               <>

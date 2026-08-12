@@ -3,7 +3,6 @@ import { expect, test } from "@playwright/test";
 
 import { loginWithPassword } from "./helpers/auth";
 import { expectBottomSheetViewportToStayStill } from "./helpers/mobile-bottom-sheet";
-import { emulateColorScheme } from "./helpers/theme";
 
 const PERSON_ID = "e2e-professor-directory-person";
 const PUBLIC_ID = "7a7ca8c9-1dd2-4b06-8ff9-d55b64d7f7b5";
@@ -497,13 +496,13 @@ test("searches a professor, opens the card, and binds a course review", async ({
     caret: "initial",
   });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await emulateColorScheme(page, "dark");
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
   await page.screenshot({
     path: testInfo.outputPath("professor-directory-dark.png"),
     fullPage: true,
     caret: "initial",
   });
-  await emulateColorScheme(page, "light");
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
 
   await page.getByRole("combobox", { name: "搜索教授" }).fill("E2E CHAN");
   await expect(
@@ -544,13 +543,13 @@ test("searches a professor, opens the card, and binds a course review", async ({
     caret: "initial",
   });
   await page.setViewportSize({ width: 1280, height: 720 });
-  await emulateColorScheme(page, "dark");
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
   await page.screenshot({
     path: testInfo.outputPath("professor-detail-dark.png"),
     fullPage: true,
     caret: "initial",
   });
-  await emulateColorScheme(page, "light");
+  await page.evaluate(() => document.documentElement.classList.remove("dark"));
 
   await page.getByRole("button", { name: /查看全部 \d+ 门并搜索课程/ }).click();
   await page
