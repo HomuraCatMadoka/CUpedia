@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { SparklesIcon } from "lucide-react";
 import { CommandSearch } from "@/components/layout/command-search";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
@@ -172,6 +173,14 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
             </Link>
           </div>
           <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
+            <Link
+              href="/updates"
+              aria-label="产品更新"
+              className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-2 text-sm font-medium text-emerald-700 transition-[background-color,color,transform] hover:bg-emerald-950/5 hover:text-emerald-900 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 dark:text-emerald-300 dark:hover:bg-emerald-200/10 dark:hover:text-emerald-200"
+            >
+              <SparklesIcon className="size-4" aria-hidden="true" />
+              <span className="hidden xl:inline">产品更新</span>
+            </Link>
             <ThemeToggle />
             <CommandSearch />
             {mounted && session?.user ? (

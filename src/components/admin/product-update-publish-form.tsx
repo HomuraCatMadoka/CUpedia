@@ -28,6 +28,9 @@ const EMPTY_FORM = {
   areas: [] as ProductUpdateArea[],
 };
 
+const CONTROLLED_CHOICE_CLASS =
+  "flex min-h-11 cursor-pointer items-center rounded-full border px-4 text-sm text-muted-foreground transition-colors peer-checked:border-emerald-800 peer-checked:bg-emerald-950/8 peer-checked:text-emerald-900 peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 dark:peer-checked:border-emerald-300 dark:peer-checked:bg-emerald-200/12 dark:peer-checked:text-emerald-200";
+
 export function ProductUpdatePublishForm() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -124,7 +127,7 @@ export function ProductUpdatePublishForm() {
                   disabled={isPending}
                   className="peer sr-only"
                 />
-                <span className="flex min-h-11 cursor-pointer items-center rounded-full border px-4 text-sm text-muted-foreground transition-colors peer-checked:border-emerald-800 peer-checked:bg-emerald-950/8 peer-checked:text-emerald-900 peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 dark:peer-checked:border-emerald-300 dark:peer-checked:bg-emerald-200/12 dark:peer-checked:text-emerald-200">
+                <span className={CONTROLLED_CHOICE_CLASS}>
                   {PRODUCT_UPDATE_TYPE_LABELS[type]}
                 </span>
               </label>
@@ -145,7 +148,7 @@ export function ProductUpdatePublishForm() {
                   disabled={isPending}
                   className="peer sr-only"
                 />
-                <span className="flex min-h-11 cursor-pointer items-center rounded-full border px-4 text-sm text-muted-foreground transition-colors peer-checked:border-emerald-800 peer-checked:bg-emerald-950/8 peer-checked:text-emerald-900 peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 dark:peer-checked:border-emerald-300 dark:peer-checked:bg-emerald-200/12 dark:peer-checked:text-emerald-200">
+                <span className={CONTROLLED_CHOICE_CLASS}>
                   {PRODUCT_UPDATE_AREA_LABELS[area]}
                 </span>
               </label>

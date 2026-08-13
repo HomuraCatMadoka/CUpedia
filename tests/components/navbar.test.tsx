@@ -158,6 +158,14 @@ describe("Navbar sign-out", () => {
     ).toBe("/campus-bus");
   });
 
+  it("offers a public product updates entry", () => {
+    render(<Navbar />);
+
+    expect(
+      screen.getByRole("link", { name: "产品更新" }).getAttribute("href"),
+    ).toBe("/updates");
+  });
+
   it("shows achievement notices on the visible account trigger", async () => {
     achievementNoticeCount.mockResolvedValue(3);
 
