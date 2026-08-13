@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  getRoute2StopBoard,
+  getCampusBusStopBoard,
   hongKongWallTimeToEpoch,
-} from "@/lib/campus-transport/route-2";
-import { route2ViewData } from "@/lib/campus-transport/route-2-data";
+} from "@/lib/campus-transport/campus-bus";
+import { route2ViewData } from "@/lib/campus-transport/routes-data";
 
 function hkt(
   year: number,
@@ -38,7 +38,7 @@ describe("Route 2 passenger projection", () => {
   });
 
   it("adds the cold-start offset to official departures", () => {
-    const board = getRoute2StopBoard(
+    const board = getCampusBusStopBoard(
       route2ViewData,
       "cuhk-wp-stop-2550#1",
       hkt(2026, 8, 11, 8, 10),
@@ -53,7 +53,7 @@ describe("Route 2 passenger projection", () => {
   });
 
   it("shows zero minutes during the final minute before arrival", () => {
-    const board = getRoute2StopBoard(
+    const board = getCampusBusStopBoard(
       route2ViewData,
       "cuhk-wp-stop-2550#1",
       hkt(2026, 8, 11, 8, 13) + 30_000,
@@ -66,7 +66,7 @@ describe("Route 2 passenger projection", () => {
   });
 
   it("marks origin departures whose pattern does not serve Shaw Hall", () => {
-    const board = getRoute2StopBoard(
+    const board = getCampusBusStopBoard(
       route2ViewData,
       "cuhk-wp-stop-2544#1",
       hkt(2026, 8, 11, 8, 10),
@@ -80,7 +80,7 @@ describe("Route 2 passenger projection", () => {
   });
 
   it("does not roll after the last bus into tomorrow", () => {
-    const board = getRoute2StopBoard(
+    const board = getCampusBusStopBoard(
       route2ViewData,
       "cuhk-wp-stop-2550#1",
       hkt(2026, 8, 11, 19, 30),
@@ -91,7 +91,7 @@ describe("Route 2 passenger projection", () => {
   });
 
   it("returns no Route 2 service on Sundays", () => {
-    const board = getRoute2StopBoard(
+    const board = getCampusBusStopBoard(
       route2ViewData,
       "cuhk-wp-stop-2550#1",
       hkt(2026, 8, 16, 9, 0),
@@ -102,7 +102,7 @@ describe("Route 2 passenger projection", () => {
   });
 
   it("uses the public-holiday calendar instead of treating every weekday as a service day", () => {
-    const board = getRoute2StopBoard(
+    const board = getCampusBusStopBoard(
       route2ViewData,
       "cuhk-wp-stop-2550#1",
       hkt(2026, 7, 1, 9, 0),
