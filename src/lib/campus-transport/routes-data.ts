@@ -396,6 +396,7 @@ function buildRoute(
     seedModelRevisionId: rawDataset.seedModelRevisionId,
     routeNameEn: rawDataset.route.nameEn,
     routeNameZhHant: rawDataset.route.nameZhHant,
+    riderEligibility: "students-and-staff",
     serviceBands,
     serviceHoursLabel,
     slug: rawDataset.route.routeId,

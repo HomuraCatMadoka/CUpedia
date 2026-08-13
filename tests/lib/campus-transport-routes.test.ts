@@ -115,6 +115,7 @@ describe("campus bus route catalog", () => {
     const passengerRoute = toCampusBusPassengerRoute(route);
 
     expect(passengerRoute).not.toHaveProperty("datasetProvenance");
+    expect(passengerRoute.riderEligibility).toBe("students-and-staff");
     expect(passengerRoute.patterns[0]).not.toHaveProperty("sourceRefs");
     expect(passengerRoute.patterns[0].projections[0]).toEqual(
       expect.objectContaining({
@@ -189,7 +190,11 @@ describe("campus bus route catalog", () => {
   it("marks a bus as docking during its stop dwell and clears it afterwards", () => {
     const route1a = getCampusBusRoute("1a")!;
     const stopId = "cuhk-wp-stop-2546#1";
-    const probe = getCampusBusStopBoard(route1a, stopId, hkt(2026, 8, 11, 8, 10));
+    const probe = getCampusBusStopBoard(
+      route1a,
+      stopId,
+      hkt(2026, 8, 11, 8, 10),
+    );
     const arrival = probe.upcomingArrivals[0]!;
 
     const duringDwell = getCampusBusStopBoard(

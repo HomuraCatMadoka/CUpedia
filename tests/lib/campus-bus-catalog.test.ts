@@ -78,4 +78,19 @@ describe("campus bus route catalog", () => {
     expect(route.routeNameZhHant).toBe("3 逸夫線");
     expect(getCampusBusRouteDisplayName(route)).toBe("逸夫線");
   });
+
+  it("keeps a running staff-only service visible without recommending it", () => {
+    const route = {
+      ...toCampusBusPassengerRoute(getCampusBusRoute("1a")!),
+      riderEligibility: "staff-only" as const,
+    };
+    const catalog = getCampusBusRouteCatalog([route], hkt(8, 0));
+
+    expect(catalog.available).toEqual([]);
+    expect(catalog.other).toHaveLength(1);
+    expect(catalog.other[0]).toMatchObject({
+      route: { riderEligibility: "staff-only" },
+      status: "in_service",
+    });
+  });
 });

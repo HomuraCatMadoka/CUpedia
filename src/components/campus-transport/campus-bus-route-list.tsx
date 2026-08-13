@@ -48,9 +48,11 @@ function RouteRow({
             {getCampusBusRouteDisplayName(route)}
           </strong>
           <span className="mt-1 block truncate text-xs text-muted-foreground">
-            {active || !item.departureTime
-              ? route.subtitle
-              : `${item.statusLabel} · ${route.subtitle}`}
+            {route.riderEligibility === "staff-only"
+              ? `職員專用 · ${route.subtitle}`
+              : active || !item.departureTime
+                ? route.subtitle
+                : `${item.statusLabel} · ${route.subtitle}`}
           </span>
         </span>
 

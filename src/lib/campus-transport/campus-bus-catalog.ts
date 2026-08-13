@@ -104,10 +104,18 @@ export function getCampusBusRouteCatalog(
 ): CampusBusRouteCatalog {
   const items = routes.map((route) => toCatalogItem(route, now));
   const available = items
-    .filter((item) => item.status === "in_service")
+    .filter(
+      (item) =>
+        item.status === "in_service" &&
+        item.route.riderEligibility !== "staff-only",
+    )
     .sort(byDepartureThenCode);
   const other = items
-    .filter((item) => item.status !== "in_service")
+    .filter(
+      (item) =>
+        item.status !== "in_service" ||
+        item.route.riderEligibility === "staff-only",
+    )
     .sort(
       (left, right) =>
         OTHER_STATUS_ORDER[left.status] - OTHER_STATUS_ORDER[right.status] ||

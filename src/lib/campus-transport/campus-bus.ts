@@ -100,6 +100,7 @@ export type CampusBusRoute = {
   routeId: string;
   routeNameEn: string;
   routeNameZhHant: string;
+  riderEligibility: "public-paid" | "staff-only" | "students-and-staff";
   serviceBands: CampusBusServiceBand[];
   serviceHoursLabel: string;
   slug: string;
@@ -131,6 +132,7 @@ export type CampusBusPassengerRoute = Pick<
   | "readingWeeks"
   | "routeId"
   | "routeNameZhHant"
+  | "riderEligibility"
   | "serviceBands"
   | "serviceHoursLabel"
   | "slug"
@@ -163,6 +165,7 @@ export function toCampusBusPassengerRoute(
     readingWeeks: route.readingWeeks,
     routeId: route.routeId,
     routeNameZhHant: route.routeNameZhHant,
+    riderEligibility: route.riderEligibility,
     serviceBands: route.serviceBands,
     serviceHoursLabel: route.serviceHoursLabel,
     slug: route.slug,
