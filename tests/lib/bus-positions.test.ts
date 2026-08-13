@@ -171,4 +171,22 @@ describe("computeBusPositions", () => {
     );
     expect(d2).toBeGreaterThan(d1);
   });
+
+  it("shows all concurrent trips of the real route 2 fleet", () => {
+    // ref #601 — "所有应该有的车都显示"：route 2 发车间隔 15 分钟、行程
+    // 超过 15 分钟，08:15 时 08:00 班（接近终点）与 08:15 班（刚发车）并存。
+    const route = campusBusRoutes.find((candidate) => candidate.routeId === "2")!;
+    const now = new Date("2026-08-13T08:15:00+08:00").getTime();
+    const positions = computeBusPositions(route, now, 30_000);
+    expect(positions.length).toBeGreaterThanOrEqual(2);
+    const departureTimes = positions
+      .map((bus) => new Date(bus.departureAt).toTimeString().slice(0, 5))
+      .sort();
+    expect(departureTimes).toContain("08:00");
+    expect(departureTimes).toContain("08:15");
+    // 两车应在不同里程：早班更接近终点
+    const alongs = positions.map((bus) => bus.along).sort((a, b) => a - b);
+    expect(alongs[0]!).toBeLessThan(200); // 08:15 班刚起步
+    expect(alongs[1]!).toBeGreaterThan(3_000); // 08:00 班接近终点
+  });
 });

@@ -27,6 +27,21 @@
     0 3px 12px rgb(35 23 41 / 35%);
 }
 
+/* 有车辆正在停靠本站：底色切换为校徽金黄（#D4A538） */
+.marker[data-docking="true"] {
+  background: #d4a538;
+  box-shadow:
+    0 0 0 5px rgb(212 165 56 / 42%),
+    0 3px 12px rgb(35 23 41 / 35%);
+}
+
+.marker[data-selected="true"][data-docking="true"] {
+  background: #b8891f;
+  box-shadow:
+    0 0 0 5px rgb(212 165 56 / 52%),
+    0 3px 12px rgb(35 23 41 / 35%);
+}
+
 .marker:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 3px;

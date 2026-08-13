@@ -21,6 +21,23 @@ const LANDSD_LABEL_URL =
   "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/label/hk/tc/WGS84/{z}/{x}/{y}.png";
 const LANDSD_TERMS_URL = "https://api.portal.hkmapservice.gov.hk/tc";
 
+/** 车辆图标：lucide `bus`（侧视图），校徽黄 + 白色描边，保持与原圆点一致的白边视觉。 */
+const BUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <g stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/>
+    <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
+    <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
+  </g>
+  <g stroke="#d4a538" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/>
+    <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
+    <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
+  </g>
+</svg>`;
+const BUS_ICON_DATA_URL = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+  BUS_ICON_SVG,
+)}`;
+
 type CampusRouteMapProps = {
   busPositions: BusPosition[];
   onSelectStop: (stopId: string) => void;
@@ -155,15 +172,32 @@ export function CampusRouteMap({
           features: [],
         },
       });
+      // 把 SVG 画到离屏 canvas 上取像素，绕开 MapLibre loadImage 对 SVG
+      // data URL 的不稳定支持（其 Image 加载路径明确不支持 SVG）。
+      const iconCanvas = document.createElement("canvas");
+      iconCanvas.width = 24;
+      iconCanvas.height = 24;
+      const iconContext = iconCanvas.getContext("2d");
+      if (iconContext) {
+        const busIcon = new Image();
+        busIcon.onload = () => {
+          iconContext.drawImage(busIcon, 0, 0);
+          const imageData = iconContext.getImageData(0, 0, 24, 24);
+          if (!map.getImage("campus-bus-icon")) {
+            map.addImage("campus-bus-icon", imageData);
+          }
+        };
+        busIcon.src = BUS_ICON_DATA_URL;
+      }
       map.addLayer({
         id: "campus-bus-vehicle-layer",
-        type: "circle",
+        type: "symbol",
         source: "campus-bus-vehicles",
-        paint: {
-          "circle-color": "#1c1c1e",
-          "circle-radius": 7,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 2,
+        layout: {
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+          "icon-image": "campus-bus-icon",
+          "icon-size": 1.4,
         },
       });
     });
@@ -191,6 +225,7 @@ export function CampusRouteMap({
       marker.dataset.selected = String(
         group.some((stop) => stop.id === initialSelectedStopIdRef.current),
       );
+      marker.dataset.docking = "false";
       marker.dataset.stopIds = group.map((stop) => stop.id).join(",");
       marker.setAttribute(
         "aria-pressed",
@@ -276,6 +311,21 @@ export function CampusRouteMap({
           index,
         },
       })),
+    });
+
+    // 进站标记：正在停靠的站点数字底色变黄
+    const dockingStopIds = new Set(
+      busPositions
+        .filter((bus) => bus.atStop && bus.stopId)
+        .map((bus) => bus.stopId!),
+    );
+    const updatedMarkers = new Set<HTMLButtonElement>();
+    markerElementsRef.current.forEach((element, stopId) => {
+      if (updatedMarkers.has(element)) return;
+      updatedMarkers.add(element);
+      const stopIds = element.dataset.stopIds?.split(",") ?? [];
+      const docking = stopIds.some((id) => dockingStopIds.has(id));
+      element.dataset.docking = String(docking);
     });
   }, [busPositions]);
 
