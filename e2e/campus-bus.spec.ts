@@ -317,13 +317,12 @@ test.describe("campus bus reviewed route catalog", () => {
     await expect(
       page.getByRole("heading", { name: "中大校巴", level: 1 }),
     ).toBeVisible();
-    await expect(page.getByRole("tab", { name: "現在可乘" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await expect(page.getByRole("link", { name: /N 晚間線/ })).toHaveCount(0);
-
-    await page.getByRole("tab", { name: "全部路線" }).click();
+    await expect(
+      page.getByRole("heading", { name: "現在可乘", level: 2 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "其他路線", level: 2 }),
+    ).toBeVisible();
     for (const route of [
       "1A 本部線",
       "1B 本部線",
@@ -360,16 +359,11 @@ test.describe("campus bus reviewed route catalog", () => {
     await page.clock.fastForward("00:00:31");
 
     await expect(
-      page.getByRole("heading", {
-        name: "目前沒有行駛中的校巴",
-        level: 2,
-      }),
+      page.getByText("目前沒有行駛中的校巴，其他今日路線仍可在下方查看。"),
     ).toBeVisible();
-    await page.getByRole("button", { name: "查看全部路線" }).click();
-    await expect(page.getByRole("tab", { name: "全部路線" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(
+      page.getByRole("heading", { name: "其他路線", level: 2 }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /1A 本部線/ })).toBeVisible();
   });
 

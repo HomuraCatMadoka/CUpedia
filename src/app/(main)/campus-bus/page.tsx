@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BusFrontIcon, FlaskConicalIcon } from "lucide-react";
 
+import { CampusBusBoardingPlacePicker } from "@/components/campus-transport/campus-bus-boarding-place-picker";
 import { CampusBusRouteList } from "@/components/campus-transport/campus-bus-route-list";
 import { toCampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
 import { campusBusModelOperationsEnabled } from "@/lib/campus-transport/model-operations";
@@ -20,6 +21,8 @@ export default async function CampusBusPage() {
     toCampusBusPassengerRoute,
   );
   const modelOperationsEnabled = campusBusModelOperationsEnabled();
+  // eslint-disable-next-line react-hooks/purity
+  const initialNow = Date.now();
   return (
     <main className="min-h-full w-full min-w-0 flex-1 bg-[#f5f3f7] px-0 py-0 sm:px-4 sm:py-6 dark:bg-background">
       <section className="w-full overflow-hidden bg-background shadow-sm ring-1 ring-black/5 sm:rounded-2xl">
@@ -47,9 +50,13 @@ export default async function CampusBusPage() {
           ) : null}
         </header>
 
+        <CampusBusBoardingPlacePicker
+          routes={campusBusRoutes}
+          initialNow={initialNow}
+        />
+
         {/* This route is force-dynamic and seeds the client-side status clock. */}
-        {/* eslint-disable-next-line react-hooks/purity */}
-        <CampusBusRouteList routes={campusBusRoutes} initialNow={Date.now()} />
+        <CampusBusRouteList routes={campusBusRoutes} initialNow={initialNow} />
       </section>
     </main>
   );
