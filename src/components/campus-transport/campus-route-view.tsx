@@ -26,6 +26,7 @@ import {
   computeBusPositions,
   type BusPosition,
 } from "@/lib/campus-transport/bus-positions";
+import { BUS_DWELL_MILLISECONDS } from "@/lib/campus-transport/bus-kinematics";
 import {
   type CampusBusPassengerRoute,
   type CampusBusStop,
@@ -108,7 +109,7 @@ function ArrivalBoard({
   board: CampusBusStopBoard;
   route: CampusBusPassengerRoute;
 }) {
-  if (!board.upcomingArrivals.length) {
+  if (!board.upcomingArrivals.length && !board.dockingArrival) {
     return (
       <p className="px-4 py-5 text-sm text-muted-foreground sm:px-6">
         {getStatusText(board, route)}
@@ -116,40 +117,69 @@ function ArrivalBoard({
     );
   }
 
+  const rows = board.dockingArrival
+    ? [board.dockingArrival, ...board.upcomingArrivals]
+    : board.upcomingArrivals;
+  const firstArrival = rows[0]!;
+  const liveText = board.dockingArrival
+    ? "下一班現正停靠本站"
+    : firstArrival.waitMinutes <= 1
+      ? "下一班即將到達"
+      : `下一班預計 ${firstArrival.waitMinutes} 分鐘後到站`;
+
   return (
     <>
       <p className="sr-only" aria-live="polite">
-        下一班預計 {board.upcomingArrivals[0].waitMinutes} 分鐘後到站
+        {liveText}
       </p>
       <div className="divide-y divide-border/80">
-        {board.upcomingArrivals.map((arrival, index) => (
-          <div
-            key={`${arrival.departureAt}-${arrival.patternId}`}
-            className={cn(
-              "grid grid-cols-[4.75rem_1fr_auto] items-baseline gap-2 px-4 sm:grid-cols-[6rem_1fr_auto] sm:px-6",
-              index === 0 ? "bg-muted/25 py-3" : "py-2.5",
-            )}
-          >
-            <span className="text-sm font-semibold text-muted-foreground">
-              {index === 0 ? "下一班" : `第 ${index + 1} 班`}
-            </span>
-            <strong
+        {rows.map((arrival, index) => {
+          const docking = index === 0 && board.dockingArrival !== null;
+          const arrivingSoon = !docking && arrival.waitMinutes <= 1;
+          return (
+            <div
+              key={`${arrival.departureAt}-${arrival.patternId}`}
               className={cn(
-                "tracking-tight text-[#4b1f60] tabular-nums dark:text-[#e7c9f1]",
-                index === 0 ? "text-2xl sm:text-[1.7rem]" : "text-xl",
+                "grid grid-cols-[4.75rem_1fr_auto] items-baseline gap-2 px-4 sm:grid-cols-[6rem_1fr_auto] sm:px-6",
+                index === 0 ? "bg-muted/25 py-3" : "py-2.5",
               )}
             >
-              {arrival.waitMinutes}
-              <small className="ml-1 text-sm font-semibold">分鐘</small>
-            </strong>
-            <time
-              dateTime={new Date(arrival.arrivalAt).toISOString()}
-              className="text-sm text-muted-foreground tabular-nums"
-            >
-              預計 {arrival.arrivalTime}
-            </time>
-          </div>
-        ))}
+              <span className="text-sm font-semibold text-muted-foreground">
+                {index === 0 ? "下一班" : `第 ${index + 1} 班`}
+              </span>
+              {docking || arrivingSoon ? (
+                <strong
+                  className={cn(
+                    "tracking-tight text-[#4b1f60] dark:text-[#e7c9f1]",
+                    index === 0 ? "text-2xl sm:text-[1.7rem]" : "text-xl",
+                  )}
+                >
+                  {docking ? "停靠" : "即將到達"}
+                </strong>
+              ) : (
+                <strong
+                  className={cn(
+                    "tracking-tight text-[#4b1f60] tabular-nums dark:text-[#e7c9f1]",
+                    index === 0 ? "text-2xl sm:text-[1.7rem]" : "text-xl",
+                  )}
+                >
+                  {arrival.waitMinutes}
+                  <small className="ml-1 text-sm font-semibold">分鐘</small>
+                </strong>
+              )}
+              <time
+                dateTime={new Date(arrival.arrivalAt).toISOString()}
+                className="text-sm text-muted-foreground tabular-nums"
+              >
+                {docking
+                  ? `開出 ${formatHongKongTime(
+                      arrival.arrivalAt + BUS_DWELL_MILLISECONDS,
+                    )}`
+                  : `預計 ${arrival.arrivalTime}`}
+              </time>
+            </div>
+          );
+        })}
       </div>
       {board.skippedDepartureTimes.length > 0 && (
         <p className="border-t border-border/80 px-4 py-3 text-sm text-muted-foreground sm:px-6">

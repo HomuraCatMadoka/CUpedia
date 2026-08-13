@@ -5,6 +5,7 @@ import type {
 import { scheduledDeparturesForDate } from "@/lib/campus-transport/campus-bus";
 import {
   busTripTimeline,
+  BUS_DWELL_MILLISECONDS,
   positionAlongSegment,
   solveTrapezoidProfile,
 } from "@/lib/campus-transport/bus-kinematics";
@@ -16,7 +17,6 @@ import {
 } from "@/lib/campus-transport/route-geometry";
 
 export const BUS_ACCELERATION_METERS_PER_SECOND_SQUARED = 0.8;
-export const BUS_DWELL_MILLISECONDS = 30_000;
 
 export type BusPosition = {
   /** 班次发车时刻（epoch ms），用于区分同一路线上的多辆车。 */

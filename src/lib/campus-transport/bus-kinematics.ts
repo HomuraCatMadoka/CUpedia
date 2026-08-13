@@ -109,6 +109,9 @@ export function positionAlongSegment(
   );
 }
 
+/** 到站后停靠时长（ms）：车辆到站后至发车前的停留窗口，也是到站牌「停靠」状态的时长。 */
+export const BUS_DWELL_MILLISECONDS = 30_000;
+
 export type TripTimeline = {
   /** 每站到站时刻（epoch ms），arrivals[0] = departureAt。 */
   arrivals: number[];
