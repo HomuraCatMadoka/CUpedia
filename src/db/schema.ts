@@ -80,6 +80,304 @@ export const siteSettings = pgTable("site_settings", {
   value: text("value").notNull(),
 });
 
+export const campusBusArrivalObservations = pgTable(
+  "campus_bus_arrival_observations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    routeId: text("route_id").notNull(),
+    stopId: text("stop_id").notNull(),
+    stopOccurrenceId: text("stop_occurrence_id").notNull(),
+    observedArrivalAt: timestamp("observed_arrival_at", {
+      withTimezone: true,
+    }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    submittedAnonymously: boolean("submitted_anonymously")
+      .notNull()
+      .default(true),
+  },
+  (table) => [
+    index("campus_bus_arrival_observations_route_stop_time_idx").on(
+      table.routeId,
+      table.stopId,
+      table.observedArrivalAt,
+    ),
+    index("campus_bus_arrival_observations_received_at_idx").on(
+      table.receivedAt,
+    ),
+    index("campus_bus_arrival_observations_arrival_at_idx").on(
+      table.observedArrivalAt,
+    ),
+    index("campus_bus_arrival_observations_route_time_idx").on(
+      table.routeId,
+      table.observedArrivalAt,
+    ),
+    check(
+      "campus_bus_arrival_observations_time_window_chk",
+      sql`${table.observedArrivalAt} >= ${table.receivedAt} - interval '15 minutes'
+        AND ${table.observedArrivalAt} <= ${table.receivedAt} + interval '2 minutes'`,
+    ),
+  ],
+);
+
+export const campusBusFeedbackRateLimits = pgTable(
+  "campus_bus_feedback_rate_limits",
+  {
+    sessionId: uuid("session_id").primaryKey(),
+    windowStartedAt: timestamp("window_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    submissionCount: integer("submission_count").notNull().default(0),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("campus_bus_feedback_rate_limits_expires_at_idx").on(table.expiresAt),
+    check(
+      "campus_bus_feedback_rate_limits_submission_count_chk",
+      sql`${table.submissionCount} >= 0`,
+    ),
+  ],
+);
+
+export const campusBusPredictionModelRevisions = pgTable(
+  "campus_bus_prediction_model_revisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    algorithm: text("algorithm").notNull(),
+    status: text("status").notNull(),
+    runKind: text("run_kind").notNull().default("automated"),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    parameters: jsonb("parameters")
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    routeScope: text("route_scope"),
+    parentRevisionId: uuid("parent_revision_id").references(
+      (): AnyPgColumn => campusBusPredictionModelRevisions.id,
+      { onDelete: "set null" },
+    ),
+    observationCutoffAt: timestamp("observation_cutoff_at", {
+      withTimezone: true,
+    }).notNull(),
+    trainingWindowStart: timestamp("training_window_start", {
+      withTimezone: true,
+    }).notNull(),
+    trainingWindowEnd: timestamp("training_window_end", {
+      withTimezone: true,
+    }).notNull(),
+    trainingEventCount: integer("training_event_count").notNull(),
+    trainingServiceDayCount: integer("training_service_day_count").notNull(),
+    validationEventCount: integer("validation_event_count").notNull(),
+    sourceObservationCount: integer("source_observation_count").notNull(),
+    snapshotHash: text("snapshot_hash").notNull(),
+    metrics: jsonb("metrics").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    promotedAt: timestamp("promoted_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("campus_bus_prediction_revisions_status_idx").on(
+      table.status,
+      table.promotedAt,
+    ),
+    index("campus_bus_prediction_revisions_parent_idx").on(
+      table.parentRevisionId,
+    ),
+    index("campus_bus_prediction_revisions_creator_idx")
+      .on(table.createdBy, table.createdAt)
+      .where(sql`${table.createdBy} is not null`),
+    index("campus_bus_prediction_revisions_kind_created_idx").on(
+      table.runKind,
+      table.createdAt,
+    ),
+    uniqueIndex("campus_bus_prediction_revisions_champion_uq")
+      .on(table.status)
+      .where(sql`${table.status} = 'champion'`),
+    check(
+      "campus_bus_prediction_revisions_status_chk",
+      sql`${table.status} in ('candidate', 'champion', 'retired', 'insufficient')`,
+    ),
+    check(
+      "campus_bus_prediction_revisions_run_kind_chk",
+      sql`${table.runKind} in ('automated', 'experiment')`,
+    ),
+    check(
+      "campus_bus_prediction_revisions_counts_chk",
+      sql`${table.trainingEventCount} >= 0
+        AND ${table.trainingServiceDayCount} >= 0
+        AND ${table.validationEventCount} >= 0
+        AND ${table.sourceObservationCount} >= 0`,
+    ),
+  ],
+);
+
+export const campusBusTripMatchCandidates = pgTable(
+  "campus_bus_trip_match_candidates",
+  {
+    modelRevisionId: uuid("model_revision_id")
+      .notNull()
+      .references(() => campusBusPredictionModelRevisions.id, {
+        onDelete: "cascade",
+      }),
+    observationId: uuid("observation_id")
+      .notNull()
+      .references(() => campusBusArrivalObservations.id, {
+        onDelete: "cascade",
+      }),
+    patternId: text("pattern_id").notNull(),
+    scheduledDepartureAt: timestamp("scheduled_departure_at", {
+      withTimezone: true,
+    }).notNull(),
+    baselineArrivalAt: timestamp("baseline_arrival_at", {
+      withTimezone: true,
+    }).notNull(),
+    probability: real("probability").notNull(),
+    rank: integer("rank").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.modelRevisionId,
+        table.observationId,
+        table.patternId,
+        table.scheduledDepartureAt,
+      ],
+    }),
+    index("campus_bus_trip_candidates_observation_idx").on(
+      table.observationId,
+      table.modelRevisionId,
+    ),
+    check(
+      "campus_bus_trip_candidates_probability_chk",
+      sql`${table.probability} > 0 AND ${table.probability} <= 1`,
+    ),
+    check("campus_bus_trip_candidates_rank_chk", sql`${table.rank} > 0`),
+  ],
+);
+
+export const campusBusArrivalEvents = pgTable(
+  "campus_bus_arrival_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    modelRevisionId: uuid("model_revision_id")
+      .notNull()
+      .references(() => campusBusPredictionModelRevisions.id, {
+        onDelete: "cascade",
+      }),
+    eventKey: text("event_key").notNull(),
+    routeId: text("route_id").notNull(),
+    patternId: text("pattern_id").notNull(),
+    stopOccurrenceId: text("stop_occurrence_id").notNull(),
+    scheduledDepartureAt: timestamp("scheduled_departure_at", {
+      withTimezone: true,
+    }).notNull(),
+    baselineArrivalAt: timestamp("baseline_arrival_at", {
+      withTimezone: true,
+    }).notNull(),
+    observedArrivalAt: timestamp("observed_arrival_at", {
+      withTimezone: true,
+    }).notNull(),
+    serviceDate: date("service_date").notNull(),
+    residualSeconds: integer("residual_seconds").notNull(),
+    observationCount: integer("observation_count").notNull(),
+    confidence: real("confidence").notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_bus_arrival_events_revision_key_uq").on(
+      table.modelRevisionId,
+      table.eventKey,
+    ),
+    index("campus_bus_arrival_events_training_idx").on(
+      table.modelRevisionId,
+      table.routeId,
+      table.patternId,
+      table.stopOccurrenceId,
+      table.serviceDate,
+    ),
+    check(
+      "campus_bus_arrival_events_observation_count_chk",
+      sql`${table.observationCount} > 0`,
+    ),
+    check(
+      "campus_bus_arrival_events_confidence_chk",
+      sql`${table.confidence} > 0 AND ${table.confidence} <= 1`,
+    ),
+  ],
+);
+
+export const campusBusArrivalEventObservations = pgTable(
+  "campus_bus_arrival_event_observations",
+  {
+    eventId: uuid("event_id")
+      .notNull()
+      .references(() => campusBusArrivalEvents.id, { onDelete: "cascade" }),
+    observationId: uuid("observation_id")
+      .notNull()
+      .references(() => campusBusArrivalObservations.id, {
+        onDelete: "cascade",
+      }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.eventId, table.observationId] }),
+    index("campus_bus_event_observations_observation_idx").on(
+      table.observationId,
+    ),
+  ],
+);
+
+export const campusBusPredictionAdjustments = pgTable(
+  "campus_bus_prediction_adjustments",
+  {
+    modelRevisionId: uuid("model_revision_id")
+      .notNull()
+      .references(() => campusBusPredictionModelRevisions.id, {
+        onDelete: "cascade",
+      }),
+    routeId: text("route_id").notNull(),
+    patternId: text("pattern_id").notNull(),
+    stopOccurrenceId: text("stop_occurrence_id").notNull(),
+    timeBand: text("time_band").notNull(),
+    residualSeconds: integer("residual_seconds").notNull(),
+    eventCount: integer("event_count").notNull(),
+    serviceDayCount: integer("service_day_count").notNull(),
+    medianResidualSeconds: integer("median_residual_seconds").notNull(),
+    medianAbsoluteDeviationSeconds: integer(
+      "median_absolute_deviation_seconds",
+    ).notNull(),
+    shrinkageWeight: real("shrinkage_weight").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [
+        table.modelRevisionId,
+        table.routeId,
+        table.patternId,
+        table.stopOccurrenceId,
+        table.timeBand,
+      ],
+    }),
+    index("campus_bus_prediction_adjustments_lookup_idx").on(
+      table.modelRevisionId,
+      table.routeId,
+    ),
+    check(
+      "campus_bus_prediction_adjustments_band_chk",
+      sql`${table.timeBand} in ('morning_peak', 'midday', 'evening_peak', 'night', 'all_day')`,
+    ),
+    check(
+      "campus_bus_prediction_adjustments_counts_chk",
+      sql`${table.eventCount} > 0 AND ${table.serviceDayCount} > 0`,
+    ),
+    check(
+      "campus_bus_prediction_adjustments_weight_chk",
+      sql`${table.shrinkageWeight} > 0 AND ${table.shrinkageWeight} < 1`,
+    ),
+  ],
+);
+
 export const wikiPages = pgTable(
   "wiki_pages",
   {

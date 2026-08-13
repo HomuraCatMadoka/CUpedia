@@ -148,6 +148,16 @@ describe("Navbar sign-out", () => {
     expect(push).toHaveBeenCalledWith("/courses/achievements");
   });
 
+  it("labels the CU Bus entry as testing and links to the route list", () => {
+    render(<Navbar />);
+
+    expect(
+      screen
+        .getByRole("link", { name: "CU Bus · 測試中" })
+        .getAttribute("href"),
+    ).toBe("/campus-bus");
+  });
+
   it("shows achievement notices on the visible account trigger", async () => {
     achievementNoticeCount.mockResolvedValue(3);
 

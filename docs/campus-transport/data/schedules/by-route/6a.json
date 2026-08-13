@@ -1,0 +1,481 @@
+{
+  "routeId": "6a",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 14,
+    "manualReview": 0,
+    "uniquePattern": 14,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "6a:09:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "09:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:09:10:b1",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "09:10",
+      "departureMinute": 10,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:10–13:10",
+      "serviceRuleRaw": "09:10 - 13:10 Sat; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:10:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "10:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:10:10:b1",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "10:10",
+      "departureMinute": 10,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:10–13:10",
+      "serviceRuleRaw": "09:10 - 13:10 Sat; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:11:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "11:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:11:10:b1",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "11:10",
+      "departureMinute": 10,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:10–13:10",
+      "serviceRuleRaw": "09:10 - 13:10 Sat; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:12:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "12:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:12:10:b1",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "12:10",
+      "departureMinute": 10,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:10–13:10",
+      "serviceRuleRaw": "09:10 - 13:10 Sat; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:13:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "13:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:13:10:b1",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "13:10",
+      "departureMinute": 10,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:10–13:10",
+      "serviceRuleRaw": "09:10 - 13:10 Sat; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:14:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "14:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:15:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "15:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:16:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "16:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "6a:17:10:b0",
+      "routeId": "6a",
+      "routeName": "6A Downward (CWC)",
+      "routeNameZhHant": "6A 下行線 (敬文)",
+      "originDeparture": "17:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:10–17:10",
+      "serviceRuleRaw": "09:10 - 17:10 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "10",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "6a:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 10
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "6a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-6a:2f38a527dda19ca748d6b99ca9e65fa497ae05ff9fd9a481646857403ab45a04",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

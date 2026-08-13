@@ -1,0 +1,826 @@
+{
+  "routeId": "1b",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 22,
+    "manualReview": 0,
+    "uniquePattern": 22,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "1b:08:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "08:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:08:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "08:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:09:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "09:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:09:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "09:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:10:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "10:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:10:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "10:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:11:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "11:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:11:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "11:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:12:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "12:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:12:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "12:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:13:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "13:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:13:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "13:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:14:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "14:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:14:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "14:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:15:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "15:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:15:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "15:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:16:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "16:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:16:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "16:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:17:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "17:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:17:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "17:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:18:00:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "18:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1b:18:30:b0",
+      "routeId": "1b",
+      "routeName": "1B Main Campus",
+      "routeNameZhHant": "1B 本部線",
+      "originDeparture": "18:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:00–18:30",
+      "serviceRuleRaw": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "00, 30",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1b:via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1b:via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1b:6b0b153724284a3fdb5f664ea3cf4627ae4efe42aeb1d4a39b49ceae8047d734",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

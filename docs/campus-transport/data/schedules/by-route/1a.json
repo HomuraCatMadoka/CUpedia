@@ -1,0 +1,1714 @@
+{
+  "routeId": "1a",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 46,
+    "manualReview": 0,
+    "uniquePattern": 46,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "1a:07:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "07:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:07:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "07:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:08:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "08:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:08:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "08:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:08:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "08:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:08:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "08:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:09:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "09:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:09:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "09:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:09:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "09:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:09:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "09:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:10:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "10:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:10:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "10:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:10:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "10:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:10:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "10:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:11:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "11:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:11:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "11:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:11:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "11:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:11:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "11:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:12:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "12:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:12:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "12:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:12:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "12:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:12:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "12:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:13:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "13:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:13:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "13:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:13:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "13:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:13:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "13:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:14:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "14:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:14:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "14:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:14:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "14:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:14:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "14:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:15:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "15:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:15:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "15:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:15:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "15:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:15:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "15:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:16:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "16:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:16:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "16:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:16:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "16:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:16:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "16:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:17:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "17:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:17:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "17:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:17:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "17:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:17:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "17:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:18:10:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "18:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:18:20:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "18:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:18:40:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "18:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "1a:18:50:b0",
+      "routeId": "1a",
+      "routeName": "1A Main Campus",
+      "routeNameZhHant": "1A 本部線",
+      "originDeparture": "18:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:50",
+      "serviceRuleRaw": "07:40-18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "Every 10, 20, 40, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "1a:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 6
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "1a:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-1a:a15532186529ad31f5b314bee31f116873e6a5a3b9adeb56a3283468c3d8f73e",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}
