@@ -140,6 +140,16 @@ describe("formatProfessorNameText", () => {
     );
   });
 
+  it("keeps mixed-case fallback family names unchanged (McDonald)", () => {
+    expect(formatProfessorNameText("Dr. McDonald John")).toBe(
+      "Dr. McDonald John",
+    );
+  });
+
+  it("keeps fallback family names in their original case", () => {
+    expect(formatProfessorNameText("Dr. chan Tai Man")).toBe("Dr. chan Tai Man");
+  });
+
   it("handles empty names", () => {
     expect(formatProfessorNameText("")).toBe("");
   });

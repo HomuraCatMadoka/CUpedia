@@ -37,6 +37,17 @@ export function toTitleCaseFamilyName(familyName: string): string {
 }
 
 /**
+ * 仅当姓氏的每个词都符合全大写规则时才做 Title Case；
+ * 回退路径（familyName 为完整原始姓名）应原样保留，避免 McDonald → Mcdonald。
+ */
+function formatFamilyName(familyName: string): string {
+  const words = familyName.split(/\s+/).filter(Boolean);
+  return words.length > 0 && words.every(isAllCapsWord)
+    ? toTitleCaseFamilyName(familyName)
+    : familyName;
+}
+
+/**
  * 解析教授姓名：`{Title} {FAMILY} {Given} [Middle]`（CUHK 惯例，姓氏全大写）。
  * familyName 保持原始全大写，不做大小写转换；位序保持原数据不变。
  */
@@ -71,7 +82,7 @@ export function parseProfessorName(name: string): ParsedProfessorName {
 export function formatProfessorName(name: string): ReactNode {
   const { title, givenNames, familyName } = parseProfessorName(name);
   if (!familyName) return null;
-  const displayFamily = toTitleCaseFamilyName(familyName);
+  const displayFamily = formatFamilyName(familyName);
   return (
     <>
       {title ? `${title} ` : null}
@@ -84,7 +95,7 @@ export function formatProfessorName(name: string): ReactNode {
 /** 纯文本版本（alt、metadata、<option> 等不能嵌套 JSX 的场景） */
 export function formatProfessorNameText(name: string): string {
   const { title, givenNames, familyName } = parseProfessorName(name);
-  const displayFamily = toTitleCaseFamilyName(familyName);
+  const displayFamily = formatFamilyName(familyName);
   return [title, displayFamily, givenNames].filter(Boolean).join(" ");
 }
 
