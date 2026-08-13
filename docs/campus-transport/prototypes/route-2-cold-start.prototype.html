@@ -1,0 +1,4427 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="theme-color"
+      content="#55286f"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#211426"
+      media="(prefers-color-scheme: dark)"
+    />
+    <title>中大校巴 - 路線詳情 UI 原型</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css"
+    />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --accent: #55286f;
+        --accent-strong: #402054;
+        --accent-soft: #f2eaf7;
+        --accent-line: #a67cba;
+        --page: #eef0f2;
+        --surface: #fbfbfc;
+        --surface-muted: #f3f4f6;
+        --surface-strong: #e6e8eb;
+        --accent-hover: #f4eff6;
+        --ink: #1c2024;
+        --muted: #66707a;
+        --line: #d9dde1;
+        --line-subtle: #e3e6e8;
+        --positive: #176b4d;
+        --warning: #7a4d0b;
+        --danger: #a43a42;
+        --focus: #1877c9;
+        --radius: 14px;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC",
+          "PingFang TC", "Microsoft JhengHei", sans-serif;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --accent: #b58ac8;
+          --accent-strong: #d4b8df;
+          --accent-soft: #2e2035;
+          --accent-line: #886b96;
+          --page: #111316;
+          --surface: #191c20;
+          --surface-muted: #22262b;
+          --surface-strong: #2d3238;
+          --accent-hover: #2a2030;
+          --ink: #f0f2f4;
+          --muted: #a8b0b8;
+          --line: #343941;
+          --line-subtle: #2b3036;
+          --positive: #72c8a4;
+          --warning: #e2b871;
+          --danger: #f29299;
+          --focus: #6eb7f2;
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        background: var(--page);
+      }
+
+      body {
+        min-width: 320px;
+        min-height: 100dvh;
+        margin: 0;
+        overflow-x: hidden;
+        background: var(--page);
+        color: var(--ink);
+        -webkit-tap-highlight-color: color-mix(
+          in srgb,
+          var(--accent) 18%,
+          transparent
+        );
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button,
+      select,
+      summary,
+      a {
+        touch-action: manipulation;
+      }
+
+      button {
+        color: inherit;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      summary:focus-visible,
+      a:focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 2px;
+      }
+
+      .skip-link {
+        position: fixed;
+        z-index: 30;
+        top: 8px;
+        left: 8px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--surface);
+        color: var(--ink);
+        transform: translateY(-150%);
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .app {
+        width: min(100%, 560px);
+        min-height: 100dvh;
+        margin: 0 auto;
+        overflow: hidden;
+        background: var(--surface);
+        box-shadow: 0 0 0 1px color-mix(in srgb, var(--line) 76%, transparent);
+      }
+
+      .screen[hidden] {
+        display: none;
+      }
+
+      .app-bar {
+        position: sticky;
+        z-index: 10;
+        top: 0;
+        display: grid;
+        min-height: calc(64px + env(safe-area-inset-top));
+        grid-template-columns: 48px minmax(0, 1fr) 48px;
+        align-items: end;
+        padding: calc(10px + env(safe-area-inset-top)) 10px 10px;
+        background: var(--accent);
+        color: #fffafc;
+      }
+
+      .app-bar.home-bar {
+        grid-template-columns: 1fr;
+        align-items: center;
+      }
+
+      .app-brand,
+      .bar-title {
+        min-width: 0;
+      }
+
+      .app-brand strong,
+      .bar-title strong {
+        display: block;
+        overflow: hidden;
+        font-size: 1.13rem;
+        font-weight: 750;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .app-brand small,
+      .bar-title small {
+        display: block;
+        margin-top: 2px;
+        color: rgba(255, 250, 252, 0.78);
+        font-size: 0.74rem;
+        line-height: 1.2;
+      }
+
+      .bar-title {
+        text-align: center;
+      }
+
+      .icon-button,
+      .bar-action {
+        min-width: 44px;
+        min-height: 44px;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .icon-button {
+        font-size: 2.15rem;
+        line-height: 1;
+      }
+
+      .bar-action {
+        padding: 0 8px;
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      .icon-button:hover,
+      .bar-action:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .icon-button:active,
+      .bar-action:active,
+      .route-row:active,
+      .stop-button:active,
+      .feedback-button:active,
+      .dialog-primary:active,
+      .dialog-secondary:active {
+        transform: translateY(1px);
+      }
+
+      .home-intro {
+        padding: 24px 20px 14px;
+      }
+
+      .home-intro h1 {
+        margin: 0;
+        font-size: clamp(1.65rem, 6vw, 2.1rem);
+        font-weight: 760;
+        letter-spacing: -0.035em;
+        line-height: 1.15;
+        text-wrap: balance;
+      }
+
+      .home-intro p {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        margin: 9px 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .search-area {
+        padding: 0 18px 14px;
+      }
+
+      .route-search {
+        position: relative;
+      }
+
+      .route-search label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+      }
+
+      .route-search input {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--surface-muted);
+        color: var(--ink);
+      }
+
+      .route-search input::placeholder {
+        color: var(--muted);
+      }
+
+      .home-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        padding: 0 18px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .home-tab {
+        min-height: 46px;
+        border: 0;
+        border-bottom: 3px solid transparent;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .home-tab:hover {
+        color: var(--ink);
+      }
+
+      .home-tab[aria-selected="true"] {
+        border-bottom-color: var(--accent);
+        color: var(--accent-strong);
+      }
+
+      .location-mark {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--positive);
+        box-shadow: 0 0 0 4px
+          color-mix(in srgb, var(--positive) 16%, transparent);
+      }
+
+      .section-label {
+        margin: 0;
+        padding: 12px 20px 8px;
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-weight: 700;
+      }
+
+      .route-list {
+        margin: 0;
+        padding: 0;
+        border-top: 1px solid var(--line);
+        list-style: none;
+      }
+
+      .route-list li {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .route-row {
+        display: grid;
+        width: 100%;
+        min-height: 112px;
+        grid-template-columns: 54px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+        border: 0;
+        background: var(--surface);
+        text-align: left;
+        cursor: pointer;
+        transition:
+          background-color 140ms ease,
+          transform 80ms ease;
+      }
+
+      .route-row:hover {
+        background: var(--surface-muted);
+      }
+
+      .route-row[aria-disabled="true"] {
+        cursor: default;
+      }
+
+      .route-number {
+        display: flex;
+        width: 50px;
+        height: 50px;
+        align-items: center;
+        justify-content: center;
+        border: 2px solid var(--accent);
+        border-radius: 12px;
+        color: var(--accent-strong);
+        font-size: 1.35rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+      }
+
+      .route-copy {
+        min-width: 0;
+      }
+
+      .route-copy strong {
+        display: block;
+        overflow: hidden;
+        font-size: 1.13rem;
+        line-height: 1.3;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .route-copy span {
+        display: block;
+        overflow: hidden;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .route-eta {
+        min-width: 76px;
+        text-align: right;
+      }
+
+      .route-eta strong {
+        display: block;
+        color: var(--accent-strong);
+        font-size: 1.9rem;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.05em;
+        line-height: 1;
+      }
+
+      .route-eta span {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .route-eta .service-later {
+        color: var(--muted);
+        font-size: 0.95rem;
+        font-weight: 700;
+        letter-spacing: 0;
+        line-height: 1.25;
+      }
+
+      .home-note {
+        margin: 18px 20px calc(30px + env(safe-area-inset-bottom));
+        padding: 14px 15px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+        color: var(--muted);
+        font-size: 0.78rem;
+        line-height: 1.55;
+      }
+
+      .search-empty {
+        margin: 24px 18px;
+        padding: 24px 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+        text-align: center;
+      }
+
+      .search-empty strong,
+      .search-empty span {
+        display: block;
+      }
+
+      .search-empty span {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .map-shell {
+        position: relative;
+        height: clamp(190px, 33dvh, 270px);
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        background: #dce5df;
+      }
+
+      .map-shell iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        filter: saturate(0.72) contrast(0.94);
+      }
+
+      .map-caption {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        max-width: calc(100% - 24px);
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--surface) 92%, transparent);
+        box-shadow: 0 2px 10px rgba(20, 24, 28, 0.16);
+        color: var(--ink);
+        font-size: 0.75rem;
+        font-weight: 700;
+        backdrop-filter: blur(10px);
+      }
+
+      .route-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .route-summary div {
+        min-width: 0;
+        padding: 13px 10px;
+        text-align: center;
+      }
+
+      .route-summary div + div {
+        border-left: 1px solid var(--line);
+      }
+
+      .route-summary strong,
+      .route-summary span {
+        display: block;
+      }
+
+      .route-summary strong {
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .route-summary span {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 0.68rem;
+      }
+
+      .stop-list-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 18px 10px;
+      }
+
+      .stop-list-heading h1 {
+        margin: 0;
+        font-size: 1rem;
+      }
+
+      .stop-list-heading span {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .stop-list {
+        margin: 0;
+        padding: 0 0 18px;
+        list-style: none;
+      }
+
+      .stop-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr);
+      }
+
+      .stop-rail {
+        position: relative;
+        display: flex;
+        justify-content: center;
+      }
+
+      .stop-rail::before {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--accent-line);
+        content: "";
+      }
+
+      .stop-item:first-child .stop-rail::before {
+        top: 28px;
+      }
+
+      .stop-item:last-child .stop-rail::before {
+        bottom: calc(100% - 30px);
+      }
+
+      .stop-dot {
+        position: relative;
+        z-index: 1;
+        width: 16px;
+        height: 16px;
+        margin-top: 22px;
+        border: 3px solid var(--surface);
+        border-radius: 50%;
+        background: var(--accent-line);
+        box-shadow: 0 0 0 2px var(--accent-line);
+      }
+
+      .stop-item.active .stop-dot {
+        width: 20px;
+        height: 20px;
+        margin-top: 20px;
+        background: var(--accent);
+        box-shadow:
+          0 0 0 2px var(--accent),
+          0 0 0 7px var(--accent-soft);
+      }
+
+      .stop-content {
+        min-width: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .stop-button {
+        display: grid;
+        width: 100%;
+        min-height: 62px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 18px 13px 0;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .stop-button:hover {
+        color: var(--accent-strong);
+      }
+
+      .stop-name {
+        min-width: 0;
+      }
+
+      .stop-name strong {
+        display: block;
+        overflow: hidden;
+        font-size: 0.98rem;
+        font-weight: 690;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .stop-name small {
+        display: block;
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 0.7rem;
+      }
+
+      .stop-hint {
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      .stop-item.active .stop-hint {
+        color: var(--accent-strong);
+        font-weight: 700;
+      }
+
+      .stop-arrivals {
+        padding: 3px 18px 18px 0;
+      }
+
+      .arrival-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .arrival-time {
+        min-width: 0;
+        padding: 11px 6px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface-muted);
+        text-align: center;
+      }
+
+      .arrival-time strong,
+      .arrival-time span,
+      .arrival-time time {
+        display: block;
+      }
+
+      .arrival-time strong {
+        color: var(--accent-strong);
+        font-size: 1.25rem;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.04em;
+      }
+
+      .arrival-time span {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 0.66rem;
+      }
+
+      .arrival-time time {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .feedback-prompt {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid var(--line);
+      }
+
+      .feedback-prompt p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.35;
+      }
+
+      .feedback-button {
+        flex: 0 0 auto;
+        min-height: 42px;
+        padding: 0 14px;
+        border: 1px solid var(--accent);
+        border-radius: 10px;
+        background: transparent;
+        color: var(--accent-strong);
+        font-size: 0.8rem;
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .feedback-button:hover {
+        background: var(--accent-soft);
+      }
+
+      /* Route-detail UI prototype: three structural variants via ?variant=. */
+      #route-screen {
+        padding-bottom: 0;
+      }
+
+      .route-view {
+        min-height: calc(100dvh - 64px);
+        background: var(--surface);
+      }
+
+      .route-service-line {
+        display: flex;
+        min-height: 42px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 9px 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.76rem;
+      }
+
+      .route-service-line strong {
+        color: var(--ink);
+        font-size: 0.8rem;
+      }
+
+      .estimate-label {
+        color: var(--accent-strong);
+        font-weight: 750;
+      }
+
+      .map-panel {
+        position: relative;
+        overflow: hidden;
+        border-bottom: 1px solid var(--line);
+        background: #d9e0dc;
+      }
+
+      .route-map {
+        width: 100%;
+        height: 250px;
+      }
+
+      .map-panel.compact .route-map {
+        height: 220px;
+      }
+
+      .map-panel.map-first .route-map {
+        height: clamp(300px, 47dvh, 410px);
+      }
+
+      .map-toolbar {
+        position: absolute;
+        z-index: 2;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        gap: 6px;
+      }
+
+      .map-tool,
+      .map-reopen {
+        min-height: 44px;
+        padding: 0 11px;
+        border: 1px solid color-mix(in srgb, var(--line) 82%, transparent);
+        border-radius: 10px;
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        box-shadow: 0 2px 9px rgba(20, 24, 28, 0.13);
+        color: var(--ink);
+        font-size: 0.76rem;
+        font-weight: 720;
+        cursor: pointer;
+        backdrop-filter: blur(8px);
+      }
+
+      .map-tool:active,
+      .map-reopen:active {
+        transform: translateY(1px);
+      }
+
+      .map-tool[aria-pressed="true"] {
+        border-color: var(--accent-line);
+        background: var(--accent);
+        color: #fffafc;
+      }
+
+      .map-tool.icon-only {
+        display: grid;
+        width: 44px;
+        padding: 0;
+        place-items: center;
+      }
+
+      .locate-icon {
+        position: relative;
+        width: 24px;
+        height: 24px;
+        background:
+          linear-gradient(currentColor, currentColor) center / 2px 100%
+            no-repeat,
+          linear-gradient(currentColor, currentColor) center / 100% 2px
+            no-repeat;
+      }
+
+      .locate-icon::before {
+        position: absolute;
+        inset: 4px;
+        border: 2px solid currentColor;
+        border-radius: 50%;
+        background: var(--surface);
+        content: "";
+      }
+
+      .map-tool[aria-pressed="true"] .locate-icon::before {
+        background: var(--accent);
+      }
+
+      .locate-icon::after {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+        content: "";
+        transform: translate(-50%, -50%);
+      }
+
+      .map-reopen {
+        display: block;
+        width: calc(100% - 32px);
+        margin: 10px 16px;
+        box-shadow: none;
+      }
+
+      .map-route-label {
+        position: absolute;
+        z-index: 2;
+        top: 10px;
+        left: 10px;
+        max-width: calc(100% - 20px);
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        color: var(--muted);
+        font-size: 0.67rem;
+        font-weight: 650;
+        backdrop-filter: blur(8px);
+      }
+
+      .map-unavailable {
+        display: grid;
+        height: 100%;
+        place-items: center;
+        padding: 24px;
+        color: #47534d;
+        font-size: 0.78rem;
+        text-align: center;
+      }
+
+      .maplibregl-ctrl-attrib {
+        font-size: 9px;
+      }
+
+      .maplibregl-ctrl-bottom-right {
+        bottom: 112px;
+      }
+
+      .map-stop-marker {
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        pointer-events: none;
+      }
+
+      .map-stop-button {
+        position: relative;
+        display: grid;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: transparent;
+        color: #fffafc;
+        font-size: 0.64rem;
+        font-weight: 800;
+        cursor: pointer;
+        pointer-events: auto;
+      }
+
+      .map-stop-button::before {
+        position: absolute;
+        width: 26px;
+        height: 26px;
+        border: 2px solid var(--surface);
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 1px 5px rgba(22, 18, 25, 0.3);
+        content: "";
+        transition:
+          width 140ms ease,
+          height 140ms ease,
+          box-shadow 140ms ease;
+      }
+
+      .map-stop-marker.selected .map-stop-button::before {
+        width: 34px;
+        height: 34px;
+        box-shadow:
+          0 0 0 5px color-mix(in srgb, var(--accent) 24%, transparent),
+          0 2px 8px rgba(22, 18, 25, 0.3);
+      }
+
+      .map-stop-marker.conditional .map-stop-button::before {
+        border: 2px dashed var(--accent);
+        background: var(--surface);
+      }
+
+      .map-stop-marker.conditional .map-stop-number {
+        color: var(--accent-strong);
+      }
+
+      .map-stop-number {
+        position: relative;
+        z-index: 1;
+      }
+
+      .user-location-marker {
+        width: 17px;
+        height: 17px;
+        border: 3px solid var(--surface);
+        border-radius: 50%;
+        background: #1677d2;
+        box-shadow:
+          0 0 0 6px rgba(22, 119, 210, 0.2),
+          0 1px 5px rgba(22, 18, 25, 0.3);
+      }
+
+      .nearest-strip {
+        display: flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--accent-soft);
+      }
+
+      .nearest-strip span,
+      .nearest-strip strong {
+        display: block;
+      }
+
+      .nearest-strip span {
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .nearest-strip strong {
+        margin-top: 2px;
+        color: var(--accent-strong);
+        font-size: 0.9rem;
+      }
+
+      .nearest-strip button {
+        min-height: 44px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 9px;
+        background: transparent;
+        color: var(--accent-strong);
+        font-size: 0.75rem;
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .journey-heading {
+        margin: 0;
+        padding: 16px 18px 8px;
+        font-size: 0.82rem;
+        font-weight: 750;
+      }
+
+      .variant-a .journey-scroll {
+        height: max(190px, calc(100dvh - 64px - 42px - 216px - 48px - 64px));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
+
+      .variant-a.map-closed .journey-scroll {
+        height: max(280px, calc(100dvh - 64px - 42px - 59px - 48px - 64px));
+      }
+
+      .journey-list,
+      .plain-stop-list {
+        margin: 0;
+        padding: 0 0 10px;
+        list-style: none;
+      }
+
+      .journey-stop {
+        position: relative;
+        display: grid;
+        grid-template-columns: 42px minmax(0, 1fr);
+      }
+
+      .journey-rail {
+        position: relative;
+        display: flex;
+        justify-content: center;
+      }
+
+      .journey-rail::before {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: color-mix(in srgb, var(--accent-line) 72%, var(--line));
+        content: "";
+      }
+
+      .journey-stop:first-child .journey-rail::before {
+        top: 25px;
+      }
+
+      .journey-stop:last-child .journey-rail::before {
+        bottom: calc(100% - 25px);
+      }
+
+      .journey-dot {
+        position: relative;
+        z-index: 1;
+        width: 12px;
+        height: 12px;
+        margin-top: 20px;
+        border: 3px solid var(--surface);
+        border-radius: 50%;
+        background: var(--accent-line);
+        box-shadow: 0 0 0 1px var(--accent-line);
+      }
+
+      .journey-stop.active .journey-dot {
+        width: 16px;
+        height: 16px;
+        margin-top: 18px;
+        background: var(--accent);
+        box-shadow:
+          0 0 0 2px var(--accent),
+          0 0 0 5px var(--accent-soft);
+      }
+
+      .journey-content {
+        min-width: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .journey-stop:last-child .journey-content {
+        border-bottom: 0;
+      }
+
+      .journey-select,
+      .plain-stop-button {
+        display: grid;
+        width: 100%;
+        min-height: 54px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 18px 9px 0;
+        border: 0;
+        background: transparent;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .journey-select:hover,
+      .plain-stop-button:hover {
+        color: var(--accent-strong);
+      }
+
+      .journey-name strong,
+      .journey-name small {
+        display: block;
+      }
+
+      .journey-name strong {
+        overflow: hidden;
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .journey-name small {
+        overflow: hidden;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .stop-badge {
+        color: var(--muted);
+        font-size: 0.68rem;
+        white-space: nowrap;
+      }
+
+      .stop-badge.nearby {
+        color: var(--accent-strong);
+        font-weight: 750;
+      }
+
+      .inline-arrivals {
+        padding: 2px 18px 15px 0;
+      }
+
+      .next-arrival {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+      }
+
+      .next-arrival strong {
+        color: var(--accent-strong);
+        font-size: 1.8rem;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.05em;
+        line-height: 1;
+      }
+
+      .next-arrival strong small {
+        margin-left: 3px;
+        font-size: 0.8rem;
+        letter-spacing: 0;
+      }
+
+      .next-arrival time {
+        color: var(--muted);
+        font-size: 0.76rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .later-arrivals {
+        margin: 7px 0 0;
+        color: var(--muted);
+        font-size: 0.73rem;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.45;
+      }
+
+      .feedback-link {
+        min-height: 44px;
+        margin: 6px 0 0 -8px;
+        padding: 0 8px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--accent-strong);
+        font-size: 0.73rem;
+        font-weight: 750;
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .feedback-link:hover {
+        background: var(--accent-soft);
+      }
+
+      .eta-hero {
+        padding: 18px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .eta-hero-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .eta-hero h1 {
+        margin: 0;
+        font-size: 1.28rem;
+        letter-spacing: -0.025em;
+      }
+
+      .eta-hero h1 small {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 0.7rem;
+        font-weight: 500;
+        letter-spacing: 0;
+      }
+
+      .nearby-tag {
+        flex: 0 0 auto;
+        color: var(--accent-strong);
+        font-size: 0.7rem;
+        font-weight: 750;
+      }
+
+      .eta-hero-main {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 18px;
+        margin-top: 17px;
+      }
+
+      .eta-hero-number {
+        color: var(--accent-strong);
+        font-size: clamp(3.1rem, 15vw, 4.8rem);
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        letter-spacing: -0.075em;
+        line-height: 0.85;
+      }
+
+      .eta-hero-number small {
+        margin-left: 5px;
+        font-size: 0.9rem;
+        letter-spacing: 0;
+      }
+
+      .eta-hero-time {
+        color: var(--muted);
+        font-size: 0.78rem;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .eta-hero-time strong {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--ink);
+        font-size: 1rem;
+      }
+
+      .eta-hero-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 15px;
+        padding-top: 11px;
+        border-top: 1px solid var(--line);
+      }
+
+      .eta-hero-footer p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.73rem;
+        line-height: 1.4;
+      }
+
+      .eta-hero-footer .feedback-link {
+        flex: 0 0 auto;
+        margin: 0;
+      }
+
+      .plain-list-heading {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px 8px;
+      }
+
+      .plain-list-heading h2 {
+        margin: 0;
+        font-size: 0.86rem;
+      }
+
+      .plain-list-heading span {
+        color: var(--muted);
+        font-size: 0.67rem;
+      }
+
+      .plain-stop-list {
+        padding: 0 18px 12px;
+      }
+
+      .plain-stop-list li {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .plain-stop-list li:last-child {
+        border-bottom: 0;
+      }
+
+      .plain-stop-button {
+        min-height: 52px;
+        padding: 8px 0;
+      }
+
+      .plain-stop-list li.active .plain-stop-button {
+        color: var(--accent-strong);
+      }
+
+      .stop-index {
+        display: inline-block;
+        min-width: 23px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+      }
+
+      .plain-stop-eta {
+        color: var(--muted);
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .plain-stop-eta strong {
+        display: block;
+        color: var(--accent-strong);
+        font-size: 0.82rem;
+      }
+
+      .map-selected-card {
+        position: absolute;
+        z-index: 2;
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 14px;
+        border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
+        border-radius: 12px;
+        background: color-mix(in srgb, var(--surface) 96%, transparent);
+        box-shadow: 0 7px 22px rgba(20, 24, 28, 0.18);
+        backdrop-filter: blur(10px);
+      }
+
+      .map-selected-card[hidden] {
+        display: none;
+      }
+
+      .map-selected-card strong,
+      .map-selected-card span,
+      .map-selected-card small {
+        display: block;
+      }
+
+      .map-selected-card strong {
+        font-size: 0.94rem;
+      }
+
+      .map-selected-card small {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.65rem;
+      }
+
+      .map-selected-card span {
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .map-selected-eta {
+        color: var(--accent-strong);
+        font-size: 1.75rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+        line-height: 1;
+        text-align: right;
+      }
+
+      .map-selected-eta small {
+        margin-top: 4px;
+        font-size: 0.66rem;
+        letter-spacing: 0;
+      }
+
+      .map-selected-actions {
+        display: flex;
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+        gap: 6px;
+        padding-top: 1px;
+      }
+
+      .map-card-action {
+        min-height: 38px;
+        padding: 0 10px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--accent-strong);
+        font-size: 0.7rem;
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .map-card-action:hover {
+        background: var(--accent-soft);
+      }
+
+      .variant-c > .inline-arrivals {
+        padding: 0 18px 20px;
+      }
+
+      .prototype-switcher {
+        position: fixed;
+        z-index: 50;
+        right: 0;
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        left: 0;
+        display: grid;
+        width: min(calc(100% - 24px), 360px);
+        grid-template-columns: 46px minmax(0, 1fr) 46px;
+        margin: 0 auto;
+        overflow: hidden;
+        border: 1px solid color-mix(in srgb, var(--surface) 20%, transparent);
+        border-radius: 13px;
+        background: color-mix(in srgb, var(--ink) 94%, transparent);
+        box-shadow: 0 10px 28px rgba(8, 10, 13, 0.28);
+        color: var(--surface);
+        backdrop-filter: blur(10px);
+      }
+
+      .prototype-switcher[hidden] {
+        display: none;
+      }
+
+      .prototype-switcher button {
+        min-height: 48px;
+        padding: 0 10px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+      }
+
+      .prototype-switcher button:first-child {
+        border-right: 1px solid
+          color-mix(in srgb, var(--surface) 18%, transparent);
+        font-size: 1.6rem;
+      }
+
+      .prototype-switcher button:last-child {
+        border-left: 1px solid
+          color-mix(in srgb, var(--surface) 18%, transparent);
+        font-size: 1.6rem;
+      }
+
+      #variant-label {
+        overflow: hidden;
+        font-size: 0.75rem;
+        font-weight: 750;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .prototype-switcher button:hover {
+        background: color-mix(in srgb, var(--surface) 12%, transparent);
+      }
+
+      .prototype-switcher button:active {
+        transform: translateY(1px);
+      }
+
+      @media (max-width: 370px) {
+        .route-service-line,
+        .nearest-strip,
+        .eta-hero,
+        .plain-stop-list {
+          padding-right: 14px;
+          padding-left: 14px;
+        }
+
+        .eta-hero-footer {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .map-panel.map-first .route-map {
+          height: 330px;
+        }
+      }
+
+      .method-details {
+        margin: 0 18px calc(30px + env(safe-area-inset-bottom));
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+
+      .method-details summary {
+        padding: 14px 15px;
+        color: var(--muted);
+        font-size: 0.8rem;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .method-details div {
+        padding: 0 15px 15px;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.6;
+      }
+
+      .method-details p {
+        margin: 0 0 8px;
+      }
+
+      .method-details a {
+        color: var(--accent-strong);
+      }
+
+      dialog {
+        width: min(500px, calc(100% - 24px));
+        max-height: calc(100dvh - 24px);
+        margin: auto auto 0;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: var(--radius) var(--radius) 0 0;
+        background: var(--surface);
+        color: var(--ink);
+      }
+
+      dialog::backdrop {
+        background: rgba(8, 10, 13, 0.55);
+        backdrop-filter: blur(2px);
+      }
+
+      .dialog-form {
+        max-height: calc(100dvh - 24px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 22px 20px calc(20px + env(safe-area-inset-bottom));
+      }
+
+      .dialog-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .dialog-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        letter-spacing: -0.02em;
+      }
+
+      .dialog-header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      .dialog-close {
+        min-width: 44px;
+        min-height: 44px;
+        padding: 0;
+        border: 0;
+        border-radius: 10px;
+        background: var(--surface-muted);
+        cursor: pointer;
+      }
+
+      .dialog-close:disabled,
+      .dialog-primary:disabled,
+      .dialog-secondary:disabled,
+      .feedback-time-step:disabled {
+        cursor: wait;
+        opacity: 0.58;
+      }
+
+      .feedback-context {
+        display: grid;
+        gap: 7px;
+        margin: 18px 2px 14px;
+      }
+
+      .feedback-context div {
+        display: grid;
+        grid-template-columns: 62px minmax(0, 1fr);
+        align-items: baseline;
+        gap: 12px;
+      }
+
+      .feedback-context dt,
+      .feedback-context dd {
+        margin: 0;
+      }
+
+      .feedback-context dt {
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 650;
+      }
+
+      .feedback-context dd {
+        font-size: 0.88rem;
+        font-weight: 760;
+      }
+
+      .feedback-time-card {
+        display: grid;
+        min-height: 106px;
+        grid-template-columns: minmax(0, 1fr) 44px;
+        align-items: center;
+        gap: 14px;
+        padding: 6px 12px 6px 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: color-mix(
+          in srgb,
+          var(--surface-muted) 72%,
+          var(--surface)
+        );
+      }
+
+      .feedback-time-copy {
+        min-width: 0;
+      }
+
+      .feedback-time-label,
+      .feedback-time-relative {
+        display: block;
+      }
+
+      .feedback-time-label {
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 680;
+      }
+
+      #feedback-current-time {
+        display: inline-block;
+        margin-top: 2px;
+        color: var(--accent-strong);
+        font-size: 1.78rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 790;
+        letter-spacing: -0.035em;
+        line-height: 1;
+      }
+
+      .feedback-time-relative {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.7rem;
+      }
+
+      .feedback-time-stepper {
+        display: grid;
+        grid-template-rows: repeat(2, 44px);
+        gap: 4px;
+      }
+
+      .feedback-time-step {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        background: var(--surface);
+        color: var(--accent-strong);
+        font-size: 1.18rem;
+        font-weight: 780;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .feedback-time-step:hover:not(:disabled) {
+        border-color: var(--accent-line);
+        background: var(--accent-hover);
+      }
+
+      .feedback-time-step:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      .feedback-time-step:disabled {
+        cursor: not-allowed;
+        opacity: 0.3;
+      }
+
+      .feedback-privacy,
+      .feedback-error {
+        margin: 12px 2px;
+        font-size: 0.72rem;
+        line-height: 1.45;
+      }
+
+      .feedback-privacy {
+        color: var(--muted);
+      }
+
+      .feedback-error {
+        padding: 9px 11px;
+        border-radius: 9px;
+        background: color-mix(in srgb, var(--danger) 10%, transparent);
+        color: var(--danger);
+        font-weight: 680;
+      }
+
+      /* Prototype-only review aids are not part of the passenger experience. */
+      .method-details,
+      .prototype-switcher {
+        display: none !important;
+      }
+
+      .dialog-actions {
+        display: grid;
+        grid-template-columns: 1fr 1.5fr;
+        gap: 10px;
+      }
+
+      .dialog-primary,
+      .dialog-secondary {
+        display: inline-flex;
+        min-height: 48px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 14px;
+        border-radius: 10px;
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .dialog-primary {
+        border: 1px solid var(--accent);
+        background: var(--accent);
+        color: #fffafc;
+      }
+
+      .dialog-primary:hover {
+        background: color-mix(in srgb, var(--accent) 88%, #000);
+      }
+
+      .dialog-secondary {
+        border: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .dialog-secondary:hover {
+        background: var(--surface-muted);
+      }
+
+      .button-spinner {
+        display: none;
+        width: 15px;
+        height: 15px;
+        border: 2px solid rgba(255, 250, 252, 0.38);
+        border-top-color: #fffafc;
+        border-radius: 50%;
+        animation: feedback-spin 700ms linear infinite;
+      }
+
+      .dialog-primary.is-loading .button-spinner {
+        display: inline-block;
+      }
+
+      .feedback-error[hidden],
+      .feedback-entry[hidden] {
+        display: none;
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 40;
+        right: 16px;
+        bottom: calc(16px + env(safe-area-inset-bottom));
+        left: 16px;
+        max-width: 500px;
+        margin: 0 auto;
+        padding: 13px 15px;
+        border-radius: 12px;
+        background: var(--ink);
+        box-shadow: 0 10px 28px rgba(8, 10, 13, 0.24);
+        color: var(--surface);
+        font-size: 0.82rem;
+        line-height: 1.45;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(14px);
+        transition:
+          opacity 160ms ease,
+          transform 160ms ease;
+      }
+
+      .toast.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .loading-list {
+        padding: 18px;
+      }
+
+      .skeleton {
+        height: 88px;
+        margin-bottom: 10px;
+        border-radius: 12px;
+        background: linear-gradient(
+          90deg,
+          var(--surface-muted),
+          var(--surface-strong),
+          var(--surface-muted)
+        );
+        background-size: 220% 100%;
+        animation: shimmer 1.4s infinite linear;
+      }
+
+      .state-card {
+        margin: 24px 18px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface-muted);
+      }
+
+      .state-card h1 {
+        margin: 0;
+        font-size: 1.15rem;
+      }
+
+      .state-card p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.5;
+      }
+
+      @keyframes shimmer {
+        to {
+          background-position: -220% 0;
+        }
+      }
+
+      @keyframes feedback-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (min-width: 561px) {
+        .app {
+          margin-block: 18px;
+          min-height: calc(100dvh - 36px);
+          border-radius: 18px;
+        }
+
+        .app-bar {
+          border-radius: 18px 18px 0 0;
+        }
+
+        dialog {
+          margin: auto;
+          border-radius: var(--radius);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      /*
+       * Interaction pass: optimise for the three-second "where and when" scan.
+       * Nearby road-side stops remain separate choices; selecting a route then
+       * expands its ETA inside the stop list, following familiar HK bus apps.
+       */
+      .app {
+        width: min(100%, 500px);
+      }
+
+      .app-bar {
+        min-height: calc(58px + env(safe-area-inset-top));
+        padding-bottom: 8px;
+      }
+
+      .app-bar.home-bar {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .app-brand small,
+      .bar-title small {
+        margin-top: 1px;
+      }
+
+      .home-dashboard {
+        padding: 18px 16px 12px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+
+      .nearby-kicker,
+      .nearby-station-name,
+      .nearby-station-meta {
+        display: block;
+      }
+
+      .nearby-kicker {
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      .nearby-station-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        margin-top: 5px;
+      }
+
+      .nearby-station-name {
+        font-size: 1.35rem;
+        font-weight: 790;
+        letter-spacing: -0.035em;
+        line-height: 1.2;
+      }
+
+      .nearby-station-meta {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.75rem;
+        line-height: 1.45;
+      }
+
+      .gps-label {
+        flex: 0 0 auto;
+        padding-top: 3px;
+        color: var(--positive);
+        font-size: 0.72rem;
+        font-weight: 750;
+      }
+
+      .road-side-picker {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 7px;
+        margin-top: 14px;
+        padding: 4px;
+        border-radius: 12px;
+        background: var(--surface-muted);
+      }
+
+      .road-side-option {
+        min-height: 48px;
+        padding: 7px 10px;
+        border: 1px solid transparent;
+        border-radius: 9px;
+        background: transparent;
+        color: var(--muted);
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .road-side-option strong,
+      .road-side-option span {
+        display: block;
+      }
+
+      .road-side-option strong {
+        overflow: hidden;
+        color: inherit;
+        font-size: 0.8rem;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .road-side-option span {
+        margin-top: 2px;
+        font-size: 0.65rem;
+      }
+
+      .road-side-option[aria-pressed="true"] {
+        border-color: var(--line);
+        background: var(--surface);
+        box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 9%, transparent);
+        color: var(--accent-strong);
+      }
+
+      .road-side-help {
+        margin: 9px 2px 0;
+        color: var(--muted);
+        font-size: 0.68rem;
+        line-height: 1.45;
+      }
+
+      .nearby-overview h1 {
+        margin: 0;
+        font-size: 1.28rem;
+        font-weight: 790;
+        letter-spacing: -0.03em;
+      }
+
+      .nearby-overview p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 0.76rem;
+        line-height: 1.45;
+      }
+
+      .nearby-stop-groups {
+        background: var(--surface-muted);
+      }
+
+      .nearby-stop-group {
+        background: var(--surface);
+      }
+
+      .nearby-stop-group + .nearby-stop-group {
+        margin-top: 8px;
+        border-top: 1px solid var(--line);
+      }
+
+      .nearby-stop-group-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 13px 16px 8px;
+      }
+
+      .nearby-stop-group-header strong,
+      .nearby-stop-group-header span,
+      .nearby-stop-distance {
+        display: block;
+      }
+
+      .nearby-stop-group-header strong {
+        font-size: 0.98rem;
+      }
+
+      .nearby-stop-group-header span {
+        margin-top: 3px;
+        color: var(--muted);
+        font-size: 0.7rem;
+      }
+
+      .nearby-stop-distance {
+        flex: 0 0 auto;
+        color: var(--positive);
+        font-size: 0.7rem;
+        font-weight: 740;
+      }
+
+      .nearby-stop-group .route-list {
+        border-top-color: color-mix(in srgb, var(--line) 72%, transparent);
+      }
+
+      .nearby-stop-group .route-row {
+        min-height: 80px;
+      }
+
+      .home-tabs {
+        padding: 0 16px;
+      }
+
+      .home-tab {
+        min-height: 43px;
+      }
+
+      .section-label {
+        padding: 13px 16px 7px;
+      }
+
+      .route-row {
+        min-height: 86px;
+        grid-template-columns: 48px minmax(0, 1fr) auto;
+        gap: 11px;
+        padding: 12px 16px;
+      }
+
+      .route-number {
+        width: 46px;
+        height: 46px;
+        border-radius: 11px;
+        font-size: 1.25rem;
+      }
+
+      .route-copy strong {
+        font-size: 1rem;
+      }
+
+      .route-copy span {
+        margin-top: 3px;
+        font-size: 0.76rem;
+        line-height: 1.35;
+      }
+
+      .route-eta-stack {
+        display: grid;
+        min-width: 94px;
+        justify-items: end;
+      }
+
+      .route-eta-prediction {
+        margin-bottom: 4px;
+        color: var(--muted);
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+
+      .route-eta-primary {
+        color: var(--accent-strong);
+        font-size: 1.55rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 800;
+        letter-spacing: -0.05em;
+        line-height: 1;
+      }
+
+      .route-eta-primary small {
+        margin-left: 3px;
+        font-size: 0.68rem;
+        font-weight: 650;
+        letter-spacing: 0;
+      }
+
+      .route-eta-following {
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+
+      .route-eta-following b {
+        color: var(--ink);
+        font-weight: 680;
+      }
+
+      .home-note,
+      .search-area {
+        display: none;
+      }
+
+      .route-service-line {
+        min-height: 38px;
+        padding: 7px 16px;
+      }
+
+      .variant-a .route-map {
+        height: 250px;
+      }
+
+      .variant-a:not(.map-closed) .journey-scroll {
+        height: clamp(230px, calc(100dvh - 64px - 38px - 250px - 70px), 560px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+      }
+
+      .variant-a.map-closed .journey-scroll {
+        height: auto;
+        overflow: visible;
+        scrollbar-gutter: auto;
+      }
+
+      .variant-a:not(.map-closed) .journey-heading {
+        position: sticky;
+        z-index: 3;
+        top: 0;
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in srgb, var(--surface) 96%, transparent);
+        backdrop-filter: blur(10px);
+      }
+
+      .variant-a .maplibregl-ctrl-bottom-right {
+        bottom: 0;
+      }
+
+      .nearest-strip {
+        min-height: 46px;
+        padding: 8px 16px;
+      }
+
+      .nearest-strip button {
+        min-height: 40px;
+      }
+
+      .journey-heading {
+        padding: 14px 16px 7px;
+      }
+
+      .journey-stop {
+        grid-template-columns: 38px minmax(0, 1fr);
+      }
+
+      .journey-select,
+      .plain-stop-button {
+        min-height: 57px;
+        padding: 10px 16px 10px 0;
+      }
+
+      .journey-stop.active .journey-content {
+        background: var(--surface);
+      }
+
+      .journey-stop.active .journey-select {
+        min-height: 64px;
+        padding-bottom: 8px;
+      }
+
+      .journey-stop.active .journey-name strong {
+        font-size: 1.06rem;
+        letter-spacing: -0.015em;
+      }
+
+      .journey-stop.active .journey-name small {
+        font-size: 0.76rem;
+      }
+
+      .journey-stop.active .stop-badge.nearby {
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.75rem;
+        font-weight: 650;
+      }
+
+      .inline-arrivals {
+        padding: 0 16px 8px 0;
+      }
+
+      .station-eta-list {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 11px;
+        background: var(--surface);
+      }
+
+      .variant-a .station-eta-list {
+        border: 0;
+        border-top: 1px solid var(--line);
+        border-radius: 0;
+        background: transparent;
+      }
+
+      .station-eta-row {
+        display: grid;
+        min-height: 44px;
+        grid-template-columns: 52px 82px minmax(0, 1fr);
+        align-items: center;
+        gap: 8px;
+        padding: 6px 4px;
+      }
+
+      .station-eta-row + .station-eta-row {
+        border-top: 1px solid color-mix(in srgb, var(--line) 58%, transparent);
+      }
+
+      .station-eta-row:first-child {
+        min-height: 52px;
+        background: color-mix(in srgb, var(--surface-muted) 74%, transparent);
+      }
+
+      .station-eta-value {
+        color: var(--accent-strong);
+        font-size: 1.25rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 790;
+        letter-spacing: -0.025em;
+      }
+
+      .station-eta-row:first-child .station-eta-value {
+        font-size: 1.72rem;
+      }
+
+      .station-eta-value small {
+        margin-left: 3px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0;
+      }
+
+      .station-eta-skip {
+        color: var(--muted);
+        font-size: 0.86rem;
+        font-weight: 760;
+      }
+
+      .station-eta-order {
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+
+      .station-eta-clock {
+        color: var(--muted);
+        font-size: 0.76rem;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .station-eta-clock strong {
+        display: block;
+        margin-bottom: 2px;
+        color: var(--ink);
+        font-size: 0.74rem;
+      }
+
+      .feedback-action-row {
+        display: flex;
+        width: 100%;
+        min-height: 46px;
+        align-items: center;
+        justify-content: flex-end;
+        margin: 0;
+        border-top: 1px solid var(--line-subtle);
+        background: transparent;
+      }
+
+      .feedback-inline {
+        min-height: 44px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: right;
+        cursor: pointer;
+      }
+
+      .feedback-inline:hover {
+        color: var(--accent);
+      }
+
+      .arrival-empty {
+        padding: 12px 0;
+        border-top: 1px solid var(--line-subtle);
+        color: var(--ink);
+        font-size: 0.82rem;
+        line-height: 1.45;
+      }
+
+      .route-eta-empty {
+        display: grid;
+        min-width: 94px;
+        justify-items: end;
+        color: var(--muted);
+        font-size: 0.68rem;
+        line-height: 1.35;
+        text-align: right;
+      }
+
+      .route-eta-empty strong {
+        color: var(--ink);
+        font-size: 0.76rem;
+      }
+
+      .feedback-inline {
+        color: var(--accent-strong);
+        font-size: 0.74rem;
+        font-weight: 750;
+        line-height: 1.4;
+      }
+
+      .station-skip-note {
+        margin: 0;
+        padding: 8px 4px;
+        border-top: 1px solid color-mix(in srgb, var(--line) 58%, transparent);
+        color: var(--muted);
+        font-size: 0.68rem;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.4;
+      }
+
+      .opposite-side-note {
+        color: var(--warning);
+        font-size: 0.66rem;
+        font-weight: 700;
+      }
+
+      .map-route-label {
+        max-width: calc(100% - 76px);
+      }
+
+      .map-route-label strong,
+      .map-route-label small {
+        display: block;
+      }
+
+      .map-route-label strong {
+        color: var(--ink);
+        font-size: 0.72rem;
+      }
+
+      .map-route-label small {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 0.62rem;
+        font-weight: 600;
+      }
+
+      @media (max-width: 560px) {
+        #route-screen:not([hidden]) {
+          height: 100dvh;
+          overflow: hidden;
+        }
+
+        #route-screen:not([hidden]) #route-content {
+          height: calc(100dvh - 58px - env(safe-area-inset-top));
+          overflow: hidden;
+        }
+
+        .route-view.variant-a {
+          display: grid;
+          height: 100%;
+          min-height: 0;
+          grid-template-rows: auto auto minmax(0, 1fr);
+          overflow: hidden;
+        }
+
+        .variant-a .route-map {
+          height: clamp(210px, 29dvh, 240px);
+        }
+
+        .variant-a:not(.map-closed) .journey-scroll {
+          height: auto;
+          min-height: 0;
+          overflow-y: auto;
+          overscroll-behavior-y: contain;
+          scrollbar-gutter: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .variant-a:not(.map-closed) .journey-heading {
+          position: sticky;
+          top: 0;
+        }
+
+        .variant-a .journey-list {
+          padding-bottom: calc(20px + env(safe-area-inset-bottom));
+        }
+
+        .map-toolbar {
+          top: 8px;
+          right: 8px;
+        }
+
+        .map-route-label {
+          top: 8px;
+          left: 8px;
+        }
+      }
+
+      @media (max-width: 370px) {
+        .home-dashboard,
+        .route-row,
+        .section-label {
+          padding-right: 13px;
+          padding-left: 13px;
+        }
+
+        .route-row {
+          grid-template-columns: 44px minmax(0, 1fr) auto;
+        }
+
+        .route-number {
+          width: 42px;
+          height: 42px;
+        }
+
+        .route-eta-stack {
+          min-width: 82px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">跳到主要內容</a>
+
+    <main class="app" id="main-content">
+      <section class="screen" id="home-screen" aria-labelledby="home-title">
+        <header class="app-bar home-bar">
+          <div class="app-brand">
+            <strong>CUpedia 校巴</strong>
+            <small>今日班次與預計到站</small>
+          </div>
+        </header>
+
+        <div id="home-content"></div>
+      </section>
+
+      <section
+        class="screen"
+        id="route-screen"
+        aria-labelledby="route-title"
+        hidden
+      >
+        <header class="app-bar">
+          <button
+            class="icon-button"
+            id="back-button"
+            type="button"
+            aria-label="返回路線列表"
+          >
+            ‹
+          </button>
+          <div class="bar-title">
+            <strong id="route-title" tabindex="-1">2 新聯線</strong>
+            <small>環線 · 經新亞、聯合往大學站</small>
+          </div>
+          <span aria-hidden="true"></span>
+        </header>
+
+        <div id="route-content"></div>
+      </section>
+    </main>
+
+    <dialog id="feedback-dialog" aria-labelledby="feedback-title">
+      <form
+        class="dialog-form"
+        id="feedback-form"
+        method="dialog"
+        autocomplete="off"
+      >
+        <div class="dialog-header">
+          <h2 id="feedback-title">提交到站時間</h2>
+          <button
+            class="dialog-close"
+            id="dialog-close"
+            type="button"
+            aria-label="關閉"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div class="feedback-entry" id="feedback-entry">
+          <dl class="feedback-context">
+            <div>
+              <dt>路線</dt>
+              <dd>2 新聯線</dd>
+            </div>
+            <div>
+              <dt>站點</dt>
+              <dd id="feedback-station">善衡書院</dd>
+            </div>
+          </dl>
+
+          <div class="feedback-time-card">
+            <div class="feedback-time-copy">
+              <span class="feedback-time-label" id="feedback-time-label"
+                >到站時間</span
+              >
+              <time id="feedback-current-time" datetime="">08:05</time>
+              <span class="feedback-time-relative" id="feedback-time-relative"
+                >現在</span
+              >
+            </div>
+            <div
+              class="feedback-time-stepper"
+              role="group"
+              aria-label="調整到站分鐘"
+            >
+              <button
+                class="feedback-time-step"
+                id="feedback-time-later"
+                type="button"
+                aria-label="到站時間調後一分鐘"
+              >
+                <span aria-hidden="true">+</span>
+              </button>
+              <button
+                class="feedback-time-step"
+                id="feedback-time-earlier"
+                type="button"
+                aria-label="到站時間調前一分鐘"
+              >
+                <span aria-hidden="true">−</span>
+              </button>
+            </div>
+          </div>
+
+          <p class="feedback-privacy">匿名提交，只用於改善預計到站時間。</p>
+          <p class="feedback-error" id="feedback-error" role="alert" hidden>
+            未能提交，請檢查網絡後重試。
+          </p>
+
+          <div class="dialog-actions">
+            <button class="dialog-secondary" id="cancel-feedback" type="button">
+              取消
+            </button>
+            <button class="dialog-primary" id="feedback-submit" type="submit">
+              <span class="button-spinner" aria-hidden="true"></span>
+              <span id="feedback-submit-label">提交</span>
+            </button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <nav class="prototype-switcher" aria-label="切換 UI 原型方案" hidden>
+      <button type="button" id="previous-variant" aria-label="上一個方案">
+        ‹
+      </button>
+      <button type="button" id="variant-label" aria-label="目前原型方案">
+        A · KMB 站點展開
+      </button>
+      <button type="button" id="next-variant" aria-label="下一個方案">›</button>
+    </nav>
+
+    <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+    <script>
+      const CLOCK_OVERRIDE = new URLSearchParams(window.location.search).get(
+        "now",
+      );
+      const HOME_STOP_ID = "shho";
+      const SAMPLE_USER_LOCATION = [114.20948, 22.41772];
+      const VARIANTS = [
+        { id: "a", label: "A · KMB 站點展開" },
+        { id: "b", label: "B · 候車時間優先" },
+        { id: "c", label: "C · 地圖與底部列表" },
+      ];
+
+      // Coordinates come from the merged public-source audit. The UI prototype
+      // intentionally shows station points without inventing a road shape.
+      const STOPS = [
+        {
+          id: "piazza",
+          name: "大學站廣場",
+          nameEn: "Station Piazza",
+          offset: 0,
+          coordinates: [114.2094368, 22.4138075],
+        },
+        {
+          id: "sports",
+          name: "大學體育中心",
+          nameEn: "University Sports Centre",
+          offset: 3,
+          coordinates: [114.2105171084404, 22.41774071488508],
+        },
+        {
+          id: "shaw",
+          name: "邵逸夫堂",
+          nameEn: "Sir Run Run Shaw Hall",
+          offset: 6,
+          conditional: true,
+          departureMinuteWindow: { from: 31, to: 0 },
+          coordinates: [114.2069424, 22.419841],
+        },
+        {
+          id: "fung",
+          name: "馮景禧樓",
+          nameEn: "Fung King Hey Building",
+          offset: 8,
+          coordinates: [114.2030318, 22.4198637],
+        },
+        {
+          id: "united-up",
+          name: "聯合書院（上行）",
+          nameEn: "United College Upward",
+          offset: 11,
+          coordinates: [114.205394, 22.4203899],
+        },
+        {
+          id: "new-asia",
+          name: "新亞書院",
+          nameEn: "New Asia College",
+          offset: 13,
+          coordinates: [114.2074889, 22.4213037],
+        },
+        {
+          id: "united-down",
+          name: "聯合書院（下行）",
+          nameEn: "United College Downward",
+          offset: 15,
+          coordinates: [114.20534, 22.4203017],
+        },
+        {
+          id: "admin",
+          name: "大學行政樓",
+          nameEn: "University Administration",
+          offset: 17,
+          coordinates: [114.2053581, 22.418806],
+        },
+        {
+          id: "shho",
+          name: "善衡書院",
+          nameEn: "S.H. Ho College",
+          offset: 19,
+          coordinates: [114.20974999666214, 22.418023378635656],
+        },
+        {
+          id: "station",
+          name: "大學站",
+          nameEn: "University Station",
+          offset: 21,
+          coordinates: [114.2102205, 22.4145368],
+        },
+      ];
+
+      // OSM relation 21069990, simplified to roughly metre-level precision.
+      // This is road geometry only; CUHK Transport remains the source of truth
+      // for the stop order and today's service pattern.
+      const ROUTE_2_GEOMETRY = {
+        type: "Feature",
+        properties: {
+          route: "2",
+          source: "OpenStreetMap relation 21069990",
+          license: "ODbL",
+        },
+        geometry: {
+          type: "MultiLineString",
+          coordinates: [
+            [
+              [114.209416, 22.413846],
+              [114.209333, 22.413821],
+            ],
+            [
+              [114.209333, 22.413821],
+              [114.209215, 22.413828],
+              [114.209104, 22.413872],
+              [114.209016, 22.413948],
+              [114.208872, 22.414117],
+              [114.208412, 22.414453],
+              [114.208351, 22.414528],
+              [114.208173, 22.414958],
+            ],
+            [
+              [114.208173, 22.414958],
+              [114.208146, 22.415152],
+            ],
+            [
+              [114.208146, 22.415152],
+              [114.208195, 22.415559],
+              [114.208225, 22.415678],
+              [114.208326, 22.415904],
+              [114.208395, 22.416008],
+            ],
+            [
+              [114.208395, 22.416008],
+              [114.208476, 22.416104],
+              [114.208669, 22.416271],
+              [114.208896, 22.416395],
+              [114.209147, 22.416473],
+              [114.209615, 22.416507],
+              [114.209921, 22.416473],
+              [114.210119, 22.416422],
+              [114.210289, 22.416352],
+              [114.210522, 22.416212],
+              [114.210786, 22.415972],
+            ],
+            [
+              [114.210786, 22.415972],
+              [114.210982, 22.415786],
+            ],
+            [
+              [114.210982, 22.415786],
+              [114.212284, 22.417013],
+              [114.21234, 22.417092],
+              [114.212382, 22.41723],
+              [114.212356, 22.417479],
+            ],
+            [
+              [114.212356, 22.417479],
+              [114.212308, 22.417486],
+              [114.212271, 22.417515],
+            ],
+            [
+              [114.212271, 22.417515],
+              [114.212215, 22.417559],
+              [114.212126, 22.417592],
+              [114.211835, 22.417619],
+            ],
+            [
+              [114.211835, 22.417619],
+              [114.21159, 22.417633],
+              [114.211364, 22.417674],
+              [114.210152, 22.417933],
+              [114.209814, 22.418019],
+              [114.209556, 22.418105],
+              [114.209001, 22.418333],
+              [114.20866, 22.418551],
+              [114.208524, 22.41861],
+              [114.208424, 22.418611],
+              [114.208173, 22.41853],
+              [114.207999, 22.418498],
+            ],
+            [
+              [114.207999, 22.418498],
+              [114.208002, 22.418679],
+              [114.208032, 22.418733],
+              [114.208074, 22.418762],
+              [114.208715, 22.418829],
+              [114.208843, 22.418873],
+              [114.208979, 22.418965],
+              [114.209055, 22.419061],
+              [114.209161, 22.419251],
+              [114.20925, 22.419466],
+              [114.209267, 22.419587],
+            ],
+            [
+              [114.209267, 22.419587],
+              [114.209244, 22.419625],
+              [114.209201, 22.419642],
+              [114.20885, 22.41971],
+              [114.208658, 22.419836],
+              [114.208525, 22.41987],
+              [114.20617, 22.419882],
+            ],
+            [
+              [114.20617, 22.419882],
+              [114.204351, 22.419872],
+            ],
+            [
+              [114.204351, 22.419872],
+              [114.203399, 22.419875],
+            ],
+            [
+              [114.203399, 22.419875],
+              [114.20295, 22.419886],
+              [114.202954, 22.420126],
+              [114.203049, 22.420351],
+              [114.203138, 22.420448],
+              [114.203308, 22.420541],
+            ],
+            [
+              [114.203308, 22.420541],
+              [114.203446, 22.420485],
+            ],
+            [
+              [114.203446, 22.420485],
+              [114.203574, 22.420409],
+              [114.203652, 22.420318],
+              [114.20379, 22.420238],
+              [114.203946, 22.420191],
+              [114.205081, 22.420347],
+              [114.205621, 22.420361],
+              [114.205696, 22.420376],
+              [114.206025, 22.420621],
+              [114.207325, 22.421123],
+            ],
+            [
+              [114.207325, 22.421123],
+              [114.207329, 22.421592],
+              [114.207489, 22.421664],
+            ],
+            [
+              [114.207489, 22.421664],
+              [114.207478, 22.42131],
+            ],
+            [
+              [114.207478, 22.42131],
+              [114.207481, 22.421129],
+            ],
+            [
+              [114.207325, 22.421123],
+              [114.207481, 22.421129],
+            ],
+            [
+              [114.203446, 22.420485],
+              [114.203213, 22.420387],
+              [114.203115, 22.420258],
+              [114.203095, 22.420148],
+              [114.203124, 22.42005],
+              [114.203172, 22.419986],
+              [114.203399, 22.419875],
+            ],
+            [
+              [114.204351, 22.419872],
+              [114.204356, 22.418757],
+            ],
+            [
+              [114.204775, 22.418759],
+              [114.204356, 22.418757],
+            ],
+            [
+              [114.204775, 22.418759],
+              [114.205258, 22.418752],
+              [114.205748, 22.418718],
+              [114.206165, 22.418624],
+              [114.20652, 22.418582],
+            ],
+            [
+              [114.207999, 22.418498],
+              [114.207784, 22.418485],
+              [114.20652, 22.418582],
+            ],
+            [
+              [114.211835, 22.417619],
+              [114.212321, 22.417649],
+            ],
+            [
+              [114.212321, 22.417649],
+              [114.212398, 22.417639],
+            ],
+            [
+              [114.212398, 22.417639],
+              [114.212439, 22.417587],
+              [114.212439, 22.417544],
+              [114.2124, 22.417493],
+              [114.212356, 22.417479],
+            ],
+            [
+              [114.210332, 22.414955],
+              [114.210582, 22.415366],
+              [114.210982, 22.415786],
+            ],
+            [
+              [114.210332, 22.414955],
+              [114.210367, 22.414874],
+              [114.210365, 22.414809],
+              [114.210208, 22.414539],
+            ],
+          ],
+        },
+      };
+
+      const initialParams = new URLSearchParams(window.location.search);
+      const initialVariant = VARIANTS.some(
+        (variant) => variant.id === initialParams.get("variant"),
+      )
+        ? initialParams.get("variant")
+        : "a";
+      const initialMapMode = [
+        "overview",
+        "nearby",
+        "selected",
+        "user",
+      ].includes(initialParams.get("mapMode"))
+        ? initialParams.get("mapMode")
+        : initialVariant === "c"
+          ? "overview"
+          : "nearby";
+      const state = {
+        view: initialParams.get("view") === "route" ? "route" : "home",
+        variant: initialVariant,
+        homeTab: ["nearby", "frequent", "favorites"].includes(
+          initialParams.get("tab"),
+        )
+          ? initialParams.get("tab")
+          : "nearby",
+        nearbyStopId: ["shho", "sports"].includes(initialParams.get("nearby"))
+          ? initialParams.get("nearby")
+          : HOME_STOP_ID,
+        query: "",
+        userSelectedStop: initialParams.get("selected") === "1",
+        stopId:
+          initialParams.get("selected") === "1" &&
+          STOPS.some((stop) => stop.id === initialParams.get("stop"))
+            ? initialParams.get("stop")
+            : ["shho", "sports"].includes(initialParams.get("nearby"))
+              ? initialParams.get("nearby")
+              : HOME_STOP_ID,
+        mapOpen:
+          initialVariant === "a" ||
+          initialParams.get("map") === "open" ||
+          (initialVariant !== "a" && initialParams.get("map") !== "closed"),
+        mapMode: initialMapMode,
+        displayState: initialParams.get("state") || "ready",
+      };
+
+      let routeMap = null;
+      let routeMapMarkers = [];
+      let routeMapMarkerElements = new Map();
+      let feedbackBaseTimestamp = null;
+      let feedbackSelectedTimestamp = null;
+      let feedbackMinuteOffset = 0;
+      let feedbackTrigger = null;
+      let feedbackSubmitting = false;
+
+      const elements = {
+        homeScreen: document.querySelector("#home-screen"),
+        routeScreen: document.querySelector("#route-screen"),
+        homeContent: document.querySelector("#home-content"),
+        routeContent: document.querySelector("#route-content"),
+        backButton: document.querySelector("#back-button"),
+        feedbackDialog: document.querySelector("#feedback-dialog"),
+        feedbackForm: document.querySelector("#feedback-form"),
+        feedbackEntry: document.querySelector("#feedback-entry"),
+        feedbackStation: document.querySelector("#feedback-station"),
+        feedbackCurrentTime: document.querySelector("#feedback-current-time"),
+        feedbackTimeLater: document.querySelector("#feedback-time-later"),
+        feedbackTimeEarlier: document.querySelector("#feedback-time-earlier"),
+        feedbackTimeRelative: document.querySelector("#feedback-time-relative"),
+        feedbackError: document.querySelector("#feedback-error"),
+        feedbackSubmit: document.querySelector("#feedback-submit"),
+        feedbackSubmitLabel: document.querySelector("#feedback-submit-label"),
+        dialogClose: document.querySelector("#dialog-close"),
+        cancelFeedback: document.querySelector("#cancel-feedback"),
+        toast: document.querySelector("#toast"),
+        previousVariant: document.querySelector("#previous-variant"),
+        variantLabel: document.querySelector("#variant-label"),
+        nextVariant: document.querySelector("#next-variant"),
+      };
+
+      function timeToMinutes(value) {
+        const [hours, minutes] = value.split(":").map(Number);
+        return hours * 60 + minutes;
+      }
+
+      function minutesToTime(total) {
+        const normalized = ((total % 1440) + 1440) % 1440;
+        const hours = Math.floor(normalized / 60);
+        const minutes = normalized % 60;
+        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+      }
+
+      function tripServesStop(departure, stop) {
+        if (!stop.departureMinuteWindow) return true;
+        const minute = departure % 60;
+        const { from, to } = stop.departureMinuteWindow;
+        return from <= to
+          ? minute >= from && minute <= to
+          : minute >= from || minute <= to;
+      }
+
+      function scheduledDepartures() {
+        const departures = [];
+        for (
+          let minute = timeToMinutes("07:45");
+          minute <= timeToMinutes("18:45");
+          minute += 15
+        ) {
+          departures.push(minute);
+        }
+        return departures;
+      }
+
+      function serviceWindowForStop(stop) {
+        const stoppingDepartures = scheduledDepartures().filter((departure) =>
+          tripServesStop(departure, stop),
+        );
+        if (!stoppingDepartures.length) return null;
+        return {
+          firstArrival: stoppingDepartures[0] + stop.offset,
+          lastArrival:
+            stoppingDepartures[stoppingDepartures.length - 1] + stop.offset,
+        };
+      }
+
+      function upcomingTripCandidates(stop) {
+        const now = timeToMinutes(currentAppTime());
+        const serviceWindow = serviceWindowForStop(stop);
+        if (
+          !serviceWindow ||
+          now < serviceWindow.firstArrival ||
+          now > serviceWindow.lastArrival
+        ) {
+          return [];
+        }
+        return scheduledDepartures()
+          .map((departure) => {
+            const plannedArrival = departure + stop.offset;
+            const servesStop = tripServesStop(departure, stop);
+            return {
+              departureTime: minutesToTime(departure),
+              plannedArrival,
+              servesStop,
+              time: servesStop ? minutesToTime(plannedArrival) : null,
+              wait: servesStop ? plannedArrival - now : null,
+            };
+          })
+          .filter((trip) => trip.plannedArrival >= now);
+      }
+
+      function upcomingTrips(stop) {
+        return upcomingTripCandidates(stop)
+          .filter((trip) => trip.servesStop)
+          .slice(0, 3)
+          .map(({ plannedArrival, ...trip }) => trip);
+      }
+
+      function upcomingSkippedTrips(stop) {
+        return upcomingTripCandidates(stop)
+          .filter((trip) => !trip.servesStop)
+          .slice(0, 2)
+          .map(({ plannedArrival, ...trip }) => trip);
+      }
+
+      function arrivalStatusForStop(stop) {
+        const now = timeToMinutes(currentAppTime());
+        const serviceWindow = serviceWindowForStop(stop);
+        if (!serviceWindow) return "今日不經此站";
+        if (now < serviceWindow.firstArrival) {
+          return `首班預計 ${minutesToTime(serviceWindow.firstArrival)}`;
+        }
+        if (now > serviceWindow.lastArrival) return "今日服務已結束";
+        return "暫無預計班次";
+      }
+
+      function activeStop() {
+        return STOPS.find((stop) => stop.id === state.stopId) || STOPS[0];
+      }
+
+      function nearbyStop() {
+        return (
+          STOPS.find((stop) => stop.id === state.nearbyStopId) ||
+          STOPS.find((stop) => stop.id === HOME_STOP_ID)
+        );
+      }
+
+      function oppositeRoadStop() {
+        const otherId = state.nearbyStopId === "shho" ? "sports" : "shho";
+        return STOPS.find((stop) => stop.id === otherId);
+      }
+
+      function preferredScrollBehavior() {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth";
+      }
+
+      const HOME_ROUTES = [
+        {
+          code: "2",
+          name: "新聯線",
+          description: "善衡書院附近，經新亞、聯合往大學站",
+          eta: null,
+          meta: null,
+          active: true,
+          frequent: true,
+          favorite: true,
+        },
+        {
+          code: "N",
+          name: "晚間線",
+          description: "環迴宿舍區，往大學站",
+          eta: "19:00",
+          meta: "今晚開始",
+          active: false,
+        },
+        {
+          code: "H",
+          name: "假日線",
+          description: "星期日及公眾假期服務",
+          eta: "假日",
+          meta: "08:20 開始",
+          active: false,
+        },
+      ];
+
+      function routeDescriptionForStop(stop) {
+        return stop.id === "shho"
+          ? "校園環線，下一站大學站"
+          : "校園環線，途經邵逸夫堂、新亞、聯合";
+      }
+
+      function nextStopAfter(stop) {
+        const currentIndex = STOPS.findIndex((item) => item.id === stop.id);
+        return STOPS[(currentIndex + 1) % STOPS.length];
+      }
+
+      function routeContextForStop(stop) {
+        return `下一站 ${nextStopAfter(stop).name}`;
+      }
+
+      function routeRow({
+        code,
+        name,
+        description,
+        eta,
+        meta,
+        active,
+        arrivals,
+        nearbyStopId,
+        stop,
+      }) {
+        const etaMarkup =
+          active && arrivals?.length
+            ? `<span class="route-eta-stack" aria-label="未來三班預計到站">
+              <span class="route-eta-prediction">預計</span>
+              <span class="route-eta-primary">${arrivals[0].wait}<small>分鐘</small></span>
+              <span class="route-eta-following">之後 <b>${arrivals
+                .slice(1)
+                .map((arrival) => arrival.wait)
+                .join("、")}</b> 分鐘</span>
+            </span>`
+            : active
+              ? `<span class="route-eta-empty">
+                <strong>${arrivalStatusForStop(stop)}</strong>
+                <span>查看今日班次</span>
+              </span>`
+              : `<span class="route-eta">
+              <strong class="service-later">${eta}</strong>
+              <span>${meta}</span>
+            </span>`;
+        return `
+          <li>
+            <button
+              class="route-row"
+              type="button"
+              ${
+                active
+                  ? `data-open-route="2" data-nearby-stop="${nearbyStopId || state.nearbyStopId}"`
+                  : `data-service-route="${code}"`
+              }
+            >
+              <span class="route-number">${code}</span>
+              <span class="route-copy">
+                <strong>${name}</strong>
+                <span>${description}</span>
+              </span>
+              ${etaMarkup}
+            </button>
+          </li>`;
+      }
+
+      function nearbyStopGroupMarkup(stop, distance) {
+        const arrivals = upcomingTrips(stop);
+        return `
+          <section class="nearby-stop-group" aria-labelledby="nearby-${stop.id}">
+            <div class="nearby-stop-group-header">
+              <div>
+                <strong id="nearby-${stop.id}">${stop.name}</strong>
+                <span>${stop.nameEn}</span>
+              </div>
+              <span class="nearby-stop-distance">約 ${distance} 米</span>
+            </div>
+            <ul class="route-list">
+              ${routeRow({
+                ...HOME_ROUTES[0],
+                description: routeDescriptionForStop(stop),
+                arrivals,
+                nearbyStopId: stop.id,
+                stop,
+              })}
+            </ul>
+          </section>`;
+      }
+
+      function renderRouteResults() {
+        const selectedNearbyStop = nearbyStop();
+        const arrivals = upcomingTrips(selectedNearbyStop);
+        const [next] = arrivals;
+        const normalizedQuery = state.query.trim().toLocaleLowerCase("zh-Hant");
+        let routes = HOME_ROUTES.map((route) =>
+          route.code === "2"
+            ? {
+                ...route,
+                description: routeDescriptionForStop(selectedNearbyStop),
+                eta: next ? String(next.wait) : "--",
+                meta: next
+                  ? `分鐘，預計 ${next.time}`
+                  : arrivalStatusForStop(selectedNearbyStop),
+                arrivals,
+                nearbyStopId: state.nearbyStopId,
+                stop: selectedNearbyStop,
+              }
+            : route,
+        );
+
+        if (state.homeTab === "frequent")
+          routes = routes.filter((route) => route.frequent);
+        if (state.homeTab === "favorites")
+          routes = routes.filter((route) => route.favorite);
+        if (normalizedQuery) {
+          routes = routes.filter((route) =>
+            `${route.code} ${route.name} ${route.description}`
+              .toLocaleLowerCase("zh-Hant")
+              .includes(normalizedQuery),
+          );
+        }
+
+        const results = document.querySelector("#route-results");
+        if (!routes.length) {
+          results.innerHTML = `
+            <div class="search-empty">
+              <strong>找不到相關校巴路線</strong>
+              <span>可搜尋 2、N、H 或路線名稱。</span>
+            </div>`;
+          return;
+        }
+
+        const activeRoutes = routes.filter((route) => route.active);
+        const laterRoutes = routes.filter((route) => !route.active);
+        if (state.homeTab === "nearby" && !normalizedQuery) {
+          const shho = STOPS.find((stop) => stop.id === "shho");
+          const sports = STOPS.find((stop) => stop.id === "sports");
+          results.innerHTML = `
+            <div class="nearby-stop-groups">
+              ${nearbyStopGroupMarkup(shho, 40)}
+              ${nearbyStopGroupMarkup(sports, 55)}
+            </div>
+            ${laterRoutes.length ? `<p class="section-label">其他時段</p><ul class="route-list">${laterRoutes.map(routeRow).join("")}</ul>` : ""}`;
+        } else {
+          results.innerHTML = `
+            ${activeRoutes.length ? `<p class="section-label">已儲存路線</p><ul class="route-list">${activeRoutes.map(routeRow).join("")}</ul>` : ""}
+            ${laterRoutes.length ? `<p class="section-label">其他時段</p><ul class="route-list">${laterRoutes.map(routeRow).join("")}</ul>` : ""}`;
+        }
+
+        results.querySelectorAll("[data-open-route]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.nearbyStopId = button.dataset.nearbyStop;
+            state.stopId = button.dataset.nearbyStop;
+            state.userSelectedStop = false;
+            state.mapOpen = true;
+            setView("route", true);
+          });
+        });
+        results.querySelectorAll("[data-service-route]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const route = HOME_ROUTES.find(
+              (item) => item.code === button.dataset.serviceRoute,
+            );
+            showToast(`${route.code} ${route.name}目前不在服務時段。`);
+          });
+        });
+      }
+
+      function renderHome() {
+        if (state.displayState === "loading") {
+          elements.homeContent.innerHTML = `
+            <div class="home-intro"><h1 id="home-title">校巴路線</h1><p>正在讀取班次…</p></div>
+            <div class="loading-list" aria-label="正在載入路線">
+              <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>
+            </div>`;
+          return;
+        }
+
+        if (state.displayState === "error") {
+          elements.homeContent.innerHTML = `
+            <div class="state-card">
+              <h1 id="home-title">暫時無法讀取預計時間</h1>
+              <p>請稍後再試。官方起點時間仍可在中大交通處網站查看。</p>
+            </div>`;
+          return;
+        }
+
+        elements.homeContent.innerHTML = `
+          <section class="home-dashboard nearby-overview" aria-labelledby="home-title">
+            <h1 id="home-title" tabindex="-1">附近候車站</h1>
+            <p>GPS 附近找到兩個站，請選擇你實際候車的一側。</p>
+          </section>
+
+          <div class="home-tabs" role="tablist" aria-label="路線分類">
+            <button class="home-tab" id="home-tab-nearby" type="button" role="tab" data-home-tab="nearby" aria-controls="route-results" aria-selected="${state.homeTab === "nearby"}">附近</button>
+            <button class="home-tab" id="home-tab-frequent" type="button" role="tab" data-home-tab="frequent" aria-controls="route-results" aria-selected="${state.homeTab === "frequent"}">常用</button>
+            <button class="home-tab" id="home-tab-favorites" type="button" role="tab" data-home-tab="favorites" aria-controls="route-results" aria-selected="${state.homeTab === "favorites"}">收藏</button>
+          </div>
+          <div id="route-results"></div>`;
+        document.querySelectorAll("[data-home-tab]").forEach((button) => {
+          button.addEventListener("click", () => {
+            state.homeTab = button.dataset.homeTab;
+            syncUrl(false);
+            renderHome();
+          });
+        });
+        document
+          .querySelector(".home-tabs")
+          .addEventListener("keydown", (event) => {
+            if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+            const tabIds = ["nearby", "frequent", "favorites"];
+            const currentIndex = tabIds.indexOf(state.homeTab);
+            const direction = event.key === "ArrowLeft" ? -1 : 1;
+            const nextTab =
+              tabIds[
+                (currentIndex + direction + tabIds.length) % tabIds.length
+              ];
+            event.preventDefault();
+            state.homeTab = nextTab;
+            syncUrl(false);
+            renderHome();
+            document.querySelector(`[data-home-tab="${nextTab}"]`)?.focus();
+          });
+        renderRouteResults();
+      }
+
+      function serviceLineMarkup() {
+        return `
+          <div class="route-service-line" aria-label="今日路線資料">
+            <strong>今日 07:45-18:45</strong>
+            <span>約每 15 分鐘一班</span>
+          </div>`;
+      }
+
+      function mapMarkup(kind = "") {
+        if (!state.mapOpen) {
+          return `
+            <div class="map-panel">
+              <button class="map-reopen" type="button" data-map-toggle>
+                查看站位地圖
+              </button>
+            </div>`;
+        }
+
+        return `
+          <section class="map-panel ${kind}" aria-label="路線 2 地圖">
+            <div
+              class="route-map"
+              id="route-map"
+              role="region"
+              aria-label="顯示所有站點、模擬位置與目前選中站點的地圖"
+            ></div>
+            <span class="map-route-label">
+              <strong>2 新聯線</strong>
+              <small>${routeContextForStop(activeStop())}</small>
+            </span>
+            <div class="map-toolbar">
+              <button
+                class="map-tool icon-only"
+                type="button"
+                data-locate
+                aria-label="我的位置"
+                title="我的位置"
+                aria-pressed="${state.mapMode === "user"}"
+              ><span class="locate-icon" aria-hidden="true"></span></button>
+              ${kind === "compact" ? '<button class="map-tool" type="button" data-map-toggle>收起</button>' : ""}
+            </div>
+            ${kind ? mapSelectedCardMarkup() : ""}
+          </section>`;
+      }
+
+      function mapSelectedCardMarkup() {
+        const stop = activeStop();
+        const trips = upcomingTrips(stop);
+        const [next, ...later] = trips;
+        if (!next) {
+          return `
+            <div class="map-selected-card" id="map-selected-card">
+              <div>
+                <strong>${stop.name}</strong>
+                <small>${stop.nameEn}</small>
+                <span>${arrivalStatusForStop(stop)}</span>
+              </div>
+              <div class="map-selected-actions">
+                <button class="map-card-action" type="button" data-feedback>提交即時到站時間</button>
+                <button class="map-card-action" type="button" data-view-in-list>在站點列表查看</button>
+              </div>
+            </div>`;
+        }
+        return `
+          <div class="map-selected-card" id="map-selected-card">
+            <div>
+              <strong>${stop.name}</strong>
+              <small>${stop.nameEn}</small>
+              <span>預計 ${next.time}${later.length ? `，之後 ${later.map((arrival) => arrival.wait).join("、")} 分鐘` : ""}</span>
+            </div>
+            <div class="map-selected-eta">
+              ${next.wait}
+              <small>分鐘</small>
+            </div>
+            <div class="map-selected-actions">
+              <button class="map-card-action" type="button" data-feedback>提交即時到站時間</button>
+              <button class="map-card-action" type="button" data-view-in-list>在站點列表查看</button>
+            </div>
+          </div>`;
+      }
+
+      function inlineArrivalsMarkup(stop) {
+        const arrivals = upcomingTrips(stop);
+        const skippedTrips = upcomingSkippedTrips(stop);
+        return `
+          <div
+            class="inline-arrivals"
+            id="arrivals-${stop.id}"
+            role="region"
+            aria-label="${stop.name}未來三班停靠情況"
+          >
+            ${
+              arrivals.length
+                ? `<div class="station-eta-list" aria-live="polite">
+                    ${arrivals
+                      .map(
+                        (arrival, index) => `
+                              <div class="station-eta-row">
+                                <span class="station-eta-order">${index === 0 ? "下一班" : `第 ${index + 1} 班`}</span>
+                                <span class="station-eta-value">${arrival.wait}<small>分鐘</small></span>
+                                <time class="station-eta-clock" datetime="${arrival.time}">
+                                  預計 ${arrival.time}
+                                </time>
+                              </div>`,
+                      )
+                      .join("")}
+                  </div>`
+                : `<div class="arrival-empty">${arrivalStatusForStop(stop)}</div>`
+            }
+            ${
+              skippedTrips.length
+                ? `<p class="station-skip-note">另有 ${skippedTrips
+                    .map((trip) => trip.departureTime)
+                    .join("、")} 起點班次不停靠本站</p>`
+                : ""
+            }
+            <div class="feedback-action-row">
+              <button class="feedback-inline" type="button" data-feedback>
+                預測不準？提交即時到站時間改進預測
+              </button>
+            </div>
+          </div>`;
+      }
+
+      function journeyListMarkup() {
+        return `
+          <div class="journey-scroll">
+            <h2 class="journey-heading" id="stops-title-a">沿途站點</h2>
+            <ol class="journey-list" aria-labelledby="stops-title-a">
+              ${STOPS.map((stop, index) => {
+                const selected = stop.id === state.stopId;
+                const badge =
+                  stop.id === state.nearbyStopId
+                    ? "你在附近"
+                    : stop.conditional
+                      ? "部分班次"
+                      : "";
+                return `
+                  <li class="journey-stop ${selected ? "active" : ""}" data-stop-row="${stop.id}">
+                    <div class="journey-rail" aria-hidden="true"><span class="journey-dot"></span></div>
+                    <div class="journey-content">
+                      <button
+                        class="journey-select"
+                        type="button"
+                        data-stop-id="${stop.id}"
+                        aria-expanded="${selected}"
+                        ${selected ? `aria-controls="arrivals-${stop.id}"` : ""}
+                      >
+                        <span class="journey-name">
+                          <strong>${index + 1}. ${stop.name}</strong>
+                          <small>${stop.nameEn}</small>
+                        </span>
+                        <span class="stop-badge ${stop.id === state.nearbyStopId ? "nearby" : ""}">${badge}</span>
+                      </button>
+                      ${selected ? inlineArrivalsMarkup(stop) : ""}
+                    </div>
+                  </li>`;
+              }).join("")}
+            </ol>
+          </div>`;
+      }
+
+      function etaHeroMarkup() {
+        const stop = activeStop();
+        const trips = upcomingTrips(stop);
+        const [next, ...later] = trips.filter((trip) => trip.servesStop);
+        if (!next) {
+          return `
+            <section class="eta-hero" aria-labelledby="selected-stop-title">
+              <div class="eta-hero-head">
+                <h1 id="selected-stop-title">
+                  ${stop.name}
+                  <small>${stop.nameEn}</small>
+                </h1>
+                <span class="nearby-tag">${stop.id === state.nearbyStopId ? "定位附近" : `第 ${STOPS.indexOf(stop) + 1} 站`}</span>
+              </div>
+              <div class="arrival-empty">${arrivalStatusForStop(stop)}</div>
+              <div class="eta-hero-footer">
+                <p>如巴士已到站，可提交實際時間。</p>
+                <button class="feedback-link" type="button" data-feedback>
+                  預測不準？提交即時到站時間改進預測
+                </button>
+              </div>
+            </section>`;
+        }
+        return `
+          <section class="eta-hero" aria-labelledby="selected-stop-title">
+            <div class="eta-hero-head">
+              <h1 id="selected-stop-title">
+                ${stop.name}
+                <small>${stop.nameEn}</small>
+              </h1>
+              <span class="nearby-tag">${stop.id === state.nearbyStopId ? "定位附近" : `第 ${STOPS.indexOf(stop) + 1} 站`}</span>
+            </div>
+            <div class="eta-hero-main">
+              <div class="eta-hero-number">${next.wait}<small>分鐘</small></div>
+              <div class="eta-hero-time">
+                <strong>預計 ${next.time}</strong>
+              </div>
+            </div>
+            <div class="eta-hero-footer">
+              <p>${trips[0]?.servesStop === false ? "下一班不經此站" : later.length ? `之後 ${later.map((arrival) => `${arrival.wait} 分鐘`).join("、")}` : ""}</p>
+              <button class="feedback-link" type="button" data-feedback>
+                預測不準？提交即時到站時間改進預測
+              </button>
+            </div>
+          </section>`;
+      }
+
+      function plainStopListMarkup(headingId) {
+        return `
+          <section aria-labelledby="${headingId}">
+            <div class="plain-list-heading">
+              <h2 id="${headingId}">全部站點</h2>
+            </div>
+            <ol class="plain-stop-list">
+              ${STOPS.map((stop, index) => {
+                const selected = stop.id === state.stopId;
+                const next = upcomingTrips(stop).find(
+                  (trip) => trip.servesStop,
+                );
+                return `
+                  <li class="${selected ? "active" : ""}" data-stop-row="${stop.id}">
+                    <button class="plain-stop-button" type="button" data-stop-id="${stop.id}" aria-pressed="${selected}">
+                      <span class="journey-name">
+                        <strong><span class="stop-index">${index + 1}</span>${stop.name}</strong>
+                        <small>${stop.nameEn}${stop.conditional ? " · 部分班次" : ""}</small>
+                      </span>
+                      <span class="plain-stop-eta">
+                        ${selected && next ? `<strong>${next.wait} 分鐘</strong>預計 ${next.time}` : selected ? arrivalStatusForStop(stop) : "查看"}
+                      </span>
+                    </button>
+                  </li>`;
+              }).join("")}
+            </ol>
+          </section>`;
+      }
+
+      function nearestStripMarkup() {
+        const selectedNearbyStop = nearbyStop();
+        const otherRoadStop = oppositeRoadStop();
+        const showingNearby = state.stopId === state.nearbyStopId;
+        return `
+          <div class="nearest-strip">
+            <div>
+              <span>${showingNearby ? "GPS 推測候車站" : "你的附近候車站"}</span>
+              <strong>${selectedNearbyStop.name}</strong>
+            </div>
+            <button type="button" ${showingNearby ? "data-switch-nearby" : "data-locate"}>
+              ${showingNearby ? `馬路另一側：${otherRoadStop.name}` : "回到附近站點"}
+            </button>
+          </div>`;
+      }
+
+      function variantAMarkup() {
+        return `
+          <div class="route-view variant-a" data-variant="a">
+            ${serviceLineMarkup()}
+            ${mapMarkup()}
+            ${journeyListMarkup()}
+          </div>`;
+      }
+
+      function variantBMarkup() {
+        return `
+          <div class="route-view variant-b" data-variant="b">
+            ${serviceLineMarkup()}
+            ${etaHeroMarkup()}
+            ${mapMarkup("compact")}
+            ${plainStopListMarkup("stops-title-b")}
+          </div>`;
+      }
+
+      function variantCMarkup() {
+        return `
+          <div class="route-view variant-c" data-variant="c">
+            ${serviceLineMarkup()}
+            ${mapMarkup("map-first")}
+            ${nearestStripMarkup()}
+            ${plainStopListMarkup("stops-title-c")}
+            <div class="inline-arrivals">
+              <button class="feedback-link" type="button" data-feedback>
+                ${activeStop().name}：提交即時到站時間
+              </button>
+            </div>
+          </div>`;
+      }
+
+      function destroyRouteMap() {
+        routeMapMarkers.forEach((marker) => marker.remove());
+        routeMapMarkers = [];
+        routeMapMarkerElements.clear();
+        if (routeMap) routeMap.remove();
+        routeMap = null;
+      }
+
+      function routeBounds() {
+        const bounds = new maplibregl.LngLatBounds();
+        ROUTE_2_GEOMETRY.geometry.coordinates.forEach((line) => {
+          line.forEach((coordinates) => bounds.extend(coordinates));
+        });
+        STOPS.forEach((stop) => bounds.extend(stop.coordinates));
+        return bounds;
+      }
+
+      function nearbyBounds() {
+        const bounds = new maplibregl.LngLatBounds();
+        bounds.extend(nearbyStop().coordinates);
+        bounds.extend(oppositeRoadStop().coordinates);
+        bounds.extend(SAMPLE_USER_LOCATION);
+        return bounds;
+      }
+
+      function updateMapModeControls() {
+        document.querySelectorAll("[data-locate]").forEach((button) => {
+          button.setAttribute("aria-pressed", state.mapMode === "user");
+        });
+      }
+
+      function applyMapCamera(animate = true) {
+        if (!routeMap) return;
+        routeMap.resize();
+        const duration = animate ? 320 : 0;
+        const bottomPadding = state.variant === "a" ? 48 : 132;
+        if (state.mapMode === "overview") {
+          routeMap.fitBounds(routeBounds(), {
+            padding: { top: 64, right: 34, bottom: bottomPadding, left: 34 },
+            duration,
+            maxZoom: 15.7,
+          });
+        } else if (state.mapMode === "nearby") {
+          routeMap.fitBounds(nearbyBounds(), {
+            padding: { top: 64, right: 40, bottom: bottomPadding, left: 40 },
+            duration,
+            maxZoom: 17.5,
+          });
+        } else if (state.mapMode === "user") {
+          routeMap.easeTo({
+            center: SAMPLE_USER_LOCATION,
+            zoom: 17.5,
+            offset: [0, -30],
+            duration,
+          });
+        } else if (state.mapMode === "selected") {
+          routeMap.easeTo({
+            center: activeStop().coordinates,
+            zoom: Math.max(routeMap.getZoom(), 16.8),
+            offset: [0, state.variant === "a" ? 0 : -38],
+            duration,
+          });
+        }
+        updateMapModeControls();
+      }
+
+      function markMapFree(event) {
+        if (event?.originalEvent === undefined && event?.type === "zoomstart") {
+          return;
+        }
+        state.mapMode = "free";
+        updateMapModeControls();
+        syncUrl(false);
+      }
+
+      function updateMapSelection() {
+        routeMapMarkerElements.forEach((element, stopId) => {
+          const selected = stopId === state.stopId;
+          element.classList.toggle("selected", selected);
+          element
+            .querySelector("button")
+            ?.setAttribute("aria-pressed", selected);
+        });
+        const card = document.querySelector("#map-selected-card");
+        if (card) card.outerHTML = mapSelectedCardMarkup();
+        const mapLabel = document.querySelector(".map-route-label small");
+        if (mapLabel) mapLabel.textContent = routeContextForStop(activeStop());
+      }
+
+      function initRouteMap() {
+        const container = document.querySelector("#route-map");
+        if (!container || !state.mapOpen) return;
+
+        if (!window.maplibregl) {
+          container.innerHTML = `
+            <p class="map-unavailable">
+              地圖元件未能載入。站點列表仍可正常使用。
+            </p>`;
+          return;
+        }
+
+        const map = new maplibregl.Map({
+          container,
+          attributionControl: true,
+          cooperativeGestures: true,
+          dragRotate: false,
+          touchPitch: false,
+          locale: {
+            "CooperativeGesturesHandler.WindowsHelpText":
+              "按住 Ctrl 並捲動以縮放地圖",
+            "CooperativeGesturesHandler.MacHelpText":
+              "按住 Command 並捲動以縮放地圖",
+            "CooperativeGesturesHandler.MobileHelpText": "使用雙指移動地圖",
+          },
+          style: {
+            version: 8,
+            sources: {
+              osm: {
+                type: "raster",
+                tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+                tileSize: 256,
+                attribution:
+                  '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+              },
+            },
+            layers: [{ id: "osm", type: "raster", source: "osm" }],
+          },
+          center: activeStop().coordinates,
+          zoom: 14.5,
+          maxZoom: 18,
+        });
+        routeMap = map;
+
+        map.on("load", () => {
+          if (routeMap !== map) return;
+          const accent = getComputedStyle(document.documentElement)
+            .getPropertyValue("--accent")
+            .trim();
+          map.addSource("route-2-shape", {
+            type: "geojson",
+            data: ROUTE_2_GEOMETRY,
+          });
+          map.addLayer({
+            id: "route-2-casing",
+            type: "line",
+            source: "route-2-shape",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": "#fff",
+              "line-width": 8,
+              "line-opacity": 0.86,
+            },
+          });
+          map.addLayer({
+            id: "route-2-line",
+            type: "line",
+            source: "route-2-shape",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": accent || "#55286f",
+              "line-width": 5,
+              "line-opacity": 0.9,
+            },
+          });
+          requestAnimationFrame(() => applyMapCamera(false));
+        });
+
+        map.on("dragstart", markMapFree);
+        map.on("zoomstart", markMapFree);
+
+        STOPS.forEach((stop, index) => {
+          const element = document.createElement("div");
+          element.className = `map-stop-marker ${stop.id === state.stopId ? "selected" : ""} ${stop.conditional ? "conditional" : ""}`;
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "map-stop-button";
+          button.innerHTML = `<span class="map-stop-number">${index + 1}</span>`;
+          button.setAttribute(
+            "aria-label",
+            `選擇第 ${index + 1} 站 ${stop.name}${stop.conditional ? "，部分班次停靠" : ""}`,
+          );
+          button.setAttribute("aria-pressed", stop.id === state.stopId);
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            selectStop(stop.id, "map");
+          });
+          element.append(button);
+          routeMapMarkerElements.set(stop.id, element);
+          routeMapMarkers.push(
+            new maplibregl.Marker({ element, anchor: "center" })
+              .setLngLat(stop.coordinates)
+              .addTo(map),
+          );
+        });
+
+        const userElement = document.createElement("div");
+        userElement.className = "user-location-marker";
+        userElement.setAttribute("aria-label", "模擬的目前位置");
+        routeMapMarkers.push(
+          new maplibregl.Marker({ element: userElement, anchor: "center" })
+            .setLngLat(SAMPLE_USER_LOCATION)
+            .addTo(map),
+        );
+      }
+
+      function updateRouteSelection() {
+        if (state.variant === "a") {
+          document.querySelectorAll(".journey-stop").forEach((row) => {
+            const stopId = row.dataset.stopRow;
+            const selected = stopId === state.stopId;
+            const stop = STOPS.find((item) => item.id === stopId);
+            const button = row.querySelector("[data-stop-id]");
+            const content = row.querySelector(".journey-content");
+            row.classList.toggle("active", selected);
+            button?.setAttribute("aria-expanded", selected);
+            if (selected)
+              button?.setAttribute("aria-controls", `arrivals-${stopId}`);
+            else button?.removeAttribute("aria-controls");
+            content?.querySelector(".inline-arrivals")?.remove();
+            if (selected && content && stop) {
+              content.insertAdjacentHTML(
+                "beforeend",
+                inlineArrivalsMarkup(stop),
+              );
+            }
+          });
+        } else if (state.variant === "b") {
+          const hero = document.querySelector(".variant-b .eta-hero");
+          const list = document.querySelector(
+            '.variant-b section[aria-labelledby="stops-title-b"]',
+          );
+          if (hero) hero.outerHTML = etaHeroMarkup();
+          if (list) list.outerHTML = plainStopListMarkup("stops-title-b");
+        } else {
+          const strip = document.querySelector(".variant-c .nearest-strip");
+          const list = document.querySelector(
+            '.variant-c section[aria-labelledby="stops-title-c"]',
+          );
+          const feedback = document.querySelector(
+            ".variant-c > .inline-arrivals [data-feedback]",
+          );
+          if (strip) strip.outerHTML = nearestStripMarkup();
+          if (list) list.outerHTML = plainStopListMarkup("stops-title-c");
+          if (feedback) {
+            feedback.textContent = `${activeStop().name}：提交即時到站時間`;
+          }
+        }
+
+        elements.variantLabel.textContent = `${
+          VARIANTS.find((variant) => variant.id === state.variant)?.label ||
+          VARIANTS[0].label
+        } | ${activeStop().name}`;
+        elements.variantLabel.title = `目前選中：${activeStop().name}`;
+        updateRouteHeader();
+        updateMapSelection();
+      }
+
+      function updateRouteHeader() {
+        const subtitle = document.querySelector(
+          "#route-screen .bar-title small",
+        );
+        if (subtitle) {
+          subtitle.textContent = `校園環線，${routeContextForStop(activeStop())}`;
+        }
+      }
+
+      function revealSelectedStopInJourney(behavior = "auto") {
+        const scroller = document.querySelector(
+          ".variant-a:not(.map-closed) .journey-scroll",
+        );
+        const row = document.querySelector(
+          `.variant-a [data-stop-row="${state.stopId}"]`,
+        );
+        if (!scroller || !row) return;
+        const heading = scroller.querySelector(".journey-heading");
+        const scrollerTop = scroller.getBoundingClientRect().top;
+        const rowTop = row.getBoundingClientRect().top;
+        const headingHeight = heading?.offsetHeight || 0;
+        scroller.scrollTo({
+          top: Math.max(
+            0,
+            scroller.scrollTop + rowTop - scrollerTop - headingHeight,
+          ),
+          behavior,
+        });
+      }
+
+      function selectStop(stopId, source = "list") {
+        if (!STOPS.some((stop) => stop.id === stopId)) return;
+        state.stopId = stopId;
+        state.userSelectedStop = true;
+        if (state.mapOpen) state.mapMode = "selected";
+        syncUrl(false);
+        updateRouteSelection();
+        if (routeMap) applyMapCamera(source !== "initial");
+        if (state.variant === "a" && state.mapOpen && source !== "initial") {
+          requestAnimationFrame(() =>
+            revealSelectedStopInJourney(preferredScrollBehavior()),
+          );
+        }
+      }
+
+      function bindRouteInteractions() {
+        if (bindRouteInteractions.bound) return;
+        bindRouteInteractions.bound = true;
+        elements.routeContent.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof Element)) return;
+
+          const feedback = target.closest("[data-feedback]");
+          if (feedback) {
+            openFeedback(feedback);
+            return;
+          }
+
+          const viewInList = target.closest("[data-view-in-list]");
+          if (viewInList) {
+            const row = document.querySelector(
+              `[data-stop-row="${state.stopId}"]`,
+            );
+            row?.scrollIntoView({
+              behavior: preferredScrollBehavior(),
+              block: "center",
+            });
+            row
+              ?.querySelector("[data-stop-id]")
+              ?.focus({ preventScroll: true });
+            return;
+          }
+
+          const stopButton = target.closest("[data-stop-id]");
+          if (stopButton) {
+            selectStop(stopButton.dataset.stopId, "list");
+            stopButton.focus({ preventScroll: true });
+            return;
+          }
+
+          if (target.closest("[data-locate]")) {
+            state.mapMode = "user";
+            syncUrl(false);
+            applyMapCamera();
+            return;
+          }
+
+          if (target.closest("[data-switch-nearby]")) {
+            state.nearbyStopId = oppositeRoadStop().id;
+            state.stopId = state.nearbyStopId;
+            state.userSelectedStop = false;
+            state.mapMode = "nearby";
+            syncUrl(false);
+            updateRouteSelection();
+            applyMapCamera();
+            requestAnimationFrame(() => {
+              document
+                .querySelector(`[data-stop-row="${state.stopId}"]`)
+                ?.scrollIntoView({
+                  behavior: preferredScrollBehavior(),
+                  block: "center",
+                });
+            });
+            return;
+          }
+
+          if (target.closest("[data-map-toggle]")) {
+            state.mapOpen = !state.mapOpen;
+            if (state.mapOpen) state.mapMode = "nearby";
+            syncUrl(false);
+            renderRoute();
+          }
+        });
+      }
+
+      function renderRoute() {
+        destroyRouteMap();
+        const renderVariant = {
+          a: variantAMarkup,
+          b: variantBMarkup,
+          c: variantCMarkup,
+        }[state.variant];
+        elements.routeContent.innerHTML = renderVariant();
+        elements.variantLabel.textContent = `${
+          VARIANTS.find((variant) => variant.id === state.variant)?.label ||
+          VARIANTS[0].label
+        } | ${activeStop().name}`;
+        elements.variantLabel.title = `目前選中：${activeStop().name}`;
+        updateRouteHeader();
+        bindRouteInteractions();
+        initRouteMap();
+        if (state.variant === "a" && state.mapOpen) {
+          requestAnimationFrame(() => revealSelectedStopInJourney("auto"));
+        }
+      }
+
+      function currentAppTime() {
+        if (
+          CLOCK_OVERRIDE &&
+          /^([01]\d|2[0-3]):[0-5]\d$/.test(CLOCK_OVERRIDE)
+        ) {
+          return CLOCK_OVERRIDE;
+        }
+        return new Intl.DateTimeFormat("zh-HK", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+          timeZone: "Asia/Hong_Kong",
+        }).format(new Date());
+      }
+
+      function hongKongDateParts(date) {
+        return Object.fromEntries(
+          new Intl.DateTimeFormat("en-CA", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            timeZone: "Asia/Hong_Kong",
+          })
+            .formatToParts(date)
+            .filter((part) => part.type !== "literal")
+            .map((part) => [part.type, part.value]),
+        );
+      }
+
+      function currentFeedbackTimestamp() {
+        const now = new Date();
+        now.setSeconds(0, 0);
+        if (
+          !CLOCK_OVERRIDE ||
+          !/^([01]\d|2[0-3]):[0-5]\d$/.test(CLOCK_OVERRIDE)
+        ) {
+          return now;
+        }
+        const { year, month, day } = hongKongDateParts(now);
+        return new Date(`${year}-${month}-${day}T${CLOCK_OVERRIDE}:00+08:00`);
+      }
+
+      function formatHongKongTime(date) {
+        return new Intl.DateTimeFormat("zh-HK", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+          timeZone: "Asia/Hong_Kong",
+        }).format(date);
+      }
+
+      function feedbackTimestampAtOffset(offset) {
+        return new Date(feedbackBaseTimestamp.getTime() - offset * 60_000);
+      }
+
+      function feedbackRelativeLabel(offset) {
+        return offset === 0 ? "現在" : `${offset} 分鐘前`;
+      }
+
+      function updateFeedbackTimeDisplay() {
+        const time = formatHongKongTime(feedbackSelectedTimestamp);
+        const relative = feedbackRelativeLabel(feedbackMinuteOffset);
+        elements.feedbackCurrentTime.textContent = time;
+        elements.feedbackCurrentTime.dateTime =
+          feedbackSelectedTimestamp.toISOString();
+        elements.feedbackTimeRelative.textContent = relative;
+        elements.feedbackTimeLater.setAttribute(
+          "aria-label",
+          `到站時間調後一分鐘，目前 ${time}`,
+        );
+        elements.feedbackTimeEarlier.setAttribute(
+          "aria-label",
+          `到站時間調前一分鐘，目前 ${time}`,
+        );
+      }
+
+      function updateFeedbackStepControls() {
+        elements.feedbackTimeLater.disabled =
+          feedbackSubmitting || feedbackMinuteOffset === 0;
+        elements.feedbackTimeEarlier.disabled =
+          feedbackSubmitting || feedbackMinuteOffset === 10;
+      }
+
+      function selectFeedbackMinute(offset) {
+        const normalizedOffset = Math.max(0, Math.min(10, offset));
+        if (normalizedOffset === feedbackMinuteOffset) return;
+        feedbackMinuteOffset = normalizedOffset;
+        feedbackSelectedTimestamp = feedbackTimestampAtOffset(normalizedOffset);
+        updateFeedbackTimeDisplay();
+        updateFeedbackStepControls();
+      }
+
+      function setFeedbackControlsDisabled(disabled) {
+        elements.dialogClose.disabled = disabled;
+        elements.cancelFeedback.disabled = disabled;
+        elements.feedbackSubmit.disabled = disabled;
+        feedbackSubmitting = disabled;
+        updateFeedbackStepControls();
+      }
+
+      function resetFeedbackDialog() {
+        feedbackSubmitting = false;
+        elements.feedbackEntry.hidden = false;
+        elements.feedbackError.hidden = true;
+        elements.feedbackSubmitLabel.textContent = "提交";
+        elements.feedbackSubmit.classList.remove("is-loading");
+        elements.feedbackForm.removeAttribute("aria-busy");
+        setFeedbackControlsDisabled(false);
+      }
+
+      function openFeedback(trigger) {
+        feedbackTrigger = trigger;
+        feedbackBaseTimestamp = currentFeedbackTimestamp();
+        feedbackSelectedTimestamp = new Date(feedbackBaseTimestamp);
+        feedbackMinuteOffset = 0;
+        resetFeedbackDialog();
+        elements.feedbackStation.textContent = activeStop().name;
+        updateFeedbackTimeDisplay();
+        elements.feedbackDialog.showModal();
+      }
+
+      function closeFeedback() {
+        if (!feedbackSubmitting) elements.feedbackDialog.close();
+      }
+
+      function showFeedbackError() {
+        feedbackSubmitting = false;
+        elements.feedbackForm.removeAttribute("aria-busy");
+        elements.feedbackSubmit.classList.remove("is-loading");
+        elements.feedbackSubmitLabel.textContent = "重試";
+        elements.feedbackError.hidden = false;
+        setFeedbackControlsDisabled(false);
+        elements.feedbackSubmit.focus({ preventScroll: true });
+      }
+
+      function showFeedbackSuccess() {
+        feedbackSubmitting = false;
+        elements.feedbackForm.removeAttribute("aria-busy");
+        const station = activeStop().name;
+        const time = formatHongKongTime(feedbackSelectedTimestamp);
+        elements.feedbackDialog.close();
+        showToast(`謝謝，已匿名記錄：${station} ${time}`);
+      }
+
+      function showToast(message) {
+        elements.toast.textContent = message;
+        elements.toast.classList.add("visible");
+        window.clearTimeout(showToast.timeout);
+        showToast.timeout = window.setTimeout(() => {
+          elements.toast.classList.remove("visible");
+        }, 3200);
+      }
+
+      function syncUrl(push) {
+        const params = new URLSearchParams(window.location.search);
+        params.set("view", state.view);
+        params.set("tab", state.homeTab);
+        params.set("variant", state.variant);
+        params.set("nearby", state.nearbyStopId);
+        if (state.view === "route") {
+          params.set("stop", state.stopId);
+          if (state.userSelectedStop) params.set("selected", "1");
+          else params.delete("selected");
+          if (!state.mapOpen) params.set("map", "closed");
+          else if (state.variant === "a") params.set("map", "open");
+          else params.delete("map");
+          if (state.mapOpen && state.mapMode !== "free") {
+            params.set("mapMode", state.mapMode);
+          } else params.delete("mapMode");
+        } else {
+          params.delete("stop");
+          params.delete("selected");
+          params.delete("map");
+          params.delete("mapMode");
+        }
+        const url = `${window.location.pathname}?${params.toString()}`;
+        window.history[push ? "pushState" : "replaceState"]({}, "", url);
+      }
+
+      function cycleVariant(direction) {
+        const currentIndex = VARIANTS.findIndex(
+          (variant) => variant.id === state.variant,
+        );
+        const nextIndex =
+          (currentIndex + direction + VARIANTS.length) % VARIANTS.length;
+        state.variant = VARIANTS[nextIndex].id;
+        state.mapOpen = true;
+        state.mapMode =
+          state.variant === "c"
+            ? "overview"
+            : state.variant === "b"
+              ? "selected"
+              : "nearby";
+        syncUrl(false);
+        if (state.view === "route") renderRoute();
+      }
+
+      function setView(view, push = false) {
+        state.view = view;
+        elements.homeScreen.hidden = view !== "home";
+        elements.routeScreen.hidden = view !== "route";
+        document.querySelector(".prototype-switcher").hidden = true;
+        syncUrl(push);
+        if (view === "home") {
+          destroyRouteMap();
+          renderHome();
+          document.querySelector("#home-title")?.focus?.();
+        } else {
+          renderRoute();
+          window.scrollTo({ top: 0, behavior: "instant" });
+          document
+            .querySelector("#route-title")
+            ?.focus({ preventScroll: true });
+          if (!state.userSelectedStop && state.variant === "a") {
+            requestAnimationFrame(() => {
+              const target = document.querySelector(
+                `[data-stop-row="${state.nearbyStopId}"]`,
+              );
+              target?.scrollIntoView({
+                behavior: "auto",
+                block: "center",
+              });
+            });
+          }
+        }
+      }
+
+      elements.backButton.addEventListener("click", () =>
+        setView("home", false),
+      );
+      elements.dialogClose.addEventListener("click", closeFeedback);
+      elements.cancelFeedback.addEventListener("click", closeFeedback);
+      elements.feedbackTimeLater.addEventListener("click", () => {
+        selectFeedbackMinute(feedbackMinuteOffset - 1);
+      });
+      elements.feedbackTimeEarlier.addEventListener("click", () => {
+        selectFeedbackMinute(feedbackMinuteOffset + 1);
+      });
+      elements.feedbackDialog.addEventListener("cancel", (event) => {
+        if (feedbackSubmitting) event.preventDefault();
+      });
+      elements.feedbackDialog.addEventListener("close", () => {
+        feedbackSubmitting = false;
+        if (feedbackTrigger?.isConnected) {
+          feedbackTrigger.focus({ preventScroll: true });
+        }
+        feedbackTrigger = null;
+      });
+      elements.feedbackForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        if (feedbackSubmitting) return;
+        feedbackSubmitting = true;
+        elements.feedbackError.hidden = true;
+        elements.feedbackSubmitLabel.textContent = "正在提交…";
+        elements.feedbackSubmit.classList.add("is-loading");
+        elements.feedbackForm.setAttribute("aria-busy", "true");
+        setFeedbackControlsDisabled(true);
+        window.setTimeout(() => {
+          if (initialParams.get("feedback") === "error") {
+            showFeedbackError();
+            return;
+          }
+          showFeedbackSuccess();
+        }, 560);
+      });
+      elements.previousVariant.addEventListener("click", () =>
+        cycleVariant(-1),
+      );
+      elements.nextVariant.addEventListener("click", () => cycleVariant(1));
+      elements.variantLabel.addEventListener("click", () => cycleVariant(1));
+      document.addEventListener("keydown", (event) => {
+        if (
+          state.view !== "route" ||
+          !["ArrowLeft", "ArrowRight"].includes(event.key)
+        )
+          return;
+        const target = event.target;
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target instanceof HTMLSelectElement ||
+          target.isContentEditable
+        )
+          return;
+        event.preventDefault();
+        cycleVariant(event.key === "ArrowLeft" ? -1 : 1);
+      });
+      window.addEventListener("popstate", () => {
+        const params = new URLSearchParams(window.location.search);
+        state.view = params.get("view") === "route" ? "route" : "home";
+        state.variant = VARIANTS.some(
+          (variant) => variant.id === params.get("variant"),
+        )
+          ? params.get("variant")
+          : "a";
+        state.homeTab = ["nearby", "frequent", "favorites"].includes(
+          params.get("tab"),
+        )
+          ? params.get("tab")
+          : "nearby";
+        state.nearbyStopId = ["shho", "sports"].includes(params.get("nearby"))
+          ? params.get("nearby")
+          : HOME_STOP_ID;
+        state.userSelectedStop = params.get("selected") === "1";
+        state.stopId =
+          state.userSelectedStop &&
+          STOPS.some((stop) => stop.id === params.get("stop"))
+            ? params.get("stop")
+            : state.nearbyStopId;
+        state.mapOpen =
+          state.variant === "a" ||
+          params.get("map") === "open" ||
+          (state.variant !== "a" && params.get("map") !== "closed");
+        state.mapMode = ["overview", "nearby", "selected", "user"].includes(
+          params.get("mapMode"),
+        )
+          ? params.get("mapMode")
+          : state.variant === "c"
+            ? "overview"
+            : "nearby";
+        setView(state.view, false);
+      });
+
+      setView(state.view, false);
+    </script>
+  </body>
+</html>

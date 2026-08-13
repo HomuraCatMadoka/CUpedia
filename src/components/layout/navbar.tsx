@@ -143,6 +143,16 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               分院帽
             </Link>
             <Link
+              href="/campus-bus"
+              aria-label="CU Bus · 測試中"
+              className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
+            >
+              <span aria-hidden="true">CU Bus</span>
+              <span className="rounded-full bg-[#5b2a73]/10 px-1.5 py-0.5 text-[10px] leading-none font-semibold text-[#5b2a73] dark:bg-purple-300/15 dark:text-purple-200">
+                <span aria-hidden="true">測試中</span>
+              </span>
+            </Link>
+            <Link
               href="/canteen"
               className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
             >

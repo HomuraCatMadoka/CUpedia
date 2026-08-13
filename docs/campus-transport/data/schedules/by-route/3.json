@@ -1,0 +1,1122 @@
+{
+  "routeId": "3",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 30,
+    "manualReview": 0,
+    "uniquePattern": 30,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "3:09:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "09:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:09:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "09:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:09:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "09:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:10:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "10:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:10:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "10:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:10:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "10:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:11:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "11:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:11:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "11:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:11:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "11:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:12:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "12:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:12:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "12:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:12:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "12:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:13:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "13:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:13:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "13:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:13:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "13:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:14:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "14:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:14:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "14:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:14:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "14:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:15:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "15:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:15:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "15:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:15:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "15:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:16:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "16:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:16:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "16:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:16:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "16:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:17:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "17:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:17:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "17:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:17:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "17:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:18:00:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "18:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:18:20:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "18:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "3:18:40:b0",
+      "routeId": "3",
+      "routeName": "3 Shaw",
+      "routeNameZhHant": "3 逸夫線",
+      "originDeparture": "18:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:00–18:40",
+      "serviceRuleRaw": "09:00 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "3:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "3:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-3:014fbd25e866b8500d4916a37a5ca397314c7b49dcf6876203219adeedf88865",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

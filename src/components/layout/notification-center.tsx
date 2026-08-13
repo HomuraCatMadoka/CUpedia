@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BellIcon } from "lucide-react";
+import { BellIcon, MegaphoneIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -215,14 +215,23 @@ export function NotificationCenter() {
                     onClick={() => openNotification(notification)}
                     className="flex w-full touch-manipulation items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
                   >
-                    <Avatar size="sm" className="mt-0.5">
-                      {notification.actorAvatarUrl && (
-                        <AvatarImage src={notification.actorAvatarUrl} alt="" />
-                      )}
-                      <AvatarFallback>
-                        {notification.actorNickname.slice(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
+                    {notification.kind === "course_review_reply" ? (
+                      <Avatar size="sm" className="mt-0.5">
+                        {notification.actorAvatarUrl && (
+                          <AvatarImage
+                            src={notification.actorAvatarUrl}
+                            alt=""
+                          />
+                        )}
+                        <AvatarFallback>
+                          {notification.actorNickname.slice(0, 1)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                        <MegaphoneIcon className="size-4" aria-hidden="true" />
+                      </span>
+                    )}
                     <span className="min-w-0 flex-1">
                       <span
                         className={cn(
@@ -230,10 +239,16 @@ export function NotificationCenter() {
                           !notification.read && "font-semibold",
                         )}
                       >
-                        <span className="break-words">
-                          {notification.actorNickname}
-                        </span>{" "}
-                        回复了你在 {notification.courseCode} 的评论
+                        {notification.kind === "course_review_reply" ? (
+                          <>
+                            <span className="break-words">
+                              {notification.actorNickname}
+                            </span>{" "}
+                            回复了你在 {notification.courseCode} 的评论
+                          </>
+                        ) : (
+                          <>新公告：{notification.title}</>
+                        )}
                       </span>
                       <span className="mt-1 block text-xs text-muted-foreground">
                         {timeAgo(notification.createdAt)}

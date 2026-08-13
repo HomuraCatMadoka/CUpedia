@@ -33,6 +33,7 @@ const E2E_DATABASE_URL = runtime.databaseUrl;
 const node = JSON.stringify(process.execPath);
 const useDevServer = process.env.E2E_SERVER_MODE === "dev";
 const useCiGroups = process.env.E2E_CI_GROUPS === "1";
+const campusBusTest = /campus-bus\.spec\.ts$/;
 const mobileWebKitTest = /wiki-edit\.mobile-webkit\.spec\.ts$/;
 const wikiDesktopTest =
   /wiki-(?!edit\.mobile(?:-webkit)?\.spec\.ts$).*\.spec\.ts$/;
@@ -64,7 +65,12 @@ export default defineConfig({
       ? [
           {
             name: "chromium-general",
-            testIgnore: [wikiDesktopTest, mobileWebKitTest],
+            testIgnore: [campusBusTest, wikiDesktopTest, mobileWebKitTest],
+            use: { ...devices["Desktop Chrome"] },
+          },
+          {
+            name: "campus-bus",
+            testMatch: campusBusTest,
             use: { ...devices["Desktop Chrome"] },
           },
           {

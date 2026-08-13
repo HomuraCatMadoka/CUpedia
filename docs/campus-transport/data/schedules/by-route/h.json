@@ -1,0 +1,1346 @@
+{
+  "routeId": "h",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 46,
+    "manualReview": 0,
+    "uniquePattern": 46,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "h:08:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "08:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:08:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "08:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:09:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "09:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:09:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "09:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:09:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "09:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:10:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "10:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:10:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "10:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:10:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "10:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:11:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "11:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:11:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "11:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:11:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "11:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:12:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "12:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:12:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "12:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:12:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "12:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:13:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "13:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:13:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "13:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:13:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "13:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:14:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "14:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:14:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "14:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:14:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "14:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:15:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "15:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:15:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "15:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:15:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "15:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:16:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "16:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:16:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "16:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:16:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "16:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:17:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "17:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:17:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "17:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:17:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "17:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:18:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "18:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:18:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "18:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:18:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "18:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:19:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "19:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:19:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "19:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:19:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "19:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:20:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "20:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:20:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "20:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:20:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "20:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:21:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "21:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:21:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "21:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:21:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "21:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:22:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "22:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:22:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "22:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:22:40:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "22:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:23:00:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "23:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:00-via-pgh1-area39",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 22
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:00-via-pgh1-area39",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "h:23:20:b0",
+      "routeId": "h",
+      "routeName": "H Holidays Service",
+      "routeNameZhHant": "H 假日線",
+      "originDeparture": "23:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:20–23:20",
+      "serviceRuleRaw": "08:20 - 23:20 Sun & Public Holidays",
+      "departureRuleRaw": "＃00, 20, 40 ＃Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1 and Area 39 (Upward)",
+      "serviceDayHints": ["sunday", "public_holiday"],
+      "patternCandidates": [
+        {
+          "patternId": "h:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "h:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-h:c5e7849f82a455d780ed302cb8c2c91c4f0a346d1504a2cf586151e26831ffd9",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

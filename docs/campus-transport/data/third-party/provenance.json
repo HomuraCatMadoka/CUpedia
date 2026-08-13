@@ -1,0 +1,107 @@
+{
+  "generatedAt": "2026-08-11",
+  "excluded": "CUHK-bus-clock",
+  "sources": [
+    {
+      "id": "ansoncheng-cubus-initdatas",
+      "repo": "https://github.com/AnsonCheng03/CUBus",
+      "ref": "main",
+      "pathPrefix": "src/initDatas/",
+      "fetchedNote": "raw.githubusercontent.com main snapshot 2026-08-11",
+      "lastModifiedInSource": {
+        "Route": "2024-10-21 17:03:48",
+        "translateroute": "2024-09-04 17:22:07",
+        "translatewebsite": "2024-10-21 19:41:28",
+        "translatebuilding": "2024-09-04 17:22:07",
+        "translateattribute": "2024-09-04 17:22:07",
+        "station": "2024-10-21 20:00:05",
+        "notice": "2024-10-20 13:04:58",
+        "gps": "2024-10-21 18:49:54",
+        "website": "2024-10-14 19:00:11",
+        "Status.json": "1970-01-01 00:00:00",
+        "timetable.json": "1970-01-01 00:00:00"
+      },
+      "files": {
+        "Route.json": {
+          "bytes": 14037,
+          "sha256": "3cb4089358f41a0e1ff74a9f5e22189890f41a42885cb070bbffd53ebcb41002"
+        },
+        "gps.json": {
+          "bytes": 2191,
+          "sha256": "a0a808fe921afe8cc33499aeeb0bf047168bb33f277857907e8817eae8c7c142"
+        },
+        "lastModifiedDates.json": {
+          "bytes": 440,
+          "sha256": "d7e9e605dbc0eece37bc37d0d90839d5491124e2fb19242232380e5a244b57c9"
+        },
+        "notice.json": {
+          "bytes": 2560,
+          "sha256": "703c7ca2ac0b63230e3cfa925be542345b7d3d84815a4340fdf33999a3b56506"
+        },
+        "station.json": {
+          "bytes": 6582,
+          "sha256": "15b8d5f7fcf80faa8f3fc08cf570155651203acd0d52063e37476d8460048633"
+        },
+        "timetable.json": {
+          "bytes": 79494,
+          "sha256": "e7dbafcc812fc4a661281a935df1d5f9217ca9d52bc05877253480d348d3582a"
+        },
+        "translation.json": {
+          "bytes": 28062,
+          "sha256": "1516bbf6ffd2f6e56901639dbb7047dc81a21db8a44d8615238e72d190c0103d"
+        },
+        "website.json": {
+          "bytes": 303,
+          "sha256": "7fd8b8fe0b744ae0949a388da7f71297318d7bbd92722af6bfaf3bd6b9b115f4"
+        }
+      }
+    },
+    {
+      "id": "flippy-cuschbus-v1.1",
+      "release": "https://github.com/Megumi-B/Flippy_Routes_Addon/releases/tag/CU_v1.1",
+      "asset": "20230224_Flippy_CUSchBus_v1.1.7z",
+      "publishedAt": "2023-02-24",
+      "files": {
+        "announcement_CU_171.db": {
+          "bytes": 9289728,
+          "sha256": "c2a29bf0289a2693675d8368a91e5f12ef1dc14d18a77441817628faaee85c26"
+        },
+        "announcement_CU_171.sql": {
+          "bytes": 48904,
+          "sha256": "8358f5d64336fd5241db281f4da0b2f0f7f0413c4d72329bec15235e2d07bb89"
+        }
+      }
+    },
+    {
+      "id": "cu-bus-app-v1.18",
+      "package": "com.carsonwah.cubus",
+      "versionName": "1.18",
+      "versionCode": 18,
+      "source": "user-supplied APKPure XAPK",
+      "extractedAt": "2026-08-11",
+      "xapkSha256": "c5649378a954c849b3fc0944dc5a943aa4fa3f64d8a9a537a8954dcb20a8881f",
+      "baseApkSha256": "35d24232bc07237f14e14c35e79349a7b040ca1951b94313e65f067aa83d2ccf",
+      "files": {
+        "cubus.db": {
+          "path": "assets/cubus.db",
+          "bytes": 1687552,
+          "sha256": "c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d"
+        }
+      },
+      "tableCounts": {
+        "route": 19,
+        "stop": 35,
+        "arrival_schedule": 5069,
+        "route_segment": 1606,
+        "operating_day": 2588,
+        "area": 16,
+        "area_to_area": 2269
+      },
+      "notes": [
+        "research extract only; no redistributable rights claimed",
+        "Firebase RTDB cu-bus-app.firebaseio.com returns 401",
+        "ETA is local arrival_schedule + operating_day filter"
+      ]
+    }
+  ]
+}

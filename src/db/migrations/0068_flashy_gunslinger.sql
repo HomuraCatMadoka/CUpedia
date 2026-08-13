@@ -1,0 +1,1 @@
+ALTER TABLE "notifications" ADD CONSTRAINT "notifications_announcement_identity_check" CHECK (("notifications"."kind" = 'announcement_published' and "notifications"."announcement_id" is not null) or ("notifications"."kind" <> 'announcement_published' and "notifications"."announcement_id" is null));

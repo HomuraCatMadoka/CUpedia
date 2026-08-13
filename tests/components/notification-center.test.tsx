@@ -33,11 +33,21 @@ import { NotificationCenter } from "@/components/layout/notification-center";
 
 const unreadNotification = {
   id: "notification-1",
+  kind: "course_review_reply" as const,
   actorNickname: "Alice",
   actorAvatarUrl: "/alice.png",
   courseCode: "CSCI3150",
   createdAt: "2026-07-27T10:00:00.000Z",
   href: "/courses/CSCI3150?review=review-1&reply=reply-1",
+  read: false,
+};
+
+const announcementNotification = {
+  id: "notification-announcement",
+  kind: "announcement_published" as const,
+  title: "迎新资料已更新",
+  createdAt: "2026-08-12T10:00:00.000Z",
+  href: "/announcements/announcement-1",
   read: false,
 };
 
@@ -124,6 +134,19 @@ describe("NotificationCenter", () => {
     await waitFor(() =>
       expect(push).toHaveBeenCalledWith(unreadNotification.href),
     );
+  });
+
+  it("renders an announcement notification without an actor avatar", async () => {
+    getPage.mockResolvedValue({
+      notifications: [announcementNotification],
+      hasMore: false,
+    });
+
+    render(<NotificationCenter />);
+    fireEvent.click(screen.getByRole("button", { name: "通知" }));
+
+    expect(await screen.findByText("新公告：迎新资料已更新")).toBeTruthy();
+    expect(screen.queryByText("回复了你在")).toBeNull();
   });
 
   it("marks all unread history without showing a success message", async () => {
