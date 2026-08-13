@@ -4,7 +4,7 @@ import {
   type CampusBusPassengerRoute,
   type CampusBusStopBoard,
   type LngLat,
-} from "@/lib/campus-transport/campus-bus";
+} from "./campus-bus";
 
 export type BoardingPlaceStopOccurrence = {
   patternIds: string[];
