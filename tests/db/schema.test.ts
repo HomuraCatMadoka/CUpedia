@@ -9,6 +9,9 @@ import {
   sessions,
   wikiLinks,
   canteens,
+  canteenMenuSources,
+  canteenMenuSyncRuns,
+  canteenOrderingHandoffs,
   canteenMenuItems,
   canteenMenuItemPrices,
   canteenDishVotes,
@@ -98,10 +101,46 @@ describe("schema", () => {
     expect(cols.mealPeriods).toBeDefined();
     expect(cols.sortOrder).toBeDefined();
     expect(cols.svgKey).toBeDefined();
+    expect(cols.menuSourceId).toBeDefined();
+    expect(cols.externalProductId).toBeDefined();
     expect(cols.externalSource).toBeDefined();
     expect(cols.externalKey).toBeDefined();
     expect(cols.isAvailable).toBeDefined();
     expect(cols.lastSyncedAt).toBeDefined();
+  });
+
+  it("canteenMenuSources stores provider configuration and sync state", () => {
+    const cols = getTableColumns(canteenMenuSources);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.provider).toBeDefined();
+    expect(cols.externalOwnerId).toBeDefined();
+    expect(cols.externalStoreId).toBeDefined();
+    expect(cols.config).toBeDefined();
+    expect(cols.enabled).toBeDefined();
+    expect(cols.lastAttemptId).toBeDefined();
+    expect(cols.lastAttemptAt).toBeDefined();
+    expect(cols.lastSuccessAt).toBeDefined();
+    expect(cols.lastSnapshotHash).toBeDefined();
+    expect(cols.lastError).toBeDefined();
+    expect(cols.legacyTakeoverAt).toBeDefined();
+  });
+
+  it("canteenMenuSyncRuns stores bounded sync observations", () => {
+    const cols = getTableColumns(canteenMenuSyncRuns);
+    expect(cols.menuSourceId).toBeDefined();
+    expect(cols.status).toBeDefined();
+    expect(cols.snapshotHash).toBeDefined();
+    expect(cols.itemCount).toBeDefined();
+    expect(cols.observation).toBeDefined();
+    expect(cols.errorCode).toBeDefined();
+  });
+
+  it("canteenOrderingHandoffs stores stable official ordering URLs", () => {
+    const cols = getTableColumns(canteenOrderingHandoffs);
+    expect(cols.canteenId).toBeDefined();
+    expect(cols.provider).toBeDefined();
+    expect(cols.url).toBeDefined();
+    expect(cols.enabled).toBeDefined();
   });
 
   it("canteenMenuItemPrices stores labelled minor-unit prices", () => {

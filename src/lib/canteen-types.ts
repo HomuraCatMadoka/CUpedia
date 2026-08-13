@@ -5,7 +5,10 @@ import {
   type MealPeriod,
   type MealPeriodAssignment,
 } from "@/db/schema";
-import { SVG_KEY_MAX_LENGTH, collapseSectionKeyWhitespace } from "@/lib/canteen-svg-keys";
+import {
+  SVG_KEY_MAX_LENGTH,
+  collapseSectionKeyWhitespace,
+} from "@/lib/canteen-svg-keys";
 import {
   compareMealPeriodAssignments,
   mealPeriodsFromRow,
@@ -133,11 +136,10 @@ export type MenuItemJsonImportRow = {
 };
 
 export type MenuSyncItemInput = MenuItemJsonImportRow & {
-  externalKey: string;
+  externalProductId: string;
 };
 
 export type MenuSyncInput = {
-  source: string;
   takeOverLegacyItems: boolean;
   items: MenuSyncItemInput[];
 };
@@ -198,7 +200,6 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
     throw new Error("INVALID_MENU_SYNC");
   }
   const record = parsed as Record<string, unknown>;
-  const source = validateExternalIdentity(record.source, "INVALID_SYNC_SOURCE");
   if (
     record.takeOverLegacyItems !== undefined &&
     typeof record.takeOverLegacyItems !== "boolean"
@@ -211,15 +212,17 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
   const rawItems = record.items as Array<Record<string, unknown>>;
   const seen = new Set<string>();
   const items = rows.map((row, index) => {
-    const externalKey = validateExternalIdentity(
-      rawItems[index]?.externalKey,
-      "INVALID_EXTERNAL_KEY",
+    const externalProductId = validateExternalIdentity(
+      rawItems[index]?.externalProductId,
+      "INVALID_EXTERNAL_PRODUCT_ID",
     );
-    if (seen.has(externalKey)) throw new Error("DUPLICATE_EXTERNAL_KEY");
-    seen.add(externalKey);
-    return { ...row, externalKey };
+    if (seen.has(externalProductId)) {
+      throw new Error("DUPLICATE_EXTERNAL_PRODUCT_ID");
+    }
+    seen.add(externalProductId);
+    return { ...row, externalProductId };
   });
-  return { source, takeOverLegacyItems, items };
+  return { takeOverLegacyItems, items };
 }
 
 function validateExternalIdentity(input: unknown, code: string): string {

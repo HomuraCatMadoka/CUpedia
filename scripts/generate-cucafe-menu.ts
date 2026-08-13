@@ -10,9 +10,9 @@ const ENDPOINT = `https://aigensstoreapp.appspot.com/api/v1/menu/store/${STORE_I
 const EXCLUDED_CATEGORIES = new Set(["零食", "外賣包裝"]);
 
 type MenuRow = {
-  externalKey: string;
+  externalProductId: string;
   name: string;
-  mealPeriod: MealPeriodAssignment;
+  mealPeriods: MealPeriodAssignment[];
   sortOrder: number;
   svgKey: string;
   pricing: {
@@ -42,7 +42,6 @@ async function loadAigensMenu(): Promise<unknown> {
 }
 
 export function buildCucafeMenu(input: unknown): {
-  source: string;
   takeOverLegacyItems: true;
   items: MenuRow[];
 } {
@@ -52,9 +51,9 @@ export function buildCucafeMenu(input: unknown): {
 
   const items = assignMealPeriodSortOrder(
     products.map((product) => ({
-      externalKey: `${product.backendId}:${product.periods[0]}`,
+      externalProductId: product.backendId,
       name: product.name,
-      mealPeriod: product.periods[0]!,
+      mealPeriods: product.periods,
       sortOrder: 0,
       svgKey: product.svgKey,
       pricing: {
@@ -68,11 +67,10 @@ export function buildCucafeMenu(input: unknown): {
         ],
       },
     })),
-    (item) => [item.mealPeriod],
+    (item) => item.mealPeriods,
   );
 
   return {
-    source: `aigens:${STORE_ID}`,
     takeOverLegacyItems: true,
     items,
   };

@@ -12,7 +12,6 @@ async function main() {
     throw new Error(`Aigens menu request failed: ${response.status}`);
   const payload = buildShhoMenuSyncPayload(await response.json());
   const jsonPayload = {
-    source: payload.source,
     takeOverLegacyItems: payload.takeOverLegacyItems,
     items: payload.items.map(({ priceOptions, ...item }) => ({
       ...item,

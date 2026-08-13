@@ -264,9 +264,9 @@ test("ignores a stale department filter instead of showing an empty directory", 
     "/professors?q=%20%20&department=department-that-no-longer-exists",
   );
 
-  await expect(page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME })).toHaveCount(
-    2,
-  );
+  await expect(
+    page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME }),
+  ).toHaveCount(2);
   await expect(page.getByText(/全部 \d+ 位教授/)).toBeVisible();
   await expect(page.getByRole("link", { name: "清除筛选" })).toHaveCount(0);
   await expect(
@@ -328,9 +328,9 @@ test("finds aliases without duplicating a professor with multiple affiliations",
   await expect(page).toHaveURL(new RegExp(`department=${MULTI_DEPARTMENT_ID}`));
 
   await expect(page.getByText("找到 1 位教授")).toBeVisible();
-  await expect(page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME })).toHaveCount(
-    1,
-  );
+  await expect(
+    page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME }),
+  ).toHaveCount(1);
   await professorSearch.fill("測試陳");
   await expect(aliasMatch).toHaveCount(1);
 });

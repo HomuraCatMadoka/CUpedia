@@ -147,7 +147,9 @@ describe("formatProfessorNameText", () => {
   });
 
   it("keeps fallback family names in their original case", () => {
-    expect(formatProfessorNameText("Dr. chan Tai Man")).toBe("Dr. chan Tai Man");
+    expect(formatProfessorNameText("Dr. chan Tai Man")).toBe(
+      "Dr. chan Tai Man",
+    );
   });
 
   it("handles empty names", () => {

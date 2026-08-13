@@ -31,11 +31,7 @@ function toTitleCaseWord(word: string): string {
 
 /** 将全大写姓氏（可含连字符/空格）转为 Title Case：SUN → Sun, VAN DER MEER → Van Der Meer */
 export function toTitleCaseFamilyName(familyName: string): string {
-  return familyName
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(toTitleCaseWord)
-    .join(" ");
+  return familyName.split(/\s+/).filter(Boolean).map(toTitleCaseWord).join(" ");
 }
 
 /**
