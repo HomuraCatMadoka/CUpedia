@@ -15,10 +15,12 @@ const TITLE_ABBREVIATION: Record<string, string> = {
   "dr.": "Dr.",
 };
 
+/** 判断单词是否全大写（含连字符，如 SUN / WONG-KA）。 */
 function isAllCapsWord(word: string): boolean {
   return /^[A-Z-]+$/.test(word);
 }
 
+/** 单个词转 Title Case：SUN → Sun，WONG-KA → Wong-Ka。 */
 function toTitleCaseWord(word: string): string {
   return word
     .toLowerCase()

@@ -8,6 +8,7 @@ import {
   getProfessorInitials,
 } from "@/lib/professor-name-format";
 
+/** 教授头像：优先展示官方照片，加载失败回退到占位首字母（不含职称）。 */
 export function ProfessorPortrait({
   imageUrls,
   name,
