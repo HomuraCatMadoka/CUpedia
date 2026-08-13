@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CanteenCard, CanteenShell } from "@/components/canteen/canteen-shell";
+import { CANTEEN_PRIMARY_ACTION_CLASS_NAME } from "@/components/canteen/canteen-styles";
 import type { DeleteImpact } from "@/lib/canteen-types";
 import type { Takeout } from "@/lib/takeout-actions";
 import {
@@ -179,7 +180,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--canteen-ink)] text-white hover:bg-[var(--canteen-ink)]/90"
+            className={CANTEEN_PRIMARY_ACTION_CLASS_NAME}
           >
             添加外卖店
           </Button>

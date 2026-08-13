@@ -22,6 +22,7 @@ import {
   CanteenShell,
   PreviewBanner,
 } from "@/components/canteen/canteen-shell";
+import { CANTEEN_PRIMARY_ACTION_CLASS_NAME } from "@/components/canteen/canteen-styles";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MealPeriodsBadges } from "@/components/canteen/meal-period-badge";
 import { MenuItemPrice } from "@/components/canteen/menu-item-price";
@@ -402,7 +403,7 @@ export function CanteenMenuAdmin({
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--canteen-ink)] text-white hover:bg-[var(--canteen-ink)]/90"
+            className={CANTEEN_PRIMARY_ACTION_CLASS_NAME}
           >
             添加菜品
           </Button>
