@@ -366,7 +366,7 @@ function activePatternDayTypes(
   ]);
 }
 
-function scheduledDeparturesForDate(
+export function scheduledDeparturesForDate(
   now: number,
   route: CampusBusPassengerRoute,
 ) {
