@@ -1,5 +1,9 @@
 import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
 import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
+import {
+  assertCompatibleProviderIdentityOccurrence,
+  assertProviderMenuIdentityItems,
+} from "@/lib/canteen-provider-menu-identity";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type {
   MealPeriodAssignment,
@@ -125,13 +129,22 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
       const item = object(itemValue);
       const externalProductId = text(item?.goodsId ?? item?.id);
       const name = text(item?.name ?? item?.goodsName);
-      if (!item || !externalProductId || !name) continue;
+      if (!item) continue;
       if (!isAvailable(item)) continue;
+      assertProviderMenuIdentityItems("qmai", [
+        { externalProductId: externalProductId ?? "" },
+      ]);
+      if (!externalProductId || !name) continue;
       const options = priceOptions(item);
       if (options.length === 0) continue;
       const periods = mealPeriods(item);
       const existing = candidates.get(externalProductId);
       if (existing) {
+        assertCompatibleProviderIdentityOccurrence("qmai", existing, {
+          externalProductId,
+          name,
+          priceOptions: options,
+        });
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...periods]),
         ];
@@ -149,6 +162,7 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
   }
   const items = [...candidates.values()];
   if (items.length === 0) throw new Error("EMPTY_QMAI_MENU");
+  assertProviderMenuIdentityItems("qmai", items);
   return {
     takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),

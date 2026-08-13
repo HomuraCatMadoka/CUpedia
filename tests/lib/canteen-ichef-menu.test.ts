@@ -55,6 +55,47 @@ describe("iCHEF menu adapter", () => {
     });
   });
 
+  it("fails closed when duplicate UUID rows disagree on mutable facts", () => {
+    expect(() =>
+      buildIchefMenuSyncPayload(
+        [
+          {
+            startTime: "11:00",
+            endTime: "14:00",
+            categorySnapshotUuids: ["a", "b"],
+          },
+        ],
+        [
+          {
+            uuid: "a",
+            name: "A",
+            menuItemsSnapshot: [{ uuid: "item-1", name: "菜品 A", price: 10 }],
+          },
+          {
+            uuid: "b",
+            name: "B",
+            menuItemsSnapshot: [{ uuid: "item-1", name: "菜品 B", price: 20 }],
+          },
+        ],
+      ),
+    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
+  });
+
+  it("fails closed when an emitted item UUID is empty", () => {
+    expect(() =>
+      buildIchefMenuSyncPayload(
+        [{ categorySnapshotUuids: ["a"] }],
+        [
+          {
+            uuid: "a",
+            name: "A",
+            menuItemsSnapshot: [{ name: "不能當 ID", price: 10 }],
+          },
+        ],
+      ),
+    ).toThrowError(expect.objectContaining({ code: "EMPTY_IDENTITY" }));
+  });
+
   it("runs the public GraphQL query chain against a fixed endpoint", async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()

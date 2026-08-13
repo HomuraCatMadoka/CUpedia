@@ -1,0 +1,273 @@
+import { createHash } from "node:crypto";
+import type { CanteenMenuSourceProvider } from "@/db/schema";
+
+const PERIOD = "(?:breakfast|lunch|dinner|allday)";
+const MAX_DIAGNOSTIC_SAMPLES = 5;
+
+export type ProviderMenuIdentity = CanteenMenuSourceProvider;
+
+export type ProviderMenuIdentityContract = {
+  sourceLocatorFields: readonly ("externalOwnerId" | "externalStoreId")[];
+  offeringIdentityFields: readonly string[];
+  mutableAttributeFields: readonly string[];
+};
+
+const MUTABLE_ATTRIBUTE_FIELDS = [
+  "name",
+  "priceOptions",
+  "isAvailable",
+  "category",
+  "mealPeriods",
+  "sortOrder",
+] as const;
+
+export const providerMenuIdentityContracts = {
+  pinme: {
+    sourceLocatorFields: ["externalStoreId"],
+    offeringIdentityFields: ["product_id"],
+    mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
+  },
+  ichef: {
+    sourceLocatorFields: ["externalStoreId"],
+    offeringIdentityFields: ["uuid"],
+    mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
+  },
+  qmai: {
+    sourceLocatorFields: ["externalOwnerId", "externalStoreId"],
+    offeringIdentityFields: ["goodsId"],
+    mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
+  },
+  aigens: {
+    sourceLocatorFields: ["externalStoreId"],
+    offeringIdentityFields: ["backendId", "mealPeriod"],
+    mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
+  },
+} as const satisfies Record<ProviderMenuIdentity, ProviderMenuIdentityContract>;
+
+export type ProviderMenuIdentityDiagnostic = {
+  provider: ProviderMenuIdentity;
+  count: number;
+  samples: string[];
+};
+
+export type ProviderMenuIdentityErrorCode =
+  | "INVALID_SOURCE_LOCATOR"
+  | "EMPTY_SNAPSHOT"
+  | "EMPTY_IDENTITY"
+  | "MALFORMED_IDENTITY"
+  | "DUPLICATE_IDENTITY"
+  | "COLLIDING_IDENTITY";
+
+export class ProviderMenuIdentityError extends Error {
+  constructor(
+    readonly code: ProviderMenuIdentityErrorCode,
+    readonly diagnostic: ProviderMenuIdentityDiagnostic,
+  ) {
+    super(
+      `${code}: ${diagnostic.provider} menu identity contract rejected ${diagnostic.count} row(s)`,
+    );
+    this.name = "ProviderMenuIdentityError";
+  }
+}
+
+type SourceLocator = {
+  externalOwnerId?: unknown;
+  externalStoreId?: unknown;
+};
+
+type IdentityItem = {
+  externalProductId?: unknown;
+  [attribute: string]: unknown;
+};
+
+export function normalizePublishedProviderIdentity(
+  provider: ProviderMenuIdentity,
+  publishedIdentity: string,
+): string {
+  const identity = publishedIdentity.trim();
+  if (!identity) throw new Error("EMPTY_IDENTITY");
+  if (identity.length > 200 || /[\u0000-\u001f\u007f]/.test(identity)) {
+    throw new Error("MALFORMED_IDENTITY");
+  }
+
+  if (provider === "aigens") {
+    const current = identity.match(
+      new RegExp(`^(.+)#offering-period=(${PERIOD.slice(3, -1)})$`),
+    );
+    if (current?.[1] && !hasReservedMarker(current[1])) return identity;
+    const historical = identity.match(
+      new RegExp(`^(.+?)(?::|#period=)(${PERIOD.slice(3, -1)})$`),
+    );
+    if (historical?.[1] && !hasReservedMarker(historical[1])) {
+      return `${historical[1]}#offering-period=${historical[2]}`;
+    }
+    throw new Error("MALFORMED_IDENTITY");
+  }
+
+  const historicalPeriodSet = identity.match(
+    new RegExp(`^(.+)#period=${PERIOD}(?:\\+${PERIOD})*$`),
+  );
+  if (historicalPeriodSet?.[1] && !hasReservedMarker(historicalPeriodSet[1])) {
+    return historicalPeriodSet[1];
+  }
+  if (provider === "pinme") {
+    const historicalScalar = identity.match(new RegExp(`^(.+):${PERIOD}$`));
+    if (historicalScalar?.[1] && !hasReservedMarker(historicalScalar[1])) {
+      return historicalScalar[1];
+    }
+  }
+  if (!hasReservedMarker(identity)) return identity;
+  throw new Error("MALFORMED_IDENTITY");
+}
+
+export function assertProviderMenuIdentitySnapshot(
+  provider: ProviderMenuIdentity,
+  source: SourceLocator,
+  items: readonly IdentityItem[],
+): string[] {
+  assertSourceLocator(provider, source);
+  return assertProviderMenuIdentityItems(provider, items);
+}
+
+export function assertProviderMenuIdentityItems(
+  provider: ProviderMenuIdentity,
+  items: readonly IdentityItem[],
+): string[] {
+  if (items.length === 0) fail(provider, "EMPTY_SNAPSHOT", []);
+
+  const invalid: Array<{ index: number; identity: unknown; empty: boolean }> =
+    [];
+  const normalized: string[] = [];
+  for (const [index, item] of items.entries()) {
+    const raw = item.externalProductId;
+    if (typeof raw !== "string" || !raw.trim()) {
+      invalid.push({ index, identity: raw, empty: true });
+      continue;
+    }
+    try {
+      normalized.push(normalizePublishedProviderIdentity(provider, raw));
+    } catch {
+      invalid.push({ index, identity: raw, empty: false });
+    }
+  }
+  if (invalid.length > 0) {
+    const code = invalid.every((entry) => entry.empty)
+      ? "EMPTY_IDENTITY"
+      : "MALFORMED_IDENTITY";
+    fail(
+      provider,
+      code,
+      invalid.map((entry) => `${entry.index}:${String(entry.identity ?? "")}`),
+    );
+  }
+
+  const rowsByIdentity = new Map<
+    string,
+    Array<{ index: number; raw: string; fingerprint: string }>
+  >();
+  items.forEach((item, index) => {
+    const canonical = normalized[index];
+    rowsByIdentity.set(canonical, [
+      ...(rowsByIdentity.get(canonical) ?? []),
+      {
+        index,
+        raw: String(item.externalProductId).trim(),
+        fingerprint: stableFingerprint(item),
+      },
+    ]);
+  });
+  const collisions = [...rowsByIdentity.entries()].filter(
+    ([, rows]) => rows.length > 1,
+  );
+  if (collisions.length > 0) {
+    const isExactDuplicate = collisions.every(([, rows]) =>
+      rows.every(
+        (row) =>
+          row.raw === rows[0].raw && row.fingerprint === rows[0].fingerprint,
+      ),
+    );
+    fail(
+      provider,
+      isExactDuplicate ? "DUPLICATE_IDENTITY" : "COLLIDING_IDENTITY",
+      collisions.flatMap(([identity, rows]) =>
+        rows.map((row) => `${row.index}:${identity}`),
+      ),
+    );
+  }
+  return normalized;
+}
+
+export function assertCompatibleProviderIdentityOccurrence(
+  provider: ProviderMenuIdentity,
+  existing: IdentityItem,
+  incoming: IdentityItem,
+): void {
+  const existingIdentity = String(existing.externalProductId ?? "");
+  const incomingIdentity = String(incoming.externalProductId ?? "");
+  let canonicalExisting: string;
+  let canonicalIncoming: string;
+  try {
+    canonicalExisting = normalizePublishedProviderIdentity(
+      provider,
+      existingIdentity,
+    );
+    canonicalIncoming = normalizePublishedProviderIdentity(
+      provider,
+      incomingIdentity,
+    );
+  } catch {
+    fail(provider, "MALFORMED_IDENTITY", [existingIdentity, incomingIdentity]);
+  }
+  if (
+    canonicalExisting !== canonicalIncoming ||
+    occurrenceFingerprint(existing) !== occurrenceFingerprint(incoming)
+  ) {
+    fail(provider, "COLLIDING_IDENTITY", [existingIdentity, incomingIdentity]);
+  }
+}
+
+function assertSourceLocator(
+  provider: ProviderMenuIdentity,
+  source: SourceLocator,
+): void {
+  const fields = providerMenuIdentityContracts[provider].sourceLocatorFields;
+  const invalid = fields.filter((field) => {
+    const value = source[field];
+    return typeof value !== "string" || !value.trim() || value.length > 200;
+  });
+  if (invalid.length > 0) fail(provider, "INVALID_SOURCE_LOCATOR", invalid);
+}
+
+function hasReservedMarker(identity: string): boolean {
+  return /[:#]/.test(identity);
+}
+
+function stableFingerprint(item: IdentityItem): string {
+  return JSON.stringify(
+    Object.entries(item)
+      .filter(([key]) => key !== "externalProductId")
+      .sort(([left], [right]) => left.localeCompare(right)),
+  );
+}
+
+function occurrenceFingerprint(item: IdentityItem): string {
+  return JSON.stringify({
+    priceOptions: item.priceOptions,
+  });
+}
+
+function fail(
+  provider: ProviderMenuIdentity,
+  code: ProviderMenuIdentityErrorCode,
+  unsafeSamples: readonly string[],
+): never {
+  throw new ProviderMenuIdentityError(code, {
+    provider,
+    count: Math.max(unsafeSamples.length, code === "EMPTY_SNAPSHOT" ? 0 : 1),
+    samples: unsafeSamples.slice(0, MAX_DIAGNOSTIC_SAMPLES).map(redact),
+  });
+}
+
+function redact(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 12);
+}

@@ -1,5 +1,9 @@
 import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
 import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
+import {
+  assertCompatibleProviderIdentityOccurrence,
+  assertProviderMenuIdentityItems,
+} from "@/lib/canteen-provider-menu-identity";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type { MealPeriodAssignment, MenuSyncInput } from "@/lib/canteen-types";
 
@@ -55,9 +59,24 @@ export function buildIchefMenuSyncPayload(
     for (const item of category.menuItemsSnapshot ?? []) {
       const uuid = item.uuid?.trim();
       const name = item.name?.trim().replace(/\s+/g, " ");
+      assertProviderMenuIdentityItems("ichef", [
+        { externalProductId: uuid ?? "" },
+      ]);
       if (!uuid || !name) continue;
       const existing = byItemUuid.get(uuid);
       if (existing) {
+        assertCompatibleProviderIdentityOccurrence("ichef", existing, {
+          externalProductId: uuid,
+          name,
+          priceOptions: [
+            {
+              label: null,
+              amountMinor: parseAmountMinor(item.price),
+              currency: "HKD",
+              sortOrder: 0,
+            },
+          ],
+        });
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...categoryPeriods]),
         ];
@@ -91,6 +110,7 @@ export function buildIchefMenuSyncPayload(
     (item) => item.mealPeriods,
   );
   if (items.length === 0) throw new Error("EMPTY_ICHEF_MENU");
+  assertProviderMenuIdentityItems("ichef", items);
   return {
     takeOverLegacyItems: false,
     items,

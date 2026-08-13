@@ -7,12 +7,45 @@ import { fetchPinmeMenu } from "@/lib/canteen-menu-source-adapters";
 import { vi } from "vitest";
 
 describe("PINME menu adapter", () => {
+  it("fails closed when two rows publish the same product identity", () => {
+    const duplicate = {
+      code: 200,
+      data: {
+        group: [
+          {
+            local_name: "A",
+            products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
+          },
+          {
+            local_name: "B",
+            products: [{ product_id: "42", local_name: "菜品 B", price: 20 }],
+          },
+        ],
+      },
+    };
+    expect(() => buildPinmeMenuSyncPayload(duplicate)).toThrowError(
+      expect.objectContaining({ code: "COLLIDING_IDENTITY" }),
+    );
+  });
   it("creates deterministic signed anonymous token params", () => {
     expect(Object.fromEntries(createPinmeSignedParams("5500", 123))).toEqual({
       store_id: "5500",
       ts: "123",
       sign: "2602177AEB330578D1AB75735A3CFBBC",
     });
+  });
+
+  it("fails closed instead of using a product name when ID is missing", () => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [
+            { products: [{ local_name: "不能當 ID", status: "1", price: 10 }] },
+          ],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "EMPTY_IDENTITY" }));
   });
 
   it("normalizes groups, products and price variants", () => {

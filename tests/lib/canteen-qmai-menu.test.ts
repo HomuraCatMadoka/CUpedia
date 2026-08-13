@@ -126,6 +126,37 @@ describe("Qmai menu adapter", () => {
     ]);
   });
 
+  it("fails closed when available duplicate IDs disagree", () => {
+    const duplicateResponse = structuredClone(menuResponse);
+    const collidingItem = structuredClone(
+      duplicateResponse.data.categoryItems[0].itemList[0],
+    );
+    collidingItem.name = "身份碰撞菜品";
+    collidingItem.skuList = [
+      {
+        skuId: "collision",
+        salePrice: 99,
+        skuItemList: [{ itemName: "碰撞規格" }],
+      },
+    ];
+    duplicateResponse.data.categoryItems.push({
+      available: 1,
+      categoryName: "另一分類",
+      itemList: [collidingItem],
+    });
+    expect(() => buildQmaiMenuSyncPayload(duplicateResponse)).toThrowError(
+      expect.objectContaining({ code: "COLLIDING_IDENTITY" }),
+    );
+  });
+
+  it("fails closed when an available item ID is empty", () => {
+    const malformed = structuredClone(menuResponse);
+    malformed.data.categoryItems[0].itemList[0].goodsId = "";
+    expect(() => buildQmaiMenuSyncPayload(malformed)).toThrowError(
+      expect.objectContaining({ code: "EMPTY_IDENTITY" }),
+    );
+  });
+
   it("rejects malformed business responses", () => {
     expect(() =>
       buildQmaiMenuSyncPayload({ code: 10008, status: false, data: null }),

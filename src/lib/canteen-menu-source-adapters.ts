@@ -9,6 +9,7 @@ import {
   createPinmeSignedParams,
 } from "@/lib/canteen-pinme-menu";
 import { buildQmaiMenuSyncPayload } from "@/lib/canteen-qmai-menu";
+import { assertProviderMenuIdentitySnapshot } from "@/lib/canteen-provider-menu-identity";
 import type { MenuSyncInput } from "@/lib/canteen-types";
 
 const ICHEF_ENDPOINT =
@@ -453,19 +454,28 @@ export function fetchMenuFromProvider(
   source: MenuSource,
   options: FetchMenuOptions = {},
 ): Promise<MenuSyncInput> {
+  let payload: Promise<MenuSyncInput>;
   switch (source.provider) {
     case "aigens":
-      return fetchAigensMenu(source.externalStoreId, options, source.config);
+      payload = fetchAigensMenu(source.externalStoreId, options, source.config);
+      break;
     case "ichef":
-      return fetchIchefMenu(source.externalStoreId, options, source.config);
+      payload = fetchIchefMenu(source.externalStoreId, options, source.config);
+      break;
     case "pinme":
-      return fetchPinmeMenu(source.externalStoreId, options, source.config);
+      payload = fetchPinmeMenu(source.externalStoreId, options, source.config);
+      break;
     case "qmai":
-      return fetchQmaiMenu(
+      payload = fetchQmaiMenu(
         source.externalStoreId,
         options,
         source.config,
         source.externalOwnerId,
       );
+      break;
   }
+  return payload.then((result) => {
+    assertProviderMenuIdentitySnapshot(source.provider, source, result.items);
+    return result;
+  });
 }

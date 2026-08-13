@@ -107,4 +107,42 @@ describe("S.H. Ho Aigens menu adapter", () => {
       },
     ]);
   });
+
+  it("fails closed when duplicate offering identities disagree", () => {
+    expect(() =>
+      buildShhoMenuSyncPayload({
+        data: {
+          menu: {
+            categories: [
+              { name: "飯類", periods: ["L"], groupIds: ["main"] },
+              { name: "小食", periods: ["L"], groupIds: ["other"] },
+            ],
+            groups: [
+              {
+                id: "main",
+                items: [{ backendId: "42", name: "菜品 A", price: 20 }],
+              },
+              {
+                id: "other",
+                items: [{ backendId: "42", name: "菜品 B", price: 30 }],
+              },
+            ],
+          },
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
+  });
+
+  it("fails closed when a published offering has no backend ID", () => {
+    expect(() =>
+      buildShhoMenuSyncPayload({
+        data: {
+          menu: {
+            categories: [{ name: "飯類", periods: ["L"], groupIds: ["main"] }],
+            groups: [{ id: "main", items: [{ name: "不能當 ID", price: 20 }] }],
+          },
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "EMPTY_IDENTITY" }));
+  });
 });
