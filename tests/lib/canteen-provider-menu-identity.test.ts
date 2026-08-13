@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   assertProviderMenuIdentitySnapshot,
+  canonicalizeProviderMenuState,
   normalizePublishedProviderIdentity,
   providerMenuIdentityContracts,
   ProviderMenuIdentityError,
-  type ProviderMenuIdentity,
+  type MenuProvider,
 } from "@/lib/canteen-provider-menu-identity";
 import {
   planMenuSync,
@@ -15,7 +16,7 @@ import { parseMenuSyncJson } from "@/lib/canteen-types";
 
 type Fixture = {
   providers: Array<{
-    provider: ProviderMenuIdentity;
+    provider: MenuProvider;
     source: { externalStoreId: string; externalOwnerId?: string };
     current: string;
     historical: string[];
@@ -99,6 +100,32 @@ describe("provider menu identity contract (#636)", () => {
   );
 
   it.each(fixture.providers)(
+    "$provider preserves a historical database UUID when current identity arrives",
+    ({ provider, historical, canonical }) => {
+      const state = canonicalizeProviderMenuState(
+        provider,
+        parseMenuSyncJson({
+          items: [{ externalProductId: canonical, name: "目前菜品" }],
+        }),
+        [persistedItem(historical[0])],
+      );
+      const plan = planMenuSync(SOURCE_ID, state.input, state.existingItems);
+      expect(plan.actions).toEqual([
+        expect.objectContaining({
+          itemId: "uuid-with-votes-and-comments",
+          externalProductId: canonical,
+        }),
+      ]);
+      expect(plan.actions.some((action) => action.action === "create")).toBe(
+        false,
+      );
+      expect(
+        plan.actions.some((action) => action.action === "deactivate"),
+      ).toBe(false);
+    },
+  );
+
+  it.each(fixture.providers)(
     "$provider mutable changes update the UUID that owns votes and comments",
     ({ provider, current }) => {
       const externalProductId = normalizePublishedProviderIdentity(
@@ -167,6 +194,55 @@ describe("provider menu identity contract (#636)", () => {
       ]),
     );
   });
+
+  it.each(fixture.providers)(
+    "$provider creates a new UUID only for a genuinely new upstream product",
+    ({ provider, current, canonical }) => {
+      const nextIdentity =
+        provider === "aigens" ? "99#offering-period=lunch" : `${canonical}-new`;
+      const state = canonicalizeProviderMenuState(
+        provider,
+        parseMenuSyncJson({
+          items: [{ externalProductId: nextIdentity, name: "真正新菜品" }],
+        }),
+        [persistedItem(current)],
+      );
+      const plan = planMenuSync(SOURCE_ID, state.input, state.existingItems);
+      expect(plan.actions).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: "create",
+            itemId: null,
+            externalProductId: nextIdentity,
+          }),
+          expect.objectContaining({
+            action: "deactivate",
+            itemId: "uuid-with-votes-and-comments",
+          }),
+        ]),
+      );
+    },
+  );
+
+  it.each(fixture.providers)(
+    "$provider reactivates the UUID that retains votes and comments",
+    ({ provider, current }) => {
+      const state = canonicalizeProviderMenuState(
+        provider,
+        parseMenuSyncJson({
+          items: [{ externalProductId: current, name: "重新供應" }],
+        }),
+        [{ ...persistedItem(current), isAvailable: false }],
+      );
+      const plan = planMenuSync(SOURCE_ID, state.input, state.existingItems);
+      expect(plan.actions).toEqual([
+        expect.objectContaining({
+          action: "reactivate",
+          itemId: "uuid-with-votes-and-comments",
+        }),
+      ]);
+    },
+  );
 
   it.each(fixture.providers)(
     "$provider preserves identity across mutable menu changes",

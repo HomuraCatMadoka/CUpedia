@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 import type { CanteenMenuSourceProvider } from "@/db/schema";
+import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
+import type { MenuSyncInput } from "./canteen-types";
 
-const PERIOD = "(?:breakfast|lunch|dinner|allday)";
+const MEAL_PERIOD_ALTERNATION = "breakfast|lunch|dinner|allday";
+const MEAL_PERIOD_PATTERN = `(?:${MEAL_PERIOD_ALTERNATION})`;
 const MAX_DIAGNOSTIC_SAMPLES = 5;
 
-export type ProviderMenuIdentity = CanteenMenuSourceProvider;
+export type MenuProvider = CanteenMenuSourceProvider;
 
 export type ProviderMenuIdentityContract = {
   sourceLocatorFields: readonly ("externalOwnerId" | "externalStoreId")[];
@@ -42,10 +45,10 @@ export const providerMenuIdentityContracts = {
     offeringIdentityFields: ["backendId", "mealPeriod"],
     mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
   },
-} as const satisfies Record<ProviderMenuIdentity, ProviderMenuIdentityContract>;
+} as const satisfies Record<MenuProvider, ProviderMenuIdentityContract>;
 
 export type ProviderMenuIdentityDiagnostic = {
-  provider: ProviderMenuIdentity;
+  provider: MenuProvider;
   count: number;
   samples: string[];
 };
@@ -81,7 +84,7 @@ type IdentityItem = {
 };
 
 export function normalizePublishedProviderIdentity(
-  provider: ProviderMenuIdentity,
+  provider: MenuProvider,
   publishedIdentity: string,
 ): string {
   const identity = publishedIdentity.trim();
@@ -92,11 +95,11 @@ export function normalizePublishedProviderIdentity(
 
   if (provider === "aigens") {
     const current = identity.match(
-      new RegExp(`^(.+)#offering-period=(${PERIOD.slice(3, -1)})$`),
+      new RegExp(`^(.+)#offering-period=(${MEAL_PERIOD_ALTERNATION})$`),
     );
     if (current?.[1] && !hasReservedMarker(current[1])) return identity;
     const historical = identity.match(
-      new RegExp(`^(.+?)(?::|#period=)(${PERIOD.slice(3, -1)})$`),
+      new RegExp(`^(.+?)(?::|#period=)(${MEAL_PERIOD_ALTERNATION})$`),
     );
     if (historical?.[1] && !hasReservedMarker(historical[1])) {
       return `${historical[1]}#offering-period=${historical[2]}`;
@@ -105,13 +108,17 @@ export function normalizePublishedProviderIdentity(
   }
 
   const historicalPeriodSet = identity.match(
-    new RegExp(`^(.+)#period=${PERIOD}(?:\\+${PERIOD})*$`),
+    new RegExp(
+      `^(.+)#period=${MEAL_PERIOD_PATTERN}(?:\\+${MEAL_PERIOD_PATTERN})*$`,
+    ),
   );
   if (historicalPeriodSet?.[1] && !hasReservedMarker(historicalPeriodSet[1])) {
     return historicalPeriodSet[1];
   }
   if (provider === "pinme") {
-    const historicalScalar = identity.match(new RegExp(`^(.+):${PERIOD}$`));
+    const historicalScalar = identity.match(
+      new RegExp(`^(.+):${MEAL_PERIOD_PATTERN}$`),
+    );
     if (historicalScalar?.[1] && !hasReservedMarker(historicalScalar[1])) {
       return historicalScalar[1];
     }
@@ -121,7 +128,7 @@ export function normalizePublishedProviderIdentity(
 }
 
 export function assertProviderMenuIdentitySnapshot(
-  provider: ProviderMenuIdentity,
+  provider: MenuProvider,
   source: SourceLocator,
   items: readonly IdentityItem[],
 ): string[] {
@@ -130,7 +137,7 @@ export function assertProviderMenuIdentitySnapshot(
 }
 
 export function assertProviderMenuIdentityItems(
-  provider: ProviderMenuIdentity,
+  provider: MenuProvider,
   items: readonly IdentityItem[],
 ): string[] {
   if (items.length === 0) fail(provider, "EMPTY_SNAPSHOT", []);
@@ -198,7 +205,7 @@ export function assertProviderMenuIdentityItems(
 }
 
 export function assertCompatibleProviderIdentityOccurrence(
-  provider: ProviderMenuIdentity,
+  provider: MenuProvider,
   existing: IdentityItem,
   incoming: IdentityItem,
 ): void {
@@ -226,8 +233,46 @@ export function assertCompatibleProviderIdentityOccurrence(
   }
 }
 
+export function canonicalizeProviderMenuState(
+  provider: MenuProvider,
+  input: MenuSyncInput,
+  existingItems: ExistingSyncMenuItem[],
+): { input: MenuSyncInput; existingItems: ExistingSyncMenuItem[] } {
+  const canonicalInput = {
+    ...input,
+    items: input.items.map((item) => ({
+      ...item,
+      externalProductId: normalizePublishedProviderIdentity(
+        provider,
+        item.externalProductId,
+      ),
+    })),
+  };
+  assertProviderMenuIdentityItems(provider, canonicalInput.items);
+  const canonicalExistingItems = existingItems.map((item) => ({
+    ...item,
+    externalProductId:
+      item.externalProductId === null
+        ? null
+        : normalizePublishedProviderIdentity(provider, item.externalProductId),
+  }));
+  const managedIdentities = canonicalExistingItems
+    .filter((item) => item.externalProductId !== null)
+    .map((item) => ({
+      externalProductId: item.externalProductId,
+      id: item.id,
+    }));
+  if (managedIdentities.length > 0) {
+    assertProviderMenuIdentityItems(provider, managedIdentities);
+  }
+  return {
+    input: canonicalInput,
+    existingItems: canonicalExistingItems,
+  };
+}
+
 function assertSourceLocator(
-  provider: ProviderMenuIdentity,
+  provider: MenuProvider,
   source: SourceLocator,
 ): void {
   const fields = providerMenuIdentityContracts[provider].sourceLocatorFields;
@@ -252,12 +297,13 @@ function stableFingerprint(item: IdentityItem): string {
 
 function occurrenceFingerprint(item: IdentityItem): string {
   return JSON.stringify({
+    name: item.name,
     priceOptions: item.priceOptions,
   });
 }
 
 function fail(
-  provider: ProviderMenuIdentity,
+  provider: MenuProvider,
   code: ProviderMenuIdentityErrorCode,
   unsafeSamples: readonly string[],
 ): never {

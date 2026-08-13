@@ -8,6 +8,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
+import { canonicalizeProviderMenuState } from "@/lib/canteen-provider-menu-identity";
 import {
   planMenuSync,
   type ExistingSyncMenuItem,
@@ -184,14 +185,23 @@ export async function previewMenuSync(
   const existing = collectExistingSyncItems(
     await selectExistingItems(db, source.canteenId),
   );
+  const canonical = canonicalizeProviderMenuState(
+    source.provider,
+    input,
+    existing,
+  );
   return {
     plan: planMenuSync(
       source.id,
-      input,
-      existing,
+      canonical.input,
+      canonical.existingItems,
       source.legacyTakeoverAt === null,
     ),
-    previewToken: createMenuSyncPreviewToken(source, input, existing),
+    previewToken: createMenuSyncPreviewToken(
+      source,
+      canonical.input,
+      canonical.existingItems,
+    ),
   };
 }
 
@@ -232,18 +242,27 @@ async function applyMenuSync(
 
     const rows = await selectExistingItems(tx, source.canteenId);
     const existing = collectExistingSyncItems(rows);
+    const canonical = canonicalizeProviderMenuState(
+      source.provider,
+      input,
+      existing,
+    );
     if (
       typeof expectedPreviewToken !== "string" ||
       !expectedPreviewToken ||
       expectedPreviewToken !==
-        createMenuSyncPreviewToken(source, input, existing)
+        createMenuSyncPreviewToken(
+          source,
+          canonical.input,
+          canonical.existingItems,
+        )
     ) {
       throw new Error("MENU_SYNC_STALE");
     }
     const currentPlan = planMenuSync(
       source.id,
-      input,
-      existing,
+      canonical.input,
+      canonical.existingItems,
       source.legacyTakeoverAt === null,
     );
     if (currentPlan.conflicts.length > 0) throw new Error("MENU_SYNC_CONFLICT");
@@ -252,7 +271,7 @@ async function applyMenuSync(
       currentPlan.actions.map((action) => [action.externalProductId, action]),
     );
     const existingByProduct = new Map(
-      existing
+      canonical.existingItems
         .filter(
           (item) =>
             item.menuSourceId === source.id && item.externalProductId !== null,
@@ -261,7 +280,7 @@ async function applyMenuSync(
     );
     const shadowSource = shadowSourceNamespace(source);
 
-    for (const item of input.items) {
+    for (const item of canonical.input.items) {
       const action = actionByProduct.get(item.externalProductId);
       const shadowKey = createMenuExternalKey(
         item.externalProductId,

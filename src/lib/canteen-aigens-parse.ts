@@ -2,7 +2,7 @@ import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import {
   assertCompatibleProviderIdentityOccurrence,
   assertProviderMenuIdentityItems,
-} from "@/lib/canteen-provider-menu-identity";
+} from "./canteen-provider-menu-identity";
 import {
   ALLDAY_MEAL_PERIOD,
   primaryMealPeriodSortKey,

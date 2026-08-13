@@ -3,7 +3,7 @@ import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-perio
 import {
   assertCompatibleProviderIdentityOccurrence,
   assertProviderMenuIdentityItems,
-} from "@/lib/canteen-provider-menu-identity";
+} from "./canteen-provider-menu-identity";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type { MealPeriodAssignment, MenuSyncInput } from "@/lib/canteen-types";
 

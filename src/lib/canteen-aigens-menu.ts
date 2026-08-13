@@ -3,7 +3,7 @@ import {
   parseAigensMenuProducts,
 } from "@/lib/canteen-aigens-parse";
 import { createAigensOfferingId } from "@/lib/canteen-menu-external-key";
-import { assertProviderMenuIdentityItems } from "@/lib/canteen-provider-menu-identity";
+import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import type { MenuSyncInput } from "./canteen-types";
 
 const EXCLUDED_CATEGORIES = new Set(["飲品", "零食", "外賣包裝"]);

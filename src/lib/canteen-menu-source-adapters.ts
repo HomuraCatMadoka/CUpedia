@@ -9,7 +9,7 @@ import {
   createPinmeSignedParams,
 } from "@/lib/canteen-pinme-menu";
 import { buildQmaiMenuSyncPayload } from "@/lib/canteen-qmai-menu";
-import { assertProviderMenuIdentitySnapshot } from "@/lib/canteen-provider-menu-identity";
+import { assertProviderMenuIdentitySnapshot } from "./canteen-provider-menu-identity";
 import type { MenuSyncInput } from "@/lib/canteen-types";
 
 const ICHEF_ENDPOINT =

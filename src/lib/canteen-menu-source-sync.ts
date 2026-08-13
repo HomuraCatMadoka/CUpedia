@@ -16,6 +16,7 @@ import {
   observeMenuIdentityChurn,
   type MenuIdentityObservation,
 } from "@/lib/canteen-menu-sync-observation";
+import { normalizePublishedProviderIdentity } from "@/lib/canteen-provider-menu-identity";
 
 const MAX_ERROR_LENGTH = 1_000;
 const MAX_CONCURRENCY = 2;
@@ -108,7 +109,15 @@ export async function syncCanteenMenuSource(
       );
     const normalizedExisting = existingManaged.flatMap((item) =>
       item.externalProductId
-        ? [{ externalProductId: item.externalProductId, name: item.name }]
+        ? [
+            {
+              externalProductId: normalizePublishedProviderIdentity(
+                source.provider,
+                item.externalProductId,
+              ),
+              name: item.name,
+            },
+          ]
         : [],
     );
     const observation = observeMenuIdentityChurn(
