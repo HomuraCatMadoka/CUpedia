@@ -27,8 +27,8 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 
 **JSON 菜单输入**: 菜品输入字段含 name、pricing.options、mealPeriods（或旧 mealPeriod）、sortOrder、svgKey。`svgKey` 存分区键：爬虫来源有店家分类时写入原文分类名；无分类时才按菜名推断为旧版 `rice`/`noodle`/…。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。旧 append-only action 仅为兼容保留，不用于周期性来源同步。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
 
-**外部商品身份（External product identity）**: 一道供应商菜品在某个菜单来源内的稳定 product ID。CUpedia 的托管菜品身份是菜单来源 + product ID；名称、价格、分类、排序和餐段都是可变属性，不进入身份。供应商 product ID 或餐段变化都不能在不同菜单来源之间猜测或合并。
-_Avoid_: 用菜名、餐段或供应商数组顺序作为长期身份；把 5198 的 product ID 放进 5203 的菜单来源。
+**外部商品身份（External product identity）**: 一道供应商 offering 在某个菜单来源内的稳定标识。CUpedia 的托管菜品身份是菜单来源 + provider-scoped offering ID。PinMe 直接使用 product ID，餐段只是属性；Aigens 会在多个餐段复用 backend product ID，因此 offering ID 同时包含餐段。名称、价格、分类和排序不进入身份。Aigens 唯一的一对一餐段移动可原地更新；歧义拆分或合并必须中止，不能猜测历史归属。
+_Avoid_: 用菜名或供应商数组顺序作为长期身份；对所有供应商套用同一种 product ID 粒度；把 5198 的 product ID 放进 5203 的菜单来源。
 
 **外部菜单同步**: Admin 对已经配置的菜单来源提交含 `items[].externalProductId` 的完整来源快照，必须先 dry-run 再应用。首次可用规范化菜名 + 餐段集合接管唯一手工菜；接管只允许在该来源上成功一次。来源中消失的托管菜改为 `isAvailable = false`，不删除 UUID、投票或评论；名称、价格或餐段变化原地更新同一 UUID。周期任务只接受菜单来源 ID，并强制禁止接管。有分类时保留店家分类作 `svgKey`，不以菜名重分类。
 

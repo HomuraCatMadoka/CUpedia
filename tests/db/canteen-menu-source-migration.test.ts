@@ -535,7 +535,9 @@ describe.skipIf(!hasDb)("canteen menu source identity migration", () => {
 
     await expect(
       runSqlMigration(fixture.schema, offeringIdentityMigrationSql),
-    ).rejects.toThrow(/ambiguous multi-period Aigens offering identity/);
+    ).rejects.toThrow(
+      /ambiguous multi-period Aigens offering identity[\s\S]*102830[\s\S]*product-42#period=lunch\+dinner/,
+    );
 
     const unchanged = await client.query<{ external_product_id: string }>(
       `select external_product_id

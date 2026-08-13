@@ -10,16 +10,32 @@ SET LOCAL statement_timeout = '60s';
 LOCK TABLE "canteen_menu_items" IN SHARE ROW EXCLUSIVE MODE;
 
 DO $$
+DECLARE
+  v_ambiguous_identities text;
 BEGIN
-  IF EXISTS (
-    SELECT 1
+  SELECT string_agg(
+    format(
+      '%s / %s',
+      source.external_store_id,
+      regexp_replace(left(item.external_key, 120), '[[:cntrl:]]', '?', 'g')
+    ),
+    ', ' ORDER BY source.external_store_id, item.external_key
+  ) INTO v_ambiguous_identities
+  FROM (
+    SELECT source.id AS source_id, source.external_store_id, item.external_key
     FROM canteen_menu_items item
     JOIN canteen_menu_sources source ON source.id = item.menu_source_id
     WHERE source.provider = 'aigens'
       AND item.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)\+(allday|breakfast|lunch|dinner)(\+(allday|breakfast|lunch|dinner))*$'
       AND item.external_key !~ '#offering-period='
-  ) THEN
-    RAISE EXCEPTION 'ambiguous multi-period Aigens offering identity requires manual resolution';
+    ORDER BY source.external_store_id, item.external_key
+    LIMIT 10
+  ) item
+  JOIN canteen_menu_sources source ON source.id = item.source_id;
+
+  IF v_ambiguous_identities IS NOT NULL THEN
+    RAISE EXCEPTION 'ambiguous multi-period Aigens offering identity requires manual resolution: %',
+      v_ambiguous_identities;
   END IF;
 
   IF EXISTS (
