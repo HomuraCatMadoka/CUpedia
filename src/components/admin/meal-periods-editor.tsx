@@ -55,7 +55,7 @@ export function MealPeriodsEditor({
                 checked={value.includes(period)}
                 disabled={disabled}
                 onChange={() => onChange(toggleMealPeriod(value, period))}
-                className="size-3.5 accent-[var(--canteen-purple)]"
+                className="size-3.5 accent-[var(--canteen-focus)]"
               />
               {mealPeriodAssignmentLabel[period]}
             </label>
