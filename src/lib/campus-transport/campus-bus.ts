@@ -1,5 +1,7 @@
 import type { GeoJSONSourceSpecification } from "maplibre-gl";
 
+import { BUS_DWELL_MILLISECONDS } from "@/lib/campus-transport/bus-kinematics";
+
 export const HONG_KONG_TIME_ZONE = "Asia/Hong_Kong";
 
 export type LngLat = readonly [longitude: number, latitude: number];
@@ -188,6 +190,8 @@ export type CampusBusStopBoard = {
     | "not_service_day";
   skippedDepartureTimes: string[];
   upcomingArrivals: CampusBusArrival[];
+  /** 正停靠本站的班次（到站后 dwell 期間，不含起点发车）；無則為 null。 */
+  dockingArrival: CampusBusArrival | null;
 };
 
 type HongKongDateParts = {
@@ -366,7 +370,7 @@ function activePatternDayTypes(
   ]);
 }
 
-function scheduledDeparturesForDate(
+export function scheduledDeparturesForDate(
   now: number,
   route: CampusBusPassengerRoute,
 ) {
@@ -458,9 +462,11 @@ export function getCampusBusStopBoard(
       serviceStatus: "not_service_day",
       skippedDepartureTimes: [],
       upcomingArrivals: [],
+      dockingArrival: null,
     };
   }
 
+  let dockingArrival: CampusBusArrival | null = null;
   const servingArrivals = departures.flatMap(({ departureAt, pattern }) => {
     const projection = pattern.projections.find(
       (candidate) => candidate.stopOccurrenceId === stopOccurrenceId,
@@ -472,19 +478,25 @@ export function getCampusBusStopBoard(
         projectionResidualSeconds(projection, departureAt)) *
         1_000;
     const millisecondsUntilArrival = arrivalAt - now;
-    return [
-      {
-        arrivalAt,
-        arrivalTime: formatHongKongTime(arrivalAt),
-        departureAt,
-        departureTime: formatHongKongTime(departureAt),
-        patternId: pattern.id,
-        waitMinutes:
-          millisecondsUntilArrival < 60_000
-            ? 0
-            : Math.ceil(millisecondsUntilArrival / 60_000),
-      },
-    ];
+    const arrival: CampusBusArrival = {
+      arrivalAt,
+      arrivalTime: formatHongKongTime(arrivalAt),
+      departureAt,
+      departureTime: formatHongKongTime(departureAt),
+      patternId: pattern.id,
+      waitMinutes:
+        millisecondsUntilArrival < 60_000
+          ? 0
+          : Math.ceil(millisecondsUntilArrival / 60_000),
+    };
+    if (
+      projection.p50Seconds > 0 &&
+      now >= arrivalAt &&
+      now < arrivalAt + BUS_DWELL_MILLISECONDS
+    ) {
+      dockingArrival = arrival;
+    }
+    return [arrival];
   });
 
   const firstArrival = servingArrivals[0];
@@ -521,5 +533,6 @@ export function getCampusBusStopBoard(
     serviceStatus,
     skippedDepartureTimes,
     upcomingArrivals,
+    dockingArrival,
   };
 }

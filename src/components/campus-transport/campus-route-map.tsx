@@ -10,6 +10,7 @@ import {
   type CampusBusStop,
   type LngLat,
 } from "@/lib/campus-transport/campus-bus";
+import type { BusPosition } from "@/lib/campus-transport/bus-positions";
 import { cn } from "@/lib/utils";
 
 import styles from "./campus-route-map.module.css";
@@ -20,7 +21,16 @@ const LANDSD_LABEL_URL =
   "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/label/hk/tc/WGS84/{z}/{x}/{y}.png";
 const LANDSD_TERMS_URL = "https://api.portal.hkmapservice.gov.hk/tc";
 
+/** 车辆图标：Material Design Icons `bus`（侧视图实心），校徽金黄 + 白色外描边。
+ *  双层绘制：白层先画（fill+stroke 整体外扩），金层盖住白层内部，白边仅留在外轮廓。
+ *  以 DOM marker 渲染，z-index 高于站点 marker，巴士盖在站点数字之上。 */
+const BUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill-rule="evenodd">
+  <path d="M18,11H6V6H18M16.5,17A1.5,1.5 0 0,1 15,15.5A1.5,1.5 0 0,1 16.5,14A1.5,1.5 0 0,1 18,15.5A1.5,1.5 0 0,1 16.5,17M7.5,17A1.5,1.5 0 0,1 6,15.5A1.5,1.5 0 0,1 7.5,14A1.5,1.5 0 0,1 9,15.5A1.5,1.5 0 0,1 7.5,17M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16Z" fill="#ffffff" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M18,11H6V6H18M16.5,17A1.5,1.5 0 0,1 15,15.5A1.5,1.5 0 0,1 16.5,14A1.5,1.5 0 0,1 18,15.5A1.5,1.5 0 0,1 16.5,17M7.5,17A1.5,1.5 0 0,1 6,15.5A1.5,1.5 0 0,1 7.5,14A1.5,1.5 0 0,1 9,15.5A1.5,1.5 0 0,1 7.5,17M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16Z" fill="#d4a538"/>
+</svg>`;
+
 type CampusRouteMapProps = {
+  busPositions: BusPosition[];
   onSelectStop: (stopId: string) => void;
   onUserLocated: (coordinates: LngLat) => void;
   route: CampusBusPassengerRoute;
@@ -33,6 +43,7 @@ function prefersReducedMotion() {
 }
 
 export function CampusRouteMap({
+  busPositions,
   onSelectStop,
   onUserLocated,
   route,
@@ -44,6 +55,7 @@ export function CampusRouteMap({
   const initialSelectedStopIdRef = useRef(selectedStopId);
   const selectedStopIdRef = useRef(selectedStopId);
   const markerElementsRef = useRef(new Map<string, HTMLButtonElement>());
+  const busMarkersRef = useRef(new Map<number, Marker>());
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectStopRef = useRef(onSelectStop);
   const onUserLocatedRef = useRef(onUserLocated);
@@ -170,6 +182,7 @@ export function CampusRouteMap({
       marker.dataset.selected = String(
         group.some((stop) => stop.id === initialSelectedStopIdRef.current),
       );
+      marker.dataset.docking = "false";
       marker.dataset.stopIds = group.map((stop) => stop.id).join(",");
       marker.setAttribute(
         "aria-pressed",
@@ -200,6 +213,10 @@ export function CampusRouteMap({
     return () => {
       userMarkerRef.current?.remove();
       userMarkerRef.current = null;
+      for (const marker of busMarkersRef.current.values()) {
+        marker.remove();
+      }
+      busMarkersRef.current.clear();
       markerElements.clear();
       resizeObserver.disconnect();
       map.off("webglcontextlost", handleWebGlContextLost);
@@ -230,6 +247,53 @@ export function CampusRouteMap({
       zoom: Math.max(map.getZoom(), 16.35),
     });
   }, [route.map.stopCoordinates, selectedStopId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    // 车辆作为 DOM marker 渲染：创建/更新/删除，z-index 高于站点 marker
+    const busMarkers = busMarkersRef.current;
+    const seenDepartureAt = new Set<number>();
+    for (const bus of busPositions) {
+      seenDepartureAt.add(bus.departureAt);
+      let marker = busMarkers.get(bus.departureAt);
+      if (!marker) {
+        const element = document.createElement("div");
+        element.className = styles.busMarker;
+        element.setAttribute("role", "img");
+        element.setAttribute("aria-label", "校巴（推算位置）");
+        element.innerHTML = BUS_ICON_SVG;
+        marker = new maplibregl.Marker({ element })
+          .setLngLat([...bus.position])
+          .addTo(map);
+        busMarkers.set(bus.departureAt, marker);
+      } else {
+        marker.setLngLat([...bus.position]);
+      }
+    }
+    // 移除已收班的车辆
+    for (const [departureAt, marker] of busMarkers) {
+      if (seenDepartureAt.has(departureAt)) continue;
+      marker.remove();
+      busMarkers.delete(departureAt);
+    }
+
+    // 进站标记：正在停靠的站点数字底色变黄
+    const dockingStopIds = new Set(
+      busPositions
+        .filter((bus) => bus.atStop && bus.stopId)
+        .map((bus) => bus.stopId!),
+    );
+    const updatedMarkers = new Set<HTMLButtonElement>();
+    markerElementsRef.current.forEach((element, stopId) => {
+      if (updatedMarkers.has(element)) return;
+      updatedMarkers.add(element);
+      const stopIds = element.dataset.stopIds?.split(",") ?? [];
+      const docking = stopIds.some((id) => dockingStopIds.has(id));
+      element.dataset.docking = String(docking);
+    });
+  }, [busPositions]);
 
   function locateUser() {
     if (!navigator.geolocation) {
