@@ -8,11 +8,11 @@ import {
 import { getCommentCountsForCanteen } from "@/lib/canteen-comment-actions";
 import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
-import { CanteenQrAction } from "@/components/canteen/canteen-qr-badge";
+import { CanteenOrderAction } from "@/components/canteen/canteen-order-action";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
-import { resolveCanteenQrSrc } from "@/lib/canteen-assets";
+import { resolveCanteenOrderUrl } from "@/lib/canteen-order-urls";
 import { listCanteenDanmaku } from "@/lib/danmaku-actions";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -111,7 +111,7 @@ export default async function CanteenMenuPage({
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
   const commentBlocked = sessionUser?.banned ? ("banned" as const) : null;
   const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
-  const qrSrc = resolveCanteenQrSrc(id, canteen.name);
+  const orderUrl = resolveCanteenOrderUrl(id, canteen.name);
   const displayedVoteCounts = mock
     ? { ...voteCounts, ...MOCK_VOTE_COUNTS }
     : voteCounts;
@@ -124,7 +124,9 @@ export default async function CanteenMenuPage({
       subtitle={canteen.location ?? undefined}
       announcement={canteen.announcement}
       className="canteen-detail-page"
-      action={<CanteenQrAction src={qrSrc} canteenName={canteen.name} />}
+      action={
+        <CanteenOrderAction href={orderUrl} canteenName={canteen.name} />
+      }
       topContent={
         <DanmakuBanner
           initialMessages={danmaku}
