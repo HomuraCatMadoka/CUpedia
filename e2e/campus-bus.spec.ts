@@ -341,7 +341,12 @@ test.describe("campus bus reviewed route catalog", () => {
 
     await page.getByRole("button", { name: "使用我的位置" }).click();
     await expect(
-      page.getByText("未允許使用位置。請手動選擇，或在瀏覽器設定中重新允許。"),
+      page.getByRole("heading", { name: "未允許使用位置" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "你可以手動選站；如要查看附近車站，可在瀏覽器設定中重新允許定位。",
+      ),
     ).toBeVisible();
     await page.getByRole("button", { name: "手動選擇" }).click();
     await page
