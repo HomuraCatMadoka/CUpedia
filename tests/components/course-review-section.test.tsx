@@ -314,6 +314,35 @@ describe("CourseReviewSection", () => {
     expect(notRequired.getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("展示并单选课堂语言标签", () => {
+    render(
+      <CourseReviewSection
+        code="CSCI3150"
+        reviews={[]}
+        ratingState={RATING_STATE}
+        professorStats={[]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
+
+    expect(screen.getByText("课堂语言")).toBeTruthy();
+    const mandarin = screen.getByRole("button", { name: "普通话" });
+    const english = screen.getByRole("button", { name: "英语" });
+    const cantonese = screen.getByRole("button", { name: "粤语" });
+
+    fireEvent.click(mandarin);
+    expect(mandarin.getAttribute("aria-pressed")).toBe("true");
+    expect(english.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(cantonese);
+    expect(mandarin.getAttribute("aria-pressed")).toBe("false");
+    expect(cantonese.getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("无任课教授课程在教授留空时也可提交", () => {
     render(
       <CourseReviewSection
@@ -401,16 +430,12 @@ describe("CourseReviewSection", () => {
       target: { value: "Professor" },
     });
     await waitFor(() =>
-      expect(
-        screen.getByRole("option", { name: "Prof. Lee" }),
-      ).toBeTruthy(),
+      expect(screen.getByRole("option", { name: "Prof. Lee" })).toBeTruthy(),
     );
     expect(screen.queryByRole("button", { name: "+ Prof. Chan" })).toBeNull();
     fireEvent.keyDown(professorSearch, { key: "ArrowDown" });
     fireEvent.keyDown(professorSearch, { key: "Enter" });
-    expect(
-      screen.getByRole("button", { name: "移除 Prof. Lee" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "移除 Prof. Lee" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
     fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
 

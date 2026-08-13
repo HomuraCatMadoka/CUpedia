@@ -24,6 +24,7 @@ import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-act
 import { cn } from "@/lib/utils";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import {
+  COURSE_REVIEW_TAG_DIMENSIONS,
   COURSE_REVIEW_TAG_OPTIONS,
   COURSE_TERMS,
   type CourseReviewTags,
@@ -122,6 +123,9 @@ function parseReviewTags(tags: string[]): CourseReviewTags {
       tags.includes(tag),
     ),
     attendance: COURSE_REVIEW_TAG_OPTIONS.attendance.find((tag) =>
+      tags.includes(tag),
+    ),
+    language: COURSE_REVIEW_TAG_OPTIONS.language.find((tag) =>
       tags.includes(tag),
     ),
     custom: tags.filter((tag) => !PRESET_TAGS.has(tag)),
@@ -635,23 +639,22 @@ export function CourseReviewEditor({
             </legend>
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5">
               {(
-                Object.entries(COURSE_REVIEW_TAG_OPTIONS) as [
-                  keyof typeof COURSE_REVIEW_TAG_OPTIONS,
-                  readonly string[],
+                Object.entries(COURSE_REVIEW_TAG_DIMENSIONS) as [
+                  keyof typeof COURSE_REVIEW_TAG_DIMENSIONS,
+                  (typeof COURSE_REVIEW_TAG_DIMENSIONS)[keyof typeof COURSE_REVIEW_TAG_DIMENSIONS],
                 ][]
-              ).map(([dimension, options]) => (
+              ).map(([dimension, config]) => (
                 <div key={dimension} className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {dimension === "workload"
-                      ? "Workload"
-                      : dimension === "grade"
-                        ? "Grade"
-                        : dimension === "enrollment"
-                          ? "抢课难度"
-                          : "考勤要求"}
+                    {config.label}
                   </p>
-                  <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/70 p-1">
-                    {options.map((tag) => (
+                  <div
+                    className={cn(
+                      "grid gap-1 rounded-lg bg-muted/70 p-1",
+                      config.gridClassName,
+                    )}
+                  >
+                    {config.options.map((tag) => (
                       <button
                         key={tag}
                         type="button"

@@ -707,6 +707,7 @@ export const courseRatings = pgTable(
     grade: text("grade"),
     enrollment: text("enrollment"),
     attendance: text("attendance"),
+    language: text("language"),
     /** Free-form labels only; preset dimensions live in typed columns above. */
     customTags: jsonb("tags").$type<string[]>().notNull().default([]),
     isAnonymous: boolean("is_anonymous").notNull().default(false),
@@ -743,6 +744,10 @@ export const courseRatings = pgTable(
     check(
       "course_ratings_attendance_check",
       sql`${table.attendance} is null or ${table.attendance} in ('required', 'not_required')`,
+    ),
+    check(
+      "course_ratings_language_check",
+      sql`${table.language} is null or ${table.language} in ('mandarin', 'english', 'cantonese')`,
     ),
   ],
 );

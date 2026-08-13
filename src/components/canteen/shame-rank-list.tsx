@@ -183,7 +183,7 @@ export function ShameRankList({
 }) {
   const router = useRouter();
   const [view, setView] = useState<"today" | "history">("today");
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(true);
   const [todayCounts, setTodayCounts] = useState(initialTodayCounts);
   const [allTimeCounts, setAllTimeCounts] = useState(initialAllTimeCounts);
   const [rankingTodayCounts, setRankingTodayCounts] =
@@ -217,9 +217,8 @@ export function ShameRankList({
   const visibleRankedEntries = showAll
     ? rankedEntries
     : rankedEntries.slice(0, 10);
-  const hasHiddenEntries =
-    rankedEntries.length > visibleRankedEntries.length ||
-    unrankedEntries.length > 0;
+  const hasCollapsibleContent =
+    rankedEntries.length > 10 || unrankedEntries.length > 0;
   const hasPreviousVotes = Object.values(previousCounts).some(
     (count) => count > 0,
   );
@@ -440,7 +439,7 @@ export function ShameRankList({
             </div>
           ) : null}
 
-          {hasHiddenEntries || showAll ? (
+          {hasCollapsibleContent ? (
             <button
               type="button"
               aria-expanded={showAll}

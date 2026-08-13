@@ -512,6 +512,13 @@
       "when": 1786557753043,
       "tag": "0072_campus_bus_anonymous_session_rate_limits",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1786589206889,
+      "tag": "0073_course_rating_language",
+      "breakpoints": true
     }
   ]
 }

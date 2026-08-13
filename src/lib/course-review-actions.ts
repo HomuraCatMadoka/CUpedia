@@ -265,6 +265,7 @@ const storedReviewTagSelection = {
   grade: courseRatings.grade,
   enrollment: courseRatings.enrollment,
   attendance: courseRatings.attendance,
+  language: courseRatings.language,
   customTags: courseRatings.customTags,
 };
 
@@ -386,6 +387,7 @@ type NormalizedReviewTags = {
   grade: "good" | "bad" | null;
   enrollment: "hard" | "easy" | null;
   attendance: "required" | "not_required" | null;
+  language: "mandarin" | "english" | "cantonese" | null;
   customTags: string[];
 };
 
@@ -394,6 +396,7 @@ type StoredReviewTags = {
   grade: string | null;
   enrollment: string | null;
   attendance: string | null;
+  language: string | null;
   customTags: string[] | null;
 };
 
@@ -418,6 +421,7 @@ function presentReviewTags(
     presentPresetTag("grade", tags.grade),
     presentPresetTag("enrollment", tags.enrollment),
     presentPresetTag("attendance", tags.attendance),
+    presentPresetTag("language", tags.language),
   ];
   return [
     ...preset.filter((tag): tag is string => tag !== null),
@@ -477,6 +481,9 @@ function normalizeReviewTags(
       : null,
     attendance: tags?.attendance
       ? COURSE_REVIEW_TAG_STORAGE_VALUES.attendance[tags.attendance]
+      : null,
+    language: tags?.language
+      ? COURSE_REVIEW_TAG_STORAGE_VALUES.language[tags.language]
       : null,
     customTags: [...new Set(custom.filter(Boolean))],
   };
