@@ -6,6 +6,7 @@ import {
   hongKongWallTimeToEpoch,
   toCampusBusPassengerRoute,
 } from "@/lib/campus-transport/campus-bus";
+import { BUS_DWELL_MILLISECONDS } from "@/lib/campus-transport/bus-kinematics";
 import {
   campusBusRoutes,
   getCampusBusRoute,
@@ -181,6 +182,53 @@ describe("campus bus route catalog", () => {
       firstArrivalTime: "07:40",
       serviceStatus: "before_service",
       upcomingArrivals: [],
+      dockingArrival: null,
+    });
+  });
+
+  it("marks a bus as docking during its stop dwell and clears it afterwards", () => {
+    const route1a = getCampusBusRoute("1a")!;
+    const stopId = "cuhk-wp-stop-2546#1";
+    const probe = getCampusBusStopBoard(route1a, stopId, hkt(2026, 8, 11, 8, 10));
+    const arrival = probe.upcomingArrivals[0]!;
+
+    const duringDwell = getCampusBusStopBoard(
+      route1a,
+      stopId,
+      arrival.arrivalAt + 15_000,
+    );
+    expect(duringDwell.dockingArrival).toMatchObject({
+      arrivalTime: arrival.arrivalTime,
+      patternId: arrival.patternId,
+    });
+    expect(duringDwell.dockingArrival?.arrivalAt).toBe(arrival.arrivalAt);
+
+    const afterDwell = getCampusBusStopBoard(
+      route1a,
+      stopId,
+      arrival.arrivalAt + BUS_DWELL_MILLISECONDS + 1_000,
+    );
+    expect(afterDwell.dockingArrival).toBeNull();
+  });
+
+  it("never treats the origin departure as a docking stop", () => {
+    const route1a = getCampusBusRoute("1a")!;
+    const originStopId = "cuhk-wp-stop-2552#1";
+    const probe = getCampusBusStopBoard(
+      route1a,
+      originStopId,
+      hkt(2026, 8, 11, 8, 10),
+    );
+    const originArrival = probe.upcomingArrivals[0]!;
+
+    const afterDeparture = getCampusBusStopBoard(
+      route1a,
+      originStopId,
+      originArrival.arrivalAt + 15_000,
+    );
+    expect(afterDeparture.dockingArrival).toBeNull();
+    expect(afterDeparture.upcomingArrivals[0]).not.toMatchObject({
+      arrivalAt: originArrival.arrivalAt,
     });
   });
 
