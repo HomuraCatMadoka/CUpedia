@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { BusFrontIcon, FlaskConicalIcon } from "lucide-react";
+import { BusFrontIcon, SearchIcon } from "lucide-react";
 import {
   useCallback,
   useRef,
@@ -17,7 +16,6 @@ type CampusBusHomeTab = "nearby" | "routes";
 
 type CampusBusHomeProps = {
   initialNow: number;
-  modelOperationsEnabled: boolean;
   routes: CampusBusPassengerRoute[];
 };
 
@@ -62,11 +60,7 @@ function selectStoredTab(nextTab: CampusBusHomeTab) {
   window.dispatchEvent(new Event(TAB_CHANGE_EVENT));
 }
 
-export function CampusBusHome({
-  initialNow,
-  modelOperationsEnabled,
-  routes,
-}: CampusBusHomeProps) {
+export function CampusBusHome({ initialNow, routes }: CampusBusHomeProps) {
   const tab = useSyncExternalStore(subscribeToTabChange, storedTab, serverTab);
   const nearbyTabRef = useRef<HTMLButtonElement>(null);
   const routesTabRef = useRef<HTMLButtonElement>(null);
@@ -74,9 +68,23 @@ export function CampusBusHome({
     selectStoredTab(nextTab);
   }, []);
   function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    if (
+      event.key !== "ArrowLeft" &&
+      event.key !== "ArrowRight" &&
+      event.key !== "Home" &&
+      event.key !== "End"
+    ) {
+      return;
+    }
     event.preventDefault();
-    const nextTab = tab === "nearby" ? "routes" : "nearby";
+    const nextTab =
+      event.key === "Home"
+        ? "nearby"
+        : event.key === "End"
+          ? "routes"
+          : tab === "nearby"
+            ? "routes"
+            : "nearby";
     selectTab(nextTab);
     (nextTab === "nearby" ? nearbyTabRef : routesTabRef).current?.focus();
   }
@@ -95,15 +103,13 @@ export function CampusBusHome({
             </p>
           </div>
         </div>
-        {modelOperationsEnabled ? (
-          <Link
-            href="/campus-bus/lab"
-            className="grid size-11 place-items-center rounded-xl bg-white/10 text-white transition-colors hover:bg-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-            aria-label="模型實驗室"
-          >
-            <FlaskConicalIcon className="size-4" aria-hidden="true" />
-          </Link>
-        ) : null}
+        <span
+          className="grid size-11 place-items-center rounded-xl bg-white/8 text-white/55"
+          aria-label="搜尋即將推出"
+          title="搜尋即將推出"
+        >
+          <SearchIcon className="size-5" aria-hidden="true" />
+        </span>
       </header>
 
       <div
@@ -143,17 +149,25 @@ export function CampusBusHome({
 
       <div
         role="tabpanel"
-        id={`campus-bus-${tab}-panel`}
-        aria-labelledby={`campus-bus-${tab}-tab`}
+        id="campus-bus-nearby-panel"
+        aria-labelledby="campus-bus-nearby-tab"
+        aria-live="polite"
+        aria-atomic="false"
+        hidden={tab !== "nearby"}
+        inert={tab !== "nearby"}
       >
-        {tab === "nearby" ? (
-          <CampusBusBoardingPlacePicker
-            initialNow={initialNow}
-            routes={routes}
-          />
-        ) : (
-          <CampusBusRouteList initialNow={initialNow} routes={routes} />
-        )}
+        <CampusBusBoardingPlacePicker initialNow={initialNow} routes={routes} />
+      </div>
+      <div
+        role="tabpanel"
+        id="campus-bus-routes-panel"
+        aria-labelledby="campus-bus-routes-tab"
+        aria-live="polite"
+        aria-atomic="false"
+        hidden={tab !== "routes"}
+        inert={tab !== "routes"}
+      >
+        <CampusBusRouteList initialNow={initialNow} routes={routes} />
       </div>
 
       <footer className="border-t px-5 py-3 text-center text-xs text-muted-foreground sm:px-7">

@@ -272,67 +272,108 @@ export function CampusBusBoardingPlacePicker({
             </button>
           </div>
         </div>
+      ) : visibleLocationStatus === "requesting" ? (
+        <div
+          className="px-5 py-8 sm:px-7"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <div className="flex items-center gap-3">
+            <span className="grid size-11 place-items-center rounded-xl bg-[#f1e8f5] text-[#5b2a73] dark:bg-[#2b2030] dark:text-[#e7c9f1]">
+              <LocateFixedIcon
+                className="size-5 animate-pulse motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+            </span>
+            <div>
+              <h2 className="font-bold">正在取得你的位置</h2>
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                只用於這次附近車站查詢
+              </p>
+            </div>
+          </div>
+          <div className="mt-6 space-y-3" aria-hidden="true">
+            <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+            <div className="h-20 animate-pulse rounded-xl bg-muted motion-reduce:animate-none" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="mt-5 min-h-11 touch-manipulation text-sm font-semibold text-[#5b2a73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:text-[#e7c9f1]"
+          >
+            改為手動選站
+          </button>
+        </div>
+      ) : visibleLocationStatus !== "idle" ? (
+        <div
+          className="px-5 py-8 sm:px-7"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <div className="flex items-start gap-3">
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#f1e8f5] text-[#5b2a73] dark:bg-[#2b2030] dark:text-[#e7c9f1]">
+              <MapPinIcon className="size-5" aria-hidden="true" />
+            </span>
+            <div>
+              <h2 className="font-bold">{locationHeading}</h2>
+              <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                {visibleLocationStatus === "denied"
+                  ? "你可以手動選站；如要查看附近車站，可在瀏覽器設定中重新允許定位。"
+                  : visibleLocationStatus === "timeout"
+                    ? "取得位置逾時。你可以再試一次，或直接手動選站。"
+                    : visibleLocationStatus === "unavailable"
+                      ? "你可以再試一次，或直接手動選站。"
+                      : "請手動選擇乘車地點。"}
+              </p>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            {visibleLocationStatus === "timeout" ||
+            visibleLocationStatus === "unavailable" ? (
+              <button
+                type="button"
+                onClick={requestLocation}
+                className="min-h-11 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40"
+              >
+                重試定位
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="min-h-11 rounded-xl border border-[#5b2a73] px-5 text-sm font-semibold text-[#5b2a73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:border-[#d8b9e4] dark:text-[#e7c9f1]"
+            >
+              手動選擇
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="px-5 py-10 text-center sm:px-7">
           <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#f1e8f5] text-[#5b2a73] dark:bg-[#2b2030] dark:text-[#e7c9f1]">
-            {visibleLocationStatus === "requesting" ? (
-              <LocateFixedIcon
-                className="size-6 animate-pulse motion-reduce:animate-none"
-                aria-hidden="true"
-              />
-            ) : visibleLocationStatus === "idle" ? (
-              <NavigationIcon className="size-6" aria-hidden="true" />
-            ) : (
-              <MapPinIcon className="size-6" aria-hidden="true" />
-            )}
+            <NavigationIcon className="size-6" aria-hidden="true" />
           </span>
           <h2 className="mt-4 text-lg font-bold">{locationHeading}</h2>
           <div
             className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground"
             aria-live="polite"
           >
-            {visibleLocationStatus === "idle" ? (
-              <p>
-                {permissionHint === "denied"
-                  ? "瀏覽器目前不允許使用位置；你仍可手動選擇乘車地點。"
-                  : "定位只用於這次查找附近車站，不會持續追蹤或保存你的位置。"}
-              </p>
-            ) : visibleLocationStatus === "requesting" ? (
-              <p>只用於這次附近車站查詢；手動選站仍可使用。</p>
-            ) : visibleLocationStatus === "denied" ? (
-              <p>
-                你可以手動選站；如要查看附近車站，可在瀏覽器設定中重新允許定位。
-              </p>
-            ) : visibleLocationStatus === "timeout" ? (
-              <p>取得位置逾時。你可以再試一次，或直接手動選站。</p>
-            ) : visibleLocationStatus === "unavailable" ? (
-              <p>你可以再試一次，或直接手動選站。</p>
-            ) : (
-              <p>請手動選擇乘車地點。</p>
-            )}
+            <p>
+              {permissionHint === "denied"
+                ? "瀏覽器目前不允許使用位置；你仍可手動選擇乘車地點。"
+                : "定位只用於這次查找附近車站，不會持續追蹤或保存你的位置。"}
+            </p>
           </div>
           <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
-            {visibleLocationStatus !== "denied" &&
-            visibleLocationStatus !== "unsupported" ? (
-              <button
-                type="button"
-                onClick={requestLocation}
-                disabled={visibleLocationStatus === "requesting"}
-                className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#4b1f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 disabled:cursor-wait disabled:opacity-70"
-              >
-                {visibleLocationStatus === "requesting" ? (
-                  <RefreshCwIcon
-                    className="size-4 animate-spin motion-reduce:animate-none"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <NavigationIcon className="size-4" aria-hidden="true" />
-                )}
-                {visibleLocationStatus === "requesting"
-                  ? "正在取得位置"
-                  : "使用我的位置"}
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={requestLocation}
+              className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#4b1f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40"
+            >
+              <NavigationIcon className="size-4" aria-hidden="true" />
+              使用我的位置
+            </button>
             <button
               type="button"
               onClick={() => setOpen(true)}

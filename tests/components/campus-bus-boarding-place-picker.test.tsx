@@ -117,6 +117,17 @@ describe("CampusBusBoardingPlacePicker", () => {
     expect(screen.queryByText(/步行/)).toBeNull();
   });
 
+  it("shows the prototype requesting layout with skeletons and manual fallback", () => {
+    const { container } = renderPicker();
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+
+    expect(
+      screen.getByRole("heading", { name: "正在取得你的位置" }),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "改為手動選站" })).toBeTruthy();
+    expect(container.querySelectorAll(".animate-pulse")).toHaveLength(3);
+  });
+
   it.each([
     [1, "你可以手動選站；如要查看附近車站，可在瀏覽器設定中重新允許定位。"],
     [2, "你可以再試一次，或直接手動選站。"],
@@ -129,7 +140,7 @@ describe("CampusBusBoardingPlacePicker", () => {
     expect(screen.getByText(label)).toBeTruthy();
     expect(screen.getByRole("button", { name: "手動選擇" })).toBeTruthy();
     if (code !== 1) {
-      expect(screen.getByRole("button", { name: "使用我的位置" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "重試定位" })).toBeTruthy();
     } else {
       expect(screen.queryByRole("button", { name: "使用我的位置" })).toBeNull();
     }
@@ -171,8 +182,10 @@ describe("CampusBusBoardingPlacePicker", () => {
   it("ignores an old callback after manual fallback", async () => {
     renderPicker();
     fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
-    fireEvent.click(screen.getByRole("button", { name: "手動選擇" }));
-    fireEvent.click(screen.getByRole("button", { name: /大學站/ }));
+    fireEvent.click(screen.getByRole("button", { name: "改為手動選站" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^大學站Univ\. Station/ }),
+    );
     await act(() => callbacks[0]!.success(position(114.2101, 22.4135)));
 
     expect(screen.getByText("手動選擇")).toBeTruthy();

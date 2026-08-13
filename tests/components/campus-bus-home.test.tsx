@@ -45,7 +45,6 @@ function renderHome() {
   return render(
     <CampusBusHome
       initialNow={Date.UTC(2026, 7, 10, 23, 38)}
-      modelOperationsEnabled={false}
       routes={[
         toCampusBusPassengerRoute(getCampusBusRoute("1a")!),
         toCampusBusPassengerRoute(getCampusBusRoute("3")!),
@@ -64,6 +63,7 @@ describe("CampusBusHome", () => {
     expect(screen.getByRole("button", { name: "使用我的位置" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "現在可乘" })).toBeNull();
     expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("搜尋即將推出")).toBeTruthy();
     fireEvent.click(screen.getByRole("tab", { name: "附近" }));
     expect(getCurrentPosition).not.toHaveBeenCalled();
   });
@@ -95,6 +95,46 @@ describe("CampusBusHome", () => {
       screen.getByRole("tab", { name: "全部路線" }),
     );
     expect(getCurrentPosition).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "全部路線" }), {
+      key: "Home",
+    });
+    expect(screen.getByRole("tab", { name: "附近" })).toHaveProperty(
+      "tabIndex",
+      0,
+    );
+  });
+
+  it("preserves a manually selected Boarding place across tab round trips", () => {
+    renderHome();
+    fireEvent.click(screen.getByRole("button", { name: "手動選擇" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^大學站Univ\. Station/ }),
+    );
+    expect(screen.getByRole("heading", { name: "大學站" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "全部路線" }));
+    expect(screen.queryByRole("heading", { name: "大學站" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "附近" }));
+
+    expect(screen.getByRole("heading", { name: "大學站" })).toBeTruthy();
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+  });
+
+  it("keeps an in-flight location request mounted across tab round trips", () => {
+    renderHome();
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole("heading", { name: "正在取得你的位置" }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "全部路線" }));
+    fireEvent.click(screen.getByRole("tab", { name: "附近" }));
+
+    expect(
+      screen.getByRole("heading", { name: "正在取得你的位置" }),
+    ).toBeTruthy();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
   });
 
   it("restores only a valid versioned tab and never renders fake recent routes", () => {
