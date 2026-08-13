@@ -125,6 +125,13 @@ type RouteUiMetadata = {
   subtitle: string;
 };
 
+// The current catalog contains only the reviewed free shuttle routes. Their
+// official pages identify the service as being for CUHK students and staff;
+// see docs/campus-transport/research/cuhk-public-data-source-catalog.md.
+// Keep this scoped constant instead of a generic default so future paid or
+// restricted route ingestion must choose its own reviewed eligibility.
+const FREE_SHUTTLE_RIDER_ELIGIBILITY = "students-and-staff" as const;
+
 const routeUiMetadata: Record<string, RouteUiMetadata> = {
   "1a": {
     color: "#4f6f52",
@@ -396,7 +403,7 @@ function buildRoute(
     seedModelRevisionId: rawDataset.seedModelRevisionId,
     routeNameEn: rawDataset.route.nameEn,
     routeNameZhHant: rawDataset.route.nameZhHant,
-    riderEligibility: "students-and-staff",
+    riderEligibility: FREE_SHUTTLE_RIDER_ELIGIBILITY,
     serviceBands,
     serviceHoursLabel,
     slug: rawDataset.route.routeId,

@@ -5,7 +5,7 @@ import {
   scheduledDeparturesForDate,
   type CampusBusPassengerRoute,
   type CampusBusStopBoard,
-} from "@/lib/campus-transport/campus-bus";
+} from "./campus-bus";
 
 type CampusBusCatalogStatus = CampusBusStopBoard["serviceStatus"];
 
