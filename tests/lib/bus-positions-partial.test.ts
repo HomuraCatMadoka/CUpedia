@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { computeBusPositions } from "@/lib/campus-transport/bus-positions";
+import { formatHongKongTime } from "@/lib/campus-transport/campus-bus";
 import { campusBusRoutes } from "@/lib/campus-transport/routes-data";
 
 describe("computeBusPositions partial-service patterns", () => {
@@ -14,8 +15,7 @@ describe("computeBusPositions partial-service patterns", () => {
     const now = new Date("2026-08-13T11:21:20+08:00").getTime();
     const positions = computeBusPositions(route2, now, 30_000);
     const defaultBus = positions.find(
-      (bus) =>
-        new Date(bus.departureAt).toTimeString().slice(0, 5) === "11:15",
+      (bus) => formatHongKongTime(bus.departureAt) === "11:15",
     );
     expect(defaultBus).toBeDefined();
     // 应停靠在冯景禧楼，而不是被跳过的邵逸夫堂
@@ -30,7 +30,7 @@ describe("computeBusPositions partial-service patterns", () => {
     const now = new Date("2026-08-13T11:04:50+08:00").getTime();
     const positions = computeBusPositions(route2, now, 30_000);
     const shawBus = positions.find(
-      (bus) => new Date(bus.departureAt).toTimeString().slice(0, 5) === "11:00",
+      (bus) => formatHongKongTime(bus.departureAt) === "11:00",
     );
     expect(shawBus).toBeDefined();
     expect(shawBus!.atStop).toBe(true);

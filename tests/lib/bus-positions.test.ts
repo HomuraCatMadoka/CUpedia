@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { CampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
+import { formatHongKongTime } from "@/lib/campus-transport/campus-bus";
 import { computeBusPositions } from "@/lib/campus-transport/bus-positions";
 import { campusBusRoutes } from "@/lib/campus-transport/routes-data";
 
@@ -180,7 +181,7 @@ describe("computeBusPositions", () => {
     const positions = computeBusPositions(route, now, 30_000);
     expect(positions.length).toBeGreaterThanOrEqual(2);
     const departureTimes = positions
-      .map((bus) => new Date(bus.departureAt).toTimeString().slice(0, 5))
+      .map((bus) => formatHongKongTime(bus.departureAt))
       .sort();
     expect(departureTimes).toContain("08:00");
     expect(departureTimes).toContain("08:15");
