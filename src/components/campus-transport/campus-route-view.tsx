@@ -118,7 +118,7 @@ function ArrivalBoard({
   }
 
   const rows = board.dockingArrival
-    ? [board.dockingArrival, ...board.upcomingArrivals]
+    ? [board.dockingArrival, ...board.upcomingArrivals].slice(0, 3)
     : board.upcomingArrivals;
   const firstArrival = rows[0]!;
   const liveText = board.dockingArrival
@@ -147,14 +147,23 @@ function ArrivalBoard({
               <span className="text-sm font-semibold text-muted-foreground">
                 {index === 0 ? "下一班" : `第 ${index + 1} 班`}
               </span>
-              {docking || arrivingSoon ? (
+              {docking ? (
+                <strong
+                  className={cn(
+                    "tracking-tight text-[#D4A538]",
+                    index === 0 ? "text-2xl sm:text-[1.7rem]" : "text-xl",
+                  )}
+                >
+                  停靠
+                </strong>
+              ) : arrivingSoon ? (
                 <strong
                   className={cn(
                     "tracking-tight text-[#4b1f60] dark:text-[#e7c9f1]",
                     index === 0 ? "text-2xl sm:text-[1.7rem]" : "text-xl",
                   )}
                 >
-                  {docking ? "停靠" : "即將到達"}
+                  即將到達
                 </strong>
               ) : (
                 <strong
