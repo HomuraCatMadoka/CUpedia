@@ -1,0 +1,2695 @@
+{
+  "generatedAt": "2026-08-11",
+  "baseline": "official cuhk-public-data merged.snapshot",
+  "sources": {
+    "official": {
+      "routes": 14,
+      "ids": [
+        "1a",
+        "1b",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6a",
+        "6b",
+        "7",
+        "8",
+        "down",
+        "h",
+        "n",
+        "up"
+      ]
+    },
+    "cu_bus_app_v1_18": {
+      "routes": 19,
+      "stops": 35
+    },
+    "anson_cubus_2024_10": {
+      "routes": 16,
+      "gps": 23
+    },
+    "flippy_2023_02": {
+      "routes": 22,
+      "stops": 64,
+      "info_day": 5
+    }
+  },
+  "coverage": [
+    {
+      "family": "1A",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 1,
+      "app_variants": ["1A"],
+      "anson_variants": ["1A"],
+      "flippy_variants": ["1A;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "1B",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 1,
+      "app_variants": ["1B"],
+      "anson_variants": ["1B"],
+      "flippy_variants": ["1B;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "2",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 2,
+      "app_variants": ["2", "2_sir_run_run"],
+      "anson_variants": ["2", "2#"],
+      "flippy_variants": ["2;CU", "2;S;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "3",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 1,
+      "app_variants": ["3"],
+      "anson_variants": ["3"],
+      "flippy_variants": ["3;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "4",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 1,
+      "app_variants": ["4"],
+      "anson_variants": ["4"],
+      "flippy_variants": ["4;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "5",
+      "official": true,
+      "official_bands": 2,
+      "official_patterns": 1,
+      "app_variants": ["5", "5_sat"],
+      "anson_variants": ["5"],
+      "flippy_variants": ["5;CU", "5;S;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "6A",
+      "official": true,
+      "official_bands": 2,
+      "official_patterns": 1,
+      "app_variants": ["6A", "6A_sat"],
+      "anson_variants": ["6A"],
+      "flippy_variants": ["6A;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "6B",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 1,
+      "app_variants": ["6B"],
+      "anson_variants": ["6B"],
+      "flippy_variants": ["6B;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "7",
+      "official": true,
+      "official_bands": 2,
+      "official_patterns": 1,
+      "app_variants": ["7", "7_sat"],
+      "anson_variants": ["7"],
+      "flippy_variants": ["7;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "8",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 2,
+      "app_variants": ["8", "8_non_teach"],
+      "anson_variants": ["8", "8#"],
+      "flippy_variants": ["8;CU", "8;S;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "H",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 2,
+      "app_variants": ["H", "H_area_39"],
+      "anson_variants": ["H", "H#"],
+      "flippy_variants": ["H;CU", "H;S;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "N",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 2,
+      "app_variants": ["N", "N_postgrad"],
+      "anson_variants": ["N", "N#"],
+      "flippy_variants": ["N;CU", "N;S;CU"],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "UP",
+      "official": true,
+      "official_bands": 1,
+      "official_patterns": 1,
+      "app_variants": [],
+      "anson_variants": [],
+      "flippy_variants": [],
+      "flippy_info_day_extra": []
+    },
+    {
+      "family": "DOWN",
+      "official": true,
+      "official_bands": 2,
+      "official_patterns": 1,
+      "app_variants": [],
+      "anson_variants": [],
+      "flippy_variants": [],
+      "flippy_info_day_extra": []
+    }
+  ],
+  "schedule": {
+    "matches_or_expected_subsets": 33,
+    "conflicts": [
+      {
+        "family": "1A",
+        "source": "anson",
+        "id": "1A",
+        "value": {
+          "start": "07:30",
+          "end": "18:40",
+          "mins": [20, 40],
+          "day_tag": "TD,NT"
+        },
+        "official": {
+          "start": "07:40",
+          "end": "18:50",
+          "mins": [10, 20, 40, 50],
+          "rule": "07:40-18:50 For Mon to Sat (Except Public Holidays)"
+        },
+        "issues": [
+          "window anson 07:30-18:40 vs off 07:40-18:50",
+          "mins subset anson [20, 40] of off [10, 20, 40, 50]"
+        ],
+        "kind": "schedule_mismatch_anson"
+      },
+      {
+        "family": "1B",
+        "source": "anson",
+        "id": "1B",
+        "value": {
+          "start": "08:00",
+          "end": "18:00",
+          "mins": [0],
+          "day_tag": "TD,NT"
+        },
+        "official": {
+          "start": "08:00",
+          "end": "18:30",
+          "mins": [0, 30],
+          "rule": "08:00 - 18:30 For Mon to Sat only (Except Public Holidays)"
+        },
+        "issues": [
+          "window anson 08:00-18:00 vs off 08:00-18:30",
+          "mins subset anson [0] of off [0, 30]"
+        ],
+        "kind": "schedule_mismatch_anson"
+      }
+    ],
+    "conflict_count": 2
+  },
+  "stop_sequence": {
+    "ok_or_minor": 36,
+    "conflicts": [
+      {
+        "family": "3",
+        "source": "flippy",
+        "id": "3;CU",
+        "matched_pattern": "3:default",
+        "score": 0.867,
+        "src_stops": [
+          "Yasumoto International Academic Park",
+          "University Sports Centre",
+          "Science Centre",
+          "Fung King Hey Building",
+          "Residences No. 3 & 4 (Upward)",
+          "Shaw College (Upward)",
+          "C.W. Chu College (Downward)",
+          "Residence No. 15",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Residences No. 3 & 4 (Downward)",
+          "University Administration Building",
+          "S.H. Ho College",
+          "University Station Piazza"
+        ],
+        "off_stops": [
+          "Y.I.A.P.",
+          "Univ. Sports Centre",
+          "Science Centre",
+          "Fung King Hey Bldg.",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Station Piazza"
+        ],
+        "only_src": ["res 3 4", "res 3 4"],
+        "only_off": ["wys", "wys"],
+        "issues": [
+          "only_src=['res 3 4', 'res 3 4']",
+          "only_off=['wys', 'wys']"
+        ],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      },
+      {
+        "family": "5",
+        "source": "flippy",
+        "id": "5;CU",
+        "matched_pattern": "5:default",
+        "score": 0.778,
+        "src_stops": [
+          "Chung Chi Teaching Blocks",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "Fung King Hey Building",
+          "United College (Upward)",
+          "New Asia College",
+          "Residences No. 3 & 4 (Upward)",
+          "Shaw College (Upward)"
+        ],
+        "off_stops": [
+          "Chung Chi Teaching Bldg.",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "Fung King Hey Bldg.",
+          "United College (Upward)",
+          "New Asia College",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "CW Chu College (Downward)"
+        ],
+        "only_src": ["res 3 4"],
+        "only_off": ["wys", "cw chu college"],
+        "issues": [
+          "only_src=['res 3 4']",
+          "only_off=['wys', 'cw chu college']"
+        ],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      },
+      {
+        "family": "5",
+        "source": "flippy",
+        "id": "5;S;CU",
+        "matched_pattern": "5:default",
+        "score": 0.889,
+        "src_stops": [
+          "Chung Chi Teaching Blocks",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "Fung King Hey Building",
+          "United College (Upward)",
+          "New Asia College",
+          "Residences No. 3 & 4 (Upward)",
+          "Shaw College (Upward)",
+          "C.W. Chu College (Downward)"
+        ],
+        "off_stops": [
+          "Chung Chi Teaching Bldg.",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "Fung King Hey Bldg.",
+          "United College (Upward)",
+          "New Asia College",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "CW Chu College (Downward)"
+        ],
+        "only_src": ["res 3 4"],
+        "only_off": ["wys"],
+        "issues": ["only_src=['res 3 4']", "only_off=['wys']"],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      },
+      {
+        "family": "7",
+        "source": "flippy",
+        "id": "7;CU",
+        "matched_pattern": "7:default",
+        "score": 0.875,
+        "src_stops": [
+          "Shaw College (Downward)",
+          "Residences No. 3 & 4 (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "University Administration Building",
+          "S.H. Ho College",
+          "University Station Piazza",
+          "Chung Chi Teaching Blocks"
+        ],
+        "off_stops": [
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Station Piazza",
+          "Chung Chi Teaching Bldg."
+        ],
+        "only_src": ["res 3 4"],
+        "only_off": ["wys"],
+        "issues": ["only_src=['res 3 4']", "only_off=['wys']"],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      },
+      {
+        "family": "8",
+        "source": "flippy",
+        "id": "8;CU",
+        "matched_pattern": "8:teaching-day",
+        "score": 0.875,
+        "src_stops": [
+          "Area 39 (Upward)",
+          "C.W. Chu College (Downward)",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Residences No. 3 & 4 (Downward)",
+          "University Administration Building",
+          "Science Centre",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Residences No. 3 & 4 (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Downward)",
+          "Campus Circuit North",
+          "Campus Circuit East (Downward)",
+          "University Station 🚆"
+        ],
+        "off_stops": [
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "Univ. Admin. Bldg.",
+          "Science Centre",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Downward)",
+          "Campus Circuit North",
+          "Campus Circuit East (Downward)",
+          "Univ. Station"
+        ],
+        "only_src": ["res 3 4", "res 3 4"],
+        "only_off": ["wys", "wys"],
+        "issues": [
+          "only_src=['res 3 4', 'res 3 4']",
+          "only_off=['wys', 'wys']"
+        ],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      },
+      {
+        "family": "8",
+        "source": "flippy",
+        "id": "8;S;CU",
+        "matched_pattern": "8:non-teaching-day",
+        "score": 0.882,
+        "src_stops": [
+          "Area 39 (Upward)",
+          "C.W. Chu College (Downward)",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Residences No. 3 & 4 (Downward)",
+          "University Administration Building",
+          "Science Centre",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Residences No. 3 & 4 (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Downward)",
+          "Campus Circuit North",
+          "Campus Circuit East (Downward)",
+          "University Station Piazza",
+          "Chung Chi Teaching Blocks"
+        ],
+        "off_stops": [
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "Univ. Admin. Bldg.",
+          "Science Centre",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Downward)",
+          "Campus Circuit North",
+          "Campus Circuit East (Downward)",
+          "Station Piazza",
+          "Chung Chi Teaching Bldg."
+        ],
+        "only_src": ["res 3 4", "res 3 4"],
+        "only_off": ["wys", "wys"],
+        "issues": [
+          "only_src=['res 3 4', 'res 3 4']",
+          "only_off=['wys', 'wys']"
+        ],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      },
+      {
+        "family": "H",
+        "source": "cu-bus-app",
+        "id": "H",
+        "matched_pattern": "h:default",
+        "score": 0.947,
+        "src_stops": [
+          "Univ. MTR Station (Uphill)",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College (Residence 3 & 4 Direction)",
+          "United College (Residence 3 & 4 Direction)",
+          "WYS College (Shaw College Direction)",
+          "Shaw College (Circuit North Direction)",
+          "C.W. Chu College",
+          "Residence 10",
+          "Residence 15",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Central Campus Direction)",
+          "WYS College (Central Campus Direction)",
+          "New Asia College (Central Direction)",
+          "United College (Central Direction)",
+          "University Admin Building",
+          "S.H. Ho College",
+          "Univ. MTR Station (Terminal)"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 10",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "kind": "stop_seq_conflict_cu-bus-app"
+      },
+      {
+        "family": "H",
+        "source": "cu-bus-app",
+        "id": "H_area_39",
+        "matched_pattern": "h:00-via-pgh1-area39",
+        "score": 0.955,
+        "src_stops": [
+          "Univ. MTR Station (Uphill)",
+          "Postgraduate Hall 1 (Uphill)",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College (Residence 3 & 4 Direction)",
+          "United College (Residence 3 & 4 Direction)",
+          "WYS College (Shaw College Direction)",
+          "Shaw College (Circuit North Direction)",
+          "Area 39 (Uphill)",
+          "C.W. Chu College",
+          "Residence 10",
+          "Residence 15",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Central Campus Direction)",
+          "WYS College (Central Campus Direction)",
+          "New Asia College (Central Direction)",
+          "United College (Central Direction)",
+          "University Admin Building",
+          "S.H. Ho College",
+          "Postgraduate Hall 1 (MTR Direction)",
+          "Univ. MTR Station (Terminal)"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Postgraduate Hall 1",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 10",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Postgraduate Hall 1",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "kind": "stop_seq_conflict_cu-bus-app"
+      },
+      {
+        "family": "H",
+        "source": "anson",
+        "id": "H",
+        "matched_pattern": "h:default",
+        "score": 0.947,
+        "src_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College",
+          "United College",
+          "Wu Yee Sun College",
+          "Shaw College",
+          "C.W. Chu College",
+          "Residence No. 10",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College",
+          "Wu Yee Sun College",
+          "New Asia College",
+          "United College",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 10",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "codes": [
+          "MTR",
+          "SPORTC",
+          "SHAWHALL",
+          "NAC",
+          "UC",
+          "RESI34",
+          "SHAWC",
+          "CWCC",
+          "RESI10",
+          "RESI15",
+          "UCSR",
+          "CCHH",
+          "SHAWC",
+          "RESI34",
+          "NAC",
+          "UC",
+          "UADM",
+          "SHHC",
+          "MTR"
+        ],
+        "kind": "stop_seq_conflict_anson"
+      },
+      {
+        "family": "H",
+        "source": "anson",
+        "id": "H#",
+        "matched_pattern": "h:00-via-pgh1-area39",
+        "score": 0.955,
+        "src_stops": [
+          "Univ. Station",
+          "Jockey Club Postgraduate Hall",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College",
+          "United College",
+          "Wu Yee Sun College",
+          "Shaw College",
+          "Area 39",
+          "C.W. Chu College",
+          "Residence No. 10",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College",
+          "Wu Yee Sun College",
+          "New Asia College",
+          "United College",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Jockey Club Postgraduate Hall",
+          "Univ. Station"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Postgraduate Hall 1",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 10",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Postgraduate Hall 1",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "codes": [
+          "MTR",
+          "JCPH",
+          "SPORTC",
+          "SHAWHALL",
+          "NAC",
+          "UC",
+          "RESI34",
+          "SHAWC",
+          "AREA39",
+          "CWCC",
+          "RESI10",
+          "RESI15",
+          "UCSR",
+          "CCHH",
+          "SHAWC",
+          "RESI34",
+          "NAC",
+          "UC",
+          "UADM",
+          "SHHC",
+          "JCPH",
+          "MTR"
+        ],
+        "kind": "stop_seq_conflict_anson"
+      },
+      {
+        "family": "H",
+        "source": "flippy",
+        "id": "H;CU",
+        "matched_pattern": "h:default",
+        "score": 0.895,
+        "src_stops": [
+          "University Station 🚆",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Residences No. 3 & 4 (Upward)",
+          "Shaw College (Upward)",
+          "C.W. Chu College (Downward)",
+          "Residence No. 10",
+          "Residence No. 15",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Residences No. 3 & 4 (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "University Administration Building",
+          "S.H. Ho College",
+          "University Station 🚆"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 10",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "only_src": ["res 3 4", "res 3 4"],
+        "only_off": ["wys", "wys"],
+        "issues": [
+          "only_src=['res 3 4', 'res 3 4']",
+          "only_off=['wys', 'wys']"
+        ],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      },
+      {
+        "family": "N",
+        "source": "cu-bus-app",
+        "id": "N",
+        "matched_pattern": "n:default",
+        "score": 0.947,
+        "src_stops": [
+          "Univ. MTR Station (Uphill)",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College (Residence 3 & 4 Direction)",
+          "United College (Residence 3 & 4 Direction)",
+          "WYS College (Shaw College Direction)",
+          "Shaw College (Circuit North Direction)",
+          "Area 39 (Uphill)",
+          "C.W. Chu College",
+          "Residence 15",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Central Campus Direction)",
+          "WYS College (Central Campus Direction)",
+          "New Asia College (Central Direction)",
+          "United College (Central Direction)",
+          "University Admin Building",
+          "S.H. Ho College",
+          "Univ. MTR Station (Terminal)"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "kind": "stop_seq_conflict_cu-bus-app"
+      },
+      {
+        "family": "N",
+        "source": "cu-bus-app",
+        "id": "N_postgrad",
+        "matched_pattern": "n:00-via-pgh1",
+        "score": 0.952,
+        "src_stops": [
+          "Univ. MTR Station (Uphill)",
+          "Postgraduate Hall 1 (Uphill)",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College (Residence 3 & 4 Direction)",
+          "United College (Residence 3 & 4 Direction)",
+          "WYS College (Shaw College Direction)",
+          "Shaw College (Circuit North Direction)",
+          "Area 39 (Uphill)",
+          "C.W. Chu College",
+          "Residence 15",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Central Campus Direction)",
+          "WYS College (Central Campus Direction)",
+          "New Asia College (Central Direction)",
+          "United College (Central Direction)",
+          "University Admin Building",
+          "S.H. Ho College",
+          "Postgraduate Hall 1 (MTR Direction)",
+          "Univ. MTR Station (Terminal)"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Postgraduate Hall 1",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Postgraduate Hall 1",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "kind": "stop_seq_conflict_cu-bus-app"
+      },
+      {
+        "family": "N",
+        "source": "anson",
+        "id": "N",
+        "matched_pattern": "n:default",
+        "score": 0.947,
+        "src_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College",
+          "United College",
+          "Wu Yee Sun College",
+          "Shaw College",
+          "Area 39",
+          "C.W. Chu College",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College",
+          "Wu Yee Sun College",
+          "New Asia College",
+          "United College",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "codes": [
+          "MTR",
+          "SPORTC",
+          "SHAWHALL",
+          "NAC",
+          "UC",
+          "RESI34",
+          "SHAWC",
+          "AREA39",
+          "CWCC",
+          "RESI15",
+          "UCSR",
+          "CCHH",
+          "SHAWC",
+          "RESI34",
+          "NAC",
+          "UC",
+          "UADM",
+          "SHHC",
+          "MTR"
+        ],
+        "kind": "stop_seq_conflict_anson"
+      },
+      {
+        "family": "N",
+        "source": "anson",
+        "id": "N#",
+        "matched_pattern": "n:00-via-pgh1",
+        "score": 0.952,
+        "src_stops": [
+          "Univ. Station",
+          "Jockey Club Postgraduate Hall",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia College",
+          "United College",
+          "Wu Yee Sun College",
+          "Shaw College",
+          "Area 39",
+          "C.W. Chu College",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College",
+          "Wu Yee Sun College",
+          "New Asia College",
+          "United College",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Jockey Club Postgraduate Hall",
+          "Univ. Station"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Postgraduate Hall 1",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Postgraduate Hall 1",
+          "Univ. Station"
+        ],
+        "only_src": [],
+        "only_off": ["new asia circle"],
+        "issues": ["only_off=['new asia circle']", "order differs"],
+        "codes": [
+          "MTR",
+          "JCPH",
+          "SPORTC",
+          "SHAWHALL",
+          "NAC",
+          "UC",
+          "RESI34",
+          "SHAWC",
+          "AREA39",
+          "CWCC",
+          "RESI15",
+          "UCSR",
+          "CCHH",
+          "SHAWC",
+          "RESI34",
+          "NAC",
+          "UC",
+          "UADM",
+          "SHHC",
+          "JCPH",
+          "MTR"
+        ],
+        "kind": "stop_seq_conflict_anson"
+      },
+      {
+        "family": "N",
+        "source": "flippy",
+        "id": "N;CU",
+        "matched_pattern": "n:default",
+        "score": 0.895,
+        "src_stops": [
+          "University Station 🚆",
+          "University Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Residences No. 3 & 4 (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "C.W. Chu College (Downward)",
+          "Residence No. 15",
+          "United College Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Residences No. 3 & 4 (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "University Administration Building",
+          "S.H. Ho College",
+          "University Station 🚆"
+        ],
+        "off_stops": [
+          "Univ. Station",
+          "Univ. Sports Centre",
+          "Sir Run Run Shaw Hall",
+          "New Asia Circle",
+          "United College (Downward)",
+          "Wu Yee Sun College (Upward)",
+          "Shaw College (Upward)",
+          "Area 39 (Upward)",
+          "CW Chu College (Downward)",
+          "Residence No. 15",
+          "U.C. Staff Residence",
+          "Chan Chun Ha Hostel",
+          "Shaw College (Downward)",
+          "Wu Yee Sun College (Downward)",
+          "New Asia College",
+          "United College (Downward)",
+          "Univ. Admin. Bldg.",
+          "S.H. Ho College",
+          "Univ. Station"
+        ],
+        "only_src": ["res 3 4", "res 3 4"],
+        "only_off": ["wys", "wys"],
+        "issues": [
+          "only_src=['res 3 4', 'res 3 4']",
+          "only_off=['wys', 'wys']"
+        ],
+        "type": "Normal",
+        "via": null,
+        "kind": "stop_seq_conflict_flippy"
+      }
+    ],
+    "conflict_count": 16
+  },
+  "coordinates": {
+    "aligned_pairs": 17,
+    "conflicts_ge_40m": [
+      {
+        "name": "cw chu college",
+        "max_distance_m": 60.1,
+        "all": [
+          {
+            "src": "app",
+            "id": "cwc_college",
+            "lat": 22.42564,
+            "lon": 114.206662,
+            "label": "C.W. Chu College"
+          },
+          {
+            "src": "app",
+            "id": "cwc_college_only_to_area_39",
+            "lat": 22.425613,
+            "lon": 114.206182,
+            "label": "C.W. Chu College (Only to Area 39)"
+          },
+          {
+            "src": "anson",
+            "id": "CWCC",
+            "lat": 22.425613,
+            "lon": 114.206182,
+            "label": "CWCC"
+          },
+          {
+            "src": "flippy",
+            "id": "CU049",
+            "lat": 22.42569,
+            "lon": 114.20608,
+            "label": "C.W. Chu College (Downward)"
+          },
+          {
+            "src": "flippy",
+            "id": "CU050",
+            "lat": 22.42555,
+            "lon": 114.20625,
+            "label": "C.W. Chu College (Upward)"
+          },
+          {
+            "src": "flippy",
+            "id": "CU062I",
+            "lat": 22.4256,
+            "lon": 114.20644,
+            "label": "C.W. Chu College"
+          }
+        ],
+        "pair": [
+          {
+            "src": "app",
+            "id": "cwc_college",
+            "lat": 22.42564,
+            "lon": 114.206662,
+            "label": "C.W. Chu College"
+          },
+          {
+            "src": "flippy",
+            "id": "CU049",
+            "lat": 22.42569,
+            "lon": 114.20608,
+            "label": "C.W. Chu College (Downward)"
+          }
+        ]
+      },
+      {
+        "name": "new asia college",
+        "max_distance_m": 70.6,
+        "all": [
+          {
+            "src": "app",
+            "id": "na_college",
+            "lat": 22.421344,
+            "lon": 114.207484,
+            "label": "New Asia College (Central Direction)"
+          },
+          {
+            "src": "app",
+            "id": "na_college_backhill",
+            "lat": 22.421087,
+            "lon": 114.207552,
+            "label": "New Asia College (Residence 3 & 4 Direction)"
+          },
+          {
+            "src": "app",
+            "id": "na_college_for_route_5",
+            "lat": 22.42155,
+            "lon": 114.207451,
+            "label": "New Asia College (For route 5 uphill)"
+          },
+          {
+            "src": "anson",
+            "id": "NAC",
+            "lat": 22.421415,
+            "lon": 114.207484,
+            "label": "NAC"
+          },
+          {
+            "src": "flippy",
+            "id": "CU031",
+            "lat": 22.42131,
+            "lon": 114.20749,
+            "label": "New Asia College"
+          },
+          {
+            "src": "flippy",
+            "id": "CU058I",
+            "lat": 22.42097,
+            "lon": 114.20773,
+            "label": "New Asia College"
+          }
+        ],
+        "pair": [
+          {
+            "src": "app",
+            "id": "na_college_for_route_5",
+            "lat": 22.42155,
+            "lon": 114.207451,
+            "label": "New Asia College (For route 5 uphill)"
+          },
+          {
+            "src": "flippy",
+            "id": "CU058I",
+            "lat": 22.42097,
+            "lon": 114.20773,
+            "label": "New Asia College"
+          }
+        ]
+      },
+      {
+        "name": "sir run run shaw hall",
+        "max_distance_m": 47.8,
+        "all": [
+          {
+            "src": "app",
+            "id": "sir_run_run",
+            "lat": 22.419853,
+            "lon": 114.206992,
+            "label": "Sir Run Run Shaw Hall"
+          },
+          {
+            "src": "anson",
+            "id": "SHAWHALL",
+            "lat": 22.419883,
+            "lon": 114.206907,
+            "label": "SHAWHALL"
+          },
+          {
+            "src": "flippy",
+            "id": "CU022N",
+            "lat": 22.41984,
+            "lon": 114.20737,
+            "label": "Sir Run Run Shaw Hall"
+          },
+          {
+            "src": "flippy",
+            "id": "CU024",
+            "lat": 22.41984,
+            "lon": 114.20694,
+            "label": "Sir Run Run Shaw Hall"
+          }
+        ],
+        "pair": [
+          {
+            "src": "anson",
+            "id": "SHAWHALL",
+            "lat": 22.419883,
+            "lon": 114.206907,
+            "label": "SHAWHALL"
+          },
+          {
+            "src": "flippy",
+            "id": "CU022N",
+            "lat": 22.41984,
+            "lon": 114.20737,
+            "label": "Sir Run Run Shaw Hall"
+          }
+        ]
+      },
+      {
+        "name": "university admin building",
+        "max_distance_m": 75.0,
+        "all": [
+          {
+            "src": "app",
+            "id": "uni_admin_building",
+            "lat": 22.418806,
+            "lon": 114.205332,
+            "label": "University Admin Building"
+          },
+          {
+            "src": "anson",
+            "id": "UADM",
+            "lat": 22.418799,
+            "lon": 114.20534,
+            "label": "UADM"
+          },
+          {
+            "src": "flippy",
+            "id": "CU017",
+            "lat": 22.4188,
+            "lon": 114.20534,
+            "label": "University Administration Building"
+          },
+          {
+            "src": "flippy",
+            "id": "CU018S",
+            "lat": 22.41881,
+            "lon": 114.20461,
+            "label": "University Administration Building"
+          }
+        ],
+        "pair": [
+          {
+            "src": "anson",
+            "id": "UADM",
+            "lat": 22.418799,
+            "lon": 114.20534,
+            "label": "UADM"
+          },
+          {
+            "src": "flippy",
+            "id": "CU018S",
+            "lat": 22.41881,
+            "lon": 114.20461,
+            "label": "University Administration Building"
+          }
+        ]
+      },
+      {
+        "name": "university station",
+        "max_distance_m": 233.2,
+        "all": [
+          {
+            "src": "app",
+            "id": "uni_station",
+            "lat": 22.414518,
+            "lon": 114.210197,
+            "label": "Univ. MTR Station (Uphill)"
+          },
+          {
+            "src": "app",
+            "id": "uni_station_terminal",
+            "lat": 22.415082,
+            "lon": 114.210427,
+            "label": "Univ. MTR Station (Terminal)"
+          },
+          {
+            "src": "anson",
+            "id": "MTR",
+            "lat": 22.414523,
+            "lon": 114.210223,
+            "label": "MTR"
+          },
+          {
+            "src": "flippy",
+            "id": "CU001N",
+            "lat": 22.41356,
+            "lon": 114.20976,
+            "label": "University Station 🚆"
+          },
+          {
+            "src": "flippy",
+            "id": "CU004",
+            "lat": 22.4145,
+            "lon": 114.21022,
+            "label": "University Station 🚆"
+          },
+          {
+            "src": "flippy",
+            "id": "CU054",
+            "lat": 22.41546,
+            "lon": 114.21072,
+            "label": "University Station 🚆"
+          },
+          {
+            "src": "flippy",
+            "id": "CU064I",
+            "lat": 22.41393,
+            "lon": 114.20973,
+            "label": "University Station 🚆"
+          }
+        ],
+        "pair": [
+          {
+            "src": "flippy",
+            "id": "CU001N",
+            "lat": 22.41356,
+            "lon": 114.20976,
+            "label": "University Station 🚆"
+          },
+          {
+            "src": "flippy",
+            "id": "CU054",
+            "lat": 22.41546,
+            "lon": 114.21072,
+            "label": "University Station 🚆"
+          }
+        ]
+      },
+      {
+        "name": "wys",
+        "max_distance_m": 44.5,
+        "all": [
+          {
+            "src": "app",
+            "id": "residences_3_4_central_direction",
+            "lat": 22.421253,
+            "lon": 114.203509,
+            "label": "WYS College (Central Campus Direction)"
+          },
+          {
+            "src": "app",
+            "id": "residences_3_4_shaw_direction",
+            "lat": 22.421491,
+            "lon": 114.203451,
+            "label": "WYS College (Shaw College Direction)"
+          },
+          {
+            "src": "anson",
+            "id": "RESI34",
+            "lat": 22.421094,
+            "lon": 114.203502,
+            "label": "RESI34"
+          }
+        ],
+        "pair": [
+          {
+            "src": "app",
+            "id": "residences_3_4_shaw_direction",
+            "lat": 22.421491,
+            "lon": 114.203451,
+            "label": "WYS College (Shaw College Direction)"
+          },
+          {
+            "src": "anson",
+            "id": "RESI34",
+            "lat": 22.421094,
+            "lon": 114.203502,
+            "label": "RESI34"
+          }
+        ]
+      }
+    ],
+    "conflict_count": 6
+  },
+  "travel_time_app_vs_anson": {
+    "aligned_routes": 7,
+    "routes_with_leg_diff_ge_30s": [
+      {
+        "family": "2",
+        "anson_id": "2",
+        "app_id": "2",
+        "legs": [
+          {
+            "from": "MTRP",
+            "to": "SPORTC",
+            "from_app": "piazza",
+            "to_app": "sports_centre",
+            "anson_sec": 162.5,
+            "app_sec": 164,
+            "diff_sec": 1.5
+          },
+          {
+            "from": "SPORTC",
+            "to": "FKHB",
+            "from_app": "sports_centre",
+            "to_app": "fung_king_hey_building",
+            "anson_sec": 199.4,
+            "app_sec": 200,
+            "diff_sec": 0.6
+          },
+          {
+            "from": "FKHB",
+            "to": "UC",
+            "from_app": "fung_king_hey_building",
+            "to_app": "united_college_drop_off",
+            "anson_sec": 218.8,
+            "app_sec": 70,
+            "diff_sec": -148.8
+          },
+          {
+            "from": "UC",
+            "to": "NAC",
+            "from_app": "united_college_drop_off",
+            "to_app": "na_college",
+            "anson_sec": 84.1,
+            "app_sec": 84,
+            "diff_sec": -0.1
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_drop_off",
+            "to_app": "uni_admin_building",
+            "anson_sec": 92.6,
+            "app_sec": 242,
+            "diff_sec": 149.4
+          },
+          {
+            "from": "UADM",
+            "to": "SHHC",
+            "from_app": "uni_admin_building",
+            "to_app": "shho",
+            "anson_sec": 152.4,
+            "app_sec": 152,
+            "diff_sec": -0.4
+          },
+          {
+            "from": "SHHC",
+            "to": "MTR",
+            "from_app": "shho",
+            "to_app": "uni_station_terminal",
+            "anson_sec": 105.2,
+            "app_sec": 105,
+            "diff_sec": -0.2
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "FKHB",
+            "to": "UC",
+            "from_app": "fung_king_hey_building",
+            "to_app": "united_college_drop_off",
+            "anson_sec": 218.8,
+            "app_sec": 70,
+            "diff_sec": -148.8
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_drop_off",
+            "to_app": "uni_admin_building",
+            "anson_sec": 92.6,
+            "app_sec": 242,
+            "diff_sec": 149.4
+          }
+        ]
+      },
+      {
+        "family": "2",
+        "anson_id": "2#",
+        "app_id": "2_sir_run_run",
+        "legs": [
+          {
+            "from": "MTRP",
+            "to": "SPORTC",
+            "from_app": "piazza",
+            "to_app": "sports_centre",
+            "anson_sec": 162.5,
+            "app_sec": 164,
+            "diff_sec": 1.5
+          },
+          {
+            "from": "SPORTC",
+            "to": "SHAWHALL",
+            "from_app": "sports_centre",
+            "to_app": "sir_run_run",
+            "anson_sec": 120.7,
+            "app_sec": 120,
+            "diff_sec": -0.7
+          },
+          {
+            "from": "SHAWHALL",
+            "to": "FKHB",
+            "from_app": "sir_run_run",
+            "to_app": "fung_king_hey_building",
+            "anson_sec": 90.0,
+            "app_sec": 90,
+            "diff_sec": -0.0
+          },
+          {
+            "from": "FKHB",
+            "to": "UC",
+            "from_app": "fung_king_hey_building",
+            "to_app": "united_college_drop_off",
+            "anson_sec": 218.8,
+            "app_sec": 70,
+            "diff_sec": -148.8
+          },
+          {
+            "from": "UC",
+            "to": "NAC",
+            "from_app": "united_college_drop_off",
+            "to_app": "na_college",
+            "anson_sec": 84.1,
+            "app_sec": 84,
+            "diff_sec": -0.1
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_drop_off",
+            "to_app": "uni_admin_building",
+            "anson_sec": 92.6,
+            "app_sec": 242,
+            "diff_sec": 149.4
+          },
+          {
+            "from": "UADM",
+            "to": "SHHC",
+            "from_app": "uni_admin_building",
+            "to_app": "shho",
+            "anson_sec": 152.4,
+            "app_sec": 152,
+            "diff_sec": -0.4
+          },
+          {
+            "from": "SHHC",
+            "to": "MTR",
+            "from_app": "shho",
+            "to_app": "uni_station_terminal",
+            "anson_sec": 105.2,
+            "app_sec": 105,
+            "diff_sec": -0.2
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "FKHB",
+            "to": "UC",
+            "from_app": "fung_king_hey_building",
+            "to_app": "united_college_drop_off",
+            "anson_sec": 218.8,
+            "app_sec": 70,
+            "diff_sec": -148.8
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_drop_off",
+            "to_app": "uni_admin_building",
+            "anson_sec": 92.6,
+            "app_sec": 242,
+            "diff_sec": 149.4
+          }
+        ]
+      },
+      {
+        "family": "3",
+        "anson_id": "3",
+        "app_id": "3",
+        "legs": [
+          {
+            "from": "YIAP",
+            "to": "SPORTC",
+            "from_app": "yia",
+            "to_app": "sports_centre",
+            "anson_sec": 79.5,
+            "app_sec": 80,
+            "diff_sec": 0.5
+          },
+          {
+            "from": "SPORTC",
+            "to": "SCIC",
+            "from_app": "sports_centre",
+            "to_app": "sci_centre",
+            "anson_sec": 126.1,
+            "app_sec": 126,
+            "diff_sec": -0.1
+          },
+          {
+            "from": "SCIC",
+            "to": "FKHB",
+            "from_app": "sci_centre",
+            "to_app": "fung_king_hey_building",
+            "anson_sec": 80.0,
+            "app_sec": 80,
+            "diff_sec": -0.0
+          },
+          {
+            "from": "FKHB",
+            "to": "RESI34",
+            "from_app": "fung_king_hey_building",
+            "to_app": "residences_3_4_shaw_direction",
+            "anson_sec": 669.2,
+            "app_sec": 46,
+            "diff_sec": -623.2
+          },
+          {
+            "from": "RESI34",
+            "to": "SHAWC",
+            "from_app": "residences_3_4_shaw_direction",
+            "to_app": "shaw_college_north_direction",
+            "anson_sec": 102.9,
+            "app_sec": 103,
+            "diff_sec": 0.1
+          },
+          {
+            "from": "SHAWC",
+            "to": "CWCC",
+            "from_app": "shaw_college_north_direction",
+            "to_app": "cwc_college",
+            "anson_sec": 145.9,
+            "app_sec": 147,
+            "diff_sec": 1.1
+          },
+          {
+            "from": "CWCC",
+            "to": "RESI15",
+            "from_app": "cwc_college",
+            "to_app": "residence_15",
+            "anson_sec": 61.6,
+            "app_sec": 63,
+            "diff_sec": 1.4
+          },
+          {
+            "from": "RESI15",
+            "to": "UCSR",
+            "from_app": "residence_15",
+            "to_app": "united_college_staff_residence",
+            "anson_sec": 42.4,
+            "app_sec": 41,
+            "diff_sec": -1.4
+          },
+          {
+            "from": "UCSR",
+            "to": "CCHH",
+            "from_app": "united_college_staff_residence",
+            "to_app": "chan_chun_ha_hostel",
+            "anson_sec": 53.3,
+            "app_sec": 54,
+            "diff_sec": 0.7
+          },
+          {
+            "from": "RESI34",
+            "to": "UADM",
+            "from_app": "residences_3_4_shaw_direction",
+            "to_app": "uni_admin_building",
+            "anson_sec": 102.4,
+            "app_sec": 724,
+            "diff_sec": 621.6
+          },
+          {
+            "from": "UADM",
+            "to": "SHHC",
+            "from_app": "uni_admin_building",
+            "to_app": "shho",
+            "anson_sec": 117.4,
+            "app_sec": 117,
+            "diff_sec": -0.4
+          },
+          {
+            "from": "SHHC",
+            "to": "MTRP",
+            "from_app": "shho",
+            "to_app": "piazza_terminal",
+            "anson_sec": 150.9,
+            "app_sec": 150,
+            "diff_sec": -0.9
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "FKHB",
+            "to": "RESI34",
+            "from_app": "fung_king_hey_building",
+            "to_app": "residences_3_4_shaw_direction",
+            "anson_sec": 669.2,
+            "app_sec": 46,
+            "diff_sec": -623.2
+          },
+          {
+            "from": "RESI34",
+            "to": "UADM",
+            "from_app": "residences_3_4_shaw_direction",
+            "to_app": "uni_admin_building",
+            "anson_sec": 102.4,
+            "app_sec": 724,
+            "diff_sec": 621.6
+          }
+        ]
+      },
+      {
+        "family": "4",
+        "anson_id": "4",
+        "app_id": "4",
+        "legs": [
+          {
+            "from": "YIAP",
+            "to": "CCEE",
+            "from_app": "yia",
+            "to_app": "circuit_east_cwc_direction",
+            "anson_sec": 80.1,
+            "app_sec": 80,
+            "diff_sec": -0.1
+          },
+          {
+            "from": "CCEE",
+            "to": "CWCC",
+            "from_app": "circuit_east_cwc_direction",
+            "to_app": "cwc_college_only_to_area_39",
+            "anson_sec": 86.8,
+            "app_sec": 86,
+            "diff_sec": -0.8
+          },
+          {
+            "from": "CWCC",
+            "to": "AREA39",
+            "from_app": "cwc_college_only_to_area_39",
+            "to_app": "area_39_uphill",
+            "anson_sec": 82.4,
+            "app_sec": 81,
+            "diff_sec": -1.4
+          },
+          {
+            "from": "CWCC",
+            "to": "RESI15",
+            "from_app": "cwc_college_only_to_area_39",
+            "to_app": "residence_15",
+            "anson_sec": 66.1,
+            "app_sec": 216,
+            "diff_sec": 149.9
+          },
+          {
+            "from": "RESI15",
+            "to": "UCSR",
+            "from_app": "residence_15",
+            "to_app": "united_college_staff_residence",
+            "anson_sec": 61.4,
+            "app_sec": 60,
+            "diff_sec": -1.4
+          },
+          {
+            "from": "UCSR",
+            "to": "CCHH",
+            "from_app": "united_college_staff_residence",
+            "to_app": "chan_chun_ha_hostel",
+            "anson_sec": 79.4,
+            "app_sec": 80,
+            "diff_sec": 0.6
+          },
+          {
+            "from": "CCHH",
+            "to": "SHAWC",
+            "from_app": "chan_chun_ha_hostel",
+            "to_app": "shaw_college_central_direction",
+            "anson_sec": 139.9,
+            "app_sec": 140,
+            "diff_sec": 0.1
+          },
+          {
+            "from": "SHAWC",
+            "to": "RESI34",
+            "from_app": "shaw_college_central_direction",
+            "to_app": "residences_3_4_central_direction",
+            "anson_sec": 121.3,
+            "app_sec": 120,
+            "diff_sec": -1.3
+          },
+          {
+            "from": "RESI34",
+            "to": "NAC",
+            "from_app": "residences_3_4_central_direction",
+            "to_app": "na_college",
+            "anson_sec": 84.4,
+            "app_sec": 85,
+            "diff_sec": 0.6
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college",
+            "to_app": "united_college",
+            "anson_sec": 70.7,
+            "app_sec": 72,
+            "diff_sec": 1.3
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college",
+            "to_app": "uni_admin_building",
+            "anson_sec": 106.1,
+            "app_sec": 105,
+            "diff_sec": -1.1
+          },
+          {
+            "from": "UADM",
+            "to": "SHHC",
+            "from_app": "uni_admin_building",
+            "to_app": "shho",
+            "anson_sec": 134.2,
+            "app_sec": 133,
+            "diff_sec": -1.2
+          },
+          {
+            "from": "SHHC",
+            "to": "MTR",
+            "from_app": "shho",
+            "to_app": "uni_station_terminal",
+            "anson_sec": 114.0,
+            "app_sec": 114,
+            "diff_sec": 0.0
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "CWCC",
+            "to": "RESI15",
+            "from_app": "cwc_college_only_to_area_39",
+            "to_app": "residence_15",
+            "anson_sec": 66.1,
+            "app_sec": 216,
+            "diff_sec": 149.9
+          }
+        ]
+      },
+      {
+        "family": "8",
+        "anson_id": "8",
+        "app_id": "8",
+        "legs": [
+          {
+            "from": "AREA39",
+            "to": "CWCC",
+            "from_app": "area_39_uphill",
+            "to_app": "cwc_college",
+            "anson_sec": 70.4,
+            "app_sec": 70,
+            "diff_sec": -0.4
+          },
+          {
+            "from": "CWCC",
+            "to": "UCSR",
+            "from_app": "cwc_college",
+            "to_app": "united_college_staff_residence",
+            "anson_sec": 78.9,
+            "app_sec": 80,
+            "diff_sec": 1.1
+          },
+          {
+            "from": "UCSR",
+            "to": "CCHH",
+            "from_app": "united_college_staff_residence",
+            "to_app": "chan_chun_ha_hostel",
+            "anson_sec": 60.0,
+            "app_sec": 60,
+            "diff_sec": 0.0
+          },
+          {
+            "from": "CCHH",
+            "to": "SHAWC",
+            "from_app": "chan_chun_ha_hostel",
+            "to_app": "shaw_college_central_direction",
+            "anson_sec": 135.6,
+            "app_sec": 135,
+            "diff_sec": -0.6
+          },
+          {
+            "from": "SHAWC",
+            "to": "RESI34",
+            "from_app": "shaw_college_central_direction",
+            "to_app": "residences_3_4_central_direction",
+            "anson_sec": 74.6,
+            "app_sec": 74,
+            "diff_sec": -0.6
+          },
+          {
+            "from": "RESI34",
+            "to": "UADM",
+            "from_app": "residences_3_4_central_direction",
+            "to_app": "uni_admin_building",
+            "anson_sec": 101.2,
+            "app_sec": 101,
+            "diff_sec": -0.2
+          },
+          {
+            "from": "UADM",
+            "to": "SCIC",
+            "from_app": "uni_admin_building",
+            "to_app": "sci_centre",
+            "anson_sec": 127.1,
+            "app_sec": 126,
+            "diff_sec": -1.1
+          },
+          {
+            "from": "SCIC",
+            "to": "NAC",
+            "from_app": "sci_centre",
+            "to_app": "na_college_backhill",
+            "anson_sec": 86.8,
+            "app_sec": 87,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college",
+            "anson_sec": 46.8,
+            "app_sec": 48,
+            "diff_sec": 1.2
+          },
+          {
+            "from": "AREA39",
+            "to": "CCEN",
+            "from_app": "area_39_uphill",
+            "to_app": "circuit_north",
+            "anson_sec": 73.8,
+            "app_sec": 1158,
+            "diff_sec": 1084.2
+          },
+          {
+            "from": "CCEN",
+            "to": "CCEE",
+            "from_app": "circuit_north",
+            "to_app": "circuit_east_mtr_direction",
+            "anson_sec": 86.9,
+            "app_sec": 86,
+            "diff_sec": -0.9
+          },
+          {
+            "from": "CCEE",
+            "to": "MTR",
+            "from_app": "circuit_east_mtr_direction",
+            "to_app": "uni_station_terminal",
+            "anson_sec": 80.0,
+            "app_sec": 80,
+            "diff_sec": 0.0
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "AREA39",
+            "to": "CCEN",
+            "from_app": "area_39_uphill",
+            "to_app": "circuit_north",
+            "anson_sec": 73.8,
+            "app_sec": 1158,
+            "diff_sec": 1084.2
+          }
+        ]
+      },
+      {
+        "family": "8",
+        "anson_id": "8#",
+        "app_id": "8_non_teach",
+        "legs": [
+          {
+            "from": "AREA39",
+            "to": "CWCC",
+            "from_app": "area_39_uphill",
+            "to_app": "cwc_college",
+            "anson_sec": 70.4,
+            "app_sec": 70,
+            "diff_sec": -0.4
+          },
+          {
+            "from": "CWCC",
+            "to": "UCSR",
+            "from_app": "cwc_college",
+            "to_app": "united_college_staff_residence",
+            "anson_sec": 78.9,
+            "app_sec": 80,
+            "diff_sec": 1.1
+          },
+          {
+            "from": "UCSR",
+            "to": "CCHH",
+            "from_app": "united_college_staff_residence",
+            "to_app": "chan_chun_ha_hostel",
+            "anson_sec": 60.0,
+            "app_sec": 60,
+            "diff_sec": 0.0
+          },
+          {
+            "from": "CCHH",
+            "to": "SHAWC",
+            "from_app": "chan_chun_ha_hostel",
+            "to_app": "shaw_college_central_direction",
+            "anson_sec": 135.6,
+            "app_sec": 135,
+            "diff_sec": -0.6
+          },
+          {
+            "from": "SHAWC",
+            "to": "RESI34",
+            "from_app": "shaw_college_central_direction",
+            "to_app": "residences_3_4_central_direction",
+            "anson_sec": 74.6,
+            "app_sec": 74,
+            "diff_sec": -0.6
+          },
+          {
+            "from": "RESI34",
+            "to": "UADM",
+            "from_app": "residences_3_4_central_direction",
+            "to_app": "uni_admin_building",
+            "anson_sec": 101.2,
+            "app_sec": 101,
+            "diff_sec": -0.2
+          },
+          {
+            "from": "UADM",
+            "to": "SCIC",
+            "from_app": "uni_admin_building",
+            "to_app": "sci_centre",
+            "anson_sec": 127.1,
+            "app_sec": 126,
+            "diff_sec": -1.1
+          },
+          {
+            "from": "SCIC",
+            "to": "NAC",
+            "from_app": "sci_centre",
+            "to_app": "na_college_backhill",
+            "anson_sec": 86.8,
+            "app_sec": 87,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college",
+            "anson_sec": 46.8,
+            "app_sec": 48,
+            "diff_sec": 1.2
+          },
+          {
+            "from": "AREA39",
+            "to": "CCEN",
+            "from_app": "area_39_uphill",
+            "to_app": "circuit_north",
+            "anson_sec": 73.8,
+            "app_sec": 1158,
+            "diff_sec": 1084.2
+          },
+          {
+            "from": "CCEN",
+            "to": "CCEE",
+            "from_app": "circuit_north",
+            "to_app": "circuit_east_mtr_direction",
+            "anson_sec": 86.9,
+            "app_sec": 86,
+            "diff_sec": -0.9
+          },
+          {
+            "from": "CCEE",
+            "to": "MTRP",
+            "from_app": "circuit_east_mtr_direction",
+            "to_app": "piazza_terminal",
+            "anson_sec": 80.0,
+            "app_sec": 105,
+            "diff_sec": 25.0
+          },
+          {
+            "from": "MTRP",
+            "to": "CCTEA",
+            "from_app": "piazza_terminal",
+            "to_app": "chung_chi_teaching_blocks",
+            "anson_sec": 55.1,
+            "app_sec": 70,
+            "diff_sec": 14.9
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "AREA39",
+            "to": "CCEN",
+            "from_app": "area_39_uphill",
+            "to_app": "circuit_north",
+            "anson_sec": 73.8,
+            "app_sec": 1158,
+            "diff_sec": 1084.2
+          }
+        ]
+      },
+      {
+        "family": "H",
+        "anson_id": "H#",
+        "app_id": "H_area_39",
+        "legs": [
+          {
+            "from": "MTR",
+            "to": "JCPH",
+            "from_app": "uni_station",
+            "to_app": "jockey_club_post_grad_uphill",
+            "anson_sec": 129.9,
+            "app_sec": 130,
+            "diff_sec": 0.1
+          },
+          {
+            "from": "JCPH",
+            "to": "SPORTC",
+            "from_app": "jockey_club_post_grad_uphill",
+            "to_app": "sports_centre",
+            "anson_sec": 97.7,
+            "app_sec": 98,
+            "diff_sec": 0.3
+          },
+          {
+            "from": "SPORTC",
+            "to": "SHAWHALL",
+            "from_app": "sports_centre",
+            "to_app": "sir_run_run",
+            "anson_sec": 116.1,
+            "app_sec": 115,
+            "diff_sec": -1.1
+          },
+          {
+            "from": "SHAWHALL",
+            "to": "NAC",
+            "from_app": "sir_run_run",
+            "to_app": "na_college_backhill",
+            "anson_sec": 88.0,
+            "app_sec": 87,
+            "diff_sec": -1.0
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college_backhill",
+            "anson_sec": 47.8,
+            "app_sec": 48,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "UC",
+            "to": "RESI34",
+            "from_app": "united_college_backhill",
+            "to_app": "residences_3_4_shaw_direction",
+            "anson_sec": 50.8,
+            "app_sec": 52,
+            "diff_sec": 1.2
+          },
+          {
+            "from": "RESI34",
+            "to": "SHAWC",
+            "from_app": "residences_3_4_shaw_direction",
+            "to_app": "shaw_college_north_direction",
+            "anson_sec": 90.6,
+            "app_sec": 90,
+            "diff_sec": -0.6
+          },
+          {
+            "from": "SHAWC",
+            "to": "AREA39",
+            "from_app": "shaw_college_north_direction",
+            "to_app": "area_39_uphill",
+            "anson_sec": 147.9,
+            "app_sec": 160,
+            "diff_sec": 12.1
+          },
+          {
+            "from": "AREA39",
+            "to": "CWCC",
+            "from_app": "area_39_uphill",
+            "to_app": "cwc_college",
+            "anson_sec": 74.8,
+            "app_sec": 75,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "CWCC",
+            "to": "RESI10",
+            "from_app": "cwc_college",
+            "to_app": "residence_10",
+            "anson_sec": 62.6,
+            "app_sec": 63,
+            "diff_sec": 0.4
+          },
+          {
+            "from": "RESI10",
+            "to": "RESI15",
+            "from_app": "residence_10",
+            "to_app": "residence_15",
+            "anson_sec": 41.0,
+            "app_sec": 42,
+            "diff_sec": 1.0
+          },
+          {
+            "from": "RESI15",
+            "to": "UCSR",
+            "from_app": "residence_15",
+            "to_app": "united_college_staff_residence",
+            "anson_sec": 41.7,
+            "app_sec": 42,
+            "diff_sec": 0.3
+          },
+          {
+            "from": "UCSR",
+            "to": "CCHH",
+            "from_app": "united_college_staff_residence",
+            "to_app": "chan_chun_ha_hostel",
+            "anson_sec": 49.1,
+            "app_sec": 50,
+            "diff_sec": 0.9
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college_backhill",
+            "anson_sec": 47.8,
+            "app_sec": 48,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_backhill",
+            "to_app": "uni_admin_building",
+            "anson_sec": 103.5,
+            "app_sec": 1026,
+            "diff_sec": 922.5
+          },
+          {
+            "from": "UADM",
+            "to": "SHHC",
+            "from_app": "uni_admin_building",
+            "to_app": "shho",
+            "anson_sec": 119.1,
+            "app_sec": 120,
+            "diff_sec": 0.9
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_backhill",
+            "to_app": "uni_admin_building",
+            "anson_sec": 103.5,
+            "app_sec": 1026,
+            "diff_sec": 922.5
+          }
+        ]
+      },
+      {
+        "family": "N",
+        "anson_id": "N",
+        "app_id": "N",
+        "legs": [
+          {
+            "from": "MTR",
+            "to": "SPORTC",
+            "from_app": "uni_station",
+            "to_app": "sports_centre",
+            "anson_sec": 97.7,
+            "app_sec": 99,
+            "diff_sec": 1.3
+          },
+          {
+            "from": "SPORTC",
+            "to": "SHAWHALL",
+            "from_app": "sports_centre",
+            "to_app": "sir_run_run",
+            "anson_sec": 115.1,
+            "app_sec": 115,
+            "diff_sec": -0.1
+          },
+          {
+            "from": "SHAWHALL",
+            "to": "NAC",
+            "from_app": "sir_run_run",
+            "to_app": "na_college_backhill",
+            "anson_sec": 86.5,
+            "app_sec": 87,
+            "diff_sec": 0.5
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college_backhill",
+            "anson_sec": 47.8,
+            "app_sec": 48,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "UC",
+            "to": "RESI34",
+            "from_app": "united_college_backhill",
+            "to_app": "residences_3_4_shaw_direction",
+            "anson_sec": 51.5,
+            "app_sec": 52,
+            "diff_sec": 0.5
+          },
+          {
+            "from": "RESI34",
+            "to": "SHAWC",
+            "from_app": "residences_3_4_shaw_direction",
+            "to_app": "shaw_college_north_direction",
+            "anson_sec": 90.7,
+            "app_sec": 90,
+            "diff_sec": -0.7
+          },
+          {
+            "from": "SHAWC",
+            "to": "AREA39",
+            "from_app": "shaw_college_north_direction",
+            "to_app": "area_39_uphill",
+            "anson_sec": 159.8,
+            "app_sec": 160,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "AREA39",
+            "to": "CWCC",
+            "from_app": "area_39_uphill",
+            "to_app": "cwc_college",
+            "anson_sec": 76.2,
+            "app_sec": 75,
+            "diff_sec": -1.2
+          },
+          {
+            "from": "CWCC",
+            "to": "RESI15",
+            "from_app": "cwc_college",
+            "to_app": "residence_15",
+            "anson_sec": 50.7,
+            "app_sec": 50,
+            "diff_sec": -0.7
+          },
+          {
+            "from": "RESI15",
+            "to": "UCSR",
+            "from_app": "residence_15",
+            "to_app": "united_college_staff_residence",
+            "anson_sec": 40.4,
+            "app_sec": 40,
+            "diff_sec": -0.4
+          },
+          {
+            "from": "UCSR",
+            "to": "CCHH",
+            "from_app": "united_college_staff_residence",
+            "to_app": "chan_chun_ha_hostel",
+            "anson_sec": 45.1,
+            "app_sec": 46,
+            "diff_sec": 0.9
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college_backhill",
+            "anson_sec": 47.8,
+            "app_sec": 48,
+            "diff_sec": 0.2
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_backhill",
+            "to_app": "uni_admin_building",
+            "anson_sec": 104.5,
+            "app_sec": 965,
+            "diff_sec": 860.5
+          },
+          {
+            "from": "UADM",
+            "to": "SHHC",
+            "from_app": "uni_admin_building",
+            "to_app": "shho",
+            "anson_sec": 127.2,
+            "app_sec": 128,
+            "diff_sec": 0.8
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_backhill",
+            "to_app": "uni_admin_building",
+            "anson_sec": 104.5,
+            "app_sec": 965,
+            "diff_sec": 860.5
+          }
+        ]
+      },
+      {
+        "family": "N",
+        "anson_id": "N#",
+        "app_id": "N_postgrad",
+        "legs": [
+          {
+            "from": "MTR",
+            "to": "JCPH",
+            "from_app": "uni_station",
+            "to_app": "jockey_club_post_grad_uphill",
+            "anson_sec": 48.0,
+            "app_sec": 130,
+            "diff_sec": 82.0
+          },
+          {
+            "from": "JCPH",
+            "to": "SPORTC",
+            "from_app": "jockey_club_post_grad_uphill",
+            "to_app": "sports_centre",
+            "anson_sec": 97.7,
+            "app_sec": 98,
+            "diff_sec": 0.3
+          },
+          {
+            "from": "SPORTC",
+            "to": "SHAWHALL",
+            "from_app": "sports_centre",
+            "to_app": "sir_run_run",
+            "anson_sec": 113.8,
+            "app_sec": 115,
+            "diff_sec": 1.2
+          },
+          {
+            "from": "SHAWHALL",
+            "to": "NAC",
+            "from_app": "sir_run_run",
+            "to_app": "na_college_backhill",
+            "anson_sec": 87.1,
+            "app_sec": 87,
+            "diff_sec": -0.1
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college_backhill",
+            "anson_sec": 48.0,
+            "app_sec": 48,
+            "diff_sec": -0.0
+          },
+          {
+            "from": "UC",
+            "to": "RESI34",
+            "from_app": "united_college_backhill",
+            "to_app": "residences_3_4_shaw_direction",
+            "anson_sec": 51.2,
+            "app_sec": 52,
+            "diff_sec": 0.8
+          },
+          {
+            "from": "RESI34",
+            "to": "SHAWC",
+            "from_app": "residences_3_4_shaw_direction",
+            "to_app": "shaw_college_north_direction",
+            "anson_sec": 90.6,
+            "app_sec": 90,
+            "diff_sec": -0.6
+          },
+          {
+            "from": "SHAWC",
+            "to": "AREA39",
+            "from_app": "shaw_college_north_direction",
+            "to_app": "area_39_uphill",
+            "anson_sec": 160.1,
+            "app_sec": 160,
+            "diff_sec": -0.1
+          },
+          {
+            "from": "AREA39",
+            "to": "CWCC",
+            "from_app": "area_39_uphill",
+            "to_app": "cwc_college",
+            "anson_sec": 76.3,
+            "app_sec": 75,
+            "diff_sec": -1.3
+          },
+          {
+            "from": "CWCC",
+            "to": "RESI15",
+            "from_app": "cwc_college",
+            "to_app": "residence_15",
+            "anson_sec": 49.2,
+            "app_sec": 50,
+            "diff_sec": 0.8
+          },
+          {
+            "from": "RESI15",
+            "to": "UCSR",
+            "from_app": "residence_15",
+            "to_app": "united_college_staff_residence",
+            "anson_sec": 41.2,
+            "app_sec": 40,
+            "diff_sec": -1.2
+          },
+          {
+            "from": "UCSR",
+            "to": "CCHH",
+            "from_app": "united_college_staff_residence",
+            "to_app": "chan_chun_ha_hostel",
+            "anson_sec": 47.4,
+            "app_sec": 46,
+            "diff_sec": -1.4
+          },
+          {
+            "from": "NAC",
+            "to": "UC",
+            "from_app": "na_college_backhill",
+            "to_app": "united_college_backhill",
+            "anson_sec": 48.0,
+            "app_sec": 48,
+            "diff_sec": -0.0
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_backhill",
+            "to_app": "uni_admin_building",
+            "anson_sec": 105.7,
+            "app_sec": 965,
+            "diff_sec": 859.3
+          },
+          {
+            "from": "UADM",
+            "to": "SHHC",
+            "from_app": "uni_admin_building",
+            "to_app": "shho",
+            "anson_sec": 127.4,
+            "app_sec": 128,
+            "diff_sec": 0.6
+          }
+        ],
+        "big_diffs": [
+          {
+            "from": "MTR",
+            "to": "JCPH",
+            "from_app": "uni_station",
+            "to_app": "jockey_club_post_grad_uphill",
+            "anson_sec": 48.0,
+            "app_sec": 130,
+            "diff_sec": 82.0
+          },
+          {
+            "from": "UC",
+            "to": "UADM",
+            "from_app": "united_college_backhill",
+            "to_app": "uni_admin_building",
+            "anson_sec": 105.7,
+            "app_sec": 965,
+            "diff_sec": 859.3
+          }
+        ]
+      }
+    ],
+    "conflict_route_count": 9
+  },
+  "notes": [
+    "Official is authority for origin departure bands.",
+    "App/Anson intermediate arrival times are derived, not official stop times.",
+    "Flippy has no timetable fields; stop sequence + coords only; includes Info Day A/B/C/D1/D2.",
+    "Official Up/Down are PSLB meet-class routes; absent from CU Bus App and Anson CUBus.",
+    "Name normalization is heuristic; residual only_* may be alias mismatches."
+  ]
+}

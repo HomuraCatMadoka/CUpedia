@@ -81,6 +81,16 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
       {children}
     </button>
   ),
+  DropdownMenuRadioGroup: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuRadioItem: ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => <button onClick={onClick}>{children}</button>,
 }));
 
 import { Navbar } from "@/components/layout/navbar";
@@ -136,6 +146,16 @@ describe("Navbar sign-out", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "我的成就" }));
     expect(push).toHaveBeenCalledWith("/courses/achievements");
+  });
+
+  it("labels the CU Bus entry as testing and links to the route list", () => {
+    render(<Navbar />);
+
+    expect(
+      screen
+        .getByRole("link", { name: "CU Bus · 測試中" })
+        .getAttribute("href"),
+    ).toBe("/campus-bus");
   });
 
   it("shows achievement notices on the visible account trigger", async () => {

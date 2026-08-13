@@ -10,6 +10,7 @@ const tabs = [
   { href: "/admin/takeouts", label: "外卖管理" },
   { href: "/admin/danmaku", label: "弹幕管理" },
   { href: "/admin/comments", label: "评论管理" },
+  { href: "/admin/announcements", label: "公告管理" },
   { href: "/admin/achievement-rules", label: "成就规则" },
   { href: "/admin/settings", label: "站点设置" },
 ];
@@ -18,7 +19,7 @@ export function AdminTabs() {
   const pathname = usePathname();
 
   return (
-    <nav className="mb-6 flex gap-4 border-b">
+    <nav className="mb-6 flex gap-4 overflow-x-auto border-b whitespace-nowrap">
       {tabs.map((tab) => (
         <Link
           key={tab.href}

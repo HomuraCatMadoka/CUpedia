@@ -1,0 +1,1307 @@
+{
+  "routeId": "4",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 35,
+    "manualReview": 0,
+    "uniquePattern": 35,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "4:07:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "07:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:07:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "07:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:08:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "08:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:08:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "08:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:08:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "08:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:09:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "09:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:09:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "09:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:09:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "09:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:10:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "10:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:10:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "10:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:10:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "10:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:11:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "11:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:11:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "11:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:11:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "11:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:12:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "12:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:12:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "12:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:12:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "12:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:13:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "13:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:13:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "13:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:13:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "13:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:14:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "14:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:14:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "14:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:14:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "14:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:15:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "15:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:15:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "15:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:15:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "15:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:16:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "16:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:16:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "16:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:16:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "16:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:17:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "17:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:17:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "17:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:17:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "17:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:18:10:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "18:10",
+      "departureMinute": 10,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:18:30:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "18:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "4:18:50:b0",
+      "routeId": "4",
+      "routeName": "4 Campus Circuit",
+      "routeNameZhHant": "4 環迴線",
+      "originDeparture": "18:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:30–18:50",
+      "serviceRuleRaw": "07:30 - 18:50 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "10, 30, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "4:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 15
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "4:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-4:8adfeb87031b7308857f8f4b6d5bed483209401eee9b31e859d075b8533b9308",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

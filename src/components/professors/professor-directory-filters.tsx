@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Drawer } from "@base-ui/react/drawer";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   CheckIcon,
   ChevronDownIcon,
   SlidersHorizontalIcon,
-  XIcon,
 } from "lucide-react";
 
 import {
@@ -29,11 +27,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import {
   searchProfessorDirectory,
   type ProfessorDepartmentOption,
   type ProfessorDirectorySearchOption,
 } from "@/lib/professor-actions";
+import { formatProfessorName } from "@/lib/professor-name-format";
 import { cn } from "@/lib/utils";
 
 type ProfessorSort = "name" | "rating-count" | "rating";
@@ -223,7 +223,9 @@ export function ProfessorDirectoryFilters({
                   onSelect={() => openProfessor(option.publicId)}
                   className="block px-3 py-2 [&>svg:last-child]:hidden"
                 >
-                  <span className="block">{option.name}</span>
+                  <span className="block">
+                    {formatProfessorName(option.name)}
+                  </span>
                   {option.description ? (
                     <span className="block truncate text-xs text-muted-foreground">
                       {option.description}
@@ -306,7 +308,6 @@ function ProfessorDepartmentPicker({
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(false);
-  const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = departments.find((option) => option.id === value);
 
@@ -344,45 +345,22 @@ function ProfessorDepartmentPicker({
         />
       </button>
 
-      <Drawer.Root
+      <MobileBottomSheet
         open={mobileOpen}
         onOpenChange={setMobileOpen}
-        swipeDirection="down"
+        finalFocus={triggerRef}
+        title="选择学系"
+        closeLabel="关闭学系选择"
+        viewportTestId="mobile-professor-department-viewport"
       >
-        <Drawer.Portal>
-          <Drawer.Backdrop className="fixed inset-0 z-40 bg-black/30 opacity-100 backdrop-blur-[1px] transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0 md:hidden" />
-          <Drawer.Viewport className="pointer-events-none fixed inset-0 z-50 flex items-end overflow-hidden md:hidden">
-            <Drawer.Popup
-              initialFocus={closeRef}
-              finalFocus={triggerRef}
-              className="pointer-events-auto max-h-[82dvh] w-full translate-y-0 rounded-t-3xl bg-background shadow-2xl outline-none transition-transform duration-300 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full"
-            >
-              <Drawer.Content className="flex max-h-[82dvh] flex-col overflow-hidden pb-[env(safe-area-inset-bottom)]">
-                <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-border" />
-                <div className="flex min-h-14 shrink-0 items-center border-b px-4">
-                  <Drawer.Title className="text-lg font-semibold tracking-tight">
-                    选择学系
-                  </Drawer.Title>
-                  <Drawer.Close
-                    ref={closeRef}
-                    className="ml-auto flex size-11 touch-manipulation items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    aria-label="关闭学系选择"
-                  >
-                    <XIcon aria-hidden="true" className="size-4" />
-                  </Drawer.Close>
-                </div>
-                <ProfessorDepartmentCommand
-                  departments={departments}
-                  value={value}
-                  onSelect={pick}
-                  className="min-h-0 rounded-none! bg-background p-3 pt-2"
-                  listClassName="max-h-[58dvh] overscroll-contain"
-                />
-              </Drawer.Content>
-            </Drawer.Popup>
-          </Drawer.Viewport>
-        </Drawer.Portal>
-      </Drawer.Root>
+        <ProfessorDepartmentCommand
+          departments={departments}
+          value={value}
+          onSelect={pick}
+          className="min-h-0 rounded-none! bg-background p-3 pt-2"
+          listClassName="max-h-[58dvh] overscroll-contain"
+        />
+      </MobileBottomSheet>
 
       <Popover open={desktopOpen} onOpenChange={setDesktopOpen}>
         <PopoverTrigger
@@ -511,35 +489,21 @@ function ProfessorRatedFilter({
   return (
     <>
       {trigger}
-      <Drawer.Root
+      <MobileBottomSheet
         open={mobileOpen}
         onOpenChange={setMobileOpen}
-        swipeDirection="down"
+        finalFocus={triggerRef}
+        title="筛选教授"
+        closeLabel="关闭教授筛选"
+        bottomPadding="comfortable"
+        viewportTestId="mobile-professor-filter-viewport"
       >
-        <Drawer.Portal>
-          <Drawer.Backdrop className="fixed inset-0 z-40 bg-black/30 opacity-100 backdrop-blur-[1px] transition-opacity duration-200 data-ending-style:opacity-0 data-starting-style:opacity-0 md:hidden" />
-          <Drawer.Viewport className="pointer-events-none fixed inset-0 z-50 flex items-end overflow-hidden md:hidden">
-            <Drawer.Popup
-              finalFocus={triggerRef}
-              className="pointer-events-auto w-full translate-y-0 rounded-t-3xl bg-background shadow-2xl outline-none transition-transform duration-300 ease-out data-ending-style:translate-y-full data-starting-style:translate-y-full"
-            >
-              <Drawer.Content className="pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-                <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-border" />
-                <div className="flex min-h-14 items-center border-b px-4">
-                  <Drawer.Title className="text-lg font-semibold tracking-tight">
-                    筛选教授
-                  </Drawer.Title>
-                </div>
-                <ProfessorRatingChoices
-                  ratedOnly={ratedOnly}
-                  onChange={onChange}
-                  className="space-y-1 px-4 pt-4"
-                />
-              </Drawer.Content>
-            </Drawer.Popup>
-          </Drawer.Viewport>
-        </Drawer.Portal>
-      </Drawer.Root>
+        <ProfessorRatingChoices
+          ratedOnly={ratedOnly}
+          onChange={onChange}
+          className="space-y-1 px-4 pt-4"
+        />
+      </MobileBottomSheet>
 
       <Popover>
         <PopoverTrigger

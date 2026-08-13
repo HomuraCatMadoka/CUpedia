@@ -1,0 +1,1440 @@
+{
+  "routeId": "8",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 34,
+    "manualReview": 0,
+    "uniquePattern": 0,
+    "ambiguousPattern": 34
+  },
+  "departures": [
+    {
+      "departureId": "8:07:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "07:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:08:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "08:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:08:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "08:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:08:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "08:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:09:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "09:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:09:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "09:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:09:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "09:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:10:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "10:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:10:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "10:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:10:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "10:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:11:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "11:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:11:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "11:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:11:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "11:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:12:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "12:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:12:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "12:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:12:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "12:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:13:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "13:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:13:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "13:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:13:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "13:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:14:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "14:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:14:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "14:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:14:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "14:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:15:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "15:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:15:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "15:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:15:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "15:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:16:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "16:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:16:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "16:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:16:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "16:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:17:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "17:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:17:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "17:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:17:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "17:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:18:00:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "18:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:18:20:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "18:20",
+      "departureMinute": 20,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "8:18:40:b0",
+      "routeId": "8",
+      "routeName": "8 Western Campus",
+      "routeNameZhHant": "8 西部線",
+      "originDeparture": "18:40",
+      "departureMinute": 40,
+      "bandOrdinal": 0,
+      "serviceWindow": "07:40–18:40",
+      "serviceRuleRaw": "07:40 - 18:40 For Mon to Sat (Except Public Holidays)",
+      "departureRuleRaw": "00, 20, 40 ＃During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "departureRemarkRaw": "During non-teaching days, buses will stop at Station Piazza & Chung Chi Teaching Bldg. (without stopping at Univ. Station)",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "8:teaching-day",
+          "serviceDayType": "teaching_day",
+          "stopCount": 16
+        },
+        {
+          "patternId": "8:non-teaching-day",
+          "serviceDayType": "non_teaching_day",
+          "stopCount": 17
+        }
+      ],
+      "patternMatchStatus": "ambiguous",
+      "selectedPatternId": null,
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-8:98a9ca5867869cbb2ce3ad8c35f44ebf130a46951cef7b5ee8e0c39b34077e14",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

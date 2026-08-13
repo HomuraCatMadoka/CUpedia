@@ -113,6 +113,9 @@ jobs:
           - project: chromium-general
             browser: chromium
             install_args: --only-shell
+          - project: campus-bus
+            browser: chromium
+            install_args: --only-shell
           - project: chromium-wiki
             browser: chromium
             install_args: --only-shell

@@ -1,0 +1,725 @@
+{
+  "1A": {
+    "schedule": [
+      "07:30",
+      "18:40",
+      "20, 40",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(225,222,73)",
+    "stations": {
+      "name": ["MTR", "SPORTC", "SHAWHALL", "UADM", "SHHC", "MTR"],
+      "attr": ["NULL", "NULL", "NULL", "NULL", "NULL", "NULL"],
+      "time": [111.007334, 108.764411, 106.038634, 143.910911, 109.902914, 0]
+    }
+  },
+  "1B": {
+    "schedule": [
+      "08:00",
+      "18:00",
+      "00",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(225,222,73)",
+    "stations": {
+      "name": [
+        "MTR",
+        "JCPH",
+        "SPORTC",
+        "SHAWHALL",
+        "UADM",
+        "SHHC",
+        "JCPH",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "UPPERST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "NULL"
+      ],
+      "time": [
+        130.075935, 98.067169, 109.562531, 106.387098, 146.006179, 97.073608,
+        140.733704, 0
+      ]
+    }
+  },
+  "2": {
+    "schedule": [
+      "07:45",
+      "18:45",
+      "15, 30",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(235,112,201)",
+    "stations": {
+      "name": [
+        "MTRP",
+        "SPORTC",
+        "FKHB",
+        "UC",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "NULL",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        162.5119, 199.445937, 218.807733, 84.085089, 66.492965, 92.557962,
+        152.417684, 105.243767, 0
+      ]
+    }
+  },
+  "2#": {
+    "schedule": [
+      "07:45",
+      "18:45",
+      "00, 45",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(235,112,201)",
+    "stations": {
+      "name": [
+        "MTRP",
+        "SPORTC",
+        "SHAWHALL",
+        "FKHB",
+        "UC",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "NULL",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        162.5119, 120.665898, 90.032172, 218.807733, 84.085089, 66.492965,
+        92.557962, 152.417684, 105.243767, 0
+      ]
+    }
+  },
+  "3": {
+    "schedule": [
+      "09:00",
+      "18:40",
+      "00, 20, 40",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(162,184,99)",
+    "stations": {
+      "name": [
+        "YIAP",
+        "SPORTC",
+        "SCIC",
+        "FKHB",
+        "RESI34",
+        "SHAWC",
+        "CWCC",
+        "RESI15",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "UADM",
+        "SHHC",
+        "MTRP"
+      ],
+      "attr": [
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        79.547563, 126.086833, 80.009114, 669.192583, 102.888313, 145.853208,
+        61.577633, 42.447379, 53.286283, 141.239591, 74.046548, 102.413065,
+        117.366106, 150.883014, 0
+      ]
+    }
+  },
+  "4": {
+    "schedule": [
+      "07:30",
+      "18:50",
+      "10, 30, 50",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(231,155,89)",
+    "stations": {
+      "name": [
+        "YIAP",
+        "CCEE",
+        "CWCC",
+        "AREA39",
+        "CWCC",
+        "RESI15",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "UPPERST",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        80.104161, 86.822019, 82.404232, 70.785267, 66.112128, 61.439978,
+        79.449152, 139.891969, 121.339151, 84.403367, 70.653835, 106.050567,
+        134.154362, 113.974556, 0
+      ]
+    }
+  },
+  "5": {
+    "schedule": [
+      "09:18",
+      "17:26",
+      "18, 22, 26",
+      "TD",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(188,216,226)",
+    "stations": {
+      "name": [
+        "CCTEA",
+        "SPORTC",
+        "SHAWHALL",
+        "FKHB",
+        "UC",
+        "NAC",
+        "RESI34",
+        "SHAWC",
+        "CWCC"
+      ],
+      "attr": [
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "NULL",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST"
+      ],
+      "time": [
+        110.087059, 129.102, 90.775449, 56.334931, 84.371935, 102.71722,
+        102.604939, 147.29599, 0
+      ]
+    }
+  },
+  "6A": {
+    "schedule": [
+      "09:10",
+      "17:10",
+      "10",
+      "TD",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(124,145,73)",
+    "stations": {
+      "name": [
+        "CWCC",
+        "UCSR",
+        "CCHH",
+        "RESI34",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "MTRP",
+        "CCTEA"
+      ],
+      "attr": [
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "NULL",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        79.151459, 59.460526, 60.838173, 84.9123, 72.778386, 104.955181,
+        130.482436, 141.038644, 53.771014, 0
+      ]
+    }
+  },
+  "6B": {
+    "schedule": [
+      "12:20",
+      "17:20",
+      "20",
+      "TD",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri",
+      ""
+    ],
+    "colorCode": "rgb(132,167,217)",
+    "stations": {
+      "name": ["NAC", "UC", "UADM", "SHHC", "MTRP", "CCTEA"],
+      "attr": ["NULL", "DOWNST", "NULL", "NULL", "NULL", "NULL"],
+      "time": [72.875199, 105.318731, 130.081619, 140.676036, 69.618714, 0]
+    }
+  },
+  "7": {
+    "schedule": [
+      "08:18",
+      "17:50",
+      "18, 50",
+      "TD",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(191,191,191)",
+    "stations": {
+      "name": ["SHAWC", "RESI34", "NAC", "UC", "UADM", "SHHC", "MTRP", "CCTEA"],
+      "attr": [
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        75.593161, 87.369657, 63.112827, 104.97078, 129.322696, 150.938715,
+        70.707498, 0
+      ]
+    }
+  },
+  "8": {
+    "schedule": [
+      "07:40",
+      "18:40",
+      "00, 20, 40 (教學日 Teaching Days)",
+      "TD",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      "只有教學日 Teaching Days only"
+    ],
+    "colorCode": "rgb(245,191,90)",
+    "stations": {
+      "name": [
+        "AREA39",
+        "CWCC",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "UADM",
+        "SCIC",
+        "NAC",
+        "UC",
+        "RESI34",
+        "SHAWC",
+        "AREA39",
+        "CCEN",
+        "CCEE",
+        "MTR"
+      ],
+      "attr": [
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "DOWNST",
+        "NULL"
+      ],
+      "time": [
+        70.359038, 78.942715, 59.967439, 135.566731, 74.648488, 101.214667,
+        127.134342, 86.814213, 46.80065, 50.534016, 89.103937, 159.378357,
+        73.806636, 86.882137, 79.983076, 0
+      ]
+    }
+  },
+  "8#": {
+    "schedule": [
+      "07:40",
+      "18:40",
+      "00, 20, 40 (非教學日 Non-Teaching days)",
+      "NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      "只有非教學日 Non-Teaching days only"
+    ],
+    "colorCode": "rgb(245,191,90)",
+    "stations": {
+      "name": [
+        "AREA39",
+        "CWCC",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "UADM",
+        "SCIC",
+        "NAC",
+        "UC",
+        "RESI34",
+        "SHAWC",
+        "AREA39",
+        "CCEN",
+        "CCEE",
+        "MTRP",
+        "CCTEA"
+      ],
+      "attr": [
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "DOWNST",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        70.359038, 78.942715, 59.967439, 135.566731, 74.648488, 101.214667,
+        127.134342, 86.814213, 46.80065, 50.534016, 89.103937, 159.378357,
+        73.806636, 86.882137, 79.983076, 55.093744, 0
+      ]
+    }
+  },
+  "H": {
+    "schedule": [
+      "08:20",
+      "23:20",
+      "20, 40",
+      "HD",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat,WK-Sun",
+      ""
+    ],
+    "colorCode": "rgb(140,27,149)",
+    "stations": {
+      "name": [
+        "MTR",
+        "SPORTC",
+        "SHAWHALL",
+        "NAC",
+        "UC",
+        "RESI34",
+        "SHAWC",
+        "CWCC",
+        "RESI10",
+        "RESI15",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "DOWNST",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        98.082404, 113.581138, 86.236706, 47.769363, 50.827911, 90.573628,
+        147.858672, 63.593244, 40.696024, 43.391169, 50.621556, 121.385927,
+        73.68406, 87.511765, 61.784861, 937.810183, 120.456992, 115.26605, 0
+      ]
+    }
+  },
+  "H#": {
+    "schedule": [
+      "08:20",
+      "23:20",
+      "00",
+      "HD",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat,WK-Sun",
+      ""
+    ],
+    "colorCode": "rgb(140,27,149)",
+    "stations": {
+      "name": [
+        "MTR",
+        "JCPH",
+        "SPORTC",
+        "SHAWHALL",
+        "NAC",
+        "UC",
+        "RESI34",
+        "SHAWC",
+        "AREA39",
+        "CWCC",
+        "RESI10",
+        "RESI15",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "JCPH",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "UPPERST",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "DOWNST",
+        "UPPERST",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "NULL"
+      ],
+      "time": [
+        129.875527, 97.724534, 116.105261, 87.993529, 47.769363, 50.827911,
+        90.573628, 147.858672, 74.768616, 62.594472, 40.971733, 41.717608,
+        49.07016, 120.802258, 75.01201, 89.425315, 47.819323, 103.536605,
+        119.084185, 113.918829, 140.362184, 0
+      ]
+    }
+  },
+  "N": {
+    "schedule": [
+      "19:00",
+      "23:30",
+      "15, 30, 45",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(174,162,195)",
+    "stations": {
+      "name": [
+        "MTR",
+        "SPORTC",
+        "SHAWHALL",
+        "NAC",
+        "UC",
+        "RESI34",
+        "SHAWC",
+        "AREA39",
+        "CWCC",
+        "RESI15",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "DOWNST",
+        "UPPERST",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL"
+      ],
+      "time": [
+        97.706613, 115.141564, 86.511259, 47.819323, 51.525727, 90.671671,
+        159.824491, 76.222769, 50.719701, 40.363822, 45.085774, 122.048431,
+        74.919986, 88.481746, 47.819323, 104.502799, 127.212886, 114.939385, 0
+      ]
+    }
+  },
+  "N#": {
+    "schedule": [
+      "19:00",
+      "23:30",
+      "00",
+      "TD,NT",
+      "WK-Mon,WK-Tue,WK-Wed,WK-Thu,WK-Fri,WK-Sat",
+      ""
+    ],
+    "colorCode": "rgb(174,162,195)",
+    "stations": {
+      "name": [
+        "MTR",
+        "JCPH",
+        "SPORTC",
+        "SHAWHALL",
+        "NAC",
+        "UC",
+        "RESI34",
+        "SHAWC",
+        "AREA39",
+        "CWCC",
+        "RESI15",
+        "UCSR",
+        "CCHH",
+        "SHAWC",
+        "RESI34",
+        "NAC",
+        "UC",
+        "UADM",
+        "SHHC",
+        "JCPH",
+        "MTR"
+      ],
+      "attr": [
+        "NULL",
+        "UPPERST",
+        "NULL",
+        "NULL",
+        "UPPERST",
+        "DOWNST",
+        "UPPERST",
+        "UPPERST",
+        "UPPERST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "DOWNST",
+        "NULL",
+        "NULL",
+        "DOWNST",
+        "NULL"
+      ],
+      "time": [
+        48.033306, 97.724534, 113.810241, 87.051698, 48.033306, 51.234637,
+        90.637508, 160.050742, 76.272824, 49.158781, 41.161956, 47.379017,
+        122.615679, 74.295796, 88.503071, 48.033306, 105.720741, 127.449994,
+        98.286877, 140.362184, 0
+      ]
+    }
+  }
+}

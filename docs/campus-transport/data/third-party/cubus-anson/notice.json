@@ -1,0 +1,77 @@
+[
+  {
+    "content": [
+      "本系統將於今夜11:00 - 4:00進行維護，屆時或會無法連接。",
+      "The system will be undergoing maintenance tonight from 11:00 pm to 4:00 am, hence it may be inaccessible temporarily."
+    ],
+    "id": 2,
+    "pref": {
+      "type": "",
+      "hide": 1,
+      "link": "",
+      "dismissible": 1,
+      "saveDismiss": 0,
+      "duration": 0
+    }
+  },
+  {
+    "content": [
+      "路線資訊已更新！如有錯漏，<a style=\" text-decoration: none;\" href=\"https://forms.gle/g4xDpa5oEVqzHjFt7\"><p style=\"color: #0000EE; display: inline;\">按此</p>更正資料，感激不盡！</a>",
+      "The database is updated! <a style=\" text-decoration: none;\" href=\"https://forms.gle/g4xDpa5oEVqzHjFt7\"> If there are errors or omissions, click <p style=\"color: #0000EE; display: inline;\"> here </p> to update or amend! Thanks!</a>"
+    ],
+    "id": 3,
+    "pref": {
+      "type": "",
+      "hide": 1,
+      "link": "",
+      "dismissible": 1,
+      "saveDismiss": 0,
+      "duration": 0
+    }
+  },
+  {
+    "content": [
+      "v. 5.0.0 更新<br>新增行車時間估算<br>數據仍在測試中 僅供參考 <br><a href=\"https://bus.cuhk-page.info/?mode=realtime\" style=\"color: blue;\">「做白老鼠」</a>",
+      "The realtime data is still under test. For reference only.<br> <a href=\"https://bus.cuhk-page.info/?mode=realtime&lang=en\" style=\"color: blue\">\"Click here to test\"</a>"
+    ],
+    "id": 4,
+    "pref": {
+      "type": "",
+      "hide": 1,
+      "link": "",
+      "dismissible": 1,
+      "saveDismiss": 0,
+      "duration": 0
+    }
+  },
+  {
+    "content": [
+      " 如八號颱風警告信號於上課時始告發出，各班須立即停課。<br>轉堂校巴（5, 6A, 6B, 7）將停止服務。  <br>穿梭校巴（1A, 1B, 2, 3, 4, 8, N）將繼續行走一小時。",
+      "If Typhoon Warning Signal No. 8 is issued during class, classes must be suspended immediately.<br>The transfer school bus (5, 6A, 6B, 7) will stop service. <br> The shuttle bus (1A, 1B, 2, 3, 4, 8, N) will be maintained for one hour."
+    ],
+    "id": 5,
+    "pref": {
+      "type": "",
+      "hide": 1,
+      "link": "",
+      "dismissible": 1,
+      "saveDismiss": 0,
+      "duration": 0
+    }
+  },
+  {
+    "content": [
+      "打完地點之後要<b>喺list入面揀</b>～ <br>如果唔係會識別唔到你去邊㗎！",
+      ""
+    ],
+    "id": 6,
+    "pref": {
+      "type": "",
+      "hide": 1,
+      "link": "",
+      "dismissible": 1,
+      "saveDismiss": 0,
+      "duration": 0
+    }
+  }
+]

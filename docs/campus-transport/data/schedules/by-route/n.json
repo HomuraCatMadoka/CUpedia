@@ -1,0 +1,715 @@
+{
+  "routeId": "n",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 19,
+    "manualReview": 0,
+    "uniquePattern": 19,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "n:19:00:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "19:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:00-via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 21
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:00-via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:19:15:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "19:15",
+      "departureMinute": 15,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:19:30:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "19:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:19:45:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "19:45",
+      "departureMinute": 45,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:20:00:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "20:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:00-via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 21
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:00-via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:20:15:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "20:15",
+      "departureMinute": 15,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:20:30:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "20:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:20:45:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "20:45",
+      "departureMinute": 45,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:21:00:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "21:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:00-via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 21
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:00-via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:21:15:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "21:15",
+      "departureMinute": 15,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:21:30:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "21:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:21:45:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "21:45",
+      "departureMinute": 45,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:22:00:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "22:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:00-via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 21
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:00-via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:22:15:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "22:15",
+      "departureMinute": 15,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:22:30:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "22:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:22:45:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "22:45",
+      "departureMinute": 45,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:23:00:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "23:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:00-via-pgh1",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 21
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:00-via-pgh1",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:23:15:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "23:15",
+      "departureMinute": 15,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "n:23:30:b0",
+      "routeId": "n",
+      "routeName": "N Night Service",
+      "routeNameZhHant": "N 晚間線",
+      "originDeparture": "23:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "19:00–23:30",
+      "serviceRuleRaw": "19:00 - 23:30 For Mon to Sat only (Except Public Holidays)",
+      "departureRuleRaw": "# 00, 15, 30, 45 # Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "departureRemarkRaw": "Buses departing at 00 minute will stop at Postgraduate Hall 1",
+      "serviceDayHints": [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "except_public_holiday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "n:default",
+          "serviceDayType": "scheduled_service_day",
+          "stopCount": 19
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "n:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-n:7cfa70ce867cc98c96e14df6ab8a6b6ca680d64a1d16a9dfd6a13117d051e595",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

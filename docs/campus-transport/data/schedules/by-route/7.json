@@ -1,0 +1,1051 @@
+{
+  "routeId": "7",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 31,
+    "manualReview": 0,
+    "uniquePattern": 31,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "7:08:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "08:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:08:18:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "08:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:08:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "08:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:08:50:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "08:50",
+      "departureMinute": 50,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:09:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "09:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:09:18:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "09:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:09:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "09:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:09:50:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "09:50",
+      "departureMinute": 50,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:10:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "10:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:10:18:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "10:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:10:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "10:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:10:50:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "10:50",
+      "departureMinute": 50,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:11:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "11:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:11:18:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "11:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:11:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "11:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:11:50:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "11:50",
+      "departureMinute": 50,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:12:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "12:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:12:18:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "12:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:12:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "12:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:12:50:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "12:50",
+      "departureMinute": 50,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:13:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "13:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:13:18:b1",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "13:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "08:18–13:18",
+      "serviceRuleRaw": "08:18 - 13:18 Sat; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:13:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "13:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:14:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "14:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:14:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "14:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:15:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "15:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:15:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "15:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:16:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "16:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:16:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "16:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:17:18:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "17:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "7:17:50:b0",
+      "routeId": "7",
+      "routeName": "7 Downward (Shaw)",
+      "routeNameZhHant": "7 下行線 (逸夫)",
+      "originDeparture": "17:50",
+      "departureMinute": 50,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:18–17:50",
+      "serviceRuleRaw": "08:18 - 17:50 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 50",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "7:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 8
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "7:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-7:9b300c1f7374b84461a417d3ca5c0ef6a53093e0602b3a34fc3efb2e34410ccc",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import {
   waitForHydratedWikiEditor,
   wikiPageUrl,
 } from "./helpers/wiki";
+import { emulateColorScheme } from "./helpers/theme";
 import { deleteObjects } from "../src/lib/minio";
 import { PAGE_IDS } from "../scripts/seed-data";
 
@@ -530,7 +531,7 @@ test.describe("mobile wiki editing", () => {
   test("dark mode uses Notion Mobile Web's charcoal editor surface", async ({
     page,
   }) => {
-    await page.evaluate(() => document.documentElement.classList.add("dark"));
+    await emulateColorScheme(page, "dark");
 
     const editorShell = page.getByTestId("wiki-editor-shell");
     const header = page.getByRole("banner", { name: "编辑器顶栏" });

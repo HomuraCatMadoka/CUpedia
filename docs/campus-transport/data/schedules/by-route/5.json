@@ -1,0 +1,1419 @@
+{
+  "routeId": "5",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 42,
+    "manualReview": 0,
+    "uniquePattern": 42,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "5:09:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "09:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:09:18:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "09:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:09:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "09:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:09:22:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "09:22",
+      "departureMinute": 22,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:09:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "09:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:09:26:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "09:26",
+      "departureMinute": 26,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:10:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "10:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:10:18:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "10:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:10:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "10:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:10:22:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "10:22",
+      "departureMinute": 22,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:10:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "10:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:10:26:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "10:26",
+      "departureMinute": 26,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:11:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "11:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:11:18:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "11:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:11:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "11:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:11:22:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "11:22",
+      "departureMinute": 22,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:11:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "11:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:11:26:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "11:26",
+      "departureMinute": 26,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:12:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "12:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:12:18:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "12:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:12:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "12:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:12:22:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "12:22",
+      "departureMinute": 22,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:12:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "12:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:12:26:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "12:26",
+      "departureMinute": 26,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:13:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "13:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:13:18:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "13:18",
+      "departureMinute": 18,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:13:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "13:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:13:22:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "13:22",
+      "departureMinute": 22,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:13:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "13:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:13:26:b1",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "13:26",
+      "departureMinute": 26,
+      "bandOrdinal": 1,
+      "serviceWindow": "09:18–13:26",
+      "serviceRuleRaw": "09:18 - 13:26 Sat; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": ["teaching_day", "saturday"],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:14:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "14:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:14:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "14:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:14:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "14:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:15:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "15:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:15:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "15:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:15:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "15:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:16:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "16:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:16:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "16:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:16:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "16:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:17:18:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "17:18",
+      "departureMinute": 18,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:17:22:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "17:22",
+      "departureMinute": 22,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "5:17:26:b0",
+      "routeId": "5",
+      "routeName": "5 Upward",
+      "routeNameZhHant": "5 上行線",
+      "originDeparture": "17:26",
+      "departureMinute": 26,
+      "bandOrdinal": 0,
+      "serviceWindow": "09:18–17:26",
+      "serviceRuleRaw": "09:18 - 17:26 Mon to Fri; Teaching days only",
+      "departureRuleRaw": "18, 22, 26",
+      "departureRemarkRaw": null,
+      "serviceDayHints": [
+        "teaching_day",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday"
+      ],
+      "patternCandidates": [
+        {
+          "patternId": "5:default",
+          "serviceDayType": "teaching_day",
+          "stopCount": 9
+        }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "5:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-5:5ccb804fe02c1dd6b17d1ea5820c53ef6a6fa952458c96b937974c8ad3e855de",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}
