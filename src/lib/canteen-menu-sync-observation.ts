@@ -1,3 +1,8 @@
+import {
+  reconcileOfferingIdentityTransitions,
+  type OfferingIdentityTransition,
+} from "@/lib/canteen-menu-external-key";
+
 export type MenuIdentityObservation = {
   newProductCount: number;
   missingProductCount: number;
@@ -8,6 +13,7 @@ export type MenuIdentityObservation = {
     nextProductId: string;
     normalizedName: string;
   }>;
+  ambiguousOfferingTransitions: OfferingIdentityTransition[];
   truncated: boolean;
 };
 
@@ -25,11 +31,25 @@ export function observeMenuIdentityChurn(
 ): MenuIdentityObservation {
   const existingIds = new Set(existing.map((item) => item.externalProductId));
   const incomingIds = new Set(incoming.map((item) => item.externalProductId));
+  const offeringTransitions = reconcileOfferingIdentityTransitions(
+    [...existingIds],
+    [...incomingIds],
+  );
+  const safelyMovedPreviousIds = new Set(
+    offeringTransitions.safeMoves.map((move) => move.previousProductId),
+  );
+  const safelyMovedNextIds = new Set(
+    offeringTransitions.safeMoves.map((move) => move.nextProductId),
+  );
   const newItems = incoming.filter(
-    (item) => !existingIds.has(item.externalProductId),
+    (item) =>
+      !existingIds.has(item.externalProductId) &&
+      !safelyMovedNextIds.has(item.externalProductId),
   );
   const missingItems = existing.filter(
-    (item) => !incomingIds.has(item.externalProductId),
+    (item) =>
+      !incomingIds.has(item.externalProductId) &&
+      !safelyMovedPreviousIds.has(item.externalProductId),
   );
   const newByName = new Map<string, typeof newItems>();
   const missingByName = new Map<string, typeof missingItems>();
@@ -63,10 +83,13 @@ export function observeMenuIdentityChurn(
       .slice(0, OBSERVATION_ID_LIMIT)
       .map((item) => item.externalProductId),
     suspectedReplacements: suspectedReplacements.slice(0, OBSERVATION_ID_LIMIT),
+    ambiguousOfferingTransitions:
+      offeringTransitions.ambiguousTransitions.slice(0, OBSERVATION_ID_LIMIT),
     truncated:
       newItems.length > OBSERVATION_ID_LIMIT ||
       missingItems.length > OBSERVATION_ID_LIMIT ||
-      suspectedReplacements.length > OBSERVATION_ID_LIMIT,
+      suspectedReplacements.length > OBSERVATION_ID_LIMIT ||
+      offeringTransitions.ambiguousTransitions.length > OBSERVATION_ID_LIMIT,
   };
 }
 
@@ -80,6 +103,7 @@ export function isSuspiciousMenuIdentityChurn(
   );
   return (
     observation.suspectedReplacements.length > 0 ||
+    observation.ambiguousOfferingTransitions.length > 0 ||
     (changed >= MIN_CHURN_COUNT &&
       changed * 100 >= existingCount * CHURN_RATIO_PERCENT)
   );

@@ -11,17 +11,21 @@ snapshots as inserts creates duplicates. Deleting the old menu first is worse:
 votes and comments reference menu item IDs with cascading foreign keys, so a
 replacement import destroys the dish history.
 
-Names and meal periods are not stable external identities. Both can change,
-and the same product can be offered in several periods without becoming a new
-CUpedia dish.
+Names and meal periods alone are not stable external identities. Providers do
+not all use product IDs at the same granularity: PinMe models one product across
+periods, while Aigens can reuse a backend product ID for period-specific
+offerings with different prices and independent CUpedia history.
 
 ## Decision
 
 1. An externally managed menu item stores `menuSourceId` and
    `externalProductId`. Their non-null pair is unique. A composite database
    foreign key also requires the menu source and item to belong to the same
-   canteen. Name, pricing, classification, order and meal periods are mutable
-   attributes and never form identity.
+   canteen. Adapters emit the provider's stable offering identity: PinMe uses
+   its product ID, while Aigens namespaces its reused backend ID by period.
+   Name, pricing, classification and ordering never form identity. A unique
+   one-to-one period move may update an Aigens offering identity in place;
+   ambiguous split/merge cases fail closed instead of moving history.
 2. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.
@@ -42,7 +46,9 @@ CUpedia dish.
 ## Consequences
 
 - Upstream renames and price changes preserve the CUpedia menu item UUID.
-- Upstream meal-period changes preserve the same CUpedia menu item UUID.
+- An unambiguous upstream meal-period move preserves the same CUpedia menu item
+  UUID. Distinct Aigens period offerings retain separate UUIDs, prices and
+  voting history.
 - Votes and comments survive temporary or permanent removal from a source menu.
 - Manual items and items managed by another source remain untouched unless an
   explicit first takeover is requested.
@@ -57,6 +63,8 @@ CUpedia dish.
   before recording it. Migration 0080 repeats the compatibility repair
   idempotently for preview or local databases that had already recorded 0076,
   so every environment converges without rebuilding dish identity or history.
+- Migration 0081 converges databases that already recorded 0080 onto the
+  provider-specific offering identity and rollout-trigger behavior.
 - Production namespaces from audited one-off static imports have no ordering
   provider identity. Migration 0076 keeps those rows and UUID-bound history but
   makes them manual items; it never guesses a provider from the source label.

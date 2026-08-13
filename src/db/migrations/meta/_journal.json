@@ -568,6 +568,13 @@
       "when": 1786637543540,
       "tag": "0080_repair-legacy-canteen-menu-source-alias",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1786640542977,
+      "tag": "0081_preserve-provider-menu-offering-identity",
+      "breakpoints": true
     }
   ]
 }

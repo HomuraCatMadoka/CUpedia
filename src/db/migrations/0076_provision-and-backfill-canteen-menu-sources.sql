@@ -160,11 +160,27 @@ SELECT
   item.id AS menu_item_id,
   source.id AS menu_source_id,
   CASE
-    WHEN item.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)(\+(allday|breakfast|lunch|dinner))*$'
-      THEN regexp_replace(item.external_key, '#period=.*$', '')
     WHEN source.provider = 'aigens'
+      AND item.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)$'
+      AND item.external_key !~ '#offering-period='
+      THEN regexp_replace(
+        item.external_key,
+        '#period=(breakfast|lunch|dinner|allday)$',
+        '#offering-period=\1'
+      )
+    WHEN source.provider <> 'aigens'
+      AND item.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)(\+(allday|breakfast|lunch|dinner))*$'
+      THEN regexp_replace(item.external_key, '#period=.*$', '')
+    WHEN source.provider = 'pinme'
       AND item.external_key ~ '^.+:(breakfast|lunch|dinner|allday)$'
       THEN regexp_replace(item.external_key, ':(breakfast|lunch|dinner|allday)$', '')
+    WHEN source.provider = 'aigens'
+      AND item.external_key ~ '^.+:(breakfast|lunch|dinner|allday)$'
+      THEN regexp_replace(
+        item.external_key,
+        ':(breakfast|lunch|dinner|allday)$',
+        '#offering-period=\1'
+      )
     WHEN source.provider IN ('aigens', 'ichef', 'pinme', 'qmai')
       AND item.external_key !~ '[:#]'
       THEN item.external_key
@@ -182,13 +198,31 @@ JOIN canteen_menu_sources source
 WHERE item.external_source IS NOT NULL;
 
 DO $$
+DECLARE
+  v_unparseable_identities text;
 BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM "_canteen_menu_identity_backfill"
-    WHERE external_product_id IS NULL OR btrim(external_product_id) = ''
-  ) THEN
-    RAISE EXCEPTION 'one or more managed menu item identities cannot be safely parsed';
+  SELECT string_agg(
+    format(
+      '%s / %s',
+      regexp_replace(left(item.external_source, 120), '[[:cntrl:]]', '?', 'g'),
+      regexp_replace(left(item.external_key, 120), '[[:cntrl:]]', '?', 'g')
+    ),
+    ', ' ORDER BY item.external_source, item.external_key
+  ) INTO v_unparseable_identities
+  FROM (
+    SELECT DISTINCT source_item.external_source, source_item.external_key
+    FROM "_canteen_menu_identity_backfill" projection
+    JOIN canteen_menu_items source_item
+      ON source_item.id = projection.menu_item_id
+    WHERE projection.external_product_id IS NULL
+       OR btrim(projection.external_product_id) = ''
+    ORDER BY source_item.external_source, source_item.external_key
+    LIMIT 10
+  ) item;
+
+  IF v_unparseable_identities IS NOT NULL THEN
+    RAISE EXCEPTION 'cannot safely parse legacy menu identities: %',
+      v_unparseable_identities;
   END IF;
 
   IF EXISTS (
@@ -407,7 +441,33 @@ BEGIN
       'aigens:' || split_part(NEW.external_source, ':', 2);
   END IF;
 
-  IF NEW.external_source IS NULL OR NEW.menu_source_id IS NOT NULL THEN
+  IF NEW.external_source IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.menu_source_id IS NOT NULL THEN
+    SELECT provider INTO v_provider
+    FROM canteen_menu_sources
+    WHERE id = NEW.menu_source_id
+      AND canteen_id = NEW.canteen_id;
+
+    IF v_provider = 'aigens'
+      AND NEW.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)\+(allday|breakfast|lunch|dinner)(\+(allday|breakfast|lunch|dinner))*$'
+      AND NEW.external_key !~ '#offering-period='
+    THEN
+      RAISE EXCEPTION 'ambiguous multi-period Aigens offering identity for item %', NEW.id;
+    END IF;
+
+    IF v_provider = 'aigens'
+      AND NEW.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)$'
+      AND NEW.external_key !~ '#offering-period='
+    THEN
+      NEW.external_product_id := regexp_replace(
+        NEW.external_key,
+        '#period=(breakfast|lunch|dinner|allday)$',
+        '#offering-period=\1'
+      );
+    END IF;
     RETURN NEW;
   END IF;
 
@@ -417,11 +477,27 @@ BEGIN
     ELSE split_part(NEW.external_source, ':', 2)
   END;
   v_product_id := CASE
-    WHEN NEW.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)(\+(allday|breakfast|lunch|dinner))*$'
-      THEN regexp_replace(NEW.external_key, '#period=.*$', '')
     WHEN v_provider = 'aigens'
+      AND NEW.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)$'
+      AND NEW.external_key !~ '#offering-period='
+      THEN regexp_replace(
+        NEW.external_key,
+        '#period=(breakfast|lunch|dinner|allday)$',
+        '#offering-period=\1'
+      )
+    WHEN v_provider <> 'aigens'
+      AND NEW.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)(\+(allday|breakfast|lunch|dinner))*$'
+      THEN regexp_replace(NEW.external_key, '#period=.*$', '')
+    WHEN v_provider = 'pinme'
       AND NEW.external_key ~ '^.+:(breakfast|lunch|dinner|allday)$'
       THEN regexp_replace(NEW.external_key, ':(breakfast|lunch|dinner|allday)$', '')
+    WHEN v_provider = 'aigens'
+      AND NEW.external_key ~ '^.+:(breakfast|lunch|dinner|allday)$'
+      THEN regexp_replace(
+        NEW.external_key,
+        ':(breakfast|lunch|dinner|allday)$',
+        '#offering-period=\1'
+      )
     WHEN NEW.external_key !~ '[:#]' THEN NEW.external_key
     ELSE NULL
   END;

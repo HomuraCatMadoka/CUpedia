@@ -1800,7 +1800,7 @@ export const canteenMenuItems = pgTable(
     svgKey: text("svg_key").notNull().default("default"),
     /** Stable managed-menu owner. Null means this is a manually curated row. */
     menuSourceId: uuid("menu_source_id"),
-    /** Stable upstream product identity within menuSourceId; periods are attributes. */
+    /** Provider-scoped offering identity; Aigens includes its offering period. */
     externalProductId: text("external_product_id"),
     /** Rollout shadow columns. New reconciliation does not use these as identity. */
     externalSource: text("external_source"),
