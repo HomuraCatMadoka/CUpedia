@@ -5,18 +5,17 @@ import type {
 import { scheduledDeparturesForDate } from "@/lib/campus-transport/campus-bus";
 import {
   busTripTimeline,
+  BUS_DWELL_MILLISECONDS,
   positionAlongSegment,
   solveTrapezoidProfile,
 } from "@/lib/campus-transport/bus-kinematics";
 import {
-  computeCumulativeArcLength,
-  flattenRouteGeometry,
-  interpolateAlongPolyline,
-  nearestPointOnPolyline,
+  buildStopAnchoredPath,
+  interpolateAlongSegmentPath,
+  type SegmentPath,
 } from "@/lib/campus-transport/route-geometry";
 
 export const BUS_ACCELERATION_METERS_PER_SECOND_SQUARED = 0.8;
-export const BUS_DWELL_MILLISECONDS = 30_000;
 
 export type BusPosition = {
   /** 班次发车时刻（epoch ms），用于区分同一路线上的多辆车。 */
@@ -27,14 +26,17 @@ export type BusPosition = {
   atStop: boolean;
   /** 停留时所在站点 id（行驶中为 null）。 */
   stopId: string | null;
-  /** 当前沿线里程（米）。 */
+  /** 当前沿线里程（米，从首站起累计）。 */
   along: number;
 };
 
 type RouteGeometryCache = {
-  points: LngLat[];
-  cumulative: number[];
+  /** 站序锚定的分段路径（站 k → 站 k+1）。 */
+  path: SegmentPath;
+  /** 各站沿全程的累计里程（米）。 */
   stopAlongs: number[];
+  /** 全程总长（米）。 */
+  totalLength: number;
 };
 
 const geometryCache = new WeakMap<object, RouteGeometryCache>();
@@ -42,14 +44,18 @@ const geometryCache = new WeakMap<object, RouteGeometryCache>();
 function cachedGeometry(route: CampusBusPassengerRoute): RouteGeometryCache {
   const cached = geometryCache.get(route);
   if (cached) return cached;
-  const points = flattenRouteGeometry(route.map.geometry);
-  const { cumulative } = computeCumulativeArcLength(points);
-  const stopAlongs = route.stops.map((stop) => {
-    const coordinates = route.map.stopCoordinates[stop.id];
-    if (!coordinates) return 0;
-    return nearestPointOnPolyline(points, cumulative, coordinates).along;
-  });
-  const value = { points, cumulative, stopAlongs };
+  const stops = route.stops.map(
+    (stop) => route.map.stopCoordinates[stop.id]!,
+  );
+  const path = buildStopAnchoredPath(route.map.geometry, stops);
+  const stopAlongs: number[] = [0];
+  for (const segment of path.segments) {
+    stopAlongs.push(
+      stopAlongs[stopAlongs.length - 1]! + segment.totalLength,
+    );
+  }
+  const totalLength = stopAlongs[stopAlongs.length - 1]!;
+  const value = { path, stopAlongs, totalLength };
   geometryCache.set(route, value);
   return value;
 }
@@ -58,7 +64,7 @@ function cachedGeometry(route: CampusBusPassengerRoute): RouteGeometryCache {
  * 计算指定时刻线路上所有在途班次的车辆位置。
  *
  * 每班次：发车时刻 departureAt + 逐站累计到站秒数（p50Seconds）构成时间轴；
- * 站间用梯形速度剖面（加速→匀速→减速）在沿线弧长上插值。
+ * 站间用梯形速度剖面（加速→匀速→减速）在站序锚定的沿线弧长上插值。
  */
 export function computeBusPositions(
   route: CampusBusPassengerRoute,
@@ -66,7 +72,7 @@ export function computeBusPositions(
   dwellMilliseconds = BUS_DWELL_MILLISECONDS,
 ): BusPosition[] {
   const geometry = cachedGeometry(route);
-  if (geometry.points.length === 0) return [];
+  if (geometry.path.segments.length === 0) return [];
 
   const positions: BusPosition[] = [];
   for (const departure of scheduledDeparturesForDate(now, route)) {
@@ -99,7 +105,8 @@ export function computeBusPositions(
       positions.push({
         departureAt,
         position:
-          route.map.stopCoordinates[stop.id] ?? geometry.points[0]!,
+          route.map.stopCoordinates[stop.id] ??
+          geometry.path.segments[0]!.points[0]!,
         atStop: true,
         stopId: stop.id,
         along: geometry.stopAlongs[segmentIndex + 1] ?? 0,
@@ -108,9 +115,9 @@ export function computeBusPositions(
     }
 
     // 行驶中：站 segmentIndex → segmentIndex+1
-    const lengthMeters =
-      (geometry.stopAlongs[segmentIndex + 1] ?? 0) -
-      (geometry.stopAlongs[segmentIndex] ?? 0);
+    const segment = geometry.path.segments[segmentIndex];
+    if (!segment) continue;
+    const lengthMeters = segment.totalLength;
     const travelSeconds = (arrivals[segmentIndex + 1]! - leaves[segmentIndex]!) / 1_000;
     const profile = solveTrapezoidProfile(
       lengthMeters,
@@ -123,7 +130,7 @@ export function computeBusPositions(
       (geometry.stopAlongs[segmentIndex] ?? 0) + Math.min(distance, lengthMeters);
     positions.push({
       departureAt,
-      position: interpolateAlongPolyline(geometry.points, geometry.cumulative, along),
+      position: interpolateAlongSegmentPath(geometry.path, along),
       atStop: false,
       stopId: null,
       along,

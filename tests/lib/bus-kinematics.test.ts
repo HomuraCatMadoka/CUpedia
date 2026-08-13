@@ -78,6 +78,28 @@ describe("positionAlongSegment", () => {
       6,
     );
   });
+
+  it("is strictly monotonic in the deceleration phase (no backward motion)", () => {
+    // 减速段起点 = 加速 + 巡航（不是 2·加速 + 巡航）；1s 细采样验证单调
+    const cruiseEnd =
+      profile.accelerateTime +
+      (profile.cruiseDistance > 0
+        ? profile.cruiseDistance / profile.cruiseSpeed
+        : 0);
+    const total = profile.accelerateDistance * 2 + profile.cruiseDistance;
+    let previous = positionAlongSegment(cruiseEnd, profile);
+    expect(previous).toBeCloseTo(
+      profile.accelerateDistance + profile.cruiseDistance,
+      6,
+    );
+    for (let t = cruiseEnd + 1; t <= T; t += 1) {
+      const position = positionAlongSegment(t, profile);
+      expect(position).toBeGreaterThanOrEqual(previous - 1e-9);
+      previous = position;
+    }
+    // 终点总长（浮点边界容差 ~5cm）
+    expect(previous).toBeCloseTo(total, 1);
+  });
 });
 
 describe("busTripTimeline", () => {

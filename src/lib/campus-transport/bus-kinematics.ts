@@ -91,23 +91,25 @@ export function positionAlongSegment(
       cruiseSpeed * (elapsedSeconds - accelerateTime)
     );
   }
-  // 减速段：对称于加速段
+  // 减速段：从 accelerateDistance + cruiseDistance 出发，速度由 v 匀减速到 0。
+  // 注意起点不是 2·accelerateDistance + cruiseDistance——那是终点总长。
   const decelerateTime = accelerateTime;
   const decelerateElapsed = elapsedSeconds - cruiseEnd;
   if (decelerateElapsed >= decelerateTime) {
     return accelerateDistance * 2 + cruiseDistance;
   }
-  const remainingSpeed =
-    cruiseSpeed - (cruiseSpeed / accelerateTime) * decelerateElapsed;
+  const deceleration =
+    (cruiseSpeed / accelerateTime) * decelerateElapsed;
   return (
-    accelerateDistance * 2 +
-    cruiseDistance -
-    0.5 *
-      (cruiseSpeed / accelerateTime) *
-      (decelerateElapsed * decelerateElapsed) -
-    remainingSpeed * decelerateElapsed
+    accelerateDistance +
+    cruiseDistance +
+    cruiseSpeed * decelerateElapsed -
+    0.5 * deceleration * decelerateElapsed
   );
 }
+
+/** 到站后停靠时长（ms）：车辆到站后至发车前的停留窗口，也是到站牌「停靠」状态的时长。 */
+export const BUS_DWELL_MILLISECONDS = 30_000;
 
 export type TripTimeline = {
   /** 每站到站时刻（epoch ms），arrivals[0] = departureAt。 */

@@ -141,4 +141,34 @@ describe("computeBusPositions", () => {
       expect(bus.position[1]).toBeLessThan(23);
     }
   });
+
+  it("moves the 1A bus from the first stop toward the second after departure", () => {
+    const route = campusBusRoutes.find((candidate) => candidate.routeId === "1a")!;
+    // 10:10 发车（1A 发车分钟 [10,20,40,50]），p50 第一站 0s、第二站 111s
+    const samples = [11, 13].map((minute) =>
+      computeBusPositions(
+        route,
+        new Date(`2026-08-13T10:${minute}:00+08:00`).getTime(),
+        30_000,
+      ),
+    );
+    const firstBus = samples[0]![0]!;
+    const lastBus = samples[1]![0]!;
+    // 车沿站序前进：1 分钟后沿里程 ~331m，3 分钟后已越过第二站（610m）
+    expect(firstBus.along).toBeGreaterThan(100);
+    expect(firstBus.along).toBeLessThan(500);
+    expect(lastBus.along).toBeGreaterThan(610);
+    expect(lastBus.along).toBeLessThan(1_200);
+    // 方向：位置离首站越来越远
+    const first = route.map.stopCoordinates[route.stops[0]!.id]!;
+    const d1 = Math.hypot(
+      firstBus.position[0] - first[0],
+      firstBus.position[1] - first[1],
+    );
+    const d2 = Math.hypot(
+      lastBus.position[0] - first[0],
+      lastBus.position[1] - first[1],
+    );
+    expect(d2).toBeGreaterThan(d1);
+  });
 });
