@@ -280,6 +280,49 @@ test.describe("campus bus Route 2 mobile journey", () => {
 test.describe("campus bus reviewed route catalog", () => {
   test.use({ viewport: MOBILE_VIEWPORT, isMobile: true, hasTouch: true });
 
+  test("keeps manual Boarding place selection usable after location is denied", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition(
+            _success: PositionCallback,
+            error: PositionErrorCallback,
+          ) {
+            error({
+              code: 1,
+              message: "Permission denied by test",
+              PERMISSION_DENIED: 1,
+              POSITION_UNAVAILABLE: 2,
+              TIMEOUT: 3,
+            });
+          },
+        },
+      });
+    });
+    const response = await page.goto("/campus-bus");
+    expect(response?.status()).toBe(200);
+
+    await page.getByRole("button", { name: "使用我的位置" }).click();
+    await expect(
+      page.getByText("未允許使用位置。請手動選擇，或在瀏覽器設定中重新允許。"),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "手動選擇" }).click();
+    await page
+      .getByRole("dialog", { name: "選擇乘車地點" })
+      .getByRole("button", { name: /大學站 Univ\. Station/ })
+      .click();
+
+    await expect(
+      page.getByRole("heading", { name: "大學站", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /1A 本部線/ }).first(),
+    ).toBeVisible();
+  });
+
   test("shows the first departure instead of a multi-hour countdown before service", async ({
     page,
   }) => {
