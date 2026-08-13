@@ -50,6 +50,39 @@ export const MENU_ITEM_IDS = {
   demoNoodle: "00000000-0000-4000-e100-000000000003",
 } as const;
 
+export const ANNOUNCEMENT_IDS = {
+  welcome: "00000000-0000-4000-a100-000000000001",
+  maintenance: "00000000-0000-4000-a100-000000000002",
+  notifications: "00000000-0000-4000-a100-000000000003",
+} as const;
+
+export const SEED_ANNOUNCEMENTS = [
+  {
+    id: ANNOUNCEMENT_IDS.welcome,
+    title: "迎新季资料征集",
+    content:
+      "2026 入学指南正在更新，欢迎补充注册、选课、宿舍与校园生活经验。\n\n我们正在整理新一届同学最常遇到的问题，包括注册、选课、宿舍申请、交通与校园生活。可靠内容会汇总到 SG Wiki，帮助新生更快找到经过同学验证的信息。",
+    priority: 30,
+    publishedDaysAgo: 0,
+  },
+  {
+    id: ANNOUNCEMENT_IDS.maintenance,
+    title: "本周五凌晨系统维护",
+    content:
+      "本周五 01:00–02:00 将升级数据库与对象存储服务，期间网站可能短暂无法访问。已经保存的 Wiki 草稿不会受到影响。",
+    priority: 20,
+    publishedDaysAgo: 1,
+  },
+  {
+    id: ANNOUNCEMENT_IDS.notifications,
+    title: "课程测评回复通知已上线",
+    content:
+      "有人回复你的课程测评时，顶部通知中心会显示未读提醒。打开通知会直接定位到原测评和对应回复。",
+    priority: 10,
+    publishedDaysAgo: 2,
+  },
+] as const;
+
 export const PASSWORD = "password123";
 
 // ── Canteen fixtures (e2e + local dev; demo names only) ──

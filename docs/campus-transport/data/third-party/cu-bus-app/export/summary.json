@@ -1,0 +1,42 @@
+{
+  "table_counts": {
+    "route": 19,
+    "stop": 35,
+    "route_segment": 1606,
+    "arrival_schedule": 5069,
+    "operating_day": 2588,
+    "area": 16,
+    "area_to_area": 2269
+  },
+  "operating_day_range": {
+    "min": "2023-06-01",
+    "max": "2030-07-01",
+    "teaching_days": 864,
+    "public_holidays": 121,
+    "sundays": 370,
+    "saturdays": 370,
+    "mon_to_sat": 2218
+  },
+  "route_ids": [
+    "1A",
+    "1B",
+    "2",
+    "2_sir_run_run",
+    "3",
+    "4",
+    "5",
+    "5_sat",
+    "6A",
+    "6A_sat",
+    "6B",
+    "7",
+    "7_sat",
+    "8",
+    "8_non_teach",
+    "H",
+    "H_area_39",
+    "N",
+    "N_postgrad"
+  ],
+  "stop_count": 35
+}

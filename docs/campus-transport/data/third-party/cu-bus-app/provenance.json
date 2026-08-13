@@ -1,0 +1,21 @@
+{
+  "package": "com.carsonwah.cubus",
+  "appName": "CU Bus",
+  "versionName": "1.18",
+  "versionCode": 18,
+  "source": "user-supplied APKPure XAPK",
+  "localXapkPath": "/Users/wangkunyu/Downloads/CU+Bus+-+CUHK+Bus+Companion_1.18_APKPure.xapk",
+  "xapkSha256": "c5649378a954c849b3fc0944dc5a943aa4fa3f64d8a9a537a8954dcb20a8881f",
+  "baseApkSha256": "35d24232bc07237f14e14c35e79349a7b040ca1951b94313e65f067aa83d2ccf",
+  "embeddedDb": "assets/cubus.db",
+  "cubusDbSha256": "c0d045c980aee48e66e3d81a88f22eed227bae29a9f56c38ca2320705704cd2d",
+  "dbSchemaVersionInApp": 7,
+  "extractedAt": "2026-08-11",
+  "purpose": "research-only third-party schedule/stop/coord extract; not redistributable claim",
+  "remoteEndpointsObserved": [
+    "https://cu-bus-app.firebaseio.com (string in APK; analytics/crashlytics present)",
+    "https://www.res.cuhk.edu.hk/tc/general-information/almanac/ (UI link only)",
+    "Google Forms feedback"
+  ],
+  "noPublicScheduleApi": "ETA from embedded arrival_schedule + operating_day; no transport.cuhk live feed found in strings"
+}

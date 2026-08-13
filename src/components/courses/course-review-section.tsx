@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CourseReviewCard } from "@/components/courses/course-review-card";
 import { CourseReviewEditor } from "@/components/courses/course-review-editor";
+import {
+  formatProfessorName,
+  formatProfessorNameText,
+} from "@/lib/professor-name-format";
 import { cn } from "@/lib/utils";
 import { COURSE_TERMS } from "@/lib/course-review-constants";
 import type {
@@ -115,9 +119,14 @@ export function CourseReviewSection({
           <div>
             <h2 className="text-lg font-semibold tracking-tight">同学测评</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {selectedProfessor
-                ? `${selectedProfessor.name} · ${visibleCommentCount} 条评论`
-                : `${visibleCommentCount} 条评论`}
+              {selectedProfessor ? (
+                <>
+                  {formatProfessorName(selectedProfessor.name)} ·{" "}
+                  {visibleCommentCount} 条评论
+                </>
+              ) : (
+                `${visibleCommentCount} 条评论`
+              )}
             </p>
           </div>
           <label className="grid gap-1.5 text-xs font-medium text-muted-foreground sm:w-64">
@@ -138,7 +147,7 @@ export function CourseReviewSection({
               </option>
               {professorStats.map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.name}
+                  {formatProfessorNameText(item.name)}
                 </option>
               ))}
             </select>

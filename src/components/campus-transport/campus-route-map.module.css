@@ -1,0 +1,50 @@
+.map {
+  height: 14.5rem;
+  width: 100%;
+  background: #e8e9e4;
+}
+
+.marker {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  touch-action: manipulation;
+  place-items: center;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: #5b2a73;
+  color: #fff;
+  box-shadow: 0 2px 8px rgb(35 23 41 / 28%);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.marker[data-selected="true"] {
+  background: #3f174f;
+  box-shadow:
+    0 0 0 5px rgb(255 255 255 / 72%),
+    0 3px 12px rgb(35 23 41 / 35%);
+}
+
+.marker:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.userMarker {
+  width: 1.1rem;
+  height: 1.1rem;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  background: #1976d2;
+  box-shadow:
+    0 0 0 4px rgb(25 118 210 / 20%),
+    0 2px 6px rgb(0 0 0 / 24%);
+}
+
+@media (min-width: 48rem) {
+  .map {
+    height: 23rem;
+  }
+}

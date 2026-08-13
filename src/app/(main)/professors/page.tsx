@@ -9,6 +9,7 @@ import {
 } from "@/components/professors/professor-directory-filters";
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
 import { getProfessorDirectory } from "@/lib/professor-actions";
+import { formatProfessorName, formatProfessorNameText } from "@/lib/professor-name-format";
 
 export const dynamic = "force-dynamic";
 
@@ -135,7 +136,7 @@ export default async function ProfessorsPage({
               >
                 <Link
                   href={`/professors/${professor.publicId}?from=${encodeURIComponent(currentHref)}`}
-                  aria-label={`查看 ${professor.name}（${professor.department ?? professor.faculty ?? "香港中文大学"}）的教授测评`}
+                  aria-label={`查看 ${formatProfessorNameText(professor.name)}（${professor.department ?? professor.faculty ?? "香港中文大学"}）的教授测评`}
                   className="group flex min-h-44 min-w-0 flex-col items-center justify-center rounded-2xl px-1 py-3 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:min-h-56 sm:px-3 sm:py-5"
                 >
                   <ProfessorPortrait
@@ -145,7 +146,7 @@ export default async function ProfessorsPage({
                   />
                   <div className="mt-3 min-w-0 max-w-full sm:mt-4">
                     <h2 className="line-clamp-2 text-sm font-medium tracking-[-0.02em] group-hover:underline group-hover:underline-offset-4 sm:text-base">
-                      {professor.name}
+                      {formatProfessorName(professor.name)}
                     </h2>
                     <p className="mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground">
                       {professor.department ??

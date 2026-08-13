@@ -24,6 +24,7 @@ import { OPEN_COURSE_REVIEW_EVENT } from "@/components/courses/course-review-act
 import { cn } from "@/lib/utils";
 import { useContributorSetup } from "@/components/auth/contributor-setup-provider";
 import {
+  COURSE_REVIEW_TAG_DIMENSIONS,
   COURSE_REVIEW_TAG_OPTIONS,
   COURSE_TERMS,
   type CourseReviewTags,
@@ -38,6 +39,10 @@ import {
   type CourseRatingState,
   type ProfessorOption,
 } from "@/lib/course-review-actions";
+import {
+  formatProfessorName,
+  formatProfessorNameText,
+} from "@/lib/professor-name-format";
 
 function StarGlyph({ value, position }: { value: number; position: number }) {
   const fill = value >= position ? 100 : value >= position - 0.5 ? 50 : 0;
@@ -406,7 +411,7 @@ export function CourseReviewEditor({
                   key={professor.id}
                   className="rounded-full bg-secondary px-3 py-1.5"
                 >
-                  {professor.name}
+                  {formatProfessorName(professor.name)}
                 </span>
               ))}
               {ratingState.lastTags.map((tag) => (
@@ -527,7 +532,7 @@ export function CourseReviewEditor({
                         className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-left text-xs font-normal text-foreground"
                       >
                         <span className="min-w-0 break-words">
-                          {professor.name}
+                          {formatProfessorName(professor.name)}
                         </span>
                         <span className="text-muted-foreground">已绑定</span>
                       </span>
@@ -537,10 +542,10 @@ export function CourseReviewEditor({
                         type="button"
                         onClick={() => removeProfessor(professor.id)}
                         className="inline-flex max-w-full items-center gap-1.5 rounded-md bg-muted px-2.5 py-1.5 text-left text-xs font-normal text-foreground transition-colors hover:bg-destructive/10 hover:text-destructive active:scale-[0.98]"
-                        aria-label={`移除 ${professor.name}`}
+                        aria-label={`移除 ${formatProfessorNameText(professor.name)}`}
                       >
                         <span className="min-w-0 break-words">
-                          {professor.name}
+                          {formatProfessorName(professor.name)}
                         </span>
                         <XIcon aria-hidden="true" className="size-3 shrink-0" />
                       </button>
@@ -578,7 +583,9 @@ export function CourseReviewEditor({
                         onSelect={() => addProfessor(option)}
                         className="block px-2 py-1.5 [&>svg:last-child]:hidden"
                       >
-                        <span className="block">{option.name}</span>
+                        <span className="block">
+                          {formatProfessorName(option.name)}
+                        </span>
                         {option.description && (
                           <span className="block truncate text-xs text-muted-foreground">
                             {option.description}
@@ -602,7 +609,7 @@ export function CourseReviewEditor({
                     onClick={() => addProfessor(professor)}
                     className="rounded-md border border-dashed bg-background px-2.5 py-1 text-xs font-normal text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-secondary/50 hover:text-foreground active:scale-[0.98]"
                   >
-                    + {professor.name}
+                    + {formatProfessorName(professor.name)}
                   </button>
                 ))}
               </div>
@@ -632,30 +639,22 @@ export function CourseReviewEditor({
             </legend>
             <div className="grid gap-4 sm:grid-cols-2 sm:gap-x-6 sm:gap-y-5">
               {(
-                Object.entries(COURSE_REVIEW_TAG_OPTIONS) as [
-                  keyof typeof COURSE_REVIEW_TAG_OPTIONS,
-                  readonly string[],
+                Object.entries(COURSE_REVIEW_TAG_DIMENSIONS) as [
+                  keyof typeof COURSE_REVIEW_TAG_DIMENSIONS,
+                  (typeof COURSE_REVIEW_TAG_DIMENSIONS)[keyof typeof COURSE_REVIEW_TAG_DIMENSIONS],
                 ][]
-              ).map(([dimension, options]) => (
+              ).map(([dimension, config]) => (
                 <div key={dimension} className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
-                    {dimension === "workload"
-                      ? "Workload"
-                      : dimension === "grade"
-                        ? "Grade"
-                        : dimension === "enrollment"
-                          ? "抢课难度"
-                          : dimension === "attendance"
-                            ? "考勤要求"
-                            : "课堂语言"}
+                    {config.label}
                   </p>
                   <div
                     className={cn(
                       "grid gap-1 rounded-lg bg-muted/70 p-1",
-                      options.length === 3 ? "grid-cols-3" : "grid-cols-2",
+                      config.gridClassName,
                     )}
                   >
-                    {options.map((tag) => (
+                    {config.options.map((tag) => (
                       <button
                         key={tag}
                         type="button"

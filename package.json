@@ -27,7 +27,8 @@
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
     "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run",
     "wiki-links:check": "node --import tsx scripts/wiki-links-integrity.ts",
-    "wiki-links:repair": "node --import tsx scripts/wiki-links-integrity.ts --repair"
+    "wiki-links:repair": "node --import tsx scripts/wiki-links-integrity.ts --repair",
+    "campus-bus:train-model": "node --import tsx scripts/cuhk-bus-train-model.ts"
   },
   "dependencies": {
     "@ariakit/react": "^0.4.28",
@@ -72,6 +73,7 @@
     "lodash": "^4.18.1",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.16.0",
+    "maplibre-gl": "^5.24.0",
     "mint-filter": "^4.0.3",
     "nanoid": "^5.1.11",
     "next": "16.2.6",

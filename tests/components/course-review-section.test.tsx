@@ -416,30 +416,26 @@ describe("CourseReviewSection", () => {
     fireEvent.change(screen.getByLabelText("学期"), {
       target: { value: "Term 1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "+ Professor CHAN" }));
-    fireEvent.click(screen.getByRole("button", { name: "+ Professor WONG" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Prof. Chan" }));
+    fireEvent.click(screen.getByRole("button", { name: "+ Prof. Wong" }));
     expect(screen.getByText("已选择 2 位教授")).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "移除 Professor CHAN" }),
+      screen.getByRole("button", { name: "移除 Prof. Chan" }),
     ).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "移除 Professor WONG" }),
+      screen.getByRole("button", { name: "移除 Prof. Wong" }),
     ).toBeTruthy();
     const professorSearch = screen.getByLabelText("搜索任课教授");
     fireEvent.change(professorSearch, {
       target: { value: "Professor" },
     });
     await waitFor(() =>
-      expect(
-        screen.getByRole("option", { name: "Professor LEE" }),
-      ).toBeTruthy(),
+      expect(screen.getByRole("option", { name: "Prof. Lee" })).toBeTruthy(),
     );
-    expect(screen.queryByRole("button", { name: "Professor CHAN" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "+ Prof. Chan" })).toBeNull();
     fireEvent.keyDown(professorSearch, { key: "ArrowDown" });
     fireEvent.keyDown(professorSearch, { key: "Enter" });
-    expect(
-      screen.getByRole("button", { name: "移除 Professor LEE" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "移除 Prof. Lee" })).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "4.5 星" }));
     fireEvent.click(screen.getByRole("button", { name: "提交测评" }));
 
@@ -478,7 +474,7 @@ describe("CourseReviewSection", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
     expect(screen.getByText("已绑定")).toBeTruthy();
     expect(
-      screen.queryByRole("button", { name: "移除 Professor CHAN" }),
+      screen.queryByRole("button", { name: "移除 Prof. Chan" }),
     ).toBeNull();
     fireEvent.change(screen.getByLabelText("学年"), {
       target: { value: "2025-26" },

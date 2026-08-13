@@ -10,10 +10,13 @@ import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
 export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const focusedEditor = isFocusedWikiEditorRoute(pathname);
+  const immersiveCampusBusRoute =
+    pathname !== "/campus-bus/lab" && /^\/campus-bus\/[^/]+\/?$/.test(pathname);
+  const hidesSiteChrome = focusedEditor || immersiveCampusBusRoute;
 
   return (
     <>
-      {!focusedEditor && (
+      {!hidesSiteChrome && (
         <>
           <a
             href="#main-content"
@@ -28,11 +31,12 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         id="main-content"
         className={cn(
           "flex min-w-0",
-          focusedEditor
+          hidesSiteChrome
             ? "min-h-dvh"
             : "min-h-[calc(100dvh-var(--navbar-height))]",
         )}
         data-focused-wiki-editor={focusedEditor ? "true" : undefined}
+        data-immersive-campus-bus={immersiveCampusBusRoute ? "true" : undefined}
       >
         {children}
       </main>

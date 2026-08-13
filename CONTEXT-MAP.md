@@ -1,6 +1,6 @@
 # Context Map
 
-CUpedia 现有六个限界上下文。
+CUpedia 现有七个限界上下文。
 
 ## Contexts
 
@@ -10,6 +10,7 @@ CUpedia 现有六个限界上下文。
 - [课程测评](./docs/course-review/CONTEXT.md) — 课程口碑：打分 / 匿名评论 / 点赞（读匿名公开，写需登录）
 - [食堂测评](./docs/canteen/CONTEXT.md) — 食堂菜单、菜品评价与菜单导入
 - [通知](./docs/notifications/CONTEXT.md) — 汇集各业务上下文面向 User 的站内消息
+- [校园交通](./docs/campus-transport/CONTEXT.md) — 面向学生、匿名公开读取的 CUHK 官方校巴信息与今日出行决策
 
 ## Relationships
 
@@ -21,5 +22,6 @@ CUpedia 现有六个限界上下文。
 - **分院帽 ↔ 课程技能树**: 都新生向，但领域不同——分院帽选**书院**、技能树选**课**，语言不重叠，**不互链**。注意分院帽的「专业大类」（5 个粗分桶）**不是**技能树的「主修」。
 - **食堂测评 → 权限与用户管理**: 菜品评论及已登录投票归属于 User；匿名访客也可投票，写操作继续受封禁状态约束。
 - **通知 → 权限与用户管理**: 每条通知归属于唯一 User，只有该 User 可以读取或改变自己的阅读状态。
+- **校园交通 → 校园地图（尚未集成）**: 校园交通拥有运营 Stop 与服务事实，只通过经复核的关联引用未来校园地图提供的稳定 Place ID；地图不能反向改写线路、站序或班次。地图缺席时，交通仍可提供站到站的今日服务，但不虚构步行段。
 
-课程技能树的奠基性决策见 [docs/adr/0005](./docs/adr/0005-course-tree-data-provenance.md)、[0006](./docs/adr/0006-explorer-not-graduation-auditor.md)；食堂测评的边界决策见 [docs/adr/0007](./docs/adr/0007-canteen-bounded-context.md)；通知与来源的生命周期决策见 [0016](./docs/adr/0016-notification-source-lifecycle.md)。
+课程技能树的奠基性决策见 [docs/adr/0005](./docs/adr/0005-course-tree-data-provenance.md)、[0006](./docs/adr/0006-explorer-not-graduation-auditor.md)；食堂测评的边界决策见 [docs/adr/0007](./docs/adr/0007-canteen-bounded-context.md)；通知与来源的生命周期决策见 [0016](./docs/adr/0016-notification-source-lifecycle.md)；校园交通与地图的身份边界见 [0021](./docs/adr/0021-campus-transport-owns-operational-stops.md)。
