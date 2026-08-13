@@ -8,10 +8,82 @@ SET LOCAL statement_timeout = '60s';
 LOCK TABLE "canteen_menu_items" IN SHARE ROW EXCLUSIVE MODE;
 LOCK TABLE "canteen_menu_sources" IN SHARE ROW EXCLUSIVE MODE;
 
+-- These namespaces were audited in production before this migration was
+-- applied. They came from one-off static menu imports and have no recurring
+-- ordering-provider identity. Preserve each menu row and its history as a
+-- manual item instead of inventing a provider or deleting/recreating it.
+UPDATE canteen_menu_items
+SET external_source = NULL,
+    external_key = NULL,
+    updated_at = now()
+WHERE external_source IN (
+  'dst-menu',
+  'inno330-menu',
+  'kebab-menu',
+  'msf-menu',
+  'pwl-menu',
+  'wys-menu',
+  '众志堂-menu',
+  '珍can-menu',
+  '醫院can-menu'
+);
+
+-- `order-place:<store-id>` was the public Aigens namespace used by the first
+-- menu-sync release. Normalize that audited alias in place before validating
+-- the canonical provider locator. The menu row UUID and all referencing
+-- votes/comments remain unchanged.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM canteen_menu_items legacy
+    JOIN canteen_menu_items canonical
+      ON canonical.canteen_id = legacy.canteen_id
+     AND canonical.external_source =
+       'aigens:' || split_part(legacy.external_source, ':', 2)
+     AND canonical.external_key = legacy.external_key
+     AND canonical.id <> legacy.id
+    WHERE legacy.external_source ~ '^order-place:[^:]+$'
+  ) THEN
+    RAISE EXCEPTION 'legacy order-place source collides with an existing canonical menu item';
+  END IF;
+END
+$$;
+
+UPDATE canteen_menu_items
+SET external_source = 'aigens:' || split_part(external_source, ':', 2),
+    updated_at = now()
+WHERE external_source ~ '^order-place:[^:]+$';
+
 -- Existing managed rows use rollout shadow identity. Refuse ambiguous source
 -- ownership before creating the new source records.
 DO $$
+DECLARE
+  v_unsupported_sources text;
 BEGIN
+  SELECT string_agg(
+    format(
+      '%s (%s item/s)',
+      regexp_replace(left(source, 120), '[[:cntrl:]]', '?', 'g'),
+      item_count
+    ),
+    ', ' ORDER BY source
+  ) INTO v_unsupported_sources
+  FROM (
+    SELECT external_source AS source, count(*) AS item_count
+    FROM canteen_menu_items
+    WHERE external_source IS NOT NULL
+      AND external_source !~ '^(aigens|ichef|pinme):[^:]+$|^qmai:[^:]+:[^:]+$'
+    GROUP BY external_source
+    ORDER BY external_source
+    LIMIT 10
+  ) unsupported;
+
+  IF v_unsupported_sources IS NOT NULL THEN
+    RAISE EXCEPTION 'unsupported legacy external source namespace(s): %',
+      v_unsupported_sources;
+  END IF;
+
   IF EXISTS (
     SELECT external_source
     FROM canteen_menu_items
@@ -32,14 +104,6 @@ BEGIN
     RAISE EXCEPTION 'one canteen contains multiple legacy external source namespaces';
   END IF;
 
-  IF EXISTS (
-    SELECT 1
-    FROM canteen_menu_items
-    WHERE external_source IS NOT NULL
-      AND external_source !~ '^(aigens|ichef|pinme):[^:]+$|^qmai:[^:]+:[^:]+$'
-  ) THEN
-    RAISE EXCEPTION 'unsupported legacy external source namespace';
-  END IF;
 END
 $$;
 
@@ -338,6 +402,11 @@ DECLARE
   v_product_id text;
   v_source_id uuid;
 BEGIN
+  IF NEW.external_source ~ '^order-place:[^:]+$' THEN
+    NEW.external_source :=
+      'aigens:' || split_part(NEW.external_source, ':', 2);
+  END IF;
+
   IF NEW.external_source IS NULL OR NEW.menu_source_id IS NOT NULL THEN
     RETURN NEW;
   END IF;

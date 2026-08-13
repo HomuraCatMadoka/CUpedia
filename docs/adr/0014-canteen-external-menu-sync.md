@@ -53,3 +53,10 @@ CUpedia dish.
 - Identity backfill and audited canteen provisioning use versioned Drizzle
   custom migrations because they must update existing UUID-addressed rows in
   place; generated schema DDL alone cannot express those data decisions.
+- Migration 0076 is corrected in place for the production database that failed
+  before recording it. Migration 0080 repeats the compatibility repair
+  idempotently for preview or local databases that had already recorded 0076,
+  so every environment converges without rebuilding dish identity or history.
+- Production namespaces from audited one-off static imports have no ordering
+  provider identity. Migration 0076 keeps those rows and UUID-bound history but
+  makes them manual items; it never guesses a provider from the source label.
