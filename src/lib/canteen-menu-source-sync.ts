@@ -45,9 +45,9 @@ async function syncSource(
 
   try {
     const fetched = await fetchMenuFromProvider(source);
-    const input = source.allowLegacyTakeover
-      ? { ...fetched, takeOverLegacyItems: true }
-      : fetched;
+    // Recurring sync may update only rows already bound to this source. Legacy
+    // claiming is an explicit admin preview/apply operation, never a cron mode.
+    const input = { ...fetched, takeOverLegacyItems: false };
     if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
     const hash = snapshotHash(input);
     if (hash === source.lastSnapshotHash) {
@@ -58,7 +58,6 @@ async function syncSource(
           observedState: "available",
           lastErrorCode: null,
           lastError: null,
-          allowLegacyTakeover: false,
           updatedAt: new Date(),
         })
         .where(eq(canteenMenuSources.id, source.id));
@@ -87,7 +86,6 @@ async function syncSource(
         observedState: "available",
         lastErrorCode: null,
         lastError: null,
-        allowLegacyTakeover: false,
         updatedAt: completedAt,
       })
       .where(eq(canteenMenuSources.id, source.id));

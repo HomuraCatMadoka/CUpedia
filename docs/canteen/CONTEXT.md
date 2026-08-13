@@ -27,7 +27,7 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 
 **JSON 菜单输入**: 菜品输入字段含 name、pricing.options、mealPeriods（或旧 mealPeriod）、sortOrder、svgKey。`svgKey` 存分区键：爬虫来源有店家分类时写入原文分类名；无分类时才按菜名推断为旧版 `rice`/`noodle`/…。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。旧 append-only action 仅为兼容保留，不用于周期性来源同步。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
 
-**外部菜单同步**: Admin 粘贴含 `source`、`items[].externalKey` 的完整来源快照，必须先 dry-run 再应用。匹配优先使用外部身份；首次可用规范化菜名 + 餐段集合接管唯一旧菜。来源中消失的菜改为 `isAvailable = false`，不删除 UUID、投票或评论。Aigens 仍可按来源餐段拆成多行（`backendId:lunch` 等）；Admin 多餐段赋值则共享同一 UUID 的赞踩。`takeOverLegacyItems: true` 只用于经过预览确认的首次全量接管。有分类时保留店家分类作 `svgKey`，不以菜名重分类。善衡生成器为 `scripts/generate-shho-menu-sync.ts`，当前快照见 [`data/shho-menu-sync.json`](data/shho-menu-sync.json)，审核结果见 [`data/shho-menu-sync-report.md`](data/shho-menu-sync-report.md)。
+**外部菜单同步**: Admin 粘贴含 `source`、`items[].externalKey` 的完整来源快照，必须先 dry-run 再应用。匹配优先使用外部身份；首次可用规范化菜名 + 餐段集合接管唯一旧菜。来源中消失的菜改为 `isAvailable = false`，不删除 UUID、投票或评论。Aigens 可按来源餐段拆成多行（`backendId:lunch` 等）；当供应商把同一商品建模为共享供应时，也可用稳定 product ID 对应一个多餐段 UUID。`takeOverLegacyItems: true` 只用于经过管理员预览确认的首次全量接管；周期任务必须强制为 false。有分类时保留店家分类作 `svgKey`，不以菜名重分类。善衡生成器为 `scripts/generate-shho-menu-sync.ts`，当前快照见 [`data/shho-menu-sync.json`](data/shho-menu-sync.json)，审核结果见 [`data/shho-menu-sync-report.md`](data/shho-menu-sync-report.md)。
 _Avoid_: 用菜名作为长期同步 key；先清空菜单再导入；把普通追加导入当全量来源快照；无 dry-run 直接接管 legacy 菜品；有店家分类时再按菜名重分。
 
 **菜单来源（Menu source）**: 周期性读取某个供应商门店菜单的配置与同步状态。它标识 provider、外部门店身份及非敏感读取参数；其职责止于产生规范化菜单快照。供应商响应先经过单次同步期间的临时 provider schema，数据库只保存公开展示和稳定关联所需的字段。

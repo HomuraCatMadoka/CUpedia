@@ -76,6 +76,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
   it("claims a legacy item and later deactivates it without losing history", async () => {
     const firstSnapshot = {
       source: "order-place:102830",
+      takeOverLegacyItems: true,
       items: [
         {
           externalKey: "product-42:lunch",

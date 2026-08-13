@@ -37,8 +37,20 @@ function input(name = "凍奶茶") {
 }
 
 describe("menu sync planner", () => {
-  it("claims a unique legacy name and period match without replacing its id", () => {
+  it("does not claim a unique legacy match without explicit takeover", () => {
     const plan = planMenuSync(input(), [existing()]);
+    expect(plan.actions).toEqual([]);
+    expect(plan.conflicts).toEqual([
+      expect.objectContaining({
+        reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
+        candidateIds: ["item-1"],
+      }),
+    ]);
+  });
+
+  it("claims a unique legacy match during an explicit first takeover", () => {
+    const takeoverInput = { ...input(), takeOverLegacyItems: true };
+    const plan = planMenuSync(takeoverInput, [existing()]);
     expect(plan.conflicts).toEqual([]);
     expect(plan.actions[0]).toMatchObject({
       action: "claim",
@@ -90,11 +102,14 @@ describe("menu sync planner", () => {
   });
 
   it("reports ambiguous legacy matches instead of guessing", () => {
-    const plan = planMenuSync(input(), [
+    const takeoverInput = { ...input(), takeOverLegacyItems: true };
+    const plan = planMenuSync(takeoverInput, [
       existing(),
       existing({ id: "item-2" }),
     ]);
-    expect(plan.actions).toEqual([]);
+    expect(plan.actions.some((action) => action.action === "claim")).toBe(
+      false,
+    );
     expect(plan.conflicts[0]).toMatchObject({
       reason: "AMBIGUOUS_LEGACY_MATCH",
       candidateIds: ["item-1", "item-2"],
@@ -104,6 +119,7 @@ describe("menu sync planner", () => {
   it("does not let two upstream products claim the same legacy item", () => {
     const duplicateNameInput = parseMenuSyncJson({
       source: "order-place:102830",
+      takeOverLegacyItems: true,
       items: [
         { externalKey: "product-a:lunch", name: "凍奶茶", mealPeriod: "lunch" },
         { externalKey: "product-b:lunch", name: "凍奶茶", mealPeriod: "lunch" },

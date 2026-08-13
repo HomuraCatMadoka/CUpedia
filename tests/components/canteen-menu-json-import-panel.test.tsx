@@ -115,6 +115,36 @@ describe("CanteenMenuJsonImportPanel", () => {
     ).toBe(true);
   });
 
+  it("explains when an explicit takeover preview is required", async () => {
+    mockPreview.mockResolvedValue({
+      plan: {
+        source: "order-place:102830",
+        actions: [],
+        conflicts: [
+          {
+            externalKey: "42:lunch",
+            name: "演示菜品",
+            reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
+            candidateIds: ["legacy-a"],
+          },
+        ],
+        unchanged: 0,
+      },
+      previewToken: "conflict-token",
+    });
+    render(<CanteenMenuJsonImportPanel canteenId="canteen-1" />);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: JSON_INPUT },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "预览同步" }));
+
+    expect(await screen.findByText(/启用首次接管后重新预览/)).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "应用同步" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
   it("clears an existing preview when loading the example", async () => {
     const plan = {
       source: "order-place:102830",

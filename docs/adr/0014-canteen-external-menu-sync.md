@@ -17,8 +17,11 @@ the same name may appear in more than one meal period.
 ## Decision
 
 1. An externally managed menu item stores `externalSource` and `externalKey`.
-   Their non-null pair is unique within a canteen. The source adapter builds a
-   key from the upstream product ID and the CUpedia meal period.
+   Their non-null pair is unique within a canteen. A provider adapter may emit
+   one row per product-period (`productId:period`) when the periods represent
+   distinct offerings, or one stable product-ID row with multiple meal-period
+   assignments when the provider models one shared offering. The choice must
+   not depend on upstream array order.
 2. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.

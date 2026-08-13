@@ -1307,9 +1307,6 @@ export const canteenMenuSources = pgTable(
       .notNull()
       .default({}),
     enabled: boolean("enabled").notNull().default(true),
-    allowLegacyTakeover: boolean("allow_legacy_takeover")
-      .notNull()
-      .default(false),
     lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
     lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
     lastSnapshotHash: text("last_snapshot_hash"),

@@ -1,0 +1,1 @@
+ALTER TABLE "canteen_menu_sources" DROP COLUMN "allow_legacy_takeover";

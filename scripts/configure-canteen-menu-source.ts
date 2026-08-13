@@ -9,6 +9,7 @@ import {
 } from "../src/db/schema";
 import { parseOrderingHandoffUrl } from "../src/lib/canteen-ordering-handoff";
 import { fetchMenuFromProvider } from "../src/lib/canteen-menu-source-adapters";
+import { previewMenuSync } from "../src/lib/canteen-menu-sync-store";
 import { eq } from "drizzle-orm";
 
 function argument(name: string): string | undefined {
@@ -44,10 +45,14 @@ async function main() {
     !externalStoreId
   ) {
     throw new Error(
-      "Usage: pnpm canteen:menu-source:set -- (--canteen-id <uuid> | --canteen-name <exact name>) --provider <aigens|ichef|pinme> --store-id <id> [--config <json>] [--allow-legacy-takeover] [--handoff-provider <provider>] [--handoff-url <https-url>] [--dry-run]",
+      "Usage: pnpm canteen:menu-source:set -- (--canteen-id <uuid> | --canteen-name <exact name>) --provider <aigens|ichef|pinme> --store-id <id> [--config <json>] [--allow-legacy-takeover --dry-run] [--handoff-provider <provider>] [--handoff-url <https-url>] [--dry-run]",
     );
   }
   if (provider === "qmai") throw new Error("QMAI_MENU_SOURCE_NOT_SUPPORTED");
+  const dryRun = process.argv.includes("--dry-run");
+  if (allowLegacyTakeover && !dryRun) {
+    throw new Error("LEGACY_TAKEOVER_REQUIRES_ADMIN_PREVIEW_APPLY");
+  }
   const canteen = await db.query.canteens.findFirst({
     where: requestedCanteenId
       ? eq(canteens.id, requestedCanteenId)
@@ -57,12 +62,16 @@ async function main() {
   if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
   const canteenId = canteen.id;
 
-  if (process.argv.includes("--dry-run")) {
-    const menu = await fetchMenuFromProvider({
+  if (dryRun) {
+    const fetched = await fetchMenuFromProvider({
       provider,
       externalStoreId,
       config,
     });
+    const menu = allowLegacyTakeover
+      ? { ...fetched, takeOverLegacyItems: true }
+      : fetched;
+    const preview = await previewMenuSync(canteenId, menu);
     const url = handoffUrl ? parseOrderingHandoffUrl(handoffUrl) : null;
     process.stdout.write(
       `${JSON.stringify(
@@ -70,6 +79,8 @@ async function main() {
           canteen,
           source: { provider, externalStoreId, itemCount: menu.items.length },
           sample: menu.items.slice(0, 5),
+          snapshot: menu,
+          plan: preview.plan,
           handoff:
             handoffProvider && url ? { provider: handoffProvider, url } : null,
         },
@@ -87,7 +98,6 @@ async function main() {
       provider,
       externalStoreId,
       config,
-      allowLegacyTakeover,
     })
     .onConflictDoUpdate({
       target: canteenMenuSources.canteenId,
@@ -96,7 +106,6 @@ async function main() {
         externalStoreId,
         config,
         enabled: true,
-        allowLegacyTakeover,
         lastSnapshotHash: null,
         observedState: null,
         lastErrorCode: null,

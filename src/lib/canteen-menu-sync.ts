@@ -28,7 +28,10 @@ export type MenuSyncAction = {
 export type MenuSyncConflict = {
   externalKey: string;
   name: string;
-  reason: "AMBIGUOUS_LEGACY_MATCH" | "LEGACY_MATCH_ALREADY_CLAIMED";
+  reason:
+    | "AMBIGUOUS_LEGACY_MATCH"
+    | "LEGACY_MATCH_ALREADY_CLAIMED"
+    | "LEGACY_MATCH_REQUIRES_TAKEOVER";
   candidateIds: string[];
 };
 
@@ -87,6 +90,15 @@ export function planMenuSync(
       legacyByNamePeriod.get(
         legacyMatchKey(incoming.name, incoming.mealPeriods),
       ) ?? [];
+    if (!input.takeOverLegacyItems && legacyMatches.length > 0) {
+      conflicts.push({
+        externalKey: incoming.externalKey,
+        name: incoming.name,
+        reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
+        candidateIds: legacyMatches.map((item) => item.id),
+      });
+      continue;
+    }
     if (legacyMatches.length > 1) {
       conflicts.push({
         externalKey: incoming.externalKey,

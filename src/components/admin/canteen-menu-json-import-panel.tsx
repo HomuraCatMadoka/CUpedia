@@ -255,7 +255,10 @@ function MenuSyncPlanSummary({ plan }: { plan: MenuSyncPlan }) {
         <ul className="space-y-1 text-red-600" aria-label="同步冲突">
           {plan.conflicts.map((conflict) => (
             <li key={conflict.externalKey}>
-              {conflict.name}：旧菜匹配不唯一或已被其他商品占用
+              {conflict.name}：
+              {conflict.reason === "LEGACY_MATCH_REQUIRES_TAKEOVER"
+                ? "发现同名旧菜；如需保留原 UUID，请启用首次接管后重新预览"
+                : "旧菜匹配不唯一或已被其他商品占用"}
             </li>
           ))}
         </ul>
