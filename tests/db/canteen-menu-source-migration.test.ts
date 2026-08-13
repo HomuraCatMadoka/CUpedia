@@ -81,6 +81,36 @@ describe.skipIf(!hasDb)("canteen menu source identity migration", () => {
     expect(history.rows[0]).toEqual({ votes: "1", comments: "1" });
   });
 
+  it("preserves audited static imports as manual menu items", async () => {
+    const fixture = await createLegacyFixture("dst-menu");
+
+    await runMigration(fixture.schema);
+
+    const item = await client.query<{
+      id: string;
+      external_source: string | null;
+      external_key: string | null;
+      menu_source_id: string | null;
+    }>(
+      `select id, external_source, external_key, menu_source_id
+       from ${fixture.schema}.canteen_menu_items where id = $1`,
+      [fixture.itemId],
+    );
+    expect(item.rows[0]).toEqual({
+      id: fixture.itemId,
+      external_source: null,
+      external_key: null,
+      menu_source_id: null,
+    });
+    const history = await client.query<{ votes: string; comments: string }>(
+      `select
+        (select count(*) from ${fixture.schema}.canteen_dish_votes where menu_item_id = $1) as votes,
+        (select count(*) from ${fixture.schema}.canteen_dish_comments where menu_item_id = $1) as comments`,
+      [fixture.itemId],
+    );
+    expect(history.rows[0]).toEqual({ votes: "1", comments: "1" });
+  });
+
   it("reports an unsupported namespace and rolls back every migration write", async () => {
     const fixture = await createLegacyFixture("mystery-pos:102830");
     const aliasCanteenId = randomUUID();

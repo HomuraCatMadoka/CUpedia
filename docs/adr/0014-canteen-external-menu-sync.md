@@ -57,3 +57,6 @@ CUpedia dish.
   before recording it. Migration 0080 repeats the compatibility repair
   idempotently for preview or local databases that had already recorded 0076,
   so every environment converges without rebuilding dish identity or history.
+- Production namespaces from audited one-off static imports have no ordering
+  provider identity. Migration 0076 keeps those rows and UUID-bound history but
+  makes them manual items; it never guesses a provider from the source label.

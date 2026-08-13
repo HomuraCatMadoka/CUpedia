@@ -8,6 +8,26 @@ SET LOCAL statement_timeout = '60s';
 LOCK TABLE "canteen_menu_items" IN SHARE ROW EXCLUSIVE MODE;
 LOCK TABLE "canteen_menu_sources" IN SHARE ROW EXCLUSIVE MODE;
 
+-- These namespaces were audited in production before this migration was
+-- applied. They came from one-off static menu imports and have no recurring
+-- ordering-provider identity. Preserve each menu row and its history as a
+-- manual item instead of inventing a provider or deleting/recreating it.
+UPDATE canteen_menu_items
+SET external_source = NULL,
+    external_key = NULL,
+    updated_at = now()
+WHERE external_source IN (
+  'dst-menu',
+  'inno330-menu',
+  'kebab-menu',
+  'msf-menu',
+  'pwl-menu',
+  'wys-menu',
+  '众志堂-menu',
+  '珍can-menu',
+  '醫院can-menu'
+);
+
 -- `order-place:<store-id>` was the public Aigens namespace used by the first
 -- menu-sync release. Normalize that audited alias in place before validating
 -- the canonical provider locator. The menu row UUID and all referencing
