@@ -25,6 +25,64 @@ describe("menu identity churn observation", () => {
     expect(isSuspiciousMenuIdentityChurn(observation, 1)).toBe(true);
   });
 
+  it("does not flag an unambiguous Aigens offering period move as churn", () => {
+    const observation = observeMenuIdentityChurn(
+      [
+        {
+          externalProductId: "product-42#offering-period=lunch",
+          name: "凍奶茶",
+        },
+      ],
+      [
+        {
+          externalProductId: "product-42#offering-period=dinner",
+          name: "凍奶茶",
+        },
+      ],
+    );
+
+    expect(observation).toMatchObject({
+      newProductCount: 0,
+      missingProductCount: 0,
+      suspectedReplacements: [],
+      ambiguousOfferingTransitions: [],
+    });
+    expect(isSuspiciousMenuIdentityChurn(observation, 1)).toBe(false);
+  });
+
+  it("flags an ambiguous Aigens offering split even below bulk thresholds", () => {
+    const observation = observeMenuIdentityChurn(
+      [
+        {
+          externalProductId: "product-42#offering-period=breakfast",
+          name: "早餐奶茶",
+        },
+      ],
+      [
+        {
+          externalProductId: "product-42#offering-period=lunch",
+          name: "午餐奶茶",
+        },
+        {
+          externalProductId: "product-42#offering-period=dinner",
+          name: "晚餐奶茶",
+        },
+      ],
+    );
+
+    expect(observation.ambiguousOfferingTransitions).toEqual([
+      {
+        productIdentity: "product-42",
+        previousProductIds: ["product-42#offering-period=breakfast"],
+        nextProductIds: [
+          "product-42#offering-period=lunch",
+          "product-42#offering-period=dinner",
+        ],
+      },
+    ]);
+    expect(isSuspiciousMenuIdentityChurn(observation, 1)).toBe(true);
+  });
+
   it("allows ordinary low-volume additions without guessing identity", () => {
     const observation = observeMenuIdentityChurn(
       [
