@@ -1,0 +1,146 @@
+[
+  {
+    "id": "39_area",
+    "name_zh": "39區",
+    "name_en": "Area 39",
+    "lat": 22.427514,
+    "long": 114.204384,
+    "sorting_order": 10,
+    "included_stop_ids_json": "[\"area_39_downhill\",\"area_39_uphill\"]"
+  },
+  {
+    "id": "cc_three_brothers",
+    "name_zh": "崇基書院（三兄弟）",
+    "name_en": "Chung Chi College",
+    "lat": 22.415155,
+    "long": 114.207618,
+    "sorting_order": 6,
+    "included_stop_ids_json": "[\"chung_chi_teaching_blocks\",\"piazza\",\"piazza_terminal\"]"
+  },
+  {
+    "id": "cultural_ground",
+    "name_zh": "文化廣場",
+    "name_en": "Cultural Ground",
+    "lat": 22.418625,
+    "long": 114.20531,
+    "sorting_order": 3,
+    "included_stop_ids_json": "[\"uni_admin_building\"]"
+  },
+  {
+    "id": "cwc_college",
+    "name_zh": "敬文書院",
+    "name_en": "CWC College",
+    "lat": 22.425326,
+    "long": 114.206421,
+    "sorting_order": 10,
+    "included_stop_ids_json": "[\"cwc_college_only_to_area_39\",\"cwc_college\",\"circuit_north\"]"
+  },
+  {
+    "id": "lsk",
+    "name_zh": "李兆基樓",
+    "name_en": "LSK Building",
+    "lat": 22.419575,
+    "long": 114.203914,
+    "sorting_order": 7,
+    "included_stop_ids_json": "[\"uni_admin_building\",\"fung_king_hey_building\"]"
+  },
+  {
+    "id": "main_campus",
+    "name_zh": "本部",
+    "name_en": "Main Campus",
+    "lat": 22.419502,
+    "long": 114.206314,
+    "sorting_order": 2,
+    "included_stop_ids_json": "[\"sir_run_run\",\"uni_admin_building\",\"sci_centre\"]"
+  },
+  {
+    "id": "na",
+    "name_zh": "新亞書院",
+    "name_en": "NA College",
+    "lat": 22.421373,
+    "long": 114.208503,
+    "sorting_order": 5,
+    "included_stop_ids_json": "[\"na_college\",\"na_college_for_route_5\",\"na_college_backhill\"]"
+  },
+  {
+    "id": "residence_10",
+    "name_zh": "十苑",
+    "name_en": "Residence 10",
+    "lat": 22.424494,
+    "long": 114.208221,
+    "sorting_order": 11,
+    "included_stop_ids_json": "[\"residence_10\"]"
+  },
+  {
+    "id": "residence_15",
+    "name_zh": "十五苑",
+    "name_en": "Residence 15",
+    "lat": 22.423738,
+    "long": 114.206562,
+    "sorting_order": 11,
+    "included_stop_ids_json": "[\"residence_15\",\"fung_king_hey_building\"]"
+  },
+  {
+    "id": "shaw",
+    "name_zh": "逸夫書院",
+    "name_en": "Shaw College",
+    "lat": 22.4227,
+    "long": 114.201577,
+    "sorting_order": 6,
+    "included_stop_ids_json": "[\"shaw_college_central_direction\",\"shaw_college_north_direction\"]"
+  },
+  {
+    "id": "shho_ugym",
+    "name_zh": "善衡、UGym",
+    "name_en": "S.H.Ho / Sports Centre",
+    "lat": 22.41817,
+    "long": 114.210543,
+    "sorting_order": 4,
+    "included_stop_ids_json": "[\"shho\",\"sports_centre\"]"
+  },
+  {
+    "id": "uc",
+    "name_zh": "聯合書院",
+    "name_en": "United College",
+    "lat": 22.420815,
+    "long": 114.205362,
+    "sorting_order": 5,
+    "included_stop_ids_json": "[\"united_college_backhill\",\"united_college_drop_off\",\"united_college\"]"
+  },
+  {
+    "id": "uc_staff_residence",
+    "name_zh": "聯合苑",
+    "name_en": "United College Staff Residence",
+    "lat": 22.423257,
+    "long": 114.205172,
+    "sorting_order": 11,
+    "included_stop_ids_json": "[\"united_college_staff_residence\"]"
+  },
+  {
+    "id": "uni_station",
+    "name_zh": "火車站",
+    "name_en": "MTR Station",
+    "lat": 22.414106,
+    "long": 114.210191,
+    "sorting_order": 1,
+    "included_stop_ids_json": "[\"uni_station\",\"uni_station_terminal\",\"piazza\",\"piazza_terminal\",\"yia\"]"
+  },
+  {
+    "id": "ws",
+    "name_zh": "和聲書院",
+    "name_en": "WS College",
+    "lat": 22.422409,
+    "long": 114.204163,
+    "sorting_order": 7,
+    "included_stop_ids_json": "[\"chan_chun_ha_hostel\",\"residences_3_4_central_direction\",\"residences_3_4_shaw_direction\"]"
+  },
+  {
+    "id": "wys",
+    "name_zh": "伍宜孫書院",
+    "name_en": "WYS College",
+    "lat": 22.422171,
+    "long": 114.202602,
+    "sorting_order": 7,
+    "included_stop_ids_json": "[\"residences_3_4_central_direction\",\"residences_3_4_shaw_direction\"]"
+  }
+]

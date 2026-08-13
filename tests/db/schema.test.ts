@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getTableColumns } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import {
   users,
   wikiDrafts,
@@ -24,6 +25,7 @@ import {
   professorCourses,
   courseReviews,
   courseReviewReplies,
+  announcements,
   notifications,
 } from "@/db/schema";
 
@@ -196,6 +198,7 @@ describe("schema", () => {
     expect(cols.grade).toBeDefined();
     expect(cols.enrollment).toBeDefined();
     expect(cols.attendance).toBeDefined();
+    expect(cols.language).toBeDefined();
     expect(cols.customTags).toBeDefined();
     expect(cols.instructorPersonId).toBeDefined();
   });
@@ -225,15 +228,42 @@ describe("schema", () => {
     expect(replyCols.createdAt).toBeDefined();
   });
 
-  it("notifications keep generic metadata and read state without source foreign keys", () => {
+  it("notifications keep generic metadata, read state, and announcement identity", () => {
     const cols = getTableColumns(notifications);
+    const config = getTableConfig(notifications);
     expect(cols.recipientId).toBeDefined();
     expect(cols.actorId).toBeDefined();
     expect(cols.kind).toBeDefined();
     expect(cols.metadata).toBeDefined();
+    expect(cols.announcementId).toBeDefined();
     expect(cols.readAt).toBeDefined();
     expect(cols.createdAt).toBeDefined();
     expect("reviewId" in cols).toBe(false);
     expect("replyId" in cols).toBe(false);
+    expect(
+      config.checks.some(
+        (constraint) =>
+          constraint.name === "notifications_announcement_identity_check",
+      ),
+    ).toBe(true);
+    expect(
+      config.foreignKeys.some((foreignKey) =>
+        foreignKey.reference().columns.includes(cols.announcementId),
+      ),
+    ).toBe(false);
+  });
+
+  it("announcements keep publication, expiry, priority, and notification state", () => {
+    const cols = getTableColumns(announcements);
+    expect(cols.title).toBeDefined();
+    expect(cols.content).toBeDefined();
+    expect(cols.priority).toBeDefined();
+    expect(cols.publishedAt).toBeDefined();
+    expect(cols.withdrawnAt).toBeDefined();
+    expect(cols.expiresAt).toBeDefined();
+    expect(cols.notifyOnPublish).toBeDefined();
+    expect(cols.notificationSentAt).toBeDefined();
+    expect(cols.createdBy).toBeDefined();
+    expect(cols.updatedBy).toBeDefined();
   });
 });

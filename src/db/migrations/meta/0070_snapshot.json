@@ -1,6 +1,6 @@
 {
-  "id": "c5d87d8f-ac52-47e5-8b6e-e39d27040167",
-  "prevId": "cb46d6a0-984e-4cf0-9b9e-3c11c8b71c0d",
+  "id": "c0393e8e-ed8f-49bd-8657-07a259f5d539",
+  "prevId": "5b9604e3-28e5-4985-8c77-1e2886bcd939",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1093,6 +1093,154 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.announcements": {
+      "name": "announcements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "withdrawn_at": {
+          "name": "withdrawn_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notify_on_publish": {
+          "name": "notify_on_publish",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "notification_sent_at": {
+          "name": "notification_sent_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "announcements_publication_idx": {
+          "name": "announcements_publication_idx",
+          "columns": [
+            {
+              "expression": "published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "priority",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "announcements_created_by_users_id_fk": {
+          "name": "announcements_created_by_users_id_fk",
+          "tableFrom": "announcements",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "announcements_updated_by_users_id_fk": {
+          "name": "announcements_updated_by_users_id_fk",
+          "tableFrom": "announcements",
+          "tableTo": "users",
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "announcements_expiry_after_publication_check": {
+          "name": "announcements_expiry_after_publication_check",
+          "value": "\"announcements\".\"expires_at\" is null or \"announcements\".\"published_at\" is null or \"announcements\".\"expires_at\" > \"announcements\".\"published_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.build_items": {
       "name": "build_items",
       "schema": "",
@@ -1245,6 +1393,922 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.campus_bus_arrival_event_observations": {
+      "name": "campus_bus_arrival_event_observations",
+      "schema": "",
+      "columns": {
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observation_id": {
+          "name": "observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "campus_bus_event_observations_observation_idx": {
+          "name": "campus_bus_event_observations_observation_idx",
+          "columns": [
+            {
+              "expression": "observation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campus_bus_arrival_event_observations_event_id_campus_bus_arrival_events_id_fk": {
+          "name": "campus_bus_arrival_event_observations_event_id_campus_bus_arrival_events_id_fk",
+          "tableFrom": "campus_bus_arrival_event_observations",
+          "tableTo": "campus_bus_arrival_events",
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "campus_bus_arrival_event_observations_observation_id_campus_bus_arrival_observations_id_fk": {
+          "name": "campus_bus_arrival_event_observations_observation_id_campus_bus_arrival_observations_id_fk",
+          "tableFrom": "campus_bus_arrival_event_observations",
+          "tableTo": "campus_bus_arrival_observations",
+          "columnsFrom": ["observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "campus_bus_arrival_event_observations_event_id_observation_id_pk": {
+          "name": "campus_bus_arrival_event_observations_event_id_observation_id_pk",
+          "columns": ["event_id", "observation_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.campus_bus_arrival_events": {
+      "name": "campus_bus_arrival_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "model_revision_id": {
+          "name": "model_revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_key": {
+          "name": "event_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "route_id": {
+          "name": "route_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pattern_id": {
+          "name": "pattern_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stop_occurrence_id": {
+          "name": "stop_occurrence_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheduled_departure_at": {
+          "name": "scheduled_departure_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline_arrival_at": {
+          "name": "baseline_arrival_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observed_arrival_at": {
+          "name": "observed_arrival_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_date": {
+          "name": "service_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "residual_seconds": {
+          "name": "residual_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observation_count": {
+          "name": "observation_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "campus_bus_arrival_events_revision_key_uq": {
+          "name": "campus_bus_arrival_events_revision_key_uq",
+          "columns": [
+            {
+              "expression": "model_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "event_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_arrival_events_training_idx": {
+          "name": "campus_bus_arrival_events_training_idx",
+          "columns": [
+            {
+              "expression": "model_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "route_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "pattern_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "stop_occurrence_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campus_bus_arrival_events_model_revision_id_campus_bus_prediction_model_revisions_id_fk": {
+          "name": "campus_bus_arrival_events_model_revision_id_campus_bus_prediction_model_revisions_id_fk",
+          "tableFrom": "campus_bus_arrival_events",
+          "tableTo": "campus_bus_prediction_model_revisions",
+          "columnsFrom": ["model_revision_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "campus_bus_arrival_events_observation_count_chk": {
+          "name": "campus_bus_arrival_events_observation_count_chk",
+          "value": "\"campus_bus_arrival_events\".\"observation_count\" > 0"
+        },
+        "campus_bus_arrival_events_confidence_chk": {
+          "name": "campus_bus_arrival_events_confidence_chk",
+          "value": "\"campus_bus_arrival_events\".\"confidence\" > 0 AND \"campus_bus_arrival_events\".\"confidence\" <= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.campus_bus_arrival_observations": {
+      "name": "campus_bus_arrival_observations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "route_id": {
+          "name": "route_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stop_id": {
+          "name": "stop_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stop_occurrence_id": {
+          "name": "stop_occurrence_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observed_arrival_at": {
+          "name": "observed_arrival_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "submitted_anonymously": {
+          "name": "submitted_anonymously",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "rate_limit_key_hash": {
+          "name": "rate_limit_key_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "campus_bus_arrival_observations_route_stop_time_idx": {
+          "name": "campus_bus_arrival_observations_route_stop_time_idx",
+          "columns": [
+            {
+              "expression": "route_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "stop_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "observed_arrival_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_arrival_observations_received_at_idx": {
+          "name": "campus_bus_arrival_observations_received_at_idx",
+          "columns": [
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_arrival_observations_arrival_at_idx": {
+          "name": "campus_bus_arrival_observations_arrival_at_idx",
+          "columns": [
+            {
+              "expression": "observed_arrival_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_arrival_observations_route_time_idx": {
+          "name": "campus_bus_arrival_observations_route_time_idx",
+          "columns": [
+            {
+              "expression": "route_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "observed_arrival_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_arrival_observations_rate_limit_idx": {
+          "name": "campus_bus_arrival_observations_rate_limit_idx",
+          "columns": [
+            {
+              "expression": "rate_limit_key_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "received_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"campus_bus_arrival_observations\".\"rate_limit_key_hash\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "campus_bus_arrival_observations_time_window_chk": {
+          "name": "campus_bus_arrival_observations_time_window_chk",
+          "value": "\"campus_bus_arrival_observations\".\"observed_arrival_at\" >= \"campus_bus_arrival_observations\".\"received_at\" - interval '15 minutes'\n        AND \"campus_bus_arrival_observations\".\"observed_arrival_at\" <= \"campus_bus_arrival_observations\".\"received_at\" + interval '2 minutes'"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.campus_bus_prediction_adjustments": {
+      "name": "campus_bus_prediction_adjustments",
+      "schema": "",
+      "columns": {
+        "model_revision_id": {
+          "name": "model_revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "route_id": {
+          "name": "route_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pattern_id": {
+          "name": "pattern_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stop_occurrence_id": {
+          "name": "stop_occurrence_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time_band": {
+          "name": "time_band",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "residual_seconds": {
+          "name": "residual_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_count": {
+          "name": "event_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_day_count": {
+          "name": "service_day_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "median_residual_seconds": {
+          "name": "median_residual_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "median_absolute_deviation_seconds": {
+          "name": "median_absolute_deviation_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shrinkage_weight": {
+          "name": "shrinkage_weight",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "campus_bus_prediction_adjustments_lookup_idx": {
+          "name": "campus_bus_prediction_adjustments_lookup_idx",
+          "columns": [
+            {
+              "expression": "model_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "route_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campus_bus_prediction_adjustments_model_revision_id_campus_bus_prediction_model_revisions_id_fk": {
+          "name": "campus_bus_prediction_adjustments_model_revision_id_campus_bus_prediction_model_revisions_id_fk",
+          "tableFrom": "campus_bus_prediction_adjustments",
+          "tableTo": "campus_bus_prediction_model_revisions",
+          "columnsFrom": ["model_revision_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "campus_bus_prediction_adjustments_model_revision_id_route_id_pattern_id_stop_occurrence_id_time_band_pk": {
+          "name": "campus_bus_prediction_adjustments_model_revision_id_route_id_pattern_id_stop_occurrence_id_time_band_pk",
+          "columns": [
+            "model_revision_id",
+            "route_id",
+            "pattern_id",
+            "stop_occurrence_id",
+            "time_band"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "campus_bus_prediction_adjustments_band_chk": {
+          "name": "campus_bus_prediction_adjustments_band_chk",
+          "value": "\"campus_bus_prediction_adjustments\".\"time_band\" in ('morning_peak', 'midday', 'evening_peak', 'night', 'all_day')"
+        },
+        "campus_bus_prediction_adjustments_counts_chk": {
+          "name": "campus_bus_prediction_adjustments_counts_chk",
+          "value": "\"campus_bus_prediction_adjustments\".\"event_count\" > 0 AND \"campus_bus_prediction_adjustments\".\"service_day_count\" > 0"
+        },
+        "campus_bus_prediction_adjustments_weight_chk": {
+          "name": "campus_bus_prediction_adjustments_weight_chk",
+          "value": "\"campus_bus_prediction_adjustments\".\"shrinkage_weight\" > 0 AND \"campus_bus_prediction_adjustments\".\"shrinkage_weight\" < 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.campus_bus_prediction_model_revisions": {
+      "name": "campus_bus_prediction_model_revisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "algorithm": {
+          "name": "algorithm",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "run_kind": {
+          "name": "run_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'automated'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parameters": {
+          "name": "parameters",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "route_scope": {
+          "name": "route_scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "parent_revision_id": {
+          "name": "parent_revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observation_cutoff_at": {
+          "name": "observation_cutoff_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "training_window_start": {
+          "name": "training_window_start",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "training_window_end": {
+          "name": "training_window_end",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "training_event_count": {
+          "name": "training_event_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "training_service_day_count": {
+          "name": "training_service_day_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "validation_event_count": {
+          "name": "validation_event_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_observation_count": {
+          "name": "source_observation_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "snapshot_hash": {
+          "name": "snapshot_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metrics": {
+          "name": "metrics",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "promoted_at": {
+          "name": "promoted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "campus_bus_prediction_revisions_status_idx": {
+          "name": "campus_bus_prediction_revisions_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "promoted_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_prediction_revisions_parent_idx": {
+          "name": "campus_bus_prediction_revisions_parent_idx",
+          "columns": [
+            {
+              "expression": "parent_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_prediction_revisions_creator_idx": {
+          "name": "campus_bus_prediction_revisions_creator_idx",
+          "columns": [
+            {
+              "expression": "created_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"campus_bus_prediction_model_revisions\".\"created_by\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_prediction_revisions_kind_created_idx": {
+          "name": "campus_bus_prediction_revisions_kind_created_idx",
+          "columns": [
+            {
+              "expression": "run_kind",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "campus_bus_prediction_revisions_champion_uq": {
+          "name": "campus_bus_prediction_revisions_champion_uq",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"campus_bus_prediction_model_revisions\".\"status\" = 'champion'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campus_bus_prediction_model_revisions_created_by_users_id_fk": {
+          "name": "campus_bus_prediction_model_revisions_created_by_users_id_fk",
+          "tableFrom": "campus_bus_prediction_model_revisions",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "campus_bus_prediction_model_revisions_parent_revision_id_campus_bus_prediction_model_revisions_id_fk": {
+          "name": "campus_bus_prediction_model_revisions_parent_revision_id_campus_bus_prediction_model_revisions_id_fk",
+          "tableFrom": "campus_bus_prediction_model_revisions",
+          "tableTo": "campus_bus_prediction_model_revisions",
+          "columnsFrom": ["parent_revision_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "campus_bus_prediction_revisions_status_chk": {
+          "name": "campus_bus_prediction_revisions_status_chk",
+          "value": "\"campus_bus_prediction_model_revisions\".\"status\" in ('candidate', 'champion', 'retired', 'insufficient')"
+        },
+        "campus_bus_prediction_revisions_run_kind_chk": {
+          "name": "campus_bus_prediction_revisions_run_kind_chk",
+          "value": "\"campus_bus_prediction_model_revisions\".\"run_kind\" in ('automated', 'experiment')"
+        },
+        "campus_bus_prediction_revisions_counts_chk": {
+          "name": "campus_bus_prediction_revisions_counts_chk",
+          "value": "\"campus_bus_prediction_model_revisions\".\"training_event_count\" >= 0\n        AND \"campus_bus_prediction_model_revisions\".\"training_service_day_count\" >= 0\n        AND \"campus_bus_prediction_model_revisions\".\"validation_event_count\" >= 0\n        AND \"campus_bus_prediction_model_revisions\".\"source_observation_count\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.campus_bus_trip_match_candidates": {
+      "name": "campus_bus_trip_match_candidates",
+      "schema": "",
+      "columns": {
+        "model_revision_id": {
+          "name": "model_revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "observation_id": {
+          "name": "observation_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pattern_id": {
+          "name": "pattern_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scheduled_departure_at": {
+          "name": "scheduled_departure_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "baseline_arrival_at": {
+          "name": "baseline_arrival_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "probability": {
+          "name": "probability",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "rank": {
+          "name": "rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "campus_bus_trip_candidates_observation_idx": {
+          "name": "campus_bus_trip_candidates_observation_idx",
+          "columns": [
+            {
+              "expression": "observation_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "model_revision_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "campus_bus_trip_match_candidates_model_revision_id_campus_bus_prediction_model_revisions_id_fk": {
+          "name": "campus_bus_trip_match_candidates_model_revision_id_campus_bus_prediction_model_revisions_id_fk",
+          "tableFrom": "campus_bus_trip_match_candidates",
+          "tableTo": "campus_bus_prediction_model_revisions",
+          "columnsFrom": ["model_revision_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "campus_bus_trip_match_candidates_observation_id_campus_bus_arrival_observations_id_fk": {
+          "name": "campus_bus_trip_match_candidates_observation_id_campus_bus_arrival_observations_id_fk",
+          "tableFrom": "campus_bus_trip_match_candidates",
+          "tableTo": "campus_bus_arrival_observations",
+          "columnsFrom": ["observation_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "campus_bus_trip_match_candidates_model_revision_id_observation_id_pattern_id_scheduled_departure_at_pk": {
+          "name": "campus_bus_trip_match_candidates_model_revision_id_observation_id_pattern_id_scheduled_departure_at_pk",
+          "columns": [
+            "model_revision_id",
+            "observation_id",
+            "pattern_id",
+            "scheduled_departure_at"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "campus_bus_trip_candidates_probability_chk": {
+          "name": "campus_bus_trip_candidates_probability_chk",
+          "value": "\"campus_bus_trip_match_candidates\".\"probability\" > 0 AND \"campus_bus_trip_match_candidates\".\"probability\" <= 1"
+        },
+        "campus_bus_trip_candidates_rank_chk": {
+          "name": "campus_bus_trip_candidates_rank_chk",
+          "value": "\"campus_bus_trip_match_candidates\".\"rank\" > 0"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.canteen_danmaku_messages": {
@@ -1909,277 +2973,6 @@
         "canteen_menu_items_external_identity_chk": {
           "name": "canteen_menu_items_external_identity_chk",
           "value": "(\"canteen_menu_items\".\"external_source\" is null) = (\"canteen_menu_items\".\"external_key\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.canteen_menu_sources": {
-      "name": "canteen_menu_sources",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "canteen_id": {
-          "name": "canteen_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_store_id": {
-          "name": "external_store_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "config": {
-          "name": "config",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::jsonb"
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "last_attempt_at": {
-          "name": "last_attempt_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_success_at": {
-          "name": "last_success_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_snapshot_hash": {
-          "name": "last_snapshot_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "observed_state": {
-          "name": "observed_state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_error_code": {
-          "name": "last_error_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "canteen_menu_sources_canteen_uidx": {
-          "name": "canteen_menu_sources_canteen_uidx",
-          "columns": [
-            {
-              "expression": "canteen_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_menu_sources_provider_store_uidx": {
-          "name": "canteen_menu_sources_provider_store_uidx",
-          "columns": [
-            {
-              "expression": "provider",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "external_store_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_menu_sources_enabled_idx": {
-          "name": "canteen_menu_sources_enabled_idx",
-          "columns": [
-            {
-              "expression": "enabled",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "canteen_menu_sources_canteen_id_canteens_id_fk": {
-          "name": "canteen_menu_sources_canteen_id_canteens_id_fk",
-          "tableFrom": "canteen_menu_sources",
-          "tableTo": "canteens",
-          "columnsFrom": ["canteen_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "canteen_menu_sources_provider_chk": {
-          "name": "canteen_menu_sources_provider_chk",
-          "value": "\"canteen_menu_sources\".\"provider\" in ('aigens', 'ichef', 'pinme', 'qmai')"
-        },
-        "canteen_menu_sources_store_id_chk": {
-          "name": "canteen_menu_sources_store_id_chk",
-          "value": "length(trim(\"canteen_menu_sources\".\"external_store_id\")) between 1 and 200"
-        },
-        "canteen_menu_sources_qmai_disabled_chk": {
-          "name": "canteen_menu_sources_qmai_disabled_chk",
-          "value": "\"canteen_menu_sources\".\"provider\" <> 'qmai' or \"canteen_menu_sources\".\"enabled\" = false"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.canteen_ordering_handoffs": {
-      "name": "canteen_ordering_handoffs",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "canteen_id": {
-          "name": "canteen_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "canteen_ordering_handoffs_canteen_uidx": {
-          "name": "canteen_ordering_handoffs_canteen_uidx",
-          "columns": [
-            {
-              "expression": "canteen_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "canteen_ordering_handoffs_canteen_id_canteens_id_fk": {
-          "name": "canteen_ordering_handoffs_canteen_id_canteens_id_fk",
-          "tableFrom": "canteen_ordering_handoffs",
-          "tableTo": "canteens",
-          "columnsFrom": ["canteen_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "canteen_ordering_handoffs_provider_chk": {
-          "name": "canteen_ordering_handoffs_provider_chk",
-          "value": "\"canteen_ordering_handoffs\".\"provider\" in ('aigens', 'ichef', 'pinme', 'qmai', 'external')"
-        },
-        "canteen_ordering_handoffs_url_chk": {
-          "name": "canteen_ordering_handoffs_url_chk",
-          "value": "length(trim(\"canteen_ordering_handoffs\".\"url\")) between 1 and 2000"
         }
       },
       "isRLSEnabled": false
@@ -3999,6 +4792,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "announcement_id": {
+          "name": "announcement_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "read_at": {
           "name": "read_at",
           "type": "timestamp",
@@ -4055,6 +4854,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "notifications_announcement_recipient_uq": {
+          "name": "notifications_announcement_recipient_uq",
+          "columns": [
+            {
+              "expression": "announcement_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "recipient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"notifications\".\"kind\" = 'announcement_published'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -4083,7 +4904,11 @@
       "checkConstraints": {
         "notifications_kind_check": {
           "name": "notifications_kind_check",
-          "value": "\"notifications\".\"kind\" in ('course_review_reply')"
+          "value": "\"notifications\".\"kind\" in ('course_review_reply', 'announcement_published')"
+        },
+        "notifications_announcement_identity_check": {
+          "name": "notifications_announcement_identity_check",
+          "value": "(\"notifications\".\"kind\" = 'announcement_published' and \"notifications\".\"announcement_id\" is not null) or (\"notifications\".\"kind\" <> 'announcement_published' and \"notifications\".\"announcement_id\" is null)"
         }
       },
       "isRLSEnabled": false

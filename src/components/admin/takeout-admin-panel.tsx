@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CanteenCard, CanteenShell } from "@/components/canteen/canteen-shell";
+import { CANTEEN_PRIMARY_ACTION_CLASS_NAME } from "@/components/canteen/canteen-styles";
 import type { DeleteImpact } from "@/lib/canteen-types";
 import type { Takeout } from "@/lib/takeout-actions";
 import {
@@ -179,7 +180,7 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
+            className={CANTEEN_PRIMARY_ACTION_CLASS_NAME}
           >
             添加外卖店
           </Button>
@@ -188,7 +189,9 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
 
       {takeouts.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[var(--canteen-bamboo)]/40 bg-white/50 px-6 py-16 text-center">
-          <p className="text-[var(--canteen-muted)]">暂无外卖店，请在上方添加</p>
+          <p className="text-[var(--canteen-muted)]">
+            暂无外卖店，请在上方添加
+          </p>
         </div>
       ) : (
         <div className="canteen-icon-grid sm:!grid-cols-2 md:!grid-cols-3">
@@ -197,7 +200,10 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
               key={takeout.id}
               className={`canteen-fade-in ${i % 2 === 1 ? "canteen-fade-in-delay-1" : ""}`}
             >
-              <CanteenCard canteen={takeout} href={`${basePath}/${takeout.id}`} />
+              <CanteenCard
+                canteen={takeout}
+                href={`${basePath}/${takeout.id}`}
+              />
               <div className="mt-2 flex flex-wrap justify-center gap-2 px-1">
                 <Link
                   href={`${basePath}/${takeout.id}`}
@@ -274,7 +280,10 @@ export function TakeoutAdminPanel({ takeouts }: { takeouts: Takeout[] }) {
             </AlertDialogHeader>
             <div className="grid gap-3 py-4">
               <div className="space-y-1">
-                <label className="text-sm font-medium" htmlFor="edit-takeout-name">
+                <label
+                  className="text-sm font-medium"
+                  htmlFor="edit-takeout-name"
+                >
                   名称
                 </label>
                 <Input

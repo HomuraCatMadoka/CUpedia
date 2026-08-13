@@ -1,11 +1,6 @@
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
-import {
-  getCanteenById,
-  getCanteenMenuFreshness,
-  getCanteenMenuItems,
-  getCanteenOrderingHandoff,
-} from "@/lib/canteen-actions";
+import { getCanteenById, getCanteenMenuItems } from "@/lib/canteen-actions";
 import {
   getMenuItemVoteCounts,
   getMyVotesForCanteen,
@@ -13,17 +8,16 @@ import {
 import { getCommentCountsForCanteen } from "@/lib/canteen-comment-actions";
 import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
-import { CanteenQrAction } from "@/components/canteen/canteen-qr-badge";
+import { CanteenOrderAction } from "@/components/canteen/canteen-order-action";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
-import { resolveCanteenQrSrc } from "@/lib/canteen-assets";
+import { resolveCanteenOrderUrl } from "@/lib/canteen-order-urls";
 import { listCanteenDanmaku } from "@/lib/danmaku-actions";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { isPgPermissionDenied, isPgSoftFail } from "@/lib/pg-errors";
 import { messagesForFlyover, shuffleArray } from "@/lib/danmaku-types";
-import QRCode from "qrcode";
 
 export const dynamic = "force-dynamic";
 
@@ -89,8 +83,6 @@ export default async function CanteenMenuPage({
     sessionUser,
     danmaku,
     danmakuViewer,
-    orderingHandoff,
-    menuFreshness,
   ] = await Promise.all([
     getCanteenMenuItems(id),
     getMenuItemVoteCounts(id).catch(softEmpty({})),
@@ -114,25 +106,12 @@ export default async function CanteenMenuPage({
           throw error;
         }),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
-    mock
-      ? Promise.resolve(null)
-      : getCanteenOrderingHandoff(id).catch(softEmpty(null)),
-    mock
-      ? Promise.resolve(null)
-      : getCanteenMenuFreshness(id).catch(softEmpty(null)),
   ]);
   const currentUserId =
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
   const commentBlocked = sessionUser?.banned ? ("banned" as const) : null;
   const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
-  const qrSrc = resolveCanteenQrSrc(id, canteen.name);
-  const orderingQrSrc = orderingHandoff
-    ? await QRCode.toDataURL(orderingHandoff.url, {
-        errorCorrectionLevel: "M",
-        margin: 1,
-        width: 256,
-      })
-    : null;
+  const orderUrl = resolveCanteenOrderUrl(id, canteen.name);
   const displayedVoteCounts = mock
     ? { ...voteCounts, ...MOCK_VOTE_COUNTS }
     : voteCounts;
@@ -145,14 +124,7 @@ export default async function CanteenMenuPage({
       subtitle={canteen.location ?? undefined}
       announcement={canteen.announcement}
       className="canteen-detail-page"
-      action={
-        <CanteenQrAction
-          src={qrSrc}
-          canteenName={canteen.name}
-          orderingUrl={orderingHandoff?.url}
-          orderingQrSrc={orderingQrSrc}
-        />
-      }
+      action={<CanteenOrderAction href={orderUrl} canteenName={canteen.name} />}
       topContent={
         <DanmakuBanner
           initialMessages={danmaku}
@@ -164,14 +136,6 @@ export default async function CanteenMenuPage({
         />
       }
     >
-      {orderingHandoff ? (
-        <p className="mb-3 text-xs text-[var(--canteen-muted)]" role="note">
-          菜单、库存、规格、优惠资格及实付金额均以官方点餐页面为准。
-          {menuFreshness?.lastSuccessAt
-            ? ` 菜单最近同步：${menuFreshness.lastSuccessAt.toLocaleString("zh-HK", { timeZone: "Asia/Hong_Kong" })}${menuFreshness.stale ? "（可能已过期）" : ""}。`
-            : " 当前尚无成功同步时间。"}
-        </p>
-      ) : null}
       <CanteenMenuView
         items={items}
         voteCounts={displayedVoteCounts}

@@ -18,6 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
+import { CANTEEN_PRIMARY_ACTION_CLASS_NAME } from "@/components/canteen/canteen-styles";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
 import { MealPeriodsBadges } from "@/components/canteen/meal-period-badge";
 import { MenuItemPrice } from "@/components/canteen/menu-item-price";
@@ -318,7 +319,7 @@ export function TakeoutMenuAdmin({
   return (
     <CanteenShell
       eyebrow={
-        <Link href={listPath} className="hover:text-[var(--canteen-purple)]">
+        <Link href={listPath} className="hover:text-[var(--canteen-link)]">
           ← 外卖列表
         </Link>
       }
@@ -369,7 +370,7 @@ export function TakeoutMenuAdmin({
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
+            className={CANTEEN_PRIMARY_ACTION_CLASS_NAME}
           >
             添加菜品
           </Button>
@@ -418,7 +419,7 @@ export function TakeoutMenuAdmin({
                     <MealPeriodsBadges periods={item.mealPeriods} />
                     <MenuItemPrice
                       pricing={item.pricing}
-                      className="font-mono text-sm text-[var(--canteen-purple)]"
+                      className="font-mono text-sm text-[var(--canteen-link)]"
                     />
                   </div>
                   <div className="mt-2">

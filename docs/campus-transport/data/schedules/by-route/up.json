@@ -1,0 +1,1032 @@
+{
+  "routeId": "up",
+  "generatedAt": "2026-08-11T11:15:43.760Z",
+  "summary": {
+    "candidates": 30,
+    "manualReview": 0,
+    "uniquePattern": 30,
+    "ambiguousPattern": 0
+  },
+  "departures": [
+    {
+      "departureId": "up:08:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "08:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:09:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "09:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:09:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "09:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:10:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "10:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:10:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "10:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:11:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "11:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:11:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "11:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:12:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "12:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:12:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "12:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:13:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "13:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:13:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "13:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:14:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "14:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:14:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "14:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:15:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "15:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:15:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "15:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:16:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "16:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:16:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "16:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:17:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "17:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:17:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "17:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:18:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "18:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:18:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "18:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:19:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "19:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:19:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "19:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:20:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "20:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:20:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "20:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:21:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "21:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:21:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "21:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:22:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "22:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:22:30:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "22:30",
+      "departureMinute": 30,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    },
+    {
+      "departureId": "up:23:00:b0",
+      "routeId": "up",
+      "routeName": "Up",
+      "routeNameZhHant": "上行",
+      "originDeparture": "23:00",
+      "departureMinute": 0,
+      "bandOrdinal": 0,
+      "serviceWindow": "08:30–23:00",
+      "serviceRuleRaw": "08:30-23:00 For Mon to Sun & Public Holidays",
+      "departureRuleRaw": "Every 00, 30 ＃Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "departureRemarkRaw": "Every Mon - Fri at 08:30-17:30 will stop at University Health Centre (Except Public/University Holidays) Fare $5.5",
+      "serviceDayHints": [
+        "sunday",
+        "public_holiday",
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday"
+      ],
+      "patternCandidates": [
+        { "patternId": "up:default", "serviceDayType": null, "stopCount": 15 }
+      ],
+      "patternMatchStatus": "unique",
+      "selectedPatternId": "up:default",
+      "status": "scheduled_departure_candidate",
+      "evidence": {
+        "routeSourceRef": "cuhk-route-up:3470c4b2cad2a1afee0837a04070a247c037dbd9c7842828047d7dea0768a251",
+        "parserVersion": "cuhk-public-data-merge/6",
+        "generatorVersion": "cuhk-bus-expand-departures/1"
+      }
+    }
+  ]
+}

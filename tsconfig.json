@@ -19,7 +19,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@campus-transport-data/*": ["./docs/campus-transport/data/*"]
     }
   },
   "include": [

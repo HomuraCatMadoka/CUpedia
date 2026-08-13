@@ -1,28 +1,24 @@
-# Canteen QR assets
+# Canteen ordering links
 
-Name files by canteen **name** (preferred) or UUID:
+点餐入口已改为食堂详情页的「点击点餐」按钮，链接配置在：
 
 ```text
-public/assets/canteen-qr/ws-can.png
-public/assets/canteen-qr/<canteen-id>.png
+src/lib/canteen-order-urls.ts
 ```
 
-Also accepted: `.webp`, `.jpg`, `.jpeg`, `.svg`.
-
-Launcher icons: `public/assets/canteen-icons/` with the same naming.
-
-## Pin Me ordering links
-
-Pin Me stores here use `all_share_table=1`. A QR that encodes
-`/store/{id}/table/1` (or `table_name=1`) joins the shared dine-in cart, so
-browsers can show dishes other people already ordered.
-
-For website “扫码下单” assets, encode the **takeout** entry instead (no table):
+按食堂 **name**（优先）或 UUID 映射到外部点餐页，与原二维码编码的 URL 一致：
 
 ```text
 https://meal.pin2eat.com/store/4898/takeout   # ws-can
 https://meal.pin2eat.com/store/5198/takeout   # uc-can
 https://meal.pin2eat.com/store/5500/takeout   # na-can
+https://shop.ichefpos.com/store/UQftKWxU/instore/qrcode?tableName=VDE  # mc-can
+https://www.ebeneezers.com/                 # Ebeneezer's
+https://meal.pin2eat.com/v2/package_store/pages/store/home?store_id=4899#index  # Cafe Tolo
+https://csd.order.place/home/store/112891?_aigens_source=scan&catMode=false&mode=prekiosk  # CU CAFE
+https://meal.pin2eat.com/v2/package_store/pages/store/home?store_id=5581  # The Green
 ```
 
-Regenerate with `python scripts/regen-canteen-qr.py` if those PNGs need refreshing.
+本目录下的 PNG 为历史二维码资产，页面不再展示。需要时可参考 `scripts/regen-canteen-qr.py` 重新生成。
+
+Launcher icons: `public/assets/canteen-icons/` — name by canteen **name** or UUID.

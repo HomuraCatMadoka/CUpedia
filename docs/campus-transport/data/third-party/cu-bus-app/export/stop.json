@@ -1,0 +1,282 @@
+[
+  {
+    "id": "area_39_downhill",
+    "name_zh": "39區（火車站方向）",
+    "name_en": "Area 39 (MTR Direction)",
+    "lat": 22.42753,
+    "long": 114.204374,
+    "sorting_order": 31
+  },
+  {
+    "id": "area_39_uphill",
+    "name_zh": "39區（上山）",
+    "name_en": "Area 39 (Uphill)",
+    "lat": 22.427655,
+    "long": 114.204387,
+    "sorting_order": 30
+  },
+  {
+    "id": "chan_chun_ha_hostel",
+    "name_zh": "陳震夏宿舍 ",
+    "name_en": "Chan Chun Ha Hostel",
+    "lat": 22.421875,
+    "long": 114.204709,
+    "sorting_order": 29
+  },
+  {
+    "id": "chung_chi_teaching_blocks",
+    "name_zh": "崇基教學樓",
+    "name_en": "Chung Chi Teaching Blocks",
+    "lat": 22.415901,
+    "long": 114.208288,
+    "sorting_order": 23
+  },
+  {
+    "id": "circuit_east_cwc_direction",
+    "name_zh": "環迴東站（敬文方向）",
+    "name_en": "Campus Circuit East (CWC Direction)",
+    "lat": 22.419124,
+    "long": 114.212903,
+    "sorting_order": 33
+  },
+  {
+    "id": "circuit_east_mtr_direction",
+    "name_zh": "環迴東站（火車站方向）",
+    "name_en": "Campus Circuit East (MTR Direction)",
+    "lat": 22.418809,
+    "long": 114.212956,
+    "sorting_order": 32
+  },
+  {
+    "id": "circuit_north",
+    "name_zh": "環迴北站",
+    "name_en": "Campus Circuit North",
+    "lat": 22.425693,
+    "long": 114.206296,
+    "sorting_order": 34
+  },
+  {
+    "id": "cwc_college",
+    "name_zh": "敬文書院",
+    "name_en": "C.W. Chu College",
+    "lat": 22.42564,
+    "long": 114.206662,
+    "sorting_order": 25
+  },
+  {
+    "id": "cwc_college_only_to_area_39",
+    "name_zh": "敬文書院（僅往39區）",
+    "name_en": "C.W. Chu College (Only to Area 39)",
+    "lat": 22.425613,
+    "long": 114.206182,
+    "sorting_order": 26
+  },
+  {
+    "id": "fung_king_hey_building",
+    "name_zh": "馮景禧樓",
+    "name_en": "Fung King-hey Building",
+    "lat": 22.41988,
+    "long": 114.202968,
+    "sorting_order": 24
+  },
+  {
+    "id": "jockey_club_post_grad_mtr_direction",
+    "name_zh": "研究生宿舍一座（火車站方向）",
+    "name_en": "Postgraduate Hall 1 (MTR Direction)",
+    "lat": 22.420465,
+    "long": 114.212188,
+    "sorting_order": 10
+  },
+  {
+    "id": "jockey_club_post_grad_uphill",
+    "name_zh": "研究生宿舍一座（上山）",
+    "name_en": "Postgraduate Hall 1 (Uphill)",
+    "lat": 22.420465,
+    "long": 114.212188,
+    "sorting_order": 9
+  },
+  {
+    "id": "na_college",
+    "name_zh": "新亞書院（本部方向）",
+    "name_en": "New Asia College (Central Direction)",
+    "lat": 22.421344,
+    "long": 114.207484,
+    "sorting_order": 16
+  },
+  {
+    "id": "na_college_backhill",
+    "name_zh": "新亞書院（後山方向）",
+    "name_en": "New Asia College (Residence 3 & 4 Direction)",
+    "lat": 22.421087,
+    "long": 114.207552,
+    "sorting_order": 17
+  },
+  {
+    "id": "na_college_for_route_5",
+    "name_zh": "新亞書院（5號上行線）",
+    "name_en": "New Asia College (For route 5 uphill)",
+    "lat": 22.42155,
+    "long": 114.207451,
+    "sorting_order": 15
+  },
+  {
+    "id": "piazza",
+    "name_zh": "港鐵大學站廣場",
+    "name_en": "Piazza",
+    "lat": 22.413794,
+    "long": 114.209418,
+    "sorting_order": 7
+  },
+  {
+    "id": "piazza_terminal",
+    "name_zh": "港鐵大學站廣場（終點站）",
+    "name_en": "Piazza (Terminal)",
+    "lat": 22.413923,
+    "long": 114.209689,
+    "sorting_order": 8
+  },
+  {
+    "id": "residence_10",
+    "name_zh": "十苑",
+    "name_en": "Residence 10",
+    "lat": 22.424494,
+    "long": 114.208221,
+    "sorting_order": 35
+  },
+  {
+    "id": "residence_15",
+    "name_zh": "十五苑",
+    "name_en": "Residence 15",
+    "lat": 22.423738,
+    "long": 114.206562,
+    "sorting_order": 27
+  },
+  {
+    "id": "residences_3_4_central_direction",
+    "name_zh": "伍宜孫書院（本部方向）",
+    "name_en": "WYS College (Central Campus Direction)",
+    "lat": 22.421253,
+    "long": 114.203509,
+    "sorting_order": 22
+  },
+  {
+    "id": "residences_3_4_shaw_direction",
+    "name_zh": "伍宜孫書院（逸夫方向）",
+    "name_en": "WYS College (Shaw College Direction)",
+    "lat": 22.421491,
+    "long": 114.203451,
+    "sorting_order": 21
+  },
+  {
+    "id": "sci_centre",
+    "name_zh": "科學館",
+    "name_en": "Science Centre",
+    "lat": 22.419857,
+    "long": 114.207225,
+    "sorting_order": 20
+  },
+  {
+    "id": "shaw_college_central_direction",
+    "name_zh": "逸夫書院（本部方向）",
+    "name_en": "Shaw College (Central Campus Direction)",
+    "lat": 22.422446,
+    "long": 114.201247,
+    "sorting_order": 18
+  },
+  {
+    "id": "shaw_college_north_direction",
+    "name_zh": "逸夫書院（環迴北方向）",
+    "name_en": "Shaw College (Circuit North Direction)",
+    "lat": 22.422608,
+    "long": 114.201556,
+    "sorting_order": 19
+  },
+  {
+    "id": "shho",
+    "name_zh": "善衡書院",
+    "name_en": "S.H. Ho College",
+    "lat": 22.418059,
+    "long": 114.209875,
+    "sorting_order": 6
+  },
+  {
+    "id": "sir_run_run",
+    "name_zh": "邵逸夫堂",
+    "name_en": "Sir Run Run Shaw Hall",
+    "lat": 22.419853,
+    "long": 114.206992,
+    "sorting_order": 3
+  },
+  {
+    "id": "sports_centre",
+    "name_zh": "大學體育中心",
+    "name_en": "University Sports Centre",
+    "lat": 22.417767,
+    "long": 114.210623,
+    "sorting_order": 5
+  },
+  {
+    "id": "uni_admin_building",
+    "name_zh": "大學行政樓",
+    "name_en": "University Admin Building",
+    "lat": 22.418806,
+    "long": 114.205332,
+    "sorting_order": 4
+  },
+  {
+    "id": "uni_station",
+    "name_zh": "港鐵大學站",
+    "name_en": "Univ. MTR Station (Uphill)",
+    "lat": 22.414518,
+    "long": 114.210197,
+    "sorting_order": 1
+  },
+  {
+    "id": "uni_station_terminal",
+    "name_zh": "港鐵大學站（終點站）",
+    "name_en": "Univ. MTR Station (Terminal)",
+    "lat": 22.415082,
+    "long": 114.210427,
+    "sorting_order": 2
+  },
+  {
+    "id": "united_college",
+    "name_zh": "聯合書院（本部方向）",
+    "name_en": "United College (Central Direction)",
+    "lat": 22.420313,
+    "long": 114.205332,
+    "sorting_order": 13
+  },
+  {
+    "id": "united_college_backhill",
+    "name_zh": "聯合書院（後山方向）",
+    "name_en": "United College (Residence 3 & 4 Direction)",
+    "lat": 22.420326,
+    "long": 114.205502,
+    "sorting_order": 14
+  },
+  {
+    "id": "united_college_drop_off",
+    "name_zh": "聯合書院（落客站）",
+    "name_en": "United College (Drop-off)",
+    "lat": 22.420404,
+    "long": 114.205166,
+    "sorting_order": 12
+  },
+  {
+    "id": "united_college_staff_residence",
+    "name_zh": "聯合苑",
+    "name_en": "United College Staff Residence",
+    "lat": 22.423257,
+    "long": 114.205172,
+    "sorting_order": 28
+  },
+  {
+    "id": "yia",
+    "name_zh": "康本園",
+    "name_en": "Yasumoto International Academic Park (YIA)",
+    "lat": 22.416052,
+    "long": 114.210751,
+    "sorting_order": 11
+  }
+]

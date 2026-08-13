@@ -39,19 +39,29 @@ describe("ProfessorPortrait", () => {
       />,
     );
 
-    fireEvent.error(screen.getByAltText("Dr. SUN Li 的官方头像"));
+    fireEvent.error(screen.getByAltText("Dr. Sun Li 的官方头像"));
     expect(
-      screen.getByAltText("Dr. SUN Li 的官方头像").getAttribute("src"),
+      screen.getByAltText("Dr. Sun Li 的官方头像").getAttribute("src"),
     ).toBe("/api/professor-portraits/person-id");
 
-    fireEvent.error(screen.getByAltText("Dr. SUN Li 的官方头像"));
+    fireEvent.error(screen.getByAltText("Dr. Sun Li 的官方头像"));
     expect(
-      screen.getByAltText("Dr. SUN Li 的官方头像").getAttribute("src"),
+      screen.getByAltText("Dr. Sun Li 的官方头像").getAttribute("src"),
     ).toBe("https://portal.example/photo.jpg");
 
-    fireEvent.error(screen.getByAltText("Dr. SUN Li 的官方头像"));
+    fireEvent.error(screen.getByAltText("Dr. Sun Li 的官方头像"));
     expect(
-      screen.getByRole("img", { name: "Dr. SUN Li 的头像占位" }),
+      screen.getByRole("img", { name: "Dr. Sun Li 的头像占位" }),
+    ).toBeTruthy();
+  });
+
+  it("shows initials that exclude the title and title-case the family name", () => {
+    render(<ProfessorPortrait imageUrls={[]} name="Professor CHAN Tai Man" />);
+
+    expect(screen.getByText("CT")).toBeTruthy();
+    expect(screen.queryByText("PC")).toBeNull();
+    expect(
+      screen.getByRole("img", { name: "Prof. Chan Tai Man 的头像占位" }),
     ).toBeTruthy();
   });
 });

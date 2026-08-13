@@ -1,5 +1,5 @@
 {
-  "id": "f9537ebb-f6aa-42a6-b60c-c5aeb0e1b9df",
+  "id": "01bdec62-9f2c-473b-8154-cd01b34c238c",
   "prevId": "b83e468f-7aa0-4706-8b33-c12751cf9ff0",
   "version": "7",
   "dialect": "postgresql",
@@ -1093,6 +1093,141 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.announcements": {
+      "name": "announcements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notification_sent_at": {
+          "name": "notification_sent_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "announcements_publication_idx": {
+          "name": "announcements_publication_idx",
+          "columns": [
+            {
+              "expression": "published_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "priority",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "announcements_created_by_users_id_fk": {
+          "name": "announcements_created_by_users_id_fk",
+          "tableFrom": "announcements",
+          "tableTo": "users",
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "announcements_updated_by_users_id_fk": {
+          "name": "announcements_updated_by_users_id_fk",
+          "tableFrom": "announcements",
+          "tableTo": "users",
+          "columnsFrom": ["updated_by"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "announcements_expiry_after_publication_check": {
+          "name": "announcements_expiry_after_publication_check",
+          "value": "\"announcements\".\"expires_at\" is null or \"announcements\".\"published_at\" is null or \"announcements\".\"expires_at\" > \"announcements\".\"published_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.build_items": {
       "name": "build_items",
       "schema": "",
@@ -1909,160 +2044,6 @@
         "canteen_menu_items_external_identity_chk": {
           "name": "canteen_menu_items_external_identity_chk",
           "value": "(\"canteen_menu_items\".\"external_source\" is null) = (\"canteen_menu_items\".\"external_key\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.canteen_menu_sources": {
-      "name": "canteen_menu_sources",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "canteen_id": {
-          "name": "canteen_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_store_id": {
-          "name": "external_store_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "last_attempt_at": {
-          "name": "last_attempt_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_success_at": {
-          "name": "last_success_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_snapshot_hash": {
-          "name": "last_snapshot_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "canteen_menu_sources_canteen_uidx": {
-          "name": "canteen_menu_sources_canteen_uidx",
-          "columns": [
-            {
-              "expression": "canteen_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_menu_sources_provider_store_uidx": {
-          "name": "canteen_menu_sources_provider_store_uidx",
-          "columns": [
-            {
-              "expression": "provider",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "external_store_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "canteen_menu_sources_enabled_idx": {
-          "name": "canteen_menu_sources_enabled_idx",
-          "columns": [
-            {
-              "expression": "enabled",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "canteen_menu_sources_canteen_id_canteens_id_fk": {
-          "name": "canteen_menu_sources_canteen_id_canteens_id_fk",
-          "tableFrom": "canteen_menu_sources",
-          "tableTo": "canteens",
-          "columnsFrom": ["canteen_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "canteen_menu_sources_provider_chk": {
-          "name": "canteen_menu_sources_provider_chk",
-          "value": "\"canteen_menu_sources\".\"provider\" in ('aigens', 'ichef')"
-        },
-        "canteen_menu_sources_store_id_chk": {
-          "name": "canteen_menu_sources_store_id_chk",
-          "value": "length(trim(\"canteen_menu_sources\".\"external_store_id\")) between 1 and 200"
         }
       },
       "isRLSEnabled": false
@@ -3966,7 +3947,7 @@
       "checkConstraints": {
         "notifications_kind_check": {
           "name": "notifications_kind_check",
-          "value": "\"notifications\".\"kind\" in ('course_review_reply')"
+          "value": "\"notifications\".\"kind\" in ('course_review_reply', 'announcement_published')"
         }
       },
       "isRLSEnabled": false
