@@ -519,6 +519,13 @@
       "when": 1786589206889,
       "tag": "0073_course_rating_language",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1786610633904,
+      "tag": "0074_black_jean_grey",
+      "breakpoints": true
     }
   ]
 }

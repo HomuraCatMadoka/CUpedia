@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="zh-Hans">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CUpedia 产品更新 · Issue #612 Mockup</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --text: #18181b;
+        --muted: #71717a;
+        --line: #e4e4e7;
+        --soft: #f4f4f5;
+        --accent: #315c4c;
+        --accent-soft: #eaf2ee;
+        --danger: #b42318;
+        --radius: 10px;
+        font-family:
+          ui-sans-serif,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        color: var(--text);
+        background: var(--bg);
+      }
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+      a {
+        color: inherit;
+      }
+      button,
+      .link-button {
+        min-height: 44px;
+      }
+      button {
+        cursor: pointer;
+      }
+      .shell {
+        min-height: 100dvh;
+      }
+      .navbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: 57px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px);
+      }
+      .brand {
+        font-size: 18px;
+        font-weight: 750;
+        text-decoration: none;
+      }
+      .navlinks {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .navlinks a {
+        text-decoration: none;
+      }
+      .navlinks a:hover {
+        color: var(--text);
+      }
+      .avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--soft);
+        display: grid;
+        place-items: center;
+        color: var(--muted);
+      }
+
+      .prototype-bar {
+        position: fixed;
+        right: 18px;
+        bottom: 18px;
+        z-index: 30;
+        display: flex;
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.97);
+        box-shadow: 0 12px 35px rgba(0, 0, 0, 0.12);
+      }
+      .prototype-bar button {
+        min-height: 38px;
+        border: 0;
+        border-radius: 999px;
+        padding: 0 14px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .prototype-bar button.active {
+        background: var(--text);
+        color: white;
+      }
+
+      .view {
+        display: none;
+      }
+      .view.active {
+        display: block;
+      }
+      .public-wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 70px 32px 96px;
+      }
+      .page-head {
+        display: grid;
+        grid-template-columns: 1fr 270px;
+        gap: 64px;
+        align-items: end;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 34px;
+      }
+      .page-head h1 {
+        margin: 0;
+        font-size: clamp(36px, 6vw, 58px);
+        line-height: 1;
+        letter-spacing: -0.045em;
+        font-weight: 760;
+      }
+      .page-head p {
+        margin: 0 0 4px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+      .timeline {
+        margin-top: 12px;
+      }
+      .month {
+        display: grid;
+        grid-template-columns: 150px 1fr;
+        gap: 36px;
+        padding: 38px 0 12px;
+      }
+      .month h2 {
+        position: sticky;
+        top: 82px;
+        align-self: start;
+        margin: 2px 0 0;
+        font-size: 14px;
+        font-weight: 650;
+        color: var(--muted);
+      }
+      .entries {
+        border-top: 1px solid var(--line);
+      }
+      .entry {
+        display: block;
+        padding: 26px 0 28px;
+        border-bottom: 1px solid var(--line);
+        text-decoration: none;
+      }
+      .entry:hover h3 {
+        text-decoration: underline;
+        text-underline-offset: 5px;
+      }
+      .entry-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .badge {
+        display: inline-flex;
+        min-height: 22px;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 9px;
+        background: var(--soft);
+        color: #3f3f46;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .badge.feature {
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .entry h3 {
+        margin: 13px 0 8px;
+        font-size: 23px;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+      }
+      .entry p {
+        max-width: 650px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.7;
+      }
+
+      .detail-wrap {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 32px 100px;
+      }
+      .back {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 14px;
+      }
+      .back:hover {
+        color: var(--text);
+      }
+      .article-head {
+        margin-top: 38px;
+        padding-bottom: 34px;
+        border-bottom: 1px solid var(--line);
+      }
+      .article-head h1 {
+        max-width: 690px;
+        margin: 17px 0 17px;
+        font-size: clamp(34px, 6vw, 52px);
+        line-height: 1.08;
+        letter-spacing: -0.045em;
+      }
+      .article-summary {
+        max-width: 650px;
+        margin: 0;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.65;
+      }
+      .article-body {
+        padding-top: 34px;
+        font-size: 17px;
+        line-height: 1.85;
+      }
+      .article-body p {
+        margin: 0 0 22px;
+      }
+      .article-body h2 {
+        margin: 42px 0 14px;
+        font-size: 25px;
+        letter-spacing: -0.02em;
+      }
+      .article-body ul {
+        padding-left: 22px;
+      }
+      .article-body li {
+        margin: 9px 0;
+      }
+
+      .admin-wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 22px 28px 100px;
+      }
+      .admin-kicker {
+        margin: 0 0 14px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .tabs {
+        display: flex;
+        gap: 24px;
+        overflow-x: auto;
+        border-bottom: 1px solid var(--line);
+        white-space: nowrap;
+      }
+      .tabs span {
+        padding: 0 2px 10px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .tabs .selected {
+        color: var(--text);
+        border-bottom: 2px solid var(--text);
+        font-weight: 650;
+      }
+      .admin-title {
+        margin: 32px 0 28px;
+      }
+      .admin-title h1 {
+        margin: 0;
+        font-size: 28px;
+        letter-spacing: -0.025em;
+      }
+      .admin-title p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .editor-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 310px;
+        gap: 48px;
+        align-items: start;
+      }
+      .form {
+        display: grid;
+        gap: 24px;
+      }
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+      .field label,
+      .field legend {
+        font-size: 14px;
+        font-weight: 650;
+      }
+      .hint,
+      .counter {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+      .counter {
+        text-align: right;
+      }
+      input,
+      textarea {
+        width: 100%;
+        border: 1px solid #d4d4d8;
+        border-radius: var(--radius);
+        background: white;
+        color: var(--text);
+        padding: 10px 12px;
+        outline: none;
+      }
+      input:focus,
+      textarea:focus {
+        border-color: #71717a;
+        box-shadow: 0 0 0 3px rgba(113, 113, 122, 0.18);
+      }
+      textarea {
+        resize: vertical;
+        line-height: 1.65;
+      }
+      #summary {
+        min-height: 92px;
+      }
+      #content {
+        min-height: 250px;
+      }
+      fieldset {
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+      }
+      .choices {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 9px;
+      }
+      .choice {
+        position: relative;
+      }
+      .choice input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+      .choice label {
+        display: inline-flex;
+        min-height: 40px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0 13px;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 550;
+      }
+      .choice input:checked + label {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--accent);
+      }
+      .side-panel {
+        position: sticky;
+        top: 80px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px;
+      }
+      .side-panel h2 {
+        margin: 0 0 18px;
+        font-size: 16px;
+      }
+      .review-row {
+        padding: 12px 0;
+        border-top: 1px solid var(--line);
+      }
+      .review-row span {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .review-row strong {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .publish {
+        width: 100%;
+        margin-top: 18px;
+        border: 0;
+        border-radius: 9px;
+        background: var(--text);
+        color: white;
+        font-weight: 650;
+      }
+      .publish:hover {
+        background: #27272a;
+      }
+      .notice {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.55;
+      }
+      .success {
+        display: none;
+        margin-top: 12px;
+        border-radius: 9px;
+        padding: 10px 12px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 13px;
+      }
+
+      :focus-visible {
+        outline: 3px solid rgba(49, 92, 76, 0.35);
+        outline-offset: 3px;
+      }
+      @media (max-width: 760px) {
+        .navbar {
+          height: 57px;
+          padding: 0 16px;
+        }
+        .navlinks a:not(:last-of-type) {
+          display: none;
+        }
+        .public-wrap,
+        .detail-wrap {
+          padding-right: 20px;
+          padding-left: 20px;
+        }
+        .public-wrap {
+          padding-top: 46px;
+        }
+        .page-head {
+          grid-template-columns: 1fr;
+          gap: 18px;
+          padding-bottom: 26px;
+        }
+        .page-head p {
+          max-width: 34rem;
+        }
+        .month {
+          grid-template-columns: 1fr;
+          gap: 14px;
+          padding-top: 32px;
+        }
+        .month h2 {
+          position: static;
+          font-size: 13px;
+        }
+        .entry h3 {
+          font-size: 20px;
+        }
+        .detail-wrap {
+          padding-top: 24px;
+        }
+        .article-head {
+          margin-top: 22px;
+        }
+        .article-summary {
+          font-size: 16px;
+        }
+        .article-body {
+          font-size: 16px;
+        }
+        .admin-wrap {
+          padding: 18px 18px 100px;
+        }
+        .editor-grid {
+          grid-template-columns: 1fr;
+          gap: 24px;
+        }
+        .side-panel {
+          position: static;
+        }
+        .prototype-bar {
+          right: 10px;
+          bottom: 10px;
+          left: 10px;
+          justify-content: center;
+          overflow-x: auto;
+        }
+        .prototype-bar button {
+          padding: 0 11px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="navbar">
+        <a class="brand" href="#list">CUpedia</a>
+        <nav class="navlinks" aria-label="主导航">
+          <a href="#">分院帽</a><a href="#">CU Bus</a><a href="#">食堂</a
+          ><a href="#">课程测评</a>
+          <span class="avatar" aria-hidden="true">昆</span>
+        </nav>
+      </header>
+
+      <main id="list" class="view active">
+        <div class="public-wrap">
+          <header class="page-head">
+            <h1>产品更新</h1>
+            <p>
+              了解 CUpedia
+              最近上线的新功能与体验改善。重要通知仍会在公告中心发布。
+            </p>
+          </header>
+          <div class="timeline">
+            <section class="month">
+              <h2>2026 年 8 月</h2>
+              <div class="entries">
+                <a class="entry" href="#detail" data-go="detail">
+                  <div class="entry-meta">
+                    <span class="badge feature">新功能</span
+                    ><span class="badge">课程</span><time>8 月 13 日</time>
+                  </div>
+                  <h3>课程测评现在支持按教授快速查找</h3>
+                  <p>
+                    从课程页面直接检索相关教授，查看他们教授过的课程与学生评价，不再需要来回切换页面。
+                  </p>
+                </a>
+                <a class="entry" href="#detail" data-go="detail">
+                  <div class="entry-meta">
+                    <span class="badge">体验改善</span
+                    ><span class="badge">食堂</span><time>8 月 8 日</time>
+                  </div>
+                  <h3>食堂菜单在手机上更容易浏览</h3>
+                  <p>
+                    重新整理餐段、价格与菜品信息的层级，让午饭时间也能快速扫到想吃的内容。
+                  </p>
+                </a>
+              </div>
+            </section>
+            <section class="month">
+              <h2>2026 年 7 月</h2>
+              <div class="entries">
+                <a class="entry" href="#detail" data-go="detail">
+                  <div class="entry-meta">
+                    <span class="badge">问题修复</span
+                    ><span class="badge">百科</span><time>7 月 29 日</time>
+                  </div>
+                  <h3>修复移动端编辑时工具栏遮挡正文</h3>
+                  <p>
+                    键盘弹出后，编辑器会为工具栏保留正确空间，长页面也能继续看到正在输入的内容。
+                  </p>
+                </a>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <main id="detail" class="view">
+        <article class="detail-wrap">
+          <a class="back" href="#list" data-go="list">← 返回全部产品更新</a>
+          <header class="article-head">
+            <div class="entry-meta">
+              <span class="badge feature">新功能</span
+              ><span class="badge">课程</span><time>2026 年 8 月 13 日</time>
+            </div>
+            <h1>课程测评现在支持按教授快速查找</h1>
+            <p class="article-summary">
+              从课程页面直接检索相关教授，查看他们教授过的课程与学生评价，不再需要来回切换页面。
+            </p>
+          </header>
+          <div class="article-body">
+            <p>
+              选课时，我们经常先知道教授名字，却不知道该从哪一门课开始找。现在，课程测评把教授资料与课程评价更自然地连在了一起。
+            </p>
+            <h2>这次更新包括</h2>
+            <ul>
+              <li>在课程页快速搜索相关教授；</li>
+              <li>从教授资料进入其教授过的课程；</li>
+              <li>更清楚地区分官方资料和学生评价。</li>
+            </ul>
+            <p>
+              这项功能已向所有访客开放，不需要登录。如果你发现教授资料有误，可以通过页面上的反馈入口告诉我们。
+            </p>
+          </div>
+        </article>
+      </main>
+
+      <main id="admin" class="view">
+        <div class="admin-wrap">
+          <p class="admin-kicker">管理后台</p>
+          <nav class="tabs" aria-label="后台栏目">
+            <span>用户管理</span><span>食堂管理</span><span>公告管理</span
+            ><span class="selected">产品更新</span><span>站点设置</span>
+          </nav>
+          <header class="admin-title">
+            <h1>发布产品更新</h1>
+            <p>
+              向读者说明已经上线的功能与改善。发布后会立即公开，但不会发送站内通知。
+            </p>
+          </header>
+          <div class="editor-grid">
+            <form class="form" id="update-form">
+              <div class="field">
+                <label for="title">标题</label
+                ><input
+                  id="title"
+                  maxlength="120"
+                  value="课程测评现在支持按教授快速查找"
+                />
+                <div class="counter">19 / 120</div>
+              </div>
+              <div class="field">
+                <label for="summary">摘要</label
+                ><textarea id="summary" maxlength="280">
+从课程页面直接检索相关教授，查看他们教授过的课程与学生评价，不再需要来回切换页面。</textarea
+                >
+                <div class="hint">
+                  在更新列表中展示，说明这项变化对学生有什么帮助。
+                </div>
+              </div>
+              <fieldset>
+                <legend>更新类型</legend>
+                <div class="choices">
+                  <span class="choice"
+                    ><input
+                      checked
+                      type="radio"
+                      name="type"
+                      id="feature"
+                    /><label for="feature">新功能</label></span
+                  >
+                  <span class="choice"
+                    ><input type="radio" name="type" id="improvement" /><label
+                      for="improvement"
+                      >体验改善</label
+                    ></span
+                  >
+                  <span class="choice"
+                    ><input type="radio" name="type" id="fix" /><label for="fix"
+                      >问题修复</label
+                    ></span
+                  >
+                  <span class="choice"
+                    ><input type="radio" name="type" id="adjustment" /><label
+                      for="adjustment"
+                      >功能调整</label
+                    ></span
+                  >
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend>产品领域</legend>
+                <div class="choices">
+                  <span class="choice"
+                    ><input type="checkbox" id="wiki" /><label for="wiki"
+                      >百科</label
+                    ></span
+                  >
+                  <span class="choice"
+                    ><input checked type="checkbox" id="courses" /><label
+                      for="courses"
+                      >课程</label
+                    ></span
+                  >
+                  <span class="choice"
+                    ><input type="checkbox" id="canteen" /><label for="canteen"
+                      >食堂</label
+                    ></span
+                  >
+                  <span class="choice"
+                    ><input type="checkbox" id="map" /><label for="map"
+                      >地图</label
+                    ></span
+                  >
+                  <span class="choice"
+                    ><input type="checkbox" id="account" /><label for="account"
+                      >账户</label
+                    ></span
+                  >
+                </div>
+                <div class="hint">
+                  至少选择一个；这些标签由系统维护，不能自由输入。
+                </div>
+              </fieldset>
+              <div class="field">
+                <label for="content">正文</label
+                ><textarea id="content" maxlength="5000">
+选课时，我们经常先知道教授名字，却不知道该从哪一门课开始找。现在，课程测评把教授资料与课程评价更自然地连在了一起。
+
+这次更新包括：
+• 在课程页快速搜索相关教授；
+• 从教授资料进入其教授过的课程；
+• 更清楚地区分官方资料和学生评价。</textarea
+                >
+                <div class="hint">首版使用纯文本；换行会在详情页保留。</div>
+              </div>
+            </form>
+            <aside class="side-panel">
+              <h2>发布检查</h2>
+              <div class="review-row">
+                <span>公开时间</span><strong>确认后立即发布</strong>
+              </div>
+              <div class="review-row">
+                <span>通知</span><strong>不会发送站内通知</strong>
+              </div>
+              <div class="review-row">
+                <span>公开地址</span><strong>/updates/&lt;UUID&gt;</strong>
+              </div>
+              <button class="publish" type="submit" form="update-form">
+                确认并发布
+              </button>
+              <p class="notice">
+                Issue #612
+                只支持立即发布。草稿、排期和撤回将在后续生命周期功能中提供。
+              </p>
+              <div class="success" id="success">
+                产品更新已发布，可从公开列表查看。
+              </div>
+            </aside>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <nav class="prototype-bar" aria-label="原型画面">
+      <button class="active" data-go="list">公开列表</button>
+      <button data-go="detail">更新详情</button>
+      <button data-go="admin">后台发布</button>
+    </nav>
+    <script>
+      const views = [...document.querySelectorAll(".view")];
+      const switches = [...document.querySelectorAll("[data-go]")];
+      function show(id) {
+        views.forEach((view) =>
+          view.classList.toggle("active", view.id === id),
+        );
+        document
+          .querySelectorAll(".prototype-bar button")
+          .forEach((button) =>
+            button.classList.toggle("active", button.dataset.go === id),
+          );
+        history.replaceState(null, "", `#${id}`);
+        window.scrollTo({ top: 0, behavior: "instant" });
+      }
+      switches.forEach((control) =>
+        control.addEventListener("click", (event) => {
+          event.preventDefault();
+          show(control.dataset.go);
+        }),
+      );
+      document
+        .getElementById("update-form")
+        .addEventListener("submit", (event) => {
+          event.preventDefault();
+          document.getElementById("success").style.display = "block";
+        });
+      const initial = location.hash.slice(1);
+      if (["list", "detail", "admin"].includes(initial)) show(initial);
+    </script>
+  </body>
+</html>

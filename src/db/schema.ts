@@ -17,6 +17,10 @@ import {
 } from "drizzle-orm/pg-core";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
+import type {
+  ProductUpdateArea,
+  ProductUpdateType,
+} from "@/lib/product-update-types";
 
 // ── Better Auth core tables ──
 
@@ -1550,6 +1554,39 @@ export const announcements = pgTable(
     check(
       "announcements_expiry_after_publication_check",
       sql`${table.expiresAt} is null or ${table.publishedAt} is null or ${table.expiresAt} > ${table.publishedAt}`,
+    ),
+  ],
+);
+
+export const productUpdates = pgTable(
+  "product_updates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    content: text("content").notNull(),
+    type: text("type").$type<ProductUpdateType>().notNull(),
+    areas: text("areas").array().$type<ProductUpdateArea[]>().notNull(),
+    publishedAt: timestamp("published_at").notNull(),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("product_updates_publication_idx").on(table.publishedAt, table.id),
+    check(
+      "product_updates_type_check",
+      sql`${table.type} in ('feature', 'improvement', 'fix', 'adjustment')`,
+    ),
+    check(
+      "product_updates_areas_nonempty_check",
+      sql`cardinality(${table.areas}) > 0`,
+    ),
+    check(
+      "product_updates_areas_allowed_check",
+      sql`${table.areas} <@ array['wiki', 'courses', 'canteen', 'map', 'account']::text[]`,
     ),
   ],
 );

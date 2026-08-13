@@ -24,6 +24,7 @@ import {
   courseReviews,
   courseReviewReplies,
   announcements,
+  productUpdates,
   notifications,
 } from "@/db/schema";
 
@@ -242,5 +243,24 @@ describe("schema", () => {
     expect(cols.notificationSentAt).toBeDefined();
     expect(cols.createdBy).toBeDefined();
     expect(cols.updatedBy).toBeDefined();
+  });
+
+  it("product updates keep controlled classification and permanent publication identity", () => {
+    const cols = getTableColumns(productUpdates);
+    const config = getTableConfig(productUpdates);
+    expect(cols.title).toBeDefined();
+    expect(cols.summary).toBeDefined();
+    expect(cols.content).toBeDefined();
+    expect(cols.type).toBeDefined();
+    expect(cols.areas).toBeDefined();
+    expect(cols.publishedAt.notNull).toBe(true);
+    expect(cols.createdBy).toBeDefined();
+    expect(config.checks.map((constraint) => constraint.name)).toEqual(
+      expect.arrayContaining([
+        "product_updates_type_check",
+        "product_updates_areas_nonempty_check",
+        "product_updates_areas_allowed_check",
+      ]),
+    );
   });
 });
