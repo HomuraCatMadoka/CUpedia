@@ -281,12 +281,12 @@ test("keeps same-name professors distinct and scopes autocomplete by department"
   const professorSearch = page.getByRole("combobox", { name: "搜索教授" });
   await professorSearch.fill("CHAN Tai");
   await expect(
-    page.getByRole("option", { name: new RegExp(RENDERED_PROFESSOR_NAME) }),
+    page.getByRole("option", { name: RENDERED_PROFESSOR_NAME }),
   ).toHaveCount(2);
 
   await professorSearch.fill("");
   await expect(
-    page.getByRole("option", { name: new RegExp(RENDERED_PROFESSOR_NAME) }),
+    page.getByRole("option", { name: RENDERED_PROFESSOR_NAME }),
   ).toHaveCount(0);
 
   await page.getByRole("button", { name: "按学系或学院筛选" }).click();
@@ -299,7 +299,7 @@ test("keeps same-name professors distinct and scopes autocomplete by department"
 
   await professorSearch.fill("CHAN Tai");
   const scopedMatch = page.getByRole("option", {
-    name: new RegExp(RENDERED_PROFESSOR_NAME),
+    name: RENDERED_PROFESSOR_NAME,
   });
   await expect(scopedMatch).toHaveCount(1);
   await expect(scopedMatch).toContainText("Department of Mathematics");
@@ -315,7 +315,7 @@ test("finds aliases without duplicating a professor with multiple affiliations",
 
   await professorSearch.fill("測試陳");
   const aliasMatch = page.getByRole("option", {
-    name: new RegExp(RENDERED_PROFESSOR_NAME),
+    name: RENDERED_PROFESSOR_NAME,
   });
   await expect(aliasMatch).toHaveCount(1);
 
@@ -509,7 +509,7 @@ test("searches a professor, opens the card, and binds a course review", async ({
 
   await page.getByRole("combobox", { name: "搜索教授" }).fill("CHAN Tai");
   await expect(
-    page.getByRole("option", { name: new RegExp(RENDERED_PROFESSOR_NAME) }),
+    page.getByRole("option", { name: RENDERED_PROFESSOR_NAME }),
   ).toBeVisible();
   await page.goto(`/professors/${PUBLIC_ID}`);
   await expect(
