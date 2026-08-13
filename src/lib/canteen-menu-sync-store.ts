@@ -8,7 +8,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
-import { canonicalizeProviderMenuState } from "@/lib/canteen-provider-menu-identity";
+import { canonicalizeProviderMenuState } from "./canteen-provider-menu-identity";
 import {
   planMenuSync,
   type ExistingSyncMenuItem,

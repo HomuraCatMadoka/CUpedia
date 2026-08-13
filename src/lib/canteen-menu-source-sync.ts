@@ -16,7 +16,7 @@ import {
   observeMenuIdentityChurn,
   type MenuIdentityObservation,
 } from "@/lib/canteen-menu-sync-observation";
-import { normalizePublishedProviderIdentity } from "@/lib/canteen-provider-menu-identity";
+import { normalizePublishedProviderIdentity } from "./canteen-provider-menu-identity";
 
 const MAX_ERROR_LENGTH = 1_000;
 const MAX_CONCURRENCY = 2;
