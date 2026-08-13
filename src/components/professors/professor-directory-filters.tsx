@@ -33,6 +33,7 @@ import {
   type ProfessorDepartmentOption,
   type ProfessorDirectorySearchOption,
 } from "@/lib/professor-actions";
+import { formatProfessorName } from "@/lib/professor-name-format";
 import { cn } from "@/lib/utils";
 
 type ProfessorSort = "name" | "rating-count" | "rating";
@@ -222,7 +223,9 @@ export function ProfessorDirectoryFilters({
                   onSelect={() => openProfessor(option.publicId)}
                   className="block px-3 py-2 [&>svg:last-child]:hidden"
                 >
-                  <span className="block">{option.name}</span>
+                  <span className="block">
+                    {formatProfessorName(option.name)}
+                  </span>
                   {option.description ? (
                     <span className="block truncate text-xs text-muted-foreground">
                       {option.description}

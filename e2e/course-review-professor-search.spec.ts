@@ -29,8 +29,9 @@ const PROFESSORS = [
     name: "测试教授 陈伟文",
   },
 ] as const;
-const PROFESSOR_NAME = PROFESSORS[0].name;
-const SECOND_PROFESSOR_NAME = PROFESSORS[1].name;
+const RENDERED_LEGACY = "Prof. Legacy Wong";
+const RENDERED_CHAN = "Prof. Chan Wing Kai";
+const RENDERED_KAI = "Prof. Kai";
 const USER_EMAIL = "contributor@test.com";
 const COURSE_CODE = "CSCI1130";
 
@@ -121,10 +122,10 @@ test("official professor outside the course assignment can be searched and submi
 
   await professorSearch.fill("kai chna");
   await expect(
-    page.getByRole("option", { name: "Professor CHAN Wing Kai" }),
+    page.getByRole("option", { name: RENDERED_CHAN }),
   ).toBeVisible();
   await expect(
-    page.getByRole("option", { name: "Professor KAI", exact: true }),
+    page.getByRole("option", { name: RENDERED_KAI, exact: true }),
   ).toHaveCount(0);
 
   await professorSearch.fill("陈伟文");
@@ -134,21 +135,21 @@ test("official professor outside the course assignment can be searched and submi
 
   await professorSearch.fill("ＣＨＡＮ");
   await expect(
-    page.getByRole("option", { name: "Professor CHAN Wing Kai" }),
+    page.getByRole("option", { name: RENDERED_CHAN }),
   ).toBeVisible();
 
   await professorSearch.fill("jose garcia");
   await expect(
-    page.getByRole("option", { name: "Professor José García" }),
+    page.getByRole("option", { name: "Prof. José García" }),
   ).toBeVisible();
 
   await professorSearch.fill("Legacy Wong");
   await expect(
-    page.getByRole("option", { name: PROFESSOR_NAME }),
+    page.getByRole("option", { name: RENDERED_LEGACY }),
   ).toBeVisible();
   await professorSearch.press("Enter");
   await professorSearch.fill("CHAN Wing Kai");
-  await page.getByRole("option", { name: SECOND_PROFESSOR_NAME }).click();
+  await page.getByRole("option", { name: RENDERED_CHAN }).click();
   await expect(page.getByText("已选择 2 位教授")).toBeVisible();
   await page.getByRole("radio", { name: "4 星", exact: true }).click();
   await page.getByRole("button", { name: "提交测评" }).click();
@@ -156,10 +157,10 @@ test("official professor outside the course assignment can be searched and submi
   await expect(page.getByText("课程测评已发布")).toBeVisible();
   await expect(
     page.locator("section").filter({ hasText: "我的课程测评" }),
-  ).toContainText(PROFESSOR_NAME);
+  ).toContainText(RENDERED_LEGACY);
   await expect(
     page.locator("section").filter({ hasText: "我的课程测评" }),
-  ).toContainText(SECOND_PROFESSOR_NAME);
+  ).toContainText(RENDERED_CHAN);
 
   await withDatabase(async (client) => {
     const rating = await client.query<{
@@ -183,7 +184,7 @@ test("official professor outside the course assignment can be searched and submi
   const professorFilter = page.getByLabel("按任课教授筛选");
   await expect(
     professorFilter.locator(`option[value="${PROFESSORS[1].personId}"]`),
-  ).toHaveText(SECOND_PROFESSOR_NAME);
+  ).toHaveText(RENDERED_CHAN);
   await professorFilter.selectOption(PROFESSORS[1].personId);
   await expect(page.getByTestId("professor-rating-summary")).toContainText(
     "4.0",
@@ -191,9 +192,9 @@ test("official professor outside the course assignment can be searched and submi
 
   await page.getByRole("button", { name: "编辑" }).click();
   await expect(
-    page.getByRole("button", { name: `移除 ${PROFESSOR_NAME}` }),
+    page.getByRole("button", { name: `移除 ${RENDERED_LEGACY}` }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: `移除 ${SECOND_PROFESSOR_NAME}` }),
+    page.getByRole("button", { name: `移除 ${RENDERED_CHAN}` }),
   ).toBeVisible();
 });

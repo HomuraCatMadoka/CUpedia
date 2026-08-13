@@ -7,6 +7,7 @@ import { useState } from "react";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
 import { buttonVariants } from "@/components/ui/button";
 import { MyReviewDeleteButton } from "@/components/courses/my-review-delete-button";
+import { formatProfessorName } from "@/lib/professor-name-format";
 import type { MyCourseReviewHistoryItem } from "@/lib/course-review-actions";
 
 function subjectCode(courseCode: string) {
@@ -122,7 +123,9 @@ export function MyCourseReviewHistory({
                     ]
                   : []
               ).map((professor) => (
-                <span key={professor.id}>· {professor.name}</span>
+                <span key={professor.id}>
+                  · {formatProfessorName(professor.name)}
+                </span>
               ))}
               <span>· {item.isAnonymous ? "匿名" : "署名"}</span>
             </div>
