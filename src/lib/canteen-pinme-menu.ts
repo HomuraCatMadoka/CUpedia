@@ -120,10 +120,12 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       }
       const existing = byProductId.get(externalProductId);
       if (existing) {
+        const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
         assertCompatibleProviderIdentityOccurrence("pinme", existing, {
           externalProductId,
           name,
           priceOptions: priceOptions(product),
+          svgKey,
         });
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...mealPeriods]),

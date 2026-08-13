@@ -99,13 +99,13 @@ describe("PINME menu adapter", () => {
       data: {
         group: [
           {
-            local_name: "早餐",
+            local_name: "飲品",
             start_time: "07:00",
             end_time: "11:00",
             products: [product],
           },
           {
-            local_name: "下午茶",
+            local_name: "飲品",
             start_time: "14:00",
             end_time: "18:00",
             products: [product],

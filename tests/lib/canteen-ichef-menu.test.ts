@@ -34,7 +34,7 @@ describe("iCHEF menu adapter", () => {
       [
         {
           uuid: "breakfast",
-          name: "早餐",
+          name: "飯類",
           menuItemsSnapshot: [{ uuid: "item-1", name: " 雞扒 飯 ", price: 32 }],
         },
         {
@@ -95,6 +95,30 @@ describe("iCHEF menu adapter", () => {
             uuid: "b",
             name: "B",
             menuItemsSnapshot: [{ uuid: "item-1", name: "菜品 B", price: 10 }],
+          },
+        ],
+      ),
+    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
+  });
+
+  it("fails closed when duplicate UUID rows disagree only on category", () => {
+    expect(() =>
+      buildIchefMenuSyncPayload(
+        [{ categorySnapshotUuids: ["a", "b"] }],
+        [
+          {
+            uuid: "a",
+            name: "飯類",
+            menuItemsSnapshot: [
+              { uuid: "item-1", name: "同一菜品", price: 10 },
+            ],
+          },
+          {
+            uuid: "b",
+            name: "飲品",
+            menuItemsSnapshot: [
+              { uuid: "item-1", name: "同一菜品", price: 10 },
+            ],
           },
         ],
       ),

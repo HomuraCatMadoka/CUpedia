@@ -65,6 +65,10 @@ export function buildIchefMenuSyncPayload(
       if (!uuid || !name) continue;
       const existing = byItemUuid.get(uuid);
       if (existing) {
+        const svgKey = resolveMenuSectionKey({
+          categoryName: category.name,
+          dishName: name,
+        });
         assertCompatibleProviderIdentityOccurrence("ichef", existing, {
           externalProductId: uuid,
           name,
@@ -76,6 +80,7 @@ export function buildIchefMenuSyncPayload(
               sortOrder: 0,
             },
           ],
+          svgKey,
         });
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...categoryPeriods]),

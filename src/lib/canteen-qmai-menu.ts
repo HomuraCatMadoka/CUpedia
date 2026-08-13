@@ -140,10 +140,12 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
       const periods = mealPeriods(item);
       const existing = candidates.get(externalProductId);
       if (existing) {
+        const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
         assertCompatibleProviderIdentityOccurrence("qmai", existing, {
           externalProductId,
           name,
           priceOptions: options,
+          svgKey,
         });
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...periods]),

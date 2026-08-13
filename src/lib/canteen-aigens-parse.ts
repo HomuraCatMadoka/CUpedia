@@ -188,11 +188,13 @@ export function parseAigensMenuProducts(
               externalProductId: `${existing.backendId}#offering-period=${mealPeriod}`,
               name: existing.name,
               priceOptions: [{ amountMinor: existing.amountMinor }],
+              svgKey: existing.svgKey,
             },
             {
               externalProductId: `${backendId}#offering-period=${mealPeriod}`,
               name,
               priceOptions: [{ amountMinor }],
+              svgKey,
             },
           );
           continue;

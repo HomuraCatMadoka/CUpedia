@@ -299,6 +299,7 @@ function occurrenceFingerprint(item: IdentityItem): string {
   return JSON.stringify({
     name: item.name,
     priceOptions: item.priceOptions,
+    svgKey: item.svgKey,
   });
 }
 
