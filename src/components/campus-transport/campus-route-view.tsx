@@ -23,6 +23,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  computeBusPositions,
+  type BusPosition,
+} from "@/lib/campus-transport/bus-positions";
+import {
   type CampusBusPassengerRoute,
   type CampusBusStop,
   type CampusBusStopBoard,
@@ -316,9 +320,20 @@ export function CampusRouteView({
   const journeyScrollRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
-    return () => window.clearInterval(timer);
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    const interval = window.setInterval(
+      () => setNow(Date.now()),
+      prefersReducedMotion ? 30_000 : 1_000,
+    );
+    return () => window.clearInterval(interval);
   }, []);
+
+  const busPositions: BusPosition[] = useMemo(
+    () => computeBusPositions(route, now),
+    [now, route],
+  );
 
   const boards = useMemo(
     () =>
@@ -464,10 +479,11 @@ export function CampusRouteView({
         </div>
         <div className="flex items-center gap-2 border-b bg-[#fbf9fc] px-4 py-2 text-xs text-muted-foreground sm:px-6">
           <RouteIcon className="size-4 text-[#6f3b86]" aria-hidden="true" />
-          <span>測試預計 · 非實時車輛位置</span>
+          <span>測試預計 · 非實時車輛位置（地圖車輛為推算）</span>
         </div>
 
         <CampusRouteMap
+          busPositions={busPositions}
           route={route}
           stops={route.stops}
           selectedStopId={selectedStop.id}
