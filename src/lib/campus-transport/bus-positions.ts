@@ -30,33 +30,41 @@ export type BusPosition = {
   along: number;
 };
 
-type RouteGeometryCache = {
-  /** 站序锚定的分段路径（站 k → 站 k+1）。 */
+type PatternGeometryCache = {
+  /** 站序锚定的分段路径（实际停靠站 k → 站 k+1）。 */
   path: SegmentPath;
-  /** 各站沿全程的累计里程（米）。 */
+  /** 各实际停靠站沿全程的累计里程（米）。 */
   stopAlongs: number[];
   /** 全程总长（米）。 */
   totalLength: number;
 };
 
-const geometryCache = new WeakMap<object, RouteGeometryCache>();
+/**
+ * 几何按 pattern 缓存：每个班次只停靠其 projections 列出的站（部分停靠
+ * 线路如 route 2 的邵逸夫堂仅部分班次停靠），几何锚定必须用实际停靠序列，
+ * 不能用 route.stops 全站序列，否则停靠站会错位。
+ */
+const patternGeometryCache = new WeakMap<object, PatternGeometryCache>();
 
-function cachedGeometry(route: CampusBusPassengerRoute): RouteGeometryCache {
-  const cached = geometryCache.get(route);
+function cachedPatternGeometry(
+  route: CampusBusPassengerRoute,
+  projections: Array<{ stopOccurrenceId: string; p50Seconds: number }>,
+): PatternGeometryCache | null {
+  const cached = patternGeometryCache.get(projections);
   if (cached) return cached;
-  const stops = route.stops.map(
-    (stop) => route.map.stopCoordinates[stop.id]!,
+  const stops = projections.map(
+    (projection) => route.map.stopCoordinates[projection.stopOccurrenceId],
   );
-  const path = buildStopAnchoredPath(route.map.geometry, stops);
+  if (stops.some((coordinates) => !coordinates)) return null;
+  const path = buildStopAnchoredPath(route.map.geometry, stops as LngLat[]);
+  if (path.segments.length === 0) return null;
   const stopAlongs: number[] = [0];
   for (const segment of path.segments) {
-    stopAlongs.push(
-      stopAlongs[stopAlongs.length - 1]! + segment.totalLength,
-    );
+    stopAlongs.push(stopAlongs[stopAlongs.length - 1]! + segment.totalLength);
   }
   const totalLength = stopAlongs[stopAlongs.length - 1]!;
   const value = { path, stopAlongs, totalLength };
-  geometryCache.set(route, value);
+  patternGeometryCache.set(projections, value);
   return value;
 }
 
@@ -65,19 +73,20 @@ function cachedGeometry(route: CampusBusPassengerRoute): RouteGeometryCache {
  *
  * 每班次：发车时刻 departureAt + 逐站累计到站秒数（p50Seconds）构成时间轴；
  * 站间用梯形速度剖面（加速→匀速→减速）在站序锚定的沿线弧长上插值。
+ * 几何与停靠序列都取自该班次 pattern 的实际停靠站（projections），
+ * 部分停靠线路（如 route 2 邵逸夫堂仅部分班次停靠）不会错位。
  */
 export function computeBusPositions(
   route: CampusBusPassengerRoute,
   now: number,
   dwellMilliseconds = BUS_DWELL_MILLISECONDS,
 ): BusPosition[] {
-  const geometry = cachedGeometry(route);
-  if (geometry.path.segments.length === 0) return [];
-
   const positions: BusPosition[] = [];
   for (const departure of scheduledDeparturesForDate(now, route)) {
     const { departureAt, pattern } = departure;
-    const p50Seconds = pattern.projections.map((projection) => projection.p50Seconds);
+    const p50Seconds = pattern.projections.map(
+      (projection) => projection.p50Seconds,
+    );
     const { arrivals, leaves } = busTripTimeline(
       departureAt,
       p50Seconds,
@@ -87,6 +96,9 @@ export function computeBusPositions(
     // 未发车（now < 首站发车时刻）或已收班（now > 末站到站时刻）都不渲染
     if (now < departureAt) continue;
     if (now > arrivals[arrivals.length - 1]!) continue;
+
+    const geometry = cachedPatternGeometry(route, pattern.projections);
+    if (!geometry) continue;
 
     // 定位所在段：leave[k] <= now < leave[k+1]（k 为当前段起点站）
     let segmentIndex = 0;
@@ -100,25 +112,26 @@ export function computeBusPositions(
     const segmentLeave = leaves[segmentIndex + 1]!;
 
     if (now >= segmentArrival && now < segmentLeave) {
-      // 停在段末站（到站后 dwell）
-      const stop = route.stops[segmentIndex + 1]!;
+      // 停在段末站（到站后 dwell）：该站是 pattern 实际停靠序列中的站
+      const stopId = pattern.projections[segmentIndex + 1]!.stopOccurrenceId;
       positions.push({
         departureAt,
         position:
-          route.map.stopCoordinates[stop.id] ??
+          route.map.stopCoordinates[stopId] ??
           geometry.path.segments[0]!.points[0]!,
         atStop: true,
-        stopId: stop.id,
+        stopId,
         along: geometry.stopAlongs[segmentIndex + 1] ?? 0,
       });
       continue;
     }
 
-    // 行驶中：站 segmentIndex → segmentIndex+1
+    // 行驶中：站 segmentIndex → segmentIndex+1（均按 pattern 实际停靠序列）
     const segment = geometry.path.segments[segmentIndex];
     if (!segment) continue;
     const lengthMeters = segment.totalLength;
-    const travelSeconds = (arrivals[segmentIndex + 1]! - leaves[segmentIndex]!) / 1_000;
+    const travelSeconds =
+      (arrivals[segmentIndex + 1]! - leaves[segmentIndex]!) / 1_000;
     const profile = solveTrapezoidProfile(
       lengthMeters,
       travelSeconds,

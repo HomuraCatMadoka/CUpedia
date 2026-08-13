@@ -21,22 +21,13 @@ const LANDSD_LABEL_URL =
   "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/label/hk/tc/WGS84/{z}/{x}/{y}.png";
 const LANDSD_TERMS_URL = "https://api.portal.hkmapservice.gov.hk/tc";
 
-/** 车辆图标：lucide `bus`（侧视图），校徽黄 + 白色描边，保持与原圆点一致的白边视觉。 */
-const BUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-  <g stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/>
-    <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
-    <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
-  </g>
-  <g stroke="#d4a538" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/>
-    <path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/>
-    <circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/>
-  </g>
+/** 车辆图标：Material Design Icons `bus`（侧视图实心），校徽金黄 + 白色外描边。
+ *  双层绘制：白层先画（fill+stroke 整体外扩），金层盖住白层内部，白边仅留在外轮廓。
+ *  以 DOM marker 渲染，z-index 高于站点 marker，巴士盖在站点数字之上。 */
+const BUS_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill-rule="evenodd">
+  <path d="M18,11H6V6H18M16.5,17A1.5,1.5 0 0,1 15,15.5A1.5,1.5 0 0,1 16.5,14A1.5,1.5 0 0,1 18,15.5A1.5,1.5 0 0,1 16.5,17M7.5,17A1.5,1.5 0 0,1 6,15.5A1.5,1.5 0 0,1 7.5,14A1.5,1.5 0 0,1 9,15.5A1.5,1.5 0 0,1 7.5,17M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16Z" fill="#ffffff" stroke="#ffffff" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M18,11H6V6H18M16.5,17A1.5,1.5 0 0,1 15,15.5A1.5,1.5 0 0,1 16.5,14A1.5,1.5 0 0,1 18,15.5A1.5,1.5 0 0,1 16.5,17M7.5,17A1.5,1.5 0 0,1 6,15.5A1.5,1.5 0 0,1 7.5,14A1.5,1.5 0 0,1 9,15.5A1.5,1.5 0 0,1 7.5,17M4,16C4,16.88 4.39,17.67 5,18.22V20A1,1 0 0,0 6,21H7A1,1 0 0,0 8,20V19H16V20A1,1 0 0,0 17,21H18A1,1 0 0,0 19,20V18.22C19.61,17.67 20,16.88 20,16V6C20,2.5 16.42,2 12,2C7.58,2 4,2.5 4,6V16Z" fill="#d4a538"/>
 </svg>`;
-const BUS_ICON_DATA_URL = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
-  BUS_ICON_SVG,
-)}`;
 
 type CampusRouteMapProps = {
   busPositions: BusPosition[];
@@ -64,6 +55,7 @@ export function CampusRouteMap({
   const initialSelectedStopIdRef = useRef(selectedStopId);
   const selectedStopIdRef = useRef(selectedStopId);
   const markerElementsRef = useRef(new Map<string, HTMLButtonElement>());
+  const busMarkersRef = useRef(new Map<number, Marker>());
   const userMarkerRef = useRef<Marker | null>(null);
   const onSelectStopRef = useRef(onSelectStop);
   const onUserLocatedRef = useRef(onUserLocated);
@@ -165,41 +157,6 @@ export function CampusRouteMap({
           "line-width": 5,
         },
       });
-      map.addSource("campus-bus-vehicles", {
-        type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: [],
-        },
-      });
-      // 把 SVG 画到离屏 canvas 上取像素，绕开 MapLibre loadImage 对 SVG
-      // data URL 的不稳定支持（其 Image 加载路径明确不支持 SVG）。
-      const iconCanvas = document.createElement("canvas");
-      iconCanvas.width = 24;
-      iconCanvas.height = 24;
-      const iconContext = iconCanvas.getContext("2d");
-      if (iconContext) {
-        const busIcon = new Image();
-        busIcon.onload = () => {
-          iconContext.drawImage(busIcon, 0, 0);
-          const imageData = iconContext.getImageData(0, 0, 24, 24);
-          if (!map.getImage("campus-bus-icon")) {
-            map.addImage("campus-bus-icon", imageData);
-          }
-        };
-        busIcon.src = BUS_ICON_DATA_URL;
-      }
-      map.addLayer({
-        id: "campus-bus-vehicle-layer",
-        type: "symbol",
-        source: "campus-bus-vehicles",
-        layout: {
-          "icon-allow-overlap": true,
-          "icon-ignore-placement": true,
-          "icon-image": "campus-bus-icon",
-          "icon-size": 1.4,
-        },
-      });
     });
 
     const markerElements = markerElementsRef.current;
@@ -256,15 +213,13 @@ export function CampusRouteMap({
     return () => {
       userMarkerRef.current?.remove();
       userMarkerRef.current = null;
+      for (const marker of busMarkersRef.current.values()) {
+        marker.remove();
+      }
+      busMarkersRef.current.clear();
       markerElements.clear();
       resizeObserver.disconnect();
       map.off("webglcontextlost", handleWebGlContextLost);
-      if (map.getLayer("campus-bus-vehicle-layer")) {
-        map.removeLayer("campus-bus-vehicle-layer");
-      }
-      if (map.getSource("campus-bus-vehicles")) {
-        map.removeSource("campus-bus-vehicles");
-      }
       map.remove();
       mapRef.current = null;
     };
@@ -296,22 +251,33 @@ export function CampusRouteMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const source = map.getSource("campus-bus-vehicles");
-    if (!source) return;
-    (source as maplibregl.GeoJSONSource).setData({
-      type: "FeatureCollection",
-      features: busPositions.map((bus, index) => ({
-        type: "Feature",
-        geometry: {
-          type: "Point",
-          coordinates: [...bus.position],
-        },
-        properties: {
-          atStop: bus.atStop,
-          index,
-        },
-      })),
-    });
+
+    // 车辆作为 DOM marker 渲染：创建/更新/删除，z-index 高于站点 marker
+    const busMarkers = busMarkersRef.current;
+    const seenDepartureAt = new Set<number>();
+    for (const bus of busPositions) {
+      seenDepartureAt.add(bus.departureAt);
+      let marker = busMarkers.get(bus.departureAt);
+      if (!marker) {
+        const element = document.createElement("div");
+        element.className = styles.busMarker;
+        element.setAttribute("role", "img");
+        element.setAttribute("aria-label", "校巴（推算位置）");
+        element.innerHTML = BUS_ICON_SVG;
+        marker = new maplibregl.Marker({ element })
+          .setLngLat([...bus.position])
+          .addTo(map);
+        busMarkers.set(bus.departureAt, marker);
+      } else {
+        marker.setLngLat([...bus.position]);
+      }
+    }
+    // 移除已收班的车辆
+    for (const [departureAt, marker] of busMarkers) {
+      if (seenDepartureAt.has(departureAt)) continue;
+      marker.remove();
+      busMarkers.delete(departureAt);
+    }
 
     // 进站标记：正在停靠的站点数字底色变黄
     const dockingStopIds = new Set(
