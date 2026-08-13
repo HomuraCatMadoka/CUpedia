@@ -12,6 +12,24 @@ LOCK TABLE "canteen_menu_sources" IN SHARE ROW EXCLUSIVE MODE;
 -- menu-sync release. Normalize that audited alias in place before validating
 -- the canonical provider locator. The menu row UUID and all referencing
 -- votes/comments remain unchanged.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM canteen_menu_items legacy
+    JOIN canteen_menu_items canonical
+      ON canonical.canteen_id = legacy.canteen_id
+     AND canonical.external_source =
+       'aigens:' || split_part(legacy.external_source, ':', 2)
+     AND canonical.external_key = legacy.external_key
+     AND canonical.id <> legacy.id
+    WHERE legacy.external_source ~ '^order-place:[^:]+$'
+  ) THEN
+    RAISE EXCEPTION 'legacy order-place source collides with an existing canonical menu item';
+  END IF;
+END
+$$;
+
 UPDATE canteen_menu_items
 SET external_source = 'aigens:' || split_part(external_source, ':', 2),
     updated_at = now()
@@ -23,26 +41,6 @@ DO $$
 DECLARE
   v_unsupported_sources text;
 BEGIN
-  IF EXISTS (
-    SELECT external_source
-    FROM canteen_menu_items
-    WHERE external_source IS NOT NULL
-    GROUP BY external_source
-    HAVING count(DISTINCT canteen_id) <> 1
-  ) THEN
-    RAISE EXCEPTION 'one legacy external source is attached to multiple canteens';
-  END IF;
-
-  IF EXISTS (
-    SELECT canteen_id
-    FROM canteen_menu_items
-    WHERE external_source IS NOT NULL
-    GROUP BY canteen_id
-    HAVING count(DISTINCT external_source) <> 1
-  ) THEN
-    RAISE EXCEPTION 'one canteen contains multiple legacy external source namespaces';
-  END IF;
-
   SELECT string_agg(
     format(
       '%s (%s item/s)',
@@ -65,6 +63,27 @@ BEGIN
     RAISE EXCEPTION 'unsupported legacy external source namespace(s): %',
       v_unsupported_sources;
   END IF;
+
+  IF EXISTS (
+    SELECT external_source
+    FROM canteen_menu_items
+    WHERE external_source IS NOT NULL
+    GROUP BY external_source
+    HAVING count(DISTINCT canteen_id) <> 1
+  ) THEN
+    RAISE EXCEPTION 'one legacy external source is attached to multiple canteens';
+  END IF;
+
+  IF EXISTS (
+    SELECT canteen_id
+    FROM canteen_menu_items
+    WHERE external_source IS NOT NULL
+    GROUP BY canteen_id
+    HAVING count(DISTINCT external_source) <> 1
+  ) THEN
+    RAISE EXCEPTION 'one canteen contains multiple legacy external source namespaces';
+  END IF;
+
 END
 $$;
 
