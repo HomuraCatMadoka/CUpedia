@@ -13,8 +13,13 @@ test("admin publishes a product update that anonymous readers can discover", asy
   await page.goto("/admin/product-updates");
   await page.getByLabel("标题").fill(title);
   await page.getByLabel("摘要").fill(summary);
-  await page.getByText("课程", { exact: true }).click();
   await page.getByLabel("正文").fill(content);
+  await page.getByRole("button", { name: "确认并发布" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "请至少选择一个产品领域" }),
+  ).toHaveText("请至少选择一个产品领域");
+
+  await page.getByText("课程", { exact: true }).click();
   await page.getByRole("button", { name: "确认并发布" }).click();
 
   await expect(page).toHaveURL(/\/updates\/[0-9a-f-]+$/);
@@ -23,8 +28,13 @@ test("admin publishes a product update that anonymous readers can discover", asy
   await expect(page.getByText(content)).toBeVisible();
 
   await page.context().clearCookies();
+  await page.setViewportSize({ width: 393, height: 852 });
   await page.goto("/");
-  await page.getByRole("link", { name: "产品更新" }).click();
+  const publicEntry = page.getByRole("link", { name: "产品更新" });
+  await expect(
+    publicEntry.getByText("产品更新", { exact: true }),
+  ).toBeVisible();
+  await publicEntry.click();
 
   await expect(page).toHaveURL(/\/updates$/);
   const updateLink = page.getByRole("link", { name: new RegExp(title) });

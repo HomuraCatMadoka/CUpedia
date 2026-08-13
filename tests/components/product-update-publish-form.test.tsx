@@ -30,9 +30,10 @@ describe("ProductUpdatePublishForm", () => {
   });
 
   it("surfaces server validation errors inline", async () => {
-    mocks.publishProductUpdate.mockRejectedValue(
-      new Error("请至少选择一个产品领域"),
-    );
+    mocks.publishProductUpdate.mockResolvedValue({
+      ok: false,
+      error: "请至少选择一个产品领域",
+    });
     render(<ProductUpdatePublishForm />);
 
     fireEvent.change(screen.getByLabelText("标题"), {

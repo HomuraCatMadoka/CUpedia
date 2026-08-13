@@ -42,6 +42,7 @@ describe("publishProductUpdate", () => {
 
   it("authenticates before publishing and revalidates public routes", async () => {
     await expect(publishProductUpdate(input)).resolves.toEqual({
+      ok: true,
       id: updateId,
     });
 
@@ -60,9 +61,12 @@ describe("publishProductUpdate", () => {
   });
 
   it("does not write invalid input", async () => {
-    await expect(publishProductUpdate({ ...input, areas: [] })).rejects.toThrow(
-      "请至少选择一个产品领域",
-    );
+    await expect(
+      publishProductUpdate({ ...input, areas: [] }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "请至少选择一个产品领域",
+    });
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 

@@ -49,6 +49,17 @@ export type PublicProductUpdate = ProductUpdateInput & {
   publishedAt: string;
 };
 
+export class ProductUpdateValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProductUpdateValidationError";
+  }
+}
+
+function invalidProductUpdate(message: string): never {
+  throw new ProductUpdateValidationError(message);
+}
+
 export function isProductUpdateId(value: unknown): value is string {
   return typeof value === "string" && UUID_PATTERN.test(value);
 }
@@ -72,7 +83,7 @@ export function parseProductUpdateInput(
 ): ProductUpdateInput {
   const value: unknown = input;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("产品更新数据格式无效");
+    invalidProductUpdate("产品更新数据格式无效");
   }
   const fields = value as Record<string, unknown>;
   const title = typeof fields.title === "string" ? fields.title.trim() : "";
@@ -81,28 +92,34 @@ export function parseProductUpdateInput(
   const content =
     typeof fields.content === "string" ? fields.content.trim() : "";
 
-  if (!title) throw new Error("请输入产品更新标题");
+  if (!title) invalidProductUpdate("请输入产品更新标题");
   if (title.length > PRODUCT_UPDATE_TITLE_MAX_LENGTH) {
-    throw new Error(`标题不能超过 ${PRODUCT_UPDATE_TITLE_MAX_LENGTH} 个字符`);
+    invalidProductUpdate(
+      `标题不能超过 ${PRODUCT_UPDATE_TITLE_MAX_LENGTH} 个字符`,
+    );
   }
-  if (!summary) throw new Error("请输入产品更新摘要");
+  if (!summary) invalidProductUpdate("请输入产品更新摘要");
   if (summary.length > PRODUCT_UPDATE_SUMMARY_MAX_LENGTH) {
-    throw new Error(`摘要不能超过 ${PRODUCT_UPDATE_SUMMARY_MAX_LENGTH} 个字符`);
+    invalidProductUpdate(
+      `摘要不能超过 ${PRODUCT_UPDATE_SUMMARY_MAX_LENGTH} 个字符`,
+    );
   }
-  if (!content) throw new Error("请输入产品更新正文");
+  if (!content) invalidProductUpdate("请输入产品更新正文");
   if (content.length > PRODUCT_UPDATE_CONTENT_MAX_LENGTH) {
-    throw new Error(`正文不能超过 ${PRODUCT_UPDATE_CONTENT_MAX_LENGTH} 个字符`);
+    invalidProductUpdate(
+      `正文不能超过 ${PRODUCT_UPDATE_CONTENT_MAX_LENGTH} 个字符`,
+    );
   }
 
   if (!isProductUpdateType(fields.type)) {
-    throw new Error("请选择有效的更新类型");
+    invalidProductUpdate("请选择有效的更新类型");
   }
   if (!Array.isArray(fields.areas) || fields.areas.length === 0) {
-    throw new Error("请至少选择一个产品领域");
+    invalidProductUpdate("请至少选择一个产品领域");
   }
   const areas = [...new Set(fields.areas)];
   if (!areas.every(isProductUpdateArea)) {
-    throw new Error("请选择有效的产品领域");
+    invalidProductUpdate("请选择有效的产品领域");
   }
 
   return { title, summary, content, type: fields.type, areas };

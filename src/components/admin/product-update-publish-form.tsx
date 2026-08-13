@@ -52,6 +52,10 @@ export function ProductUpdatePublishForm() {
     startTransition(async () => {
       try {
         const result = await publishProductUpdate(form);
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
         setForm(EMPTY_FORM);
         toast.success("产品更新已发布");
         router.push(`/updates/${result.id}`);
