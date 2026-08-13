@@ -280,6 +280,40 @@ test.describe("campus bus Route 2 mobile journey", () => {
 test.describe("campus bus reviewed route catalog", () => {
   test.use({ viewport: MOBILE_VIEWPORT, isMobile: true, hasTouch: true });
 
+  test("keeps nearby results after opening a route and returning home", async ({
+    context,
+    page,
+  }) => {
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({
+      latitude: 22.4135,
+      longitude: 114.2101,
+    });
+    const response = await page.goto("/campus-bus");
+    expect(response?.status()).toBe(200);
+
+    await page.getByRole("button", { name: "使用我的位置" }).click();
+    await expect(page.getByText("按直線距離排序")).toBeVisible();
+    const firstDistance = await page
+      .getByText(/約 \d+ 米/)
+      .first()
+      .textContent();
+
+    await page
+      .getByRole("tabpanel", { name: "附近" })
+      .getByRole("link")
+      .first()
+      .click();
+    await expect(
+      page.getByRole("link", { name: "返回校巴首頁" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "返回校巴首頁" }).click();
+
+    await expect(page).toHaveURL(/\/campus-bus$/);
+    await expect(page.getByText("按直線距離排序")).toBeVisible();
+    await expect(page.getByText(firstDistance!)).toBeVisible();
+  });
+
   test("keeps manual Boarding place selection usable after location is denied", async ({
     page,
   }) => {

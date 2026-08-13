@@ -8,6 +8,7 @@ import {
   CAMPUS_BUS_HOME_TAB_STORAGE_KEY,
   CampusBusHome,
 } from "@/components/campus-transport/campus-bus-home";
+import { resetCampusBusBoardingPlaceSession } from "@/lib/campus-transport/boarding-place-session";
 import { toCampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
 import { getCampusBusRoute } from "@/lib/campus-transport/routes-data";
 
@@ -15,6 +16,7 @@ let getCurrentPosition: ReturnType<typeof vi.fn>;
 let storage: Map<string, string>;
 
 beforeEach(() => {
+  resetCampusBusBoardingPlaceSession();
   storage = new Map();
   Object.defineProperty(window, "localStorage", {
     configurable: true,

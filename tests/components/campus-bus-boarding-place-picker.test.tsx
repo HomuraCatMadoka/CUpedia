@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CampusBusBoardingPlacePicker } from "@/components/campus-transport/campus-bus-boarding-place-picker";
+import { resetCampusBusBoardingPlaceSession } from "@/lib/campus-transport/boarding-place-session";
 import { toCampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
 import { getCampusBusRoute } from "@/lib/campus-transport/routes-data";
 
@@ -23,6 +24,7 @@ let callbacks: PositionCallbacks[];
 let getCurrentPosition: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
+  resetCampusBusBoardingPlaceSession();
   callbacks = [];
   getCurrentPosition = vi.fn(
     (success: PositionCallback, error: PositionErrorCallback) => {
@@ -115,6 +117,24 @@ describe("CampusBusBoardingPlacePicker", () => {
     expect(screen.getByText("按直線距離排序")).toBeTruthy();
     expect(screen.getAllByText(/約 \d+ 米/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/步行/)).toBeNull();
+  });
+
+  it("restores derived nearby results after returning from a route detail", async () => {
+    const view = renderPicker();
+    fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
+    await act(() => callbacks[0]!.success(position(114.2101, 22.4135)));
+    expect(screen.getByText("按直線距離排序")).toBeTruthy();
+    const distanceBeforeNavigation =
+      screen.getAllByText(/約 \d+ 米/)[0]?.textContent;
+
+    // A route-detail navigation unmounts the home page. Browser Back mounts a
+    // new instance in the same client runtime.
+    view.unmount();
+    renderPicker();
+
+    expect(screen.getByText("按直線距離排序")).toBeTruthy();
+    expect(screen.getByText(distanceBeforeNavigation!)).toBeTruthy();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
   });
 
   it("shows the prototype requesting layout with skeletons and manual fallback", () => {

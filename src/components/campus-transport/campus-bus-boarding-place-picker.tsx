@@ -23,6 +23,13 @@ import { Input } from "@/components/ui/input";
 import { useCampusBusNearbyLocation } from "@/hooks/use-campus-bus-nearby-location";
 import type { CampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
 import {
+  getCampusBusBoardingPlaceSession,
+  getServerCampusBusBoardingPlaceSession,
+  rememberCampusBusNearbyPlaces,
+  rememberCampusBusSelectedPlace,
+  subscribeToCampusBusBoardingPlaceSession,
+} from "@/lib/campus-transport/boarding-place-session";
+import {
   buildCampusBusBoardingPlaces,
   findNearbyCampusBusBoardingPlaces,
   filterCampusBusBoardingPlaces,
@@ -187,7 +194,6 @@ export function CampusBusBoardingPlacePicker({
 }: CampusBusBoardingPlacePickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [now, setNow] = useState(initialNow);
   const {
     cancelRequest,
@@ -195,14 +201,20 @@ export function CampusBusBoardingPlacePicker({
     requestLocation,
     state: locationState,
   } = useCampusBusNearbyLocation();
+  const boardingPlaceSession = useSyncExternalStore(
+    subscribeToCampusBusBoardingPlaceSession,
+    getCampusBusBoardingPlaceSession,
+    getServerCampusBusBoardingPlaceSession,
+  );
   const places = useMemo(() => buildCampusBusBoardingPlaces(routes), [routes]);
   const results = useMemo(
     () => filterCampusBusBoardingPlaces(places, query),
     [places, query],
   );
   const selectedPlace =
-    places.find((place) => place.id === selectedPlaceId) ?? null;
-  const nearbyPlaces = useMemo(
+    places.find((place) => place.id === boardingPlaceSession.selectedPlaceId) ??
+    null;
+  const locatedNearbyPlaces = useMemo(
     () =>
       locationState.status === "ready"
         ? findNearbyCampusBusBoardingPlaces(
@@ -213,6 +225,31 @@ export function CampusBusBoardingPlacePicker({
         : [],
     [locationState, places],
   );
+  const restoredNearbyPlaces = useMemo(
+    () =>
+      boardingPlaceSession.nearbyPlaces
+        ?.map(({ distanceMeters, placeId }) => {
+          const place = places.find((candidate) => candidate.id === placeId);
+          return place ? { distanceMeters, place } : null;
+        })
+        .filter((result) => result !== null) ?? [],
+    [boardingPlaceSession.nearbyPlaces, places],
+  );
+  const nearbyPlaces =
+    locationState.status === "ready"
+      ? locatedNearbyPlaces
+      : restoredNearbyPlaces;
+
+  useEffect(() => {
+    if (locationState.status !== "ready") return;
+
+    rememberCampusBusNearbyPlaces(
+      locatedNearbyPlaces.map(({ distanceMeters, place }) => ({
+        distanceMeters: Math.round(distanceMeters / 10) * 10,
+        placeId: place.id,
+      })),
+    );
+  }, [locatedNearbyPlaces, locationState.status]);
 
   useEffect(() => {
     const syncTimer = window.setTimeout(() => setNow(Date.now()), 0);
@@ -229,7 +266,10 @@ export function CampusBusBoardingPlacePicker({
     getServerLocationSupport,
   );
   const visibleLocationStatus = locationSupported
-    ? locationState.status
+    ? locationState.status === "idle" &&
+      boardingPlaceSession.nearbyPlaces !== null
+      ? "ready"
+      : locationState.status
     : "unsupported";
   const locationHeading =
     visibleLocationStatus === "denied"
@@ -245,8 +285,13 @@ export function CampusBusBoardingPlacePicker({
 
   function selectPlace(place: CampusBusBoardingPlace) {
     cancelRequest();
-    setSelectedPlaceId(place.id);
+    rememberCampusBusSelectedPlace(place.id);
     setOpen(false);
+  }
+
+  function requestNearbyLocation() {
+    rememberCampusBusNearbyPlaces(null);
+    requestLocation();
   }
 
   return (
@@ -264,7 +309,7 @@ export function CampusBusBoardingPlacePicker({
             </button>
             <button
               type="button"
-              onClick={requestLocation}
+              onClick={requestNearbyLocation}
               className="flex min-h-10 touch-manipulation items-center gap-1.5 font-semibold text-[#5b2a73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:text-[#e7c9f1]"
             >
               <RefreshCwIcon className="size-3.5" aria-hidden="true" />
@@ -334,7 +379,7 @@ export function CampusBusBoardingPlacePicker({
             visibleLocationStatus === "unavailable" ? (
               <button
                 type="button"
-                onClick={requestLocation}
+                onClick={requestNearbyLocation}
                 className="min-h-11 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40"
               >
                 重試定位
@@ -368,7 +413,7 @@ export function CampusBusBoardingPlacePicker({
           <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
             <button
               type="button"
-              onClick={requestLocation}
+              onClick={requestNearbyLocation}
               className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#4b1f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40"
             >
               <NavigationIcon className="size-4" aria-hidden="true" />
