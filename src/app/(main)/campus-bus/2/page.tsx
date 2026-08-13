@@ -12,7 +12,12 @@ export const metadata: Metadata = {
   robots: { follow: false, index: false },
 };
 
-export default async function Route2Page() {
+export default async function Route2Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ stop?: string | string[] }>;
+}) {
+  const { stop } = await searchParams;
   const route = await getChampionCampusBusRoute("2");
   if (!route) return null;
   // This route is force-dynamic and the timestamp seeds a client-side clock.
@@ -22,6 +27,7 @@ export default async function Route2Page() {
     <CampusRouteView
       route={toCampusBusPassengerRoute(route)}
       initialNow={initialNow}
+      initialStopId={typeof stop === "string" ? stop : undefined}
     />
   );
 }
