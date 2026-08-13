@@ -4,10 +4,13 @@ import Link from "next/link";
 import {
   BusFrontIcon,
   ChevronRightIcon,
+  LocateFixedIcon,
   MapPinIcon,
+  NavigationIcon,
+  RefreshCwIcon,
   SearchIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import {
   Dialog,
@@ -17,14 +20,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { useCampusBusNearbyLocation } from "@/hooks/use-campus-bus-nearby-location";
 import type { CampusBusPassengerRoute } from "@/lib/campus-transport/campus-bus";
 import {
   buildCampusBusBoardingPlaces,
+  findNearbyCampusBusBoardingPlaces,
   filterCampusBusBoardingPlaces,
+  formatApproximateCampusBusDistance,
   getCampusBusBoardingPlaceRouteBoards,
   type BoardingPlaceRouteBoard,
   type CampusBusBoardingPlace,
 } from "@/lib/campus-transport/boarding-places";
+
+const NEARBY_BOARDING_PLACE_LIMIT = 3;
+const NEARBY_RADIUS_METERS = 800;
+const subscribeToLocationSupport = () => () => {};
+const getServerLocationSupport = () => true;
+const getBrowserLocationSupport = () => "geolocation" in navigator;
 
 type CampusBusBoardingPlacePickerProps = {
   initialNow: number;
@@ -105,6 +117,70 @@ function RouteBoard({ routeBoard }: { routeBoard: BoardingPlaceRouteBoard }) {
   );
 }
 
+function BoardingPlaceCard({
+  distanceLabel,
+  now,
+  place,
+  routeLimit,
+  routes,
+}: {
+  distanceLabel?: string;
+  now: number;
+  place: CampusBusBoardingPlace;
+  routeLimit?: number;
+  routes: CampusBusPassengerRoute[];
+}) {
+  const routeBoards = getCampusBusBoardingPlaceRouteBoards(place, routes, now);
+  const visibleRouteBoards = routeLimit
+    ? routeBoards.slice(0, routeLimit)
+    : routeBoards;
+  return (
+    <article className="overflow-hidden rounded-2xl border bg-[#faf8fb] px-4 dark:bg-muted/25">
+      <div className="flex items-start justify-between gap-3 py-4">
+        <div>
+          <h3 className="flex items-center gap-2 font-bold">
+            <MapPinIcon
+              className="size-4 text-[#5b2a73] dark:text-[#e7c9f1]"
+              aria-hidden="true"
+            />
+            {place.nameZhHant}
+          </h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {place.coordinates
+              ? `${new Set(routeBoards.map((board) => board.routeId)).size} 條路線 · ${routeBoards.length} 個方向或停靠次序`
+              : "站點位置資料待核對；班次仍可查看"}
+          </p>
+        </div>
+        {distanceLabel ? (
+          <span className="shrink-0 text-xs font-semibold text-[#5b2a73] dark:text-[#e7c9f1]">
+            {distanceLabel}
+          </span>
+        ) : null}
+      </div>
+      {routeBoards.length > 0 ? (
+        <div>
+          {visibleRouteBoards.map((routeBoard) => (
+            <RouteBoard
+              key={`${routeBoard.routeId}:${routeBoard.stopOccurrenceId}`}
+              routeBoard={routeBoard}
+            />
+          ))}
+          {visibleRouteBoards.length < routeBoards.length ? (
+            <p className="border-t py-3 text-center text-xs text-muted-foreground">
+              另有 {routeBoards.length - visibleRouteBoards.length}{" "}
+              個方向或停靠次序；手動選擇可查看全部
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="border-t py-8 text-center text-sm text-muted-foreground">
+          暫時找不到經過此地點的路線。
+        </div>
+      )}
+    </article>
+  );
+}
+
 export function CampusBusBoardingPlacePicker({
   initialNow,
   routes,
@@ -113,6 +189,12 @@ export function CampusBusBoardingPlacePicker({
   const [query, setQuery] = useState("");
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [now, setNow] = useState(initialNow);
+  const {
+    cancelRequest,
+    permissionHint,
+    requestLocation,
+    state: locationState,
+  } = useCampusBusNearbyLocation();
   const places = useMemo(() => buildCampusBusBoardingPlaces(routes), [routes]);
   const results = useMemo(
     () => filterCampusBusBoardingPlaces(places, query),
@@ -120,9 +202,17 @@ export function CampusBusBoardingPlacePicker({
   );
   const selectedPlace =
     places.find((place) => place.id === selectedPlaceId) ?? null;
-  const routeBoards = selectedPlace
-    ? getCampusBusBoardingPlaceRouteBoards(selectedPlace, routes, now)
-    : [];
+  const nearbyPlaces = useMemo(
+    () =>
+      locationState.status === "ready"
+        ? findNearbyCampusBusBoardingPlaces(
+            places,
+            locationState.location,
+            NEARBY_RADIUS_METERS,
+          ).slice(0, NEARBY_BOARDING_PLACE_LIMIT)
+        : [],
+    [locationState, places],
+  );
 
   useEffect(() => {
     const syncTimer = window.setTimeout(() => setNow(Date.now()), 0);
@@ -133,7 +223,17 @@ export function CampusBusBoardingPlacePicker({
     };
   }, []);
 
+  const locationSupported = useSyncExternalStore(
+    subscribeToLocationSupport,
+    getBrowserLocationSupport,
+    getServerLocationSupport,
+  );
+  const visibleLocationStatus = locationSupported
+    ? locationState.status
+    : "unsupported";
+
   function selectPlace(place: CampusBusBoardingPlace) {
+    cancelRequest();
     setSelectedPlaceId(place.id);
     setOpen(false);
   }
@@ -142,52 +242,106 @@ export function CampusBusBoardingPlacePicker({
     <section className="border-b bg-background px-5 py-5 sm:px-7">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-bold">手動選擇乘車地點</h2>
+          <h2 className="font-bold">查找乘車地點</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            不使用定位，也可以查看指定地點的下一班。
+            只在你點擊後取得一次位置，不會持續追蹤或保存。
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-[#5b2a73] px-5 text-sm font-semibold text-[#5b2a73] transition-colors hover:bg-[#f3edf6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:border-[#d8b9e4] dark:text-[#e7c9f1] dark:hover:bg-[#2b2030]"
-        >
-          {selectedPlace ? "更改乘車地點" : "選擇乘車地點"}
-        </button>
-      </div>
-
-      {selectedPlace ? (
-        <div className="mt-5 overflow-hidden rounded-2xl border bg-[#faf8fb] px-4 dark:bg-muted/25">
-          <div className="flex items-start justify-between gap-3 py-4">
-            <div>
-              <h3 className="flex items-center gap-2 font-bold">
-                <MapPinIcon
-                  className="size-4 text-[#5b2a73] dark:text-[#e7c9f1]"
+        <div className="flex flex-col gap-2 sm:flex-row">
+          {visibleLocationStatus !== "denied" &&
+          visibleLocationStatus !== "unsupported" ? (
+            <button
+              type="button"
+              onClick={requestLocation}
+              disabled={visibleLocationStatus === "requesting"}
+              className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#4b1f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 disabled:cursor-wait disabled:opacity-70"
+            >
+              {visibleLocationStatus === "requesting" ? (
+                <RefreshCwIcon
+                  className="size-4 animate-spin motion-reduce:animate-none"
                   aria-hidden="true"
                 />
-                {selectedPlace.nameZhHant}
-              </h3>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {selectedPlace.coordinates
-                  ? `${new Set(routeBoards.map((board) => board.routeId)).size} 條路線 · ${routeBoards.length} 個方向或停靠次序`
-                  : "站點位置資料待核對；班次仍可查看"}
-              </p>
-            </div>
-          </div>
-          {routeBoards.length > 0 ? (
-            <div>
-              {routeBoards.map((routeBoard) => (
-                <RouteBoard
-                  key={`${routeBoard.routeId}:${routeBoard.stopOccurrenceId}`}
-                  routeBoard={routeBoard}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="border-t py-8 text-center text-sm text-muted-foreground">
-              暫時找不到經過此地點的路線。
-            </div>
-          )}
+              ) : visibleLocationStatus === "ready" ? (
+                <LocateFixedIcon className="size-4" aria-hidden="true" />
+              ) : (
+                <NavigationIcon className="size-4" aria-hidden="true" />
+              )}
+              {visibleLocationStatus === "requesting"
+                ? "正在取得位置"
+                : visibleLocationStatus === "ready"
+                  ? "重新定位"
+                  : "使用我的位置"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-[#5b2a73] px-5 text-sm font-semibold text-[#5b2a73] transition-colors hover:bg-[#f3edf6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:border-[#d8b9e4] dark:text-[#e7c9f1] dark:hover:bg-[#2b2030]"
+          >
+            {selectedPlace ? "更改乘車地點" : "手動選擇"}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 text-sm" aria-live="polite">
+        {visibleLocationStatus === "idle" ? (
+          <p className="text-muted-foreground">
+            {permissionHint === "denied"
+              ? "瀏覽器目前不允許使用位置；你仍可手動選擇乘車地點。"
+              : "尚未使用位置；你可以直接手動選擇。"}
+          </p>
+        ) : visibleLocationStatus === "requesting" ? (
+          <p className="text-muted-foreground">
+            正在查找附近乘車地點；手動選擇仍可使用。
+          </p>
+        ) : visibleLocationStatus === "denied" ? (
+          <p className="text-muted-foreground">
+            未允許使用位置。請手動選擇，或在瀏覽器設定中重新允許。
+          </p>
+        ) : visibleLocationStatus === "timeout" ? (
+          <p className="text-muted-foreground">
+            取得位置逾時。你可以重試或手動選擇。
+          </p>
+        ) : visibleLocationStatus === "unavailable" ? (
+          <p className="text-muted-foreground">
+            暫時無法取得位置。你可以重試或手動選擇。
+          </p>
+        ) : visibleLocationStatus === "unsupported" ? (
+          <p className="text-muted-foreground">
+            此瀏覽器不支持定位，請手動選擇乘車地點。
+          </p>
+        ) : nearbyPlaces.length === 0 ? (
+          <p className="text-muted-foreground">
+            附近 800 米內找不到乘車地點，請手動選擇。
+          </p>
+        ) : (
+          <p className="font-semibold text-[#5b2a73] dark:text-[#e7c9f1]">
+            附近乘車地點
+          </p>
+        )}
+      </div>
+
+      {visibleLocationStatus === "ready" && nearbyPlaces.length > 0 ? (
+        <div className="mt-4 space-y-4">
+          {nearbyPlaces.map(({ distanceMeters, place }) => (
+            <BoardingPlaceCard
+              key={place.id}
+              distanceLabel={formatApproximateCampusBusDistance(distanceMeters)}
+              now={now}
+              place={place}
+              routeLimit={3}
+              routes={routes}
+            />
+          ))}
+        </div>
+      ) : null}
+
+      {selectedPlace ? (
+        <div className="mt-5">
+          <p className="mb-2 text-sm font-semibold text-[#5b2a73] dark:text-[#e7c9f1]">
+            手動選擇
+          </p>
+          <BoardingPlaceCard now={now} place={selectedPlace} routes={routes} />
         </div>
       ) : null}
 
