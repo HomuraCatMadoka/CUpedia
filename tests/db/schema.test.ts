@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getTableColumns } from "drizzle-orm";
-import { getTableConfig } from "drizzle-orm/pg-core";
+import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
 import {
   users,
   wikiDrafts,
@@ -27,6 +27,10 @@ import {
   productUpdates,
   notifications,
 } from "@/db/schema";
+import {
+  PRODUCT_UPDATE_AREAS,
+  PRODUCT_UPDATE_TYPES,
+} from "@/lib/product-update-types";
 
 describe("schema", () => {
   it("users table has required custom fields", () => {
@@ -262,5 +266,14 @@ describe("schema", () => {
         "product_updates_areas_allowed_check",
       ]),
     );
+    const checkSql = config.checks.map(
+      (constraint) => new PgDialect().sqlToQuery(constraint.value).sql,
+    );
+    for (const type of PRODUCT_UPDATE_TYPES) {
+      expect(checkSql.some((query) => query.includes(`'${type}'`))).toBe(true);
+    }
+    for (const area of PRODUCT_UPDATE_AREAS) {
+      expect(checkSql.some((query) => query.includes(`'${area}'`))).toBe(true);
+    }
   });
 });

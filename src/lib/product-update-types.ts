@@ -53,12 +53,33 @@ export function isProductUpdateId(value: unknown): value is string {
   return typeof value === "string" && UUID_PATTERN.test(value);
 }
 
+function isProductUpdateType(value: unknown): value is ProductUpdateType {
+  return (
+    typeof value === "string" &&
+    PRODUCT_UPDATE_TYPES.some((type) => type === value)
+  );
+}
+
+function isProductUpdateArea(value: unknown): value is ProductUpdateArea {
+  return (
+    typeof value === "string" &&
+    PRODUCT_UPDATE_AREAS.some((area) => area === value)
+  );
+}
+
 export function parseProductUpdateInput(
   input: ProductUpdateInput,
 ): ProductUpdateInput {
-  const title = typeof input.title === "string" ? input.title.trim() : "";
-  const summary = typeof input.summary === "string" ? input.summary.trim() : "";
-  const content = typeof input.content === "string" ? input.content.trim() : "";
+  const value: unknown = input;
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("产品更新数据格式无效");
+  }
+  const fields = value as Record<string, unknown>;
+  const title = typeof fields.title === "string" ? fields.title.trim() : "";
+  const summary =
+    typeof fields.summary === "string" ? fields.summary.trim() : "";
+  const content =
+    typeof fields.content === "string" ? fields.content.trim() : "";
 
   if (!title) throw new Error("请输入产品更新标题");
   if (title.length > PRODUCT_UPDATE_TITLE_MAX_LENGTH) {
@@ -73,16 +94,16 @@ export function parseProductUpdateInput(
     throw new Error(`正文不能超过 ${PRODUCT_UPDATE_CONTENT_MAX_LENGTH} 个字符`);
   }
 
-  if (!PRODUCT_UPDATE_TYPES.includes(input.type)) {
+  if (!isProductUpdateType(fields.type)) {
     throw new Error("请选择有效的更新类型");
   }
-  if (!Array.isArray(input.areas) || input.areas.length === 0) {
+  if (!Array.isArray(fields.areas) || fields.areas.length === 0) {
     throw new Error("请至少选择一个产品领域");
   }
-  const areas = [...new Set(input.areas)];
-  if (!areas.every((area) => PRODUCT_UPDATE_AREAS.includes(area))) {
+  const areas = [...new Set(fields.areas)];
+  if (!areas.every(isProductUpdateArea)) {
     throw new Error("请选择有效的产品领域");
   }
 
-  return { title, summary, content, type: input.type, areas };
+  return { title, summary, content, type: fields.type, areas };
 }

@@ -11,6 +11,15 @@ const input = {
 };
 
 describe("product update input", () => {
+  it("returns a domain error for malformed runtime values", () => {
+    expect(() => parseProductUpdateInput(null as never)).toThrow(
+      "产品更新数据格式无效",
+    );
+    expect(() => parseProductUpdateInput([] as never)).toThrow(
+      "产品更新数据格式无效",
+    );
+  });
+
   it("normalizes user-facing copy and removes duplicate areas", () => {
     expect(
       parseProductUpdateInput({

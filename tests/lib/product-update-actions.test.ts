@@ -65,4 +65,13 @@ describe("publishProductUpdate", () => {
     );
     expect(mocks.insert).not.toHaveBeenCalled();
   });
+
+  it("does not validate or write when admin authorization fails", async () => {
+    mocks.requireAdmin.mockRejectedValue(new Error("Admin access required"));
+
+    await expect(publishProductUpdate(input)).rejects.toThrow(
+      "Admin access required",
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
 });
