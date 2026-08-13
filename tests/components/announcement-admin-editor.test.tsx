@@ -41,6 +41,8 @@ function Harness({ onSubmit = vi.fn() }: { onSubmit?: () => void }) {
         selected={selected}
         lifecycle="draft"
         isAlreadyPublic={false}
+        canDelete={true}
+        canWithdraw={false}
         isPending={false}
         editor={editor}
         onSubmit={(event) => {
