@@ -26,6 +26,49 @@ export type CampusBusBoardingPlace = {
   stopOccurrences: BoardingPlaceStopOccurrence[];
 };
 
+export type NearbyCampusBusBoardingPlace = {
+  distanceMeters: number;
+  place: CampusBusBoardingPlace;
+};
+
+const EARTH_RADIUS_METERS = 6_371_000;
+
+export function campusBusDistanceInMeters(from: LngLat, to: LngLat) {
+  const latitude1 = (from[1] * Math.PI) / 180;
+  const latitude2 = (to[1] * Math.PI) / 180;
+  const deltaLatitude = ((to[1] - from[1]) * Math.PI) / 180;
+  const deltaLongitude = ((to[0] - from[0]) * Math.PI) / 180;
+  const haversine =
+    Math.sin(deltaLatitude / 2) ** 2 +
+    Math.cos(latitude1) *
+      Math.cos(latitude2) *
+      Math.sin(deltaLongitude / 2) ** 2;
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(haversine));
+}
+
+export function findNearbyCampusBusBoardingPlaces(
+  places: CampusBusBoardingPlace[],
+  queryLocation: LngLat,
+  maximumDistanceMeters: number,
+): NearbyCampusBusBoardingPlace[] {
+  return places
+    .flatMap((place) => {
+      if (!place.coordinates) return [];
+      const distanceMeters = campusBusDistanceInMeters(
+        queryLocation,
+        place.coordinates,
+      );
+      return distanceMeters <= maximumDistanceMeters
+        ? [{ distanceMeters, place }]
+        : [];
+    })
+    .sort((left, right) => left.distanceMeters - right.distanceMeters);
+}
+
+export function formatApproximateCampusBusDistance(distanceMeters: number) {
+  return `約 ${Math.max(10, Math.round(distanceMeters / 10) * 10)} 米`;
+}
+
 export function getCampusBusPassengerRouteName(
   routeCode: string,
   routeNameZhHant: string,

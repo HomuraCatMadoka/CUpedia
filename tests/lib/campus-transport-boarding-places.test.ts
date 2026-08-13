@@ -7,7 +7,10 @@ import {
 } from "@/lib/campus-transport/campus-bus";
 import {
   buildCampusBusBoardingPlaces,
+  campusBusDistanceInMeters,
   filterCampusBusBoardingPlaces,
+  findNearbyCampusBusBoardingPlaces,
+  formatApproximateCampusBusDistance,
   getCampusBusBoardingPlaceRouteBoards,
 } from "@/lib/campus-transport/boarding-places";
 import {
@@ -122,5 +125,26 @@ describe("campus bus Boarding places", () => {
       repeatedStopIndex: null,
       repeatedStopTotal: 1,
     });
+  });
+
+  it("sorts coordinate-bearing places by straight-line distance without selecting a Stop", () => {
+    const places = buildCampusBusBoardingPlaces(routes);
+    const origin = places.find(
+      (place) => place.id === "stop:cuhk-wp-stop-2552",
+    )!.coordinates!;
+    const nearby = findNearbyCampusBusBoardingPlaces(places, origin, 500);
+
+    expect(nearby[0]).toMatchObject({
+      distanceMeters: 0,
+      place: { id: "stop:cuhk-wp-stop-2552" },
+    });
+    expect(nearby.map((item) => item.distanceMeters)).toEqual(
+      [...nearby.map((item) => item.distanceMeters)].sort(
+        (left, right) => left - right,
+      ),
+    );
+    expect(formatApproximateCampusBusDistance(123)).toBe("約 120 米");
+    expect(campusBusDistanceInMeters(origin, origin)).toBe(0);
+    expect(nearby[0]?.place.stopOccurrences.length).toBeGreaterThan(1);
   });
 });
