@@ -441,7 +441,33 @@ BEGIN
       'aigens:' || split_part(NEW.external_source, ':', 2);
   END IF;
 
-  IF NEW.external_source IS NULL OR NEW.menu_source_id IS NOT NULL THEN
+  IF NEW.external_source IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF NEW.menu_source_id IS NOT NULL THEN
+    SELECT provider INTO v_provider
+    FROM canteen_menu_sources
+    WHERE id = NEW.menu_source_id
+      AND canteen_id = NEW.canteen_id;
+
+    IF v_provider = 'aigens'
+      AND NEW.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)\+(allday|breakfast|lunch|dinner)(\+(allday|breakfast|lunch|dinner))*$'
+      AND NEW.external_key !~ '#offering-period='
+    THEN
+      RAISE EXCEPTION 'ambiguous multi-period Aigens offering identity for item %', NEW.id;
+    END IF;
+
+    IF v_provider = 'aigens'
+      AND NEW.external_key ~ '^.+#period=(allday|breakfast|lunch|dinner)$'
+      AND NEW.external_key !~ '#offering-period='
+    THEN
+      NEW.external_product_id := regexp_replace(
+        NEW.external_key,
+        '#period=(breakfast|lunch|dinner|allday)$',
+        '#offering-period=\1'
+      );
+    END IF;
     RETURN NEW;
   END IF;
 

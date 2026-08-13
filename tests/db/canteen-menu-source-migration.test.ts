@@ -502,7 +502,8 @@ describe.skipIf(!hasDb)("canteen menu source identity migration", () => {
   it("repairs an app-written single-period Aigens shadow key", async () => {
     const fixture = await createLegacyFixture("aigens:102830");
     await runMigration(fixture.schema);
-    await client.query(
+    await runFixtureQuery(
+      fixture.schema,
       `update ${fixture.schema}.canteen_menu_items
        set external_key = 'product-42#period=lunch',
            external_product_id = 'product-42'
@@ -525,7 +526,8 @@ describe.skipIf(!hasDb)("canteen menu source identity migration", () => {
   it("fails closed for an app-written multi-period Aigens shadow key", async () => {
     const fixture = await createLegacyFixture("aigens:102830");
     await runMigration(fixture.schema);
-    await client.query(
+    await seedWithoutIdentityTrigger(
+      fixture.schema,
       `update ${fixture.schema}.canteen_menu_items
        set external_key = 'product-42#period=lunch+dinner',
            external_product_id = 'product-42'
@@ -550,7 +552,8 @@ describe.skipIf(!hasDb)("canteen menu source identity migration", () => {
   it("leaves an already-normalized Aigens offering identity unchanged", async () => {
     const fixture = await createLegacyFixture("aigens:102830");
     await runMigration(fixture.schema);
-    await client.query(
+    await runFixtureQuery(
+      fixture.schema,
       `update ${fixture.schema}.canteen_menu_items
        set external_key = 'product-42#offering-period=lunch#period=lunch',
            external_product_id = 'product-42#offering-period=lunch'
@@ -599,6 +602,61 @@ describe.skipIf(!hasDb)("canteen menu source identity migration", () => {
       [rollingItemId],
     );
     expect(rollingWrite.rows[0].external_product_id).toBe("product-100");
+  });
+
+  it("normalizes the previous app's single-period Aigens write during rollout", async () => {
+    const fixture = await createLegacyFixture("aigens:102830");
+    await runMigration(fixture.schema);
+    await runSqlMigration(fixture.schema, offeringIdentityMigrationSql);
+    const rollingItemId = randomUUID();
+
+    await runFixtureQuery(
+      fixture.schema,
+      `insert into ${fixture.schema}.canteen_menu_items
+        (id, canteen_id, external_source, external_key,
+         menu_source_id, external_product_id)
+       select $1, $2, 'aigens:102830', 'product-100#period=dinner',
+         source.id, 'product-100'
+       from ${fixture.schema}.canteen_menu_sources source
+       where source.canteen_id = $2`,
+      [rollingItemId, fixture.canteenId],
+    );
+
+    const inserted = await client.query<{ external_product_id: string }>(
+      `select external_product_id from ${fixture.schema}.canteen_menu_items
+       where id = $1`,
+      [rollingItemId],
+    );
+    expect(inserted.rows[0].external_product_id).toBe(
+      "product-100#offering-period=dinner",
+    );
+  });
+
+  it("rejects the previous app's multi-period Aigens write during rollout", async () => {
+    const fixture = await createLegacyFixture("aigens:102830");
+    await runMigration(fixture.schema);
+    await runSqlMigration(fixture.schema, offeringIdentityMigrationSql);
+    const rollingItemId = randomUUID();
+
+    await expect(
+      runFixtureQuery(
+        fixture.schema,
+        `insert into ${fixture.schema}.canteen_menu_items
+          (id, canteen_id, external_source, external_key,
+           menu_source_id, external_product_id)
+         select $1, $2, 'aigens:102830',
+           'product-100#period=lunch+dinner', source.id, 'product-100'
+         from ${fixture.schema}.canteen_menu_sources source
+         where source.canteen_id = $2`,
+        [rollingItemId, fixture.canteenId],
+      ),
+    ).rejects.toThrow(/ambiguous multi-period Aigens offering identity/);
+
+    const stored = await client.query<{ count: string }>(
+      `select count(*) from ${fixture.schema}.canteen_menu_items where id = $1`,
+      [rollingItemId],
+    );
+    expect(stored.rows[0].count).toBe("0");
   });
 
   async function createLegacyFixture(
@@ -709,6 +767,47 @@ describe.skipIf(!hasDb)("canteen menu source identity migration", () => {
 
   async function runMigration(schema: string) {
     await runSqlMigration(schema, migrationSql);
+  }
+
+  async function runFixtureQuery(
+    schema: string,
+    sql: string,
+    params: unknown[],
+  ) {
+    await client.query("begin");
+    try {
+      await client.query(`set local search_path to ${schema}, public`);
+      const result = await client.query(sql, params);
+      await client.query("commit");
+      return result;
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
+  }
+
+  async function seedWithoutIdentityTrigger(
+    schema: string,
+    sql: string,
+    params: unknown[],
+  ) {
+    await client.query("begin");
+    try {
+      await client.query(`set local search_path to ${schema}, public`);
+      await client.query(
+        `alter table ${schema}.canteen_menu_items
+         disable trigger canteen_menu_items_fill_normalized_identity_trg`,
+      );
+      await client.query(sql, params);
+      await client.query(
+        `alter table ${schema}.canteen_menu_items
+         enable trigger canteen_menu_items_fill_normalized_identity_trg`,
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    }
   }
 
   async function runSqlMigration(schema: string, sql: string) {
