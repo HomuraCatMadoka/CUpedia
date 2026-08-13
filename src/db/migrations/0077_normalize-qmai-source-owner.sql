@@ -1,0 +1,2 @@
+-- Reserved rollout boundary: Qmai owner identity is installed before the data
+-- backfill in 0075 so two sellers may safely reuse the same multi-store ID.

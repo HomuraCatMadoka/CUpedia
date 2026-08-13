@@ -28,9 +28,7 @@ export default async function TakeoutMenuPage({
       title={takeout.name}
       subtitle={takeout.location ?? undefined}
       announcement={takeout.announcement}
-      action={
-        <CanteenOrderAction href={orderUrl} canteenName={takeout.name} />
-      }
+      action={<CanteenOrderAction href={orderUrl} canteenName={takeout.name} />}
     >
       {items.length === 0 ? (
         <div className="canteen-fade-in border border-dashed border-[var(--canteen-line)] bg-[var(--canteen-tray)] px-1 py-10 text-center sm:rounded-2xl sm:py-16">
@@ -50,7 +48,10 @@ export default async function TakeoutMenuPage({
                 i % 2 === 1 ? "canteen-fade-in-delay-1" : ""
               }`}
             >
-              <DishSvgIcon svgKey={item.svgKey} className="size-10 rounded-xl" />
+              <DishSvgIcon
+                svgKey={item.svgKey}
+                className="size-10 rounded-xl"
+              />
               <div className="min-w-0 flex-1">
                 <p className="font-medium text-[var(--canteen-ink)]">
                   {item.name}
