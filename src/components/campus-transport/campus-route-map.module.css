@@ -6,8 +6,8 @@
 
 .marker {
   display: grid;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: 2.25rem;
+  height: 2.25rem;
   touch-action: manipulation;
   place-items: center;
   border: 3px solid #fff;
@@ -27,6 +27,21 @@
     0 3px 12px rgb(35 23 41 / 35%);
 }
 
+/* 有车辆正在停靠本站：底色切换为校徽金黄（#D4A538） */
+.marker[data-docking="true"] {
+  background: #d4a538;
+  box-shadow:
+    0 0 0 5px rgb(212 165 56 / 42%),
+    0 3px 12px rgb(35 23 41 / 35%);
+}
+
+.marker[data-selected="true"][data-docking="true"] {
+  background: #b8891f;
+  box-shadow:
+    0 0 0 5px rgb(212 165 56 / 52%),
+    0 3px 12px rgb(35 23 41 / 35%);
+}
+
 .marker:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: 3px;
@@ -41,6 +56,20 @@
   box-shadow:
     0 0 0 4px rgb(25 118 210 / 20%),
     0 2px 6px rgb(0 0 0 / 24%);
+}
+
+/* 车辆图标：DOM marker，z-index 高于站点 marker，确保巴士盖在站点数字之上 */
+.busMarker {
+  width: 2.25rem;
+  height: 2.25rem;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.busMarker svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 @media (min-width: 48rem) {
