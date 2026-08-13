@@ -112,15 +112,15 @@ describe("CampusBusBoardingPlacePicker", () => {
     });
     await act(() => callbacks[0]!.success(position(114.2101, 22.4135)));
 
-    expect(screen.getByText("附近乘車地點")).toBeTruthy();
+    expect(screen.getByText("按直線距離排序")).toBeTruthy();
     expect(screen.getAllByText(/約 \d+ 米/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/步行/)).toBeNull();
   });
 
   it.each([
-    [1, "未允許使用位置。請手動選擇，或在瀏覽器設定中重新允許。"],
-    [2, "暫時無法取得位置。你可以重試或手動選擇。"],
-    [3, "取得位置逾時。你可以重試或手動選擇。"],
+    [1, "你可以手動選站；如要查看附近車站，可在瀏覽器設定中重新允許定位。"],
+    [2, "你可以再試一次，或直接手動選站。"],
+    [3, "取得位置逾時。你可以再試一次，或直接手動選站。"],
   ])("keeps manual fallback for geolocation error %s", async (code, label) => {
     renderPicker();
     fireEvent.click(screen.getByRole("button", { name: "使用我的位置" }));
@@ -140,7 +140,7 @@ describe("CampusBusBoardingPlacePicker", () => {
     renderPicker();
 
     expect(
-      screen.getByText("此瀏覽器不支持定位，請手動選擇乘車地點。"),
+      screen.getByRole("heading", { name: "此瀏覽器不支持定位" }),
     ).toBeTruthy();
     expect(getCurrentPosition).not.toHaveBeenCalled();
   });
@@ -176,7 +176,7 @@ describe("CampusBusBoardingPlacePicker", () => {
     await act(() => callbacks[0]!.success(position(114.2101, 22.4135)));
 
     expect(screen.getByText("手動選擇")).toBeTruthy();
-    expect(screen.queryByText("附近乘車地點")).toBeNull();
+    expect(screen.queryByText("按直線距離排序")).toBeNull();
   });
 
   it("ignores a callback after unmount", async () => {
@@ -185,6 +185,6 @@ describe("CampusBusBoardingPlacePicker", () => {
     view.unmount();
 
     await act(() => callbacks[0]!.success(position(114.2101, 22.4135)));
-    expect(document.body.textContent).not.toContain("附近乘車地點");
+    expect(document.body.textContent).not.toContain("按直線距離排序");
   });
 });

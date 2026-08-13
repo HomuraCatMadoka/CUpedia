@@ -135,7 +135,7 @@ function BoardingPlaceCard({
     ? routeBoards.slice(0, routeLimit)
     : routeBoards;
   return (
-    <article className="overflow-hidden rounded-2xl border bg-[#faf8fb] px-4 dark:bg-muted/25">
+    <article className="overflow-hidden rounded-xl bg-[#faf8fb] px-3 dark:bg-muted/25">
       <div className="flex items-start justify-between gap-3 py-4">
         <div>
           <h3 className="flex items-center gap-2 font-bold">
@@ -231,6 +231,17 @@ export function CampusBusBoardingPlacePicker({
   const visibleLocationStatus = locationSupported
     ? locationState.status
     : "unsupported";
+  const locationHeading =
+    visibleLocationStatus === "denied"
+      ? "未允許使用位置"
+      : visibleLocationStatus === "timeout" ||
+          visibleLocationStatus === "unavailable"
+        ? "暫時無法取得位置"
+        : visibleLocationStatus === "requesting"
+          ? "正在取得你的位置"
+          : visibleLocationStatus === "unsupported"
+            ? "此瀏覽器不支持定位"
+            : "查看附近校巴站";
 
   function selectPlace(place: CampusBusBoardingPlace) {
     cancelRequest();
@@ -239,105 +250,136 @@ export function CampusBusBoardingPlacePicker({
   }
 
   return (
-    <section className="border-b bg-background px-5 py-5 sm:px-7">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="font-bold">查找乘車地點</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            只在你點擊後取得一次位置，不會持續追蹤或保存。
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          {visibleLocationStatus !== "denied" &&
-          visibleLocationStatus !== "unsupported" ? (
+    <section className="bg-background">
+      {visibleLocationStatus === "ready" ? (
+        <div className="flex items-center justify-between border-b px-5 py-3 text-xs text-muted-foreground sm:px-7">
+          <span>按直線距離排序</span>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="min-h-10 touch-manipulation font-semibold text-[#5b2a73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:text-[#e7c9f1]"
+            >
+              手動選站
+            </button>
             <button
               type="button"
               onClick={requestLocation}
-              disabled={visibleLocationStatus === "requesting"}
-              className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#4b1f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 disabled:cursor-wait disabled:opacity-70"
+              className="flex min-h-10 touch-manipulation items-center gap-1.5 font-semibold text-[#5b2a73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:text-[#e7c9f1]"
             >
-              {visibleLocationStatus === "requesting" ? (
-                <RefreshCwIcon
-                  className="size-4 animate-spin motion-reduce:animate-none"
-                  aria-hidden="true"
-                />
-              ) : visibleLocationStatus === "ready" ? (
-                <LocateFixedIcon className="size-4" aria-hidden="true" />
-              ) : (
-                <NavigationIcon className="size-4" aria-hidden="true" />
-              )}
-              {visibleLocationStatus === "requesting"
-                ? "正在取得位置"
-                : visibleLocationStatus === "ready"
-                  ? "重新定位"
-                  : "使用我的位置"}
+              <RefreshCwIcon className="size-3.5" aria-hidden="true" />
+              重新定位
             </button>
-          ) : null}
+          </div>
+        </div>
+      ) : (
+        <div className="px-5 py-10 text-center sm:px-7">
+          <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-[#f1e8f5] text-[#5b2a73] dark:bg-[#2b2030] dark:text-[#e7c9f1]">
+            {visibleLocationStatus === "requesting" ? (
+              <LocateFixedIcon
+                className="size-6 animate-pulse motion-reduce:animate-none"
+                aria-hidden="true"
+              />
+            ) : visibleLocationStatus === "idle" ? (
+              <NavigationIcon className="size-6" aria-hidden="true" />
+            ) : (
+              <MapPinIcon className="size-6" aria-hidden="true" />
+            )}
+          </span>
+          <h2 className="mt-4 text-lg font-bold">{locationHeading}</h2>
+          <div
+            className="mx-auto mt-2 max-w-sm text-sm leading-6 text-muted-foreground"
+            aria-live="polite"
+          >
+            {visibleLocationStatus === "idle" ? (
+              <p>
+                {permissionHint === "denied"
+                  ? "瀏覽器目前不允許使用位置；你仍可手動選擇乘車地點。"
+                  : "定位只用於這次查找附近車站，不會持續追蹤或保存你的位置。"}
+              </p>
+            ) : visibleLocationStatus === "requesting" ? (
+              <p>只用於這次附近車站查詢；手動選站仍可使用。</p>
+            ) : visibleLocationStatus === "denied" ? (
+              <p>
+                你可以手動選站；如要查看附近車站，可在瀏覽器設定中重新允許定位。
+              </p>
+            ) : visibleLocationStatus === "timeout" ? (
+              <p>取得位置逾時。你可以再試一次，或直接手動選站。</p>
+            ) : visibleLocationStatus === "unavailable" ? (
+              <p>你可以再試一次，或直接手動選站。</p>
+            ) : (
+              <p>請手動選擇乘車地點。</p>
+            )}
+          </div>
+          <div className="mt-5 flex flex-col justify-center gap-2 sm:flex-row">
+            {visibleLocationStatus !== "denied" &&
+            visibleLocationStatus !== "unsupported" ? (
+              <button
+                type="button"
+                onClick={requestLocation}
+                disabled={visibleLocationStatus === "requesting"}
+                className="inline-flex min-h-11 shrink-0 touch-manipulation items-center justify-center gap-2 rounded-xl bg-[#5b2a73] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#4b1f60] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 disabled:cursor-wait disabled:opacity-70"
+              >
+                {visibleLocationStatus === "requesting" ? (
+                  <RefreshCwIcon
+                    className="size-4 animate-spin motion-reduce:animate-none"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <NavigationIcon className="size-4" aria-hidden="true" />
+                )}
+                {visibleLocationStatus === "requesting"
+                  ? "正在取得位置"
+                  : "使用我的位置"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-[#5b2a73] px-5 text-sm font-semibold text-[#5b2a73] transition-colors hover:bg-[#f3edf6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:border-[#d8b9e4] dark:text-[#e7c9f1] dark:hover:bg-[#2b2030]"
+            >
+              {selectedPlace ? "更改乘車地點" : "手動選擇"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {visibleLocationStatus === "ready" && nearbyPlaces.length === 0 ? (
+        <div
+          className="px-5 py-10 text-center text-sm text-muted-foreground sm:px-7"
+          aria-live="polite"
+        >
+          <p>附近 800 米內找不到乘車地點，請手動選擇。</p>
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="min-h-11 shrink-0 touch-manipulation rounded-xl border border-[#5b2a73] px-5 text-sm font-semibold text-[#5b2a73] transition-colors hover:bg-[#f3edf6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b2a73]/40 dark:border-[#d8b9e4] dark:text-[#e7c9f1] dark:hover:bg-[#2b2030]"
+            className="mt-5 min-h-11 rounded-xl border border-[#5b2a73] px-5 font-semibold text-[#5b2a73] dark:border-[#d8b9e4] dark:text-[#e7c9f1]"
           >
-            {selectedPlace ? "更改乘車地點" : "手動選擇"}
+            手動選擇
           </button>
         </div>
-      </div>
-
-      <div className="mt-4 text-sm" aria-live="polite">
-        {visibleLocationStatus === "idle" ? (
-          <p className="text-muted-foreground">
-            {permissionHint === "denied"
-              ? "瀏覽器目前不允許使用位置；你仍可手動選擇乘車地點。"
-              : "尚未使用位置；你可以直接手動選擇。"}
-          </p>
-        ) : visibleLocationStatus === "requesting" ? (
-          <p className="text-muted-foreground">
-            正在查找附近乘車地點；手動選擇仍可使用。
-          </p>
-        ) : visibleLocationStatus === "denied" ? (
-          <p className="text-muted-foreground">
-            未允許使用位置。請手動選擇，或在瀏覽器設定中重新允許。
-          </p>
-        ) : visibleLocationStatus === "timeout" ? (
-          <p className="text-muted-foreground">
-            取得位置逾時。你可以重試或手動選擇。
-          </p>
-        ) : visibleLocationStatus === "unavailable" ? (
-          <p className="text-muted-foreground">
-            暫時無法取得位置。你可以重試或手動選擇。
-          </p>
-        ) : visibleLocationStatus === "unsupported" ? (
-          <p className="text-muted-foreground">
-            此瀏覽器不支持定位，請手動選擇乘車地點。
-          </p>
-        ) : nearbyPlaces.length === 0 ? (
-          <p className="text-muted-foreground">
-            附近 800 米內找不到乘車地點，請手動選擇。
-          </p>
-        ) : (
-          <p className="font-semibold text-[#5b2a73] dark:text-[#e7c9f1]">
-            附近乘車地點
-          </p>
-        )}
-      </div>
+      ) : null}
 
       {visibleLocationStatus === "ready" && nearbyPlaces.length > 0 ? (
-        <div className="mt-4 space-y-4">
+        <div className="divide-y">
           {nearbyPlaces.map(({ distanceMeters, place }) => (
-            <BoardingPlaceCard
-              key={place.id}
-              distanceLabel={formatApproximateCampusBusDistance(distanceMeters)}
-              now={now}
-              place={place}
-              routeLimit={3}
-              routes={routes}
-            />
+            <div key={place.id} className="px-5 py-5 sm:px-7">
+              <BoardingPlaceCard
+                distanceLabel={formatApproximateCampusBusDistance(
+                  distanceMeters,
+                )}
+                now={now}
+                place={place}
+                routeLimit={3}
+                routes={routes}
+              />
+            </div>
           ))}
         </div>
       ) : null}
 
       {selectedPlace ? (
-        <div className="mt-5">
+        <div className="px-5 pb-5 sm:px-7">
           <p className="mb-2 text-sm font-semibold text-[#5b2a73] dark:text-[#e7c9f1]">
             手動選擇
           </p>

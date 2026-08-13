@@ -360,6 +360,7 @@ test.describe("campus bus reviewed route catalog", () => {
     await expect(
       page.getByRole("heading", { name: "中大校巴", level: 1 }),
     ).toBeVisible();
+    await page.getByRole("tab", { name: "全部路線" }).click();
     await expect(
       page.getByRole("heading", { name: "現在可乘", level: 2 }),
     ).toBeVisible();
@@ -400,6 +401,7 @@ test.describe("campus bus reviewed route catalog", () => {
     const response = await page.goto("/campus-bus");
     expect(response?.status()).toBe(200);
     await page.clock.fastForward("00:00:31");
+    await page.getByRole("tab", { name: "全部路線" }).click();
 
     await expect(
       page.getByText("目前沒有行駛中的校巴，其他今日路線仍可在下方查看。"),
