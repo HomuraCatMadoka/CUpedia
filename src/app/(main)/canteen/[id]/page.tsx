@@ -1,6 +1,10 @@
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
-import { getCanteenById, getCanteenMenuItems } from "@/lib/canteen-actions";
+import {
+  getCanteenById,
+  getCanteenMenuItems,
+  getCanteenOrderingHandoff,
+} from "@/lib/canteen-actions";
 import {
   getMenuItemVoteCounts,
   getMyVotesForCanteen,
@@ -12,7 +16,6 @@ import { CanteenOrderAction } from "@/components/canteen/canteen-order-action";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
-import { resolveCanteenOrderUrl } from "@/lib/canteen-order-urls";
 import { listCanteenDanmaku } from "@/lib/danmaku-actions";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -83,6 +86,7 @@ export default async function CanteenMenuPage({
     sessionUser,
     danmaku,
     danmakuViewer,
+    orderingHandoff,
   ] = await Promise.all([
     getCanteenMenuItems(id),
     getMenuItemVoteCounts(id).catch(softEmpty({})),
@@ -106,12 +110,13 @@ export default async function CanteenMenuPage({
           throw error;
         }),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
+    getCanteenOrderingHandoff(id).catch(softEmpty(null)),
   ]);
   const currentUserId =
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
   const commentBlocked = sessionUser?.banned ? ("banned" as const) : null;
   const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
-  const orderUrl = resolveCanteenOrderUrl(id, canteen.name);
+  const orderUrl = orderingHandoff?.url ?? null;
   const displayedVoteCounts = mock
     ? { ...voteCounts, ...MOCK_VOTE_COUNTS }
     : voteCounts;

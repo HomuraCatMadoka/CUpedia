@@ -12,6 +12,7 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  unique,
   check,
   foreignKey,
 } from "drizzle-orm/pg-core";
@@ -1654,27 +1655,35 @@ export const canteenMenuSources = pgTable(
       .notNull()
       .references(() => canteens.id, { onDelete: "cascade" }),
     provider: text("provider").$type<CanteenMenuSourceProvider>().notNull(),
+    /** Provider account/brand identity when the outlet ID is not global (Qmai). */
+    externalOwnerId: text("external_owner_id"),
     externalStoreId: text("external_store_id").notNull(),
     config: jsonb("config")
       .$type<CanteenMenuSourceConfig>()
       .notNull()
       .default({}),
     enabled: boolean("enabled").notNull().default(true),
+    /** Identifies the latest worker attempt; health writes are conditional on it. */
+    lastAttemptId: uuid("last_attempt_id"),
     lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
     lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
     lastSnapshotHash: text("last_snapshot_hash"),
     observedState: text("observed_state"),
     lastErrorCode: text("last_error_code"),
     lastError: text("last_error"),
+    /** Set once after an explicitly previewed legacy-menu adoption. */
+    legacyTakeoverAt: timestamp("legacy_takeover_at", { withTimezone: true }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     uniqueIndex("canteen_menu_sources_canteen_uidx").on(table.canteenId),
-    uniqueIndex("canteen_menu_sources_provider_store_uidx").on(
+    uniqueIndex("canteen_menu_sources_provider_owner_store_uidx").on(
       table.provider,
+      sql`coalesce(${table.externalOwnerId}, '')`,
       table.externalStoreId,
     ),
+    unique("canteen_menu_sources_id_canteen_uq").on(table.id, table.canteenId),
     index("canteen_menu_sources_enabled_idx").on(table.enabled),
     check(
       "canteen_menu_sources_provider_chk",
@@ -1685,8 +1694,8 @@ export const canteenMenuSources = pgTable(
       sql`length(trim(${table.externalStoreId})) between 1 and 200`,
     ),
     check(
-      "canteen_menu_sources_qmai_disabled_chk",
-      sql`${table.provider} <> 'qmai' or ${table.enabled} = false`,
+      "canteen_menu_sources_locator_chk",
+      sql`(${table.provider} = 'qmai' and ${table.externalOwnerId} is not null and length(trim(${table.externalOwnerId})) between 1 and 200) or (${table.provider} <> 'qmai' and ${table.externalOwnerId} is null)`,
     ),
   ],
 );
@@ -1729,6 +1738,51 @@ export const canteenOrderingHandoffs = pgTable(
   ],
 );
 
+export const canteenMenuSyncRuns = pgTable(
+  "canteen_menu_sync_runs",
+  {
+    id: uuid("id").primaryKey(),
+    menuSourceId: uuid("menu_source_id")
+      .notNull()
+      .references(() => canteenMenuSources.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("running"),
+    snapshotHash: text("snapshot_hash"),
+    itemCount: integer("item_count"),
+    createdCount: integer("created_count"),
+    updatedCount: integer("updated_count"),
+    deactivatedCount: integer("deactivated_count"),
+    /** Bounded, non-sensitive ID deltas and suspected replacement pairs. */
+    observation: jsonb("observation")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    errorCode: text("error_code"),
+    error: text("error"),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("canteen_menu_sync_runs_source_started_idx").on(
+      table.menuSourceId,
+      table.startedAt,
+    ),
+    index("canteen_menu_sync_runs_status_started_idx").on(
+      table.status,
+      table.startedAt,
+    ),
+    check(
+      "canteen_menu_sync_runs_status_chk",
+      sql`${table.status} in ('running', 'applied', 'unchanged', 'failed')`,
+    ),
+    check(
+      "canteen_menu_sync_runs_counts_chk",
+      sql`(${table.itemCount} is null or ${table.itemCount} >= 0) and (${table.createdCount} is null or ${table.createdCount} >= 0) and (${table.updatedCount} is null or ${table.updatedCount} >= 0) and (${table.deactivatedCount} is null or ${table.deactivatedCount} >= 0)`,
+    ),
+  ],
+);
+
 export const canteenMenuItems = pgTable(
   "canteen_menu_items",
   {
@@ -1744,6 +1798,11 @@ export const canteenMenuItems = pgTable(
       .default(sql`'{allday}'`),
     sortOrder: integer("sort_order").notNull().default(0),
     svgKey: text("svg_key").notNull().default("default"),
+    /** Stable managed-menu owner. Null means this is a manually curated row. */
+    menuSourceId: uuid("menu_source_id"),
+    /** Stable upstream product identity within menuSourceId; periods are attributes. */
+    externalProductId: text("external_product_id"),
+    /** Rollout shadow columns. New reconciliation does not use these as identity. */
     externalSource: text("external_source"),
     externalKey: text("external_key"),
     isAvailable: boolean("is_available").notNull().default(true),
@@ -1753,6 +1812,12 @@ export const canteenMenuItems = pgTable(
   },
   (table) => [
     index("canteen_menu_items_canteen_id_idx").on(table.canteenId),
+    index("canteen_menu_items_menu_source_id_idx").on(table.menuSourceId),
+    uniqueIndex("canteen_menu_items_source_product_uidx")
+      .on(table.menuSourceId, table.externalProductId)
+      .where(
+        sql`${table.menuSourceId} is not null and ${table.externalProductId} is not null`,
+      ),
     uniqueIndex("canteen_menu_items_external_identity_uidx")
       .on(table.canteenId, table.externalSource, table.externalKey)
       .where(
@@ -1762,6 +1827,23 @@ export const canteenMenuItems = pgTable(
       "canteen_menu_items_external_identity_chk",
       sql`(${table.externalSource} is null) = (${table.externalKey} is null)`,
     ),
+    check(
+      "canteen_menu_items_source_product_identity_chk",
+      sql`(${table.menuSourceId} is null) = (${table.externalProductId} is null)`,
+    ),
+    check(
+      "canteen_menu_items_rollout_identity_chk",
+      sql`(${table.externalSource} is null) = (${table.menuSourceId} is null)`,
+    ),
+    check(
+      "canteen_menu_items_external_product_id_chk",
+      sql`${table.externalProductId} is null or length(trim(${table.externalProductId})) between 1 and 200`,
+    ),
+    foreignKey({
+      columns: [table.menuSourceId, table.canteenId],
+      foreignColumns: [canteenMenuSources.id, canteenMenuSources.canteenId],
+      name: "canteen_menu_items_source_canteen_fk",
+    }),
   ],
 );
 
@@ -1776,10 +1858,22 @@ export const canteensRelations = relations(canteens, ({ many, one }) => ({
 
 export const canteenMenuSourcesRelations = relations(
   canteenMenuSources,
-  ({ one }) => ({
+  ({ one, many }) => ({
     canteen: one(canteens, {
       fields: [canteenMenuSources.canteenId],
       references: [canteens.id],
+    }),
+    menuItems: many(canteenMenuItems),
+    syncRuns: many(canteenMenuSyncRuns),
+  }),
+);
+
+export const canteenMenuSyncRunsRelations = relations(
+  canteenMenuSyncRuns,
+  ({ one }) => ({
+    menuSource: one(canteenMenuSources, {
+      fields: [canteenMenuSyncRuns.menuSourceId],
+      references: [canteenMenuSources.id],
     }),
   }),
 );
@@ -1800,6 +1894,10 @@ export const canteenMenuItemsRelations = relations(
     canteen: one(canteens, {
       fields: [canteenMenuItems.canteenId],
       references: [canteens.id],
+    }),
+    menuSource: one(canteenMenuSources, {
+      fields: [canteenMenuItems.menuSourceId],
+      references: [canteenMenuSources.id],
     }),
     prices: many(canteenMenuItemPrices),
     votes: many(canteenDishVotes),

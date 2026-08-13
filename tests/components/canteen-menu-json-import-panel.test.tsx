@@ -27,8 +27,7 @@ vi.mock("@/lib/canteen-admin-actions", () => ({
 }));
 
 const JSON_INPUT = JSON.stringify({
-  source: "order-place:102830",
-  items: [{ externalKey: "42:lunch", name: "演示菜品" }],
+  items: [{ externalProductId: "42:lunch", name: "演示菜品" }],
 });
 
 beforeEach(() => {
@@ -42,12 +41,12 @@ afterEach(cleanup);
 describe("CanteenMenuJsonImportPanel", () => {
   it("previews a snapshot before applying the same JSON", async () => {
     const plan = {
-      source: "order-place:102830",
+      sourceId: "source-1",
       actions: [
         {
           action: "create",
           itemId: null,
-          externalKey: "42:lunch",
+          externalProductId: "42:lunch",
           name: "演示菜品",
           changedFields: ["all"],
         },
@@ -88,11 +87,11 @@ describe("CanteenMenuJsonImportPanel", () => {
   it("keeps apply disabled when preview reports a conflict", async () => {
     mockPreview.mockResolvedValue({
       plan: {
-        source: "order-place:102830",
+        sourceId: "source-1",
         actions: [],
         conflicts: [
           {
-            externalKey: "42:lunch",
+            externalProductId: "42:lunch",
             name: "演示菜品",
             reason: "AMBIGUOUS_LEGACY_MATCH",
             candidateIds: ["a", "b"],
@@ -118,11 +117,11 @@ describe("CanteenMenuJsonImportPanel", () => {
   it("explains when an explicit takeover preview is required", async () => {
     mockPreview.mockResolvedValue({
       plan: {
-        source: "order-place:102830",
+        sourceId: "source-1",
         actions: [],
         conflicts: [
           {
-            externalKey: "42:lunch",
+            externalProductId: "42:lunch",
             name: "演示菜品",
             reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
             candidateIds: ["legacy-a"],
@@ -147,7 +146,7 @@ describe("CanteenMenuJsonImportPanel", () => {
 
   it("clears an existing preview when loading the example", async () => {
     const plan = {
-      source: "order-place:102830",
+      sourceId: "source-1",
       actions: [],
       conflicts: [],
       unchanged: 1,

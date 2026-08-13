@@ -8,6 +8,7 @@ import {
   buildPinmeMenuSyncPayload,
   createPinmeSignedParams,
 } from "@/lib/canteen-pinme-menu";
+import { buildQmaiMenuSyncPayload } from "@/lib/canteen-qmai-menu";
 import type { MenuSyncInput } from "@/lib/canteen-types";
 
 const ICHEF_ENDPOINT =
@@ -53,6 +54,7 @@ type FetchMenuOptions = { fetchImpl?: typeof fetch };
 
 export type MenuSource = {
   provider: CanteenMenuSourceProvider;
+  externalOwnerId?: string | null;
   externalStoreId: string;
   config?: CanteenMenuSourceConfig;
 };
@@ -69,6 +71,22 @@ function optionalString(value: unknown): value is string | undefined {
   return value === undefined || typeof value === "string";
 }
 
+function hongKongDateTime(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")} ${value("hour")}:${value("minute")}:${value("second")}`;
+}
+
 function configString(
   config: CanteenMenuSourceConfig | undefined,
   key: string,
@@ -80,6 +98,19 @@ function configString(
     throw new Error("INVALID_MENU_SOURCE_CONFIG");
   }
   return value.trim();
+}
+
+function configPositiveInteger(
+  config: CanteenMenuSourceConfig | undefined,
+  key: string,
+  fallback?: number,
+): number {
+  const value = config?.[key] ?? fallback;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new Error("INVALID_MENU_SOURCE_CONFIG");
+  }
+  return parsed;
 }
 
 function assertOnlyConfigKeys(
@@ -274,7 +305,7 @@ export async function fetchIchefMenu(
   );
   const categories =
     categoriesData.restaurant?.onlineOrderingMenu?.categoriesSnapshot ?? [];
-  return buildIchefMenuSyncPayload(externalStoreId, menuHours, categories);
+  return buildIchefMenuSyncPayload(menuHours, categories);
 }
 
 export async function fetchAigensMenu(
@@ -306,7 +337,7 @@ export async function fetchAigensMenu(
     { cache: "no-store" },
     options.fetchImpl ?? fetch,
   );
-  return buildAigensMenuSyncPayload(payload, externalStoreId);
+  return buildAigensMenuSyncPayload(payload);
 }
 
 export async function fetchPinmeMenu(
@@ -344,7 +375,78 @@ export async function fetchPinmeMenu(
     fetchImpl,
   );
   validatePinmeMenu(payload);
-  return buildPinmeMenuSyncPayload(payload, externalStoreId);
+  return buildPinmeMenuSyncPayload(payload);
+}
+
+export async function fetchQmaiMenu(
+  externalStoreId: string,
+  options: FetchMenuOptions = {},
+  config?: CanteenMenuSourceConfig,
+  externalOwnerId?: string | null,
+): Promise<MenuSyncInput> {
+  if (!/^\d+$/.test(externalStoreId)) throw new Error("INVALID_QMAI_STORE_ID");
+  assertOnlyConfigKeys(config, ["orderType", "locale"]);
+  const multiStoreId = externalStoreId;
+  const sellerId = String(
+    configPositiveInteger(undefined, "sellerId", Number(externalOwnerId)),
+  );
+  const orderType = configPositiveInteger(config, "orderType", 1);
+  const locale = configString(config, "locale", "zh-HK");
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const commonHeaders = {
+    Accept: "application/json",
+    "Accept-Language": locale,
+    "content-type": "application/json",
+    "Qm-From": "h5",
+    "Qm-From-Type": "catering",
+    "store-id": sellerId,
+  };
+  const loginPayload = (await fetchJson(
+    "https://webapi.qmai.cn/web/account-center/oauth/mini-app-login",
+    {
+      method: "POST",
+      headers: { ...commonHeaders, "Qm-User-Token": "" },
+      body: JSON.stringify({
+        code: "",
+        storeId: Number(sellerId),
+        sellerId: Number(sellerId),
+        appid: "",
+        flowScene: "",
+      }),
+      cache: "no-store",
+    },
+    fetchImpl,
+  )) as { code?: number | string; status?: boolean; data?: unknown };
+  const loginData = object(loginPayload.data);
+  const token = loginData?.token;
+  if (
+    Number(loginPayload.code) !== 0 ||
+    loginPayload.status !== true ||
+    typeof token !== "string" ||
+    !token
+  ) {
+    throw new Error("QMAI_TOKEN_ERROR");
+  }
+  const payload = await fetchJson(
+    "https://webapi.qmai.cn/web/catering/goods/list/category-item",
+    {
+      method: "POST",
+      headers: {
+        ...commonHeaders,
+        "multi-store-id": multiStoreId,
+        "Qm-User-Token": token,
+      },
+      body: JSON.stringify({
+        orderType,
+        storeId: Number(multiStoreId),
+        buyTime: hongKongDateTime(),
+        version: 3,
+      }),
+      cache: "no-store",
+    },
+    fetchImpl,
+  );
+  return buildQmaiMenuSyncPayload(payload);
 }
 
 export function fetchMenuFromProvider(
@@ -359,6 +461,11 @@ export function fetchMenuFromProvider(
     case "pinme":
       return fetchPinmeMenu(source.externalStoreId, options, source.config);
     case "qmai":
-      throw new Error("QMAI_MENU_SOURCE_NOT_SUPPORTED");
+      return fetchQmaiMenu(
+        source.externalStoreId,
+        options,
+        source.config,
+        source.externalOwnerId,
+      );
   }
 }

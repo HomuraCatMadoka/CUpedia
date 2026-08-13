@@ -11,11 +11,10 @@ import type { MenuSyncPlan } from "@/lib/canteen-menu-sync";
 import { cn } from "@/lib/utils";
 
 const SAMPLE_JSON = `{
-  "source": "aigens:102830",
   "takeOverLegacyItems": false,
   "items": [
     {
-      "externalKey": "product-42:lunch",
+      "externalProductId": "product-42",
       "name": "演示饮品",
       "pricing": {
         "options": [
@@ -35,10 +34,10 @@ function jsonImportErrorMessage(code: string): string {
   if (code === "INVALID_MENU_JSON")
     return 'JSON 须为菜品数组，或 { "items": [...] }。';
   if (code === "INVALID_MENU_SYNC") return "同步 JSON 须为对象。";
-  if (code === "INVALID_SYNC_SOURCE") return "source 须为有效的来源标识。";
-  if (code === "INVALID_EXTERNAL_KEY") return "每道菜须有有效的 externalKey。";
-  if (code === "DUPLICATE_EXTERNAL_KEY")
-    return "同一份菜单中 externalKey 不可重复。";
+  if (code === "INVALID_EXTERNAL_PRODUCT_ID")
+    return "每道菜须有有效的 externalProductId。";
+  if (code === "DUPLICATE_EXTERNAL_PRODUCT_ID")
+    return "同一份菜单中 externalProductId 不可重复。";
   if (code === "INVALID_TAKEOVER_FLAG")
     return "takeOverLegacyItems 须为 true 或 false。";
   if (code === "MENU_SYNC_CONFLICT")
@@ -254,7 +253,7 @@ function MenuSyncPlanSummary({ plan }: { plan: MenuSyncPlan }) {
       {plan.conflicts.length > 0 ? (
         <ul className="space-y-1 text-red-600" aria-label="同步冲突">
           {plan.conflicts.map((conflict) => (
-            <li key={conflict.externalKey}>
+            <li key={conflict.externalProductId}>
               {conflict.name}：
               {conflict.reason === "LEGACY_MATCH_REQUIRES_TAKEOVER"
                 ? "发现同名旧菜；如需保留原 UUID，请启用首次接管后重新预览"
@@ -269,7 +268,7 @@ function MenuSyncPlanSummary({ plan }: { plan: MenuSyncPlan }) {
           aria-label="同步变更"
         >
           {plan.actions.map((action) => (
-            <li key={`${action.action}-${action.externalKey}`}>
+            <li key={`${action.action}-${action.externalProductId}`}>
               {labels[action.action]}：{action.name}
             </li>
           ))}

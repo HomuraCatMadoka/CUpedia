@@ -39,15 +39,9 @@ describe("S.H. Ho Aigens menu adapter", () => {
       },
     });
 
-    expect(payload).toMatchObject({
-      source: "aigens:102830",
-      takeOverLegacyItems: false,
-    });
-    expect(payload.items).toHaveLength(2);
-    expect(payload.items.map((item) => item.externalKey)).toEqual([
-      "42:lunch",
-      "42:dinner",
-    ]);
+    expect(payload.takeOverLegacyItems).toBe(false);
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items.map((item) => item.externalProductId)).toEqual(["42"]);
     expect(payload.items[0]).toMatchObject({
       name: "麻辣 雞飯",
       svgKey: "飯類",
@@ -104,7 +98,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
 
     expect(payload.items).toMatchObject([
       {
-        externalKey: "42:allday",
+        externalProductId: "42",
         mealPeriods: ["allday"],
         svgKey: "飯類",
       },

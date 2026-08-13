@@ -31,7 +31,6 @@ function parseAmountMinor(price: unknown): number {
 }
 
 export function buildIchefMenuSyncPayload(
-  externalStoreId: string,
   menuHours: IchefMenuHour[],
   categories: IchefCategory[],
 ): MenuSyncInput {
@@ -65,7 +64,7 @@ export function buildIchefMenuSyncPayload(
         continue;
       }
       byItemUuid.set(uuid, {
-        externalKey: uuid,
+        externalProductId: uuid,
         name,
         priceOptions: [
           {
@@ -85,12 +84,14 @@ export function buildIchefMenuSyncPayload(
   }
 
   const items = assignMealPeriodSortOrder(
-    [...byItemUuid.values()].map((item) => ({ ...item, sortOrder: 0 })),
+    [...byItemUuid.values()].map((item) => ({
+      ...item,
+      sortOrder: 0,
+    })),
     (item) => item.mealPeriods,
   );
   if (items.length === 0) throw new Error("EMPTY_ICHEF_MENU");
   return {
-    source: `ichef:${externalStoreId}`,
     takeOverLegacyItems: false,
     items,
   };

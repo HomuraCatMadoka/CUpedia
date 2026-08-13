@@ -526,6 +526,41 @@
       "when": 1786595209217,
       "tag": "0074_equal_doomsday",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1786608007887,
+      "tag": "0075_normalize-canteen-menu-source-identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1786608008654,
+      "tag": "0076_provision-and-backfill-canteen-menu-sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1786611076290,
+      "tag": "0077_normalize-qmai-source-owner",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1786614937116,
+      "tag": "0078_observe-canteen-menu-sync-runs",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1786615605993,
+      "tag": "0079_lock-down-canteen-menu-integration-tables",
+      "breakpoints": true
     }
   ]
 }

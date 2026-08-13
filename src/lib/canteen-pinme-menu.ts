@@ -80,10 +80,7 @@ function priceOptions(product: JsonObject): MenuItemPriceOptionInput[] {
     : [{ label: null, amountMinor: amount, currency: "HKD", sortOrder: 0 }];
 }
 
-export function buildPinmeMenuSyncPayload(
-  input: unknown,
-  externalStoreId: string,
-): MenuSyncInput {
+export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
   const root = object(input);
   const data = object(root?.data);
   if (Number(root?.code) !== 200 || !data) throw new Error("PINME_MENU_ERROR");
@@ -102,20 +99,25 @@ export function buildPinmeMenuSyncPayload(
     );
     for (const productValue of array(group.products)) {
       const product = object(productValue);
-      const externalKey = text(product?.product_id);
+      const externalProductId = text(product?.product_id);
       const name = text(product?.local_name ?? product?.en_name);
-      if (!product || !externalKey || !name || text(product.status) === "0") {
+      if (
+        !product ||
+        !externalProductId ||
+        !name ||
+        text(product.status) === "0"
+      ) {
         continue;
       }
-      const existing = byProductId.get(externalKey);
+      const existing = byProductId.get(externalProductId);
       if (existing) {
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...mealPeriods]),
         ];
         continue;
       }
-      byProductId.set(externalKey, {
-        externalKey,
+      byProductId.set(externalProductId, {
+        externalProductId,
         name,
         priceOptions: priceOptions(product),
         mealPeriods,
@@ -129,7 +131,6 @@ export function buildPinmeMenuSyncPayload(
   }));
   if (items.length === 0) throw new Error("EMPTY_PINME_MENU");
   return {
-    source: `pinme:${externalStoreId}`,
     takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
   };

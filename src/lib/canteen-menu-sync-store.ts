@@ -1,8 +1,13 @@
 import { createHash } from "node:crypto";
 import { db } from "@/db";
-import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
+import {
+  canteenMenuItemPrices,
+  canteenMenuItems,
+  canteenMenuSources,
+} from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
 import {
   planMenuSync,
   type ExistingSyncMenuItem,
@@ -14,6 +19,8 @@ import type {
   MenuSyncInput,
 } from "@/lib/canteen-types";
 
+type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
+
 type SyncMenuRow = {
   id: string;
   name: string;
@@ -21,8 +28,8 @@ type SyncMenuRow = {
   sortOrder: number;
   svgKey: string;
   legacyPrice: number | null;
-  externalSource: string | null;
-  externalKey: string | null;
+  menuSourceId: string | null;
+  externalProductId: string | null;
   isAvailable: boolean;
   priceId: string | null;
   priceLabel: string | null;
@@ -84,8 +91,8 @@ function collectExistingSyncItems(rows: SyncMenuRow[]): ExistingSyncMenuItem[] {
                 sortOrder: 0,
               },
             ],
-      externalSource: row.externalSource,
-      externalKey: row.externalKey,
+      menuSourceId: row.menuSourceId,
+      externalProductId: row.externalProductId,
       isAvailable: row.isAvailable,
     });
   }
@@ -103,8 +110,8 @@ function syncMenuSelection() {
     sortOrder: canteenMenuItems.sortOrder,
     svgKey: canteenMenuItems.svgKey,
     legacyPrice: canteenMenuItems.price,
-    externalSource: canteenMenuItems.externalSource,
-    externalKey: canteenMenuItems.externalKey,
+    menuSourceId: canteenMenuItems.menuSourceId,
+    externalProductId: canteenMenuItems.externalProductId,
     isAvailable: canteenMenuItems.isAvailable,
     priceId: canteenMenuItemPrices.id,
     priceLabel: canteenMenuItemPrices.label,
@@ -120,6 +127,7 @@ export type MenuSyncPreview = {
 };
 
 function createMenuSyncPreviewToken(
+  source: MenuSourceRow,
   input: MenuSyncInput,
   existing: ExistingSyncMenuItem[],
 ): string {
@@ -136,15 +144,23 @@ function createMenuSyncPreviewToken(
       ),
     }));
   return createHash("sha256")
-    .update(JSON.stringify({ input, existing: normalizedExisting }))
+    .update(
+      JSON.stringify({
+        sourceId: source.id,
+        canteenId: source.canteenId,
+        legacyTakeoverAt: source.legacyTakeoverAt,
+        input,
+        existing: normalizedExisting,
+      }),
+    )
     .digest("hex");
 }
 
-export async function previewMenuSync(
+async function selectExistingItems(
+  executor: Pick<typeof db, "select">,
   canteenId: string,
-  input: MenuSyncInput,
-): Promise<MenuSyncPreview> {
-  const rows = await db
+) {
+  return executor
     .select(syncMenuSelection())
     .from(canteenMenuItems)
     .leftJoin(
@@ -152,72 +168,119 @@ export async function previewMenuSync(
       eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
     )
     .where(eq(canteenMenuItems.canteenId, canteenId));
-  const existing = collectExistingSyncItems(rows);
+}
+
+export async function previewMenuSync(
+  sourceId: string,
+  input: MenuSyncInput,
+): Promise<MenuSyncPreview> {
+  const source = await db.query.canteenMenuSources.findFirst({
+    where: eq(canteenMenuSources.id, sourceId),
+  });
+  if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
+  if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
+    throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
+  }
+  const existing = collectExistingSyncItems(
+    await selectExistingItems(db, source.canteenId),
+  );
   return {
-    plan: planMenuSync(input, existing),
-    previewToken: createMenuSyncPreviewToken(input, existing),
+    plan: planMenuSync(
+      source.id,
+      input,
+      existing,
+      source.legacyTakeoverAt === null,
+    ),
+    previewToken: createMenuSyncPreviewToken(source, input, existing),
   };
 }
 
+function shadowSourceNamespace(source: MenuSourceRow): string {
+  if (source.provider !== "qmai") {
+    return `${source.provider}:${source.externalStoreId}`;
+  }
+  const sellerId = source.externalOwnerId;
+  if (!sellerId?.trim()) {
+    throw new Error("INVALID_MENU_SOURCE_CONFIG");
+  }
+  return `qmai:${sellerId.trim()}:${source.externalStoreId}`;
+}
+
 async function applyMenuSync(
-  canteenId: string,
+  sourceId: string,
   input: MenuSyncInput,
-  expectedPreviewToken?: unknown,
+  expectedPreviewToken: unknown,
   shouldRevalidate = true,
+  expectedAttemptId?: string,
 ): Promise<MenuSyncPlan> {
   const now = new Date();
   const plan = await db.transaction(async (tx) => {
-    const canteen = await tx.query.canteens.findFirst({
-      where: eq(canteens.id, canteenId),
-      columns: { id: true },
-    });
-    if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
+    // Lock the source first. This serializes even the very first sync, when no
+    // managed menu rows exist yet, and fixes source/canteen ownership in DB.
+    const [source] = await tx
+      .select()
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.id, sourceId))
+      .for("update", { of: canteenMenuSources });
+    if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
+    if (expectedAttemptId && source.lastAttemptId !== expectedAttemptId) {
+      throw new Error("MENU_SYNC_SUPERSEDED");
+    }
+    if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
+      throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
+    }
 
-    const rows = await tx
-      .select(syncMenuSelection())
-      .from(canteenMenuItems)
-      .leftJoin(
-        canteenMenuItemPrices,
-        eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
-      )
-      .where(eq(canteenMenuItems.canteenId, canteenId))
-      .for("update", { of: canteenMenuItems });
+    const rows = await selectExistingItems(tx, source.canteenId);
     const existing = collectExistingSyncItems(rows);
     if (
-      expectedPreviewToken !== undefined &&
-      expectedPreviewToken !== createMenuSyncPreviewToken(input, existing)
+      typeof expectedPreviewToken !== "string" ||
+      !expectedPreviewToken ||
+      expectedPreviewToken !==
+        createMenuSyncPreviewToken(source, input, existing)
     ) {
       throw new Error("MENU_SYNC_STALE");
     }
-    const currentPlan = planMenuSync(input, existing);
+    const currentPlan = planMenuSync(
+      source.id,
+      input,
+      existing,
+      source.legacyTakeoverAt === null,
+    );
     if (currentPlan.conflicts.length > 0) throw new Error("MENU_SYNC_CONFLICT");
 
-    const actionByKey = new Map(
-      currentPlan.actions.map((action) => [action.externalKey, action]),
+    const actionByProduct = new Map(
+      currentPlan.actions.map((action) => [action.externalProductId, action]),
     );
-    const existingByKey = new Map(
+    const existingByProduct = new Map(
       existing
         .filter(
           (item) =>
-            item.externalSource === input.source && item.externalKey !== null,
+            item.menuSourceId === source.id && item.externalProductId !== null,
         )
-        .map((item) => [item.externalKey!, item]),
+        .map((item) => [item.externalProductId!, item]),
     );
+    const shadowSource = shadowSourceNamespace(source);
 
     for (const item of input.items) {
-      const action = actionByKey.get(item.externalKey);
+      const action = actionByProduct.get(item.externalProductId);
+      const shadowKey = createMenuExternalKey(
+        item.externalProductId,
+        item.mealPeriods,
+      );
       if (action?.action === "create") {
         const [created] = await tx
           .insert(canteenMenuItems)
           .values({
-            canteenId,
+            canteenId: source.canteenId,
             name: item.name,
             price: null,
             mealPeriods: item.mealPeriods,
             sortOrder: item.sortOrder,
             svgKey: item.svgKey,
-            externalSource: input.source,
-            externalKey: item.externalKey,
+            menuSourceId: source.id,
+            externalProductId: item.externalProductId,
+            externalSource: shadowSource,
+            externalKey: shadowKey,
             isAvailable: true,
             lastSyncedAt: now,
             createdAt: now,
@@ -232,7 +295,8 @@ async function applyMenuSync(
         continue;
       }
 
-      const itemId = action?.itemId ?? existingByKey.get(item.externalKey)?.id;
+      const itemId =
+        action?.itemId ?? existingByProduct.get(item.externalProductId)?.id;
       if (!itemId) throw new Error("MENU_SYNC_STALE");
       await tx
         .update(canteenMenuItems)
@@ -242,8 +306,10 @@ async function applyMenuSync(
           mealPeriods: item.mealPeriods,
           sortOrder: item.sortOrder,
           svgKey: item.svgKey,
-          externalSource: input.source,
-          externalKey: item.externalKey,
+          menuSourceId: source.id,
+          externalProductId: item.externalProductId,
+          externalSource: shadowSource,
+          externalKey: shadowKey,
           isAvailable: true,
           lastSyncedAt: now,
           updatedAt: now,
@@ -251,7 +317,7 @@ async function applyMenuSync(
         .where(
           and(
             eq(canteenMenuItems.id, itemId),
-            eq(canteenMenuItems.canteenId, canteenId),
+            eq(canteenMenuItems.canteenId, source.canteenId),
           ),
         );
       if (action) {
@@ -274,33 +340,49 @@ async function applyMenuSync(
         .where(
           and(
             eq(canteenMenuItems.id, action.itemId),
-            eq(canteenMenuItems.canteenId, canteenId),
+            eq(canteenMenuItems.canteenId, source.canteenId),
           ),
         );
+    }
+    if (input.takeOverLegacyItems) {
+      await tx
+        .update(canteenMenuSources)
+        .set({ legacyTakeoverAt: now, enabled: true, updatedAt: now })
+        .where(eq(canteenMenuSources.id, source.id));
     }
     return currentPlan;
   });
 
   if (shouldRevalidate) {
-    revalidatePath(`/admin/canteens/${canteenId}`);
-    revalidatePath(`/api/canteens/${canteenId}/menu`);
-    revalidatePath(`/canteen/${canteenId}`);
+    const source = await db.query.canteenMenuSources.findFirst({
+      where: eq(canteenMenuSources.id, sourceId),
+      columns: { canteenId: true },
+    });
+    if (source) {
+      revalidatePath(`/admin/canteens/${source.canteenId}`);
+      revalidatePath(`/api/canteens/${source.canteenId}/menu`);
+      revalidatePath(`/canteen/${source.canteenId}`);
+    }
   }
   return plan;
 }
 
 export function applyPreviewedMenuSync(
-  canteenId: string,
+  sourceId: string,
   input: MenuSyncInput,
   previewToken: unknown,
 ): Promise<MenuSyncPlan> {
-  return applyMenuSync(canteenId, input, previewToken);
+  return applyMenuSync(sourceId, input, previewToken);
 }
 
 export function applyAutomatedMenuSync(
-  canteenId: string,
+  sourceId: string,
   input: MenuSyncInput,
   previewToken: unknown,
+  attemptId: string,
 ): Promise<MenuSyncPlan> {
-  return applyMenuSync(canteenId, input, previewToken, false);
+  if (input.takeOverLegacyItems) {
+    return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
+  }
+  return applyMenuSync(sourceId, input, previewToken, false, attemptId);
 }

@@ -1,7 +1,12 @@
 "use server";
 
 import { db } from "@/db";
-import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
+import {
+  canteenMenuItemPrices,
+  canteenMenuItems,
+  canteenMenuSources,
+  canteens,
+} from "@/db/schema";
 import { count, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth-guard";
@@ -354,7 +359,12 @@ export async function previewMenuSyncFromJson(
   await requireAdmin();
   if (isCanteenMockMode()) throw new Error("MENU_SYNC_UNAVAILABLE");
   const input = parseMenuSyncJson(jsonInput);
-  return previewMenuSync(canteenId, input);
+  const source = await db.query.canteenMenuSources.findFirst({
+    where: eq(canteenMenuSources.canteenId, canteenId),
+    columns: { id: true },
+  });
+  if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
+  return previewMenuSync(source.id, input);
 }
 
 export async function applyMenuSyncFromJson(
@@ -365,7 +375,12 @@ export async function applyMenuSyncFromJson(
   await requireAdmin();
   if (isCanteenMockMode()) throw new Error("MENU_SYNC_UNAVAILABLE");
   const input = parseMenuSyncJson(jsonInput);
-  return applyPreviewedMenuSync(canteenId, input, previewToken);
+  const source = await db.query.canteenMenuSources.findFirst({
+    where: eq(canteenMenuSources.canteenId, canteenId),
+    columns: { id: true },
+  });
+  if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
+  return applyPreviewedMenuSync(source.id, input, previewToken);
 }
 
 export async function updateMenuItem(

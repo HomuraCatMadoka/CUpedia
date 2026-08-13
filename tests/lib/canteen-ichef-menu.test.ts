@@ -19,7 +19,6 @@ describe("iCHEF menu adapter", () => {
 
   it("deduplicates products shared by categories and preserves all periods", () => {
     const payload = buildIchefMenuSyncPayload(
-      "store-1",
       [
         {
           startTime: "08:00",
@@ -46,13 +45,10 @@ describe("iCHEF menu adapter", () => {
       ],
     );
 
-    expect(payload).toMatchObject({
-      source: "ichef:store-1",
-      takeOverLegacyItems: false,
-    });
+    expect(payload.takeOverLegacyItems).toBe(false);
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0]).toMatchObject({
-      externalKey: "item-1",
+      externalProductId: "item-1",
       name: "雞扒 飯",
       mealPeriods: ["breakfast", "lunch", "dinner"],
       priceOptions: [{ amountMinor: 3200, currency: "HKD" }],
@@ -118,9 +114,7 @@ describe("iCHEF menu adapter", () => {
   });
 
   it("rejects empty snapshots before they can deactivate existing dishes", () => {
-    expect(() => buildIchefMenuSyncPayload("store-1", [], [])).toThrow(
-      "EMPTY_ICHEF_MENU",
-    );
+    expect(() => buildIchefMenuSyncPayload([], [])).toThrow("EMPTY_ICHEF_MENU");
   });
 
   it("rejects malformed GraphQL menu DTOs before normalization", async () => {

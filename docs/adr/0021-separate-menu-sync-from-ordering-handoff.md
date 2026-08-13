@@ -23,8 +23,9 @@ ephemeral credentials in the canteen database.
 
 ## Decision
 
-1. Keep menu synchronization behind one deep module whose interface accepts a
-   menu-source configuration and returns a normalized `MenuSyncInput`.
+1. Keep synchronization behind a deep module whose recurring entry point accepts
+   only a persisted menu-source ID. The module resolves its source configuration
+   and canteen ownership before returning and applying a normalized snapshot.
 2. Validate each upstream response with an in-memory provider schema. Do not
    persist the raw provider response by default.
 3. Store only non-sensitive source configuration and sync health in
@@ -33,9 +34,8 @@ ephemeral credentials in the canteen database.
 4. Model the official ordering entry as a separate, stable **ordering
    handoff**. Store the complete human-verified URL; do not reconstruct it from
    the menu source or QR asset name.
-5. The public canteen page may deep-link to the ordering handoff and display a
-   QR generated from that same URL. The URL is the source of truth; the image
-   is a presentation asset.
+5. The public canteen page reads and deep-links to the ordering handoff URL. The
+   URL is the source of truth. This feature does not add QR presentation UI.
 6. CUpedia does not persist provider session tokens, carts, member/card
    identity, coupon redemptions, orders, charges, or payment URLs.
 7. A future proxy-ordering module requires a separate ADR, provider approval or

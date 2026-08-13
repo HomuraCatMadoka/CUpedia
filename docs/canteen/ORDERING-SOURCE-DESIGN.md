@@ -7,12 +7,12 @@ sequence for the canteen subsystem.
 
 ## Provider inventory
 
-| Provider | Confirmed stores                                             | Menu read                                                                                             | Ordering handoff                                                           |
-| -------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| Aigens   | 112891 CU CAFÉ; 102830 S.H. Ho; 102216 University Station MX | One public store-menu GET per store; nested categories, groups, items, periods, CRM flags             | Preserve the original scan/brand URL and mode (`prekiosk`, `pickup`, etc.) |
-| iCHEF    | UQftKWxU #FOTD                                               | Public GraphQL menu-hours query followed by categories query                                          | Preserve the validated table URL; checkout requires session + diner + cart |
-| PINME    | 4898, 4899, 5198, 5500, 5505, 5581                           | Anonymous token plus read-side store/menu calls                                                       | Preserve the exact takeout/store URL; never substitute shared `/table/1`   |
-| Qmai     | 221033 + multi 331725 (WeBite Space)                         | Official H5 exposes live categories, goods, availability and cart calculation; adapter still required | Preserve both `store_id` and `multi_id` in the official URL                |
+| Provider | Confirmed stores                                             | Menu read                                                                                 | Ordering handoff                                                           |
+| -------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Aigens   | 112891 CU CAFÉ; 102830 S.H. Ho; 102216 University Station MX | One public store-menu GET per store; nested categories, groups, items, periods, CRM flags | Preserve the original scan/brand URL and mode (`prekiosk`, `pickup`, etc.) |
+| iCHEF    | UQftKWxU #FOTD                                               | Public GraphQL menu-hours query followed by categories query                              | Preserve the validated table URL; checkout requires session + diner + cart |
+| PINME    | 4898, 4899, 5198, 5500, 5505, 5581                           | Anonymous token plus read-side store/menu calls                                           | Preserve the exact takeout/store URL; never substitute shared `/table/1`   |
+| Qmai     | 221033 + multi 331725 (WeBite Space)                         | Anonymous visitor bootstrap plus live category-item menu; adapter implemented             | Preserve both `store_id` and `multi_id` in the official URL                |
 
 The downloaded Aigens build `2026-05-26.4.2.0.20260527` was analyzed from a
 temporary directory. The third-party minified bundles are intentionally not
@@ -93,8 +93,9 @@ phase.
    currently travel too far into the adapter.
 3. Add the PINME adapter with anonymous token bootstrap and store/menu reads.
    Strip token and identity fields before hashing or logging.
-4. Add Qmai only after its exact live menu DTO has fixtures and a stable
-   read-side request sequence. Its `storeId + multiId` must be tested.
+4. Qmai uses a per-run anonymous visitor token and requires both seller
+   `storeId` and location `multiStoreId`. Keep both identities covered by
+   fixtures and discard the token after the read-side request sequence.
 5. Make the Aigens external key independent of array order. The current
    `${backendId}:${periods[0]}` identity can change when the provider reorders a
    product's periods. Either keep an intentional per-period row with one key

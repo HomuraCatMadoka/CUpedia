@@ -6,17 +6,31 @@ import type { MenuSyncInput } from "./canteen-types";
 
 const EXCLUDED_CATEGORIES = new Set(["飲品", "零食", "外賣包裝"]);
 
-export function buildAigensMenuSyncPayload(
-  input: unknown,
-  externalStoreId: string,
-): MenuSyncInput {
+export function buildAigensMenuSyncPayload(input: unknown): MenuSyncInput {
   const products = parseAigensMenuProducts(input, {
     excludedCategories: EXCLUDED_CATEGORIES,
   });
 
+  const byProductId = new Map<
+    string,
+    (typeof products)[number] & {
+      periods: (typeof products)[number]["periods"];
+    }
+  >();
+  for (const product of products) {
+    const existing = byProductId.get(product.backendId);
+    if (existing) {
+      existing.periods = [
+        ...new Set([...existing.periods, ...product.periods]),
+      ];
+      continue;
+    }
+    byProductId.set(product.backendId, { ...product });
+  }
+
   const items = assignMealPeriodSortOrder(
-    products.map((product) => ({
-      externalKey: `${product.backendId}:${[...product.periods].sort().at(0) ?? "allday"}`,
+    [...byProductId.values()].map((product) => ({
+      externalProductId: product.backendId,
       name: product.name,
       priceOptions: [
         {
@@ -34,12 +48,11 @@ export function buildAigensMenuSyncPayload(
   );
 
   return {
-    source: `aigens:${externalStoreId}`,
     takeOverLegacyItems: false,
     items,
   };
 }
 
 export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
-  return buildAigensMenuSyncPayload(input, "102830");
+  return buildAigensMenuSyncPayload(input);
 }

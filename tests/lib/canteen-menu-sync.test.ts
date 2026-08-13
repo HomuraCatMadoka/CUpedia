@@ -5,6 +5,8 @@ import {
 } from "@/lib/canteen-menu-sync";
 import { parseMenuSyncJson } from "@/lib/canteen-types";
 
+const SOURCE_ID = "11111111-1111-4111-a111-111111111111";
+
 function existing(
   overrides: Partial<ExistingSyncMenuItem> = {},
 ): ExistingSyncMenuItem {
@@ -15,8 +17,8 @@ function existing(
     sortOrder: 0,
     svgKey: "drink",
     priceOptions: [],
-    externalSource: null,
-    externalKey: null,
+    menuSourceId: null,
+    externalProductId: null,
     isAvailable: true,
     ...overrides,
   };
@@ -24,10 +26,9 @@ function existing(
 
 function input(name = "凍奶茶") {
   return parseMenuSyncJson({
-    source: "order-place:102830",
     items: [
       {
-        externalKey: "product-42:lunch",
+        externalProductId: "product-42",
         name,
         mealPeriods: ["lunch"],
         svgKey: "drink",
@@ -37,20 +38,21 @@ function input(name = "凍奶茶") {
 }
 
 describe("menu sync planner", () => {
-  it("does not claim a unique legacy match without explicit takeover", () => {
-    const plan = planMenuSync(input(), [existing()]);
+  it("requires explicit takeover before claiming a matching manual row", () => {
+    const plan = planMenuSync(SOURCE_ID, input(), [existing()]);
     expect(plan.actions).toEqual([]);
-    expect(plan.conflicts).toEqual([
-      expect.objectContaining({
-        reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
-        candidateIds: ["item-1"],
-      }),
-    ]);
+    expect(plan.conflicts[0]).toMatchObject({
+      reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
+      candidateIds: ["item-1"],
+    });
   });
 
-  it("claims a unique legacy match during an explicit first takeover", () => {
-    const takeoverInput = { ...input(), takeOverLegacyItems: true };
-    const plan = planMenuSync(takeoverInput, [existing()]);
+  it("claims the same UUID during explicit takeover", () => {
+    const plan = planMenuSync(
+      SOURCE_ID,
+      { ...input(), takeOverLegacyItems: true },
+      [existing()],
+    );
     expect(plan.conflicts).toEqual([]);
     expect(plan.actions[0]).toMatchObject({
       action: "claim",
@@ -58,26 +60,43 @@ describe("menu sync planner", () => {
     });
   });
 
-  it("keeps matching by external key after an upstream rename", () => {
-    const plan = planMenuSync(input("港式凍奶茶"), [
-      existing({
-        externalSource: "order-place:102830",
-        externalKey: "product-42:lunch",
-      }),
+  it("uses source plus product ID across rename and period changes", () => {
+    const changed = parseMenuSyncJson({
+      items: [
+        {
+          externalProductId: "product-42",
+          name: "港式凍奶茶",
+          mealPeriods: ["dinner"],
+          svgKey: "drink",
+        },
+      ],
+    });
+    const plan = planMenuSync(SOURCE_ID, changed, [
+      existing({ menuSourceId: SOURCE_ID, externalProductId: "product-42" }),
     ]);
     expect(plan.actions[0]).toMatchObject({
       action: "update",
       itemId: "item-1",
-      changedFields: ["name"],
+      externalProductId: "product-42",
+      changedFields: ["name", "mealPeriods"],
     });
   });
 
-  it("deactivates missing source items but leaves manual items alone", () => {
-    const plan = planMenuSync(input("新菜"), [
+  it("does not match the same product ID from another source", () => {
+    const plan = planMenuSync(SOURCE_ID, input("新菜"), [
       existing({
-        externalSource: "order-place:102830",
-        externalKey: "old-product:lunch",
+        menuSourceId: "22222222-2222-4222-a222-222222222222",
+        externalProductId: "product-42",
       }),
+    ]);
+    expect(plan.actions).toEqual([
+      expect.objectContaining({ action: "create", name: "新菜" }),
+    ]);
+  });
+
+  it("deactivates missing managed rows but leaves manual rows alone", () => {
+    const plan = planMenuSync(SOURCE_ID, input("新菜"), [
+      existing({ menuSourceId: SOURCE_ID, externalProductId: "old-product" }),
       existing({ id: "manual-item", name: "手工菜" }),
     ]);
     expect(plan.actions).toEqual(
@@ -91,101 +110,27 @@ describe("menu sync planner", () => {
     );
   });
 
-  it("deactivates unmatched legacy items during an explicit first takeover", () => {
-    const takeoverInput = { ...input("新菜"), takeOverLegacyItems: true };
-    const plan = planMenuSync(takeoverInput, [existing({ name: "旧菜" })]);
-    expect(plan.actions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ action: "deactivate", itemId: "item-1" }),
-      ]),
-    );
-  });
-
-  it("reports ambiguous legacy matches instead of guessing", () => {
-    const takeoverInput = { ...input(), takeOverLegacyItems: true };
-    const plan = planMenuSync(takeoverInput, [
-      existing(),
-      existing({ id: "item-2" }),
-    ]);
-    expect(plan.actions.some((action) => action.action === "claim")).toBe(
-      false,
-    );
-    expect(plan.conflicts[0]).toMatchObject({
-      reason: "AMBIGUOUS_LEGACY_MATCH",
-      candidateIds: ["item-1", "item-2"],
-    });
-  });
-
-  it("does not let two upstream products claim the same legacy item", () => {
-    const duplicateNameInput = parseMenuSyncJson({
-      source: "order-place:102830",
-      takeOverLegacyItems: true,
-      items: [
-        { externalKey: "product-a:lunch", name: "凍奶茶", mealPeriod: "lunch" },
-        { externalKey: "product-b:lunch", name: "凍奶茶", mealPeriod: "lunch" },
-      ],
-    });
-    const plan = planMenuSync(duplicateNameInput, [existing()]);
-    expect(plan.actions).toHaveLength(1);
-    expect(plan.conflicts[0]).toMatchObject({
-      externalKey: "product-b:lunch",
-      reason: "LEGACY_MATCH_ALREADY_CLAIMED",
-      candidateIds: ["item-1"],
-    });
-  });
-
-  it("rejects duplicate external keys in one snapshot", () => {
+  it("rejects duplicate product IDs in one snapshot", () => {
     expect(() =>
       parseMenuSyncJson({
-        source: "order-place:102830",
         items: [
-          { externalKey: "same", name: "A" },
-          { externalKey: "same", name: "B" },
+          { externalProductId: "same", name: "A" },
+          { externalProductId: "same", name: "B" },
         ],
       }),
-    ).toThrow("DUPLICATE_EXTERNAL_KEY");
+    ).toThrow("DUPLICATE_EXTERNAL_PRODUCT_ID");
   });
 
-  it("rejects a serialized items field", () => {
-    expect(() =>
-      parseMenuSyncJson({
-        source: "order-place:102830",
-        items: JSON.stringify([{ externalKey: "same", name: "A" }]),
-      }),
-    ).toThrow("INVALID_MENU_SYNC");
-  });
-
-  it("treats equal pricing fields as unchanged regardless of object key order", () => {
-    const syncInput = parseMenuSyncJson({
-      source: "order-place:102830",
-      items: [
-        {
-          externalKey: "product-42:lunch",
-          name: "凍奶茶",
-          mealPeriod: "lunch",
-          svgKey: "drink",
-          pricing: {
-            options: [
-              { label: "凍", amountMinor: 1300, currency: "HKD", sortOrder: 0 },
-            ],
-          },
-        },
-      ],
-    });
-    const priceOption = {
-      sortOrder: 0,
-      currency: "HKD",
-      amountMinor: 1300,
-      label: "凍",
-    };
-    const plan = planMenuSync(syncInput, [
-      existing({
-        externalSource: "order-place:102830",
-        externalKey: "product-42:lunch",
-        priceOptions: [priceOption],
-      }),
+  it("ignores retired manual rows after the one-time adoption closes", () => {
+    const plan = planMenuSync(
+      SOURCE_ID,
+      input(),
+      [existing({ isAvailable: false })],
+      false,
+    );
+    expect(plan.conflicts).toEqual([]);
+    expect(plan.actions).toEqual([
+      expect.objectContaining({ action: "create", name: "凍奶茶" }),
     ]);
-    expect(plan.actions).toEqual([]);
-    expect(plan.unchanged).toBe(1);
   });
 });

@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  accounts,
   canteenDishComments,
   canteenDishVotes,
   canteenMenuItems,
+  canteenMenuSources,
   canteens,
   users,
 } from "@/db/schema";
@@ -35,12 +37,14 @@ const hasDb = Boolean(process.env.DATABASE_URL);
 describe.skipIf(!hasDb)("canteen menu sync database", () => {
   const canteenId = randomUUID();
   const itemId = randomUUID();
+  const sourceId = randomUUID();
   const userId = randomUUID();
 
   beforeAll(async () => {
     mockRequireCommentAuth.mockResolvedValue({
       id: userId,
       nickname: "同步测试",
+      hasPassword: true,
     });
     await db.insert(users).values({
       id: userId,
@@ -48,7 +52,19 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       nickname: "同步测试",
       role: "user",
     });
+    await db.insert(accounts).values({
+      accountId: userId,
+      providerId: "credential",
+      userId,
+      password: "test-password-hash",
+    });
     await db.insert(canteens).values({ id: canteenId, name: "演示食堂" });
+    await db.insert(canteenMenuSources).values({
+      id: sourceId,
+      canteenId,
+      provider: "aigens",
+      externalStoreId: "102830",
+    });
     await db.insert(canteenMenuItems).values({
       id: itemId,
       canteenId,
@@ -75,11 +91,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
   it("claims a legacy item and later deactivates it without losing history", async () => {
     const firstSnapshot = {
-      source: "order-place:102830",
       takeOverLegacyItems: true,
       items: [
         {
-          externalKey: "product-42:lunch",
+          externalProductId: "product-42",
           name: "演示菜品 A",
           mealPeriods: ["lunch"],
           svgKey: "drink",
@@ -97,16 +112,69 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       .where(eq(canteenMenuItems.id, itemId));
     expect(claimed).toMatchObject({
       id: itemId,
-      externalSource: "order-place:102830",
-      externalKey: "product-42:lunch",
+      menuSourceId: sourceId,
+      externalProductId: "product-42",
+      externalSource: "aigens:102830",
+      externalKey: "product-42#period=lunch",
       isAvailable: true,
     });
+    const [activatedSource] = await db
+      .select({ enabled: canteenMenuSources.enabled })
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.id, sourceId));
+    expect(activatedSource.enabled).toBe(true);
 
-    const secondSnapshot = {
-      source: "order-place:102830",
+    const periodChangedSnapshot = {
       items: [
         {
-          externalKey: "product-99:lunch",
+          externalProductId: "product-42",
+          name: "演示菜品 A",
+          mealPeriods: ["dinner"],
+          svgKey: "drink",
+          pricing: { options: [{ amountMinor: 1300, currency: "HKD" }] },
+        },
+      ],
+    };
+    const periodChangedPreview = await previewMenuSyncFromJson(
+      canteenId,
+      periodChangedSnapshot,
+    );
+    expect(periodChangedPreview.plan.actions[0]).toMatchObject({
+      action: "update",
+      itemId,
+      externalProductId: "product-42",
+    });
+    await applyMenuSyncFromJson(
+      canteenId,
+      periodChangedSnapshot,
+      periodChangedPreview.previewToken,
+    );
+    const [periodChanged] = await db
+      .select()
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.id, itemId));
+    expect(periodChanged).toMatchObject({
+      id: itemId,
+      externalProductId: "product-42",
+      externalKey: "product-42#period=dinner",
+      mealPeriods: ["dinner"],
+    });
+    const preservedHistory = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, itemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, itemId)),
+    ]);
+    expect(preservedHistory.map(([row]) => row.value)).toEqual([1, 1]);
+
+    const secondSnapshot = {
+      items: [
+        {
+          externalProductId: "product-99",
           name: "演示菜品 B",
           mealPeriods: ["lunch"],
         },
@@ -148,10 +216,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
   });
 
   it("rejects missing and stale preview tokens before writing", async () => {
-    const source = `preview-test:${randomUUID()}`;
     const snapshot = {
-      source,
-      items: [{ externalKey: "item:lunch", name: "演示菜品 C" }],
+      items: [{ externalProductId: "item-c", name: "演示菜品 C" }],
     };
     const preview = await previewMenuSyncFromJson(canteenId, snapshot);
 
@@ -172,7 +238,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     const written = await db
       .select({ value: count() })
       .from(canteenMenuItems)
-      .where(eq(canteenMenuItems.externalSource, source));
+      .where(eq(canteenMenuItems.externalProductId, "item-c"));
     expect(written[0].value).toBe(0);
     await db
       .delete(canteenMenuItems)
@@ -184,8 +250,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       db.insert(canteenMenuItems).values({
         canteenId,
         name: "重复来源商品",
-        externalSource: "order-place:102830",
-        externalKey: "product-99:lunch",
+        menuSourceId: sourceId,
+        externalProductId: "product-99",
+        externalSource: "aigens:102830",
+        externalKey: "product-99#period=lunch",
       }),
     ).rejects.toThrow();
 
@@ -195,9 +263,86 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       .where(
         and(
           eq(canteenMenuItems.canteenId, canteenId),
-          eq(canteenMenuItems.externalKey, "product-99:lunch"),
+          eq(canteenMenuItems.externalProductId, "product-99"),
         ),
       );
     expect(duplicates[0].value).toBe(1);
+  });
+
+  it("rejects a source from another canteen at the database boundary", async () => {
+    const otherCanteenId = randomUUID();
+    const otherSourceId = randomUUID();
+    await db.insert(canteens).values({
+      id: otherCanteenId,
+      name: "另一食堂",
+    });
+    await db.insert(canteenMenuSources).values({
+      id: otherSourceId,
+      canteenId: otherCanteenId,
+      provider: "pinme",
+      externalStoreId: "5203-test",
+    });
+
+    await expect(
+      db.insert(canteenMenuItems).values({
+        canteenId,
+        name: "绝不能跨食堂写入",
+        menuSourceId: otherSourceId,
+        externalProductId: "cross-canteen-product",
+        externalSource: "pinme:5203-test",
+        externalKey: "cross-canteen-product#period=allday",
+      }),
+    ).rejects.toThrow();
+
+    await db.delete(canteens).where(eq(canteens.id, otherCanteenId));
+  });
+
+  it("allows the existing canteen delete cascade with managed rows", async () => {
+    const deleteCanteenId = randomUUID();
+    const deleteSourceId = randomUUID();
+    await db.insert(canteens).values({
+      id: deleteCanteenId,
+      name: "待删除同步食堂",
+    });
+    await db.insert(canteenMenuSources).values({
+      id: deleteSourceId,
+      canteenId: deleteCanteenId,
+      provider: "pinme",
+      externalStoreId: "delete-test",
+    });
+    await db.insert(canteenMenuItems).values({
+      canteenId: deleteCanteenId,
+      name: "待删除商品",
+      menuSourceId: deleteSourceId,
+      externalProductId: "delete-product",
+      externalSource: "pinme:delete-test",
+      externalKey: "delete-product#period=allday",
+    });
+
+    await expect(
+      db.delete(canteens).where(eq(canteens.id, deleteCanteenId)),
+    ).resolves.toBeDefined();
+  });
+
+  it("keeps menu integration tables behind RLS", async () => {
+    const result = await db.execute<{
+      relname: string;
+      relrowsecurity: boolean;
+    }>(sql`
+      select relname, relrowsecurity
+      from pg_class
+      where oid in (
+        'canteen_menu_sources'::regclass,
+        'canteen_ordering_handoffs'::regclass,
+        'canteen_menu_sync_runs'::regclass
+      )
+      order by relname
+    `);
+
+    expect(result.rows).toEqual([
+      { relname: "canteen_menu_sources", relrowsecurity: true },
+      { relname: "canteen_menu_sync_runs", relrowsecurity: true },
+      { relname: "canteen_ordering_handoffs", relrowsecurity: true },
+    ]);
   });
 });
