@@ -340,17 +340,21 @@ function FeedbackDialog({
 }
 
 export function CampusRouteView({
+  initialStopId: requestedInitialStopId,
   initialNow,
   route,
 }: {
+  initialStopId?: string;
   initialNow: number;
   route: CampusBusPassengerRoute;
 }) {
   const initialStopId = route.stops.some(
-    (stop) => stop.id === route.defaultStopId,
+    (stop) => stop.id === requestedInitialStopId,
   )
-    ? route.defaultStopId
-    : route.stops[0]?.id;
+    ? requestedInitialStopId
+    : route.stops.some((stop) => stop.id === route.defaultStopId)
+      ? route.defaultStopId
+      : route.stops[0]?.id;
   const [selectedStopId, setSelectedStopId] = useState(initialStopId);
   const [nearbyStopId, setNearbyStopId] = useState<string | null>(null);
   const [nearbyCandidateIds, setNearbyCandidateIds] = useState<string[]>([]);
