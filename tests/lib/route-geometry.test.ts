@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { GeoJSONSourceSpecification } from "maplibre-gl";
 
-import type { CampusBusRouteMap } from "@/lib/campus-transport/campus-bus";
 import {
   computeCumulativeArcLength,
   flattenRouteGeometry,
@@ -13,7 +13,9 @@ import {
 // segments in order and drops adjacent duplicate vertices (the polyline is a
 // closed loop, so the first and last points coincide).
 
-function lineString(coordinates: number[][]): GeoJSON.Feature {
+type TestGeometry = GeoJSONSourceSpecification["data"];
+
+function lineString(coordinates: number[][]): TestGeometry {
   return {
     type: "Feature",
     properties: {},
@@ -24,9 +26,7 @@ function lineString(coordinates: number[][]): GeoJSON.Feature {
   };
 }
 
-function multiLineString(
-  lines: number[][][],
-): GeoJSON.Feature {
+function multiLineString(lines: number[][][]): TestGeometry {
   return {
     type: "Feature",
     properties: {},
@@ -162,14 +162,14 @@ describe("nearestPointOnPolyline", () => {
   it("clamps to the nearest endpoint when the point is beyond the polyline", () => {
     const result = nearestPointOnPolyline(points, cumulative, [0, 5]);
     expect(result.along).toBeCloseTo(cumulative[2], 6);
-    expect(result.point[1]).toBeCloseTo(2, 6);
+    expect(result.point?.[1]).toBeCloseTo(2, 6);
   });
 
   it("finds the perpendicular projection on a segment", () => {
     // Point (0.5, 0.5) is vertically above the middle of segment (0,0)-(0,1)
     const result = nearestPointOnPolyline(points, cumulative, [0.5, 0.5]);
-    expect(result.point[0]).toBeCloseTo(0, 6);
-    expect(result.point[1]).toBeCloseTo(0.5, 6);
+    expect(result.point?.[0]).toBeCloseTo(0, 6);
+    expect(result.point?.[1]).toBeCloseTo(0.5, 6);
     expect(result.along).toBeCloseTo(cumulative[1] / 2, 2);
   });
 

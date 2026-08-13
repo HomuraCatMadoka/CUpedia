@@ -10,6 +10,7 @@ import {
   type CampusBusStop,
   type LngLat,
 } from "@/lib/campus-transport/campus-bus";
+import type { BusPosition } from "@/lib/campus-transport/bus-positions";
 import { cn } from "@/lib/utils";
 
 import styles from "./campus-route-map.module.css";
@@ -21,6 +22,7 @@ const LANDSD_LABEL_URL =
 const LANDSD_TERMS_URL = "https://api.portal.hkmapservice.gov.hk/tc";
 
 type CampusRouteMapProps = {
+  busPositions: BusPosition[];
   onSelectStop: (stopId: string) => void;
   onUserLocated: (coordinates: LngLat) => void;
   route: CampusBusPassengerRoute;
@@ -33,6 +35,7 @@ function prefersReducedMotion() {
 }
 
 export function CampusRouteMap({
+  busPositions,
   onSelectStop,
   onUserLocated,
   route,
@@ -145,6 +148,24 @@ export function CampusRouteMap({
           "line-width": 5,
         },
       });
+      map.addSource("campus-bus-vehicles", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: [],
+        },
+      });
+      map.addLayer({
+        id: "campus-bus-vehicle-layer",
+        type: "circle",
+        source: "campus-bus-vehicles",
+        paint: {
+          "circle-color": "#1c1c1e",
+          "circle-radius": 7,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 2,
+        },
+      });
     });
 
     const markerElements = markerElementsRef.current;
@@ -203,6 +224,12 @@ export function CampusRouteMap({
       markerElements.clear();
       resizeObserver.disconnect();
       map.off("webglcontextlost", handleWebGlContextLost);
+      if (map.getLayer("campus-bus-vehicle-layer")) {
+        map.removeLayer("campus-bus-vehicle-layer");
+      }
+      if (map.getSource("campus-bus-vehicles")) {
+        map.removeSource("campus-bus-vehicles");
+      }
       map.remove();
       mapRef.current = null;
     };
@@ -230,6 +257,27 @@ export function CampusRouteMap({
       zoom: Math.max(map.getZoom(), 16.35),
     });
   }, [route.map.stopCoordinates, selectedStopId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const source = map.getSource("campus-bus-vehicles");
+    if (!source) return;
+    (source as maplibregl.GeoJSONSource).setData({
+      type: "FeatureCollection",
+      features: busPositions.map((bus, index) => ({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [...bus.position],
+        },
+        properties: {
+          atStop: bus.atStop,
+          index,
+        },
+      })),
+    });
+  }, [busPositions]);
 
   function locateUser() {
     if (!navigator.geolocation) {
