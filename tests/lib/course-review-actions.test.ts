@@ -784,6 +784,7 @@ describe("submitCourseReview", () => {
         grade: "靓 grade",
         enrollment: "点击即送",
         attendance: "要 attendance",
+        language: "粤语",
         custom: [" 讲解清晰 ", "考试   贴题", "讲解清晰"],
       },
     });
@@ -794,6 +795,7 @@ describe("submitCourseReview", () => {
         grade: "good",
         enrollment: "easy",
         attendance: "required",
+        language: "cantonese",
         customTags: ["讲解清晰", "考试 贴题"],
       }),
     );

@@ -5,6 +5,10 @@ import { notFound } from "next/navigation";
 import { ProfessorCourseExplorer } from "@/components/professors/professor-course-explorer";
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
 import { getProfessorDetail } from "@/lib/professor-actions";
+import {
+  formatProfessorName,
+  formatProfessorNameText,
+} from "@/lib/professor-name-format";
 
 const scoreFormat = new Intl.NumberFormat("zh-HK", {
   minimumFractionDigits: 1,
@@ -25,8 +29,8 @@ export async function generateMetadata({
   const professor = await getProfessorDetail((await params).publicId);
   return professor
     ? {
-        title: `${professor.name} | 教授测评`,
-        description: `查看 ${professor.name} 的相关课程与课程测评。`,
+        title: `${formatProfessorNameText(professor.name)} | 教授测评`,
+        description: `查看 ${formatProfessorNameText(professor.name)} 的相关课程与课程测评。`,
       }
     : { title: "教授不存在" };
 }
@@ -68,7 +72,7 @@ export default async function ProfessorDetailPage({
           />
           <div className="min-w-0">
             <h1 className="break-words text-3xl font-semibold tracking-[-0.035em] text-balance sm:text-4xl">
-              {professor.name}
+              {formatProfessorName(professor.name)}
             </h1>
             {professor.title ? (
               <p className="mt-2 text-sm font-medium">{professor.title}</p>

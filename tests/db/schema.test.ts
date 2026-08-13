@@ -175,6 +175,7 @@ describe("schema", () => {
     expect(cols.grade).toBeDefined();
     expect(cols.enrollment).toBeDefined();
     expect(cols.attendance).toBeDefined();
+    expect(cols.language).toBeDefined();
     expect(cols.customTags).toBeDefined();
     expect(cols.instructorPersonId).toBeDefined();
   });

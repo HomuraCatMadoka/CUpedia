@@ -1,0 +1,2 @@
+ALTER TABLE "course_ratings" ADD COLUMN "language" text;--> statement-breakpoint
+ALTER TABLE "course_ratings" ADD CONSTRAINT "course_ratings_language_check" CHECK ("course_ratings"."language" is null or "course_ratings"."language" in ('mandarin', 'english', 'cantonese'));

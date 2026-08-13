@@ -59,7 +59,7 @@ export default async function TakeoutMenuPage({
                   <MealPeriodsBadges periods={item.mealPeriods} />
                   <MenuItemPrice
                     pricing={item.pricing}
-                    className="font-mono text-sm text-[var(--canteen-purple)]"
+                    className="font-mono text-sm text-[var(--canteen-link)]"
                   />
                 </div>
               </div>

@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CanteenCard, CanteenShell, PreviewBanner } from "@/components/canteen/canteen-shell";
+import { CANTEEN_PRIMARY_ACTION_CLASS_NAME } from "@/components/canteen/canteen-styles";
 import type { Canteen, DeleteImpact } from "@/lib/canteen-types";
 import * as liveActions from "@/lib/canteen-admin-actions";
 import * as previewActions from "@/lib/canteen-preview-actions";
@@ -197,7 +198,7 @@ export function CanteenAdminPanel({
           <Button
             type="submit"
             disabled={isPending}
-            className="rounded-full bg-[var(--canteen-purple)] hover:bg-[var(--canteen-purple)]/90"
+            className={CANTEEN_PRIMARY_ACTION_CLASS_NAME}
           >
             添加食堂
           </Button>

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { CourseReviewAuthorIdentity } from "@/components/courses/course-review-author-identity";
 import { CourseReviewReplies } from "@/components/courses/course-review-replies";
+import { formatProfessorName } from "@/lib/professor-name-format";
 import { cn } from "@/lib/utils";
 import {
   deleteCourseReviewSubmission,
@@ -213,7 +214,7 @@ export function CourseReviewCard({
             key={professor.id}
             className="rounded-full bg-secondary px-2.5 py-1 text-muted-foreground"
           >
-            {professor.name}
+            {formatProfessorName(professor.name)}
           </span>
         ))}
         {review.tags.map((tag) => (
