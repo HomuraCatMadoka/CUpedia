@@ -1,0 +1,101 @@
+{
+  "contractVersion": "canteen-menu-identity-preconditions/v1",
+  "targetIssue": 643,
+  "mandatoryParityInput": true,
+  "supportedHistoricalIdentities": [
+    {
+      "name": "aigens order-place scalar period",
+      "provider": "aigens",
+      "externalStoreId": "store-a",
+      "externalOwnerId": null,
+      "externalSource": "order-place:store-a",
+      "externalKey": "product-42:lunch",
+      "externalProductId": "product-42#offering-period=lunch"
+    },
+    {
+      "name": "aigens historical period marker",
+      "provider": "aigens",
+      "externalStoreId": "store-a",
+      "externalOwnerId": null,
+      "externalSource": "aigens:store-a",
+      "externalKey": "product-42#period=dinner",
+      "externalProductId": "product-42#offering-period=dinner"
+    },
+    {
+      "name": "pinme scalar period",
+      "provider": "pinme",
+      "externalStoreId": "store-a",
+      "externalOwnerId": null,
+      "externalSource": "pinme:store-a",
+      "externalKey": "product-42:lunch",
+      "externalProductId": "product-42"
+    },
+    {
+      "name": "pinme historical period set",
+      "provider": "pinme",
+      "externalStoreId": "store-a",
+      "externalOwnerId": null,
+      "externalSource": "pinme:store-a",
+      "externalKey": "product-42#period=lunch+dinner",
+      "externalProductId": "product-42"
+    },
+    {
+      "name": "ichef historical period set",
+      "provider": "ichef",
+      "externalStoreId": "store-a",
+      "externalOwnerId": null,
+      "externalSource": "ichef:store-a",
+      "externalKey": "product-42#period=allday",
+      "externalProductId": "product-42"
+    },
+    {
+      "name": "qmai owner/store namespace",
+      "provider": "qmai",
+      "externalStoreId": "store-a",
+      "externalOwnerId": "owner-a",
+      "externalSource": "qmai:owner-a:store-a",
+      "externalKey": "product-42#period=breakfast+lunch",
+      "externalProductId": "product-42"
+    }
+  ],
+  "resultMatrix": [
+    {
+      "fixture": "supported historical identity",
+      "resultCode": "PREFLIGHT_SAFE",
+      "failedChecks": []
+    },
+    {
+      "fixture": "contradictory rollout shadow",
+      "resultCode": "PREFLIGHT_UNSAFE",
+      "failedChecks": ["ROLLOUT_SHADOW_MISMATCH"]
+    },
+    {
+      "fixture": "duplicate authoritative identity",
+      "resultCode": "PREFLIGHT_UNSAFE",
+      "failedChecks": [
+        "DUPLICATE_AUTHORITATIVE_IDENTITY",
+        "MERGE_OR_UUID_REPLACEMENT_REQUIRED"
+      ]
+    },
+    {
+      "fixture": "source/canteen ownership mismatch",
+      "resultCode": "PREFLIGHT_UNSAFE",
+      "failedChecks": ["SOURCE_CANTEEN_OWNERSHIP_MISMATCH"]
+    },
+    {
+      "fixture": "authoritative null asymmetry",
+      "resultCode": "PREFLIGHT_UNSAFE",
+      "failedChecks": ["AUTHORITATIVE_IDENTITY_NULL_ASYMMETRY"]
+    },
+    {
+      "fixture": "unsupported legacy namespace or key",
+      "resultCode": "PREFLIGHT_UNSAFE",
+      "failedChecks": ["UNSUPPORTED_LEGACY_IDENTITY"]
+    },
+    {
+      "fixture": "multiple UUIDs project to one identity",
+      "resultCode": "PREFLIGHT_UNSAFE",
+      "failedChecks": ["MERGE_OR_UUID_REPLACEMENT_REQUIRED"]
+    }
+  ]
+}
