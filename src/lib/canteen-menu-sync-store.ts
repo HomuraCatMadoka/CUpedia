@@ -7,8 +7,8 @@ import {
 } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
-import { projectProviderMenuSourceNamespace } from "@/lib/canteen-provider-menu-identity";
+import { createMenuExternalKey } from "./canteen-menu-external-key";
+import { projectProviderMenuSourceNamespace } from "./canteen-provider-menu-identity";
 import {
   evaluateMenuSnapshot,
   type MenuSnapshotEvaluation,

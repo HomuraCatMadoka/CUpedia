@@ -5,9 +5,13 @@ import {
   parseMenuExternalKey,
 } from "./canteen-menu-external-key";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
-import type { MealPeriodAssignment, MenuSyncInput } from "./canteen-types";
+import {
+  MEAL_PERIOD_VALUES,
+  type MealPeriodAssignment,
+  type MenuSyncInput,
+} from "./canteen-types";
 
-const MEAL_PERIOD_ALTERNATION = "breakfast|lunch|dinner|allday";
+const MEAL_PERIOD_ALTERNATION = MEAL_PERIOD_VALUES.join("|");
 const MEAL_PERIOD_PATTERN = `(?:${MEAL_PERIOD_ALTERNATION})`;
 const MAX_DIAGNOSTIC_SAMPLES = 5;
 
@@ -50,6 +54,13 @@ export const providerMenuIdentityContracts = {
     mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
   },
 } as const satisfies Record<MenuProvider, ProviderMenuIdentityContract>;
+
+export function isMenuProvider(value: unknown): value is MenuProvider {
+  return (
+    typeof value === "string" &&
+    Object.hasOwn(providerMenuIdentityContracts, value)
+  );
+}
 
 export type ProviderMenuIdentityDiagnostic = {
   provider: MenuProvider;
@@ -170,6 +181,73 @@ export function projectProviderMenuSourceNamespace(
   const storeId = String(source.externalStoreId);
   if (provider !== "qmai") return `${provider}:${storeId}`;
   return `qmai:${String(source.externalOwnerId).trim()}:${storeId}`;
+}
+
+export type PersistedProviderMenuSourceNamespace = Readonly<{
+  provider: MenuProvider;
+  externalOwnerId: string | null;
+  externalStoreId: string;
+}>;
+
+export function parsePersistedProviderMenuSourceNamespace(
+  externalSource: string,
+): PersistedProviderMenuSourceNamespace | null {
+  const parts = externalSource.split(":");
+  if (parts.length === 2) {
+    const [namespace, externalStoreId] = parts;
+    if (!isSourceLocatorComponent(externalStoreId)) return null;
+    if (namespace === "order-place") {
+      return {
+        provider: "aigens",
+        externalOwnerId: null,
+        externalStoreId,
+      };
+    }
+    if (
+      isMenuProvider(namespace) &&
+      providerMenuIdentityContracts[namespace].sourceLocatorFields.length === 1
+    ) {
+      return {
+        provider: namespace,
+        externalOwnerId: null,
+        externalStoreId,
+      };
+    }
+    return null;
+  }
+  if (parts.length === 3 && parts[0] === "qmai") {
+    const [, externalOwnerId, externalStoreId] = parts;
+    if (
+      !isSourceLocatorComponent(externalOwnerId) ||
+      !isSourceLocatorComponent(externalStoreId)
+    ) {
+      return null;
+    }
+    return {
+      provider: "qmai",
+      externalOwnerId,
+      externalStoreId,
+    };
+  }
+  return null;
+}
+
+export function matchesPersistedProviderMenuSourceNamespace(
+  provider: MenuProvider,
+  source: ProviderMenuSourceLocator,
+  externalSource: string,
+): boolean {
+  const parsed = parsePersistedProviderMenuSourceNamespace(externalSource);
+  if (parsed === null || parsed.provider !== provider) return false;
+  try {
+    assertSourceLocator(provider, source);
+  } catch {
+    return false;
+  }
+  if (parsed.externalStoreId !== String(source.externalStoreId)) return false;
+  return provider !== "qmai"
+    ? parsed.externalOwnerId === null
+    : parsed.externalOwnerId === String(source.externalOwnerId).trim();
 }
 
 export function assertProviderMenuIdentitySnapshot(
@@ -326,9 +404,18 @@ function assertSourceLocator(
   const fields = providerMenuIdentityContracts[provider].sourceLocatorFields;
   const invalid = fields.filter((field) => {
     const value = source[field];
-    return typeof value !== "string" || !value.trim() || value.length > 200;
+    return !isSourceLocatorComponent(value);
   });
   if (invalid.length > 0) fail(provider, "INVALID_SOURCE_LOCATOR", invalid);
+}
+
+function isSourceLocatorComponent(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    Boolean(value.trim()) &&
+    value.length <= 200 &&
+    !value.includes(":")
+  );
 }
 
 function hasReservedMarker(identity: string): boolean {

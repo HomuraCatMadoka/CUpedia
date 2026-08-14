@@ -1,7 +1,4 @@
-import {
-  MEAL_PERIOD_VALUES,
-  type MealPeriodAssignment,
-} from "@/lib/canteen-types";
+import { MEAL_PERIOD_VALUES, type MealPeriodAssignment } from "./canteen-types";
 
 const PERIOD_MARKER = "#period=";
 const AIGENS_OFFERING_PERIOD_MARKER = "#offering-period=";
@@ -27,11 +24,20 @@ export function parseAigensOfferingId(externalProductId: string): {
   productId: string;
   mealPeriod: MealPeriodAssignment;
 } | null {
-  const match = externalProductId.match(
-    /^(.*)#offering-period=(breakfast|lunch|dinner|allday)$/,
+  const markerIndex = externalProductId.lastIndexOf(
+    AIGENS_OFFERING_PERIOD_MARKER,
   );
-  if (!match?.[1] || !isMealPeriodAssignment(match[2])) return null;
-  return { productId: match[1], mealPeriod: match[2] };
+  if (
+    markerIndex <= 0 ||
+    externalProductId.indexOf(AIGENS_OFFERING_PERIOD_MARKER) !== markerIndex
+  ) {
+    return null;
+  }
+  const productId = externalProductId.slice(0, markerIndex);
+  const mealPeriod = externalProductId.slice(
+    markerIndex + AIGENS_OFFERING_PERIOD_MARKER.length,
+  );
+  return isMealPeriodAssignment(mealPeriod) ? { productId, mealPeriod } : null;
 }
 
 export type OfferingIdentityTransition = {

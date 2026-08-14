@@ -33,9 +33,11 @@ All predicates apply to the same `REPEATABLE READ READ ONLY` snapshot.
 5. `UNSUPPORTED_LEGACY_IDENTITY`: shadow columns are symmetric and use a
    supported provider namespace/key. Source namespaces are
    `provider:store`, `qmai:owner:store`, plus the historical
-   `order-place:store` Aigens alias. Current namespaces reuse
-   `projectProviderMenuSourceNamespace`, including its Qmai owner
-   canonicalization, and keys reuse `normalizePersistedMenuShadowKey`, which
+   `order-place:store` Aigens alias; owner and store components are non-empty,
+   bounded, and cannot contain the `:` namespace delimiter. Persisted
+   namespaces reuse `parsePersistedProviderMenuSourceNamespace`, while current
+   writers reuse `projectProviderMenuSourceNamespace`, including its Qmai owner
+   canonicalization. Keys reuse `normalizePersistedMenuShadowKey`, which
    composes the writer's rollout-key projection with
    `normalizePublishedProviderIdentity`; these are not second provider rule
    sets. A shadow-only namespace must resolve to exactly one source in the

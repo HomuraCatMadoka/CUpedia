@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   assertProviderMenuIdentitySnapshot,
   canonicalizeProviderMenuState,
+  matchesPersistedProviderMenuSourceNamespace,
   normalizePersistedMenuShadowKey,
   normalizePublishedProviderIdentity,
+  parsePersistedProviderMenuSourceNamespace,
   providerMenuIdentityContracts,
   ProviderMenuIdentityError,
   type MenuProvider,
@@ -127,6 +129,94 @@ describe("provider menu identity contract (#636)", () => {
       ).toThrow("MALFORMED_IDENTITY");
     },
   );
+
+  it("parses only supported persisted source namespace shapes", () => {
+    expect(parsePersistedProviderMenuSourceNamespace("pinme:store-a")).toEqual({
+      provider: "pinme",
+      externalOwnerId: null,
+      externalStoreId: "store-a",
+    });
+    expect(
+      parsePersistedProviderMenuSourceNamespace("order-place:store-a"),
+    ).toEqual({
+      provider: "aigens",
+      externalOwnerId: null,
+      externalStoreId: "store-a",
+    });
+    expect(
+      parsePersistedProviderMenuSourceNamespace("qmai:owner-a:store-a"),
+    ).toEqual({
+      provider: "qmai",
+      externalOwnerId: "owner-a",
+      externalStoreId: "store-a",
+    });
+
+    for (const malformed of [
+      "pinme:store:extra",
+      "order-place:store:extra",
+      "qmai:owner:extra:store",
+      "qmai:owner:store:extra",
+    ]) {
+      expect(parsePersistedProviderMenuSourceNamespace(malformed)).toBeNull();
+    }
+  });
+
+  it.each([
+    {
+      provider: "pinme" as const,
+      source: { externalStoreId: "store:extra" },
+      externalSource: "pinme:store:extra",
+    },
+    {
+      provider: "aigens" as const,
+      source: { externalStoreId: "store:extra" },
+      externalSource: "order-place:store:extra",
+    },
+    {
+      provider: "qmai" as const,
+      source: {
+        externalOwnerId: "owner:extra",
+        externalStoreId: "store-a",
+      },
+      externalSource: "qmai:owner:extra:store-a",
+    },
+    {
+      provider: "qmai" as const,
+      source: {
+        externalOwnerId: "owner-a",
+        externalStoreId: "store:extra",
+      },
+      externalSource: "qmai:owner-a:store:extra",
+    },
+  ])(
+    "rejects matching invalid $provider source and shadow locators",
+    ({ provider, source, externalSource }) => {
+      expect(
+        matchesPersistedProviderMenuSourceNamespace(
+          provider,
+          source,
+          externalSource,
+        ),
+      ).toBe(false);
+    },
+  );
+
+  it("matches supported current and historical namespaces after canonicalization", () => {
+    expect(
+      matchesPersistedProviderMenuSourceNamespace(
+        "aigens",
+        { externalStoreId: "store-a" },
+        "order-place:store-a",
+      ),
+    ).toBe(true);
+    expect(
+      matchesPersistedProviderMenuSourceNamespace(
+        "qmai",
+        { externalOwnerId: " owner-a ", externalStoreId: "store-a" },
+        "qmai:owner-a:store-a",
+      ),
+    ).toBe(true);
+  });
 
   it.each(fixture.providers)(
     "$provider preserves a historical database UUID when current identity arrives",

@@ -1,6 +1,7 @@
 import {
+  isMenuProvider,
+  matchesPersistedProviderMenuSourceNamespace,
   normalizePersistedMenuShadowKey,
-  projectProviderMenuSourceNamespace,
   type MenuProvider,
 } from "./canteen-provider-menu-identity";
 
@@ -61,8 +62,6 @@ export type PersistedMenuIdentityInterpretation = {
 export type PersistedMenuIdentityInterpreter = {
   interpret(row: PersistedMenuIdentityRow): PersistedMenuIdentityInterpretation;
 };
-
-const PROVIDERS = new Set<MenuProvider>(["aigens", "ichef", "pinme", "qmai"]);
 
 export function createPersistedMenuIdentityInterpreter(
   sources: PersistedMenuIdentitySource[],
@@ -160,7 +159,11 @@ function interpretShadow(
   const candidates = sources.flatMap((source) => {
     const provider = asProvider(source.provider);
     return provider !== null &&
-      sourceNamespaceMatches(source, provider, externalSource)
+      matchesPersistedProviderMenuSourceNamespace(
+        provider,
+        source,
+        externalSource,
+      )
       ? [{ source, provider }]
       : [];
   });
@@ -191,30 +194,8 @@ function interpretShadow(
   }
 }
 
-function sourceNamespaceMatches(
-  source: PersistedMenuIdentitySource,
-  provider: MenuProvider,
-  externalSource: string,
-) {
-  if (
-    provider === "aigens" &&
-    externalSource === `order-place:${source.externalStoreId}`
-  ) {
-    return true;
-  }
-  try {
-    return (
-      externalSource === projectProviderMenuSourceNamespace(provider, source)
-    );
-  } catch {
-    return false;
-  }
-}
-
 function asProvider(value: string | null): MenuProvider | null {
-  return value !== null && PROVIDERS.has(value as MenuProvider)
-    ? (value as MenuProvider)
-    : null;
+  return isMenuProvider(value) ? value : null;
 }
 
 function canonicalMenuIdentity(
