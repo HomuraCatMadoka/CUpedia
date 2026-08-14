@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { reconcileOfferingIdentityTransitions } from "@/lib/canteen-menu-external-key";
+import { reconcileOfferingIdentityTransitions } from "./canteen-menu-external-key";
 
 declare const redactedMenuSampleBrand: unique symbol;
 export type RedactedMenuSample = string & {
