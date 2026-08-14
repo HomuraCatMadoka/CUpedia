@@ -6,7 +6,7 @@ import {
   canteenMenuSyncRuns,
 } from "@/db/schema";
 import { and, eq, getTableColumns, inArray, lt, sql } from "drizzle-orm";
-import type { MenuSyncInput } from "@/lib/canteen-types";
+import type { MenuSyncInput } from "./canteen-types";
 import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
 import type {
