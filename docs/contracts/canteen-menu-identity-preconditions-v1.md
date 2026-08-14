@@ -35,10 +35,11 @@ All predicates apply to the same `REPEATABLE READ READ ONLY` snapshot.
    `provider:store`, `qmai:owner:store`, plus the historical
    `order-place:store` Aigens alias. Current namespaces reuse
    `projectProviderMenuSourceNamespace`, including its Qmai owner
-   canonicalization, and keys reuse `normalizePublishedProviderIdentity`; these
-   are not second provider rule sets. A shadow-only namespace must resolve to
-   exactly one source in the item's canteen; zero or multiple matches fail
-   closed as unsupported.
+   canonicalization, and keys reuse `normalizePersistedMenuShadowKey`, which
+   composes the writer's rollout-key projection with
+   `normalizePublishedProviderIdentity`; these are not second provider rule
+   sets. A shadow-only namespace must resolve to exactly one source in the
+   item's canteen; zero or multiple matches fail closed as unsupported.
 6. `MERGE_OR_UUID_REPLACEMENT_REQUIRED`: neither authoritative identities nor
    canonical shadow projections may map multiple menu UUIDs to one identity.
    Any such state fails closed. The preflight never merges, repairs, replaces,

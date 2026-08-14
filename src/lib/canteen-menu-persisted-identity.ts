@@ -1,5 +1,5 @@
 import {
-  normalizePublishedProviderIdentity,
+  normalizePersistedMenuShadowKey,
   projectProviderMenuSourceNamespace,
   type MenuProvider,
 } from "./canteen-provider-menu-identity";
@@ -20,18 +20,42 @@ export type PersistedMenuIdentitySource = {
   externalStoreId: string | null;
 };
 
+export type CanonicalMenuIdentity = Readonly<{
+  sourceId: string;
+  productId: string;
+}>;
+
+export type PersistedAuthoritativeIdentity =
+  | { kind: "manual" }
+  | { kind: "partial"; provider: MenuProvider | null }
+  | {
+      kind: "managed";
+      identity: CanonicalMenuIdentity;
+      provider: MenuProvider | null;
+    };
+
+export type PersistedShadowIdentity =
+  | { kind: "manual" }
+  | {
+      kind: "resolved";
+      identity: CanonicalMenuIdentity;
+      provider: MenuProvider;
+    }
+  | {
+      kind: "unsupported";
+      reason:
+        | "shadow-null-asymmetry"
+        | "unsupported-source-namespace"
+        | "unsupported-product-key";
+      provider: MenuProvider | null;
+    };
+
 export type PersistedMenuIdentityInterpretation = {
-  authoritativeState: "manual" | "partial" | "managed";
+  authoritative: PersistedAuthoritativeIdentity;
   sourceOwnershipMismatch: boolean;
-  shadowState: "manual" | "resolved" | "unsupported";
-  shadowReason:
-    | "shadow-null-asymmetry"
-    | "unsupported-source-namespace"
-    | "unsupported-product-key"
-    | null;
+  shadow: PersistedShadowIdentity;
   identitiesAgree: boolean;
-  projectedIdentity: string | null;
-  provider: MenuProvider | null;
+  diagnosticProvider: MenuProvider | null;
 };
 
 export type PersistedMenuIdentityInterpreter = {
@@ -54,11 +78,11 @@ export function createPersistedMenuIdentityInterpreter(
 
   return {
     interpret(row) {
-      const authoritativeState = authoritativeStateFor(row);
       const authoritativeSource =
         row.menuSourceId === null
           ? null
           : (sourcesById.get(row.menuSourceId) ?? null);
+      const authoritative = interpretAuthoritative(row, authoritativeSource);
       const sourceOwnershipMismatch =
         row.menuSourceId !== null &&
         (authoritativeSource === null ||
@@ -70,66 +94,65 @@ export function createPersistedMenuIdentityInterpreter(
           : [authoritativeSource],
       );
       const identitiesAgree =
-        (authoritativeState === "manual" && shadow.kind === "manual") ||
-        (authoritativeState === "managed" &&
+        (authoritative.kind === "manual" && shadow.kind === "manual") ||
+        (authoritative.kind === "managed" &&
           shadow.kind === "resolved" &&
-          row.menuSourceId === shadow.source.id &&
-          row.externalProductId === shadow.productId);
+          canonicalMenuIdentitiesEqual(
+            authoritative.identity,
+            shadow.identity,
+          ));
 
       return {
-        authoritativeState,
+        authoritative,
         sourceOwnershipMismatch,
-        shadowState: shadow.kind,
-        shadowReason: shadow.kind === "unsupported" ? shadow.reason : null,
+        shadow,
         identitiesAgree,
-        projectedIdentity:
-          shadow.kind === "resolved"
-            ? identityKey(shadow.source.id, shadow.productId)
-            : null,
-        provider:
+        diagnosticProvider:
           shadow.kind === "resolved"
             ? shadow.provider
-            : asProvider(authoritativeSource?.provider ?? null),
+            : shadow.kind === "unsupported" && shadow.provider !== null
+              ? shadow.provider
+              : authoritative.kind === "manual"
+                ? null
+                : authoritative.provider,
       };
     },
   };
 }
 
-function authoritativeStateFor(
+function interpretAuthoritative(
   row: PersistedMenuIdentityRow,
-): PersistedMenuIdentityInterpretation["authoritativeState"] {
+  source: PersistedMenuIdentitySource | null,
+): PersistedAuthoritativeIdentity {
   if (row.menuSourceId === null && row.externalProductId === null) {
-    return "manual";
+    return { kind: "manual" };
   }
   if (row.menuSourceId !== null && row.externalProductId !== null) {
-    return "managed";
+    return {
+      kind: "managed",
+      identity: canonicalMenuIdentity(row.menuSourceId, row.externalProductId),
+      provider: asProvider(source?.provider ?? null),
+    };
   }
-  return "partial";
+  return {
+    kind: "partial",
+    provider: asProvider(source?.provider ?? null),
+  };
 }
 
 function interpretShadow(
   row: PersistedMenuIdentityRow,
   sources: PersistedMenuIdentitySource[],
-):
-  | { kind: "manual" }
-  | {
-      kind: "resolved";
-      source: PersistedMenuIdentitySource;
-      provider: MenuProvider;
-      productId: string;
-    }
-  | {
-      kind: "unsupported";
-      reason:
-        | "shadow-null-asymmetry"
-        | "unsupported-source-namespace"
-        | "unsupported-product-key";
-    } {
+): PersistedShadowIdentity {
   if (row.externalSource === null && row.externalKey === null) {
     return { kind: "manual" };
   }
   if (row.externalSource === null || row.externalKey === null) {
-    return { kind: "unsupported", reason: "shadow-null-asymmetry" };
+    return {
+      kind: "unsupported",
+      reason: "shadow-null-asymmetry",
+      provider: null,
+    };
   }
   const externalSource = row.externalSource;
   const externalKey = row.externalKey;
@@ -142,19 +165,29 @@ function interpretShadow(
       : [];
   });
   if (candidates.length !== 1) {
-    return { kind: "unsupported", reason: "unsupported-source-namespace" };
+    return {
+      kind: "unsupported",
+      reason: "unsupported-source-namespace",
+      provider: null,
+    };
   }
 
   const [{ source, provider }] = candidates;
   try {
     return {
       kind: "resolved",
-      source,
+      identity: canonicalMenuIdentity(
+        source.id,
+        normalizePersistedMenuShadowKey(provider, externalKey),
+      ),
       provider,
-      productId: normalizePublishedProviderIdentity(provider, externalKey),
     };
   } catch {
-    return { kind: "unsupported", reason: "unsupported-product-key" };
+    return {
+      kind: "unsupported",
+      reason: "unsupported-product-key",
+      provider,
+    };
   }
 }
 
@@ -184,6 +217,20 @@ function asProvider(value: string | null): MenuProvider | null {
     : null;
 }
 
-function identityKey(sourceId: string, productId: string) {
-  return `${sourceId}\u0000${productId}`;
+function canonicalMenuIdentity(
+  sourceId: string,
+  productId: string,
+): CanonicalMenuIdentity {
+  return { sourceId, productId };
+}
+
+function canonicalMenuIdentitiesEqual(
+  left: CanonicalMenuIdentity,
+  right: CanonicalMenuIdentity,
+) {
+  return left.sourceId === right.sourceId && left.productId === right.productId;
+}
+
+export function canonicalMenuIdentityKey(identity: CanonicalMenuIdentity) {
+  return `${identity.sourceId}\u0000${identity.productId}`;
 }

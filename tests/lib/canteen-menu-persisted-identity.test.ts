@@ -25,10 +25,10 @@ describe("persisted canteen menu identity interpretation", () => {
         externalKey: "product-42",
       }),
     ).toMatchObject({
-      authoritativeState: "managed",
-      shadowState: "resolved",
+      authoritative: { kind: "managed" },
+      shadow: { kind: "resolved" },
       identitiesAgree: true,
-      provider: "qmai",
+      diagnosticProvider: "qmai",
     });
   });
 
@@ -59,10 +59,10 @@ describe("persisted canteen menu identity interpretation", () => {
       externalProductId: null,
     });
 
-    expect(shadowOnly.projectedIdentity).toBe(managed.projectedIdentity);
+    expect(shadowOnly.shadow).toEqual(managed.shadow);
     expect(shadowOnly).toMatchObject({
-      authoritativeState: "manual",
-      shadowState: "resolved",
+      authoritative: { kind: "manual" },
+      shadow: { kind: "resolved" },
       identitiesAgree: false,
     });
   });
@@ -94,9 +94,10 @@ describe("persisted canteen menu identity interpretation", () => {
         externalKey: "product-42",
       }),
     ).toMatchObject({
-      shadowState: "unsupported",
-      shadowReason: "unsupported-source-namespace",
-      projectedIdentity: null,
+      shadow: {
+        kind: "unsupported",
+        reason: "unsupported-source-namespace",
+      },
       identitiesAgree: false,
     });
   });

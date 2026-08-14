@@ -22,6 +22,15 @@
       "externalProductId": "product-42#offering-period=dinner"
     },
     {
+      "name": "aigens current writer rollout key",
+      "provider": "aigens",
+      "externalStoreId": "store-a",
+      "externalOwnerId": null,
+      "externalSource": "aigens:store-a",
+      "externalKey": "product-42#offering-period=lunch#period=lunch",
+      "externalProductId": "product-42#offering-period=lunch"
+    },
+    {
       "name": "pinme scalar period",
       "provider": "pinme",
       "externalStoreId": "store-a",

@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { CanteenMenuSourceProvider } from "@/db/schema";
+import { menuExternalProductIdentity } from "./canteen-menu-external-key";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import type { MealPeriodAssignment, MenuSyncInput } from "./canteen-types";
 
@@ -129,6 +130,19 @@ export function normalizePublishedProviderIdentity(
   }
   if (!hasReservedMarker(identity)) return identity;
   throw new Error("MALFORMED_IDENTITY");
+}
+
+export function normalizePersistedMenuShadowKey(
+  provider: MenuProvider,
+  externalKey: string,
+): string {
+  try {
+    return normalizePublishedProviderIdentity(provider, externalKey);
+  } catch {
+    const productIdentity = menuExternalProductIdentity(externalKey);
+    if (productIdentity === externalKey) throw new Error("MALFORMED_IDENTITY");
+    return normalizePublishedProviderIdentity(provider, productIdentity);
+  }
 }
 
 export function projectProviderMenuSourceNamespace(

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { ClientBase } from "pg";
 import type { MenuProvider } from "./canteen-provider-menu-identity";
 import {
+  canonicalMenuIdentityKey,
   createPersistedMenuIdentityInterpreter,
   type PersistedMenuIdentityRow,
   type PersistedMenuIdentitySource,
@@ -255,32 +256,36 @@ function evaluateChecks(
         "SOURCE_CANTEEN_OWNERSHIP_MISMATCH",
         row,
         "source-owner",
-        identity.provider,
+        identity.diagnosticProvider,
       );
     }
-    if (identity.authoritativeState === "partial") {
+    if (identity.authoritative.kind === "partial") {
       add(
         findings,
         "AUTHORITATIVE_IDENTITY_NULL_ASYMMETRY",
         row,
         "authoritative-null-asymmetry",
-        identity.provider,
+        identity.diagnosticProvider,
       );
     }
-    if (identity.authoritativeState === "managed") {
-      group(actualGroups, `${row.menuSourceId}\u0000${row.externalProductId}`, {
-        row,
-        provider: identity.provider,
-      });
+    if (identity.authoritative.kind === "managed") {
+      group(
+        actualGroups,
+        canonicalMenuIdentityKey(identity.authoritative.identity),
+        {
+          row,
+          provider: identity.diagnosticProvider,
+        },
+      );
     }
 
-    if (identity.shadowState === "unsupported" && identity.shadowReason) {
+    if (identity.shadow.kind === "unsupported") {
       add(
         findings,
         "UNSUPPORTED_LEGACY_IDENTITY",
         row,
-        identity.shadowReason,
-        identity.provider,
+        identity.shadow.reason,
+        identity.diagnosticProvider,
       );
     }
     if (!identity.identitiesAgree) {
@@ -289,14 +294,18 @@ function evaluateChecks(
         "ROLLOUT_SHADOW_MISMATCH",
         row,
         "shadow-authoritative-disagreement",
-        identity.provider,
+        identity.diagnosticProvider,
       );
     }
-    if (identity.projectedIdentity !== null) {
-      group(projectedGroups, identity.projectedIdentity, {
-        row,
-        provider: identity.provider,
-      });
+    if (identity.shadow.kind === "resolved") {
+      group(
+        projectedGroups,
+        canonicalMenuIdentityKey(identity.shadow.identity),
+        {
+          row,
+          provider: identity.diagnosticProvider,
+        },
+      );
     }
   }
 
