@@ -1,22 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 import { db } from "@/db";
-import {
-  canteenMenuItems,
-  canteenMenuSources,
-  canteenMenuSyncRuns,
-} from "@/db/schema";
+import { canteenMenuSources, canteenMenuSyncRuns } from "@/db/schema";
 import { and, eq, lt } from "drizzle-orm";
 import { fetchMenuFromProvider } from "@/lib/canteen-menu-source-adapters";
 import {
   applyAutomatedMenuSync,
   previewMenuSync,
 } from "@/lib/canteen-menu-sync-store";
-import {
-  isSuspiciousMenuIdentityChurn,
-  observeMenuIdentityChurn,
-  type MenuIdentityObservation,
-} from "@/lib/canteen-menu-sync-observation";
-import { normalizePublishedProviderIdentity } from "./canteen-provider-menu-identity";
+import type { MenuIdentityObservation } from "@/lib/canteen-menu-sync-observation";
 
 const MAX_ERROR_LENGTH = 1_000;
 const MAX_CONCURRENCY = 2;
@@ -95,48 +86,14 @@ export async function syncCanteenMenuSource(
     const input = { ...fetched, takeOverLegacyItems: false };
     if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
     const hash = snapshotHash(input);
-    const existingManaged = await db
-      .select({
-        externalProductId: canteenMenuItems.externalProductId,
-        name: canteenMenuItems.name,
-      })
-      .from(canteenMenuItems)
-      .where(
-        and(
-          eq(canteenMenuItems.menuSourceId, source.id),
-          eq(canteenMenuItems.isAvailable, true),
-        ),
-      );
-    const normalizedExisting = existingManaged.flatMap((item) =>
-      item.externalProductId
-        ? [
-            {
-              externalProductId: normalizePublishedProviderIdentity(
-                source.provider,
-                item.externalProductId,
-              ),
-              name: item.name,
-            },
-          ]
-        : [],
-    );
-    const observation = observeMenuIdentityChurn(
-      normalizedExisting,
-      input.items,
-    );
-    if (
-      normalizedExisting.length > 0 &&
-      isSuspiciousMenuIdentityChurn(observation, normalizedExisting.length)
-    ) {
-      throw Object.assign(new Error("MENU_SYNC_IDENTITY_CHURN"), {
+    const preview = await previewMenuSync(source.id, input);
+    const observation = preview.identityObservation;
+    if (preview.blockingDecision.blocked) {
+      throw Object.assign(new Error(preview.blockingDecision.code), {
         observation,
         snapshotHash: hash,
         itemCount: input.items.length,
       });
-    }
-    const preview = await previewMenuSync(source.id, input);
-    if (preview.plan.conflicts.length > 0) {
-      throw new Error("MENU_SYNC_CONFLICT");
     }
     const updateSuccess = async (completedAt: Date) => {
       const [updated] = await db
@@ -182,20 +139,9 @@ export async function syncCanteenMenuSource(
       };
     }
 
-    const managedCount =
-      preview.plan.unchanged +
-      preview.plan.actions.filter((action) => action.action !== "create")
-        .length;
     const deactivations = preview.plan.actions.filter(
       (action) => action.action === "deactivate",
     ).length;
-    if (
-      managedCount > 0 &&
-      deactivations > 0 &&
-      input.items.length * 2 <= managedCount
-    ) {
-      throw new Error("MENU_SYNC_SUSPICIOUS_DROP");
-    }
     await applyAutomatedMenuSync(
       source.id,
       input,

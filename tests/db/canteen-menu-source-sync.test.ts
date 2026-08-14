@@ -12,10 +12,12 @@ import {
   users,
 } from "@/db/schema";
 import pinmeCurrent from "../lib/fixtures/canteen-providers/pinme-current.json";
+import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { syncCanteenMenuSource } from "@/lib/canteen-menu-source-sync";
+import { previewMenuSync } from "@/lib/canteen-menu-sync-store";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -179,6 +181,76 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       .from(canteenMenuSyncRuns)
       .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
     expect(run).toEqual({ status: "failed", errorCode: "DUPLICATE_IDENTITY" });
+    const history = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, itemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, itemId)),
+    ]);
+    expect(history.map(([row]) => row.value)).toEqual([1, 1]);
+  });
+
+  it("blocks a same-name identity replacement without changing menu history", async () => {
+    const itemId = randomUUID();
+    await db.insert(canteenMenuItems).values({
+      id: itemId,
+      canteenId,
+      name: "同名示例菜品",
+      menuSourceId: sourceId,
+      externalProductId: "secret-old-id",
+      externalSource: "pinme:9900636",
+      externalKey: "secret-old-id#period=allday",
+      isAvailable: true,
+    });
+    await db.insert(canteenDishVotes).values({
+      menuItemId: itemId,
+      userId,
+      vote: "like",
+    });
+    await db.insert(canteenDishComments).values({
+      menuItemId: itemId,
+      userId,
+      content: "必须保留的历史",
+    });
+    const replacement = structuredClone(pinmeCurrent);
+    replacement.data.group[0].products[0].local_name = "同名示例菜品";
+    const expectedPreview = await previewMenuSync(sourceId, {
+      ...buildPinmeMenuSyncPayload(replacement),
+      takeOverLegacyItems: false,
+    });
+    expect(expectedPreview.blockingDecision).toMatchObject({
+      blocked: true,
+      code: "MENU_SYNC_IDENTITY_CHURN",
+    });
+    stubPinmeFetch(replacement);
+
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "failed",
+      error: "MENU_SYNC_IDENTITY_CHURN",
+    });
+
+    const items = await db
+      .select({
+        id: canteenMenuItems.id,
+        externalProductId: canteenMenuItems.externalProductId,
+        isAvailable: canteenMenuItems.isAvailable,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.canteenId, canteenId));
+    expect(items).toEqual([
+      { id: itemId, externalProductId: "secret-old-id", isAvailable: true },
+    ]);
+    const [run] = await db
+      .select({ observation: canteenMenuSyncRuns.observation })
+      .from(canteenMenuSyncRuns)
+      .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
+    expect(run.observation).toEqual(expectedPreview.identityObservation);
+    expect(JSON.stringify(run.observation)).not.toContain("secret");
+    expect(JSON.stringify(run.observation)).not.toContain("同名示例菜品");
     const history = await Promise.all([
       db
         .select({ value: count() })
