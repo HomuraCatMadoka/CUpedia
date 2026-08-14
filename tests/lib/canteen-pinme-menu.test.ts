@@ -26,70 +26,142 @@ describe("PINME menu adapter", () => {
   });
 
   it.each([
-    [
-      "partially overlap",
-      { start_time: "08:00", end_time: "14:00" },
-      { start_time: "14:00", end_time: "20:00" },
-    ],
-    [
-      "combine all-day with a specific period",
-      {},
-      { start_time: "11:00", end_time: "14:00" },
-    ],
-  ])("fails closed when repeated product periods %s", (_, first, second) => {
+    {
+      storeShape: "4899 recommendation and ordinary categories",
+      productId: "313090",
+      name: "椰乳 · 咖啡",
+      price: 33,
+      firstCategory: "｜新上架",
+      secondCategory: "｜咖啡",
+      firstWindow: ["10:55", "19:30"],
+      secondWindow: ["10:55", "20:00"],
+      expectedPeriods: ["breakfast", "lunch", "dinner"],
+    },
+    {
+      storeShape: "5500 breakfast and recommendation categories",
+      productId: "550042",
+      name: "沙嗲牛肉麵",
+      price: 26,
+      firstCategory: "早餐專用",
+      secondCategory: "推介",
+      firstWindow: ["07:30", "11:00"],
+      secondWindow: ["07:30", "14:30"],
+      expectedPeriods: ["breakfast", "lunch"],
+    },
+  ])("coalesces repeated products for $storeShape", (fixture) => {
     const product = {
-      product_id: "42",
+      product_id: fixture.productId,
       status: "1",
-      local_name: "菜品 A",
-      price: 10,
+      local_name: fixture.name,
+      price: fixture.price,
     };
-    expect(() =>
-      buildPinmeMenuSyncPayload({
-        code: 200,
-        data: {
-          group: [
-            { local_name: "A", ...first, products: [product] },
-            { local_name: "A", ...second, products: [product] },
-          ],
+    const groups = [
+      {
+        local_name: fixture.firstCategory,
+        start_time: fixture.firstWindow[0],
+        end_time: fixture.firstWindow[1],
+        products: [product],
+      },
+      {
+        local_name: fixture.secondCategory,
+        start_time: fixture.secondWindow[0],
+        end_time: fixture.secondWindow[1],
+        products: [product],
+      },
+    ];
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: { group: groups },
+    });
+    const reversed = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: { group: groups.toReversed() },
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      externalProductId: fixture.productId,
+      name: fixture.name,
+      priceOptions: [
+        {
+          label: null,
+          amountMinor: fixture.price * 100,
+          currency: "HKD",
+          sortOrder: 0,
         },
-      }),
-    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+      ],
+      mealPeriods: fixture.expectedPeriods,
+      svgKey: [fixture.firstCategory, fixture.secondCategory].sort()[0],
+    });
+    expect(reversed).toEqual(result);
   });
 
-  it("fails closed when a later occurrence repeats an accumulated period", () => {
+  it("coalesces semantically equal price options in either provider order", () => {
+    const prices = [
+      {
+        status: "1",
+        takeout_price: "20.0000",
+        productStandardItem: { local_name: "小" },
+      },
+      {
+        status: "1",
+        takeout_price: "30.0000",
+        productStandardItem: { local_name: "大" },
+      },
+    ];
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+    };
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        group: [
+          { local_name: "B", products: [{ ...product, prices }] },
+          {
+            local_name: "A",
+            products: [{ ...product, prices: prices.toReversed() }],
+          },
+        ],
+      },
+    });
+
+    expect(result.items).toMatchObject([
+      {
+        externalProductId: "42",
+        svgKey: "A",
+        priceOptions: [
+          { label: "大", amountMinor: 3000, sortOrder: 0 },
+          { label: "小", amountMinor: 2000, sortOrder: 1 },
+        ],
+      },
+    ]);
+  });
+
+  it("normalizes all-day and specific occurrences to all-day", () => {
     const product = {
       product_id: "42",
       status: "1",
       local_name: "菜品 A",
       price: 10,
     };
-    expect(() =>
-      buildPinmeMenuSyncPayload({
-        code: 200,
-        data: {
-          group: [
-            {
-              local_name: "A",
-              start_time: "07:00",
-              end_time: "10:00",
-              products: [product],
-            },
-            {
-              local_name: "A",
-              start_time: "11:00",
-              end_time: "16:00",
-              products: [product],
-            },
-            {
-              local_name: "A",
-              start_time: "08:00",
-              end_time: "10:00",
-              products: [product],
-            },
-          ],
-        },
-      }),
-    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        group: [
+          { local_name: "全天", products: [product] },
+          {
+            local_name: "午餐",
+            start_time: "11:00",
+            end_time: "14:00",
+            products: [product],
+          },
+        ],
+      },
+    });
+
+    expect(result.items[0].mealPeriods).toEqual(["allday"]);
   });
 
   it("fails closed when two rows publish the same product identity", () => {
@@ -111,6 +183,26 @@ describe("PINME menu adapter", () => {
     expect(() => buildPinmeMenuSyncPayload(duplicate)).toThrowError(
       expect.objectContaining({ code: "COLLIDING_IDENTITY" }),
     );
+  });
+
+  it("fails closed when repeated product categories disagree on price", () => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [
+            {
+              local_name: "A",
+              products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
+            },
+            {
+              local_name: "B",
+              products: [{ product_id: "42", local_name: "菜品 A", price: 20 }],
+            },
+          ],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
   });
   it("creates deterministic signed anonymous token params", () => {
     expect(Object.fromEntries(createPinmeSignedParams("5500", 123))).toEqual({

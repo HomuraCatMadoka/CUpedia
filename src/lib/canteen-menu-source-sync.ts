@@ -1,22 +1,19 @@
 import { createHash, randomUUID } from "node:crypto";
 import { db } from "@/db";
 import {
-  canteenMenuItems,
+  CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
   canteenMenuSources,
   canteenMenuSyncRuns,
 } from "@/db/schema";
-import { and, eq, lt } from "drizzle-orm";
-import { fetchMenuFromProvider } from "@/lib/canteen-menu-source-adapters";
+import { and, eq, inArray, lt } from "drizzle-orm";
+import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
   applyAutomatedMenuSync,
   previewMenuSync,
-} from "@/lib/canteen-menu-sync-store";
-import {
-  isSuspiciousMenuIdentityChurn,
-  observeMenuIdentityChurn,
-  type MenuIdentityObservation,
-} from "@/lib/canteen-menu-sync-observation";
-import { normalizePublishedProviderIdentity } from "./canteen-provider-menu-identity";
+} from "./canteen-menu-sync-store";
+import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
+import type { MenuSnapshotEvaluation } from "./canteen-menu-snapshot-evaluator";
+import { normalizeSyncErrorCode } from "./sync-error-code";
 
 const MAX_ERROR_LENGTH = 1_000;
 const MAX_CONCURRENCY = 2;
@@ -30,6 +27,10 @@ export type MenuSourceSyncResult = {
   error?: string;
 };
 
+export type MenuSourceSyncDetail = MenuSourceSyncResult & {
+  evaluation?: MenuSnapshotEvaluation;
+};
+
 function snapshotHash(input: unknown): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
@@ -40,15 +41,13 @@ function safeError(error: unknown): string {
 }
 
 function errorCode(error: unknown): string {
-  const message = error instanceof Error ? error.message : "UNKNOWN_SYNC_ERROR";
-  const code = message.match(/^[A-Z][A-Z0-9_]*(?:_\d{3})?/)?.[0];
-  return code ?? "UNKNOWN_SYNC_ERROR";
+  return normalizeSyncErrorCode(error instanceof Error ? error.message : null);
 }
 
 /** Sync one source by stable DB identity; callers never supply a canteen ID. */
 export async function syncCanteenMenuSource(
   sourceId: string,
-): Promise<MenuSourceSyncResult> {
+): Promise<MenuSourceSyncDetail> {
   const attemptId = randomUUID();
   const attemptedAt = new Date();
   const [source] = await db
@@ -78,6 +77,10 @@ export async function syncCanteenMenuSource(
     .where(
       and(
         eq(canteenMenuSyncRuns.menuSourceId, source.id),
+        inArray(
+          canteenMenuSyncRuns.status,
+          CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
+        ),
         lt(
           canteenMenuSyncRuns.startedAt,
           new Date(attemptedAt.getTime() - RUN_RETENTION_MS),
@@ -90,53 +93,26 @@ export async function syncCanteenMenuSource(
     startedAt: attemptedAt,
   });
 
+  let attemptSnapshotHash: string | undefined;
+  let attemptItemCount: number | undefined;
   try {
     const fetched = await fetchMenuFromProvider(source);
     const input = { ...fetched, takeOverLegacyItems: false };
     if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
     const hash = snapshotHash(input);
-    const existingManaged = await db
-      .select({
-        externalProductId: canteenMenuItems.externalProductId,
-        name: canteenMenuItems.name,
-      })
-      .from(canteenMenuItems)
-      .where(
-        and(
-          eq(canteenMenuItems.menuSourceId, source.id),
-          eq(canteenMenuItems.isAvailable, true),
-        ),
-      );
-    const normalizedExisting = existingManaged.flatMap((item) =>
-      item.externalProductId
-        ? [
-            {
-              externalProductId: normalizePublishedProviderIdentity(
-                source.provider,
-                item.externalProductId,
-              ),
-              name: item.name,
-            },
-          ]
-        : [],
+    attemptSnapshotHash = hash;
+    attemptItemCount = input.items.length;
+    const { previewToken, ...previewEvaluation } = await previewMenuSync(
+      source.id,
+      input,
     );
-    const observation = observeMenuIdentityChurn(
-      normalizedExisting,
-      input.items,
-    );
-    if (
-      normalizedExisting.length > 0 &&
-      isSuspiciousMenuIdentityChurn(observation, normalizedExisting.length)
-    ) {
-      throw Object.assign(new Error("MENU_SYNC_IDENTITY_CHURN"), {
-        observation,
+    if (previewEvaluation.blockingDecision.blocked) {
+      throw Object.assign(new Error(previewEvaluation.blockingDecision.code), {
+        evaluation: previewEvaluation,
+        observation: previewEvaluation.identityObservation,
         snapshotHash: hash,
         itemCount: input.items.length,
       });
-    }
-    const preview = await previewMenuSync(source.id, input);
-    if (preview.plan.conflicts.length > 0) {
-      throw new Error("MENU_SYNC_CONFLICT");
     }
     const updateSuccess = async (completedAt: Date) => {
       const [updated] = await db
@@ -159,7 +135,7 @@ export async function syncCanteenMenuSource(
       if (!updated) throw new Error("MENU_SYNC_SUPERSEDED");
     };
 
-    if (preview.plan.actions.length === 0) {
+    if (previewEvaluation.plan.actions.length === 0) {
       await updateSuccess(new Date());
       await db
         .update(canteenMenuSyncRuns)
@@ -170,7 +146,7 @@ export async function syncCanteenMenuSource(
           createdCount: 0,
           updatedCount: 0,
           deactivatedCount: 0,
-          observation,
+          observation: previewEvaluation.identityObservation,
           completedAt: new Date(),
         })
         .where(eq(canteenMenuSyncRuns.id, attemptId));
@@ -179,27 +155,14 @@ export async function syncCanteenMenuSource(
         canteenId: source.canteenId,
         status: "unchanged",
         itemCount: input.items.length,
+        evaluation: previewEvaluation,
       };
     }
 
-    const managedCount =
-      preview.plan.unchanged +
-      preview.plan.actions.filter((action) => action.action !== "create")
-        .length;
-    const deactivations = preview.plan.actions.filter(
-      (action) => action.action === "deactivate",
-    ).length;
-    if (
-      managedCount > 0 &&
-      deactivations > 0 &&
-      input.items.length * 2 <= managedCount
-    ) {
-      throw new Error("MENU_SYNC_SUSPICIOUS_DROP");
-    }
-    await applyAutomatedMenuSync(
+    const appliedEvaluation = await applyAutomatedMenuSync(
       source.id,
       input,
-      preview.previewToken,
+      previewToken,
       attemptId,
     );
     await updateSuccess(new Date());
@@ -209,14 +172,16 @@ export async function syncCanteenMenuSource(
         status: "applied",
         snapshotHash: hash,
         itemCount: input.items.length,
-        createdCount: preview.plan.actions.filter(
+        createdCount: appliedEvaluation.plan.actions.filter(
           (action) => action.action === "create",
         ).length,
-        updatedCount: preview.plan.actions.filter((action) =>
+        updatedCount: appliedEvaluation.plan.actions.filter((action) =>
           ["update", "reactivate", "claim"].includes(action.action),
         ).length,
-        deactivatedCount: deactivations,
-        observation,
+        deactivatedCount: appliedEvaluation.plan.actions.filter(
+          (action) => action.action === "deactivate",
+        ).length,
+        observation: appliedEvaluation.identityObservation,
         completedAt: new Date(),
       })
       .where(eq(canteenMenuSyncRuns.id, attemptId));
@@ -225,6 +190,7 @@ export async function syncCanteenMenuSource(
       canteenId: source.canteenId,
       status: "applied",
       itemCount: input.items.length,
+      evaluation: appliedEvaluation,
     };
   } catch (error) {
     const message = safeError(error);
@@ -244,6 +210,7 @@ export async function syncCanteenMenuSource(
         ),
       );
     const details = error as {
+      evaluation?: MenuSnapshotEvaluation;
       observation?: MenuIdentityObservation;
       snapshotHash?: string;
       itemCount?: number;
@@ -252,8 +219,8 @@ export async function syncCanteenMenuSource(
       .update(canteenMenuSyncRuns)
       .set({
         status: "failed",
-        snapshotHash: details.snapshotHash,
-        itemCount: details.itemCount,
+        snapshotHash: details.snapshotHash ?? attemptSnapshotHash,
+        itemCount: details.itemCount ?? attemptItemCount,
         observation: details.observation ?? {},
         errorCode: code,
         error: message,
@@ -265,6 +232,7 @@ export async function syncCanteenMenuSource(
       canteenId: source.canteenId,
       status: "failed",
       error: code,
+      evaluation: details.evaluation,
     };
   }
 }
@@ -283,9 +251,23 @@ export async function syncEnabledCanteenMenuSources(): Promise<
       ...(await Promise.all(
         sources
           .slice(index, index + MAX_CONCURRENCY)
-          .map((source) => syncCanteenMenuSource(source.id)),
+          .map(async (source) =>
+            summarizeMenuSourceSync(await syncCanteenMenuSource(source.id)),
+          ),
       )),
     );
   }
   return results;
+}
+
+function summarizeMenuSourceSync(
+  detail: MenuSourceSyncDetail,
+): MenuSourceSyncResult {
+  return {
+    sourceId: detail.sourceId,
+    canteenId: detail.canteenId,
+    status: detail.status,
+    ...(detail.itemCount === undefined ? {} : { itemCount: detail.itemCount }),
+    ...(detail.error === undefined ? {} : { error: detail.error }),
+  };
 }

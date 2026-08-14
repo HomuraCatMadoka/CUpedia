@@ -1,15 +1,14 @@
 import { createHash } from "node:crypto";
-import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
-import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
+import { assignMealPeriodSortOrder } from "./canteen-aigens-parse";
+import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
+import { compareProviderText } from "./canteen-provider-menu-ordering";
+import { mealPeriodsForOperatingWindow } from "./canteen-provider-menu-periods";
+import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
-  assertCompatibleProviderIdentityOccurrence,
-  assertProviderMenuIdentityItems,
-} from "./canteen-provider-menu-identity";
-import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
-import type {
-  MenuSyncInput,
-  MenuItemPriceOptionInput,
-} from "@/lib/canteen-types";
+  normalizeMealPeriods,
+  type MenuSyncInput,
+  type MenuItemPriceOptionInput,
+} from "./canteen-types";
 
 const PINME_SIGNING_KEY = "a91f9568fbd23881c2b2c7fa9af5b12a";
 
@@ -35,6 +34,35 @@ function amountMinor(value: unknown): number | null {
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number) || number < 0 || number > 9_999) return null;
   return Math.round(number * 100);
+}
+
+function canonicalizePriceOptions(
+  options: MenuItemPriceOptionInput[],
+): MenuItemPriceOptionInput[] {
+  return options
+    .slice()
+    .sort(
+      (left, right) =>
+        compareProviderText(left.label ?? "", right.label ?? "") ||
+        left.amountMinor - right.amountMinor ||
+        compareProviderText(left.currency, right.currency),
+    )
+    .map((option, sortOrder) => ({ ...option, sortOrder }));
+}
+
+function samePriceOptions(
+  left: readonly MenuItemPriceOptionInput[],
+  right: readonly MenuItemPriceOptionInput[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (option, index) =>
+        option.label === right[index].label &&
+        option.amountMinor === right[index].amountMinor &&
+        option.currency === right[index].currency,
+    )
+  );
 }
 
 export function createPinmeSignedParams(
@@ -77,7 +105,7 @@ function priceOptions(product: JsonObject): MenuItemPriceOptionInput[] {
     })
     .filter((value): value is MenuItemPriceOptionInput => value !== null);
   if (variants.length === 1) variants[0].label = null;
-  if (variants.length > 0) return variants;
+  if (variants.length > 0) return canonicalizePriceOptions(variants);
   const amount = amountMinor(product.takeout_price ?? product.price);
   return amount === null
     ? []
@@ -101,6 +129,10 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       text(group.start_time) ?? undefined,
       text(group.end_time) ?? undefined,
     );
+    const occurrencesInGroup = new Map<
+      string,
+      Omit<MenuSyncInput["items"][number], "sortOrder">
+    >();
     for (const productValue of array(group.products)) {
       const product = object(productValue);
       const externalProductId = text(product?.product_id);
@@ -118,28 +150,39 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       ) {
         continue;
       }
-      const existing = byProductId.get(externalProductId);
-      if (existing) {
-        const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
-        assertCompatibleProviderIdentityOccurrence("pinme", existing, {
-          externalProductId,
-          name,
-          priceOptions: priceOptions(product),
-          mealPeriods,
-          svgKey,
-        });
-        existing.mealPeriods = [
-          ...new Set([...existing.mealPeriods, ...mealPeriods]),
-        ];
-        continue;
-      }
-      byProductId.set(externalProductId, {
+      const occurrence = {
         externalProductId,
         name,
         priceOptions: priceOptions(product),
         mealPeriods,
         svgKey: resolveMenuSectionKey({ categoryName, dishName: name }),
-      });
+      };
+      const repeatedInGroup = occurrencesInGroup.get(externalProductId);
+      if (repeatedInGroup) {
+        assertProviderMenuIdentityItems("pinme", [repeatedInGroup, occurrence]);
+      }
+      occurrencesInGroup.set(externalProductId, occurrence);
+
+      const existing = byProductId.get(externalProductId);
+      if (existing) {
+        if (
+          existing.name !== occurrence.name ||
+          !samePriceOptions(existing.priceOptions, occurrence.priceOptions)
+        ) {
+          assertProviderMenuIdentityItems("pinme", [existing, occurrence]);
+        }
+        if (occurrence.svgKey < existing.svgKey) {
+          existing.svgKey = occurrence.svgKey;
+        }
+        const mergedMealPeriods = normalizeMealPeriods([
+          ...existing.mealPeriods,
+          ...mealPeriods,
+        ]);
+        if (!mergedMealPeriods) throw new Error("INVALID_MEAL_PERIOD");
+        existing.mealPeriods = mergedMealPeriods;
+        continue;
+      }
+      byProductId.set(externalProductId, occurrence);
     }
   }
   const items = [...byProductId.values()].map((item) => ({

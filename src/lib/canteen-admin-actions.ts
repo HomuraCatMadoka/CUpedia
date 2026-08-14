@@ -380,7 +380,7 @@ export async function applyMenuSyncFromJson(
     columns: { id: true },
   });
   if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
-  return applyPreviewedMenuSync(source.id, input, previewToken);
+  return (await applyPreviewedMenuSync(source.id, input, previewToken)).plan;
 }
 
 export async function updateMenuItem(
