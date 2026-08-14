@@ -41,6 +41,19 @@ function paramsFrom(input: URLSearchParams | string) {
     : input;
 }
 
+function hasOnlyUrlKeys(
+  params: URLSearchParams,
+  allowedKeys: readonly string[],
+) {
+  return Array.from(params.keys()).every((key) => allowedKeys.includes(key));
+}
+
+function hasRepeatedUrlKeys(params: URLSearchParams) {
+  return Array.from(new Set(params.keys())).some(
+    (key) => params.getAll(key).length !== 1,
+  );
+}
+
 function snap(value: string | null) {
   return value === "peek" || value === "full" ? value : null;
 }
@@ -295,6 +308,9 @@ export function normalizeCampusMapHistorySession(
   catalog: CampusMapSceneCatalog,
 ): CampusMapSession {
   if (!validSession(session, catalog)) return EMPTY_CAMPUS_MAP_SCENE_SESSION;
+  if (session.mode === "browse" && session.scene.kind === "provider-poi") {
+    return EMPTY_CAMPUS_MAP_SCENE_SESSION;
+  }
   if (session.mode === "browse" && session.scene.kind === "search-results") {
     const query = session.scene.query.trim();
     return query
@@ -409,6 +425,7 @@ export function decodeCampusMapUrl(
   catalog: CampusMapSceneCatalog,
 ): CampusMapDecodeResult {
   const params = paramsFrom(input);
+  if (hasRepeatedUrlKeys(params)) return fallback("conflicting-fields");
   if (params.get("v") !== String(CAMPUS_MAP_SCENE_CODEC_VERSION)) {
     return fallback("unsupported-version");
   }
@@ -416,10 +433,15 @@ export function decodeCampusMapUrl(
   const taskKind = params.get("task");
   if (sceneKind && taskKind) return fallback("conflicting-fields");
   if (!sceneKind && !taskKind) {
-    return { status: "decoded", session: EMPTY_CAMPUS_MAP_SCENE_SESSION };
+    return hasOnlyUrlKeys(params, ["v"])
+      ? { status: "decoded", session: EMPTY_CAMPUS_MAP_SCENE_SESSION }
+      : fallback("conflicting-fields");
   }
 
   if (taskKind) {
+    if (!hasOnlyUrlKeys(params, ["v", "task", "anchor", "id"])) {
+      return fallback("conflicting-fields");
+    }
     if (taskKind !== "create") return fallback("invalid-task");
     const anchor = params.get("anchor");
     let session: CampusMapSession;
@@ -447,6 +469,9 @@ export function decodeCampusMapUrl(
   const panelSnap = snap(params.get("snap"));
   let session: CampusMapSession;
   if (sceneKind === "search" && panelSnap) {
+    if (!hasOnlyUrlKeys(params, ["v", "scene", "q", "snap"])) {
+      return fallback("conflicting-fields");
+    }
     const query = params.get("q")?.trim();
     if (!query) return fallback("invalid-scene");
     session = {
@@ -454,6 +479,9 @@ export function decodeCampusMapUrl(
       scene: { kind: "search-results", query, snap: panelSnap },
     };
   } else if (sceneKind === "category" && panelSnap) {
+    if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "snap"])) {
+      return fallback("conflicting-fields");
+    }
     const category = params.get("id")?.trim();
     if (!category) return fallback("invalid-scene");
     session = {
@@ -461,6 +489,9 @@ export function decodeCampusMapUrl(
       scene: { kind: "category-results", category, snap: panelSnap },
     };
   } else if (sceneKind === "building" && panelSnap) {
+    if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "floor", "snap"])) {
+      return fallback("conflicting-fields");
+    }
     const buildingId = params.get("id")?.trim();
     const floorId = params.get("floor")?.trim() || null;
     if (!buildingId) return fallback("invalid-scene");
@@ -472,6 +503,9 @@ export function decodeCampusMapUrl(
     (sceneKind === "facility" || sceneKind === "content") &&
     panelSnap
   ) {
+    if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "snap"])) {
+      return fallback("conflicting-fields");
+    }
     if (
       params.has("building") ||
       params.has("floor") ||

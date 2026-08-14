@@ -132,7 +132,7 @@ describe("Campus Map versioned scene codec", () => {
     },
   );
 
-  it("round-trips versioned history snapshots including transient scenes", () => {
+  it("normalizes transient scenes out of versioned history snapshots", () => {
     const session: CampusMapSession = {
       mode: "browse",
       scene: {
@@ -149,14 +149,16 @@ describe("Campus Map versioned scene codec", () => {
       campusMapScene: true,
       version: 1,
       depth: 3,
-      session,
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
     });
     expect(decodeCampusMapHistorySnapshot(encoded, catalog)).toEqual({
       status: "decoded",
-      session,
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       depth: 3,
     });
-    expect(normalizeCampusMapHistorySession(session, catalog)).toEqual(session);
+    expect(normalizeCampusMapHistorySession(session, catalog)).toEqual(
+      EMPTY_CAMPUS_MAP_SCENE_SESSION,
+    );
   });
 
   it.each([
@@ -289,6 +291,44 @@ describe("Campus Map versioned scene codec", () => {
       status: "fallback",
       session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       reason: "conflicting-fields",
+    });
+  });
+
+  it.each([
+    "v=1&id=ghost",
+    "v=1&v=1",
+    "v=1&scene=category&id=water&q=ghost&snap=peek",
+    "v=1&task=create&anchor=map&snap=peek",
+    "v=1&scene=facility&id=fountain&id=fountain&snap=peek",
+  ])("rejects extra, repeated, or conflicting URL fields: %s", (input) => {
+    expect(decodeCampusMapUrl(input, catalog)).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "conflicting-fields",
+    });
+  });
+
+  it("normalizes provider text before history encode/decode", () => {
+    const session: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "provider-poi",
+        provider: "amap",
+        providerPoiId: " external ",
+        name: " External ",
+        position: [114.2, 22.4],
+      },
+    };
+
+    expect(
+      decodeCampusMapHistorySnapshot(
+        encodeCampusMapHistorySnapshot(session, catalog, 1),
+        catalog,
+      ),
+    ).toEqual({
+      status: "decoded",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      depth: 1,
     });
   });
 });

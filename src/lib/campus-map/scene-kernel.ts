@@ -158,6 +158,10 @@ function reject(
   return { status: "rejected", reason, session, commands: NO_COMMANDS };
 }
 
+function acceptNoop(session: CampusMapSession): CampusMapTransition {
+  return { status: "accepted", session, commands: NO_COMMANDS };
+}
+
 export type CampusMapResolvedScene =
   | {
       status: "valid";
@@ -200,13 +204,16 @@ export function resolveCampusMapScene(
       : { status: "invalid", reason: "unknown-category" };
   }
   if (session.scene.kind === "search-results") {
-    return session.scene.query.trim()
+    return session.scene.query === session.scene.query.trim() &&
+      session.scene.query.length > 0
       ? { status: "valid", session, context: null }
       : { status: "invalid", reason: "invalid-query" };
   }
   if (session.scene.kind === "provider-poi") {
-    return session.scene.providerPoiId.trim() &&
-      session.scene.name.trim() &&
+    return session.scene.providerPoiId === session.scene.providerPoiId.trim() &&
+      session.scene.providerPoiId.length > 0 &&
+      session.scene.name === session.scene.name.trim() &&
+      session.scene.name.length > 0 &&
       validPosition(session.scene.position)
       ? { status: "valid", session, context: null }
       : { status: "invalid", reason: "invalid-provider-poi" };
@@ -278,9 +285,12 @@ export function transitionCampusMapSession(
   _catalog: CampusMapSceneCatalog,
 ): CampusMapTransition {
   if (event.type === "RESTORE") {
+    const transientProvider =
+      event.session.mode === "browse" &&
+      event.session.scene.kind === "provider-poi";
     const resolved = resolveCampusMapScene(event.session, _catalog);
     const session =
-      resolved.status === "valid"
+      !transientProvider && resolved.status === "valid"
         ? event.session
         : EMPTY_CAMPUS_MAP_SCENE_SESSION;
     const buildingId = sessionBuildingId(session, _catalog);
@@ -317,6 +327,10 @@ export function transitionCampusMapSession(
           : { kind: "close-external" },
       },
     };
+  }
+
+  if (resolveCampusMapScene(_session, _catalog).status === "invalid") {
+    return reject(_session, "invalid-session");
   }
 
   if (event.type === "START_CREATE") {
@@ -386,6 +400,7 @@ export function transitionCampusMapSession(
   }
 
   if (event.type === "OPEN_MAP") {
+    if (_session.scene.kind === "map") return acceptNoop(_session);
     return {
       status: "accepted",
       session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
@@ -405,6 +420,7 @@ export function transitionCampusMapSession(
     ) {
       return reject(_session, "event-not-allowed");
     }
+    if (_session.scene.snap === event.snap) return acceptNoop(_session);
     return {
       status: "accepted",
       session: {
@@ -432,6 +448,7 @@ export function transitionCampusMapSession(
     ) {
       return reject(_session, "unknown-floor");
     }
+    if (_session.scene.floorId === event.floorId) return acceptNoop(_session);
     return {
       status: "accepted",
       session: {
@@ -449,6 +466,13 @@ export function transitionCampusMapSession(
 
   if (event.type === "SEARCH") {
     const query = event.query.trim();
+    if (
+      (query === "" && _session.scene.kind === "map") ||
+      (_session.scene.kind === "search-results" &&
+        _session.scene.query === query)
+    ) {
+      return acceptNoop(_session);
+    }
     return {
       status: "accepted",
       session: query
@@ -469,6 +493,12 @@ export function transitionCampusMapSession(
   if (event.type === "OPEN_BUILDING") {
     if (!_catalog.buildings[event.buildingId]) {
       return reject(_session, "unknown-building");
+    }
+    if (
+      _session.scene.kind === "building" &&
+      _session.scene.buildingId === event.buildingId
+    ) {
+      return acceptNoop(_session);
     }
     return {
       status: "accepted",
@@ -505,6 +535,12 @@ export function transitionCampusMapSession(
     if (resolved.status === "invalid" || !facility) {
       return reject(_session, "unknown-facility");
     }
+    if (
+      _session.scene.kind === "facility" &&
+      _session.scene.facilityId === event.facilityId
+    ) {
+      return acceptNoop(_session);
+    }
     return {
       status: "accepted",
       session: candidate,
@@ -536,6 +572,12 @@ export function transitionCampusMapSession(
     ) {
       return reject(_session, "unknown-content");
     }
+    if (
+      _session.scene.kind === "content" &&
+      _session.scene.contentId === event.contentId
+    ) {
+      return acceptNoop(_session);
+    }
     return {
       status: "accepted",
       session: candidate,
@@ -560,6 +602,15 @@ export function transitionCampusMapSession(
     const name = event.name.trim();
     if (!providerPoiId || !name || !validPosition(event.position)) {
       return reject(_session, "invalid-provider-poi");
+    }
+    if (
+      _session.scene.kind === "provider-poi" &&
+      _session.scene.providerPoiId === providerPoiId &&
+      _session.scene.name === name &&
+      _session.scene.position[0] === event.position[0] &&
+      _session.scene.position[1] === event.position[1]
+    ) {
+      return acceptNoop(_session);
     }
     return {
       status: "accepted",
@@ -589,6 +640,12 @@ export function transitionCampusMapSession(
 
   if (!_catalog.categories.includes(event.category)) {
     return reject(_session, "unknown-category");
+  }
+  if (
+    _session.scene.kind === "category-results" &&
+    _session.scene.category === event.category
+  ) {
+    return acceptNoop(_session);
   }
   return {
     status: "accepted",

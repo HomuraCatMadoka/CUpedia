@@ -36,24 +36,27 @@ building, floor, or category fields.
 `history`, `camera`, `focus`, and `overlay` are scalar command slots, so a
 transition cannot emit more than one command of each kind.
 
-| Event                | Accepted from              | Next scene                             | History      | Camera                                                       | Focus / overlay                     |
-| -------------------- | -------------------------- | -------------------------------------- | ------------ | ------------------------------------------------------------ | ----------------------------------- |
-| `OPEN_MAP`           | any browse scene           | map                                    | replace      | cancel                                                       | map / close external                |
-| `SEARCH`             | browse                     | search-results, or map for blank query | replace      | cancel                                                       | search input / close external       |
-| `OPEN_CATEGORY`      | browse                     | category-results                       | push         | cancel                                                       | results / close external            |
-| `OPEN_BUILDING`      | browse                     | building                               | push         | focus building using #593 reason                             | heading / close external            |
-| `OPEN_FACILITY`      | browse                     | facility                               | push         | map source focuses derived building; building source cancels | heading / close external            |
-| `OPEN_CONTENT`       | browse                     | content                                | push         | map source focuses derived building; building source cancels | heading / close external            |
-| `OPEN_PROVIDER_POI`  | browse                     | provider-poi                           | none         | cancel                                                       | provider overlay                    |
-| `SET_SNAP`           | sheet-bearing browse scene | same identity, new snap                | replace      | none                                                         | panel heading when expanded         |
-| `SET_BUILDING_FLOOR` | building                   | same building, validated floor         | replace      | none                                                         | results                             |
-| `START_CREATE`       | browse                     | create task                            | push         | cancel                                                       | contribution form / close external  |
-| `CANCEL_TASK`        | task                       | anchor projection or map               | back-or-push | cancel                                                       | scene heading                       |
-| `RESTORE`            | any                        | normalized decoded session             | none         | derived entity focus or cancel                               | scene projection / matching overlay |
+| Event                | Accepted from              | Next scene                             | History      | Camera                                                       | Focus / overlay                            |
+| -------------------- | -------------------------- | -------------------------------------- | ------------ | ------------------------------------------------------------ | ------------------------------------------ |
+| `OPEN_MAP`           | any browse scene           | map                                    | replace      | cancel                                                       | map / close external                       |
+| `SEARCH`             | browse                     | search-results, or map for blank query | replace      | cancel                                                       | search input / close external              |
+| `OPEN_CATEGORY`      | browse                     | category-results                       | push         | cancel                                                       | results / close external                   |
+| `OPEN_BUILDING`      | browse                     | building                               | push         | focus building using #593 reason                             | heading / close external                   |
+| `OPEN_FACILITY`      | browse                     | facility                               | push         | map source focuses derived building; building source cancels | heading / close external                   |
+| `OPEN_CONTENT`       | browse                     | content                                | push         | map source focuses derived building; building source cancels | heading / close external                   |
+| `OPEN_PROVIDER_POI`  | browse                     | provider-poi                           | none         | cancel                                                       | provider overlay                           |
+| `SET_SNAP`           | sheet-bearing browse scene | same identity, new snap                | replace      | none                                                         | panel heading when expanded                |
+| `SET_BUILDING_FLOOR` | building                   | same building, validated floor         | replace      | none                                                         | results                                    |
+| `START_CREATE`       | browse                     | create task                            | push         | cancel                                                       | contribution form / close external         |
+| `CANCEL_TASK`        | task                       | anchor projection or map               | back-or-push | cancel                                                       | scene heading                              |
+| `RESTORE`            | any                        | normalized decoded session             | none         | derived entity focus or cancel                               | scene projection / close transient overlay |
 
 Events outside the listed source scenes, unknown catalog IDs, invalid
 coordinates, and invalid floors are explicitly rejected with no state change
 and no commands.
+
+Repeating an intent whose canonical identity and payload already match the
+current scene is accepted as an idempotent no-op with no commands.
 
 ## Invariants
 
@@ -61,10 +64,11 @@ and no commands.
 2. A facility/content scene stores only its entity ID and sheet snap. Its
    building, floor, and category are validated and derived from the catalog.
 3. A canonical URL never repeats catalog relationships. Provider POIs are
-   transient and therefore normalize to the map URL.
+   transient and therefore normalize to map in both URL and history codecs;
+   popstate never resurrects their overlay.
 4. URL and history formats carry an explicit version. Unknown versions,
-   malformed payloads, conflicting legacy relationship fields, and missing
-   catalog entities fall back to the empty map session.
+   malformed or repeated fields, conflicting legacy relationship fields, and
+   missing catalog entities fall back to the empty map session.
 5. Encode/decode is stable after normalization:
    `decode(encode(session)) === normalize(session)`.
 6. `RESTORE` represents popstate/Back/Forward. It emits no history command, so
