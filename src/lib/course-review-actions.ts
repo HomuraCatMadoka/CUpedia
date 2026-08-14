@@ -522,10 +522,10 @@ async function ratingAggFor(
   return { avg: Number(row?.avg ?? 0), cnt: Number(row?.cnt ?? 0) };
 }
 
-export async function getMyCourseReviewHistory(): Promise<
-  MyCourseReviewHistoryItem[]
-> {
-  const user = await requireAuth();
+export async function getMyCourseReviewHistory(
+  userArg?: { id: string },
+): Promise<MyCourseReviewHistoryItem[]> {
+  const user = userArg ?? (await requireAuth());
   const rows = await db
     .select({
       ratingId: courseRatings.id,
@@ -1501,8 +1501,9 @@ export async function deleteCourseReviewReply(replyId: string): Promise<void> {
 export async function submitCourseReview(
   code: string,
   submission: CourseReviewSubmission,
+  userArg?: { id: string; nickname: string },
 ): Promise<{ newAchievementNotices: AchievementNoticeToast[] }> {
-  const user = await requireAuth();
+  const user = userArg ?? (await requireAuth());
   if (
     submission.isAnonymous !== undefined &&
     typeof submission.isAnonymous !== "boolean"

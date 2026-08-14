@@ -73,3 +73,5 @@ scripts/data/
 # assets
 design.png
 supabase/
+# plans (本地开发参考，不提交)
+docs/plans/
