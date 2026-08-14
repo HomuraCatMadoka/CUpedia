@@ -5,31 +5,126 @@ import {
   canteenMenuSources,
   canteenMenuSyncRuns,
 } from "@/db/schema";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, lt, sql } from "drizzle-orm";
 import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
-  applyAutomatedMenuSync,
+  commitClaimedRecurringMenuSync,
   previewMenuSync,
 } from "./canteen-menu-sync-store";
-import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
-import type { MenuSnapshotEvaluation } from "./canteen-menu-snapshot-evaluator";
 import { normalizeSyncErrorCode } from "./sync-error-code";
 
 const MAX_ERROR_LENGTH = 1_000;
 const MAX_CONCURRENCY = 2;
 const RUN_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+const CLAIM_DURATION_MS = 2 * 60 * 1_000;
 
-export type MenuSourceSyncResult = {
+type MenuSourceSyncResultBase = {
   sourceId: string;
-  canteenId: string;
-  status: "applied" | "failed" | "unchanged";
-  itemCount?: number;
-  error?: string;
+  canteenId?: string;
+  runId?: string;
+  code: string;
 };
 
-export type MenuSourceSyncDetail = MenuSourceSyncResult & {
-  evaluation?: MenuSnapshotEvaluation;
-};
+export type MenuSourceSyncResult = MenuSourceSyncResultBase &
+  (
+    | { status: "applied" | "unchanged"; itemCount: number }
+    | { status: "already-running" }
+    | {
+        status: "blocked";
+        code:
+          | "MENU_SYNC_CONFLICT"
+          | "MENU_SYNC_IDENTITY_CHURN"
+          | "MENU_SYNC_SUSPICIOUS_DROP";
+      }
+    | { status: "provider-failure" }
+    | { status: "superseded"; code: "MENU_SYNC_SUPERSEDED" }
+  );
+
+type ClaimedSource = typeof canteenMenuSources.$inferSelect;
+
+async function acquireSourceClaim(
+  sourceId: string,
+): Promise<
+  | { status: "claimed"; source: ClaimedSource; runId: string }
+  | { status: "already-running"; runId: string; canteenId: string }
+  | { status: "unavailable" }
+> {
+  return db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select({
+        ...getTableColumns(canteenMenuSources),
+        databaseNow: sql<Date>`now()`.mapWith(canteenMenuSources.updatedAt),
+      })
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.id, sourceId))
+      .for("update", { of: canteenMenuSources });
+    const source = locked;
+    if (!source || !source.enabled) return { status: "unavailable" };
+    const now = source.databaseNow;
+    if (
+      source.syncClaimToken &&
+      source.syncClaimExpiresAt &&
+      source.syncClaimExpiresAt > now
+    ) {
+      return {
+        status: "already-running",
+        runId: source.syncClaimToken,
+        canteenId: source.canteenId,
+      };
+    }
+
+    const runId = randomUUID();
+    const claimExpiresAt = new Date(now.getTime() + CLAIM_DURATION_MS);
+    if (source.syncClaimToken) {
+      await tx
+        .update(canteenMenuSyncRuns)
+        .set({
+          status: "failed",
+          errorCode: "MENU_SYNC_SUPERSEDED",
+          error: "MENU_SYNC_SUPERSEDED",
+          completedAt: now,
+        })
+        .where(
+          and(
+            eq(canteenMenuSyncRuns.id, source.syncClaimToken),
+            eq(canteenMenuSyncRuns.status, "running"),
+          ),
+        );
+    }
+    await tx
+      .delete(canteenMenuSyncRuns)
+      .where(
+        and(
+          eq(canteenMenuSyncRuns.menuSourceId, source.id),
+          inArray(
+            canteenMenuSyncRuns.status,
+            CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
+          ),
+          lt(
+            canteenMenuSyncRuns.startedAt,
+            new Date(now.getTime() - RUN_RETENTION_MS),
+          ),
+        ),
+      );
+    const [claimedSource] = await tx
+      .update(canteenMenuSources)
+      .set({
+        lastAttemptId: runId,
+        lastAttemptAt: now,
+        syncClaimToken: runId,
+        syncClaimExpiresAt: claimExpiresAt,
+        updatedAt: now,
+      })
+      .where(eq(canteenMenuSources.id, source.id))
+      .returning();
+    await tx.insert(canteenMenuSyncRuns).values({
+      id: runId,
+      menuSourceId: source.id,
+      startedAt: now,
+    });
+    return { status: "claimed", source: claimedSource, runId };
+  });
+}
 
 function snapshotHash(input: unknown): string {
   return createHash("sha256").update(JSON.stringify(input)).digest("hex");
@@ -44,54 +139,93 @@ function errorCode(error: unknown): string {
   return normalizeSyncErrorCode(error instanceof Error ? error.message : null);
 }
 
+async function finishClaimedProviderFailure(
+  source: ClaimedSource,
+  runId: string,
+  details: {
+    code: string;
+    message: string;
+    snapshotHash?: string;
+    itemCount?: number;
+  },
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [locked] = await tx
+      .select({
+        claimToken: canteenMenuSources.syncClaimToken,
+        claimExpired: sql<boolean>`${canteenMenuSources.syncClaimExpiresAt} <= now()`,
+        databaseNow: sql<Date>`now()`.mapWith(canteenMenuSources.updatedAt),
+      })
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.id, source.id))
+      .for("update", { of: canteenMenuSources });
+    if (!locked || locked.claimToken !== runId || locked.claimExpired) {
+      return false;
+    }
+    const [updatedSource] = await tx
+      .update(canteenMenuSources)
+      .set({
+        observedState: "error",
+        lastErrorCode: details.code,
+        lastError: details.message,
+        syncClaimToken: null,
+        syncClaimExpiresAt: null,
+        updatedAt: locked.databaseNow,
+      })
+      .where(
+        and(
+          eq(canteenMenuSources.id, source.id),
+          eq(canteenMenuSources.syncClaimToken, runId),
+        ),
+      )
+      .returning({ id: canteenMenuSources.id });
+    const [updatedRun] = await tx
+      .update(canteenMenuSyncRuns)
+      .set({
+        status: "failed",
+        snapshotHash: details.snapshotHash,
+        itemCount: details.itemCount,
+        observation: {},
+        errorCode: details.code,
+        error: details.message,
+        completedAt: locked.databaseNow,
+      })
+      .where(
+        and(
+          eq(canteenMenuSyncRuns.id, runId),
+          eq(canteenMenuSyncRuns.status, "running"),
+        ),
+      )
+      .returning({ id: canteenMenuSyncRuns.id });
+    if (!updatedSource || !updatedRun) {
+      throw new Error("MENU_SYNC_FINALIZATION_INCONSISTENT");
+    }
+    return true;
+  });
+}
+
 /** Sync one source by stable DB identity; callers never supply a canteen ID. */
 export async function syncCanteenMenuSource(
   sourceId: string,
-): Promise<MenuSourceSyncDetail> {
-  const attemptId = randomUUID();
-  const attemptedAt = new Date();
-  const [source] = await db
-    .update(canteenMenuSources)
-    .set({
-      lastAttemptId: attemptId,
-      lastAttemptAt: attemptedAt,
-      updatedAt: attemptedAt,
-    })
-    .where(
-      and(
-        eq(canteenMenuSources.id, sourceId),
-        eq(canteenMenuSources.enabled, true),
-      ),
-    )
-    .returning();
-  if (!source) {
+): Promise<MenuSourceSyncResult> {
+  const claim = await acquireSourceClaim(sourceId);
+  if (claim.status === "unavailable") {
     return {
       sourceId,
-      canteenId: "",
-      status: "failed",
-      error: "MENU_SOURCE_NOT_FOUND",
+      status: "provider-failure",
+      code: "MENU_SOURCE_NOT_FOUND",
     };
   }
-  await db
-    .delete(canteenMenuSyncRuns)
-    .where(
-      and(
-        eq(canteenMenuSyncRuns.menuSourceId, source.id),
-        inArray(
-          canteenMenuSyncRuns.status,
-          CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
-        ),
-        lt(
-          canteenMenuSyncRuns.startedAt,
-          new Date(attemptedAt.getTime() - RUN_RETENTION_MS),
-        ),
-      ),
-    );
-  await db.insert(canteenMenuSyncRuns).values({
-    id: attemptId,
-    menuSourceId: source.id,
-    startedAt: attemptedAt,
-  });
+  if (claim.status === "already-running") {
+    return {
+      sourceId,
+      canteenId: claim.canteenId,
+      runId: claim.runId,
+      status: "already-running",
+      code: "MENU_SYNC_ALREADY_RUNNING",
+    };
+  }
+  const { source, runId: attemptId } = claim;
 
   let attemptSnapshotHash: string | undefined;
   let attemptItemCount: number | undefined;
@@ -102,137 +236,65 @@ export async function syncCanteenMenuSource(
     const hash = snapshotHash(input);
     attemptSnapshotHash = hash;
     attemptItemCount = input.items.length;
-    const { previewToken, ...previewEvaluation } = await previewMenuSync(
-      source.id,
+    const { previewToken } = await previewMenuSync(source.id, input);
+    const committed = await commitClaimedRecurringMenuSync(
       input,
+      previewToken,
+      { runId: attemptId, snapshotHash: hash, itemCount: input.items.length },
     );
-    if (previewEvaluation.blockingDecision.blocked) {
-      throw Object.assign(new Error(previewEvaluation.blockingDecision.code), {
-        evaluation: previewEvaluation,
-        observation: previewEvaluation.identityObservation,
-        snapshotHash: hash,
-        itemCount: input.items.length,
-      });
-    }
-    const updateSuccess = async (completedAt: Date) => {
-      const [updated] = await db
-        .update(canteenMenuSources)
-        .set({
-          lastSuccessAt: completedAt,
-          lastSnapshotHash: hash,
-          observedState: "available",
-          lastErrorCode: null,
-          lastError: null,
-          updatedAt: completedAt,
-        })
-        .where(
-          and(
-            eq(canteenMenuSources.id, source.id),
-            eq(canteenMenuSources.lastAttemptId, attemptId),
-          ),
-        )
-        .returning({ id: canteenMenuSources.id });
-      if (!updated) throw new Error("MENU_SYNC_SUPERSEDED");
-    };
-
-    if (previewEvaluation.plan.actions.length === 0) {
-      await updateSuccess(new Date());
-      await db
-        .update(canteenMenuSyncRuns)
-        .set({
-          status: "unchanged",
-          snapshotHash: hash,
-          itemCount: input.items.length,
-          createdCount: 0,
-          updatedCount: 0,
-          deactivatedCount: 0,
-          observation: previewEvaluation.identityObservation,
-          completedAt: new Date(),
-        })
-        .where(eq(canteenMenuSyncRuns.id, attemptId));
+    if (committed.status === "blocked") {
       return {
         sourceId: source.id,
         canteenId: source.canteenId,
-        status: "unchanged",
-        itemCount: input.items.length,
-        evaluation: previewEvaluation,
+        runId: attemptId,
+        status: "blocked",
+        code: committed.evaluation.blockingDecision.code!,
       };
     }
-
-    const appliedEvaluation = await applyAutomatedMenuSync(
-      source.id,
-      input,
-      previewToken,
-      attemptId,
-    );
-    await updateSuccess(new Date());
-    await db
-      .update(canteenMenuSyncRuns)
-      .set({
-        status: "applied",
-        snapshotHash: hash,
-        itemCount: input.items.length,
-        createdCount: appliedEvaluation.plan.actions.filter(
-          (action) => action.action === "create",
-        ).length,
-        updatedCount: appliedEvaluation.plan.actions.filter((action) =>
-          ["update", "reactivate", "claim"].includes(action.action),
-        ).length,
-        deactivatedCount: appliedEvaluation.plan.actions.filter(
-          (action) => action.action === "deactivate",
-        ).length,
-        observation: appliedEvaluation.identityObservation,
-        completedAt: new Date(),
-      })
-      .where(eq(canteenMenuSyncRuns.id, attemptId));
     return {
       sourceId: source.id,
       canteenId: source.canteenId,
-      status: "applied",
+      runId: attemptId,
+      status: committed.status,
+      code:
+        committed.status === "applied"
+          ? "MENU_SYNC_APPLIED"
+          : "MENU_SYNC_UNCHANGED",
       itemCount: input.items.length,
-      evaluation: appliedEvaluation,
     };
   } catch (error) {
     const message = safeError(error);
     const code = errorCode(error);
-    await db
-      .update(canteenMenuSources)
-      .set({
-        observedState: "error",
-        lastErrorCode: code,
-        lastError: message,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(canteenMenuSources.id, source.id),
-          eq(canteenMenuSources.lastAttemptId, attemptId),
-        ),
-      );
-    const details = error as {
-      evaluation?: MenuSnapshotEvaluation;
-      observation?: MenuIdentityObservation;
-      snapshotHash?: string;
-      itemCount?: number;
-    };
-    await db
-      .update(canteenMenuSyncRuns)
-      .set({
-        status: "failed",
-        snapshotHash: details.snapshotHash ?? attemptSnapshotHash,
-        itemCount: details.itemCount ?? attemptItemCount,
-        observation: details.observation ?? {},
-        errorCode: code,
-        error: message,
-        completedAt: new Date(),
-      })
-      .where(eq(canteenMenuSyncRuns.id, attemptId));
+    if (code === "MENU_SYNC_SUPERSEDED") {
+      return {
+        sourceId: source.id,
+        canteenId: source.canteenId,
+        runId: attemptId,
+        status: "superseded",
+        code,
+      };
+    }
+    const finalized = await finishClaimedProviderFailure(source, attemptId, {
+      code,
+      message,
+      snapshotHash: attemptSnapshotHash,
+      itemCount: attemptItemCount,
+    });
+    if (!finalized) {
+      return {
+        sourceId: source.id,
+        canteenId: source.canteenId,
+        runId: attemptId,
+        status: "superseded",
+        code: "MENU_SYNC_SUPERSEDED",
+      };
+    }
     return {
       sourceId: source.id,
       canteenId: source.canteenId,
-      status: "failed",
-      error: code,
-      evaluation: details.evaluation,
+      runId: attemptId,
+      status: "provider-failure",
+      code,
     };
   }
 }
@@ -251,23 +313,9 @@ export async function syncEnabledCanteenMenuSources(): Promise<
       ...(await Promise.all(
         sources
           .slice(index, index + MAX_CONCURRENCY)
-          .map(async (source) =>
-            summarizeMenuSourceSync(await syncCanteenMenuSource(source.id)),
-          ),
+          .map(async (source) => syncCanteenMenuSource(source.id)),
       )),
     );
   }
   return results;
-}
-
-function summarizeMenuSourceSync(
-  detail: MenuSourceSyncDetail,
-): MenuSourceSyncResult {
-  return {
-    sourceId: detail.sourceId,
-    canteenId: detail.canteenId,
-    status: detail.status,
-    ...(detail.itemCount === undefined ? {} : { itemCount: detail.itemCount }),
-    ...(detail.error === undefined ? {} : { error: detail.error }),
-  };
 }

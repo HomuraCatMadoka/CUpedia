@@ -25,7 +25,9 @@ export async function GET(request: Request) {
   }
 
   const results = await syncEnabledCanteenMenuSources();
-  const failed = results.filter((result) => result.status === "failed").length;
+  const failed = results.filter((result) =>
+    ["blocked", "provider-failure", "superseded"].includes(result.status),
+  ).length;
   return NextResponse.json(
     { synced: results.length, failed, results },
     { status: failed > 0 ? 207 : 200 },

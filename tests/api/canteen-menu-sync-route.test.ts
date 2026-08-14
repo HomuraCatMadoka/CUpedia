@@ -55,8 +55,9 @@ describe("canteen menu sync cron route", () => {
       {
         sourceId: "source-failed",
         canteenId: "canteen-failed",
-        status: "failed",
-        error: "MENU_SYNC_IDENTITY_CHURN",
+        runId: "run-failed",
+        status: "blocked",
+        code: "MENU_SYNC_IDENTITY_CHURN",
       },
     ]);
 

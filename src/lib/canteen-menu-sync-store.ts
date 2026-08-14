@@ -4,8 +4,9 @@ import {
   canteenMenuItemPrices,
   canteenMenuItems,
   canteenMenuSources,
+  canteenMenuSyncRuns,
 } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
 import {
@@ -20,6 +21,17 @@ import type {
 } from "@/lib/canteen-types";
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
+
+type RecurringSyncCompletion = {
+  runId: string;
+  snapshotHash: string;
+  itemCount: number;
+};
+
+export type RecurringMenuSyncCommit = {
+  status: "applied" | "unchanged" | "blocked";
+  evaluation: MenuSnapshotEvaluation;
+};
 
 type SyncMenuRow = {
   id: string;
@@ -214,25 +226,36 @@ function shadowSourceNamespace(source: MenuSourceRow): string {
 }
 
 async function applyMenuSync(
-  sourceId: string,
+  sourceId: string | null,
   input: MenuSyncInput,
   expectedPreviewToken: unknown,
   shouldRevalidate = true,
-  expectedAttemptId?: string,
-): Promise<MenuSnapshotEvaluation> {
-  const now = new Date();
+  recurring?: RecurringSyncCompletion,
+): Promise<MenuSnapshotEvaluation | RecurringMenuSyncCommit> {
   const evaluationResult = await db.transaction(async (tx) => {
     // Lock the source first. This serializes even the very first sync, when no
     // managed menu rows exist yet, and fixes source/canteen ownership in DB.
     const [source] = await tx
-      .select()
+      .select({
+        ...getTableColumns(canteenMenuSources),
+        databaseNow: sql<Date>`now()`.mapWith(canteenMenuSources.updatedAt),
+        claimExpired: sql<boolean>`${canteenMenuSources.syncClaimExpiresAt} <= now()`,
+      })
       .from(canteenMenuSources)
-      .where(eq(canteenMenuSources.id, sourceId))
+      .where(
+        recurring
+          ? eq(canteenMenuSources.syncClaimToken, recurring.runId)
+          : eq(canteenMenuSources.id, sourceId!),
+      )
       .for("update", { of: canteenMenuSources });
     if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
-    if (expectedAttemptId && source.lastAttemptId !== expectedAttemptId) {
+    if (
+      recurring &&
+      (source.syncClaimToken !== recurring.runId || source.claimExpired)
+    ) {
       throw new Error("MENU_SYNC_SUPERSEDED");
     }
+    const now = source.databaseNow;
     if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
       throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
     }
@@ -262,6 +285,48 @@ async function applyMenuSync(
     }
     const currentPlan = evaluation.plan;
     if (evaluation.blockingDecision.blocked) {
+      if (recurring) {
+        const code = evaluation.blockingDecision.code;
+        const [updatedSource] = await tx
+          .update(canteenMenuSources)
+          .set({
+            observedState: "error",
+            lastErrorCode: code,
+            lastError: code,
+            syncClaimToken: null,
+            syncClaimExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(canteenMenuSources.id, source.id),
+              eq(canteenMenuSources.syncClaimToken, recurring.runId),
+            ),
+          )
+          .returning({ id: canteenMenuSources.id });
+        const [updatedRun] = await tx
+          .update(canteenMenuSyncRuns)
+          .set({
+            status: "failed",
+            snapshotHash: recurring.snapshotHash,
+            itemCount: recurring.itemCount,
+            observation: evaluation.identityObservation,
+            errorCode: code,
+            error: code,
+            completedAt: now,
+          })
+          .where(
+            and(
+              eq(canteenMenuSyncRuns.id, recurring.runId),
+              eq(canteenMenuSyncRuns.status, "running"),
+            ),
+          )
+          .returning({ id: canteenMenuSyncRuns.id });
+        if (!updatedSource || !updatedRun) {
+          throw new Error("MENU_SYNC_SUPERSEDED");
+        }
+        return { status: "blocked" as const, evaluation };
+      }
       throw Object.assign(new Error(evaluation.blockingDecision.code), {
         evaluation,
         observation: evaluation.identityObservation,
@@ -371,12 +436,64 @@ async function applyMenuSync(
         .set({ legacyTakeoverAt: now, enabled: true, updatedAt: now })
         .where(eq(canteenMenuSources.id, source.id));
     }
+    if (recurring) {
+      const status: "applied" | "unchanged" =
+        currentPlan.actions.length === 0 ? "unchanged" : "applied";
+      const [updatedSource] = await tx
+        .update(canteenMenuSources)
+        .set({
+          lastSuccessAt: now,
+          lastSnapshotHash: recurring.snapshotHash,
+          observedState: "available",
+          lastErrorCode: null,
+          lastError: null,
+          syncClaimToken: null,
+          syncClaimExpiresAt: null,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(canteenMenuSources.id, source.id),
+            eq(canteenMenuSources.syncClaimToken, recurring.runId),
+          ),
+        )
+        .returning({ id: canteenMenuSources.id });
+      const [updatedRun] = await tx
+        .update(canteenMenuSyncRuns)
+        .set({
+          status,
+          snapshotHash: recurring.snapshotHash,
+          itemCount: recurring.itemCount,
+          createdCount: currentPlan.actions.filter(
+            (action) => action.action === "create",
+          ).length,
+          updatedCount: currentPlan.actions.filter((action) =>
+            ["update", "reactivate", "claim"].includes(action.action),
+          ).length,
+          deactivatedCount: currentPlan.actions.filter(
+            (action) => action.action === "deactivate",
+          ).length,
+          observation: evaluation.identityObservation,
+          completedAt: now,
+        })
+        .where(
+          and(
+            eq(canteenMenuSyncRuns.id, recurring.runId),
+            eq(canteenMenuSyncRuns.status, "running"),
+          ),
+        )
+        .returning({ id: canteenMenuSyncRuns.id });
+      if (!updatedSource || !updatedRun) {
+        throw new Error("MENU_SYNC_SUPERSEDED");
+      }
+      return { status, evaluation };
+    }
     return evaluation;
   });
 
   if (shouldRevalidate) {
     const source = await db.query.canteenMenuSources.findFirst({
-      where: eq(canteenMenuSources.id, sourceId),
+      where: eq(canteenMenuSources.id, sourceId!),
       columns: { canteenId: true },
     });
     if (source) {
@@ -393,17 +510,27 @@ export function applyPreviewedMenuSync(
   input: MenuSyncInput,
   previewToken: unknown,
 ): Promise<MenuSnapshotEvaluation> {
-  return applyMenuSync(sourceId, input, previewToken);
+  return applyMenuSync(
+    sourceId,
+    input,
+    previewToken,
+  ) as Promise<MenuSnapshotEvaluation>;
 }
 
-export function applyAutomatedMenuSync(
-  sourceId: string,
+/** @internal Recurring callers must use syncCanteenMenuSource(sourceId). */
+export function commitClaimedRecurringMenuSync(
   input: MenuSyncInput,
   previewToken: unknown,
-  attemptId: string,
-): Promise<MenuSnapshotEvaluation> {
+  completion: RecurringSyncCompletion,
+): Promise<RecurringMenuSyncCommit> {
   if (input.takeOverLegacyItems) {
     return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
   }
-  return applyMenuSync(sourceId, input, previewToken, false, attemptId);
+  return applyMenuSync(
+    null,
+    input,
+    previewToken,
+    false,
+    completion,
+  ) as Promise<RecurringMenuSyncCommit>;
 }
