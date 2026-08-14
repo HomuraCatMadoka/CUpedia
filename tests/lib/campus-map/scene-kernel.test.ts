@@ -72,12 +72,43 @@ describe("Campus Map canonical scene transition", () => {
         scene: { kind: "category-results", category: "water", snap: "peek" },
       },
       commands: {
-        history: "push",
+        history: "replace",
         camera: { kind: "cancel" },
         focus: { kind: "results" },
         overlay: { kind: "close-external" },
       },
     });
+  });
+
+  it("replaces result filters but pushes category navigation from an entity", () => {
+    const categoryResults: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "category-results", category: "water", snap: "peek" },
+    };
+    const building: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: "science",
+        floorId: null,
+        snap: "peek",
+      },
+    };
+
+    expect(
+      transitionCampusMapSession(
+        categoryResults,
+        { type: "OPEN_CATEGORY", category: "classroom" },
+        catalog,
+      ).commands.history,
+    ).toBe("replace");
+    expect(
+      transitionCampusMapSession(
+        building,
+        { type: "OPEN_CATEGORY", category: "classroom" },
+        catalog,
+      ).commands.history,
+    ).toBe("push");
   });
 
   it("stores only a facility identity and derives its relationships", () => {
@@ -434,149 +465,397 @@ describe("Campus Map canonical scene transition", () => {
     },
   );
 
-  it("covers the complete scene × event acceptance matrix", () => {
-    const scenes = [
-      ["map", EMPTY_CAMPUS_MAP_SCENE_SESSION, false, false],
-      [
-        "search-results",
-        {
-          mode: "browse",
-          scene: { kind: "search-results", query: "science", snap: "peek" },
+  it("covers the complete scene × event transition contract", () => {
+    type ExpectedTransition = ReturnType<typeof transitionCampusMapSession>;
+    const sources = {
+      map: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      search: {
+        mode: "browse",
+        scene: { kind: "search-results", query: "science", snap: "peek" },
+      },
+      category: {
+        mode: "browse",
+        scene: { kind: "category-results", category: "water", snap: "peek" },
+      },
+      building: {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "science",
+          floorId: null,
+          snap: "peek",
         },
-        true,
-        false,
-      ],
-      [
-        "category-results",
-        {
-          mode: "browse",
-          scene: { kind: "category-results", category: "water", snap: "peek" },
-        },
-        true,
-        false,
-      ],
-      [
-        "building",
-        {
-          mode: "browse",
-          scene: {
-            kind: "building",
-            buildingId: "science",
-            floorId: null,
-            snap: "peek",
-          },
-        },
-        true,
-        true,
-      ],
-      [
-        "facility",
-        {
-          mode: "browse",
-          scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
-        },
-        true,
-        false,
-      ],
-      [
-        "content",
-        {
-          mode: "browse",
-          scene: { kind: "content", contentId: "room401", snap: "full" },
-        },
-        true,
-        false,
-      ],
-      [
-        "provider-poi",
-        {
-          mode: "browse",
-          scene: {
-            kind: "provider-poi",
-            provider: "amap",
-            providerPoiId: "external",
-            name: "External",
-            position: [114.2, 22.4],
-          },
-        },
-        false,
-        false,
-      ],
-      [
-        "task",
-        {
-          mode: "task",
-          task: { kind: "create", anchor: { kind: "map" } },
-        },
-        false,
-        false,
-      ],
-    ] as const satisfies readonly (readonly [
-      string,
-      CampusMapSession,
-      boolean,
-      boolean,
-    ])[];
-    const events: readonly (readonly [
-      CampusMapEvent,
-      (
-        mode: CampusMapSession["mode"],
-        sheetBearing: boolean,
-        building: boolean,
-      ) => boolean,
-    ])[] = [
-      [{ type: "OPEN_MAP" }, (mode) => mode === "browse"],
-      [{ type: "SEARCH", query: "science" }, (mode) => mode === "browse"],
-      [
-        { type: "OPEN_CATEGORY", category: "water" },
-        (mode) => mode === "browse",
-      ],
-      [
-        { type: "OPEN_BUILDING", buildingId: "science", source: "map" },
-        (mode) => mode === "browse",
-      ],
-      [
-        { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" },
-        (mode) => mode === "browse",
-      ],
-      [
-        { type: "OPEN_CONTENT", contentId: "room401", source: "map" },
-        (mode) => mode === "browse",
-      ],
-      [
-        {
-          type: "OPEN_PROVIDER_POI",
+      },
+      facility: {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      },
+      content: {
+        mode: "browse",
+        scene: { kind: "content", contentId: "room401", snap: "full" },
+      },
+      provider: {
+        mode: "browse",
+        scene: {
+          kind: "provider-poi",
+          provider: "amap",
           providerPoiId: "external",
           name: "External",
           position: [114.2, 22.4],
         },
-        (mode) => mode === "browse",
-      ],
-      [{ type: "SET_SNAP", snap: "full" }, (_mode, sheet) => sheet],
-      [
-        { type: "SET_BUILDING_FLOOR", floorId: "4" },
-        (_mode, _sheet, building) => building,
-      ],
-      [{ type: "START_CREATE" }, (mode) => mode === "browse"],
-      [{ type: "CANCEL_TASK" }, (mode) => mode === "task"],
-      [
-        { type: "RESTORE", session: EMPTY_CAMPUS_MAP_SCENE_SESSION },
-        () => true,
-      ],
-    ];
+      },
+      task: {
+        mode: "task",
+        task: { kind: "create", anchor: { kind: "map" } },
+      },
+    } as const satisfies Record<string, CampusMapSession>;
+    const browseSources = [
+      "map",
+      "search",
+      "category",
+      "building",
+      "facility",
+      "content",
+      "provider",
+    ] as const;
+    const noCommands = {
+      history: null,
+      camera: null,
+      focus: null,
+      overlay: null,
+    } as const;
+    const accepted = (
+      session: CampusMapSession,
+      commands: ExpectedTransition["commands"],
+    ): ExpectedTransition => ({ status: "accepted", session, commands });
+    const rejected = (session: CampusMapSession): ExpectedTransition => ({
+      status: "rejected",
+      reason: "event-not-allowed",
+      session,
+      commands: noCommands,
+    });
+    let cellCount = 0;
+    const verify = (
+      sourceName: keyof typeof sources,
+      event: CampusMapEvent,
+      expected: ExpectedTransition,
+    ) => {
+      cellCount += 1;
+      expect(
+        transitionCampusMapSession(sources[sourceName], event, catalog),
+        `${sourceName} × ${event.type}`,
+      ).toEqual(expected);
+    };
 
-    for (const [sceneName, session, sheetBearing, building] of scenes) {
-      for (const [event, accepted] of events) {
-        expect(
-          transitionCampusMapSession(session, event, catalog).status,
-          `${sceneName} × ${event.type}`,
-        ).toBe(
-          accepted(session.mode, sheetBearing, building)
-            ? "accepted"
-            : "rejected",
-        );
-      }
+    const openMap = { type: "OPEN_MAP" } as const;
+    verify("map", openMap, accepted(sources.map, noCommands));
+    for (const source of browseSources.filter((name) => name !== "map")) {
+      verify(
+        source,
+        openMap,
+        accepted(sources.map, {
+          history: "replace",
+          camera: { kind: "cancel" },
+          focus: { kind: "map" },
+          overlay: { kind: "close-external" },
+        }),
+      );
     }
+    verify("task", openMap, rejected(sources.task));
+
+    const search = { type: "SEARCH", query: "library" } as const;
+    const searched: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "search-results", query: "library", snap: "peek" },
+    };
+    for (const source of browseSources) {
+      verify(
+        source,
+        search,
+        accepted(searched, {
+          history: "replace",
+          camera: { kind: "cancel" },
+          focus: { kind: "search-input" },
+          overlay: { kind: "close-external" },
+        }),
+      );
+    }
+    verify("task", search, rejected(sources.task));
+
+    const openCategory = {
+      type: "OPEN_CATEGORY",
+      category: "classroom",
+    } as const;
+    const classroom: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "category-results",
+        category: "classroom",
+        snap: "peek",
+      },
+    };
+    for (const source of ["map", "search", "category", "provider"] as const) {
+      verify(
+        source,
+        openCategory,
+        accepted(classroom, {
+          history: "replace",
+          camera: { kind: "cancel" },
+          focus: { kind: "results" },
+          overlay: { kind: "close-external" },
+        }),
+      );
+    }
+    for (const source of ["building", "facility", "content"] as const) {
+      verify(
+        source,
+        openCategory,
+        accepted(classroom, {
+          history: "push",
+          camera: { kind: "cancel" },
+          focus: { kind: "results" },
+          overlay: { kind: "close-external" },
+        }),
+      );
+    }
+    verify("task", openCategory, rejected(sources.task));
+
+    const openBuilding = {
+      type: "OPEN_BUILDING",
+      buildingId: "library",
+      source: "map",
+    } as const;
+    const library: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: "library",
+        floorId: null,
+        snap: "peek",
+      },
+    };
+    for (const source of browseSources) {
+      verify(
+        source,
+        openBuilding,
+        accepted(library, {
+          history: "push",
+          camera: {
+            kind: "focus",
+            buildingId: "library",
+            reason: "map-selection",
+          },
+          focus: { kind: "heading" },
+          overlay: { kind: "close-external" },
+        }),
+      );
+    }
+    verify("task", openBuilding, rejected(sources.task));
+
+    const openFacility = {
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "map",
+    } as const;
+    const fountain: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+    };
+    for (const source of browseSources) {
+      verify(
+        source,
+        openFacility,
+        source === "facility"
+          ? accepted(sources.facility, noCommands)
+          : accepted(fountain, {
+              history: "push",
+              camera: {
+                kind: "focus",
+                buildingId: "science",
+                reason: "facility-selection",
+              },
+              focus: { kind: "heading" },
+              overlay: { kind: "close-external" },
+            }),
+      );
+    }
+    verify("task", openFacility, rejected(sources.task));
+
+    const openContent = {
+      type: "OPEN_CONTENT",
+      contentId: "room401",
+      source: "map",
+    } as const;
+    const room401: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "content", contentId: "room401", snap: "full" },
+    };
+    for (const source of browseSources) {
+      verify(
+        source,
+        openContent,
+        source === "content"
+          ? accepted(sources.content, noCommands)
+          : accepted(room401, {
+              history: "push",
+              camera: {
+                kind: "focus",
+                buildingId: "science",
+                reason: "map-selection",
+              },
+              focus: { kind: "heading" },
+              overlay: { kind: "close-external" },
+            }),
+      );
+    }
+    verify("task", openContent, rejected(sources.task));
+
+    const openProvider = {
+      type: "OPEN_PROVIDER_POI",
+      providerPoiId: "external-2",
+      name: "External 2",
+      position: [114.21, 22.41],
+    } as const;
+    const external: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "provider-poi",
+        provider: "amap",
+        providerPoiId: "external-2",
+        name: "External 2",
+        position: [114.21, 22.41],
+      },
+    };
+    for (const source of browseSources) {
+      verify(
+        source,
+        openProvider,
+        accepted(external, {
+          history: null,
+          camera: { kind: "cancel" },
+          focus: { kind: "map" },
+          overlay: {
+            kind: "open-external",
+            externalId: "external-2",
+            name: "External 2",
+            position: [114.21, 22.41],
+          },
+        }),
+      );
+    }
+    verify("task", openProvider, rejected(sources.task));
+
+    const setSnap = { type: "SET_SNAP", snap: "full" } as const;
+    for (const source of ["map", "provider", "task"] as const) {
+      verify(source, setSnap, rejected(sources[source]));
+    }
+    for (const source of [
+      "search",
+      "category",
+      "building",
+      "facility",
+    ] as const) {
+      const current = sources[source];
+      if (current.mode !== "browse" || !("snap" in current.scene)) {
+        throw new Error("sheet-bearing fixture expected");
+      }
+      verify(
+        source,
+        setSnap,
+        accepted(
+          { mode: "browse", scene: { ...current.scene, snap: "full" } },
+          {
+            history: "replace",
+            camera: null,
+            focus: { kind: "heading" },
+            overlay: null,
+          },
+        ),
+      );
+    }
+    verify("content", setSnap, accepted(sources.content, noCommands));
+
+    const setFloor = { type: "SET_BUILDING_FLOOR", floorId: "4" } as const;
+    for (const source of browseSources.filter((name) => name !== "building")) {
+      verify(source, setFloor, rejected(sources[source]));
+    }
+    verify("task", setFloor, rejected(sources.task));
+    verify(
+      "building",
+      setFloor,
+      accepted(
+        {
+          mode: "browse",
+          scene: { ...sources.building.scene, floorId: "4" },
+        },
+        {
+          history: "replace",
+          camera: null,
+          focus: { kind: "results" },
+          overlay: null,
+        },
+      ),
+    );
+
+    const startCreate = { type: "START_CREATE" } as const;
+    const mapTask: CampusMapSession = {
+      mode: "task",
+      task: { kind: "create", anchor: { kind: "map" } },
+    };
+    const buildingTask: CampusMapSession = {
+      mode: "task",
+      task: {
+        kind: "create",
+        anchor: { kind: "building", buildingId: "science" },
+      },
+    };
+    const createCommands = {
+      history: "push",
+      camera: { kind: "cancel" },
+      focus: { kind: "contribution-form" },
+      overlay: { kind: "close-external" },
+    } as const;
+    for (const source of ["map", "search", "category", "provider"] as const) {
+      verify(source, startCreate, accepted(mapTask, createCommands));
+    }
+    for (const source of ["building", "facility", "content"] as const) {
+      verify(source, startCreate, accepted(buildingTask, createCommands));
+    }
+    verify("task", startCreate, rejected(sources.task));
+
+    const cancelTask = { type: "CANCEL_TASK" } as const;
+    for (const source of browseSources) {
+      verify(source, cancelTask, rejected(sources[source]));
+    }
+    verify(
+      "task",
+      cancelTask,
+      accepted(sources.map, {
+        history: "back-or-push",
+        camera: { kind: "cancel" },
+        focus: { kind: "map" },
+        overlay: null,
+      }),
+    );
+
+    const restore = {
+      type: "RESTORE",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+    } as const;
+    for (const source of Object.keys(sources) as (keyof typeof sources)[]) {
+      verify(
+        source,
+        restore,
+        accepted(sources.map, {
+          history: null,
+          camera: { kind: "cancel" },
+          focus: { kind: "map" },
+          overlay: { kind: "close-external" },
+        }),
+      );
+    }
+
+    expect(cellCount).toBe(96);
   });
 
   it.each([

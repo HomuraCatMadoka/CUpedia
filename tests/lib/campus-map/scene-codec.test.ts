@@ -265,6 +265,34 @@ describe("Campus Map versioned scene codec", () => {
       },
       "unknown-entity",
     ],
+    [
+      "task snapshot with a present scene key",
+      {
+        campusMapScene: true,
+        version: 1,
+        depth: 1,
+        session: {
+          mode: "task",
+          scene: undefined,
+          task: { kind: "create", anchor: { kind: "map" } },
+        },
+      },
+      "conflicting-fields",
+    ],
+    [
+      "browse snapshot with a present task key",
+      {
+        campusMapScene: true,
+        version: 1,
+        depth: 1,
+        session: {
+          mode: "browse",
+          scene: { kind: "map" },
+          task: undefined,
+        },
+      },
+      "conflicting-fields",
+    ],
   ])("safely falls back for $0", (_label, snapshot, reason) => {
     expect(decodeCampusMapHistorySnapshot(snapshot, catalog)).toEqual({
       status: "fallback",

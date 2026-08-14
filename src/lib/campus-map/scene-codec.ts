@@ -1,6 +1,7 @@
 import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   resolveCampusMapScene,
+  type CampusMapBrowseScene,
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "./scene-kernel";
@@ -98,12 +99,19 @@ type ParsedSession =
   | { status: "parsed"; session: CampusMapSession }
   | { status: "invalid"; reason: string };
 
+type PersistableCampusMapSession =
+  | {
+      mode: "browse";
+      scene: Exclude<CampusMapBrowseScene, { kind: "provider-poi" }>;
+    }
+  | Extract<CampusMapSession, { mode: "task" }>;
+
 function parseHistorySession(value: unknown): ParsedSession {
   if (!isRecord(value) || !hasOnlyKeys(value, ["mode", "scene", "task"])) {
     return { status: "invalid", reason: "invalid-snapshot" };
   }
   if (value.mode === "task") {
-    if (!isRecord(value.task) || value.scene !== undefined) {
+    if (!isRecord(value.task) || "scene" in value) {
       return { status: "invalid", reason: "conflicting-fields" };
     }
     const task = value.task;
@@ -144,11 +152,7 @@ function parseHistorySession(value: unknown): ParsedSession {
     return { status: "invalid", reason: "invalid-snapshot" };
   }
 
-  if (
-    value.mode !== "browse" ||
-    !isRecord(value.scene) ||
-    value.task !== undefined
-  ) {
+  if (value.mode !== "browse" || !isRecord(value.scene) || "task" in value) {
     return { status: "invalid", reason: "conflicting-fields" };
   }
   const scene = value.scene;
@@ -286,38 +290,33 @@ function parseHistorySession(value: unknown): ParsedSession {
   return { status: "invalid", reason: "invalid-snapshot" };
 }
 
+function normalizePersistentSession(
+  session: CampusMapSession,
+  catalog: CampusMapSceneCatalog,
+): PersistableCampusMapSession {
+  if (!validSession(session, catalog)) {
+    return { mode: "browse", scene: { kind: "map" } };
+  }
+  if (session.mode === "task") return session;
+  const scene = session.scene;
+  if (scene.kind === "provider-poi") {
+    return { mode: "browse", scene: { kind: "map" } };
+  }
+  return { mode: "browse", scene };
+}
+
 export function normalizeCampusMapUrlSession(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ): CampusMapSession {
-  if (!validSession(session, catalog)) return EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  if (session.mode === "task") return session;
-  const scene = session.scene;
-  if (scene.kind === "provider-poi") return EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  if (scene.kind === "search-results") {
-    const query = scene.query.trim();
-    return query
-      ? { mode: "browse", scene: { ...scene, query } }
-      : EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  }
-  return session;
+  return normalizePersistentSession(session, catalog);
 }
 
 export function normalizeCampusMapHistorySession(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ): CampusMapSession {
-  if (!validSession(session, catalog)) return EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  if (session.mode === "browse" && session.scene.kind === "provider-poi") {
-    return EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  }
-  if (session.mode === "browse" && session.scene.kind === "search-results") {
-    const query = session.scene.query.trim();
-    return query
-      ? { mode: "browse", scene: { ...session.scene, query } }
-      : EMPTY_CAMPUS_MAP_SCENE_SESSION;
-  }
-  return session;
+  return normalizePersistentSession(session, catalog);
 }
 
 export function encodeCampusMapHistorySnapshot(
@@ -372,7 +371,7 @@ export function encodeCampusMapUrl(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ) {
-  const normalized = normalizeCampusMapUrlSession(session, catalog);
+  const normalized = normalizePersistentSession(session, catalog);
   const params = new URLSearchParams({
     v: String(CAMPUS_MAP_SCENE_CODEC_VERSION),
   });
@@ -413,7 +412,6 @@ export function encodeCampusMapUrl(
     params.set("snap", scene.snap);
     return params;
   }
-  if (scene.kind === "provider-poi") return params;
   params.set("scene", "content");
   params.set("id", scene.contentId);
   params.set("snap", scene.snap);
@@ -504,13 +502,6 @@ export function decodeCampusMapUrl(
     panelSnap
   ) {
     if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "snap"])) {
-      return fallback("conflicting-fields");
-    }
-    if (
-      params.has("building") ||
-      params.has("floor") ||
-      params.has("category")
-    ) {
       return fallback("conflicting-fields");
     }
     const id = params.get("id")?.trim();
