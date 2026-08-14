@@ -117,6 +117,18 @@ function isCurrentClaim(
   );
 }
 
+function isFinalizableClaim(
+  source: LockedMenuSourceClaim,
+  claim: MenuSourceClaim,
+  fence: "strict" | "token-only",
+): boolean {
+  return (
+    issuedClaims.has(claim) &&
+    source.syncClaimToken === claim.runId &&
+    (fence === "token-only" || isCurrentClaim(source, claim))
+  );
+}
+
 async function selectLockedSource(
   tx: MenuSourceClaimTransaction,
   sourceId: string,
@@ -229,11 +241,7 @@ export async function finalizeLockedClaimedRun(
   outcome: ClaimedRunFinalization,
   fence: "strict" | "token-only" = "strict",
 ): Promise<void> {
-  if (
-    !issuedClaims.has(claim) ||
-    source.syncClaimToken !== claim.runId ||
-    (fence === "strict" && !isCurrentClaim(source, claim))
-  ) {
+  if (!isFinalizableClaim(source, claim, fence)) {
     throw new Error("MENU_SYNC_SUPERSEDED");
   }
   const now = source.databaseNow;
@@ -335,12 +343,7 @@ export async function finalizeClaimedRun(
 ): Promise<boolean> {
   return db.transaction(async (tx) => {
     const source = await selectLockedSource(tx, claim.source.id);
-    if (
-      !source ||
-      !issuedClaims.has(claim) ||
-      source.syncClaimToken !== claim.runId ||
-      (fence === "strict" && !isCurrentClaim(source, claim))
-    ) {
+    if (!source || !isFinalizableClaim(source, claim, fence)) {
       return false;
     }
     await finalizeLockedClaimedRun(tx, source, claim, outcome, fence);
