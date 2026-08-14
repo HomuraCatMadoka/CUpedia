@@ -227,7 +227,7 @@
 
 @layer base {
   :root {
-    --navbar-height: 6.25rem;
+    --navbar-height: calc(3.5rem + env(safe-area-inset-top));
     --sidebar-width: 260px;
     --toc-width: 220px;
     --sidebar-collapsed-width: 44px;

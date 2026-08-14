@@ -22,11 +22,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { SparklesIcon } from "lucide-react";
+import { BellIcon, SparklesIcon, UserRoundIcon } from "lucide-react";
 import { CommandSearch } from "@/components/layout/command-search";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { MobileProductMenu } from "@/components/layout/mobile-product-menu";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
 import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
+import { DESKTOP_PRODUCT_NAVIGATION } from "@/lib/product-navigation";
+import { cn } from "@/lib/utils";
 
 const NotificationCenter = dynamic(() =>
   import("@/components/layout/notification-center").then(
@@ -43,8 +46,11 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   // server rendered the logged-out state — a hydration mismatch (React #418)
   // that regenerates the whole layout on hydrate. Gate the auth-dependent
   // branch on mount so the server output and the first client render agree on
-  // the logged-out markup; the real session UI swaps in right after mount.
+  // fixed-size placeholders; the real session UI swaps in right after mount.
   const mounted = useMounted();
+  const [activeOverlay, setActiveOverlay] = useState<
+    "search" | "notifications" | "account" | "products" | null
+  >(null);
   const sessionUserId = session?.user?.id ?? session?.user?.email;
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
@@ -125,69 +131,85 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-background">
-        <div className="grid h-full grid-cols-[1fr_auto] grid-rows-[3.5rem_2.75rem] px-4 md:flex md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
+      <header
+        data-testid="global-header"
+        className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-background/95 backdrop-blur-md supports-backdrop-filter:bg-background/85"
+      >
+        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center px-2 pt-[env(safe-area-inset-top)] md:flex md:gap-4 md:px-4 md:pt-0">
+          <div className="flex min-w-0 items-center md:shrink-0">
             {leading}
             <Link
               href="/"
-              className="-ml-2 flex min-h-11 touch-manipulation items-center rounded-md px-2 text-lg font-bold transition-[background-color,transform] active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:ml-0 md:min-h-0 md:px-0"
+              className="flex min-h-11 min-w-0 touch-manipulation items-center rounded-md px-1 text-lg font-bold tracking-[-0.035em] transition-[background-color,transform] active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:min-h-0 md:px-0"
             >
               CUpedia
             </Link>
           </div>
-          <div className="col-span-2 row-start-2 flex items-center justify-center gap-1 md:order-none md:col-span-1 md:justify-start md:gap-3">
-            <Link
-              href="/college-picker"
-              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              分院帽
-            </Link>
-            <Link
-              href="/campus-bus"
-              aria-label="CU Bus · 測試中"
-              className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              <span aria-hidden="true">CU Bus</span>
-              <span className="rounded-full bg-[#5b2a73]/10 px-1.5 py-0.5 text-[10px] leading-none font-semibold text-[#5b2a73] dark:bg-purple-300/15 dark:text-purple-200">
-                <span aria-hidden="true">測試中</span>
-              </span>
-            </Link>
-            <Link
-              href="/canteen"
-              className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              食堂
-            </Link>
-            <Link
-              href="/canteen/shit-rank"
-              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              💩堂榜
-            </Link>
-            <Link
-              href="/courses"
-              className="flex min-h-11 touch-manipulation items-center rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:px-0"
-            >
-              课程测评
-            </Link>
-          </div>
-          <nav className="col-start-2 row-start-1 flex items-center gap-1 md:order-none md:gap-4">
+          <nav
+            aria-label="产品导航"
+            className="hidden min-w-0 flex-1 items-center gap-3 md:flex"
+          >
+            {DESKTOP_PRODUCT_NAVIGATION.map((item) => (
+              <Link
+                key={item.id}
+                href={item.href}
+                aria-label={
+                  item.status
+                    ? `${item.desktopLabel ?? item.label} · ${item.status}`
+                    : undefined
+                }
+                className="flex min-h-8 shrink-0 touch-manipulation items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
+              >
+                <span aria-hidden={item.status ? "true" : undefined}>
+                  {item.desktopLabel ?? item.label}
+                </span>
+                {item.status && (
+                  <span className="rounded-full bg-[#5b2a73]/10 px-1.5 py-0.5 text-[10px] leading-none font-semibold text-[#5b2a73] dark:bg-purple-300/15 dark:text-purple-200">
+                    <span aria-hidden="true">{item.status}</span>
+                  </span>
+                )}
+              </Link>
+            ))}
+          </nav>
+          <nav
+            aria-label="全局操作"
+            className="col-start-2 flex shrink-0 items-center gap-0 md:gap-1"
+          >
             <Link
               href="/updates"
               aria-label="产品更新"
-              className="flex min-h-11 touch-manipulation items-center gap-1.5 rounded-md px-2 text-sm font-medium text-emerald-700 transition-[background-color,color,transform] hover:bg-emerald-950/5 hover:text-emerald-900 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 dark:text-emerald-300 dark:hover:bg-emerald-200/10 dark:hover:text-emerald-200"
+              className="hidden min-h-8 touch-manipulation items-center gap-1.5 rounded-md px-2 text-sm font-medium text-emerald-700 transition-[background-color,color,transform] hover:bg-emerald-950/5 hover:text-emerald-900 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:flex dark:text-emerald-300 dark:hover:bg-emerald-200/10 dark:hover:text-emerald-200"
             >
               <SparklesIcon className="size-4" aria-hidden="true" />
-              <span>产品更新</span>
+              <span className="hidden lg:inline">产品更新</span>
             </Link>
-            <ThemeToggle />
-            <CommandSearch />
+            <span className="hidden md:block">
+              <ThemeToggle />
+            </span>
+            <CommandSearch
+              open={activeOverlay === "search"}
+              onOpenChange={(open) => setActiveOverlay(open ? "search" : null)}
+            />
             {mounted && session?.user ? (
               <>
-                <NotificationCenter />
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="flex min-h-11 touch-manipulation items-center gap-2 rounded-md px-2 text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0 md:py-1">
+                <span className="flex size-11 shrink-0 items-center justify-center md:size-8">
+                  <NotificationCenter
+                    open={activeOverlay === "notifications"}
+                    onOpenChange={(open) =>
+                      setActiveOverlay(open ? "notifications" : null)
+                    }
+                  />
+                </span>
+                <DropdownMenu
+                  open={activeOverlay === "account"}
+                  onOpenChange={(open) =>
+                    setActiveOverlay(open ? "account" : null)
+                  }
+                >
+                  <DropdownMenuTrigger
+                    aria-label="账户"
+                    className="flex size-11 touch-manipulation items-center justify-center gap-2 rounded-md text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:h-8 md:w-auto md:min-w-11 md:px-1"
+                  >
                     <span className="relative">
                       <AchievementAvatar image={session.user.image} size="xs" />
                       {achievementNoticeCount > 0 && (
@@ -202,7 +224,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                         </span>
                       )}
                     </span>
-                    <span className="hidden sm:inline">
+                    <span className="hidden max-w-32 truncate xl:inline">
                       {((session.user as Record<string, unknown>)
                         .nickname as string) || session.user.email}
                     </span>
@@ -231,17 +253,59 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
+            ) : mounted ? (
+              <>
+                <Link
+                  href="/login"
+                  aria-label="登录后查看通知"
+                  className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:size-8"
+                  data-testid="notification-slot"
+                >
+                  <BellIcon aria-hidden="true" className="size-5" />
+                </Link>
+                <Link
+                  href="/login"
+                  aria-label="登录"
+                  className={cn(
+                    buttonVariants({ size: "sm", variant: "default" }),
+                    "size-11 touch-manipulation px-0 active:scale-[0.98] motion-reduce:transition-none md:h-8 md:w-auto md:min-w-11 md:px-3",
+                  )}
+                >
+                  <UserRoundIcon
+                    aria-hidden="true"
+                    className="size-4 md:hidden"
+                  />
+                  <span className="hidden md:inline">登录</span>
+                </Link>
+              </>
             ) : (
-              <Link
-                href="/login"
-                className={buttonVariants({
-                  size: "sm",
-                  className: "h-11 touch-manipulation px-3 md:h-7",
-                })}
-              >
-                登录
-              </Link>
+              <>
+                <button
+                  type="button"
+                  disabled
+                  aria-label="正在加载通知"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground md:size-8"
+                  data-testid="notification-slot"
+                >
+                  <BellIcon aria-hidden="true" className="size-5" />
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  aria-label="正在加载账户"
+                  data-testid="account-hydration-placeholder"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground md:h-8 md:w-11"
+                >
+                  <UserRoundIcon aria-hidden="true" className="size-4" />
+                </button>
+              </>
             )}
+            <MobileProductMenu
+              open={activeOverlay === "products"}
+              onOpenChange={(open) =>
+                setActiveOverlay(open ? "products" : null)
+              }
+            />
           </nav>
         </div>
       </header>

@@ -34,7 +34,8 @@ const node = JSON.stringify(process.execPath);
 const useDevServer = process.env.E2E_SERVER_MODE === "dev";
 const useCiGroups = process.env.E2E_CI_GROUPS === "1";
 const campusBusTest = /campus-bus\.spec\.ts$/;
-const mobileWebKitTest = /wiki-edit\.mobile-webkit\.spec\.ts$/;
+const mobileWebKitTest =
+  /(?:wiki-edit\.mobile-webkit|header\.mobile-webkit)\.spec\.ts$/;
 const wikiDesktopTest =
   /wiki-(?!edit\.mobile(?:-webkit)?\.spec\.ts$).*\.spec\.ts$/;
 // Historical runtime split: these files are about half of desktop Wiki time.

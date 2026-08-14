@@ -12,13 +12,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function ThemeToggle() {
+export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const { theme, resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon" disabled aria-label="切换主题">
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled
+        aria-label="切换主题"
+        className={compact ? "size-11" : undefined}
+      >
         <span className="size-4" />
       </Button>
     );
@@ -31,7 +37,11 @@ export function ThemeToggle() {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label="切换主题"
-        className="flex min-h-11 touch-manipulation items-center rounded-md p-2 text-muted-foreground transition-[background-color,transform] hover:bg-accent hover:text-foreground active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:min-h-0"
+        className={
+          compact
+            ? "flex size-11 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,transform] hover:bg-accent hover:text-foreground active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
+            : "flex min-h-11 touch-manipulation items-center rounded-md p-2 text-muted-foreground transition-[background-color,transform] hover:bg-accent hover:text-foreground active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:min-h-0"
+        }
       >
         <Icon className="size-4" />
       </DropdownMenuTrigger>

@@ -33,9 +33,16 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("zh-CN");
 }
 
-export function NotificationCenter() {
+export function NotificationCenter({
+  open: controlledOpen,
+  onOpenChange,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+} = {}) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const [notifications, setNotifications] = useState<NotificationView[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -83,7 +90,8 @@ export function NotificationCenter() {
   }, []);
 
   function handleOpenChange(nextOpen: boolean) {
-    setOpen(nextOpen);
+    if (controlledOpen === undefined) setInternalOpen(nextOpen);
+    onOpenChange?.(nextOpen);
     if (nextOpen) {
       void refreshCount();
       void load(0, false);
@@ -105,7 +113,8 @@ export function NotificationCenter() {
           current === null ? null : Math.max(0, current - 1),
         );
       }
-      setOpen(false);
+      if (controlledOpen === undefined) setInternalOpen(false);
+      onOpenChange?.(false);
       router.push(notification.href);
     } catch {
       setError("无法打开通知，请重试");
