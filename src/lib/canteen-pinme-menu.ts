@@ -1,13 +1,14 @@
 import { createHash } from "node:crypto";
-import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
-import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
+import { assignMealPeriodSortOrder } from "./canteen-aigens-parse";
 import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
-import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
+import { compareProviderText } from "./canteen-provider-menu-ordering";
+import { mealPeriodsForOperatingWindow } from "./canteen-provider-menu-periods";
+import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   normalizeMealPeriods,
   type MenuSyncInput,
   type MenuItemPriceOptionInput,
-} from "@/lib/canteen-types";
+} from "./canteen-types";
 
 const PINME_SIGNING_KEY = "a91f9568fbd23881c2b2c7fa9af5b12a";
 
@@ -35,10 +36,6 @@ function amountMinor(value: unknown): number | null {
   return Math.round(number * 100);
 }
 
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
 function canonicalizePriceOptions(
   options: MenuItemPriceOptionInput[],
 ): MenuItemPriceOptionInput[] {
@@ -46,9 +43,9 @@ function canonicalizePriceOptions(
     .slice()
     .sort(
       (left, right) =>
-        compareText(left.label ?? "", right.label ?? "") ||
+        compareProviderText(left.label ?? "", right.label ?? "") ||
         left.amountMinor - right.amountMinor ||
-        compareText(left.currency, right.currency),
+        compareProviderText(left.currency, right.currency),
     )
     .map((option, sortOrder) => ({ ...option, sortOrder }));
 }

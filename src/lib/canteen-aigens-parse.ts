@@ -1,13 +1,14 @@
-import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import { createAigensOfferingId } from "./canteen-menu-external-key";
 import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
+import { compareProviderText } from "./canteen-provider-menu-ordering";
+import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   ALLDAY_MEAL_PERIOD,
   primaryMealPeriodSortKey,
   type MealPeriod,
   type MealPeriodAssignment,
   type MenuItemPriceOptionInput,
-} from "@/lib/canteen-types";
+} from "./canteen-types";
 
 export type AigensItem = {
   backendId?: string;
@@ -50,10 +51,6 @@ type AigensAggregatedProduct = Omit<AigensParsedProduct, "priceOptions"> & {
   priceContexts: Array<{ label: string; amountMinor: number }>;
 };
 
-function compareText(left: string, right: string): number {
-  return left < right ? -1 : left > right ? 1 : 0;
-}
-
 function materializePriceOptions(
   contexts: readonly { label: string; amountMinor: number }[],
 ): MenuItemPriceOptionInput[] {
@@ -68,7 +65,7 @@ function materializePriceOptions(
     .map(([amountMinor, label]) => ({ label, amountMinor }))
     .sort(
       (left, right) =>
-        compareText(left.label, right.label) ||
+        compareProviderText(left.label, right.label) ||
         left.amountMinor - right.amountMinor,
     );
   return distinctPrices.map((context, sortOrder) => ({
