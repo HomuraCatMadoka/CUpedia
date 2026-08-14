@@ -16,7 +16,12 @@ describe("S.H. Ho Aigens menu adapter", () => {
         data: {
           menu: {
             categories: [{ name: "飯類", periods: ["L"], groupIds: ["main"] }],
-            groups: [{ id: "main", items: [item, item] }],
+            groups: [
+              {
+                id: "main",
+                items: [item, { ...item, backendId: " 42 " }],
+              },
+            ],
           },
         },
       }),
@@ -37,6 +42,108 @@ describe("S.H. Ho Aigens menu adapter", () => {
       svgKey: "飯類",
       priceOptions: [{ amountMinor: 3800 }],
     });
+  });
+
+  it("coalesces category aliases that reference the same provider group", () => {
+    const item = {
+      backendId: "1100031695",
+      name: "脆腩紅燒豆腐飯",
+      price: 47,
+      published: true,
+    };
+    const payload = buildShhoMenuSyncPayload({
+      data: {
+        menu: {
+          categories: [
+            {
+              name: "脆腩紅燒豆腐飯",
+              periods: ["L", "T", "D"],
+              groupIds: ["shared"],
+            },
+            { name: "黯然銷魂飯", periods: ["L"], groupIds: ["shared"] },
+          ],
+          groups: [{ id: "shared", items: [item] }],
+        },
+      },
+    });
+
+    expect(payload.items).toHaveLength(2);
+    expect(payload.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          externalProductId: "1100031695#offering-period=lunch",
+          name: "脆腩紅燒豆腐飯",
+          priceOptions: [
+            expect.objectContaining({ label: null, amountMinor: 4700 }),
+          ],
+        }),
+        expect.objectContaining({
+          externalProductId: "1100031695#offering-period=dinner",
+        }),
+      ]),
+    );
+  });
+
+  it("preserves category-context prices under one stable offering identity", () => {
+    const payload = buildShhoMenuSyncPayload({
+      data: {
+        menu: {
+          categories: [
+            { name: "泰式船麵", periods: ["L", "D"], groupIds: ["lunch"] },
+            {
+              name: "泰式船麵茶餐",
+              periods: ["T"],
+              groupIds: ["tea"],
+            },
+          ],
+          groups: [
+            {
+              id: "lunch",
+              items: [
+                {
+                  backendId: "1100075927",
+                  name: "雞中翼 ‧ 豬肉丸船麵",
+                  price: 48,
+                },
+              ],
+            },
+            {
+              id: "tea",
+              items: [
+                {
+                  backendId: "1100075927",
+                  name: "雞中翼 ‧ 豬肉丸船麵",
+                  price: 36,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          externalProductId: "1100075927#offering-period=lunch",
+          name: "雞中翼 ‧ 豬肉丸船麵",
+          priceOptions: [
+            {
+              label: "泰式船麵",
+              amountMinor: 4800,
+              currency: "HKD",
+              sortOrder: 0,
+            },
+            {
+              label: "泰式船麵茶餐",
+              amountMinor: 3600,
+              currency: "HKD",
+              sortOrder: 1,
+            },
+          ],
+        }),
+      ]),
+    );
   });
 
   it("normalizes the sanitized provider response through the fetch adapter", async () => {

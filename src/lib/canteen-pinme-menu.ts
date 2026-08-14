@@ -1,14 +1,12 @@
 import { createHash } from "node:crypto";
 import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
 import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
-import {
-  assertCompatibleProviderIdentityOccurrence,
-  assertProviderMenuIdentityItems,
-} from "./canteen-provider-menu-identity";
+import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
-import type {
-  MenuSyncInput,
-  MenuItemPriceOptionInput,
+import {
+  normalizeMealPeriods,
+  type MenuSyncInput,
+  type MenuItemPriceOptionInput,
 } from "@/lib/canteen-types";
 
 const PINME_SIGNING_KEY = "a91f9568fbd23881c2b2c7fa9af5b12a";
@@ -101,6 +99,10 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       text(group.start_time) ?? undefined,
       text(group.end_time) ?? undefined,
     );
+    const occurrencesInGroup = new Map<
+      string,
+      Omit<MenuSyncInput["items"][number], "sortOrder">
+    >();
     for (const productValue of array(group.products)) {
       const product = object(productValue);
       const externalProductId = text(product?.product_id);
@@ -118,28 +120,37 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       ) {
         continue;
       }
-      const existing = byProductId.get(externalProductId);
-      if (existing) {
-        const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
-        assertCompatibleProviderIdentityOccurrence("pinme", existing, {
-          externalProductId,
-          name,
-          priceOptions: priceOptions(product),
-          mealPeriods,
-          svgKey,
-        });
-        existing.mealPeriods = [
-          ...new Set([...existing.mealPeriods, ...mealPeriods]),
-        ];
-        continue;
-      }
-      byProductId.set(externalProductId, {
+      const occurrence = {
         externalProductId,
         name,
         priceOptions: priceOptions(product),
         mealPeriods,
         svgKey: resolveMenuSectionKey({ categoryName, dishName: name }),
-      });
+      };
+      const repeatedInGroup = occurrencesInGroup.get(externalProductId);
+      if (repeatedInGroup) {
+        assertProviderMenuIdentityItems("pinme", [repeatedInGroup, occurrence]);
+      }
+      occurrencesInGroup.set(externalProductId, occurrence);
+
+      const existing = byProductId.get(externalProductId);
+      if (existing) {
+        if (
+          existing.name !== occurrence.name ||
+          JSON.stringify(existing.priceOptions) !==
+            JSON.stringify(occurrence.priceOptions)
+        ) {
+          assertProviderMenuIdentityItems("pinme", [existing, occurrence]);
+        }
+        const mergedMealPeriods = normalizeMealPeriods([
+          ...existing.mealPeriods,
+          ...mealPeriods,
+        ]);
+        if (!mergedMealPeriods) throw new Error("INVALID_MEAL_PERIOD");
+        existing.mealPeriods = mergedMealPeriods;
+        continue;
+      }
+      byProductId.set(externalProductId, occurrence);
     }
   }
   const items = [...byProductId.values()].map((item) => ({
