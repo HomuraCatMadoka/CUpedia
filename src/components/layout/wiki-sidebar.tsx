@@ -1219,7 +1219,7 @@ export function WikiSidebar({
             "sticky hidden w-[var(--sidebar-width)] shrink-0 flex-col overflow-y-auto border-r bg-[#f9f8f7] md:flex",
             focusedEditor
               ? "top-0 h-dvh"
-              : "top-[var(--navbar-height)] h-[calc(100dvh-var(--navbar-height))] md:top-14",
+              : "top-[var(--navbar-height)] h-[calc(100dvh-var(--navbar-height))]",
           )}
           style={{ borderColor: "var(--sidebar-border-color)" }}
         >
