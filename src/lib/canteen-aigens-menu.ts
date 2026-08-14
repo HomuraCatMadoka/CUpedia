@@ -20,14 +20,7 @@ export function buildAigensMenuSyncPayload(input: unknown): MenuSyncInput {
         product.periods[0],
       ),
       name: product.name,
-      priceOptions: [
-        {
-          label: null,
-          amountMinor: product.amountMinor,
-          currency: "HKD" as const,
-          sortOrder: 0,
-        },
-      ],
+      priceOptions: product.priceOptions,
       mealPeriods: product.periods,
       sortOrder: 0,
       svgKey: product.svgKey,

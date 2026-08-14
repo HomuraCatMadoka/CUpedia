@@ -30,6 +30,9 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 **外部商品身份（External product identity）**: 一道供应商 offering 在某个菜单来源内的稳定标识。CUpedia 的托管菜品身份是菜单来源 + provider-scoped offering ID。PinMe 直接使用 product ID，餐段只是属性；Aigens 会在多个餐段复用 backend product ID，因此 offering ID 同时包含餐段。名称、价格、分类和排序不进入身份。Aigens 唯一的一对一餐段移动可原地更新；歧义拆分或合并必须中止，不能猜测历史归属。
 _Avoid_: 用菜名或供应商数组顺序作为长期身份；对所有供应商套用同一种 product ID 粒度；把 5198 的 product ID 放进 5203 的菜单来源。
 
+**供应商菜单 occurrence（Provider menu occurrence）**: 供应商原始分类树中对一道 offering 的一次引用，不等于新的菜品身份。同一 PinMe product 可同时出现在推荐区和常规分类，只有名称与规范化价格选项一致时才合并餐段；同一 Aigens group 可被多个分类引用，同一 backend product + 规范化餐段会合并分类语境中的价格为带标签选项。同一 Aigens 分类标签出现不同价格属于无法表达的歧义，必须中止。适配器先在供应商边界聚合 occurrence，再对最终 offering 身份执行唯一性校验；分类选择和价格排序采用固定规则，等价 occurrence 的排列不改变快照。
+_Avoid_: 在读取分类树时立即把每个 occurrence 当成独立菜品；为消除重复而把分类加入长期身份；无条件保留第一个 occurrence 并丢弃其余价格或餐段事实。
+
 **外部菜单同步**: Admin 对已经配置的菜单来源提交含 `items[].externalProductId` 的完整来源快照，必须先 dry-run 再应用。首次可用规范化菜名 + 餐段集合接管唯一手工菜；接管只允许在该来源上成功一次。来源中消失的托管菜改为 `isAvailable = false`，不删除 UUID、投票或评论；名称、价格或餐段变化原地更新同一 UUID。周期任务只接受菜单来源 ID，并强制禁止接管。有分类时保留店家分类作 `svgKey`，不以菜名重分类。
 
 **商品身份漂移（Product identity churn）**: 同一菜单来源在相邻快照中出现一批新 product ID，同时旧 ID 消失。观察期内只记录新增、消失与疑似一换一，不自动把新 ID 继承到旧菜品；疑似换 ID 或成批漂移必须保留最近成功菜单并等待审核。

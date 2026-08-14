@@ -1,14 +1,14 @@
-import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
-import {
-  assertCompatibleProviderIdentityOccurrence,
-  assertProviderMenuIdentityItems,
-} from "./canteen-provider-menu-identity";
+import { createAigensOfferingId } from "./canteen-menu-external-key";
+import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
+import { compareProviderText } from "./canteen-provider-menu-ordering";
+import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   ALLDAY_MEAL_PERIOD,
   primaryMealPeriodSortKey,
   type MealPeriod,
   type MealPeriodAssignment,
-} from "@/lib/canteen-types";
+  type MenuItemPriceOptionInput,
+} from "./canteen-types";
 
 export type AigensItem = {
   backendId?: string;
@@ -42,10 +42,39 @@ export type AigensParsedProduct = {
   backendId: string;
   name: string;
   categoryName: string;
-  amountMinor: number;
+  priceOptions: MenuItemPriceOptionInput[];
   periods: MealPeriodAssignment[];
   svgKey: string;
 };
+
+type AigensAggregatedProduct = Omit<AigensParsedProduct, "priceOptions"> & {
+  priceContexts: Array<{ label: string; amountMinor: number }>;
+};
+
+function materializePriceOptions(
+  contexts: readonly { label: string; amountMinor: number }[],
+): MenuItemPriceOptionInput[] {
+  const labelByAmount = new Map<number, string>();
+  for (const context of contexts) {
+    const current = labelByAmount.get(context.amountMinor);
+    if (current === undefined || context.label < current) {
+      labelByAmount.set(context.amountMinor, context.label);
+    }
+  }
+  const distinctPrices = [...labelByAmount.entries()]
+    .map(([amountMinor, label]) => ({ label, amountMinor }))
+    .sort(
+      (left, right) =>
+        compareProviderText(left.label, right.label) ||
+        left.amountMinor - right.amountMinor,
+    );
+  return distinctPrices.map((context, sortOrder) => ({
+    label: distinctPrices.length === 1 ? null : context.label,
+    amountMinor: context.amountMinor,
+    currency: "HKD",
+    sortOrder,
+  }));
+}
 
 export function parseAigensPrice(price: unknown): number {
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
@@ -130,8 +159,9 @@ export function parseAigensMenuProducts(
   const groupsById = new Map(
     groups.filter((group) => group.id).map((group) => [group.id!, group]),
   );
-  const products: AigensParsedProduct[] = [];
-  const seen = new Map<string, AigensParsedProduct>();
+  const products: AigensAggregatedProduct[] = [];
+  const seen = new Map<string, AigensAggregatedProduct>();
+  const validatedGroupIds = new Set<string>();
 
   for (const category of categories) {
     if (!category.name || options.excludedCategories.has(category.name)) {
@@ -152,13 +182,33 @@ export function parseAigensMenuProducts(
     const periods: MealPeriodAssignment[] =
       mappedPeriods.length > 0 ? mappedPeriods : [ALLDAY_MEAL_PERIOD];
 
+    if (!validatedGroupIds.has(primaryGroup.id!)) {
+      const groupItems = primaryGroup.items.filter(
+        (item) => !isSkippableItem(item),
+      );
+      assertProviderMenuIdentityItems(
+        "aigens",
+        groupItems.map((item) => {
+          const backendId = String(item.backendId ?? "").trim();
+          return {
+            externalProductId: backendId
+              ? createAigensOfferingId(backendId, ALLDAY_MEAL_PERIOD)
+              : "",
+            name: item.name!.trim().replace(/\s+/g, " "),
+            amountMinor: parseAigensPrice(item.price),
+          };
+        }),
+      );
+      validatedGroupIds.add(primaryGroup.id!);
+    }
+
     for (const item of primaryGroup.items) {
       if (isSkippableItem(item)) continue;
       const backendId = String(item.backendId ?? "").trim();
       assertProviderMenuIdentityItems("aigens", [
         {
           externalProductId: backendId
-            ? `${backendId}#offering-period=${periods[0]}`
+            ? createAigensOfferingId(backendId, periods[0])
             : "",
         },
       ]);
@@ -170,34 +220,48 @@ export function parseAigensMenuProducts(
       });
 
       for (const mealPeriod of periods) {
-        const dedupeKey = `${backendId}:${mealPeriod}`;
+        const dedupeKey = createAigensOfferingId(backendId, mealPeriod);
         const product = {
           backendId,
           name,
           categoryName: category.name,
-          amountMinor,
+          priceContexts: [{ label: svgKey, amountMinor }],
           periods: [mealPeriod],
           svgKey,
-        } satisfies AigensParsedProduct;
+        } satisfies AigensAggregatedProduct;
         const existing = seen.get(dedupeKey);
         if (existing) {
-          assertCompatibleProviderIdentityOccurrence(
-            "aigens",
-            {
-              externalProductId: `${existing.backendId}#offering-period=${mealPeriod}`,
-              name: existing.name,
-              priceOptions: [{ amountMinor: existing.amountMinor }],
-              mealPeriods: [mealPeriod],
-              svgKey: existing.svgKey,
-            },
-            {
-              externalProductId: `${backendId}#offering-period=${mealPeriod}`,
-              name,
-              priceOptions: [{ amountMinor }],
-              mealPeriods: [mealPeriod],
-              svgKey,
-            },
+          if (existing.name !== name) {
+            assertProviderMenuIdentityItems("aigens", [
+              { externalProductId: dedupeKey, name: existing.name },
+              { externalProductId: dedupeKey, name },
+            ]);
+          }
+          const sameContext = existing.priceContexts.find(
+            (context) => context.label === svgKey,
           );
+          if (sameContext) {
+            if (sameContext.amountMinor !== amountMinor) {
+              assertProviderMenuIdentityItems("aigens", [
+                {
+                  externalProductId: dedupeKey,
+                  name,
+                  priceOptions: [sameContext],
+                },
+                {
+                  externalProductId: dedupeKey,
+                  name,
+                  priceOptions: [{ label: svgKey, amountMinor }],
+                },
+              ]);
+            }
+          } else {
+            existing.priceContexts.push({ label: svgKey, amountMinor });
+          }
+          if (svgKey < existing.svgKey) {
+            existing.categoryName = category.name;
+            existing.svgKey = svgKey;
+          }
           continue;
         }
         seen.set(dedupeKey, product);
@@ -206,7 +270,10 @@ export function parseAigensMenuProducts(
     }
   }
 
-  return products;
+  return products.map(({ priceContexts, ...product }) => ({
+    ...product,
+    priceOptions: materializePriceOptions(priceContexts),
+  }));
 }
 
 /**

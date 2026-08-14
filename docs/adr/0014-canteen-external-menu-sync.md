@@ -16,6 +16,11 @@ not all use product IDs at the same granularity: PinMe models one product across
 periods, while Aigens can reuse a backend product ID for period-specific
 offerings with different prices and independent CUpedia history.
 
+Provider category trees can also reference the same offering more than once.
+These raw occurrences are not independent identities: recommendation and
+ordinary categories may overlap, and multiple category aliases may point to the
+same Aigens group.
+
 ## Decision
 
 1. An externally managed menu item stores `menuSourceId` and
@@ -26,19 +31,29 @@ offerings with different prices and independent CUpedia history.
    Name, pricing, classification and ordering never form identity. A unique
    one-to-one period move may update an Aigens offering identity in place;
    ambiguous split/merge cases fail closed instead of moving history.
-2. Sync is a two-stage admin operation: preview a deterministic plan, then apply
+2. Adapters aggregate repeated raw category occurrences before enforcing final
+   offering uniqueness. Repeated PinMe products merge meal periods only when
+   normalized names and prices agree. Repeated Aigens category references merge
+   the same backend product and normalized period, retaining distinct
+   category-context prices as labeled options. Conflicting names, conflicting
+   PinMe prices, and duplicate product IDs inside one raw provider group fail
+   closed; an Aigens category label that maps to two prices is likewise
+   ambiguous and fails closed. Category never becomes part of the stable
+   identity. Canonical category selection and price ordering make the normalized
+   result independent of raw occurrence order.
+3. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.
-3. Existing source-bound rows are updated in place. Missing rows become
+4. Existing source-bound rows are updated in place. Missing rows become
    `isAvailable = false`; they are not deleted. A later snapshot can reactivate
    the same row and recover its public vote/comment history.
-4. A first migration may explicitly set `takeOverLegacyItems: true`. This makes
+5. A first migration may explicitly set `takeOverLegacyItems: true`. This makes
    unmatched, source-less legacy rows unavailable. The preview must expose every
    affected row before apply, and a persisted timestamp prevents the same source
    from performing another legacy takeover.
-5. Public menu reads and new vote/comment writes only accept available items.
+6. Public menu reads and new vote/comment writes only accept available items.
    Historical rows remain available to server-side admin workflows.
-6. Product-ID churn is observed before aliasing is introduced. Each scheduled
+7. Product-ID churn is observed before aliasing is introduced. Each scheduled
    run stores bounded new/missing ID samples, counts and one-to-one same-name
    candidates. Suspected replacement or bulk churn fails closed: the last
    successful public menu remains visible and no vote/comment identity moves.
