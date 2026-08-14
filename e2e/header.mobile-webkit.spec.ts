@@ -9,15 +9,42 @@ test.describe("#651 mobile WebKit Header", () => {
       "content",
       /viewport-fit=cover/,
     );
+    await page.addStyleTag({
+      content: `
+        :root {
+          --safe-area-top: 20px !important;
+          --safe-area-right: 12px !important;
+          --safe-area-bottom: 16px !important;
+          --safe-area-left: 8px !important;
+        }
+      `,
+    });
 
     const trigger = page.getByRole("button", { name: "打开产品菜单" });
+    const headerBox = await page.getByTestId("global-header").boundingBox();
+    const triggerBox = await trigger.boundingBox();
+    expect(headerBox?.height).toBe(76);
+    expect((triggerBox?.x ?? 0) + (triggerBox?.width ?? 0)).toBe(370);
+
     await trigger.tap();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
       page.getByRole("button", { name: "关闭产品菜单" }),
     ).toBeFocused();
-    expect((await dialog.boundingBox())?.y).toBeGreaterThanOrEqual(0);
+    await expect
+      .poll(async () => {
+        const box = await dialog.boundingBox();
+        return box
+          ? {
+              x: Math.round(box.x),
+              y: Math.round(box.y),
+              width: Math.round(box.width),
+              height: Math.round(box.height),
+            }
+          : null;
+      })
+      .toEqual({ x: 16, y: 28, width: 354, height: 612 });
 
     await page.getByRole("button", { name: "关闭产品菜单" }).tap();
     await expect(dialog).toBeHidden();
@@ -37,22 +64,38 @@ test.describe("#651 mobile WebKit Header", () => {
   }) => {
     await page.setViewportSize({ width: 667, height: 375 });
     await page.goto("/canteen");
+    await page.addStyleTag({
+      content: `
+        :root {
+          --safe-area-top: 12px !important;
+          --safe-area-right: 18px !important;
+          --safe-area-bottom: 10px !important;
+          --safe-area-left: 14px !important;
+        }
+      `,
+    });
 
     const headerBox = await page.getByTestId("global-header").boundingBox();
-    expect(headerBox?.x).toBeGreaterThanOrEqual(0);
-    expect((headerBox?.x ?? 0) + (headerBox?.width ?? 0)).toBeLessThanOrEqual(
-      667,
-    );
+    const brandBox = await page
+      .getByRole("link", { name: "CUpedia" })
+      .boundingBox();
+    expect(headerBox?.height).toBe(68);
+    expect(brandBox?.x).toBe(22);
 
     await page.getByRole("button", { name: "打开产品菜单" }).tap();
-    const dialogBox = await page.getByRole("dialog").boundingBox();
-    expect(dialogBox?.x).toBeGreaterThanOrEqual(0);
-    expect(dialogBox?.y).toBeGreaterThanOrEqual(0);
-    expect((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0)).toBeLessThanOrEqual(
-      667,
-    );
-    expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(
-      375,
-    );
+    const dialog = page.getByRole("dialog");
+    await expect
+      .poll(async () => {
+        const box = await dialog.boundingBox();
+        return box
+          ? {
+              x: Math.round(box.x),
+              y: Math.round(box.y),
+              width: Math.round(box.width),
+              height: Math.round(box.height),
+            }
+          : null;
+      })
+      .toEqual({ x: 22, y: 20, width: 619, height: 337 });
   });
 });

@@ -72,6 +72,21 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
     : "";
 
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+
+    const desktopViewport = window.matchMedia("(min-width: 768px)");
+    const closeMobileProductMenu = () => {
+      if (!desktopViewport.matches) return;
+      setActiveOverlay((current) => (current === "products" ? null : current));
+    };
+
+    closeMobileProductMenu();
+    desktopViewport.addEventListener("change", closeMobileProductMenu);
+    return () =>
+      desktopViewport.removeEventListener("change", closeMobileProductMenu);
+  }, []);
+
+  useEffect(() => {
     if (!mounted || !sessionUserId) return;
     let cancelled = false;
     const handleNoticesSeen = () => {

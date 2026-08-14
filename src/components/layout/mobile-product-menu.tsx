@@ -44,7 +44,7 @@ export function MobileProductMenu({
         initialFocus={closeButtonRef}
         showCloseButton={false}
         overlayClassName="bg-black/20 supports-backdrop-filter:backdrop-blur-sm motion-reduce:animate-none"
-        className="top-[calc(var(--safe-area-top)+0.5rem)] right-[calc(var(--safe-area-right)+0.5rem)] bottom-[calc(var(--safe-area-bottom)+0.5rem)] left-[calc(var(--safe-area-left)+0.5rem)] h-auto w-auto max-w-none translate-x-0 translate-y-0 grid-rows-[3.5rem_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl bg-background p-0 ring-1 ring-foreground/10 shadow-2xl data-open:slide-in-from-top-2 data-closed:slide-out-to-top-2 motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none md:hidden"
+        className="top-[calc(var(--safe-area-top)+0.5rem)] right-[calc(var(--safe-area-right)+0.5rem)] bottom-[calc(var(--safe-area-bottom)+0.5rem)] left-[calc(var(--safe-area-left)+0.5rem)] h-auto w-auto max-w-none translate-x-0 translate-y-0 grid-rows-[3.5rem_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl bg-background p-0 ring-1 ring-foreground/10 shadow-2xl data-open:slide-in-from-top-2 data-closed:slide-out-to-top-2 motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none sm:max-w-none md:hidden"
       >
         <div className="flex items-center justify-between border-b px-3">
           <DialogTitle className="text-lg font-bold tracking-[-0.035em]">

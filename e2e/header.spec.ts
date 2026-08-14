@@ -161,6 +161,22 @@ test.describe("#651 global single-row Header", () => {
     ).toBe(56);
   });
 
+  test("desktop navigation becomes interactive after resizing an open mobile menu", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 767, height: MOBILE_HEIGHT });
+    await page.goto("/");
+    await openProductMenu(page);
+
+    await page.setViewportSize({ width: 768, height: MOBILE_HEIGHT });
+    await page
+      .getByRole("navigation", { name: "产品导航" })
+      .getByRole("link", { name: "课程测评" })
+      .click();
+
+    await expect(page).toHaveURL("/courses");
+  });
+
   test("desktop Header and layout offset preserve a nonzero top safe area", async ({
     page,
   }) => {
