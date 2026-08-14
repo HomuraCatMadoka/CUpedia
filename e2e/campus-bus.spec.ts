@@ -280,6 +280,88 @@ test.describe("campus bus Route 2 mobile journey", () => {
 test.describe("campus bus reviewed route catalog", () => {
   test.use({ viewport: MOBILE_VIEWPORT, isMobile: true, hasTouch: true });
 
+  test("keeps nearby results after opening a route and returning home", async ({
+    context,
+    page,
+  }) => {
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation({
+      latitude: 22.4135,
+      longitude: 114.2101,
+    });
+    const response = await page.goto("/campus-bus");
+    expect(response?.status()).toBe(200);
+
+    await page.getByRole("button", { name: "使用我的位置" }).click();
+    await expect(page.getByText("按直線距離排序")).toBeVisible();
+    const firstDistance = await page
+      .getByText(/約 \d+ 米/)
+      .first()
+      .textContent();
+
+    await page
+      .getByRole("tabpanel", { name: "附近" })
+      .getByRole("link")
+      .first()
+      .click();
+    await expect(
+      page.getByRole("link", { name: "返回校巴首頁" }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: "返回校巴首頁" }).click();
+
+    await expect(page).toHaveURL(/\/campus-bus$/);
+    await expect(page.getByText("按直線距離排序")).toBeVisible();
+    await expect(page.getByText(firstDistance!)).toBeVisible();
+  });
+
+  test("keeps manual Boarding place selection usable after location is denied", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition(
+            _success: PositionCallback,
+            error: PositionErrorCallback,
+          ) {
+            error({
+              code: 1,
+              message: "Permission denied by test",
+              PERMISSION_DENIED: 1,
+              POSITION_UNAVAILABLE: 2,
+              TIMEOUT: 3,
+            });
+          },
+        },
+      });
+    });
+    const response = await page.goto("/campus-bus");
+    expect(response?.status()).toBe(200);
+
+    await page.getByRole("button", { name: "使用我的位置" }).click();
+    await expect(
+      page.getByRole("heading", { name: "未允許使用位置" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "你可以手動選站；如要查看附近車站，可在瀏覽器設定中重新允許定位。",
+      ),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "手動選擇" }).click();
+    await page
+      .getByRole("dialog", { name: "選擇乘車地點" })
+      .getByRole("button", { name: /大學站 Univ\. Station/ })
+      .click();
+
+    await expect(
+      page.getByRole("heading", { name: "大學站", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /1A 本部線/ }).first(),
+    ).toBeVisible();
+  });
+
   test("shows the first departure instead of a multi-hour countdown before service", async ({
     page,
   }) => {
@@ -317,13 +399,13 @@ test.describe("campus bus reviewed route catalog", () => {
     await expect(
       page.getByRole("heading", { name: "中大校巴", level: 1 }),
     ).toBeVisible();
-    await expect(page.getByRole("tab", { name: "現在可乘" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await expect(page.getByRole("link", { name: /N 晚間線/ })).toHaveCount(0);
-
     await page.getByRole("tab", { name: "全部路線" }).click();
+    await expect(
+      page.getByRole("heading", { name: "現在可乘", level: 2 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "其他路線", level: 2 }),
+    ).toBeVisible();
     for (const route of [
       "1A 本部線",
       "1B 本部線",
@@ -358,18 +440,14 @@ test.describe("campus bus reviewed route catalog", () => {
     const response = await page.goto("/campus-bus");
     expect(response?.status()).toBe(200);
     await page.clock.fastForward("00:00:31");
+    await page.getByRole("tab", { name: "全部路線" }).click();
 
     await expect(
-      page.getByRole("heading", {
-        name: "目前沒有行駛中的校巴",
-        level: 2,
-      }),
+      page.getByText("目前沒有行駛中的校巴，其他今日路線仍可在下方查看。"),
     ).toBeVisible();
-    await page.getByRole("button", { name: "查看全部路線" }).click();
-    await expect(page.getByRole("tab", { name: "全部路線" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    await expect(
+      page.getByRole("heading", { name: "其他路線", level: 2 }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /1A 本部線/ })).toBeVisible();
   });
 

@@ -121,9 +121,7 @@ test("official professor outside the course assignment can be searched and submi
   });
 
   await professorSearch.fill("kai chna");
-  await expect(
-    page.getByRole("option", { name: RENDERED_CHAN }),
-  ).toBeVisible();
+  await expect(page.getByRole("option", { name: RENDERED_CHAN })).toBeVisible();
   await expect(
     page.getByRole("option", { name: RENDERED_KAI, exact: true }),
   ).toHaveCount(0);
@@ -134,9 +132,7 @@ test("official professor outside the course assignment can be searched and submi
   ).toBeVisible();
 
   await professorSearch.fill("ＣＨＡＮ");
-  await expect(
-    page.getByRole("option", { name: RENDERED_CHAN }),
-  ).toBeVisible();
+  await expect(page.getByRole("option", { name: RENDERED_CHAN })).toBeVisible();
 
   await professorSearch.fill("jose garcia");
   await expect(

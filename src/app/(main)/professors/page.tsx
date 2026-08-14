@@ -9,7 +9,10 @@ import {
 } from "@/components/professors/professor-directory-filters";
 import { ProfessorPortrait } from "@/components/professors/professor-portrait";
 import { getProfessorDirectory } from "@/lib/professor-actions";
-import { formatProfessorName, formatProfessorNameText } from "@/lib/professor-name-format";
+import {
+  formatProfessorName,
+  formatProfessorNameText,
+} from "@/lib/professor-name-format";
 
 export const dynamic = "force-dynamic";
 

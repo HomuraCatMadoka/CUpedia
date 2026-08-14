@@ -4,6 +4,7 @@ import type {
   MenuSyncInput,
   MenuSyncItemInput,
 } from "./canteen-types";
+import { reconcileOfferingIdentityTransitions } from "./canteen-menu-external-key";
 
 export type ExistingSyncMenuItem = {
   id: string;
@@ -12,50 +13,91 @@ export type ExistingSyncMenuItem = {
   sortOrder: number;
   svgKey: string;
   priceOptions: MenuItemPriceOptionInput[];
-  externalSource: string | null;
-  externalKey: string | null;
+  menuSourceId: string | null;
+  externalProductId: string | null;
   isAvailable: boolean;
 };
 
 export type MenuSyncAction = {
   action: "create" | "update" | "claim" | "reactivate" | "deactivate";
   itemId: string | null;
-  externalKey: string;
+  externalProductId: string;
   name: string;
   changedFields: string[];
 };
 
 export type MenuSyncConflict = {
-  externalKey: string;
+  externalProductId: string;
   name: string;
-  reason: "AMBIGUOUS_LEGACY_MATCH" | "LEGACY_MATCH_ALREADY_CLAIMED";
+  reason:
+    | "AMBIGUOUS_LEGACY_MATCH"
+    | "AMBIGUOUS_EXTERNAL_IDENTITY_TRANSITION"
+    | "LEGACY_MATCH_ALREADY_CLAIMED"
+    | "LEGACY_MATCH_REQUIRES_TAKEOVER";
   candidateIds: string[];
 };
 
 export type MenuSyncPlan = {
-  source: string;
+  sourceId: string;
   actions: MenuSyncAction[];
   conflicts: MenuSyncConflict[];
   unchanged: number;
 };
 
+/**
+ * Reconcile one already-resolved menu source. Product identity is deliberately
+ * independent from name, pricing and meal periods so those attributes can
+ * change without replacing the CUpedia menu-item UUID.
+ */
 export function planMenuSync(
+  sourceId: string,
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
+  legacyAdoptionOpen = true,
 ): MenuSyncPlan {
-  const byExternalKey = new Map(
+  const managedByProduct = new Map(
     existingItems
       .filter(
         (item) =>
-          item.externalSource === input.source && item.externalKey !== null,
+          item.menuSourceId === sourceId && item.externalProductId !== null,
       )
-      .map((item) => [item.externalKey!, item]),
+      .map((item) => [item.externalProductId!, item]),
   );
+  const offeringTransitions = reconcileOfferingIdentityTransitions(
+    [...managedByProduct.keys()],
+    input.items.map((item) => item.externalProductId),
+  );
+  const previousIdByMovedId = new Map(
+    offeringTransitions.safeMoves.map((move) => [
+      move.nextProductId,
+      move.previousProductId,
+    ]),
+  );
+  const ambiguousByIncomingId = new Map<string, string[]>();
+  const ambiguousExistingIds = new Set<string>();
+  for (const transition of offeringTransitions.ambiguousTransitions) {
+    const candidateIds = transition.previousProductIds.flatMap((productId) => {
+      const item = managedByProduct.get(productId);
+      return item ? [item.id] : [];
+    });
+    for (const productId of transition.previousProductIds) {
+      const item = managedByProduct.get(productId);
+      if (item) ambiguousExistingIds.add(item.id);
+    }
+    for (const productId of transition.nextProductIds) {
+      ambiguousByIncomingId.set(productId, candidateIds);
+    }
+  }
   const legacyByNamePeriod = new Map<string, ExistingSyncMenuItem[]>();
-  for (const item of existingItems) {
-    if (item.externalSource !== null) continue;
-    const key = legacyMatchKey(item.name, item.mealPeriods);
-    legacyByNamePeriod.set(key, [...(legacyByNamePeriod.get(key) ?? []), item]);
+  if (legacyAdoptionOpen) {
+    for (const item of existingItems) {
+      if (item.menuSourceId !== null) continue;
+      const key = legacyMatchKey(item.name, item.mealPeriods);
+      legacyByNamePeriod.set(key, [
+        ...(legacyByNamePeriod.get(key) ?? []),
+        item,
+      ]);
+    }
   }
 
   const actions: MenuSyncAction[] = [];
@@ -64,22 +106,45 @@ export function planMenuSync(
   let unchanged = 0;
 
   for (const incoming of input.items) {
-    const externalMatch = byExternalKey.get(incoming.externalKey);
-    if (externalMatch) {
-      seenItemIds.add(externalMatch.id);
-      const changedFields = changedMenuFields(externalMatch, incoming);
-      if (!externalMatch.isAvailable) changedFields.push("isAvailable");
+    const ambiguousCandidates = ambiguousByIncomingId.get(
+      incoming.externalProductId,
+    );
+    if (ambiguousCandidates) {
+      conflicts.push({
+        externalProductId: incoming.externalProductId,
+        name: incoming.name,
+        reason: "AMBIGUOUS_EXTERNAL_IDENTITY_TRANSITION",
+        candidateIds: ambiguousCandidates,
+      });
+      continue;
+    }
+    let managed = managedByProduct.get(incoming.externalProductId);
+    let identityChanged = false;
+    if (!managed) {
+      const previousProductId = previousIdByMovedId.get(
+        incoming.externalProductId,
+      );
+      managed = previousProductId
+        ? managedByProduct.get(previousProductId)
+        : undefined;
+      identityChanged = managed !== undefined;
+    }
+    if (managed) {
+      seenItemIds.add(managed.id);
+      const changedFields = changedMenuFields(managed, incoming);
+      if (identityChanged) changedFields.unshift("externalIdentity");
+      if (!managed.isAvailable) changedFields.push("isAvailable");
       if (changedFields.length === 0) {
         unchanged += 1;
-        continue;
+      } else {
+        actions.push({
+          action: managed.isAvailable ? "update" : "reactivate",
+          itemId: managed.id,
+          externalProductId: incoming.externalProductId,
+          name: incoming.name,
+          changedFields,
+        });
       }
-      actions.push({
-        action: externalMatch.isAvailable ? "update" : "reactivate",
-        itemId: externalMatch.id,
-        externalKey: incoming.externalKey,
-        name: incoming.name,
-        changedFields,
-      });
       continue;
     }
 
@@ -87,9 +152,18 @@ export function planMenuSync(
       legacyByNamePeriod.get(
         legacyMatchKey(incoming.name, incoming.mealPeriods),
       ) ?? [];
+    if (!input.takeOverLegacyItems && legacyMatches.length > 0) {
+      conflicts.push({
+        externalProductId: incoming.externalProductId,
+        name: incoming.name,
+        reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
+        candidateIds: legacyMatches.map((item) => item.id),
+      });
+      continue;
+    }
     if (legacyMatches.length > 1) {
       conflicts.push({
-        externalKey: incoming.externalKey,
+        externalProductId: incoming.externalProductId,
         name: incoming.name,
         reason: "AMBIGUOUS_LEGACY_MATCH",
         candidateIds: legacyMatches.map((item) => item.id),
@@ -100,7 +174,7 @@ export function planMenuSync(
       const match = legacyMatches[0];
       if (seenItemIds.has(match.id)) {
         conflicts.push({
-          externalKey: incoming.externalKey,
+          externalProductId: incoming.externalProductId,
           name: incoming.name,
           reason: "LEGACY_MATCH_ALREADY_CLAIMED",
           candidateIds: [match.id],
@@ -111,7 +185,7 @@ export function planMenuSync(
       actions.push({
         action: "claim",
         itemId: match.id,
-        externalKey: incoming.externalKey,
+        externalProductId: incoming.externalProductId,
         name: incoming.name,
         changedFields: [
           "externalIdentity",
@@ -120,33 +194,37 @@ export function planMenuSync(
       });
       continue;
     }
+
     actions.push({
       action: "create",
       itemId: null,
-      externalKey: incoming.externalKey,
+      externalProductId: incoming.externalProductId,
       name: incoming.name,
       changedFields: ["all"],
     });
   }
 
   for (const item of existingItems) {
+    const belongsToSource = item.menuSourceId === sourceId;
+    const adoptableLegacy =
+      input.takeOverLegacyItems && item.menuSourceId === null;
     if (
       item.isAvailable &&
-      ((item.externalSource === input.source && item.externalKey !== null) ||
-        (input.takeOverLegacyItems && item.externalSource === null)) &&
+      (belongsToSource || adoptableLegacy) &&
+      !ambiguousExistingIds.has(item.id) &&
       !seenItemIds.has(item.id)
     ) {
       actions.push({
         action: "deactivate",
         itemId: item.id,
-        externalKey: item.externalKey ?? `legacy:${item.id}`,
+        externalProductId: item.externalProductId ?? `legacy:${item.id}`,
         name: item.name,
         changedFields: ["isAvailable"],
       });
     }
   }
 
-  return { source: input.source, actions, conflicts, unchanged };
+  return { sourceId, actions, conflicts, unchanged };
 }
 
 function legacyMatchKey(

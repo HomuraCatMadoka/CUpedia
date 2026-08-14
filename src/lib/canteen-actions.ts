@@ -1,11 +1,18 @@
 "use server";
 
 import { db } from "@/db";
-import { canteenMenuItemPrices, canteenMenuItems, canteens } from "@/db/schema";
+import {
+  canteenMenuItemPrices,
+  canteenMenuItems,
+  canteenMenuSources,
+  canteenOrderingHandoffs,
+  canteens,
+} from "@/db/schema";
 import { asc, eq, count, and } from "drizzle-orm";
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
 import { primaryMealPeriodSortKey } from "@/lib/canteen-types";
 import { buildMenuItemPricing } from "@/lib/canteen-pricing";
+import type { OrderingHandoff } from "@/lib/canteen-ordering-handoff";
 import {
   isCanteenMockMode,
   mockGetCanteen,
@@ -43,6 +50,45 @@ export async function getCanteenById(id: string): Promise<Canteen | null> {
     .where(eq(canteens.id, id))
     .limit(1);
   return rows[0] ?? null;
+}
+
+export async function getCanteenOrderingHandoff(
+  canteenId: string,
+): Promise<OrderingHandoff | null> {
+  if (isCanteenMockMode()) return null;
+  const rows = await db
+    .select({
+      provider: canteenOrderingHandoffs.provider,
+      url: canteenOrderingHandoffs.url,
+    })
+    .from(canteenOrderingHandoffs)
+    .where(
+      and(
+        eq(canteenOrderingHandoffs.canteenId, canteenId),
+        eq(canteenOrderingHandoffs.enabled, true),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getCanteenMenuFreshness(canteenId: string): Promise<{
+  lastSuccessAt: Date | null;
+  stale: boolean;
+} | null> {
+  if (isCanteenMockMode()) return null;
+  const source = await db.query.canteenMenuSources.findFirst({
+    where: eq(canteenMenuSources.canteenId, canteenId),
+    columns: { lastSuccessAt: true },
+  });
+  if (!source) return null;
+  const staleBefore = Date.now() - 48 * 60 * 60 * 1_000;
+  return {
+    lastSuccessAt: source.lastSuccessAt,
+    stale:
+      source.lastSuccessAt === null ||
+      source.lastSuccessAt.getTime() < staleBefore,
+  };
 }
 
 export async function getCanteenMenuItems(

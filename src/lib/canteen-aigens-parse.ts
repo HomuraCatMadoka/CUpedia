@@ -70,12 +70,57 @@ export function parseAigensMenuProducts(
   input: unknown,
   options: { excludedCategories: ReadonlySet<string> },
 ): AigensParsedProduct[] {
-  const root = input as {
-    data?: { menu?: { categories?: AigensCategory[]; groups?: AigensGroup[] } };
-  };
-  const categories = root?.data?.menu?.categories;
-  const groups = root?.data?.menu?.groups;
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("INVALID_AIGENS_MENU");
+  }
+  const data = (input as Record<string, unknown>).data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("INVALID_AIGENS_MENU");
+  }
+  const menu = (data as Record<string, unknown>).menu;
+  if (!menu || typeof menu !== "object" || Array.isArray(menu)) {
+    throw new Error("INVALID_AIGENS_MENU");
+  }
+  const categories = (menu as Record<string, unknown>).categories;
+  const groups = (menu as Record<string, unknown>).groups;
   if (!Array.isArray(categories) || !Array.isArray(groups)) {
+    throw new Error("INVALID_AIGENS_MENU");
+  }
+
+  if (
+    !categories.every(
+      (category): category is AigensCategory =>
+        Boolean(category) &&
+        typeof category === "object" &&
+        !Array.isArray(category) &&
+        (category.name === undefined || typeof category.name === "string") &&
+        (category.periods === undefined ||
+          (Array.isArray(category.periods) &&
+            category.periods.every(
+              (value: unknown) => typeof value === "string",
+            ))) &&
+        (category.groupIds === undefined ||
+          (Array.isArray(category.groupIds) &&
+            category.groupIds.every(
+              (value: unknown) => typeof value === "string",
+            ))),
+    ) ||
+    !groups.every(
+      (group): group is AigensGroup =>
+        Boolean(group) &&
+        typeof group === "object" &&
+        !Array.isArray(group) &&
+        (group.id === undefined || typeof group.id === "string") &&
+        (group.items === undefined ||
+          (Array.isArray(group.items) &&
+            group.items.every(
+              (item: unknown) =>
+                Boolean(item) &&
+                typeof item === "object" &&
+                !Array.isArray(item),
+            ))),
+    )
+  ) {
     throw new Error("INVALID_AIGENS_MENU");
   }
 
@@ -143,12 +188,14 @@ export function assignMealPeriodSortOrder<
   items: T[],
   mealPeriodsOf: (item: T) => readonly MealPeriodAssignment[],
 ): T[] {
-  const sorted = items.slice().sort(
-    (a, b) =>
-      primaryMealPeriodSortKey(mealPeriodsOf(a)) -
-        primaryMealPeriodSortKey(mealPeriodsOf(b)) ||
-      a.name.localeCompare(b.name, "zh-HK"),
-  );
+  const sorted = items
+    .slice()
+    .sort(
+      (a, b) =>
+        primaryMealPeriodSortKey(mealPeriodsOf(a)) -
+          primaryMealPeriodSortKey(mealPeriodsOf(b)) ||
+        a.name.localeCompare(b.name, "zh-HK"),
+    );
   sorted.forEach((item, index) => {
     item.sortOrder = index;
   });

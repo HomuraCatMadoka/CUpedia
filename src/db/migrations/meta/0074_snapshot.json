@@ -1,5 +1,5 @@
 {
-  "id": "f0a2dac2-d157-4caf-ab76-15e8a93f61f1",
+  "id": "78ce4518-2066-4532-935e-aa51f0f82c2d",
   "prevId": "359f4cef-8661-4394-bb85-542fe9ab34f3",
   "version": "7",
   "dialect": "postgresql",
@@ -3008,6 +3008,277 @@
       },
       "isRLSEnabled": false
     },
+    "public.canteen_menu_sources": {
+      "name": "canteen_menu_sources",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "canteen_id": {
+          "name": "canteen_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "external_store_id": {
+          "name": "external_store_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "config": {
+          "name": "config",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "last_attempt_at": {
+          "name": "last_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_success_at": {
+          "name": "last_success_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_snapshot_hash": {
+          "name": "last_snapshot_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "observed_state": {
+          "name": "observed_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error_code": {
+          "name": "last_error_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "canteen_menu_sources_canteen_uidx": {
+          "name": "canteen_menu_sources_canteen_uidx",
+          "columns": [
+            {
+              "expression": "canteen_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "canteen_menu_sources_provider_store_uidx": {
+          "name": "canteen_menu_sources_provider_store_uidx",
+          "columns": [
+            {
+              "expression": "provider",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "external_store_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "canteen_menu_sources_enabled_idx": {
+          "name": "canteen_menu_sources_enabled_idx",
+          "columns": [
+            {
+              "expression": "enabled",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "canteen_menu_sources_canteen_id_canteens_id_fk": {
+          "name": "canteen_menu_sources_canteen_id_canteens_id_fk",
+          "tableFrom": "canteen_menu_sources",
+          "tableTo": "canteens",
+          "columnsFrom": ["canteen_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "canteen_menu_sources_provider_chk": {
+          "name": "canteen_menu_sources_provider_chk",
+          "value": "\"canteen_menu_sources\".\"provider\" in ('aigens', 'ichef', 'pinme', 'qmai')"
+        },
+        "canteen_menu_sources_store_id_chk": {
+          "name": "canteen_menu_sources_store_id_chk",
+          "value": "length(trim(\"canteen_menu_sources\".\"external_store_id\")) between 1 and 200"
+        },
+        "canteen_menu_sources_qmai_disabled_chk": {
+          "name": "canteen_menu_sources_qmai_disabled_chk",
+          "value": "\"canteen_menu_sources\".\"provider\" <> 'qmai' or \"canteen_menu_sources\".\"enabled\" = false"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.canteen_ordering_handoffs": {
+      "name": "canteen_ordering_handoffs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "canteen_id": {
+          "name": "canteen_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "canteen_ordering_handoffs_canteen_uidx": {
+          "name": "canteen_ordering_handoffs_canteen_uidx",
+          "columns": [
+            {
+              "expression": "canteen_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "canteen_ordering_handoffs_canteen_id_canteens_id_fk": {
+          "name": "canteen_ordering_handoffs_canteen_id_canteens_id_fk",
+          "tableFrom": "canteen_ordering_handoffs",
+          "tableTo": "canteens",
+          "columnsFrom": ["canteen_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "canteen_ordering_handoffs_provider_chk": {
+          "name": "canteen_ordering_handoffs_provider_chk",
+          "value": "\"canteen_ordering_handoffs\".\"provider\" in ('aigens', 'ichef', 'pinme', 'qmai', 'external')"
+        },
+        "canteen_ordering_handoffs_url_chk": {
+          "name": "canteen_ordering_handoffs_url_chk",
+          "value": "length(trim(\"canteen_ordering_handoffs\".\"url\")) between 1 and 2000"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.canteen_shame_votes": {
       "name": "canteen_shame_votes",
       "schema": "",
@@ -4950,127 +5221,6 @@
         "notifications_announcement_identity_check": {
           "name": "notifications_announcement_identity_check",
           "value": "(\"notifications\".\"kind\" = 'announcement_published' and \"notifications\".\"announcement_id\" is not null) or (\"notifications\".\"kind\" <> 'announcement_published' and \"notifications\".\"announcement_id\" is null)"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.product_updates": {
-      "name": "product_updates",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "summary": {
-          "name": "summary",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "content": {
-          "name": "content",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "type": {
-          "name": "type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "areas": {
-          "name": "areas",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "published_at": {
-          "name": "published_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_by": {
-          "name": "created_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "product_updates_publication_idx": {
-          "name": "product_updates_publication_idx",
-          "columns": [
-            {
-              "expression": "published_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "product_updates_created_by_users_id_fk": {
-          "name": "product_updates_created_by_users_id_fk",
-          "tableFrom": "product_updates",
-          "tableTo": "users",
-          "columnsFrom": ["created_by"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "product_updates_type_check": {
-          "name": "product_updates_type_check",
-          "value": "\"product_updates\".\"type\" in ('feature', 'improvement', 'fix', 'adjustment')"
-        },
-        "product_updates_areas_nonempty_check": {
-          "name": "product_updates_areas_nonempty_check",
-          "value": "cardinality(\"product_updates\".\"areas\") > 0"
-        },
-        "product_updates_areas_allowed_check": {
-          "name": "product_updates_areas_allowed_check",
-          "value": "\"product_updates\".\"areas\" <@ array['wiki', 'courses', 'canteen', 'map', 'account']::text[]"
         }
       },
       "isRLSEnabled": false
