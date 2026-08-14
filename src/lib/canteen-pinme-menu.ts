@@ -125,6 +125,7 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
           externalProductId,
           name,
           priceOptions: priceOptions(product),
+          mealPeriods,
           svgKey,
         });
         existing.mealPeriods = [

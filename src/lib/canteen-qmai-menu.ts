@@ -145,6 +145,7 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
           externalProductId,
           name,
           priceOptions: options,
+          mealPeriods: periods,
           svgKey,
         });
         existing.mealPeriods = [

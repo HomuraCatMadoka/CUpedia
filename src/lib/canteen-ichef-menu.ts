@@ -80,6 +80,7 @@ export function buildIchefMenuSyncPayload(
               sortOrder: 0,
             },
           ],
+          mealPeriods: categoryPeriods,
           svgKey,
         });
         existing.mealPeriods = [

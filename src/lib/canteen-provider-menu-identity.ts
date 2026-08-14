@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { CanteenMenuSourceProvider } from "@/db/schema";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
-import type { MenuSyncInput } from "./canteen-types";
+import type { MealPeriodAssignment, MenuSyncInput } from "./canteen-types";
 
 const MEAL_PERIOD_ALTERNATION = "breakfast|lunch|dinner|allday";
 const MEAL_PERIOD_PATTERN = `(?:${MEAL_PERIOD_ALTERNATION})`;
@@ -81,6 +81,10 @@ type SourceLocator = {
 type IdentityItem = {
   externalProductId?: unknown;
   [attribute: string]: unknown;
+};
+
+type IdentityOccurrence = IdentityItem & {
+  mealPeriods: readonly MealPeriodAssignment[];
 };
 
 export function normalizePublishedProviderIdentity(
@@ -206,8 +210,8 @@ export function assertProviderMenuIdentityItems(
 
 export function assertCompatibleProviderIdentityOccurrence(
   provider: MenuProvider,
-  existing: IdentityItem,
-  incoming: IdentityItem,
+  existing: IdentityOccurrence,
+  incoming: IdentityOccurrence,
 ): void {
   const existingIdentity = String(existing.externalProductId ?? "");
   const incomingIdentity = String(incoming.externalProductId ?? "");
@@ -230,6 +234,9 @@ export function assertCompatibleProviderIdentityOccurrence(
     occurrenceFingerprint(existing) !== occurrenceFingerprint(incoming)
   ) {
     fail(provider, "COLLIDING_IDENTITY", [existingIdentity, incomingIdentity]);
+  }
+  if (occurrencePeriodsOverlap(existing.mealPeriods, incoming.mealPeriods)) {
+    fail(provider, "DUPLICATE_IDENTITY", [existingIdentity, incomingIdentity]);
   }
 }
 
@@ -301,6 +308,15 @@ function occurrenceFingerprint(item: IdentityItem): string {
     priceOptions: item.priceOptions,
     svgKey: item.svgKey,
   });
+}
+
+function occurrencePeriodsOverlap(
+  left: readonly MealPeriodAssignment[],
+  right: readonly MealPeriodAssignment[],
+): boolean {
+  if (left.includes("allday") || right.includes("allday")) return true;
+  const leftPeriods = new Set(left);
+  return right.some((period) => leftPeriods.has(period));
 }
 
 function fail(

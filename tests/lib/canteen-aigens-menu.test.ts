@@ -2,6 +2,25 @@ import { describe, expect, it } from "vitest";
 import { buildShhoMenuSyncPayload } from "@/lib/canteen-aigens-menu";
 
 describe("S.H. Ho Aigens menu adapter", () => {
+  it("fails closed when the same offering repeats in one period", () => {
+    const item = {
+      backendId: "42",
+      name: "菜品 A",
+      price: 20,
+      published: true,
+    };
+    expect(() =>
+      buildShhoMenuSyncPayload({
+        data: {
+          menu: {
+            categories: [{ name: "飯類", periods: ["L"], groupIds: ["main"] }],
+            groups: [{ id: "main", items: [item, item] }],
+          },
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
   it("keeps primary products, maps periods, and excludes generic categories", () => {
     const payload = buildShhoMenuSyncPayload({
       data: {

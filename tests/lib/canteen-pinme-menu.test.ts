@@ -7,6 +7,90 @@ import { fetchPinmeMenu } from "@/lib/canteen-menu-source-adapters";
 import { vi } from "vitest";
 
 describe("PINME menu adapter", () => {
+  it("fails closed when the same product repeats in one meal-period group", () => {
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+      price: 10,
+    };
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [{ local_name: "A", products: [product, product] }],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
+  it.each([
+    [
+      "partially overlap",
+      { start_time: "08:00", end_time: "14:00" },
+      { start_time: "14:00", end_time: "20:00" },
+    ],
+    [
+      "combine all-day with a specific period",
+      {},
+      { start_time: "11:00", end_time: "14:00" },
+    ],
+  ])("fails closed when repeated product periods %s", (_, first, second) => {
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+      price: 10,
+    };
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [
+            { local_name: "A", ...first, products: [product] },
+            { local_name: "A", ...second, products: [product] },
+          ],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
+  it("fails closed when a later occurrence repeats an accumulated period", () => {
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+      price: 10,
+    };
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [
+            {
+              local_name: "A",
+              start_time: "07:00",
+              end_time: "10:00",
+              products: [product],
+            },
+            {
+              local_name: "A",
+              start_time: "11:00",
+              end_time: "16:00",
+              products: [product],
+            },
+            {
+              local_name: "A",
+              start_time: "08:00",
+              end_time: "10:00",
+              products: [product],
+            },
+          ],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
   it("fails closed when two rows publish the same product identity", () => {
     const duplicate = {
       code: 200,

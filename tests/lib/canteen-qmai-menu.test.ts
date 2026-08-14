@@ -46,6 +46,33 @@ const menuResponse = {
 };
 
 describe("Qmai menu adapter", () => {
+  it("fails closed when the same goods ID repeats in one sale period", () => {
+    const duplicateResponse = structuredClone(menuResponse);
+    const item = duplicateResponse.data.categoryItems[0].itemList[0];
+    duplicateResponse.data.categoryItems[0].itemList.unshift(
+      structuredClone(item),
+    );
+    expect(() => buildQmaiMenuSyncPayload(duplicateResponse)).toThrowError(
+      expect.objectContaining({ code: "DUPLICATE_IDENTITY" }),
+    );
+  });
+
+  it("merges the same goods ID across disjoint sale periods", () => {
+    const repeatedResponse = structuredClone(menuResponse);
+    const dinnerItem = structuredClone(
+      repeatedResponse.data.categoryItems[0].itemList[0],
+    );
+    dinnerItem.saleTime = {
+      weekTimeList: [{ startTime: "17:00", endTime: "20:00" }],
+    };
+    repeatedResponse.data.categoryItems[0].itemList.push(dinnerItem);
+
+    expect(buildQmaiMenuSyncPayload(repeatedResponse).items[0]).toMatchObject({
+      externalProductId: "goods-1",
+      mealPeriods: ["lunch", "dinner"],
+    });
+  });
+
   it("normalizes available products, variants, and sale windows", () => {
     const result = buildQmaiMenuSyncPayload(menuResponse);
 

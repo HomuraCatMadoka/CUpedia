@@ -4,6 +4,28 @@ import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-perio
 import { fetchIchefMenu } from "@/lib/canteen-menu-source-adapters";
 
 describe("iCHEF menu adapter", () => {
+  it("fails closed when the same UUID repeats in one category period", () => {
+    const item = { uuid: "item-1", name: "同一菜品", price: 10 };
+    expect(() =>
+      buildIchefMenuSyncPayload(
+        [
+          {
+            startTime: "11:00",
+            endTime: "14:00",
+            categorySnapshotUuids: ["a"],
+          },
+        ],
+        [
+          {
+            uuid: "a",
+            name: "飯類",
+            menuItemsSnapshot: [item, item],
+          },
+        ],
+      ),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
   it("maps menu-hour ranges to every overlapping meal period", () => {
     expect(mealPeriodsForOperatingWindow("08:00", "10:30")).toEqual([
       "breakfast",
