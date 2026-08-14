@@ -146,6 +146,54 @@ describe("S.H. Ho Aigens menu adapter", () => {
     );
   });
 
+  it("materializes coalesced categories independently of provider order", () => {
+    const categories = [
+      { name: "Z 套餐", periods: ["L"], groupIds: ["regular"] },
+      { name: "A 茶餐", periods: ["T"], groupIds: ["tea"] },
+    ];
+    const groups = [
+      {
+        id: "regular",
+        items: [{ backendId: "42", name: "菜品 A", price: 48 }],
+      },
+      {
+        id: "tea",
+        items: [{ backendId: "42", name: "菜品 A", price: 36 }],
+      },
+    ];
+    const build = (orderedCategories: typeof categories) =>
+      buildShhoMenuSyncPayload({
+        data: { menu: { categories: orderedCategories, groups } },
+      });
+
+    expect(build(categories.toReversed())).toEqual(build(categories));
+  });
+
+  it("fails closed when one category context publishes two prices", () => {
+    expect(() =>
+      buildShhoMenuSyncPayload({
+        data: {
+          menu: {
+            categories: [
+              { name: "套餐", periods: ["L"], groupIds: ["regular"] },
+              { name: "套餐", periods: ["T"], groupIds: ["tea"] },
+            ],
+            groups: [
+              {
+                id: "regular",
+                items: [{ backendId: "42", name: "菜品 A", price: 48 }],
+              },
+              {
+                id: "tea",
+                items: [{ backendId: "42", name: "菜品 A", price: 36 }],
+              },
+            ],
+          },
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
+  });
+
   it("normalizes the sanitized provider response through the fetch adapter", async () => {
     const fetchImpl = async () =>
       new Response(JSON.stringify(aigensCurrent), { status: 200 });

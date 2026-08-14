@@ -35,6 +35,39 @@ function amountMinor(value: unknown): number | null {
   return Math.round(number * 100);
 }
 
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function canonicalizePriceOptions(
+  options: MenuItemPriceOptionInput[],
+): MenuItemPriceOptionInput[] {
+  return options
+    .slice()
+    .sort(
+      (left, right) =>
+        compareText(left.label ?? "", right.label ?? "") ||
+        left.amountMinor - right.amountMinor ||
+        compareText(left.currency, right.currency),
+    )
+    .map((option, sortOrder) => ({ ...option, sortOrder }));
+}
+
+function samePriceOptions(
+  left: readonly MenuItemPriceOptionInput[],
+  right: readonly MenuItemPriceOptionInput[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every(
+      (option, index) =>
+        option.label === right[index].label &&
+        option.amountMinor === right[index].amountMinor &&
+        option.currency === right[index].currency,
+    )
+  );
+}
+
 export function createPinmeSignedParams(
   storeId: string,
   timestamp = Date.now(),
@@ -75,7 +108,7 @@ function priceOptions(product: JsonObject): MenuItemPriceOptionInput[] {
     })
     .filter((value): value is MenuItemPriceOptionInput => value !== null);
   if (variants.length === 1) variants[0].label = null;
-  if (variants.length > 0) return variants;
+  if (variants.length > 0) return canonicalizePriceOptions(variants);
   const amount = amountMinor(product.takeout_price ?? product.price);
   return amount === null
     ? []
@@ -137,10 +170,12 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       if (existing) {
         if (
           existing.name !== occurrence.name ||
-          JSON.stringify(existing.priceOptions) !==
-            JSON.stringify(occurrence.priceOptions)
+          !samePriceOptions(existing.priceOptions, occurrence.priceOptions)
         ) {
           assertProviderMenuIdentityItems("pinme", [existing, occurrence]);
+        }
+        if (occurrence.svgKey < existing.svgKey) {
+          existing.svgKey = occurrence.svgKey;
         }
         const mergedMealPeriods = normalizeMealPeriods([
           ...existing.mealPeriods,

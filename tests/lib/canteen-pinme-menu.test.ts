@@ -55,24 +55,27 @@ describe("PINME menu adapter", () => {
       local_name: fixture.name,
       price: fixture.price,
     };
+    const groups = [
+      {
+        local_name: fixture.firstCategory,
+        start_time: fixture.firstWindow[0],
+        end_time: fixture.firstWindow[1],
+        products: [product],
+      },
+      {
+        local_name: fixture.secondCategory,
+        start_time: fixture.secondWindow[0],
+        end_time: fixture.secondWindow[1],
+        products: [product],
+      },
+    ];
     const result = buildPinmeMenuSyncPayload({
       code: 200,
-      data: {
-        group: [
-          {
-            local_name: fixture.firstCategory,
-            start_time: fixture.firstWindow[0],
-            end_time: fixture.firstWindow[1],
-            products: [product],
-          },
-          {
-            local_name: fixture.secondCategory,
-            start_time: fixture.secondWindow[0],
-            end_time: fixture.secondWindow[1],
-            products: [product],
-          },
-        ],
-      },
+      data: { group: groups },
+    });
+    const reversed = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: { group: groups.toReversed() },
     });
 
     expect(result.items).toHaveLength(1);
@@ -88,8 +91,52 @@ describe("PINME menu adapter", () => {
         },
       ],
       mealPeriods: fixture.expectedPeriods,
-      svgKey: fixture.firstCategory,
+      svgKey: [fixture.firstCategory, fixture.secondCategory].sort()[0],
     });
+    expect(reversed).toEqual(result);
+  });
+
+  it("coalesces semantically equal price options in either provider order", () => {
+    const prices = [
+      {
+        status: "1",
+        takeout_price: "20.0000",
+        productStandardItem: { local_name: "小" },
+      },
+      {
+        status: "1",
+        takeout_price: "30.0000",
+        productStandardItem: { local_name: "大" },
+      },
+    ];
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+    };
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        group: [
+          { local_name: "B", products: [{ ...product, prices }] },
+          {
+            local_name: "A",
+            products: [{ ...product, prices: prices.toReversed() }],
+          },
+        ],
+      },
+    });
+
+    expect(result.items).toMatchObject([
+      {
+        externalProductId: "42",
+        svgKey: "A",
+        priceOptions: [
+          { label: "大", amountMinor: 3000, sortOrder: 0 },
+          { label: "小", amountMinor: 2000, sortOrder: 1 },
+        ],
+      },
+    ]);
   });
 
   it("normalizes all-day and specific occurrences to all-day", () => {

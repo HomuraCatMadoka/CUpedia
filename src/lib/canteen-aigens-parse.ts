@@ -1,5 +1,5 @@
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
-import { createAigensOfferingId } from "@/lib/canteen-menu-external-key";
+import { createAigensOfferingId } from "./canteen-menu-external-key";
 import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import {
   ALLDAY_MEAL_PERIOD,
@@ -47,8 +47,37 @@ export type AigensParsedProduct = {
 };
 
 type AigensAggregatedProduct = Omit<AigensParsedProduct, "priceOptions"> & {
-  priceContexts: Array<{ categoryName: string; amountMinor: number }>;
+  priceContexts: Array<{ label: string; amountMinor: number }>;
 };
+
+function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function materializePriceOptions(
+  contexts: readonly { label: string; amountMinor: number }[],
+): MenuItemPriceOptionInput[] {
+  const labelByAmount = new Map<number, string>();
+  for (const context of contexts) {
+    const current = labelByAmount.get(context.amountMinor);
+    if (current === undefined || context.label < current) {
+      labelByAmount.set(context.amountMinor, context.label);
+    }
+  }
+  const distinctPrices = [...labelByAmount.entries()]
+    .map(([amountMinor, label]) => ({ label, amountMinor }))
+    .sort(
+      (left, right) =>
+        compareText(left.label, right.label) ||
+        left.amountMinor - right.amountMinor,
+    );
+  return distinctPrices.map((context, sortOrder) => ({
+    label: distinctPrices.length === 1 ? null : context.label,
+    amountMinor: context.amountMinor,
+    currency: "HKD",
+    sortOrder,
+  }));
+}
 
 export function parseAigensPrice(price: unknown): number {
   if (typeof price !== "number" || !Number.isFinite(price) || price < 0) {
@@ -199,7 +228,7 @@ export function parseAigensMenuProducts(
           backendId,
           name,
           categoryName: category.name,
-          priceContexts: [{ categoryName: category.name, amountMinor }],
+          priceContexts: [{ label: svgKey, amountMinor }],
           periods: [mealPeriod],
           svgKey,
         } satisfies AigensAggregatedProduct;
@@ -211,15 +240,30 @@ export function parseAigensMenuProducts(
               { externalProductId: dedupeKey, name },
             ]);
           }
-          if (
-            !existing.priceContexts.some(
-              (context) => context.amountMinor === amountMinor,
-            )
-          ) {
-            existing.priceContexts.push({
-              categoryName: category.name,
-              amountMinor,
-            });
+          const sameContext = existing.priceContexts.find(
+            (context) => context.label === svgKey,
+          );
+          if (sameContext) {
+            if (sameContext.amountMinor !== amountMinor) {
+              assertProviderMenuIdentityItems("aigens", [
+                {
+                  externalProductId: dedupeKey,
+                  name,
+                  priceOptions: [sameContext],
+                },
+                {
+                  externalProductId: dedupeKey,
+                  name,
+                  priceOptions: [{ label: svgKey, amountMinor }],
+                },
+              ]);
+            }
+          } else {
+            existing.priceContexts.push({ label: svgKey, amountMinor });
+          }
+          if (svgKey < existing.svgKey) {
+            existing.categoryName = category.name;
+            existing.svgKey = svgKey;
           }
           continue;
         }
@@ -231,12 +275,7 @@ export function parseAigensMenuProducts(
 
   return products.map(({ priceContexts, ...product }) => ({
     ...product,
-    priceOptions: priceContexts.map((context, index) => ({
-      label: priceContexts.length === 1 ? null : context.categoryName,
-      amountMinor: context.amountMinor,
-      currency: "HKD",
-      sortOrder: index,
-    })),
+    priceOptions: materializePriceOptions(priceContexts),
   }));
 }
 

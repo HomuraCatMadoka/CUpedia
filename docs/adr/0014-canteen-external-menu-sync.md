@@ -37,7 +37,10 @@ same Aigens group.
    the same backend product and normalized period, retaining distinct
    category-context prices as labeled options. Conflicting names, conflicting
    PinMe prices, and duplicate product IDs inside one raw provider group fail
-   closed. Category never becomes part of the stable identity.
+   closed; an Aigens category label that maps to two prices is likewise
+   ambiguous and fails closed. Category never becomes part of the stable
+   identity. Canonical category selection and price ordering make the normalized
+   result independent of raw occurrence order.
 3. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.
