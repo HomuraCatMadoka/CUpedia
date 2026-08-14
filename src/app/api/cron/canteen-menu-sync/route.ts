@@ -1,6 +1,9 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
-import { syncEnabledCanteenMenuSources } from "@/lib/canteen-menu-source-sync";
+import {
+  isMenuSourceSyncFailure,
+  syncEnabledCanteenMenuSources,
+} from "@/lib/canteen-menu-source-sync";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -25,9 +28,7 @@ export async function GET(request: Request) {
   }
 
   const results = await syncEnabledCanteenMenuSources();
-  const failed = results.filter((result) =>
-    ["blocked", "provider-failure", "superseded"].includes(result.status),
-  ).length;
+  const failed = results.filter(isMenuSourceSyncFailure).length;
   return NextResponse.json(
     { synced: results.length, failed, results },
     { status: failed > 0 ? 207 : 200 },

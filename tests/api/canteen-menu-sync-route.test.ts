@@ -6,6 +6,14 @@ const { syncEnabledCanteenMenuSources } = vi.hoisted(() => ({
 
 vi.mock("@/lib/canteen-menu-source-sync", () => ({
   syncEnabledCanteenMenuSources,
+  isMenuSourceSyncFailure: (result: { status: string }) =>
+    [
+      "blocked",
+      "provider-failure",
+      "source-unavailable",
+      "internal-failure",
+      "superseded",
+    ].includes(result.status),
 }));
 
 import { GET } from "@/app/api/cron/canteen-menu-sync/route";
