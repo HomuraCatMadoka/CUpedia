@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { count, eq } from "drizzle-orm";
+import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   canteenDishComments,
@@ -101,6 +101,62 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       .from(canteenMenuSyncRuns)
       .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
     expect(run).toEqual({ status: "applied", itemCount: 1, createdCount: 1 });
+  });
+
+  it("retains fetched snapshot diagnostics when a sync is superseded", async () => {
+    let releaseFirstMenu!: (response: Response) => void;
+    let markFirstMenuRequested!: () => void;
+    const firstMenuRequested = new Promise<void>((resolve) => {
+      markFirstMenuRequested = resolve;
+    });
+    const firstMenuResponse = new Promise<Response>((resolve) => {
+      releaseFirstMenu = resolve;
+    });
+    const tokenResponse = () =>
+      new Response(JSON.stringify({ code: 200, data: { token: "temporary" } }));
+    const menuResponse = () => new Response(JSON.stringify(pinmeCurrent));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(tokenResponse())
+        .mockImplementationOnce(async () => {
+          markFirstMenuRequested();
+          return firstMenuResponse;
+        })
+        .mockResolvedValueOnce(tokenResponse())
+        .mockResolvedValueOnce(menuResponse()),
+    );
+
+    const supersededSync = syncCanteenMenuSource(sourceId);
+    await firstMenuRequested;
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+    });
+    releaseFirstMenu(menuResponse());
+    await expect(supersededSync).resolves.toMatchObject({
+      status: "failed",
+      error: "MENU_SYNC_SUPERSEDED",
+    });
+
+    const [failedRun] = await db
+      .select({
+        snapshotHash: canteenMenuSyncRuns.snapshotHash,
+        itemCount: canteenMenuSyncRuns.itemCount,
+      })
+      .from(canteenMenuSyncRuns)
+      .where(
+        and(
+          eq(canteenMenuSyncRuns.menuSourceId, sourceId),
+          eq(canteenMenuSyncRuns.status, "failed"),
+        ),
+      )
+      .orderBy(desc(canteenMenuSyncRuns.startedAt))
+      .limit(1);
+    expect(failedRun).toEqual({
+      snapshotHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+      itemCount: 1,
+    });
   });
 
   it("keeps the last successful menu when a provider fixture has duplicates", async () => {
@@ -247,7 +303,9 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     const [run] = await db
       .select({ observation: canteenMenuSyncRuns.observation })
       .from(canteenMenuSyncRuns)
-      .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
+      .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId))
+      .orderBy(desc(canteenMenuSyncRuns.startedAt))
+      .limit(1);
     expect(run.observation).toEqual(expectedPreview.identityObservation);
     expect(JSON.stringify(run.observation)).not.toContain("secret");
     expect(JSON.stringify(run.observation)).not.toContain("同名示例菜品");

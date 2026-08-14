@@ -2,13 +2,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { canteenMenuSources, canteenMenuSyncRuns } from "@/db/schema";
 import { and, eq, lt } from "drizzle-orm";
-import { fetchMenuFromProvider } from "@/lib/canteen-menu-source-adapters";
+import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
   applyAutomatedMenuSync,
   previewMenuSync,
-} from "@/lib/canteen-menu-sync-store";
-import type { MenuIdentityObservation } from "@/lib/canteen-menu-sync-observation";
-import type { MenuSnapshotEvaluation } from "@/lib/canteen-menu-snapshot-evaluator";
+} from "./canteen-menu-sync-store";
+import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
+import type { MenuSnapshotEvaluation } from "./canteen-menu-snapshot-evaluator";
 
 const MAX_ERROR_LENGTH = 1_000;
 const MAX_CONCURRENCY = 2;
@@ -86,11 +86,15 @@ export async function syncCanteenMenuSource(
     startedAt: attemptedAt,
   });
 
+  let attemptSnapshotHash: string | undefined;
+  let attemptItemCount: number | undefined;
   try {
     const fetched = await fetchMenuFromProvider(source);
     const input = { ...fetched, takeOverLegacyItems: false };
     if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
     const hash = snapshotHash(input);
+    attemptSnapshotHash = hash;
+    attemptItemCount = input.items.length;
     const { previewToken, ...previewEvaluation } = await previewMenuSync(
       source.id,
       input,
@@ -208,8 +212,8 @@ export async function syncCanteenMenuSource(
       .update(canteenMenuSyncRuns)
       .set({
         status: "failed",
-        snapshotHash: details.snapshotHash,
-        itemCount: details.itemCount,
+        snapshotHash: details.snapshotHash ?? attemptSnapshotHash,
+        itemCount: details.itemCount ?? attemptItemCount,
         observation: details.observation ?? {},
         errorCode: code,
         error: message,

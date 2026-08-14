@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   canteenMenuItems,
@@ -272,7 +272,9 @@ describe.skipIf(!hasDb)("menu snapshot evaluation path parity", () => {
           deactivatedCount: canteenMenuSyncRuns.deactivatedCount,
         })
         .from(canteenMenuSyncRuns)
-        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId))
+        .orderBy(desc(canteenMenuSyncRuns.startedAt))
+        .limit(1);
       expect(scheduledRun.observation).toEqual(
         previewEvaluation.identityObservation,
       );

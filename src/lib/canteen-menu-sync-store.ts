@@ -12,7 +12,7 @@ import {
   evaluateMenuSnapshot,
   type MenuSnapshotEvaluation,
 } from "./canteen-menu-snapshot-evaluator";
-import type { ExistingSyncMenuItem } from "@/lib/canteen-menu-sync";
+import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import type {
   MealPeriodAssignment,
   MenuItemPriceOptionInput,
