@@ -1,12 +1,17 @@
 import { execFile } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { CANTEEN_MENU_IDENTITY_PREFLIGHT_CONTRACT as contract } from "@/lib/canteen-menu-identity-preflight-contract";
 import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v1.schema.json";
 import fixtureMatrix from "../db/fixtures/canteen-menu-identity-preflight-v1.json";
 
 const execFileAsync = promisify(execFile);
+const validateReport = addFormats(new Ajv2020({ allErrors: true })).compile(
+  reportSchema,
+);
 
 describe("canteen menu identity preflight contract (#639)", () => {
   it("keeps the versioned schema and mandatory #643 parity matrix aligned", () => {
@@ -50,7 +55,7 @@ describe("canteen menu identity preflight contract (#639)", () => {
     const script = path.resolve("scripts/preflight-canteen-menu-identity.ts");
     const credential = "must-not-appear-in-output";
 
-    await expect(
+    const failure = await captureFailure(
       execFileAsync(
         process.execPath,
         ["--import", "tsx", script, "--format=json"],
@@ -62,17 +67,23 @@ describe("canteen menu identity preflight contract (#639)", () => {
           },
         },
       ),
-    ).rejects.toMatchObject({
+    );
+
+    expect(failure).toMatchObject({
       code: 3,
       stdout: expect.not.stringContaining(credential),
     });
+    expect(
+      validateReport(JSON.parse(failure.stdout)),
+      JSON.stringify(validateReport.errors),
+    ).toBe(true);
   });
 
   it("returns a sanitized database error without exception or credentials", async () => {
     const script = path.resolve("scripts/preflight-canteen-menu-identity.ts");
     const credential = "must-not-appear-in-database-error";
 
-    await expect(
+    const failure = await captureFailure(
       execFileAsync(
         process.execPath,
         ["--import", "tsx", script, "--format=json"],
@@ -84,10 +95,25 @@ describe("canteen menu identity preflight contract (#639)", () => {
           },
         },
       ),
-    ).rejects.toMatchObject({
+    );
+
+    expect(failure).toMatchObject({
       code: 4,
       stdout: expect.not.stringContaining(credential),
       stderr: "",
     });
+    expect(
+      validateReport(JSON.parse(failure.stdout)),
+      JSON.stringify(validateReport.errors),
+    ).toBe(true);
   });
 });
+
+async function captureFailure(promise: Promise<unknown>) {
+  try {
+    await promise;
+    throw new Error("expected command to fail");
+  } catch (error) {
+    return error as Error & { code: number; stdout: string; stderr: string };
+  }
+}

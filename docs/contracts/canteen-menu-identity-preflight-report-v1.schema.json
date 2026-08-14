@@ -121,9 +121,36 @@
   },
   "allOf": [
     {
-      "if": { "properties": { "result": { "enum": ["pass", "fail"] } } },
+      "if": { "properties": { "result": { "const": "pass" } } },
       "then": {
-        "required": ["transaction", "sampleLimit", "totals", "checks"]
+        "required": ["transaction", "sampleLimit", "totals", "checks"],
+        "properties": {
+          "applicationCommit": { "pattern": "^[0-9a-f]{7,64}$" },
+          "resultCode": { "const": "PREFLIGHT_SAFE" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "fail" } } },
+      "then": {
+        "required": ["transaction", "sampleLimit", "totals", "checks"],
+        "properties": {
+          "applicationCommit": { "pattern": "^[0-9a-f]{7,64}$" },
+          "resultCode": { "const": "PREFLIGHT_UNSAFE" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "error" } } },
+      "then": {
+        "properties": {
+          "resultCode": {
+            "enum": [
+              "PREFLIGHT_CONFIGURATION_ERROR",
+              "PREFLIGHT_DATABASE_ERROR"
+            ]
+          }
+        }
       }
     }
   ],

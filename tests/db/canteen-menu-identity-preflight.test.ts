@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import fixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v1.json";
@@ -16,6 +18,9 @@ import {
 const hasDb = Boolean(process.env.DATABASE_URL);
 const requiresDb = process.env.MENU_IDENTITY_PREFLIGHT_TEST === "1";
 const execFileAsync = promisify(execFile);
+const validateReport = addFormats(new Ajv2020({ allErrors: true })).compile(
+  reportSchema,
+);
 if (requiresDb && !hasDb) {
   throw new Error(
     "DATABASE_URL is required when MENU_IDENTITY_PREFLIGHT_TEST=1",
@@ -97,6 +102,11 @@ describe.skipIf(!hasDb)(
 
         expect(report.resultCode).toBe(matrixCase.expected.resultCode);
         expect(failedChecks).toEqual(matrixCase.expected.failedChecks);
+        if ("diagnosticReason" in matrixCase.expected) {
+          expect(
+            check(report, "UNSUPPORTED_LEGACY_IDENTITY").samples[0]?.reason,
+          ).toBe(matrixCase.expected.diagnosticReason);
+        }
       },
     );
 
@@ -740,44 +750,10 @@ describe.skipIf(!hasDb)(
     function expectJsonReportMatchesCommittedSchema(
       report: Record<string, unknown>,
     ) {
-      for (const required of reportSchema.required) {
-        expect(report).toHaveProperty(required);
-      }
-      expect(Object.keys(report).sort()).toEqual(
-        Object.keys(reportSchema.properties).sort(),
-      );
-      expect(report.schemaVersion).toBe(
-        reportSchema.properties.schemaVersion.const,
-      );
-      expect(report.contractVersion).toBe(
-        reportSchema.properties.contractVersion.const,
-      );
-      expect(report.targetIssue).toBe(
-        reportSchema.properties.targetIssue.const,
-      );
-      expect(reportSchema.properties.result.enum).toContain(report.result);
-      expect(reportSchema.properties.resultCode.enum).toContain(
-        report.resultCode,
-      );
-      const checks = report.checks as Array<{
-        code: string;
-        samples: Array<{ reason: string }>;
-      }>;
-      expect(checks).toHaveLength(reportSchema.properties.checks.minItems);
-      for (const check of checks) {
-        expect(
-          reportSchema.properties.checks.items.properties.code.enum,
-        ).toContain(check.code);
-        expect(check.samples.length).toBeLessThanOrEqual(
-          reportSchema.properties.checks.items.properties.samples.maxItems,
-        );
-        for (const sample of check.samples) {
-          expect(
-            reportSchema.properties.checks.items.properties.samples.items
-              .properties.reason.enum,
-          ).toContain(sample.reason);
-        }
-      }
+      expect(
+        validateReport(report),
+        JSON.stringify(validateReport.errors),
+      ).toBe(true);
     }
   },
 );
