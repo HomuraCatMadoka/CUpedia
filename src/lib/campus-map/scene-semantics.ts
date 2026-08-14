@@ -39,6 +39,60 @@ function persistentBrowse(
   return { kind: "persistent", session: { mode: "browse", scene } };
 }
 
+type CatalogBuilding = NonNullable<CampusMapSceneCatalog["buildings"][string]>;
+type CatalogFacility = NonNullable<CampusMapSceneCatalog["facilities"][string]>;
+type CatalogContent = NonNullable<CampusMapSceneCatalog["contents"][string]>;
+type CatalogRelation = Pick<
+  CatalogFacility,
+  "buildingId" | "floorId" | "category"
+>;
+
+function ownCatalogValue(
+  entities: Readonly<Record<string, unknown>>,
+  id: string,
+) {
+  return Object.hasOwn(entities, id) ? entities[id] : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function findBuilding(
+  catalog: CampusMapSceneCatalog,
+  buildingId: string,
+): CatalogBuilding | undefined {
+  const value = ownCatalogValue(catalog.buildings, buildingId);
+  return isRecord(value) &&
+    Array.isArray(value.floorIds) &&
+    value.floorIds.every((floorId) => typeof floorId === "string")
+    ? (value as CatalogBuilding)
+    : undefined;
+}
+
+function isCatalogRelation(value: unknown): value is CatalogRelation {
+  return (
+    isRecord(value) &&
+    typeof value.buildingId === "string" &&
+    typeof value.floorId === "string" &&
+    typeof value.category === "string"
+  );
+}
+
+function findFacility(catalog: CampusMapSceneCatalog, facilityId: string) {
+  const value = ownCatalogValue(catalog.facilities, facilityId);
+  return isCatalogRelation(value) ? value : undefined;
+}
+
+function findContent(catalog: CampusMapSceneCatalog, contentId: string) {
+  const value = ownCatalogValue(catalog.contents, contentId);
+  return isCatalogRelation(value) &&
+    "kind" in value &&
+    typeof value.kind === "string"
+    ? (value as CatalogContent)
+    : undefined;
+}
+
 export function isValidCampusMapPosition(position: readonly [number, number]) {
   return (
     Number.isFinite(position[0]) &&
@@ -56,7 +110,10 @@ export function resolveCampusMapSessionSemantics(
 ): CampusMapSessionSemantics {
   if (session.mode === "task") {
     const anchor = session.task.anchor;
-    if (anchor.kind === "building" && !catalog.buildings[anchor.buildingId]) {
+    if (
+      anchor.kind === "building" &&
+      !findBuilding(catalog, anchor.buildingId)
+    ) {
       return { status: "invalid", reason: "unknown-building" };
     }
     return {
@@ -111,7 +168,7 @@ export function resolveCampusMapSessionSemantics(
     };
   }
   if (scene.kind === "building") {
-    const building = catalog.buildings[scene.buildingId];
+    const building = findBuilding(catalog, scene.buildingId);
     if (
       !building ||
       (scene.floorId !== null && !building.floorIds.includes(scene.floorId))
@@ -151,11 +208,13 @@ export function resolveCampusMapSessionSemantics(
 
   const entity =
     scene.kind === "facility"
-      ? catalog.facilities[scene.facilityId]
-      : catalog.contents[scene.contentId];
+      ? findFacility(catalog, scene.facilityId)
+      : findContent(catalog, scene.contentId);
   if (
     !entity ||
-    !catalog.buildings[entity.buildingId]?.floorIds.includes(entity.floorId) ||
+    !findBuilding(catalog, entity.buildingId)?.floorIds.includes(
+      entity.floorId,
+    ) ||
     !catalog.categories.includes(entity.category)
   ) {
     return {

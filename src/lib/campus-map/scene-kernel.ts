@@ -346,21 +346,19 @@ export function transitionCampusMapSession(
     if (session.scene.kind !== "building") {
       return reject(session, "event-not-allowed");
     }
+    if (session.scene.floorId === event.floorId) return acceptNoop(session);
+    const candidate: CampusMapSession = {
+      mode: "browse",
+      scene: { ...session.scene, floorId: event.floorId },
+    };
     if (
-      event.floorId !== null &&
-      !catalog.buildings[session.scene.buildingId]?.floorIds.includes(
-        event.floorId,
-      )
+      resolveCampusMapSessionSemantics(candidate, catalog).status === "invalid"
     ) {
       return reject(session, "unknown-floor");
     }
-    if (session.scene.floorId === event.floorId) return acceptNoop(session);
     return {
       status: "accepted",
-      session: {
-        mode: "browse",
-        scene: { ...session.scene, floorId: event.floorId },
-      },
+      session: candidate,
       commands: {
         history: historyCommandFor("refine"),
         camera: null,
@@ -396,7 +394,18 @@ export function transitionCampusMapSession(
   }
 
   if (event.type === "OPEN_BUILDING") {
-    if (!catalog.buildings[event.buildingId]) {
+    const candidate: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: event.buildingId,
+        floorId: null,
+        snap: "peek",
+      },
+    };
+    if (
+      resolveCampusMapSessionSemantics(candidate, catalog).status === "invalid"
+    ) {
       return reject(session, "unknown-building");
     }
     if (
@@ -407,15 +416,7 @@ export function transitionCampusMapSession(
     }
     return {
       status: "accepted",
-      session: {
-        mode: "browse",
-        scene: {
-          kind: "building",
-          buildingId: event.buildingId,
-          floorId: null,
-          snap: "peek",
-        },
-      },
+      session: candidate,
       commands: {
         history: historyCommandFor("enter"),
         camera: {
@@ -431,13 +432,12 @@ export function transitionCampusMapSession(
   }
 
   if (event.type === "OPEN_FACILITY") {
-    const facility = catalog.facilities[event.facilityId];
     const candidate: CampusMapSession = {
       mode: "browse",
       scene: { kind: "facility", facilityId: event.facilityId, snap: "peek" },
     };
     const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
-    if (resolved.status === "invalid" || !facility) {
+    if (resolved.status === "invalid" || !resolved.buildingId) {
       return reject(session, "unknown-facility");
     }
     if (
@@ -452,10 +452,10 @@ export function transitionCampusMapSession(
       commands: {
         history: historyCommandFor("enter"),
         camera:
-          event.source === "map" && facility
+          event.source === "map"
             ? {
                 kind: "focus",
-                buildingId: facility.buildingId,
+                buildingId: resolved.buildingId,
                 reason: "facility-selection",
               }
             : { kind: "cancel" },
@@ -466,15 +466,12 @@ export function transitionCampusMapSession(
   }
 
   if (event.type === "OPEN_CONTENT") {
-    const content = catalog.contents[event.contentId];
     const candidate: CampusMapSession = {
       mode: "browse",
       scene: { kind: "content", contentId: event.contentId, snap: "full" },
     };
-    if (
-      !content ||
-      resolveCampusMapSessionSemantics(candidate, catalog).status === "invalid"
-    ) {
+    const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
+    if (resolved.status === "invalid" || !resolved.buildingId) {
       return reject(session, "unknown-content");
     }
     if (
@@ -492,7 +489,7 @@ export function transitionCampusMapSession(
           event.source === "map"
             ? {
                 kind: "focus",
-                buildingId: content.buildingId,
+                buildingId: resolved.buildingId,
                 reason: "map-selection",
               }
             : { kind: "cancel" },

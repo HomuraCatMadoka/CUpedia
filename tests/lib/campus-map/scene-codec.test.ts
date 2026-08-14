@@ -322,6 +322,104 @@ describe("Campus Map versioned scene codec", () => {
     });
   });
 
+  it.each(["toString", "constructor", "__proto__"])(
+    "treats inherited catalog key %s as an unknown deep-link entity",
+    (buildingId) => {
+      for (const floor of ["", "&floor=1"]) {
+        expect(
+          decodeCampusMapUrl(
+            `v=1&scene=building&id=${buildingId}${floor}&snap=peek`,
+            catalog,
+          ),
+        ).toEqual({
+          status: "fallback",
+          session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+          reason: "unknown-entity",
+        });
+      }
+    },
+  );
+
+  it("treats an inherited task anchor as an unknown history entity", () => {
+    expect(
+      decodeCampusMapHistorySnapshot(
+        {
+          campusMapScene: true,
+          version: 1,
+          depth: 1,
+          session: {
+            mode: "task",
+            task: {
+              kind: "create",
+              anchor: { kind: "building", buildingId: "toString" },
+            },
+          },
+        },
+        catalog,
+      ),
+    ).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      depth: 0,
+      reason: "unknown-entity",
+    });
+  });
+
+  it.each(["facility", "content"] as const)(
+    "falls back when a %s relationship targets an inherited building key",
+    (sceneKind) => {
+      const invalidRelationshipCatalog: CampusMapSceneCatalog = {
+        ...catalog,
+        facilities: {
+          ...catalog.facilities,
+          inheritedBuilding: {
+            buildingId: "toString",
+            floorId: "1",
+            category: "water",
+          },
+        },
+        contents: {
+          ...catalog.contents,
+          inheritedBuilding: {
+            buildingId: "toString",
+            floorId: "1",
+            category: "water",
+            kind: "room",
+          },
+        },
+      };
+
+      expect(
+        decodeCampusMapUrl(
+          `v=1&scene=${sceneKind}&id=inheritedBuilding&snap=peek`,
+          invalidRelationshipCatalog,
+        ),
+      ).toEqual({
+        status: "fallback",
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        reason: "unknown-entity",
+      });
+    },
+  );
+
+  it("fails closed for a malformed own catalog entry", () => {
+    const malformedCatalog = {
+      ...catalog,
+      buildings: { malformed: {} },
+    } as unknown as CampusMapSceneCatalog;
+
+    expect(
+      decodeCampusMapUrl(
+        "v=1&scene=building&id=malformed&snap=peek",
+        malformedCatalog,
+      ),
+    ).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "unknown-entity",
+    });
+  });
+
   it.each([
     "v=1&id=ghost",
     "v=1&v=1",

@@ -159,6 +159,29 @@ describe("Campus Map canonical scene transition", () => {
     });
   });
 
+  it.each(["toString", "constructor", "__proto__"])(
+    "rejects inherited catalog key %s as an unknown building event",
+    (buildingId) => {
+      expect(
+        transitionCampusMapSession(
+          EMPTY_CAMPUS_MAP_SCENE_SESSION,
+          { type: "OPEN_BUILDING", buildingId, source: "map" },
+          catalog,
+        ),
+      ).toEqual({
+        status: "rejected",
+        reason: "unknown-building",
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        commands: {
+          history: null,
+          camera: null,
+          focus: null,
+          overlay: null,
+        },
+      });
+    },
+  );
+
   it.each([
     [
       { type: "SEARCH", query: "  science  " } as const,

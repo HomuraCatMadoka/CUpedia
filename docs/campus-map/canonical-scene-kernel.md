@@ -96,4 +96,6 @@ returnable while switching result filters replaces the current entry.
 10. Catalog validity, derived building context, restore focus, contribution
     anchors, and persistence eligibility have one internal semantic resolver.
     The transition and codec modules consume that projection instead of
-    re-deriving scene meaning independently.
+    re-deriving scene meaning independently. Catalog membership requires an
+    own property with the expected runtime shape; inherited object keys and
+    malformed entries are treated as missing entities.
