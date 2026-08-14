@@ -190,7 +190,7 @@ test.describe("#651 global single-row Header", () => {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(320);
-    const account = page.getByRole("button", { name: "账户" });
+    const account = page.getByRole("button", { name: "TestUser" });
     const notifications = page.getByRole("button", { name: /^通知/ });
     for (const target of [account, notifications]) {
       await expect(target).toBeVisible();

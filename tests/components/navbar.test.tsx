@@ -263,7 +263,9 @@ describe("Navbar sign-out", () => {
 
     render(<Navbar />);
 
-    const account = screen.getByRole("button", { name: "账户" });
+    const account = screen.getByRole("button", {
+      name: "一个非常非常长但不应该挤压导航的管理员昵称",
+    });
     expect(account.className).toContain("size-11");
     expect(account.querySelector(".max-w-32")?.className).toContain("truncate");
   });

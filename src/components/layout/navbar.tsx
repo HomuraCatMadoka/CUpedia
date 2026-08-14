@@ -63,6 +63,10 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   }>({ userId: undefined, count: 0 });
   const achievementNoticeCount =
     achievementNotice.userId === sessionUserId ? achievementNotice.count : 0;
+  const sessionDisplayName = session?.user
+    ? ((session.user as Record<string, unknown>).nickname as string) ||
+      session.user.email
+    : "";
 
   useEffect(() => {
     if (!mounted || !sessionUserId) return;
@@ -207,7 +211,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                   }
                 >
                   <DropdownMenuTrigger
-                    aria-label="账户"
+                    aria-label={sessionDisplayName}
                     className="flex size-11 touch-manipulation items-center justify-center gap-2 rounded-md text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:h-8 md:w-auto md:min-w-11 md:px-1"
                   >
                     <span className="relative">
@@ -225,8 +229,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                       )}
                     </span>
                     <span className="hidden max-w-32 truncate xl:inline">
-                      {((session.user as Record<string, unknown>)
-                        .nickname as string) || session.user.email}
+                      {sessionDisplayName}
                     </span>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">

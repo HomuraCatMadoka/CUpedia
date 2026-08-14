@@ -30,10 +30,11 @@ test("admin publishes a product update that anonymous readers can discover", asy
   await page.context().clearCookies();
   await page.setViewportSize({ width: 393, height: 852 });
   await page.goto("/");
-  const publicEntry = page.getByRole("link", { name: "产品更新" });
-  await expect(
-    publicEntry.getByText("产品更新", { exact: true }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "打开产品菜单" }).click();
+  const publicEntry = page
+    .getByRole("dialog")
+    .getByRole("link", { name: "产品更新" });
+  await expect(publicEntry).toBeVisible();
   await publicEntry.click();
 
   await expect(page).toHaveURL(/\/updates$/);
