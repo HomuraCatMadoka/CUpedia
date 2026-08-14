@@ -142,7 +142,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
         data-testid="global-header"
         className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-background/95 backdrop-blur-md supports-backdrop-filter:bg-background/85"
       >
-        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center pt-[env(safe-area-inset-top)] pr-[calc(env(safe-area-inset-right)+0.5rem)] pl-[calc(env(safe-area-inset-left)+0.5rem)] md:flex md:gap-4 md:pt-0 md:pr-[calc(env(safe-area-inset-right)+1rem)] md:pl-[calc(env(safe-area-inset-left)+1rem)]">
+        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center pt-[var(--safe-area-top)] pr-[calc(var(--safe-area-right)+0.5rem)] pl-[calc(var(--safe-area-left)+0.5rem)] md:flex md:gap-4 md:pr-[calc(var(--safe-area-right)+1rem)] md:pl-[calc(var(--safe-area-left)+1rem)]">
           <div className="flex min-w-0 items-center md:shrink-0">
             {leading}
             <Link

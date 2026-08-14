@@ -11,7 +11,9 @@ export default function CanteenLayout({
     <CanteenTheme>
       <CanteenRouteScrollTop />
       <CanteenAnonSessionInit />
-      <div className="min-h-[calc(100vh-3.5rem)] min-w-0">{children}</div>
+      <div className="min-h-[calc(100dvh-var(--navbar-height))] min-w-0">
+        {children}
+      </div>
     </CanteenTheme>
   );
 }

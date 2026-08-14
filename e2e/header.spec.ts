@@ -161,6 +161,49 @@ test.describe("#651 global single-row Header", () => {
     ).toBe(56);
   });
 
+  test("desktop Header and layout offset preserve a nonzero top safe area", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto("/");
+    await page.addStyleTag({
+      content: ":root { --safe-area-top: 24px !important; }",
+    });
+
+    const header = page.getByTestId("global-header");
+    await expect
+      .poll(async () => (await header.boundingBox())?.height)
+      .toBe(80);
+    expect(
+      (await header.getByRole("link", { name: "CUpedia" }).boundingBox())?.y,
+    ).toBeGreaterThanOrEqual(24);
+    expect(
+      await page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--navbar-height",
+        ),
+      ),
+    ).toBe("calc(3.5rem + 24px)");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBe(1024);
+
+    await page.goto("/wiki");
+    await page.addStyleTag({
+      content: ":root { --safe-area-top: 24px !important; }",
+    });
+    await expect
+      .poll(
+        async () =>
+          (
+            await page
+              .getByRole("navigation", { name: "Wiki 页面树" })
+              .boundingBox()
+          )?.y,
+      )
+      .toBe(80);
+  });
+
   test("light, dark, system, and reduced motion preserve the product menu", async ({
     page,
   }) => {

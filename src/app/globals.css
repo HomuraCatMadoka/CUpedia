@@ -227,7 +227,11 @@
 
 @layer base {
   :root {
-    --navbar-height: calc(3.5rem + env(safe-area-inset-top));
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-right: env(safe-area-inset-right, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-left: env(safe-area-inset-left, 0px);
+    --navbar-height: calc(3.5rem + var(--safe-area-top));
     --sidebar-width: 260px;
     --toc-width: 220px;
     --sidebar-collapsed-width: 44px;
@@ -237,11 +241,6 @@
     --sidebar-active-border: #3b82f6;
     --sidebar-transition: 200ms ease;
     --content-max-width: 720px;
-  }
-  @media (min-width: 48rem) {
-    :root {
-      --navbar-height: 3.5rem;
-    }
   }
   * {
     @apply border-border outline-ring/50;
