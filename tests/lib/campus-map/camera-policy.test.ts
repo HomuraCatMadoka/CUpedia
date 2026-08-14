@@ -38,6 +38,23 @@ describe("campus map camera policy", () => {
     ).toEqual({ top: 24, right: 24, bottom: 364, left: 24 });
   });
 
+  it("keeps treating a portrait full sheet as a bottom occlusion", () => {
+    const map = { top: 0, right: 390, bottom: 688, left: 0 };
+    expect(
+      deriveCameraPadding(map, {
+        top: 192.640625,
+        right: 390,
+        bottom: 688,
+        left: 0,
+      }),
+    ).toEqual({
+      top: 24,
+      right: 24,
+      bottom: 519.359375,
+      left: 24,
+    });
+  });
+
   it("uses only the base safe gap for a panel outside the map", () => {
     expect(
       deriveCameraPadding(desktopMap, {
@@ -60,8 +77,13 @@ describe("campus map camera policy", () => {
     ).toEqual({ top: 24, right: 264, bottom: 24, left: 24 });
   });
 
-  it("preserves zoom for map clicks and sheet layout changes", () => {
+  it("preserves zoom for map, facility, and sheet-layout interactions", () => {
     expect(cameraPolicyFor("map-selection", desktopMap, null)?.zoom).toEqual({
+      kind: "preserve",
+    });
+    expect(
+      cameraPolicyFor("facility-selection", desktopMap, null)?.zoom,
+    ).toEqual({
       kind: "preserve",
     });
     expect(cameraPolicyFor("sheet-layout", desktopMap, null)?.zoom).toEqual({
@@ -69,7 +91,7 @@ describe("campus map camera policy", () => {
     });
   });
 
-  it("caps zoom for search, deep links, and precise facilities", () => {
+  it("caps zoom only for search and deep links", () => {
     expect(cameraPolicyFor("search-selection", desktopMap, null)).toMatchObject(
       {
         zoom: { kind: "fit", maxZoom: 17.2 },
@@ -79,12 +101,6 @@ describe("campus map camera policy", () => {
     expect(cameraPolicyFor("deep-link", desktopMap, null)).toMatchObject({
       zoom: { kind: "fit", maxZoom: 17.2 },
       animate: false,
-    });
-    expect(
-      cameraPolicyFor("facility-selection", desktopMap, null)?.zoom,
-    ).toEqual({
-      kind: "fit",
-      maxZoom: 18.5,
     });
   });
 

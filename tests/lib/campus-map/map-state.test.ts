@@ -92,12 +92,69 @@ describe("campus map state", () => {
 
     expect(building.history).toBe("push");
     expect(facility.history).toBe("push");
+    expect(facility.state.sheet.snap).toBe("peek");
     expect(floor.history).toBe("replace");
     expect(floor.state.selection).toEqual({
       kind: "building",
       buildingId: "science",
     });
     expect(sheet.history).toBe("replace");
+  });
+
+  it("routes content through the same canonical selection transition", () => {
+    const result = reduceCampusMapState(
+      EMPTY_CAMPUS_MAP_STATE,
+      { type: "select-content", contentId: "room401" },
+      catalog,
+    );
+
+    expect(result.history).toBe("push");
+    expect(result.state.selection).toEqual({
+      kind: "content",
+      buildingId: "science",
+      contentKind: "classroom",
+      contentId: "room401",
+    });
+    expect(result.state.buildingContext.floorId).toBe("2");
+    expect(result.state.sheet.snap).toBe("full");
+  });
+
+  it("returns from a child to its canonical building without adding history", () => {
+    const facility = parseCampusMapState(
+      "building=library&facility=water&panel=full",
+      catalog,
+    );
+
+    const result = reduceCampusMapState(
+      facility,
+      { type: "return-to-building" },
+      catalog,
+    );
+
+    expect(result.history).toBe("replace");
+    expect(result.state.selection).toEqual({
+      kind: "building",
+      buildingId: "library",
+    });
+    expect(result.state.buildingContext.floorId).toBe("3");
+    expect(result.state.sheet.snap).toBe("peek");
+  });
+
+  it("replaces history when closing a selection", () => {
+    const building = reduceCampusMapState(
+      EMPTY_CAMPUS_MAP_STATE,
+      { type: "select-building", buildingId: "science" },
+      catalog,
+    );
+
+    const closed = reduceCampusMapState(
+      building.state,
+      { type: "close-selection" },
+      catalog,
+    );
+
+    expect(closed.history).toBe("replace");
+    expect(closed.state.selection).toEqual({ kind: "none" });
   });
 
   it("hydrates Back/Forward state without writing another history entry", () => {
@@ -123,10 +180,98 @@ describe("campus map state", () => {
     expect(
       parseCampusMapState("external=amap-1&lng=114.2&lat=22.4", catalog)
         .selection,
-    ).toEqual({
-      kind: "external",
-      externalId: "amap-1",
-      position: [114.2, 22.4],
+    ).toEqual({ kind: "none" });
+  });
+
+  it("keeps provider POI selection transient and out of the URL", () => {
+    const result = reduceCampusMapState(
+      EMPTY_CAMPUS_MAP_STATE,
+      {
+        type: "select-external",
+        externalId: "amap-1",
+        position: [114.2, 22.4],
+      },
+      catalog,
+    );
+
+    expect(result.state.selection.kind).toBe("external");
+    expect(result.history).toBe("none");
+    expect(serializeCampusMapState(result.state).toString()).toBe("");
+  });
+
+  it("keeps search and category browse filters mutually exclusive", () => {
+    const category = reduceCampusMapState(
+      {
+        ...EMPTY_CAMPUS_MAP_STATE,
+        mapFilter: { category: null, query: "科学馆" },
+      },
+      { type: "set-map-category", category: "water" },
+      catalog,
+    );
+    const search = reduceCampusMapState(
+      category.state,
+      { type: "set-map-query", query: "图书馆" },
+      catalog,
+    );
+
+    expect(category.state.mapFilter).toEqual({ category: "water", query: "" });
+    expect(category.history).toBe("replace");
+    expect(search.state.mapFilter).toEqual({ category: null, query: "图书馆" });
+    expect(search.history).toBe("replace");
+  });
+
+  it("rejects unknown map and building amenity values at the state boundary", () => {
+    const parsed = parseCampusMapState(
+      "category=unknown&building=science&amenity=unknown&panel=peek",
+      catalog,
+    );
+
+    expect(parsed.mapFilter.category).toBeNull();
+    expect(parsed.buildingContext.amenity).toBeNull();
+    expect(serializeCampusMapState(parsed).toString()).toBe(
+      "building=science&panel=peek",
+    );
+  });
+
+  it("owns the category result sheet snap in canonical map state", () => {
+    const category = reduceCampusMapState(
+      EMPTY_CAMPUS_MAP_STATE,
+      { type: "set-map-category", category: "water" },
+      catalog,
+    );
+    const full = reduceCampusMapState(
+      category.state,
+      { type: "set-sheet-snap", snap: "full" },
+      catalog,
+    );
+
+    expect(category.state.sheet.snap).toBe("peek");
+    expect(full.state.sheet.snap).toBe("full");
+    expect(serializeCampusMapState(full.state).get("panel")).toBe("full");
+    expect(
+      parseCampusMapState(serializeCampusMapState(full.state), catalog),
+    ).toEqual(full.state);
+  });
+
+  it("atomically returns an entity to a requested category surface", () => {
+    const facility = parseCampusMapState(
+      "category=water&building=library&facility=water&panel=peek",
+      catalog,
+    );
+    const result = reduceCampusMapState(
+      facility,
+      { type: "open-category-results", category: "water" },
+      catalog,
+    );
+
+    expect(result.state.mapFilter).toEqual({ category: "water", query: "" });
+    expect(result.state.selection).toEqual({ kind: "none" });
+    expect(result.state.buildingContext).toEqual({
+      floorId: null,
+      amenity: null,
+      query: "",
     });
+    expect(result.state.sheet.snap).toBe("peek");
+    expect(result.history).toBe("push");
   });
 });

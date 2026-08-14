@@ -1,9 +1,14 @@
 import type { NextConfig } from "next";
+import { dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
   output: process.env.NEXT_OUTPUT as NextConfig["output"],
-  turbopack: { root: process.cwd() },
+  allowedDevOrigins: ["127.0.0.1"],
+  turbopack: { root: projectRoot },
   images: {
     remotePatterns: [
       {

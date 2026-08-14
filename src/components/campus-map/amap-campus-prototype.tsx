@@ -1,0 +1,1602 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowLeftIcon,
+  DropletsIcon,
+  LocateFixedIcon,
+  MinusIcon,
+  PlusIcon,
+  PrinterIcon,
+  SearchIcon,
+  ToiletIcon,
+  XIcon,
+} from "lucide-react";
+
+import {
+  CameraRequestGate,
+  cameraPolicyFor,
+  deriveCameraPadding,
+  nearestVisibleCameraPoint,
+  type CameraReason,
+  type ScreenRect,
+} from "@/lib/campus-map/camera-policy";
+import {
+  AmapInteractionAdapter,
+  resolveAmapHotspotTarget,
+} from "@/lib/campus-map/amap-interaction-adapter";
+import {
+  parseCampusMapState,
+  serializeCampusMapState,
+  type CampusMapCatalog,
+  type CampusMapState,
+} from "@/lib/campus-map/map-state";
+import {
+  facilityMarkerContent,
+  type CampusMapAmenity,
+} from "@/lib/campus-map/facility-marker";
+import {
+  AMAP_PROTOTYPE_BUILDINGS as BUILDINGS,
+  AMAP_PROTOTYPE_CAMPUS_CENTER as CAMPUS_CENTER,
+  AMAP_PROTOTYPE_FACILITIES as FACILITIES,
+  type AmapPrototypeBuilding as Building,
+  type AmapPrototypeFacility as Facility,
+  type AmapPrototypePosition as Position,
+} from "@/lib/campus-map/amap-prototype-catalog";
+import { CampusMapBrowserHistory } from "@/lib/campus-map/browser-history";
+import {
+  reduceCampusMapSession,
+  initialCampusMapSession,
+  type CampusMapSession,
+  type CampusMapSessionCommand,
+} from "@/lib/campus-map/map-session";
+import { cn } from "@/lib/utils";
+
+type Amenity = CampusMapAmenity;
+
+interface AMapLngLat {
+  lng: number;
+  lat: number;
+}
+
+interface AMapPixel {
+  x: number;
+  y: number;
+}
+
+interface AMapEvent {
+  id?: string;
+  name?: string;
+  lnglat: AMapLngLat;
+  clusterData?: ReadonlyArray<{
+    lnglat: AMapLngLat | Position;
+  }>;
+  originEvent?: { target?: Element | null };
+}
+
+interface AMapMarker {
+  on(event: string, handler: () => void): void;
+  getExtData(): { facilityId?: string } | undefined;
+  setContent(content: string): void;
+  setzIndex(zIndex: number): void;
+}
+
+interface AMapMarkerCluster {
+  on(event: string, handler: (event: AMapEvent) => void): void;
+  setData(data: readonly Record<string, unknown>[]): void;
+  setMap(map: AMapMap | null): void;
+}
+
+interface AMapInfoWindow {
+  close(): void;
+  open(map: AMapMap, position: AMapLngLat): void;
+  setContent(content: HTMLElement): void;
+}
+
+interface AMapMap {
+  add(overlays: readonly AMapMarker[] | AMapMarker): void;
+  remove(overlays: readonly AMapMarker[]): void;
+  on(event: string, handler: (event: AMapEvent) => void): void;
+  plugin(plugins: readonly string[], callback: () => void): void;
+  getZoom(): number;
+  getContainer(): HTMLElement;
+  lngLatToContainer(position: AMapLngLat): AMapPixel;
+  containerToLngLat(position: AMapPixel): AMapLngLat;
+  setZoomAndCenter(
+    zoom: number,
+    center: AMapLngLat | Position,
+    immediately?: boolean,
+    duration?: number,
+  ): void;
+  panBy(x: number, y: number, duration?: number): void;
+  panTo(position: AMapLngLat, duration?: number): void;
+  setBounds(
+    bounds: unknown,
+    immediately?: boolean,
+    avoid?: readonly [top: number, bottom: number, left: number, right: number],
+    maxZoom?: number,
+  ): void;
+  zoomIn(): void;
+  zoomOut(): void;
+  destroy(): void;
+}
+
+interface AMapNamespace {
+  Map: new (container: string, options: Record<string, unknown>) => AMapMap;
+  Marker: new (options: Record<string, unknown>) => AMapMarker;
+  MarkerCluster: new (
+    map: AMapMap,
+    data: readonly Record<string, unknown>[],
+    options: Record<string, unknown>,
+  ) => AMapMarkerCluster;
+  InfoWindow: new (options: Record<string, unknown>) => AMapInfoWindow;
+  LngLat: new (longitude: number, latitude: number) => AMapLngLat;
+  Pixel: new (x: number, y: number) => AMapPixel;
+  Bounds: new (southWest: AMapLngLat, northEast: AMapLngLat) => unknown;
+  convertFrom(
+    positions: readonly Position[],
+    source: "gps",
+    callback: (
+      status: "complete" | "error",
+      result: { locations?: readonly AMapLngLat[] },
+    ) => void,
+  ): void;
+}
+
+declare global {
+  interface Window {
+    AMap?: AMapNamespace;
+    _AMapSecurityConfig?: { securityJsCode: string };
+  }
+}
+
+const CATEGORIES: ReadonlyArray<{
+  id: Amenity;
+  label: string;
+  icon: typeof ToiletIcon;
+  color: string;
+}> = [
+  { id: "toilet", label: "洗手间", icon: ToiletIcon, color: "#1b6f55" },
+  { id: "water", label: "饮水机", icon: DropletsIcon, color: "#227a9b" },
+  { id: "printer", label: "打印机", icon: PrinterIcon, color: "#675aa7" },
+];
+
+const CATALOG: CampusMapCatalog = {
+  categories: CATEGORIES.map((category) => category.id),
+  buildings: Object.fromEntries(
+    BUILDINGS.map((building) => [building.id, { floorIds: building.floorIds }]),
+  ),
+  facilities: Object.fromEntries(
+    FACILITIES.map((facility) => [
+      facility.id,
+      {
+        buildingId: facility.buildingId,
+        floorId: facility.floorId,
+        category: facility.category,
+      },
+    ]),
+  ),
+};
+
+function rect(element: Element): ScreenRect {
+  const value = element.getBoundingClientRect();
+  return {
+    top: value.top,
+    right: value.right,
+    bottom: value.bottom,
+    left: value.left,
+  };
+}
+
+function normalized(value = "") {
+  return value
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function buildingFor(selection: CampusMapState["selection"]) {
+  const buildingId =
+    selection.kind === "building" ||
+    selection.kind === "facility" ||
+    selection.kind === "content"
+      ? selection.buildingId
+      : null;
+  return BUILDINGS.find((building) => building.id === buildingId) ?? null;
+}
+
+function facilityFor(selection: CampusMapState["selection"]) {
+  return selection.kind === "facility"
+    ? (FACILITIES.find((facility) => facility.id === selection.facilityId) ??
+        null)
+    : null;
+}
+
+function selectionKey(selection: CampusMapState["selection"]) {
+  switch (selection.kind) {
+    case "none":
+      return "none";
+    case "building":
+      return `building:${selection.buildingId}`;
+    case "facility":
+      return `facility:${selection.facilityId}`;
+    case "content":
+      return `content:${selection.contentId}`;
+    case "external":
+      return `external:${selection.externalId}`;
+  }
+}
+
+function amenityStyle(category: Amenity) {
+  return CATEGORIES.find((item) => item.id === category) ?? CATEGORIES[0];
+}
+
+function knownAmenity(value: string | null) {
+  return CATEGORIES.find((item) => item.id === value)?.id ?? null;
+}
+
+function facilityMarkerView(facility: Facility) {
+  const building = BUILDINGS.find((item) => item.id === facility.buildingId)!;
+  return {
+    id: facility.id,
+    name: facility.name,
+    buildingName: building.name,
+    floorLabel: floorLabel(facility.floorId),
+    category: facility.category,
+    color: amenityStyle(facility.category).color,
+  };
+}
+
+function floorLabel(floorId: string) {
+  return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
+}
+
+export function AmapCampusPrototype({
+  initialSearch = "",
+}: {
+  initialSearch?: string;
+}) {
+  const initialMapState = useMemo(() => {
+    const params = new URLSearchParams(initialSearch);
+    if (params.get("building") === "building:15") {
+      params.set("building", "science-centre");
+    }
+    return parseCampusMapState(params, CATALOG);
+  }, [initialSearch]);
+  const [session, setSession] = useState<CampusMapSession>(() =>
+    initialCampusMapSession(initialMapState, CATALOG),
+  );
+  const state = session.browse;
+  const [config, setConfig] = useState<
+    | { status: "loading" }
+    | { status: "missing" }
+    | { status: "ready"; key: string; securityCode: string }
+  >({ status: "loading" });
+  const [mapLoadError, setMapLoadError] = useState<
+    "sdk" | "coordinates" | null
+  >(null);
+  const [mapLoadAttempt, setMapLoadAttempt] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
+  const [coordinateVersion, setCoordinateVersion] = useState(0);
+  const [clusterStatus, setClusterStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
+  const [queryDraft, setQueryDraft] = useState(initialMapState.mapFilter.query);
+  const mapRef = useRef<AMapMap | null>(null);
+  const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLElement | null>(null);
+  const clusterRef = useRef<AMapMarkerCluster | null>(null);
+  const clusterCategoryRef = useRef<Amenity | null>(null);
+  const facilityMarkersRef = useRef(new Map<string, AMapMarker>());
+  const infoWindowRef = useRef<AMapInfoWindow | null>(null);
+  const cameraGateRef = useRef(new CameraRequestGate());
+  const pendingSelectionTokenRef = useRef<number | null>(null);
+  const amapPositionsRef = useRef<Readonly<Record<string, Position>>>({});
+  const sessionRef = useRef(session);
+  const historyAdapterRef = useRef<CampusMapBrowserHistory | null>(null);
+  const selectionTriggerRef = useRef<HTMLElement | null>(null);
+  const selectionTriggerIdRef = useRef<string | null>(null);
+  const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
+  const previousSelectionRef = useRef(selectionKey(state.selection));
+  const interactionAdapterRef = useRef(new AmapInteractionAdapter());
+  const pointerGestureCleanupRef = useRef<(() => void) | null>(null);
+  const lastPanelRectRef = useRef<ScreenRect | null>(null);
+
+  const selectedBuilding = buildingFor(state.selection);
+  const selectedFacility = facilityFor(state.selection);
+  const activeAmenity = knownAmenity(state.mapFilter.category);
+  const facilityOrigin = session.entityReturnTarget?.mapFilter.category
+    ? "category"
+    : "map";
+
+  const positionFor = useCallback(
+    (building: Building) =>
+      amapPositionsRef.current[building.id] ?? building.position,
+    [],
+  );
+
+  const historyAdapter = useCallback(() => {
+    if (!historyAdapterRef.current) {
+      historyAdapterRef.current = new CampusMapBrowserHistory(
+        window.history,
+        (nextSession) => {
+          const search = serializeCampusMapState(nextSession.browse).toString();
+          return `${window.location.pathname}${search ? `?${search}` : ""}`;
+        },
+      );
+    }
+    return historyAdapterRef.current;
+  }, []);
+
+  const resetMapRuntime = useCallback(() => {
+    pointerGestureCleanupRef.current?.();
+    pointerGestureCleanupRef.current = null;
+    clusterRef.current?.setMap(null);
+    clusterRef.current = null;
+    clusterCategoryRef.current = null;
+    facilityMarkersRef.current.clear();
+    infoWindowRef.current?.close();
+    infoWindowRef.current = null;
+    mapRef.current?.destroy();
+    mapRef.current = null;
+    amapPositionsRef.current = {};
+    cameraGateRef.current.invalidate();
+    pendingSelectionTokenRef.current = null;
+    setMapReady(false);
+    setCoordinateVersion(0);
+    setClusterStatus("loading");
+  }, []);
+
+  const retryMapLoad = useCallback(() => {
+    resetMapRuntime();
+    setMapLoadError(null);
+    if (!window.AMap) {
+      document
+        .querySelector<HTMLScriptElement>("script[data-amap-campus]")
+        ?.remove();
+    }
+    setMapLoadAttempt((attempt) => attempt + 1);
+  }, [resetMapRuntime]);
+
+  const requestCamera = useCallback(
+    (position: Position, reason: CameraReason) => {
+      const map = mapRef.current;
+      const mapElement = mapElementRef.current;
+      if (!map || !mapElement) return;
+      const request = cameraGateRef.current.begin();
+      if (reason !== "sheet-layout")
+        pendingSelectionTokenRef.current = request.token;
+      window.requestAnimationFrame(() =>
+        window.requestAnimationFrame(() => {
+          if (
+            !request.isCurrent() ||
+            !mapRef.current ||
+            !mapElementRef.current
+          ) {
+            if (pendingSelectionTokenRef.current === request.token) {
+              pendingSelectionTokenRef.current = null;
+            }
+            return;
+          }
+          const mapRect = rect(mapElementRef.current);
+          const panelRect =
+            panelRef.current && !panelRef.current.hidden
+              ? rect(panelRef.current)
+              : null;
+          const policy = cameraPolicyFor(reason, mapRect, panelRect);
+          if (!policy) {
+            if (pendingSelectionTokenRef.current === request.token) {
+              pendingSelectionTokenRef.current = null;
+            }
+            return;
+          }
+
+          const AMap = window.AMap;
+          if (!AMap) {
+            if (pendingSelectionTokenRef.current === request.token) {
+              pendingSelectionTokenRef.current = null;
+            }
+            return;
+          }
+          const zoom =
+            policy.zoom.kind === "preserve"
+              ? map.getZoom()
+              : Math.min(
+                  map.getZoom() < policy.zoom.maxZoom
+                    ? policy.zoom.maxZoom
+                    : map.getZoom(),
+                  policy.zoom.maxZoom,
+                );
+          const lngLat = new AMap.LngLat(position[0], position[1]);
+          if (policy.zoom.kind === "fit" && map.getZoom() !== zoom) {
+            map.setZoomAndCenter(zoom, lngLat, true, 0);
+          }
+          window.requestAnimationFrame(() => {
+            if (!request.isCurrent() || !mapRef.current) {
+              if (pendingSelectionTokenRef.current === request.token) {
+                pendingSelectionTokenRef.current = null;
+              }
+              return;
+            }
+            const point = map.lngLatToContainer(lngLat);
+            const width = mapRect.right - mapRect.left;
+            const height = mapRect.bottom - mapRect.top;
+            const nearestVisiblePoint = nearestVisibleCameraPoint(
+              point,
+              { width, height },
+              policy.padding,
+            );
+            if (!nearestVisiblePoint) {
+              if (pendingSelectionTokenRef.current === request.token) {
+                pendingSelectionTokenRef.current = null;
+              }
+              return;
+            }
+            const targetCenter = map.containerToLngLat(
+              new AMap.Pixel(
+                point.x + width / 2 - nearestVisiblePoint.x,
+                point.y + height / 2 - nearestVisiblePoint.y,
+              ),
+            );
+            map.panTo(
+              targetCenter,
+              reason === "sheet-layout" ? 0 : policy.animate ? 320 : 0,
+            );
+            if (pendingSelectionTokenRef.current === request.token) {
+              pendingSelectionTokenRef.current = null;
+            }
+          });
+        }),
+      );
+    },
+    [],
+  );
+
+  const commitSessionCommand = useCallback(
+    (command: CampusMapSessionCommand) => {
+      const result = reduceCampusMapSession(
+        sessionRef.current,
+        command,
+        CATALOG,
+      );
+      const historyResult = historyAdapter().commit(
+        result.session,
+        result.history,
+      );
+      if (historyResult === "travelled") return result;
+      sessionRef.current = result.session;
+      setSession(result.session);
+
+      const camera = result.camera;
+      if (camera?.kind === "cancel") {
+        cameraGateRef.current.invalidate();
+        pendingSelectionTokenRef.current = null;
+      } else if (camera?.kind === "focus") {
+        const building = BUILDINGS.find(
+          (item) => item.id === camera.buildingId,
+        );
+        if (building) {
+          requestCamera(positionFor(building), camera.reason);
+        }
+      }
+
+      const overlay = result.overlay;
+      if (overlay?.kind === "close-external") {
+        infoWindowRef.current?.close();
+      } else if (overlay?.kind === "open-external") {
+        const AMap = window.AMap;
+        const map = mapRef.current;
+        if (AMap && map) {
+          const content = document.createElement("div");
+          content.className = "min-w-36 px-1 py-0.5 text-[#17211c]";
+          const title = document.createElement("strong");
+          title.className = "block text-sm font-semibold";
+          title.textContent = overlay.name;
+          const source = document.createElement("span");
+          source.className = "mt-1 block text-xs text-neutral-500";
+          source.textContent = "高德地图地点";
+          content.append(title, source);
+          const infoWindow =
+            infoWindowRef.current ??
+            new AMap.InfoWindow({
+              anchor: "bottom-center",
+              autoMove: true,
+              closeWhenClickMap: true,
+              offset: [0, -10],
+            });
+          infoWindowRef.current = infoWindow;
+          infoWindow.setContent(content);
+          infoWindow.open(
+            map,
+            new AMap.LngLat(overlay.position[0], overlay.position[1]),
+          );
+        }
+      }
+      return result;
+    },
+    [historyAdapter, positionFor, requestCamera],
+  );
+
+  const selectBuilding = useCallback(
+    (
+      building: Building,
+      source: "map" | "search" = "map",
+      trigger: HTMLElement | null = null,
+    ) => {
+      selectionTriggerRef.current = trigger;
+      selectionTriggerIdRef.current = trigger?.dataset.searchResult ?? null;
+      commitSessionCommand({
+        type: "open-building",
+        buildingId: building.id,
+        source,
+      });
+    },
+    [commitSessionCommand],
+  );
+
+  const selectFacility = useCallback(
+    (
+      facility: Facility,
+      source: "category" | "building",
+      trigger: HTMLElement | null = null,
+    ) => {
+      selectionTriggerRef.current = trigger;
+      selectionTriggerIdRef.current = null;
+      commitSessionCommand({
+        type: "open-facility",
+        facilityId: facility.id,
+        source: source === "category" ? "map" : "building",
+      });
+    },
+    [commitSessionCommand],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/campus-map/config", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("missing config");
+        return (await response.json()) as {
+          configured: boolean;
+          key: string;
+          securityCode: string;
+        };
+      })
+      .then((value) => {
+        if (cancelled) return;
+        if (value.configured) {
+          window._AMapSecurityConfig = { securityJsCode: value.securityCode };
+          setConfig({
+            status: "ready",
+            key: value.key,
+            securityCode: value.securityCode,
+          });
+        } else {
+          setConfig({ status: "missing" });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setConfig({ status: "missing" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const adapter = historyAdapter();
+    const restoredSession = adapter.initialize(sessionRef.current);
+    sessionRef.current = restoredSession;
+    setSession(restoredSession);
+
+    const handlePopState = () => {
+      const restoredBrowse = parseCampusMapState(
+        window.location.search,
+        CATALOG,
+      );
+      const restored = adapter.restore(
+        initialCampusMapSession(restoredBrowse, CATALOG),
+      );
+      setQueryDraft(restored.browse.mapFilter.query);
+      commitSessionCommand({
+        type: "restore",
+        session: restored,
+        cameraReason: "map-selection",
+      });
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [commitSessionCommand, historyAdapter]);
+
+  useEffect(() => {
+    const previous = previousSelectionRef.current;
+    const current = selectionKey(state.selection);
+    if (current !== "none" && current !== previous) {
+      window.requestAnimationFrame(() =>
+        panelTitleRef.current?.focus({ preventScroll: true }),
+      );
+    } else if (previous !== "none" && current === "none") {
+      window.requestAnimationFrame(() => {
+        const trigger = selectionTriggerRef.current;
+        if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+        else if (selectionTriggerIdRef.current) {
+          document
+            .querySelector<HTMLElement>(
+              `[data-search-result="${selectionTriggerIdRef.current}"]`,
+            )
+            ?.focus({ preventScroll: true });
+        }
+      });
+    }
+    previousSelectionRef.current = current;
+  }, [state.selection]);
+
+  const closeSelection = useCallback(() => {
+    commitSessionCommand({ type: "dismiss-entity" });
+  }, [commitSessionCommand]);
+
+  const navigateEntityBack = useCallback(() => {
+    commitSessionCommand({ type: "navigate-back" });
+  }, [commitSessionCommand]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      if (sessionRef.current.browse.selection.kind !== "none") {
+        closeSelection();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeSelection]);
+
+  const initialiseMap = useCallback(() => {
+    if (!window.AMap || mapRef.current) return;
+    setMapLoadError(null);
+    const AMap = window.AMap;
+    const map = new AMap.Map("amap-campus-canvas", {
+      center: CAMPUS_CENTER,
+      zoom: 17.2,
+      zooms: [14, 20],
+      viewMode: "2D",
+      mapStyle: "amap://styles/normal",
+      showLabel: true,
+      isHotspot: true,
+      features: ["bg", "road", "building", "point"],
+      resizeEnable: true,
+    });
+    mapRef.current = map;
+    setMapReady(true);
+    setClusterStatus("loading");
+    try {
+      map.plugin(["AMap.MarkerCluster"], () => setClusterStatus("ready"));
+    } catch {
+      setClusterStatus("error");
+    }
+
+    AMap.convertFrom(
+      [CAMPUS_CENTER, ...BUILDINGS.map((building) => building.position)],
+      "gps",
+      (status, result) => {
+        if (mapRef.current !== map) return;
+        const locations = status === "complete" ? result.locations : undefined;
+        if (!locations || locations.length !== BUILDINGS.length + 1) {
+          setMapLoadError("coordinates");
+          return;
+        }
+        const converted = Object.fromEntries(
+          BUILDINGS.map((building, index) => {
+            const location = locations[index + 1];
+            return [
+              building.id,
+              location
+                ? ([location.lng, location.lat] as Position)
+                : building.position,
+            ];
+          }),
+        );
+        const convertedCenter = locations[0];
+        if (convertedCenter)
+          converted.__campus = [convertedCenter.lng, convertedCenter.lat];
+        amapPositionsRef.current = converted;
+        setCoordinateVersion((version) => version + 1);
+        const selected = buildingFor(sessionRef.current.browse.selection);
+        if (selected) {
+          commitSessionCommand({
+            type: "reframe-selection",
+            reason: "deep-link",
+          });
+        } else {
+          const center = locations[0];
+          if (center) map.setZoomAndCenter(17.2, center, true, 0);
+        }
+      },
+    );
+
+    map.on("hotspotclick", (event) => {
+      interactionAdapterRef.current.dispatchProviderTarget(() => {
+        const target = resolveAmapHotspotTarget(
+          event,
+          BUILDINGS.map((building) => ({
+            buildingId: building.id,
+            providerPoiIds: building.amapPoiIds,
+            providerNames: building.amapHotspotNames,
+          })),
+        );
+        if (target.kind === "building") {
+          const building = BUILDINGS.find(
+            (item) => item.id === target.buildingId,
+          );
+          if (!building) return;
+          infoWindowRef.current?.close();
+          selectBuilding(building);
+          return;
+        }
+        commitSessionCommand({
+          type: "open-external",
+          externalId: target.providerId,
+          name: target.name,
+          position: target.position,
+        });
+      });
+    });
+    map.on("click", (event) => {
+      interactionAdapterRef.current.dispatchMapClick(() => {
+        if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
+          return;
+        closeSelection();
+      });
+    });
+    map.on("dragstart", () => {
+      cameraGateRef.current.invalidate();
+      pendingSelectionTokenRef.current = null;
+    });
+    const cancelForUserZoom = () => {
+      cameraGateRef.current.invalidate();
+      pendingSelectionTokenRef.current = null;
+    };
+    const container = map.getContainer();
+    const beginPointerGesture = () => {
+      interactionAdapterRef.current.beginPointerGesture();
+    };
+    container.addEventListener("pointerdown", beginPointerGesture, {
+      capture: true,
+    });
+    container.addEventListener("wheel", cancelForUserZoom, { passive: true });
+    container.addEventListener("touchstart", cancelForUserZoom, {
+      passive: true,
+    });
+    pointerGestureCleanupRef.current = () => {
+      container.removeEventListener("pointerdown", beginPointerGesture, {
+        capture: true,
+      });
+      container.removeEventListener("wheel", cancelForUserZoom);
+      container.removeEventListener("touchstart", cancelForUserZoom);
+      interactionAdapterRef.current.reset();
+    };
+  }, [closeSelection, commitSessionCommand, selectBuilding]);
+
+  useEffect(() => {
+    if (config.status !== "ready" || mapRef.current) return;
+    if (window.AMap) {
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (!cancelled) initialiseMap();
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+    let cancelled = false;
+    const existing = document.querySelector<HTMLScriptElement>(
+      "script[data-amap-campus]",
+    );
+    const script = existing ?? document.createElement("script");
+    const handleLoad = () => {
+      if (!cancelled) initialiseMap();
+    };
+    const handleError = () => {
+      if (!cancelled) setMapLoadError("sdk");
+    };
+
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+    if (!existing) {
+      script.dataset.amapCampus = "true";
+      script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(config.key)}`;
+      script.async = true;
+      document.head.append(script);
+    }
+
+    return () => {
+      cancelled = true;
+      script.removeEventListener("load", handleLoad);
+      script.removeEventListener("error", handleError);
+    };
+  }, [config, initialiseMap, mapLoadAttempt]);
+
+  useEffect(() => {
+    if (
+      !mapReady ||
+      clusterStatus !== "ready" ||
+      coordinateVersion === 0 ||
+      !window.AMap ||
+      !mapRef.current
+    )
+      return;
+    const map = mapRef.current;
+    if (!activeAmenity) {
+      clusterRef.current?.setMap(null);
+      clusterRef.current = null;
+      clusterCategoryRef.current = null;
+      facilityMarkersRef.current.clear();
+      return;
+    }
+    const data = FACILITIES.filter(
+      (facility) => facility.category === activeAmenity,
+    ).map((facility) => {
+      const building = BUILDINGS.find(
+        (item) => item.id === facility.buildingId,
+      )!;
+      return {
+        lnglat: positionFor(building),
+        facilityId: facility.id,
+        extData: { facilityId: facility.id },
+      };
+    });
+
+    if (clusterRef.current && clusterCategoryRef.current !== activeAmenity) {
+      clusterRef.current.setMap(null);
+      clusterRef.current = null;
+      clusterCategoryRef.current = null;
+      facilityMarkersRef.current.clear();
+    }
+
+    try {
+      if (!clusterRef.current) {
+        const style = amenityStyle(activeAmenity);
+        const cluster = new window.AMap.MarkerCluster(map, data, {
+          gridSize: 90,
+          maxZoom: 18,
+          averageCenter: true,
+          renderMarker: ({ marker }: { marker: AMapMarker }) => {
+            const markerPosition = marker.getExtData()?.facilityId
+              ? null
+              : (
+                  marker as unknown as { getPosition?: () => AMapLngLat }
+                ).getPosition?.();
+            const facility =
+              FACILITIES.find(
+                (item) => item.id === marker.getExtData()?.facilityId,
+              ) ??
+              (markerPosition
+                ? FACILITIES.find((item) => {
+                    if (item.category !== activeAmenity) return false;
+                    const building = BUILDINGS.find(
+                      (candidate) => candidate.id === item.buildingId,
+                    );
+                    if (!building) return false;
+                    const position = positionFor(building);
+                    return (
+                      Math.abs(position[0] - markerPosition.lng) < 0.000001 &&
+                      Math.abs(position[1] - markerPosition.lat) < 0.000001
+                    );
+                  })
+                : undefined);
+            if (!facility) return;
+            facilityMarkersRef.current.set(facility.id, marker);
+            marker.setContent(
+              facilityMarkerContent({
+                ...facilityMarkerView(facility),
+                selected: false,
+              }),
+            );
+            marker.on("click", () => {
+              interactionAdapterRef.current.dispatchProviderTarget(() => {
+                selectFacility(facility, "category");
+              });
+            });
+          },
+          renderClusterMarker: ({
+            count,
+            marker,
+          }: {
+            count: number;
+            marker: AMapMarker;
+          }) => {
+            marker.setContent(
+              `<button type="button" data-cupedia-marker="true" aria-label="${count} 项${style.label}建筑记录" style="display:grid;min-width:46px;height:46px;place-items:center;border:3px solid white;border-radius:999px;background:${style.color};color:white;font:700 14px system-ui;box-shadow:0 3px 12px rgba(0,0,0,.22);padding:0 12px">${count}</button>`,
+            );
+          },
+        });
+        cluster.on("click", (event) => {
+          interactionAdapterRef.current.dispatchProviderTarget(() => {
+            const positions = event.clusterData?.map(({ lnglat }) =>
+              "lng" in lnglat ? ([lnglat.lng, lnglat.lat] as Position) : lnglat,
+            );
+            if (!positions?.length || !window.AMap || !mapElementRef.current)
+              return;
+            cameraGateRef.current.invalidate();
+            const longitudes = positions.map((position) => position[0]);
+            const latitudes = positions.map((position) => position[1]);
+            const bounds = new window.AMap.Bounds(
+              new window.AMap.LngLat(
+                Math.min(...longitudes),
+                Math.min(...latitudes),
+              ),
+              new window.AMap.LngLat(
+                Math.max(...longitudes),
+                Math.max(...latitudes),
+              ),
+            );
+            const padding = deriveCameraPadding(
+              rect(mapElementRef.current),
+              panelRef.current && !panelRef.current.hidden
+                ? rect(panelRef.current)
+                : null,
+            );
+            map.setBounds(
+              bounds,
+              false,
+              [padding.top, padding.bottom, padding.left, padding.right],
+              18,
+            );
+          });
+        });
+        clusterRef.current = cluster;
+        clusterCategoryRef.current = activeAmenity;
+      } else {
+        clusterRef.current.setData(data);
+      }
+    } catch {
+      clusterRef.current = null;
+      clusterCategoryRef.current = null;
+      facilityMarkersRef.current.clear();
+      queueMicrotask(() => setClusterStatus("error"));
+    }
+  }, [
+    activeAmenity,
+    clusterStatus,
+    coordinateVersion,
+    mapReady,
+    positionFor,
+    selectFacility,
+  ]);
+
+  useEffect(() => {
+    const syncSelectedMarker = () => {
+      document
+        .querySelectorAll<HTMLElement>("[data-facility-id]")
+        .forEach((element) => {
+          element.setAttribute(
+            "aria-pressed",
+            String(element.dataset.facilityId === selectedFacility?.id),
+          );
+        });
+    };
+    syncSelectedMarker();
+    const observer = new MutationObserver(syncSelectedMarker);
+    if (mapElementRef.current) {
+      observer.observe(mapElementRef.current, {
+        childList: true,
+        subtree: true,
+      });
+    }
+    for (const facility of FACILITIES) {
+      const marker = facilityMarkersRef.current.get(facility.id);
+      if (!marker) continue;
+      const selected = selectedFacility?.id === facility.id;
+      marker.setzIndex(selected ? 220 : 160);
+      marker.setContent(
+        facilityMarkerContent({
+          ...facilityMarkerView(facility),
+          selected,
+        }),
+      );
+    }
+    return () => observer.disconnect();
+  }, [selectedFacility]);
+
+  useEffect(() => {
+    const mapElement = mapElementRef.current;
+    const panel = panelRef.current;
+    if (!mapElement || !panel || !selectedBuilding) return;
+    const observer = new ResizeObserver(() => {
+      const nextRect = rect(panel);
+      const previousRect = lastPanelRectRef.current;
+      lastPanelRectRef.current = nextRect;
+      if (
+        pendingSelectionTokenRef.current !== null ||
+        !previousRect ||
+        (previousRect.top === nextRect.top &&
+          previousRect.right === nextRect.right &&
+          previousRect.bottom === nextRect.bottom &&
+          previousRect.left === nextRect.left)
+      ) {
+        return;
+      }
+      commitSessionCommand({
+        type: "reframe-selection",
+        reason: "sheet-layout",
+      });
+    });
+    observer.observe(mapElement);
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [commitSessionCommand, selectedBuilding]);
+
+  useEffect(
+    () => () => {
+      pointerGestureCleanupRef.current?.();
+      pointerGestureCleanupRef.current = null;
+      clusterRef.current?.setMap(null);
+      infoWindowRef.current?.close();
+      mapRef.current?.destroy();
+      mapRef.current = null;
+    },
+    [],
+  );
+
+  const searchResults = useMemo(() => {
+    const query = normalized(state.mapFilter.query);
+    if (!query) return [];
+    return BUILDINGS.filter((building) =>
+      [
+        building.name,
+        building.englishName,
+        building.code,
+        ...building.aliases,
+      ].some((value) => normalized(value).includes(query)),
+    );
+  }, [state.mapFilter.query]);
+
+  const buildingFacilities = selectedBuilding
+    ? FACILITIES.filter(
+        (facility) =>
+          facility.buildingId === selectedBuilding.id &&
+          (!state.buildingContext.floorId ||
+            facility.floorId === state.buildingContext.floorId) &&
+          (!state.buildingContext.amenity ||
+            facility.category === state.buildingContext.amenity),
+      )
+    : [];
+  const categoryFacilities = activeAmenity
+    ? FACILITIES.filter((facility) => facility.category === activeAmenity)
+    : [];
+  const categoryBuildingCount = new Set(
+    categoryFacilities.map((facility) => facility.buildingId),
+  ).size;
+  const activeCategoryStyle = activeAmenity
+    ? amenityStyle(activeAmenity)
+    : null;
+  const chromeHidden = state.sheet.snap === "full";
+
+  return (
+    <main className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]">
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
+      <div className="absolute inset-0">
+        <div
+          id="amap-campus-canvas"
+          ref={mapElementRef}
+          className="h-full w-full"
+        />
+      </div>
+
+      {config.status === "missing" || mapLoadError ? (
+        <div className="absolute inset-0 z-50 grid place-items-center bg-white/94 p-6">
+          <div className="max-w-md rounded-2xl border border-black/10 bg-white p-6 shadow-xl">
+            <h1 className="text-lg font-semibold">
+              {mapLoadError ? "高德地图加载失败" : "高德地图配置缺失"}
+            </h1>
+            <p className="mt-2 text-sm leading-6 text-neutral-600">
+              {mapLoadError === "sdk"
+                ? "高德 SDK 请求未完成，可能是短暂网络故障。可以直接重新加载。"
+                : mapLoadError === "coordinates"
+                  ? "底图已连接，但校园坐标转换失败。请稍后重新加载。"
+                  : "请在 .env.local 配置 AMAP_WEB_KEY 和 AMAP_SECURITY_JS_CODE，然后重新启动开发服务器。"}
+            </p>
+            {mapLoadError ? (
+              <button
+                type="button"
+                className="mt-4 min-h-11 rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white"
+                onClick={retryMapLoad}
+              >
+                重新加载高德地图
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      <header
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start gap-2 p-3 transition-opacity md:p-4",
+          chromeHidden && "pointer-events-none opacity-0",
+          state.selection.kind !== "none" &&
+            state.sheet.snap === "full" &&
+            "md:opacity-100",
+        )}
+      >
+        <form
+          className="pointer-events-auto mx-auto w-full max-w-[560px]"
+          onSubmit={(event) => {
+            event.preventDefault();
+            commitSessionCommand({ type: "set-map-query", query: queryDraft });
+          }}
+        >
+          <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2">
+            <SearchIcon
+              aria-hidden="true"
+              className="size-5 text-neutral-500"
+            />
+            <span className="sr-only">搜索建筑</span>
+            <input
+              value={queryDraft}
+              onChange={(event) => setQueryDraft(event.target.value)}
+              onInput={(event) => {
+                const query = event.currentTarget.value;
+                commitSessionCommand({ type: "set-map-query", query });
+              }}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
+              placeholder="搜索建筑"
+            />
+            {queryDraft ? (
+              <button
+                type="button"
+                aria-label="清除搜索"
+                className="grid size-9 place-items-center rounded-full hover:bg-neutral-100"
+                onClick={() => {
+                  setQueryDraft("");
+                  commitSessionCommand({ type: "set-map-query", query: "" });
+                }}
+              >
+                <XIcon className="size-4" />
+              </button>
+            ) : null}
+          </label>
+          {state.mapFilter.query && state.selection.kind === "none" ? (
+            <div className="mt-2 overflow-hidden rounded-xl bg-white py-1 shadow-[0_8px_28px_rgba(23,33,28,.22)]">
+              {searchResults.length ? (
+                searchResults.map((building) => (
+                  <button
+                    key={building.id}
+                    data-search-result={building.id}
+                    type="button"
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none"
+                    onClick={(event) => {
+                      selectBuilding(building, "search", event.currentTarget);
+                    }}
+                  >
+                    <span className="grid size-9 place-items-center rounded-lg bg-[#e4f1eb] text-xs font-bold text-[#176346]">
+                      {building.code}
+                    </span>
+                    <span className="min-w-0">
+                      <strong className="block truncate text-sm">
+                        {building.name}
+                      </strong>
+                      <span className="block truncate text-xs text-neutral-500">
+                        {building.englishName}
+                      </span>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p className="px-4 py-4 text-sm text-neutral-600">
+                  没有匹配的建筑
+                </p>
+              )}
+            </div>
+          ) : null}
+        </form>
+      </header>
+
+      <div
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-[68px] z-20 overflow-hidden px-3 transition-opacity md:top-[76px] md:flex md:justify-center",
+          chromeHidden && "pointer-events-none opacity-0",
+          state.selection.kind !== "none" &&
+            state.sheet.snap === "full" &&
+            "md:opacity-100",
+        )}
+      >
+        <nav
+          aria-label="设施筛选"
+          className="pointer-events-auto flex w-full gap-1.5 overflow-x-auto py-1 pr-5 [scrollbar-width:none] md:w-auto md:max-w-[calc(100%-32px)] md:gap-2 md:pr-1 [&::-webkit-scrollbar]:hidden"
+        >
+          {CATEGORIES.map((category) => {
+            const Icon = category.icon;
+            const active = state.mapFilter.category === category.id;
+            return (
+              <button
+                key={category.id}
+                type="button"
+                aria-pressed={active}
+                className={cn(
+                  "flex h-11 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[13px] font-medium shadow-sm transition-colors md:gap-2 md:px-3 md:text-sm",
+                  active
+                    ? "border-[#176346] bg-[#176346] text-white"
+                    : "border-black/10 bg-white text-neutral-700 hover:bg-neutral-50",
+                )}
+                onClick={() => {
+                  commitSessionCommand({
+                    type: "toggle-map-category",
+                    category: category.id,
+                  });
+                }}
+              >
+                <Icon className="size-4" /> {category.label}
+              </button>
+            );
+          })}
+        </nav>
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#dce7e9] to-transparent md:hidden"
+        />
+      </div>
+
+      <div className="absolute top-[124px] right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg md:top-auto md:right-auto md:bottom-6 md:left-4">
+        <button
+          type="button"
+          aria-label="回到中大校园"
+          className="grid size-11 place-items-center border-b border-black/10 hover:bg-neutral-50"
+          onClick={() => {
+            cameraGateRef.current.invalidate();
+            mapRef.current?.setZoomAndCenter(
+              17.2,
+              amapPositionsRef.current.__campus ?? CAMPUS_CENTER,
+              false,
+              320,
+            );
+          }}
+        >
+          <LocateFixedIcon className="size-5" />
+        </button>
+        <button
+          type="button"
+          aria-label="放大"
+          className="hidden size-11 place-items-center border-b border-black/10 hover:bg-neutral-50 md:grid"
+          onClick={() => mapRef.current?.zoomIn()}
+        >
+          <PlusIcon className="size-5" />
+        </button>
+        <button
+          type="button"
+          aria-label="缩小"
+          className="hidden size-11 place-items-center hover:bg-neutral-50 md:grid"
+          onClick={() => mapRef.current?.zoomOut()}
+        >
+          <MinusIcon className="size-5" />
+        </button>
+      </div>
+
+      <section
+        ref={panelRef}
+        hidden={
+          state.selection.kind === "external" ||
+          (state.selection.kind === "none" && !state.mapFilter.category)
+        }
+        aria-labelledby="campus-map-panel-title"
+        className={cn(
+          "absolute z-30 overflow-hidden border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
+          "inset-x-0 bottom-0 rounded-t-2xl border-t md:inset-y-4 md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
+          state.sheet.snap === "full"
+            ? "h-[72dvh] md:h-auto"
+            : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
+        )}
+      >
+        <button
+          type="button"
+          aria-label={
+            state.sheet.snap === "full" ? "收起地点卡片" : "展开地点卡片"
+          }
+          aria-expanded={state.sheet.snap === "full"}
+          aria-controls="campus-map-panel-content"
+          className="mx-auto grid h-11 w-20 place-items-center rounded-b-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] md:hidden"
+          onClick={() => {
+            commitSessionCommand({
+              type: "set-sheet-snap",
+              snap: state.sheet.snap === "full" ? "peek" : "full",
+            });
+          }}
+        >
+          <span className="h-1 w-10 rounded-full bg-neutral-300" />
+        </button>
+        {state.selection.kind === "none" &&
+        state.mapFilter.category &&
+        activeCategoryStyle ? (
+          <div
+            id="campus-map-panel-content"
+            className="flex h-[calc(100%-44px)] flex-col"
+          >
+            <div className="flex items-center gap-3 border-b border-black/10 px-5 pb-4">
+              <span
+                className="grid size-11 shrink-0 place-items-center rounded-full text-white"
+                style={{ background: activeCategoryStyle.color }}
+              >
+                <activeCategoryStyle.icon className="size-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-neutral-500">建筑内设施</p>
+                <h2
+                  id="campus-map-panel-title"
+                  ref={panelTitleRef}
+                  className="text-xl font-semibold"
+                >
+                  {categoryBuildingCount} 栋建筑有{activeCategoryStyle.label}
+                </h2>
+              </div>
+              <button
+                type="button"
+                aria-label={`关闭${activeCategoryStyle.label}列表`}
+                className="grid size-11 place-items-center rounded-full hover:bg-neutral-100"
+                onClick={() =>
+                  commitSessionCommand({ type: "clear-map-category" })
+                }
+              >
+                <XIcon className="size-5" />
+              </button>
+            </div>
+            {clusterStatus !== "ready" ? (
+              <p
+                role="status"
+                className={cn(
+                  "mx-5 mt-3 rounded-lg px-3 py-2 text-xs",
+                  clusterStatus === "error"
+                    ? "bg-amber-50 text-amber-900"
+                    : "bg-neutral-100 text-neutral-600",
+                )}
+              >
+                {clusterStatus === "error"
+                  ? "地图标记加载失败，列表仍可使用"
+                  : "地图标记正在加载"}
+              </p>
+            ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+              {(state.sheet.snap === "full"
+                ? categoryFacilities
+                : categoryFacilities.slice(0, 3)
+              ).map((facility) => {
+                const building = BUILDINGS.find(
+                  (item) => item.id === facility.buildingId,
+                );
+                return (
+                  <button
+                    key={facility.id}
+                    type="button"
+                    className="flex min-h-16 w-full items-center gap-3 border-b border-black/8 py-3 text-left"
+                    onClick={(event) =>
+                      selectFacility(facility, "category", event.currentTarget)
+                    }
+                  >
+                    <span
+                      className="grid size-9 shrink-0 place-items-center rounded-full text-white"
+                      style={{ background: activeCategoryStyle.color }}
+                    >
+                      <activeCategoryStyle.icon className="size-4" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <strong className="block text-sm">
+                        {building?.name} · {floorLabel(facility.floorId)}
+                      </strong>
+                      <span className="mt-0.5 block text-xs text-neutral-500">
+                        {facility.name} · {facility.access}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+              {categoryFacilities.length > 3 ? (
+                <button
+                  type="button"
+                  className="mt-3 min-h-11 w-full rounded-xl bg-neutral-100 text-sm font-medium"
+                  onClick={() =>
+                    commitSessionCommand({
+                      type: "set-sheet-snap",
+                      snap: state.sheet.snap === "full" ? "peek" : "full",
+                    })
+                  }
+                >
+                  {state.sheet.snap === "full"
+                    ? "收起列表"
+                    : `查看全部 ${categoryFacilities.length} 项设施记录`}
+                </button>
+              ) : null}
+              {!categoryFacilities.length ? (
+                <p className="py-6 text-center text-sm text-neutral-500">
+                  当前没有已收录地点
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : selectedBuilding ? (
+          <div
+            id="campus-map-panel-content"
+            className="flex h-[calc(100%-44px)] flex-col overscroll-contain md:h-full"
+          >
+            <div className="flex items-start gap-3 border-b border-black/10 p-4 md:p-5">
+              {selectedFacility ? (
+                <button
+                  type="button"
+                  aria-label={
+                    facilityOrigin === "category"
+                      ? `返回${amenityStyle(selectedFacility.category).label}列表`
+                      : "返回建筑"
+                  }
+                  className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100"
+                  onClick={navigateEntityBack}
+                >
+                  <ArrowLeftIcon className="size-5" />
+                </button>
+              ) : (
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#174b38] text-sm font-bold text-white">
+                  {selectedBuilding.code}
+                </span>
+              )}
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="campus-map-panel-title"
+                  ref={panelTitleRef}
+                  tabIndex={-1}
+                  className="truncate text-xl font-semibold tracking-[-0.02em] outline-none"
+                >
+                  {selectedFacility?.name ?? selectedBuilding.name}
+                </h2>
+                <p className="mt-1 truncate text-sm text-neutral-500">
+                  {selectedFacility
+                    ? `${selectedBuilding.name} · ${floorLabel(selectedFacility.floorId)}`
+                    : selectedBuilding.englishName}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="关闭地点详情"
+                className="grid size-11 shrink-0 place-items-center rounded-full hover:bg-neutral-100"
+                onClick={closeSelection}
+              >
+                <XIcon className="size-5" />
+              </button>
+            </div>
+
+            {selectedFacility ? (
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+                <div className="flex flex-wrap gap-2 pt-4">
+                  <span className="rounded-lg bg-[#e7f1ec] px-2.5 py-1.5 text-sm font-medium text-[#174b38]">
+                    {floorLabel(selectedFacility.floorId)}
+                  </span>
+                  <span className="rounded-lg bg-neutral-100 px-2.5 py-1.5 text-sm text-neutral-700">
+                    {selectedFacility.access}
+                  </span>
+                </div>
+                {selectedFacility.locationPrecision === "building" ? (
+                  <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                    建筑内位置 · 尚无室内精确坐标
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  className="mt-3 min-h-11 w-full rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white"
+                  onClick={() =>
+                    commitSessionCommand({
+                      type: "reframe-selection",
+                      reason: "map-selection",
+                    })
+                  }
+                >
+                  定位所属建筑
+                </button>
+                {state.sheet.snap === "full" ? (
+                  <dl className="mt-5 grid gap-3 border-t border-black/8 pt-4 text-sm">
+                    <div>
+                      <dt className="text-neutral-500">资料来源</dt>
+                      <dd className="mt-1 font-medium">
+                        {selectedFacility.source}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : null}
+              </div>
+            ) : (
+              <>
+                <div
+                  className={cn(
+                    "gap-2 overflow-x-auto border-b border-black/8 px-4 py-3 md:px-5",
+                    state.sheet.snap === "full" ? "flex" : "hidden md:flex",
+                  )}
+                >
+                  <button
+                    type="button"
+                    className={cn(
+                      "min-h-11 shrink-0 rounded-full px-3 text-sm",
+                      !state.buildingContext.floorId
+                        ? "bg-[#174b38] text-white"
+                        : "bg-neutral-100",
+                    )}
+                    onClick={() =>
+                      commitSessionCommand({
+                        type: "set-building-floor",
+                        floorId: null,
+                      })
+                    }
+                  >
+                    全部楼层
+                  </button>
+                  {selectedBuilding.floorIds.map((floorId) => (
+                    <button
+                      key={floorId}
+                      type="button"
+                      aria-pressed={state.buildingContext.floorId === floorId}
+                      className={cn(
+                        "min-h-11 shrink-0 rounded-full px-3 text-sm",
+                        state.buildingContext.floorId === floorId
+                          ? "bg-[#174b38] text-white"
+                          : "bg-neutral-100",
+                      )}
+                      onClick={() =>
+                        commitSessionCommand({
+                          type: "set-building-floor",
+                          floorId,
+                        })
+                      }
+                    >
+                      {floorLabel(floorId)}
+                    </button>
+                  ))}
+                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-5">
+                  <h3 className="text-sm font-semibold">建筑内设施</h3>
+                  <div
+                    className={cn(
+                      "mt-3 divide-y divide-black/8",
+                      state.sheet.snap !== "full" && "hidden md:block",
+                    )}
+                  >
+                    {buildingFacilities.length ? (
+                      buildingFacilities.map((facility) => {
+                        const style = amenityStyle(facility.category);
+                        const Icon = style.icon;
+                        return (
+                          <button
+                            key={facility.id}
+                            type="button"
+                            className="flex w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
+                            onClick={(event) =>
+                              selectFacility(
+                                facility,
+                                "building",
+                                event.currentTarget,
+                              )
+                            }
+                          >
+                            <span
+                              className="grid size-9 shrink-0 place-items-center rounded-full text-white"
+                              style={{ background: style.color }}
+                            >
+                              <Icon className="size-4" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <strong className="block truncate text-sm">
+                                {facility.name}
+                              </strong>
+                              <span className="text-xs text-neutral-500">
+                                {facility.access}
+                              </span>
+                            </span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="py-8 text-center text-sm text-neutral-500">
+                        这个楼层暂无已收录设施
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ) : null}
+      </section>
+    </main>
+  );
+}
