@@ -12,7 +12,6 @@ import {
 
 export type AigensItem = {
   backendId?: string;
-  id?: string;
   name?: string;
   price?: number;
   published?: boolean;
@@ -155,7 +154,7 @@ export function parseAigensMenuProducts(
 
     for (const item of primaryGroup.items) {
       if (isSkippableItem(item)) continue;
-      const backendId = String(item.backendId ?? item.id ?? "").trim();
+      const backendId = String(item.backendId ?? "").trim();
       assertProviderMenuIdentityItems("aigens", [
         {
           externalProductId: backendId

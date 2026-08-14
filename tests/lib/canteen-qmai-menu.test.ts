@@ -144,6 +144,20 @@ describe("Qmai menu adapter", () => {
     );
   });
 
+  it("does not substitute an undeclared item ID for the goods ID", () => {
+    const malformed = structuredClone(menuResponse);
+    const item = malformed.data.categoryItems[0].itemList[0] as {
+      goodsId?: string;
+      id?: string;
+    };
+    delete item.goodsId;
+    item.id = "tempting-fallback";
+
+    expect(() => buildQmaiMenuSyncPayload(malformed)).toThrowError(
+      expect.objectContaining({ code: "EMPTY_IDENTITY" }),
+    );
+  });
+
   it("rejects malformed business responses", () => {
     expect(() =>
       buildQmaiMenuSyncPayload({ code: 10008, status: false, data: null }),

@@ -146,4 +146,18 @@ describe("S.H. Ho Aigens menu adapter", () => {
       }),
     ).toThrowError(expect.objectContaining({ code: "EMPTY_IDENTITY" }));
   });
+
+  it("does not substitute an undeclared item ID for the backend ID", () => {
+    const malformed = structuredClone(aigensCurrent);
+    const item = malformed.data.menu.groups[0].items[0] as {
+      backendId?: string;
+      id?: string;
+    };
+    delete item.backendId;
+    item.id = "tempting-fallback";
+
+    expect(() => buildShhoMenuSyncPayload(malformed)).toThrowError(
+      expect.objectContaining({ code: "EMPTY_IDENTITY" }),
+    );
+  });
 });

@@ -127,7 +127,7 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
     if (!Array.isArray(category.itemList)) throw new Error("INVALID_QMAI_MENU");
     for (const itemValue of category.itemList) {
       const item = object(itemValue);
-      const externalProductId = text(item?.goodsId ?? item?.id);
+      const externalProductId = text(item?.goodsId);
       const name = text(item?.name ?? item?.goodsName);
       if (!item) continue;
       if (!isAvailable(item)) continue;
