@@ -11,6 +11,7 @@ const tabs = [
   { href: "/admin/danmaku", label: "弹幕管理" },
   { href: "/admin/comments", label: "评论管理" },
   { href: "/admin/announcements", label: "公告管理" },
+  { href: "/admin/product-updates", label: "产品更新" },
   { href: "/admin/achievement-rules", label: "成就规则" },
   { href: "/admin/settings", label: "站点设置" },
 ];

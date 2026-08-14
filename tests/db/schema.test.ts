@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getTableColumns } from "drizzle-orm";
-import { getTableConfig } from "drizzle-orm/pg-core";
+import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
 import {
   users,
   wikiDrafts,
@@ -27,8 +27,13 @@ import {
   courseReviews,
   courseReviewReplies,
   announcements,
+  productUpdates,
   notifications,
 } from "@/db/schema";
+import {
+  PRODUCT_UPDATE_AREAS,
+  PRODUCT_UPDATE_TYPES,
+} from "@/lib/product-update-types";
 
 describe("schema", () => {
   it("users table has required custom fields", () => {
@@ -281,5 +286,33 @@ describe("schema", () => {
     expect(cols.notificationSentAt).toBeDefined();
     expect(cols.createdBy).toBeDefined();
     expect(cols.updatedBy).toBeDefined();
+  });
+
+  it("product updates keep controlled classification and permanent publication identity", () => {
+    const cols = getTableColumns(productUpdates);
+    const config = getTableConfig(productUpdates);
+    expect(cols.title).toBeDefined();
+    expect(cols.summary).toBeDefined();
+    expect(cols.content).toBeDefined();
+    expect(cols.type).toBeDefined();
+    expect(cols.areas).toBeDefined();
+    expect(cols.publishedAt.notNull).toBe(true);
+    expect(cols.createdBy).toBeDefined();
+    expect(config.checks.map((constraint) => constraint.name)).toEqual(
+      expect.arrayContaining([
+        "product_updates_type_check",
+        "product_updates_areas_nonempty_check",
+        "product_updates_areas_allowed_check",
+      ]),
+    );
+    const checkSql = config.checks.map(
+      (constraint) => new PgDialect().sqlToQuery(constraint.value).sql,
+    );
+    for (const type of PRODUCT_UPDATE_TYPES) {
+      expect(checkSql.some((query) => query.includes(`'${type}'`))).toBe(true);
+    }
+    for (const area of PRODUCT_UPDATE_AREAS) {
+      expect(checkSql.some((query) => query.includes(`'${area}'`))).toBe(true);
+    }
   });
 });
