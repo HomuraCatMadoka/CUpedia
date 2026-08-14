@@ -88,6 +88,50 @@ jobs:
       - name: Test legacy migration compatibility
         run: pnpm exec vitest run tests/db/canteen-menu-source-migration.test.ts
 
+  menu-sync-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: abcfy2/zhparser:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cuclaw_menu_sync_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cuclaw_menu_sync_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cuclaw_menu_sync_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Initialize zhparser
+        run: psql "$DATABASE_URL" -f init-zhparser.sql
+
+      - name: Apply migrations
+        run: pnpm drizzle-kit migrate
+
+      - name: Test menu sync persistence
+        run: >-
+          pnpm exec vitest run
+          tests/db/canteen-menu-sync.test.ts
+          tests/db/canteen-menu-source-sync.test.ts
+
   build:
     runs-on: ubuntu-latest
     steps:

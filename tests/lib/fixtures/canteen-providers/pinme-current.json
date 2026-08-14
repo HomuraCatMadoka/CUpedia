@@ -1,0 +1,26 @@
+{
+  "code": 200,
+  "data": {
+    "group": [
+      {
+        "local_name": "粉麵",
+        "start_time": "11:00",
+        "end_time": "20:00",
+        "products": [
+          {
+            "product_id": "425657",
+            "status": "1",
+            "local_name": "喇沙魚旦烏冬",
+            "prices": [
+              {
+                "status": "1",
+                "takeout_price": "46.0000",
+                "productStandardItem": { "local_name": "標準" }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

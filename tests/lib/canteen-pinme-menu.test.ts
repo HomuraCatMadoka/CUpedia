@@ -5,6 +5,7 @@ import {
 } from "@/lib/canteen-pinme-menu";
 import { fetchPinmeMenu } from "@/lib/canteen-menu-source-adapters";
 import { vi } from "vitest";
+import pinmeCurrent from "./fixtures/canteen-providers/pinme-current.json";
 
 describe("PINME menu adapter", () => {
   it("fails closed when the same product repeats in one meal-period group", () => {
@@ -133,32 +134,7 @@ describe("PINME menu adapter", () => {
   });
 
   it("normalizes groups, products and price variants", () => {
-    const result = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: {
-        group: [
-          {
-            local_name: "粉麵",
-            start_time: "11:00",
-            end_time: "20:00",
-            products: [
-              {
-                product_id: "425657",
-                status: "1",
-                local_name: "喇沙魚旦烏冬",
-                prices: [
-                  {
-                    status: "1",
-                    takeout_price: "46.0000",
-                    productStandardItem: { local_name: "標準" },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    });
+    const result = buildPinmeMenuSyncPayload(pinmeCurrent);
     expect(result.items).toEqual([
       expect.objectContaining({
         externalProductId: "425657",
@@ -215,28 +191,7 @@ describe("PINME menu adapter", () => {
           JSON.stringify({ code: 200, data: { token: "temporary" } }),
         ),
       )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            code: 200,
-            data: {
-              group: [
-                {
-                  local_name: "飯類",
-                  products: [
-                    {
-                      product_id: "1",
-                      status: "1",
-                      local_name: "叉燒飯",
-                      price: "38.0000",
-                    },
-                  ],
-                },
-              ],
-            },
-          }),
-        ),
-      );
+      .mockResolvedValueOnce(new Response(JSON.stringify(pinmeCurrent)));
 
     const payload = await fetchPinmeMenu("5500", { fetchImpl });
     expect(payload.items).toHaveLength(1);

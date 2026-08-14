@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildShhoMenuSyncPayload } from "@/lib/canteen-aigens-menu";
+import { fetchAigensMenu } from "@/lib/canteen-menu-source-adapters";
+import aigensCurrent from "./fixtures/canteen-providers/aigens-current.json";
 
 describe("S.H. Ho Aigens menu adapter", () => {
   it("fails closed when the same offering repeats in one period", () => {
@@ -22,41 +24,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
   });
 
   it("keeps primary products, maps periods, and excludes generic categories", () => {
-    const payload = buildShhoMenuSyncPayload({
-      data: {
-        menu: {
-          categories: [
-            {
-              name: "飯類",
-              periods: ["L", "T", "D"],
-              groupIds: ["main", "add"],
-            },
-            { name: "飲品", periods: ["B", "L"], groupIds: ["drinks"] },
-          ],
-          groups: [
-            {
-              id: "main",
-              items: [
-                {
-                  backendId: "42",
-                  name: " 麻辣 雞飯 ",
-                  price: 38,
-                  published: true,
-                },
-              ],
-            },
-            {
-              id: "add",
-              items: [{ backendId: "43", name: "+凍奶茶", price: 4 }],
-            },
-            {
-              id: "drinks",
-              items: [{ backendId: "44", name: "可樂", price: 11 }],
-            },
-          ],
-        },
-      },
-    });
+    const payload = buildShhoMenuSyncPayload(aigensCurrent);
 
     expect(payload.takeOverLegacyItems).toBe(false);
     expect(payload.items).toHaveLength(2);
@@ -68,6 +36,20 @@ describe("S.H. Ho Aigens menu adapter", () => {
       name: "麻辣 雞飯",
       svgKey: "飯類",
       priceOptions: [{ amountMinor: 3800 }],
+    });
+  });
+
+  it("normalizes the sanitized provider response through the fetch adapter", async () => {
+    const fetchImpl = async () =>
+      new Response(JSON.stringify(aigensCurrent), { status: 200 });
+
+    await expect(
+      fetchAigensMenu("102830", { fetchImpl }),
+    ).resolves.toMatchObject({
+      items: [
+        { externalProductId: "42#offering-period=lunch" },
+        { externalProductId: "42#offering-period=dinner" },
+      ],
     });
   });
 

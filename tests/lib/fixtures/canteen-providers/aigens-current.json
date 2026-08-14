@@ -1,0 +1,39 @@
+{
+  "data": {
+    "menu": {
+      "categories": [
+        {
+          "name": "飯類",
+          "periods": ["L", "T", "D"],
+          "groupIds": ["main", "add"]
+        },
+        {
+          "name": "飲品",
+          "periods": ["B", "L"],
+          "groupIds": ["drinks"]
+        }
+      ],
+      "groups": [
+        {
+          "id": "main",
+          "items": [
+            {
+              "backendId": "42",
+              "name": " 麻辣 雞飯 ",
+              "price": 38,
+              "published": true
+            }
+          ]
+        },
+        {
+          "id": "add",
+          "items": [{ "backendId": "43", "name": "+凍奶茶", "price": 4 }]
+        },
+        {
+          "id": "drinks",
+          "items": [{ "backendId": "44", "name": "可樂", "price": 11 }]
+        }
+      ]
+    }
+  }
+}

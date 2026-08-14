@@ -1,49 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchQmaiMenu } from "@/lib/canteen-menu-source-adapters";
 import { buildQmaiMenuSyncPayload } from "@/lib/canteen-qmai-menu";
+import qmaiCurrent from "./fixtures/canteen-providers/qmai-current.json";
 
-const menuResponse = {
-  code: "0",
-  status: true,
-  data: {
-    categoryItems: [
-      {
-        categoryName: "特色餐-西北麵",
-        available: 1,
-        itemList: [
-          {
-            goodsId: "goods-1",
-            name: "牛肉麵",
-            stockStatus: 1,
-            totalInventory: 10,
-            saleTime: {
-              weekTimeList: [{ startTime: "11:00", endTime: "14:30" }],
-            },
-            skuList: [
-              {
-                skuId: "sku-1",
-                salePrice: 35,
-                skuItemList: [{ itemName: "細麵" }],
-              },
-              {
-                skuId: "sku-2",
-                salePrice: 38,
-                skuItemList: [{ itemName: "粗麵" }],
-              },
-            ],
-          },
-          {
-            goodsId: "sold-out",
-            name: "售罄商品",
-            stockStatus: 0,
-            totalInventory: 0,
-            skuList: [{ skuId: "sku-3", salePrice: 20 }],
-          },
-        ],
-      },
-    ],
-  },
-};
+const menuResponse = qmaiCurrent;
 
 describe("Qmai menu adapter", () => {
   it("fails closed when the same goods ID repeats in one sale period", () => {

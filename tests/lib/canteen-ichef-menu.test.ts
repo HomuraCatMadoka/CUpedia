@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildIchefMenuSyncPayload } from "@/lib/canteen-ichef-menu";
 import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
 import { fetchIchefMenu } from "@/lib/canteen-menu-source-adapters";
+import ichefCurrent from "./fixtures/canteen-providers/ichef-current.json";
 
 describe("iCHEF menu adapter", () => {
   it("fails closed when the same UUID repeats in one category period", () => {
@@ -40,38 +41,19 @@ describe("iCHEF menu adapter", () => {
   });
 
   it("deduplicates products shared by categories and preserves all periods", () => {
-    const payload = buildIchefMenuSyncPayload(
-      [
-        {
-          startTime: "08:00",
-          endTime: "10:30",
-          categorySnapshotUuids: ["breakfast"],
-        },
-        {
-          startTime: "11:00",
-          endTime: "20:00",
-          categorySnapshotUuids: ["all-day"],
-        },
-      ],
-      [
-        {
-          uuid: "breakfast",
-          name: "飯類",
-          menuItemsSnapshot: [{ uuid: "item-1", name: " 雞扒 飯 ", price: 32 }],
-        },
-        {
-          uuid: "all-day",
-          name: "飯類",
-          menuItemsSnapshot: [{ uuid: "item-1", name: " 雞扒 飯 ", price: 32 }],
-        },
-      ],
-    );
+    const menuHours =
+      ichefCurrent.menuHoursResponse.data.restaurant.onlineOrderingMenu
+        .menuHoursSnapshot;
+    const categories =
+      ichefCurrent.categoriesResponse.data.restaurant.onlineOrderingMenu
+        .categoriesSnapshot;
+    const payload = buildIchefMenuSyncPayload(menuHours, categories);
 
     expect(payload.takeOverLegacyItems).toBe(false);
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0]).toMatchObject({
       externalProductId: "item-1",
-      name: "雞扒 飯",
+      name: "雞扒飯",
       mealPeriods: ["breakfast", "lunch", "dinner"],
       priceOptions: [{ amountMinor: 3200, currency: "HKD" }],
     });
@@ -166,44 +148,10 @@ describe("iCHEF menu adapter", () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: {
-              restaurant: {
-                onlineOrderingMenu: {
-                  menuHoursSnapshot: [
-                    {
-                      startTime: "11:30",
-                      endTime: "15:00",
-                      categorySnapshotUuids: ["cat-1"],
-                    },
-                  ],
-                },
-              },
-            },
-          }),
-        ),
+        new Response(JSON.stringify(ichefCurrent.menuHoursResponse)),
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            data: {
-              restaurant: {
-                onlineOrderingMenu: {
-                  categoriesSnapshot: [
-                    {
-                      uuid: "cat-1",
-                      name: "便當",
-                      menuItemsSnapshot: [
-                        { uuid: "item-1", name: "咖喱雞飯", price: 40 },
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-          }),
-        ),
+        new Response(JSON.stringify(ichefCurrent.categoriesResponse)),
       );
 
     const payload = await fetchIchefMenu("UQftKWxU", { fetchImpl });
@@ -217,7 +165,10 @@ describe("iCHEF menu adapter", () => {
     const secondBody = JSON.parse(String(fetchImpl.mock.calls[1][1]?.body)) as {
       variables: { categoriesSnapshotUuids: string[] };
     };
-    expect(secondBody.variables.categoriesSnapshotUuids).toEqual(["cat-1"]);
+    expect(secondBody.variables.categoriesSnapshotUuids).toEqual([
+      "breakfast",
+      "daytime",
+    ]);
   });
 
   it("rejects empty snapshots before they can deactivate existing dishes", () => {
