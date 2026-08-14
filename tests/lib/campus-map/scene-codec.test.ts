@@ -420,6 +420,157 @@ describe("Campus Map versioned scene codec", () => {
     });
   });
 
+  it("rejects a building whose required field is inherited", () => {
+    const inheritedFieldCatalog = {
+      ...catalog,
+      buildings: { inherited: Object.create({ floorIds: ["1"] }) },
+    } as CampusMapSceneCatalog;
+
+    expect(
+      decodeCampusMapUrl(
+        "v=1&scene=building&id=inherited&floor=1&snap=peek",
+        inheritedFieldCatalog,
+      ),
+    ).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "unknown-entity",
+    });
+  });
+
+  it("rejects a facility whose required fields are inherited", () => {
+    const inheritedFieldCatalog = {
+      ...catalog,
+      facilities: {
+        inherited: Object.create({
+          buildingId: "science",
+          floorId: "1",
+          category: "water",
+        }),
+      },
+    } as CampusMapSceneCatalog;
+
+    expect(
+      decodeCampusMapUrl(
+        "v=1&scene=facility&id=inherited&snap=peek",
+        inheritedFieldCatalog,
+      ),
+    ).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "unknown-entity",
+    });
+  });
+
+  it("rejects content whose kind is inherited", () => {
+    const inheritedKind = Object.assign(Object.create({ kind: "room" }), {
+      buildingId: "science",
+      floorId: "1",
+      category: "water",
+    });
+    const inheritedFieldCatalog = {
+      ...catalog,
+      contents: { inherited: inheritedKind },
+    } as CampusMapSceneCatalog;
+
+    expect(
+      decodeCampusMapUrl(
+        "v=1&scene=content&id=inherited&snap=peek",
+        inheritedFieldCatalog,
+      ),
+    ).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "unknown-entity",
+    });
+  });
+
+  it("accepts a valid catalog entity whose own ID is a prototype name", () => {
+    const ownPrototypeNameCatalog: CampusMapSceneCatalog = {
+      ...catalog,
+      buildings: { toString: { floorIds: ["1"] } },
+    };
+
+    expect(
+      decodeCampusMapUrl(
+        "v=1&scene=building&id=toString&floor=1&snap=peek",
+        ownPrototypeNameCatalog,
+      ),
+    ).toEqual({
+      status: "decoded",
+      session: {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "toString",
+          floorId: "1",
+          snap: "peek",
+        },
+      },
+    });
+  });
+
+  it("fails closed without invoking a catalog field accessor", () => {
+    let accessorInvoked = false;
+    const accessorBuilding = {};
+    Object.defineProperty(accessorBuilding, "floorIds", {
+      get() {
+        accessorInvoked = true;
+        return ["1"];
+      },
+    });
+    const accessorCatalog = {
+      ...catalog,
+      buildings: { accessor: accessorBuilding },
+    } as unknown as CampusMapSceneCatalog;
+
+    expect(
+      decodeCampusMapUrl(
+        "v=1&scene=building&id=accessor&floor=1&snap=peek",
+        accessorCatalog,
+      ),
+    ).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "unknown-entity",
+    });
+    expect(accessorInvoked).toBe(false);
+  });
+
+  it.each([
+    ["building", "buildings"],
+    ["facility", "facilities"],
+    ["content", "contents"],
+  ] as const)(
+    "fails closed without invoking a %s catalog entry accessor",
+    (sceneKind, catalogKey) => {
+      let accessorInvoked = false;
+      const entities = {};
+      Object.defineProperty(entities, "accessor", {
+        get() {
+          accessorInvoked = true;
+          throw new Error("catalog entry accessor must not run");
+        },
+      });
+      const accessorCatalog = {
+        ...catalog,
+        [catalogKey]: entities,
+      } as CampusMapSceneCatalog;
+
+      expect(
+        decodeCampusMapUrl(
+          `v=1&scene=${sceneKind}&id=accessor&snap=peek`,
+          accessorCatalog,
+        ),
+      ).toEqual({
+        status: "fallback",
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        reason: "unknown-entity",
+      });
+      expect(accessorInvoked).toBe(false);
+    },
+  );
+
   it.each([
     "v=1&id=ghost",
     "v=1&v=1",

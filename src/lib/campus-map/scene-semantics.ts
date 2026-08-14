@@ -41,56 +41,56 @@ function persistentBrowse(
 
 type CatalogBuilding = NonNullable<CampusMapSceneCatalog["buildings"][string]>;
 type CatalogFacility = NonNullable<CampusMapSceneCatalog["facilities"][string]>;
-type CatalogContent = NonNullable<CampusMapSceneCatalog["contents"][string]>;
 type CatalogRelation = Pick<
   CatalogFacility,
   "buildingId" | "floorId" | "category"
 >;
 
-function ownCatalogValue(
-  entities: Readonly<Record<string, unknown>>,
-  id: string,
-) {
-  return Object.hasOwn(entities, id) ? entities[id] : undefined;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function ownDataProperty(value: Record<string, unknown>, key: string): unknown {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  return descriptor && "value" in descriptor ? descriptor.value : undefined;
 }
 
 function findBuilding(
   catalog: CampusMapSceneCatalog,
   buildingId: string,
 ): CatalogBuilding | undefined {
-  const value = ownCatalogValue(catalog.buildings, buildingId);
-  return isRecord(value) &&
-    Array.isArray(value.floorIds) &&
-    value.floorIds.every((floorId) => typeof floorId === "string")
-    ? (value as CatalogBuilding)
+  const value = ownDataProperty(catalog.buildings, buildingId);
+  if (!isRecord(value)) return undefined;
+  const floorIds = ownDataProperty(value, "floorIds");
+  return Array.isArray(floorIds) &&
+    floorIds.every((floorId) => typeof floorId === "string")
+    ? { floorIds: [...floorIds] }
     : undefined;
 }
 
-function isCatalogRelation(value: unknown): value is CatalogRelation {
-  return (
-    isRecord(value) &&
-    typeof value.buildingId === "string" &&
-    typeof value.floorId === "string" &&
-    typeof value.category === "string"
-  );
+function decodeCatalogRelation(value: unknown): CatalogRelation | undefined {
+  if (!isRecord(value)) return undefined;
+  const buildingId = ownDataProperty(value, "buildingId");
+  const floorId = ownDataProperty(value, "floorId");
+  const category = ownDataProperty(value, "category");
+  return typeof buildingId === "string" &&
+    typeof floorId === "string" &&
+    typeof category === "string"
+    ? { buildingId, floorId, category }
+    : undefined;
 }
 
 function findFacility(catalog: CampusMapSceneCatalog, facilityId: string) {
-  const value = ownCatalogValue(catalog.facilities, facilityId);
-  return isCatalogRelation(value) ? value : undefined;
+  const value = ownDataProperty(catalog.facilities, facilityId);
+  return decodeCatalogRelation(value);
 }
 
 function findContent(catalog: CampusMapSceneCatalog, contentId: string) {
-  const value = ownCatalogValue(catalog.contents, contentId);
-  return isCatalogRelation(value) &&
-    "kind" in value &&
-    typeof value.kind === "string"
-    ? (value as CatalogContent)
-    : undefined;
+  const value = ownDataProperty(catalog.contents, contentId);
+  const relation = decodeCatalogRelation(value);
+  if (!relation || !isRecord(value)) return undefined;
+  const kind = ownDataProperty(value, "kind");
+  return typeof kind === "string" ? { ...relation, kind } : undefined;
 }
 
 export function isValidCampusMapPosition(position: readonly [number, number]) {
