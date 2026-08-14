@@ -1,10 +1,13 @@
 import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
-  resolveCampusMapScene,
-  type CampusMapBrowseScene,
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "./scene-kernel";
+import {
+  isValidCampusMapPosition,
+  resolveCampusMapSessionSemantics,
+  type PersistableCampusMapSession,
+} from "./scene-semantics";
 
 export const CAMPUS_MAP_SCENE_CODEC_VERSION = 1 as const;
 
@@ -63,7 +66,7 @@ function validSession(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ) {
-  return resolveCampusMapScene(session, catalog).status === "valid";
+  return resolveCampusMapSessionSemantics(session, catalog).status === "valid";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -85,26 +88,14 @@ function isPosition(
   const [longitude, latitude] = value;
   return (
     typeof longitude === "number" &&
-    Number.isFinite(longitude) &&
-    longitude >= -180 &&
-    longitude <= 180 &&
     typeof latitude === "number" &&
-    Number.isFinite(latitude) &&
-    latitude >= -90 &&
-    latitude <= 90
+    isValidCampusMapPosition([longitude, latitude])
   );
 }
 
 type ParsedSession =
   | { status: "parsed"; session: CampusMapSession }
   | { status: "invalid"; reason: string };
-
-type PersistableCampusMapSession =
-  | {
-      mode: "browse";
-      scene: Exclude<CampusMapBrowseScene, { kind: "provider-poi" }>;
-    }
-  | Extract<CampusMapSession, { mode: "task" }>;
 
 function parseHistorySession(value: unknown): ParsedSession {
   if (!isRecord(value) || !hasOnlyKeys(value, ["mode", "scene", "task"])) {
@@ -294,15 +285,11 @@ function normalizePersistentSession(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ): PersistableCampusMapSession {
-  if (!validSession(session, catalog)) {
-    return { mode: "browse", scene: { kind: "map" } };
-  }
-  if (session.mode === "task") return session;
-  const scene = session.scene;
-  if (scene.kind === "provider-poi") {
-    return { mode: "browse", scene: { kind: "map" } };
-  }
-  return { mode: "browse", scene };
+  const resolved = resolveCampusMapSessionSemantics(session, catalog);
+  return resolved.status === "valid" &&
+    resolved.persistence.kind === "persistent"
+    ? resolved.persistence.session
+    : { mode: "browse", scene: { kind: "map" } };
 }
 
 export function normalizeCampusMapUrlSession(

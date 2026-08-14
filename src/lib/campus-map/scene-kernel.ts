@@ -4,6 +4,10 @@ import type {
   CampusMapSessionTransition,
 } from "./map-session";
 import type { CampusMapSheetSnap } from "./map-state";
+import {
+  isValidCampusMapPosition,
+  resolveCampusMapSessionSemantics,
+} from "./scene-semantics";
 
 /**
  * Pure product kernel layered on the #593 ports. Provider gesture arbitration,
@@ -207,105 +211,10 @@ export function resolveCampusMapScene(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
 ): CampusMapResolvedScene {
-  if (session.mode === "task") {
-    if (
-      session.task.anchor.kind === "building" &&
-      !catalog.buildings[session.task.anchor.buildingId]
-    ) {
-      return { status: "invalid", reason: "unknown-building" };
-    }
-    return { status: "valid", session, context: null };
-  }
-  if (session.scene.kind === "building") {
-    const building = catalog.buildings[session.scene.buildingId];
-    if (
-      !building ||
-      (session.scene.floorId !== null &&
-        !building.floorIds.includes(session.scene.floorId))
-    ) {
-      return { status: "invalid", reason: "unknown-building" };
-    }
-    return { status: "valid", session, context: null };
-  }
-  if (session.scene.kind === "category-results") {
-    return catalog.categories.includes(session.scene.category)
-      ? { status: "valid", session, context: null }
-      : { status: "invalid", reason: "unknown-category" };
-  }
-  if (session.scene.kind === "search-results") {
-    return session.scene.query === session.scene.query.trim() &&
-      session.scene.query.length > 0
-      ? { status: "valid", session, context: null }
-      : { status: "invalid", reason: "invalid-query" };
-  }
-  if (session.scene.kind === "provider-poi") {
-    return session.scene.providerPoiId === session.scene.providerPoiId.trim() &&
-      session.scene.providerPoiId.length > 0 &&
-      session.scene.name === session.scene.name.trim() &&
-      session.scene.name.length > 0 &&
-      validPosition(session.scene.position)
-      ? { status: "valid", session, context: null }
-      : { status: "invalid", reason: "invalid-provider-poi" };
-  }
-  if (session.scene.kind !== "facility" && session.scene.kind !== "content") {
-    return { status: "valid", session, context: null };
-  }
-  const entity =
-    session.scene.kind === "facility"
-      ? catalog.facilities[session.scene.facilityId]
-      : catalog.contents[session.scene.contentId];
-  if (
-    !entity ||
-    !catalog.buildings[entity.buildingId]?.floorIds.includes(entity.floorId) ||
-    !catalog.categories.includes(entity.category)
-  ) {
-    return {
-      status: "invalid",
-      reason:
-        session.scene.kind === "facility"
-          ? "unknown-facility"
-          : "unknown-content",
-    };
-  }
-  return {
-    status: "valid",
-    session,
-    context: {
-      buildingId: entity.buildingId,
-      floorId: entity.floorId,
-      category: entity.category,
-    },
-  };
-}
-
-function validPosition(position: readonly [number, number]) {
-  return (
-    Number.isFinite(position[0]) &&
-    position[0] >= -180 &&
-    position[0] <= 180 &&
-    Number.isFinite(position[1]) &&
-    position[1] >= -90 &&
-    position[1] <= 90
-  );
-}
-
-function sessionBuildingId(
-  session: CampusMapSession,
-  catalog: CampusMapSceneCatalog,
-) {
-  if (session.mode === "task") {
-    return session.task.anchor.kind === "building"
-      ? session.task.anchor.buildingId
-      : null;
-  }
-  if (session.scene.kind === "building") return session.scene.buildingId;
-  if (session.scene.kind === "facility") {
-    return catalog.facilities[session.scene.facilityId]?.buildingId ?? null;
-  }
-  if (session.scene.kind === "content") {
-    return catalog.contents[session.scene.contentId]?.buildingId ?? null;
-  }
-  return null;
+  const resolved = resolveCampusMapSessionSemantics(session, catalog);
+  return resolved.status === "valid"
+    ? { status: "valid", session, context: resolved.context }
+    : resolved;
 }
 
 export function transitionCampusMapSession(
@@ -314,40 +223,33 @@ export function transitionCampusMapSession(
   catalog: CampusMapSceneCatalog,
 ): CampusMapTransition {
   if (event.type === "RESTORE") {
-    const transientProvider =
-      event.session.mode === "browse" &&
-      event.session.scene.kind === "provider-poi";
-    const resolved = resolveCampusMapScene(event.session, catalog);
-    const restoredSession =
-      !transientProvider && resolved.status === "valid"
-        ? event.session
-        : EMPTY_CAMPUS_MAP_SCENE_SESSION;
-    const buildingId = sessionBuildingId(restoredSession, catalog);
-    const focus: CampusMapFocusCommand =
-      restoredSession.mode === "task"
-        ? { kind: "contribution-form" }
-        : restoredSession.scene.kind === "map"
-          ? { kind: "map" }
-          : restoredSession.scene.kind === "search-results"
-            ? { kind: "search-input" }
-            : restoredSession.scene.kind === "category-results"
-              ? { kind: "results" }
-              : { kind: "heading" };
+    const requested = resolveCampusMapSessionSemantics(event.session, catalog);
+    const restored =
+      requested.status === "valid" &&
+      requested.persistence.kind === "persistent"
+        ? requested
+        : null;
+    const restoredSession = restored?.session ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
     return {
       status: "accepted",
       session: restoredSession,
       commands: {
         history: historyCommandFor("restore"),
-        camera: buildingId
-          ? { kind: "focus", buildingId, reason: "deep-link" }
+        camera: restored?.buildingId
+          ? {
+              kind: "focus",
+              buildingId: restored.buildingId,
+              reason: "deep-link",
+            }
           : { kind: "cancel" },
-        focus,
+        focus: restored?.focus ?? { kind: "map" },
         overlay: { kind: "close-external" },
       },
     };
   }
 
-  if (resolveCampusMapScene(session, catalog).status === "invalid") {
+  const current = resolveCampusMapSessionSemantics(session, catalog);
+  if (current.status === "invalid") {
     return reject(session, "invalid-session");
   }
 
@@ -355,24 +257,13 @@ export function transitionCampusMapSession(
     if (session.mode !== "browse") {
       return reject(session, "event-not-allowed");
     }
-    const scene = session.scene;
-    let buildingId: string | null = null;
-    if (scene.kind === "building") buildingId = scene.buildingId;
-    if (scene.kind === "facility") {
-      buildingId = catalog.facilities[scene.facilityId]?.buildingId ?? null;
-    }
-    if (scene.kind === "content") {
-      buildingId = catalog.contents[scene.contentId]?.buildingId ?? null;
-    }
     return {
       status: "accepted",
       session: {
         mode: "task",
         task: {
           kind: "create",
-          anchor: buildingId
-            ? { kind: "building", buildingId }
-            : { kind: "map" },
+          anchor: current.contributionAnchor,
         },
       },
       commands: {
@@ -545,7 +436,7 @@ export function transitionCampusMapSession(
       mode: "browse",
       scene: { kind: "facility", facilityId: event.facilityId, snap: "peek" },
     };
-    const resolved = resolveCampusMapScene(candidate, catalog);
+    const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
     if (resolved.status === "invalid" || !facility) {
       return reject(session, "unknown-facility");
     }
@@ -582,7 +473,7 @@ export function transitionCampusMapSession(
     };
     if (
       !content ||
-      resolveCampusMapScene(candidate, catalog).status === "invalid"
+      resolveCampusMapSessionSemantics(candidate, catalog).status === "invalid"
     ) {
       return reject(session, "unknown-content");
     }
@@ -614,7 +505,7 @@ export function transitionCampusMapSession(
   if (event.type === "OPEN_PROVIDER_POI") {
     const providerPoiId = event.providerPoiId.trim();
     const name = event.name.trim();
-    if (!providerPoiId || !name || !validPosition(event.position)) {
+    if (!providerPoiId || !name || !isValidCampusMapPosition(event.position)) {
       return reject(session, "invalid-provider-poi");
     }
     if (

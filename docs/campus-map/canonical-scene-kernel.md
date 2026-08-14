@@ -14,6 +14,11 @@ this kernel.
 - The versioned URL and history codecs are the only persistence seams. Decode
   always validates through the catalog and falls back safely.
 
+`scene-semantics.ts` is an internal seam, not a second product API. Its single
+resolver owns session validity, catalog-derived context, restore focus,
+contribution anchors, and the persistent/transient projection consumed by the
+kernel and codecs.
+
 ## Canonical state matrix
 
 | Mode   | Discriminant       | Canonical fields                         | Derived from catalog            | URL policy                     |
@@ -84,5 +89,11 @@ returnable while switching result filters replaces the current entry.
    overlay lifecycle, browser-history, or MarkerCluster failure behavior.
 8. This ticket does not connect the existing UI to the new kernel and does not
    copy or synchronize the legacy session fields.
-9. The complete scene-by-event contract asserts the exact next session and all
-   four command slots for every cell, not only whether the event is accepted.
+9. The 8 × 12 scene-by-event-type baseline asserts the exact next session and
+   all four command slots for every cell. Payload-sensitive branches such as
+   entity `source` and semantic `RESTORE` targets have separate exact contract
+   tables; a cell count alone does not claim complete event coverage.
+10. Catalog validity, derived building context, restore focus, contribution
+    anchors, and persistence eligibility have one internal semantic resolver.
+    The transition and codec modules consume that projection instead of
+    re-deriving scene meaning independently.

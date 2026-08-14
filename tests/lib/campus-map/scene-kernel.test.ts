@@ -217,6 +217,90 @@ describe("Campus Map canonical scene transition", () => {
     expect(opened.commands.camera).toEqual({ kind: "cancel" });
   });
 
+  it.each([
+    [
+      {
+        mode: "browse",
+        scene: { kind: "search-results", query: "library", snap: "peek" },
+      },
+      { type: "OPEN_BUILDING", buildingId: "library", source: "search" },
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "library",
+          floorId: null,
+          snap: "peek",
+        },
+      },
+      {
+        kind: "focus",
+        buildingId: "library",
+        reason: "search-selection",
+      },
+    ],
+    [
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "science",
+          floorId: null,
+          snap: "peek",
+        },
+      },
+      { type: "OPEN_FACILITY", facilityId: "fountain", source: "building" },
+      {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      },
+      { kind: "cancel" },
+    ],
+    [
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "science",
+          floorId: "4",
+          snap: "full",
+        },
+      },
+      { type: "OPEN_CONTENT", contentId: "room401", source: "building" },
+      {
+        mode: "browse",
+        scene: { kind: "content", contentId: "room401", snap: "full" },
+      },
+      { kind: "cancel" },
+    ],
+  ] satisfies readonly (readonly [
+    CampusMapSession,
+    CampusMapEvent,
+    CampusMapSession,
+    (
+      | { readonly kind: "cancel" }
+      | {
+          readonly kind: "focus";
+          readonly buildingId: string;
+          readonly reason: "search-selection";
+        }
+    ),
+  ])[])(
+    "covers source-sensitive camera contract %#",
+    (session, event, nextSession, camera) => {
+      expect(transitionCampusMapSession(session, event, catalog)).toEqual({
+        status: "accepted",
+        session: nextSession,
+        commands: {
+          history: "push",
+          camera,
+          focus: { kind: "heading" },
+          overlay: { kind: "close-external" },
+        },
+      });
+    },
+  );
+
   it("enters one contribution task and derives its canonical anchor", () => {
     const facility = transitionCampusMapSession(
       EMPTY_CAMPUS_MAP_SCENE_SESSION,
@@ -368,6 +452,182 @@ describe("Campus Map canonical scene transition", () => {
     });
   });
 
+  it("covers each semantic RESTORE target with zero history write", () => {
+    const cases = [
+      [
+        {
+          mode: "browse",
+          scene: { kind: "search-results", query: "science", snap: "peek" },
+        },
+        {
+          camera: { kind: "cancel" },
+          focus: { kind: "search-input" },
+        },
+      ],
+      [
+        {
+          mode: "browse",
+          scene: { kind: "category-results", category: "water", snap: "full" },
+        },
+        { camera: { kind: "cancel" }, focus: { kind: "results" } },
+      ],
+      [
+        {
+          mode: "browse",
+          scene: {
+            kind: "building",
+            buildingId: "science",
+            floorId: "4",
+            snap: "full",
+          },
+        },
+        {
+          camera: {
+            kind: "focus",
+            buildingId: "science",
+            reason: "deep-link",
+          },
+          focus: { kind: "heading" },
+        },
+      ],
+      [
+        {
+          mode: "browse",
+          scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+        },
+        {
+          camera: {
+            kind: "focus",
+            buildingId: "science",
+            reason: "deep-link",
+          },
+          focus: { kind: "heading" },
+        },
+      ],
+      [
+        {
+          mode: "browse",
+          scene: { kind: "content", contentId: "room401", snap: "full" },
+        },
+        {
+          camera: {
+            kind: "focus",
+            buildingId: "science",
+            reason: "deep-link",
+          },
+          focus: { kind: "heading" },
+        },
+      ],
+      [
+        {
+          mode: "task",
+          task: {
+            kind: "create",
+            anchor: { kind: "map" },
+          },
+        },
+        {
+          camera: { kind: "cancel" },
+          focus: { kind: "contribution-form" },
+        },
+      ],
+      [
+        {
+          mode: "task",
+          task: {
+            kind: "create",
+            anchor: { kind: "building", buildingId: "science" },
+          },
+        },
+        {
+          camera: {
+            kind: "focus",
+            buildingId: "science",
+            reason: "deep-link",
+          },
+          focus: { kind: "contribution-form" },
+        },
+      ],
+    ] as const satisfies readonly (readonly [
+      CampusMapSession,
+      {
+        camera:
+          | { readonly kind: "cancel" }
+          | {
+              readonly kind: "focus";
+              readonly buildingId: string;
+              readonly reason: "deep-link";
+            };
+        focus: {
+          readonly kind:
+            | "search-input"
+            | "results"
+            | "heading"
+            | "contribution-form";
+        };
+      },
+    ])[];
+
+    for (const [target, commands] of cases) {
+      expect(
+        transitionCampusMapSession(
+          EMPTY_CAMPUS_MAP_SCENE_SESSION,
+          { type: "RESTORE", session: target },
+          catalog,
+        ),
+      ).toEqual({
+        status: "accepted",
+        session: target,
+        commands: {
+          history: null,
+          camera: commands.camera,
+          focus: commands.focus,
+          overlay: { kind: "close-external" },
+        },
+      });
+    }
+
+    const invalidTargets: CampusMapSession[] = [
+      {
+        mode: "browse",
+        scene: {
+          kind: "provider-poi",
+          provider: "amap",
+          providerPoiId: "external",
+          name: "External",
+          position: [114.2, 22.4],
+        },
+      },
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "missing",
+          floorId: null,
+          snap: "peek",
+        },
+      },
+    ];
+    for (const target of invalidTargets) {
+      expect(
+        transitionCampusMapSession(
+          EMPTY_CAMPUS_MAP_SCENE_SESSION,
+          { type: "RESTORE", session: target },
+          catalog,
+        ),
+      ).toEqual({
+        status: "accepted",
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        commands: {
+          history: null,
+          camera: { kind: "cancel" },
+          focus: { kind: "map" },
+          overlay: { kind: "close-external" },
+        },
+      });
+    }
+  });
+
   it.each([
     [
       {
@@ -465,7 +725,7 @@ describe("Campus Map canonical scene transition", () => {
     },
   );
 
-  it("covers the complete scene × event transition contract", () => {
+  it("covers the scene × event-type base transition contract", () => {
     type ExpectedTransition = ReturnType<typeof transitionCampusMapSession>;
     const sources = {
       map: EMPTY_CAMPUS_MAP_SCENE_SESSION,
