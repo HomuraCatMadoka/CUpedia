@@ -1,7 +1,7 @@
--- Historical identity fixture boundary after migrations 0075/0078/0081 and
--- before issue #643. Columns mirror those migrations/current schema. Identity
--- guardrails are intentionally absent so the versioned matrix can represent
--- production drift that the preflight must detect before contract deployment.
+-- Historical identity fixture boundary after migrations 0075/0078/0081, with
+-- the post-#638 operational claim columns from 0083, and before issue #643.
+-- Identity guardrails are intentionally absent so the versioned matrix can
+-- represent production drift that the preflight must detect before deployment.
 create table __SCHEMA__.canteens (
   id uuid primary key,
   name text not null,
@@ -27,8 +27,13 @@ create table __SCHEMA__.canteen_menu_sources (
   last_error_code text,
   last_error text,
   legacy_takeover_at timestamptz,
+  sync_claim_token uuid,
+  sync_claim_expires_at timestamptz,
   created_at timestamp not null default now(),
-  updated_at timestamp not null default now()
+  updated_at timestamp not null default now(),
+  constraint canteen_menu_sources_claim_chk check (
+    (sync_claim_token is null) = (sync_claim_expires_at is null)
+  )
 );
 
 create table __SCHEMA__.canteen_menu_items (

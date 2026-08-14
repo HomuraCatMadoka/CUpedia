@@ -268,6 +268,7 @@ describe.skipIf(!hasDb)(
           provider: "pinme",
           externalStoreId: "store-a",
         });
+        const claimRunId = randomUUID();
         await client.query(
           `update ${fixture.schema}.canteen_menu_sources
          set last_attempt_id = $2,
@@ -276,9 +277,11 @@ describe.skipIf(!hasDb)(
              last_snapshot_hash = 'health-snapshot',
              observed_state = 'healthy',
              last_error_code = 'historical-code',
-             last_error = 'historical error detail'
+             last_error = 'historical error detail',
+             sync_claim_token = $2,
+             sync_claim_expires_at = '2026-08-15T08:00:00Z'
          where id = $1`,
-          [sourceId, randomUUID()],
+          [sourceId, claimRunId],
         );
         const itemId = await insertItem(fixture, {
           menuSourceId: sourceId,
@@ -309,6 +312,12 @@ describe.skipIf(!hasDb)(
           [randomUUID(), sourceId],
         );
         await client.query(
+          `insert into ${fixture.schema}.canteen_menu_sync_runs
+          (id, menu_source_id, status, observation)
+         values ($1, $2, 'running', '{"claim":"active"}')`,
+          [claimRunId, sourceId],
+        );
+        await client.query(
           `insert into ${fixture.schema}.__drizzle_migrations (hash, created_at)
          values ('migration-hash', 123456789)`,
         );
@@ -318,6 +327,19 @@ describe.skipIf(!hasDb)(
         const after = await snapshotProtectedTables(fixture.schema);
 
         expect(report.result).toBe(outcome);
+        expect(before.canteen_menu_sources).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              sync_claim_token: claimRunId,
+              sync_claim_expires_at: "2026-08-15T08:00:00+00:00",
+            }),
+          ]),
+        );
+        expect(before.canteen_menu_sync_runs).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: claimRunId, status: "running" }),
+          ]),
+        );
         expect(after).toEqual(before);
       },
     );
