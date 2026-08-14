@@ -12,6 +12,11 @@ export interface CameraPadding {
   left: number;
 }
 
+export interface CameraPoint {
+  x: number;
+  y: number;
+}
+
 export type CameraReason =
   | "map-selection"
   | "search-selection"
@@ -92,7 +97,11 @@ export function deriveCameraPadding(
 
   const width = occlusion.right - occlusion.left;
   const height = occlusion.bottom - occlusion.top;
-  if (width > height) {
+  const mapWidth = mapRect.right - mapRect.left;
+  const mapHeight = mapRect.bottom - mapRect.top;
+  const horizontalCoverage = width / mapWidth;
+  const verticalCoverage = height / mapHeight;
+  if (horizontalCoverage >= verticalCoverage) {
     const edge = nearestVerticalEdge(mapRect, occlusion);
     padding[edge] = height + safeGap;
   } else {
@@ -110,10 +119,9 @@ export function cameraPolicyFor(
   const padding = deriveCameraPadding(mapRect, panelRect);
   switch (reason) {
     case "map-selection":
+    case "facility-selection":
     case "sheet-layout":
       return { padding, zoom: { kind: "preserve" }, animate: true };
-    case "facility-selection":
-      return { padding, zoom: { kind: "fit", maxZoom: 18.5 }, animate: true };
     case "search-selection":
       return { padding, zoom: { kind: "fit", maxZoom: 17.2 }, animate: true };
     case "deep-link":
@@ -123,6 +131,40 @@ export function cameraPolicyFor(
     case "building-query":
       return null;
   }
+}
+
+/**
+ * Returns the nearest visible point for an anchor, or null when the anchor is
+ * already inside the padded viewport. This keeps preserve-zoom interactions
+ * stationary unless a panel or viewport edge actually obscures the target.
+ */
+export function nearestVisibleCameraPoint(
+  point: CameraPoint,
+  viewport: { width: number; height: number },
+  padding: CameraPadding,
+): CameraPoint | null {
+  if (
+    !Number.isFinite(point.x) ||
+    !Number.isFinite(point.y) ||
+    !Number.isFinite(viewport.width) ||
+    !Number.isFinite(viewport.height) ||
+    viewport.width <= 0 ||
+    viewport.height <= 0
+  ) {
+    return null;
+  }
+
+  const left = padding.left;
+  const right = viewport.width - padding.right;
+  const top = padding.top;
+  const bottom = viewport.height - padding.bottom;
+  if (left > right || top > bottom) return null;
+
+  const target = {
+    x: Math.min(Math.max(point.x, left), right),
+    y: Math.min(Math.max(point.y, top), bottom),
+  };
+  return target.x === point.x && target.y === point.y ? null : target;
 }
 
 /**

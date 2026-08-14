@@ -33,6 +33,7 @@ export interface CampusMapState {
 }
 
 export interface CampusMapCatalog {
+  categories?: readonly string[];
   buildings: Readonly<
     Record<string, { floorIds?: readonly string[] } | undefined>
   >;
@@ -67,7 +68,9 @@ export type CampusMapAction =
       position: readonly [number, number];
     }
   | { type: "close-selection" }
+  | { type: "return-to-building" }
   | { type: "set-map-category"; category: string | null }
+  | { type: "open-category-results"; category: string }
   | { type: "set-map-query"; query: string }
   | { type: "set-building-floor"; floorId: string | null }
   | { type: "set-building-amenity"; amenity: string | null }
@@ -114,6 +117,20 @@ function floorExists(
 ) {
   if (!floorId) return true;
   return catalog.buildings[buildingId]?.floorIds?.includes(floorId) ?? false;
+}
+
+function canonicalCategory(
+  value: string | null | undefined,
+  catalog: CampusMapCatalog,
+) {
+  const category = clean(value);
+  if (!category) return null;
+  const knownCategories =
+    catalog.categories ??
+    Object.values(catalog.facilities).flatMap((facility) =>
+      facility?.category ? [facility.category] : [],
+    );
+  return knownCategories.includes(category) ? category : null;
 }
 
 function selectionBuildingId(selection: CampusMapSelection) {
@@ -163,6 +180,11 @@ export function canonicalizeCampusMapState(
   }
 
   const buildingId = selectionBuildingId(selection);
+  const mapCategory = canonicalCategory(state.mapFilter.category, catalog);
+  const buildingAmenity = canonicalCategory(
+    state.buildingContext.amenity,
+    catalog,
+  );
   let floorId = clean(state.buildingContext.floorId);
   if (!buildingId || !floorExists(catalog, buildingId, floorId)) floorId = null;
 
@@ -184,21 +206,25 @@ export function canonicalizeCampusMapState(
 
   return {
     mapFilter: {
-      category: clean(state.mapFilter.category),
+      category: mapCategory,
       query: state.mapFilter.query.trim(),
     },
     selection,
     buildingContext: buildingId
       ? {
           floorId,
-          amenity: clean(state.buildingContext.amenity),
+          amenity: buildingAmenity,
           query: state.buildingContext.query.trim(),
         }
       : EMPTY_BUILDING_CONTEXT,
     sheet: {
       snap:
         selection.kind === "none"
-          ? "hidden"
+          ? mapCategory
+            ? state.sheet.snap === "full"
+              ? "full"
+              : "peek"
+            : "hidden"
           : state.sheet.snap === "hidden"
             ? "peek"
             : state.sheet.snap,
@@ -212,12 +238,6 @@ function parsedSnap(value: string | null): CampusMapSheetSnap {
     : "peek";
 }
 
-function finiteNumber(value: string | null) {
-  if (value === null || value.trim() === "") return null;
-  const result = Number(value);
-  return Number.isFinite(result) ? result : null;
-}
-
 export function parseCampusMapState(
   input: URLSearchParams | string,
   catalog: CampusMapCatalog,
@@ -229,9 +249,6 @@ export function parseCampusMapState(
   const buildingId = clean(params.get("building"));
   const facilityId = clean(params.get("facility"));
   const contentId = clean(params.get("content"));
-  const externalId = clean(params.get("external"));
-  const longitude = finiteNumber(params.get("lng"));
-  const latitude = finiteNumber(params.get("lat"));
 
   let selection: CampusMapSelection = buildingId
     ? { kind: "building", buildingId }
@@ -248,12 +265,6 @@ export function parseCampusMapState(
       buildingId: buildingId ?? "",
       contentKind: clean(params.get("contentKind")) ?? "unknown",
       contentId,
-    };
-  } else if (externalId && longitude !== null && latitude !== null) {
-    selection = {
-      kind: "external",
-      externalId,
-      position: [longitude, latitude],
     };
   }
 
@@ -290,10 +301,6 @@ export function serializeCampusMapState(state: CampusMapState) {
     params.set("building", state.selection.buildingId);
     params.set("contentKind", state.selection.contentKind);
     params.set("content", state.selection.contentId);
-  } else if (state.selection.kind === "external") {
-    params.set("external", state.selection.externalId);
-    params.set("lng", String(state.selection.position[0]));
-    params.set("lat", String(state.selection.position[1]));
   }
 
   if (selectionBuildingId(state.selection)) {
@@ -304,7 +311,11 @@ export function serializeCampusMapState(state: CampusMapState) {
     if (state.buildingContext.query)
       params.set("insideQuery", state.buildingContext.query);
   }
-  if (state.selection.kind !== "none") params.set("panel", state.sheet.snap);
+  if (
+    (state.selection.kind !== "none" && state.selection.kind !== "external") ||
+    state.mapFilter.category
+  )
+    params.set("panel", state.sheet.snap);
   return params;
 }
 
@@ -350,7 +361,7 @@ export function reduceCampusMapState(
           amenity: facility?.category ?? state.buildingContext.amenity,
           query: state.buildingContext.query,
         },
-        sheet: { snap: "full" },
+        sheet: { snap: "peek" },
       };
       history = "push";
       break;
@@ -385,7 +396,7 @@ export function reduceCampusMapState(
         buildingContext: EMPTY_BUILDING_CONTEXT,
         sheet: { snap: "peek" },
       };
-      history = "push";
+      history = "none";
       break;
     case "close-selection":
       next = {
@@ -394,18 +405,48 @@ export function reduceCampusMapState(
         buildingContext: EMPTY_BUILDING_CONTEXT,
         sheet: { snap: "hidden" },
       };
-      history = "push";
+      break;
+    case "return-to-building":
+      next =
+        state.selection.kind === "facility" ||
+        state.selection.kind === "content"
+          ? {
+              ...state,
+              selection: {
+                kind: "building",
+                buildingId: state.selection.buildingId,
+              },
+              sheet: { snap: "peek" },
+            }
+          : state;
       break;
     case "set-map-category":
       next = {
         ...state,
-        mapFilter: { ...state.mapFilter, category: action.category },
+        mapFilter: {
+          category: action.category,
+          query: action.category ? "" : state.mapFilter.query,
+        },
+        sheet: { snap: action.category ? "peek" : "hidden" },
       };
+      break;
+    case "open-category-results":
+      next = {
+        ...state,
+        mapFilter: { category: action.category, query: "" },
+        selection: { kind: "none" },
+        buildingContext: EMPTY_BUILDING_CONTEXT,
+        sheet: { snap: "peek" },
+      };
+      history = "push";
       break;
     case "set-map-query":
       next = {
         ...state,
-        mapFilter: { ...state.mapFilter, query: action.query },
+        mapFilter: {
+          category: action.query.trim() ? null : state.mapFilter.category,
+          query: action.query,
+        },
       };
       break;
     case "set-building-floor":

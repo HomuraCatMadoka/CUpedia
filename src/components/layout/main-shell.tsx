@@ -10,10 +10,12 @@ import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
 export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const focusedEditor = isFocusedWikiEditorRoute(pathname);
+  const focusedMapPrototype = pathname === "/prototype/campus-map";
+  const focusedSurface = focusedEditor || focusedMapPrototype;
 
   return (
     <>
-      {!focusedEditor && (
+      {!focusedSurface && (
         <>
           <a
             href="#main-content"
@@ -28,11 +30,12 @@ export function MainShell({ children }: { children: React.ReactNode }) {
         id="main-content"
         className={cn(
           "flex min-w-0",
-          focusedEditor
+          focusedSurface
             ? "min-h-dvh"
             : "min-h-[calc(100dvh-var(--navbar-height))]",
         )}
         data-focused-wiki-editor={focusedEditor ? "true" : undefined}
+        data-focused-map-prototype={focusedMapPrototype ? "true" : undefined}
       >
         {children}
       </main>
