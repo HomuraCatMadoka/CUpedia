@@ -57,6 +57,19 @@ same Aigens group.
    run stores bounded new/missing ID samples, counts and one-to-one same-name
    candidates. Suspected replacement or bulk churn fails closed: the last
    successful public menu remains visible and no vote/comment identity moves.
+8. Resolving a blocked identity transition requires a versioned artifact that
+   separates deterministic audit facts from reviewer decisions. The decisions
+   classify every missing and new identity exactly once as a UUID-preserving
+   replacement, expected addition, or expected removal. Application locks the
+   source and existing menu rows covered by the projection, verifies its locator
+   and exact before/after fingerprints, rejects
+   incomplete or ambiguous classifications, and then reuses the normal menu
+   writes in one transaction. The artifact is a one-snapshot authorization,
+   not a permanent alias or a relaxation of the global churn threshold.
+   The evaluator retains independent blocking reasons. This authorization is
+   only applicable when identity churn is present; after exact scope and removal
+   review it may resolve churn and suspicious-drop for that fingerprinted
+   snapshot, but never conflicts or a suspicious-drop-only snapshot.
 
 ## Consequences
 
@@ -71,6 +84,9 @@ same Aigens group.
   safe for recurring synchronization.
 - `externalSource` and `externalKey` remain rollout shadow columns for one
   compatibility release, but reconciliation does not read them as identity.
+- An approved identity transition becomes stale whenever the source or either
+  audited menu projection changes. Operators must regenerate and review it;
+  they cannot silently carry approval forward to a later provider snapshot.
 - Identity backfill and audited canteen provisioning use versioned Drizzle
   custom migrations because they must update existing UUID-addressed rows in
   place; generated schema DDL alone cannot express those data decisions.

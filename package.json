@@ -27,6 +27,8 @@
     "canteen:menu-source:set": "node --import tsx scripts/configure-canteen-menu-source.ts",
     "canteen:menu-source:report": "node --import tsx scripts/report-canteen-menu-sync-observations.ts",
     "canteen:menu-source:sync": "node --import tsx scripts/sync-canteen-menu-sources.ts",
+    "canteen:identity-transition:audit": "node --import tsx scripts/audit-canteen-menu-identity-transition.ts",
+    "canteen:identity-transition:apply": "node --import tsx scripts/apply-canteen-menu-identity-transition.ts",
     "oracle:check": "node --import tsx scripts/oracle-check.ts",
     "migrate-content": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts",
     "migrate-content:dry": "node --import tsx --import ./scripts/css-stub.mjs scripts/migrate-content.ts --dry-run",

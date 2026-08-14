@@ -12,6 +12,7 @@ import {
 } from "./canteen-menu-sync-observation";
 import {
   planMenuSync,
+  type ApprovedMenuIdentityReplacement,
   type ExistingSyncMenuItem,
   type MenuSyncPlan,
 } from "./canteen-menu-sync";
@@ -36,6 +37,11 @@ export type MenuSnapshotBlockingDecision =
       samples: RedactedMenuSample[];
     };
 
+export type MenuSnapshotBlockingReason = {
+  code: MenuSnapshotBlockingCode;
+  samples: RedactedMenuSample[];
+};
+
 export type MenuSnapshotEvaluation = {
   canonicalState: {
     input: MenuSyncInput;
@@ -43,6 +49,7 @@ export type MenuSnapshotEvaluation = {
   };
   plan: MenuSyncPlan;
   identityObservation: MenuIdentityObservation;
+  blockingReasons: MenuSnapshotBlockingReason[];
   blockingDecision: MenuSnapshotBlockingDecision;
 };
 
@@ -53,6 +60,7 @@ export function evaluateMenuSnapshot(
   source: ResolvedMenuSnapshotSource,
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
+  approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[] = [],
 ): MenuSnapshotEvaluation {
   const canonicalState = canonicalizeSourceProjection(
     source.id,
@@ -65,6 +73,7 @@ export function evaluateMenuSnapshot(
     canonicalState.input,
     canonicalState.existingItems,
     source.legacyAdoptionOpen,
+    approvedIdentityReplacements,
   );
   const managedIdentityProjection = canonicalState.existingItems.flatMap(
     (item) =>
@@ -85,7 +94,7 @@ export function evaluateMenuSnapshot(
     managedIdentityProjection,
     canonicalState.input.items,
   );
-  const blockingDecision = decideMenuSnapshotBlocking(
+  const blockingReasons = collectMenuSnapshotBlockingReasons(
     plan,
     identityObservation,
     activeManagedCount,
@@ -96,36 +105,40 @@ export function evaluateMenuSnapshot(
     canonicalState,
     plan,
     identityObservation,
-    blockingDecision,
+    blockingReasons,
+    blockingDecision: blockingDecisionFor(blockingReasons),
   };
 }
 
-function decideMenuSnapshotBlocking(
+function collectMenuSnapshotBlockingReasons(
   plan: MenuSyncPlan,
   observation: MenuIdentityObservation,
   activeManagedCount: number,
   incomingItemCount: number,
-): MenuSnapshotBlockingDecision {
+): MenuSnapshotBlockingReason[] {
+  const reasons: MenuSnapshotBlockingReason[] = [];
   if (plan.conflicts.length > 0) {
     const unsafeSamples = plan.conflicts.flatMap((conflict) => [
       conflict.externalProductId,
       ...conflict.candidateIds,
     ]);
-    return blockedWithRawSamples("MENU_SYNC_CONFLICT", unsafeSamples);
+    reasons.push(reasonWithRawSamples("MENU_SYNC_CONFLICT", unsafeSamples));
   }
   if (
     activeManagedCount > 0 &&
     isSuspiciousMenuIdentityChurn(observation, activeManagedCount)
   ) {
-    return blocked("MENU_SYNC_IDENTITY_CHURN", [
-      ...observation.newProductSamples,
-      ...observation.missingProductSamples,
-      ...observation.suspectedReplacementSamples.flatMap((replacement) => [
-        replacement.previousProductId,
-        replacement.nextProductId,
+    reasons.push(
+      reason("MENU_SYNC_IDENTITY_CHURN", [
+        ...observation.newProductSamples,
+        ...observation.missingProductSamples,
+        ...observation.suspectedReplacementSamples.flatMap((replacement) => [
+          replacement.previousProductId,
+          replacement.nextProductId,
+        ]),
+        ...observation.ambiguousOfferingTransitionSamples,
       ]),
-      ...observation.ambiguousOfferingTransitionSamples,
-    ]);
+    );
   }
   const deactivationCount = plan.actions.filter(
     (action) => action.action === "deactivate",
@@ -135,29 +148,51 @@ function decideMenuSnapshotBlocking(
     deactivationCount > 0 &&
     incomingItemCount * 2 <= activeManagedCount
   ) {
-    return blocked(
-      "MENU_SYNC_SUSPICIOUS_DROP",
-      observation.missingProductSamples,
+    reasons.push(
+      reason("MENU_SYNC_SUSPICIOUS_DROP", observation.missingProductSamples),
     );
   }
-  return { blocked: false, code: null, samples: [] };
+  return reasons;
 }
 
-function blockedWithRawSamples(
+function reasonWithRawSamples(
   code: MenuSnapshotBlockingCode,
   unsafeSamples: readonly string[],
-): MenuSnapshotBlockingDecision {
-  return blocked(code, unsafeSamples.map(redactMenuDiagnosticSample));
+): MenuSnapshotBlockingReason {
+  return reason(code, unsafeSamples.map(redactMenuDiagnosticSample));
 }
 
-function blocked(
+function reason(
   code: MenuSnapshotBlockingCode,
   samples: readonly RedactedMenuSample[],
-): MenuSnapshotBlockingDecision {
+): MenuSnapshotBlockingReason {
   return {
-    blocked: true,
     code,
     samples: [...new Set(samples)].slice(0, BLOCKING_SAMPLE_LIMIT),
+  };
+}
+
+export function blockingDecisionFor(
+  reasons: readonly MenuSnapshotBlockingReason[],
+): MenuSnapshotBlockingDecision {
+  const primary = reasons[0];
+  return primary
+    ? { blocked: true, code: primary.code, samples: primary.samples }
+    : { blocked: false, code: null, samples: [] };
+}
+
+export function resolveApprovedIdentityTransitionBlocking(
+  evaluation: MenuSnapshotEvaluation,
+): MenuSnapshotEvaluation {
+  const blockingReasons = evaluation.blockingReasons.filter(
+    (reason) =>
+      reason.code !== "MENU_SYNC_IDENTITY_CHURN" &&
+      reason.code !== "MENU_SYNC_SUSPICIOUS_DROP",
+  );
+  return {
+    ...evaluation,
+    blockingReasons,
+    blockingDecision: blockingDecisionFor(blockingReasons),
   };
 }
 
