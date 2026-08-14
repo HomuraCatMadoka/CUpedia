@@ -6,10 +6,22 @@ import {
   canteenMenuSyncRuns,
 } from "@/db/schema";
 import { and, eq, getTableColumns, inArray, lt, sql } from "drizzle-orm";
+import type { MenuSyncInput } from "@/lib/canteen-types";
+import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
+import {
+  commitClaimedRecurringMenuSync,
+  previewMenuSync,
+} from "./canteen-menu-sync-store";
+import type {
+  MenuSourceSyncResult,
+  NormalizedSyncCode,
+} from "./canteen-menu-source-sync";
+import { normalizeSyncErrorCode } from "./sync-error-code";
 
 const CLAIM_DURATION_MS = 2 * 60 * 1_000;
 const RUN_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+const MAX_ERROR_LENGTH = 1_000;
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
 const issuedClaims = new WeakSet<object>();
@@ -26,7 +38,7 @@ export type MenuSourceClaim = {
   readonly [menuSourceClaimBrand]: true;
 };
 
-export type MenuSourceClaimResult =
+type MenuSourceClaimResult =
   | { status: "claimed"; claim: MenuSourceClaim }
   | { status: "already-running"; runId: string; canteenId: string }
   | {
@@ -126,7 +138,7 @@ async function selectLockedSource(
   return source;
 }
 
-export async function acquireMenuSourceClaim(
+async function acquireMenuSourceClaim(
   sourceId: string,
 ): Promise<MenuSourceClaimResult> {
   return db.transaction(async (tx) => {
@@ -211,10 +223,6 @@ export async function lockMenuSourceClaim(
 ): Promise<LockedMenuSourceClaim | undefined> {
   const source = await selectLockedSource(tx, claim.source.id);
   return source && isCurrentClaim(source, claim) ? source : undefined;
-}
-
-export function assertIssuedMenuSourceClaim(claim: MenuSourceClaim): void {
-  if (!issuedClaims.has(claim)) throw new Error("MENU_SYNC_SUPERSEDED");
 }
 
 export async function finalizeLockedClaimedRun(
@@ -334,4 +342,149 @@ export async function finalizeClaimedRun(
     await finalizeLockedClaimedRun(tx, source, claim, outcome, fence);
     return true;
   });
+}
+
+function snapshotHash(input: unknown): string {
+  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
+}
+
+function safeError(error: unknown): string {
+  const message = error instanceof Error ? error.message : "UNKNOWN_SYNC_ERROR";
+  return message.slice(0, MAX_ERROR_LENGTH);
+}
+
+function errorCode(error: unknown): NormalizedSyncCode {
+  return normalizeSyncErrorCode(
+    error instanceof Error ? error.message : null,
+  ) as NormalizedSyncCode;
+}
+
+function supersededResult(claim: MenuSourceClaim): MenuSourceSyncResult {
+  return {
+    sourceId: claim.source.id,
+    canteenId: claim.source.canteenId,
+    runId: claim.runId,
+    status: "superseded",
+    code: "MENU_SYNC_SUPERSEDED",
+  };
+}
+
+async function finishClaimedSuperseded(claim: MenuSourceClaim): Promise<void> {
+  await finalizeClaimedRun(claim, { kind: "superseded" }, "token-only");
+}
+
+async function finalizeFailureResult(
+  claim: MenuSourceClaim,
+  error: unknown,
+  status: "provider-failure" | "internal-failure",
+  snapshot?: { hash: string; itemCount: number },
+): Promise<MenuSourceSyncResult> {
+  const code = errorCode(error);
+  if (code === "MENU_SYNC_SUPERSEDED") {
+    await finishClaimedSuperseded(claim);
+    return supersededResult(claim);
+  }
+  const finalized = await finalizeClaimedRun(claim, {
+    kind: "error",
+    code,
+    message: safeError(error),
+    snapshotHash: snapshot?.hash,
+    itemCount: snapshot?.itemCount,
+    observation: {},
+  });
+  if (!finalized) {
+    await finishClaimedSuperseded(claim);
+    return supersededResult(claim);
+  }
+  return {
+    sourceId: claim.source.id,
+    canteenId: claim.source.canteenId,
+    runId: claim.runId,
+    status,
+    code,
+  };
+}
+
+async function executeClaimedMenuSourceSync(
+  claim: MenuSourceClaim,
+): Promise<MenuSourceSyncResult> {
+  const { source, runId } = claim;
+
+  let input: MenuSyncInput;
+  try {
+    const fetched = await fetchMenuFromProvider(source);
+    input = { ...fetched, takeOverLegacyItems: false };
+    if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
+  } catch (error) {
+    return finalizeFailureResult(claim, error, "provider-failure");
+  }
+
+  const snapshot = {
+    hash: snapshotHash(input),
+    itemCount: input.items.length,
+  };
+  try {
+    const { previewToken } = await previewMenuSync(source.id, input);
+    const committed = await commitClaimedRecurringMenuSync(
+      input,
+      previewToken,
+      {
+        claim,
+        snapshotHash: snapshot.hash,
+        itemCount: snapshot.itemCount,
+      },
+    );
+    if (committed.status === "blocked") {
+      return {
+        sourceId: source.id,
+        canteenId: source.canteenId,
+        runId,
+        status: "blocked",
+        code: committed.evaluation.blockingDecision.code!,
+      };
+    }
+    return committed.status === "applied"
+      ? {
+          sourceId: source.id,
+          canteenId: source.canteenId,
+          runId,
+          status: "applied",
+          code: "MENU_SYNC_APPLIED",
+          itemCount: input.items.length,
+        }
+      : {
+          sourceId: source.id,
+          canteenId: source.canteenId,
+          runId,
+          status: "unchanged",
+          code: "MENU_SYNC_UNCHANGED",
+          itemCount: input.items.length,
+        };
+  } catch (error) {
+    return finalizeFailureResult(claim, error, "internal-failure", snapshot);
+  }
+}
+
+/** The only exported recurring operation; internal claim capabilities never escape. */
+export async function runMenuSourceSync(
+  sourceId: string,
+): Promise<MenuSourceSyncResult> {
+  const result = await acquireMenuSourceClaim(sourceId);
+  if (result.status === "unavailable") {
+    return {
+      sourceId,
+      status: "source-unavailable",
+      code: result.code,
+    };
+  }
+  if (result.status === "already-running") {
+    return {
+      sourceId,
+      canteenId: result.canteenId,
+      runId: result.runId,
+      status: "already-running",
+      code: "MENU_SYNC_ALREADY_RUNNING",
+    };
+  }
+  return executeClaimedMenuSourceSync(result.claim);
 }

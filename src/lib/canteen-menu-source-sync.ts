@@ -1,8 +1,7 @@
 import { db } from "@/db";
 import { canteenMenuSources } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { acquireMenuSourceClaim } from "./canteen-menu-source-claim-store";
-import { executeClaimedMenuSourceSync } from "./canteen-menu-sync-store";
+import { runMenuSourceSync } from "./canteen-menu-source-sync-runtime";
 
 const MAX_CONCURRENCY = 2;
 
@@ -63,24 +62,7 @@ export function isMenuSourceSyncFailure(result: MenuSourceSyncResult): boolean {
 export async function syncCanteenMenuSource(
   sourceId: string,
 ): Promise<MenuSourceSyncResult> {
-  const result = await acquireMenuSourceClaim(sourceId);
-  if (result.status === "unavailable") {
-    return {
-      sourceId,
-      status: "source-unavailable",
-      code: result.code,
-    };
-  }
-  if (result.status === "already-running") {
-    return {
-      sourceId,
-      canteenId: result.canteenId,
-      runId: result.runId,
-      status: "already-running",
-      code: "MENU_SYNC_ALREADY_RUNNING",
-    };
-  }
-  return executeClaimedMenuSourceSync(result.claim);
+  return runMenuSourceSync(sourceId);
 }
 
 export async function syncEnabledCanteenMenuSources(): Promise<

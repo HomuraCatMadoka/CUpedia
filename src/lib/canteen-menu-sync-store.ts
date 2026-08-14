@@ -18,23 +18,13 @@ import type {
   MenuItemPriceOptionInput,
   MenuSyncInput,
 } from "@/lib/canteen-types";
-import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
-  assertIssuedMenuSourceClaim,
-  finalizeClaimedRun,
   finalizeLockedClaimedRun,
   lockMenuSourceClaim,
   type MenuSourceClaim,
-} from "./canteen-menu-source-claim-store";
-import type {
-  MenuSourceSyncResult,
-  NormalizedSyncCode,
-} from "./canteen-menu-source-sync";
-import { normalizeSyncErrorCode } from "./sync-error-code";
+} from "./canteen-menu-source-sync-runtime";
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
-
-const MAX_ERROR_LENGTH = 1_000;
 
 type RecurringSyncCompletion = {
   claim: MenuSourceClaim;
@@ -483,7 +473,7 @@ export function applyPreviewedMenuSync(
   return applyMenuSync({ kind: "legacy", sourceId }, input, previewToken);
 }
 
-function commitClaimedRecurringMenuSync(
+export function commitClaimedRecurringMenuSync(
   input: MenuSyncInput,
   previewToken: unknown,
   completion: RecurringSyncCompletion,
@@ -492,127 +482,4 @@ function commitClaimedRecurringMenuSync(
     return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
   }
   return applyMenuSync({ kind: "recurring", completion }, input, previewToken);
-}
-
-function snapshotHash(input: unknown): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
-}
-
-function safeError(error: unknown): string {
-  const message = error instanceof Error ? error.message : "UNKNOWN_SYNC_ERROR";
-  return message.slice(0, MAX_ERROR_LENGTH);
-}
-
-function errorCode(error: unknown): NormalizedSyncCode {
-  return normalizeSyncErrorCode(
-    error instanceof Error ? error.message : null,
-  ) as NormalizedSyncCode;
-}
-
-function supersededResult(claim: MenuSourceClaim): MenuSourceSyncResult {
-  return {
-    sourceId: claim.source.id,
-    canteenId: claim.source.canteenId,
-    runId: claim.runId,
-    status: "superseded",
-    code: "MENU_SYNC_SUPERSEDED",
-  };
-}
-
-async function finishClaimedSuperseded(claim: MenuSourceClaim): Promise<void> {
-  await finalizeClaimedRun(claim, { kind: "superseded" }, "token-only");
-}
-
-async function finalizeFailureResult(
-  claim: MenuSourceClaim,
-  error: unknown,
-  status: "provider-failure" | "internal-failure",
-  snapshot?: { hash: string; itemCount: number },
-): Promise<MenuSourceSyncResult> {
-  const code = errorCode(error);
-  if (code === "MENU_SYNC_SUPERSEDED") {
-    await finishClaimedSuperseded(claim);
-    return supersededResult(claim);
-  }
-  const finalized = await finalizeClaimedRun(claim, {
-    kind: "error",
-    code,
-    message: safeError(error),
-    snapshotHash: snapshot?.hash,
-    itemCount: snapshot?.itemCount,
-    observation: {},
-  });
-  if (!finalized) {
-    await finishClaimedSuperseded(claim);
-    return supersededResult(claim);
-  }
-  return {
-    sourceId: claim.source.id,
-    canteenId: claim.source.canteenId,
-    runId: claim.runId,
-    status,
-    code,
-  };
-}
-
-/** Internal capability: executes only a claim acquired from persisted source state. */
-export async function executeClaimedMenuSourceSync(
-  claim: MenuSourceClaim,
-): Promise<MenuSourceSyncResult> {
-  assertIssuedMenuSourceClaim(claim);
-  const { source, runId } = claim;
-
-  let input: MenuSyncInput;
-  try {
-    const fetched = await fetchMenuFromProvider(source);
-    input = { ...fetched, takeOverLegacyItems: false };
-    if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
-  } catch (error) {
-    return finalizeFailureResult(claim, error, "provider-failure");
-  }
-
-  const snapshot = {
-    hash: snapshotHash(input),
-    itemCount: input.items.length,
-  };
-  try {
-    const { previewToken } = await previewMenuSync(source.id, input);
-    const committed = await commitClaimedRecurringMenuSync(
-      input,
-      previewToken,
-      {
-        claim,
-        snapshotHash: snapshot.hash,
-        itemCount: snapshot.itemCount,
-      },
-    );
-    if (committed.status === "blocked") {
-      return {
-        sourceId: source.id,
-        canteenId: source.canteenId,
-        runId,
-        status: "blocked",
-        code: committed.evaluation.blockingDecision.code!,
-      };
-    }
-    return committed.status === "applied"
-      ? {
-          sourceId: source.id,
-          canteenId: source.canteenId,
-          runId,
-          status: "applied",
-          code: "MENU_SYNC_APPLIED",
-          itemCount: input.items.length,
-        }
-      : {
-          sourceId: source.id,
-          canteenId: source.canteenId,
-          runId,
-          status: "unchanged",
-          code: "MENU_SYNC_UNCHANGED",
-          itemCount: input.items.length,
-        };
-  } catch (error) {
-    return finalizeFailureResult(claim, error, "internal-failure", snapshot);
-  }
 }

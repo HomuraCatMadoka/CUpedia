@@ -27,10 +27,10 @@ vi.mock("@/lib/canteen-menu-source-adapters", () => ({
 
 import { syncCanteenMenuSource } from "@/lib/canteen-menu-source-sync";
 import {
-  executeClaimedMenuSourceSync,
+  commitClaimedRecurringMenuSync,
   previewMenuSync,
 } from "@/lib/canteen-menu-sync-store";
-import type { MenuSourceClaim } from "@/lib/canteen-menu-source-claim-store";
+import type { MenuSourceClaim } from "@/lib/canteen-menu-source-sync-runtime";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -177,7 +177,7 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     expect(fetchMenuFromProvider).not.toHaveBeenCalled();
   });
 
-  it("rejects a structurally forged claim before provider fetch", async () => {
+  it("rejects a structurally forged recurring commit capability", async () => {
     const [source] = await db
       .select()
       .from(canteenMenuSources)
@@ -188,10 +188,17 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       sourceFingerprint: "caller-controlled-fingerprint",
     } as MenuSourceClaim;
 
-    await expect(executeClaimedMenuSourceSync(forgedClaim)).rejects.toThrow(
-      "MENU_SYNC_SUPERSEDED",
-    );
-    expect(fetchMenuFromProvider).not.toHaveBeenCalled();
+    await expect(
+      commitClaimedRecurringMenuSync(
+        buildPinmeMenuSyncPayload(pinmeCurrent),
+        "caller-controlled-preview-token",
+        {
+          claim: forgedClaim,
+          snapshotHash: "caller-controlled-snapshot",
+          itemCount: 1,
+        },
+      ),
+    ).rejects.toThrow("MENU_SYNC_SUPERSEDED");
   });
 
   it("reclaims an expired claim and fences the stale worker from menu and health", async () => {
