@@ -149,7 +149,7 @@ test.describe("#651 global single-row Header", () => {
     ).toBe(56);
   });
 
-  test("dark mode and reduced motion preserve the product menu", async ({
+  test("light, dark, system, and reduced motion preserve the product menu", async ({
     page,
   }) => {
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
@@ -163,6 +163,21 @@ test.describe("#651 global single-row Header", () => {
         (element) => getComputedStyle(element).animationName,
       ),
     ).toBe("none");
+
+    await dialog.getByRole("button", { name: "切换主题" }).click();
+    const lightTheme = page.getByRole("menuitemradio", { name: "亮色" });
+    await lightTheme.click();
+    await expect(page.locator("html")).not.toHaveClass(/dark/);
+
+    const darkTheme = page.getByRole("menuitemradio", { name: "暗色" });
+    await expect(darkTheme).toBeVisible();
+    await darkTheme.click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
+
+    const systemTheme = page.getByRole("menuitemradio", { name: "跟随系统" });
+    await expect(systemTheme).toBeVisible();
+    await systemTheme.click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
   });
 
   test("authenticated controls stay compact and overlays remain exclusive", async ({
