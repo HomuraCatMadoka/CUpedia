@@ -5,7 +5,7 @@ import {
   canteenMenuItems,
   canteenMenuSources,
 } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
 import {
@@ -18,8 +18,24 @@ import type {
   MenuItemPriceOptionInput,
   MenuSyncInput,
 } from "@/lib/canteen-types";
+import {
+  finalizeLockedClaimedRun,
+  lockMenuSourceClaim,
+  type MenuSourceClaim,
+} from "./canteen-menu-source-sync-runtime";
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
+
+type RecurringSyncCompletion = {
+  claim: MenuSourceClaim;
+  snapshotHash: string;
+  itemCount: number;
+};
+
+type RecurringMenuSyncCommit = {
+  status: "applied" | "unchanged" | "blocked";
+  evaluation: MenuSnapshotEvaluation;
+};
 
 type SyncMenuRow = {
   id: string;
@@ -213,26 +229,54 @@ function shadowSourceNamespace(source: MenuSourceRow): string {
   return `qmai:${sellerId.trim()}:${source.externalStoreId}`;
 }
 
+type MenuSyncApplyMode =
+  | { kind: "legacy"; sourceId: string }
+  | { kind: "recurring"; completion: RecurringSyncCompletion };
+
 async function applyMenuSync(
-  sourceId: string,
+  mode: { kind: "legacy"; sourceId: string },
   input: MenuSyncInput,
   expectedPreviewToken: unknown,
-  shouldRevalidate = true,
-  expectedAttemptId?: string,
-): Promise<MenuSnapshotEvaluation> {
-  const now = new Date();
+): Promise<MenuSnapshotEvaluation>;
+async function applyMenuSync(
+  mode: { kind: "recurring"; completion: RecurringSyncCompletion },
+  input: MenuSyncInput,
+  expectedPreviewToken: unknown,
+): Promise<RecurringMenuSyncCommit>;
+
+async function applyMenuSync(
+  mode: MenuSyncApplyMode,
+  input: MenuSyncInput,
+  expectedPreviewToken: unknown,
+): Promise<MenuSnapshotEvaluation | RecurringMenuSyncCommit> {
   const evaluationResult = await db.transaction(async (tx) => {
     // Lock the source first. This serializes even the very first sync, when no
     // managed menu rows exist yet, and fixes source/canteen ownership in DB.
-    const [source] = await tx
-      .select()
-      .from(canteenMenuSources)
-      .where(eq(canteenMenuSources.id, sourceId))
-      .for("update", { of: canteenMenuSources });
-    if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
-    if (expectedAttemptId && source.lastAttemptId !== expectedAttemptId) {
-      throw new Error("MENU_SYNC_SUPERSEDED");
+    const source =
+      mode.kind === "recurring"
+        ? await lockMenuSourceClaim(tx, mode.completion.claim)
+        : (
+            await tx
+              .select({
+                ...getTableColumns(canteenMenuSources),
+                databaseNow: sql<Date>`now()`.mapWith(
+                  canteenMenuSources.updatedAt,
+                ),
+                claimExpired: sql<boolean>`${canteenMenuSources.syncClaimExpiresAt} <= now()`,
+              })
+              .from(canteenMenuSources)
+              .where(eq(canteenMenuSources.id, mode.sourceId))
+              .for("update", { of: canteenMenuSources })
+          )[0];
+    const recurring = mode.kind === "recurring" ? mode.completion : null;
+    if (!source) {
+      throw new Error(
+        mode.kind === "recurring"
+          ? "MENU_SYNC_SUPERSEDED"
+          : "MENU_SOURCE_NOT_FOUND",
+      );
     }
+    const now = source.databaseNow;
     if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
       throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
     }
@@ -262,6 +306,18 @@ async function applyMenuSync(
     }
     const currentPlan = evaluation.plan;
     if (evaluation.blockingDecision.blocked) {
+      if (recurring) {
+        const code = evaluation.blockingDecision.code;
+        await finalizeLockedClaimedRun(tx, source, recurring.claim, {
+          kind: "error",
+          code,
+          message: code,
+          snapshotHash: recurring.snapshotHash,
+          itemCount: recurring.itemCount,
+          observation: evaluation.identityObservation,
+        });
+        return { status: "blocked" as const, evaluation };
+      }
       throw Object.assign(new Error(evaluation.blockingDecision.code), {
         evaluation,
         observation: evaluation.identityObservation,
@@ -371,12 +427,33 @@ async function applyMenuSync(
         .set({ legacyTakeoverAt: now, enabled: true, updatedAt: now })
         .where(eq(canteenMenuSources.id, source.id));
     }
+    if (recurring) {
+      const status: "applied" | "unchanged" =
+        currentPlan.actions.length === 0 ? "unchanged" : "applied";
+      await finalizeLockedClaimedRun(tx, source, recurring.claim, {
+        kind: "success",
+        status,
+        snapshotHash: recurring.snapshotHash,
+        itemCount: recurring.itemCount,
+        createdCount: currentPlan.actions.filter(
+          (action) => action.action === "create",
+        ).length,
+        updatedCount: currentPlan.actions.filter((action) =>
+          ["update", "reactivate", "claim"].includes(action.action),
+        ).length,
+        deactivatedCount: currentPlan.actions.filter(
+          (action) => action.action === "deactivate",
+        ).length,
+        observation: evaluation.identityObservation,
+      });
+      return { status, evaluation };
+    }
     return evaluation;
   });
 
-  if (shouldRevalidate) {
+  if (mode.kind === "legacy") {
     const source = await db.query.canteenMenuSources.findFirst({
-      where: eq(canteenMenuSources.id, sourceId),
+      where: eq(canteenMenuSources.id, mode.sourceId),
       columns: { canteenId: true },
     });
     if (source) {
@@ -393,17 +470,16 @@ export function applyPreviewedMenuSync(
   input: MenuSyncInput,
   previewToken: unknown,
 ): Promise<MenuSnapshotEvaluation> {
-  return applyMenuSync(sourceId, input, previewToken);
+  return applyMenuSync({ kind: "legacy", sourceId }, input, previewToken);
 }
 
-export function applyAutomatedMenuSync(
-  sourceId: string,
+export function commitClaimedRecurringMenuSync(
   input: MenuSyncInput,
   previewToken: unknown,
-  attemptId: string,
-): Promise<MenuSnapshotEvaluation> {
+  completion: RecurringSyncCompletion,
+): Promise<RecurringMenuSyncCommit> {
   if (input.takeOverLegacyItems) {
     return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
   }
-  return applyMenuSync(sourceId, input, previewToken, false, attemptId);
+  return applyMenuSync({ kind: "recurring", completion }, input, previewToken);
 }

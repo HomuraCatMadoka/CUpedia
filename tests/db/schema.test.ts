@@ -124,6 +124,8 @@ describe("schema", () => {
     expect(cols.enabled).toBeDefined();
     expect(cols.lastAttemptId).toBeDefined();
     expect(cols.lastAttemptAt).toBeDefined();
+    expect(cols.syncClaimToken).toBeDefined();
+    expect(cols.syncClaimExpiresAt).toBeDefined();
     expect(cols.lastSuccessAt).toBeDefined();
     expect(cols.lastSnapshotHash).toBeDefined();
     expect(cols.lastError).toBeDefined();
