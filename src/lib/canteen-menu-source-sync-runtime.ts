@@ -16,7 +16,6 @@ import type {
 import { normalizeSyncErrorCode } from "./sync-error-code";
 
 const CLAIM_DURATION_MS = 2 * 60 * 1_000;
-const RUN_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 const MAX_ERROR_LENGTH = 1_000;
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
@@ -134,9 +133,26 @@ async function selectLockedSource(
   return source;
 }
 
+async function pruneTerminalMenuSyncRuns(sourceId: string): Promise<void> {
+  await db
+    .delete(canteenMenuSyncRuns)
+    .where(
+      and(
+        eq(canteenMenuSyncRuns.menuSourceId, sourceId),
+        inArray(
+          canteenMenuSyncRuns.status,
+          CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
+        ),
+        lt(canteenMenuSyncRuns.startedAt, sql`now() - interval '30 days'`),
+      ),
+    );
+}
+
 async function acquireMenuSourceClaim(
   sourceId: string,
 ): Promise<MenuSourceClaimResult> {
+  await pruneTerminalMenuSyncRuns(sourceId);
+
   return db.transaction(async (tx) => {
     const source = await selectLockedSource(tx, sourceId);
     if (!source) {
@@ -175,21 +191,6 @@ async function acquireMenuSourceClaim(
           ),
         );
     }
-    await tx
-      .delete(canteenMenuSyncRuns)
-      .where(
-        and(
-          eq(canteenMenuSyncRuns.menuSourceId, source.id),
-          inArray(
-            canteenMenuSyncRuns.status,
-            CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
-          ),
-          lt(
-            canteenMenuSyncRuns.startedAt,
-            new Date(now.getTime() - RUN_RETENTION_MS),
-          ),
-        ),
-      );
     const [claimedSource] = await tx
       .update(canteenMenuSources)
       .set({
@@ -236,46 +237,42 @@ export async function finalizeLockedClaimedRun(
     throw new Error("MENU_SYNC_SUPERSEDED");
   }
   const now = source.databaseNow;
-  const sourceValues =
-    outcome.kind === "success"
-      ? {
-          lastSuccessAt: now,
-          lastSnapshotHash: outcome.snapshotHash,
-          observedState: "available",
-          lastErrorCode: null,
-          lastError: null,
-          syncClaimToken: null,
-          syncClaimExpiresAt: null,
-          updatedAt: now,
-        }
-      : outcome.kind === "error"
-        ? {
+  const { sourceValues, runValues } = (() => {
+    switch (outcome.kind) {
+      case "success":
+        return {
+          sourceValues: {
+            lastSuccessAt: now,
+            lastSnapshotHash: outcome.snapshotHash,
+            observedState: "available",
+            lastErrorCode: null,
+            lastError: null,
+            syncClaimToken: null,
+            syncClaimExpiresAt: null,
+            updatedAt: now,
+          },
+          runValues: {
+            status: outcome.status,
+            snapshotHash: outcome.snapshotHash,
+            itemCount: outcome.itemCount,
+            createdCount: outcome.createdCount,
+            updatedCount: outcome.updatedCount,
+            deactivatedCount: outcome.deactivatedCount,
+            observation: outcome.observation,
+            completedAt: now,
+          },
+        };
+      case "error":
+        return {
+          sourceValues: {
             observedState: "error",
             lastErrorCode: outcome.code,
             lastError: outcome.message,
             syncClaimToken: null,
             syncClaimExpiresAt: null,
             updatedAt: now,
-          }
-        : {
-            syncClaimToken: null,
-            syncClaimExpiresAt: null,
-            updatedAt: now,
-          };
-  const runValues =
-    outcome.kind === "success"
-      ? {
-          status: outcome.status,
-          snapshotHash: outcome.snapshotHash,
-          itemCount: outcome.itemCount,
-          createdCount: outcome.createdCount,
-          updatedCount: outcome.updatedCount,
-          deactivatedCount: outcome.deactivatedCount,
-          observation: outcome.observation,
-          completedAt: now,
-        }
-      : outcome.kind === "error"
-        ? {
+          },
+          runValues: {
             status: "failed" as const,
             snapshotHash: outcome.snapshotHash,
             itemCount: outcome.itemCount,
@@ -283,13 +280,24 @@ export async function finalizeLockedClaimedRun(
             errorCode: outcome.code,
             error: outcome.message,
             completedAt: now,
-          }
-        : {
+          },
+        };
+      case "superseded":
+        return {
+          sourceValues: {
+            syncClaimToken: null,
+            syncClaimExpiresAt: null,
+            updatedAt: now,
+          },
+          runValues: {
             status: "failed" as const,
             errorCode: "MENU_SYNC_SUPERSEDED",
             error: "MENU_SYNC_SUPERSEDED",
             completedAt: now,
-          };
+          },
+        };
+    }
+  })();
 
   const [updatedSource] = await tx
     .update(canteenMenuSources)

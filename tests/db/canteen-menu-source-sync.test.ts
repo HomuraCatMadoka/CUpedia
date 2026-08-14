@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { count, desc, eq, inArray, sql } from "drizzle-orm";
+import { Client } from "pg";
 import { db } from "@/db";
 import {
   canteenDishComments,
@@ -546,6 +547,72 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
         ]),
       );
     expect(retained.map((run) => run.id)).toEqual([oldRunningRunId]);
+  });
+
+  it("prunes run history before the short source-claim transaction", async () => {
+    const oldRunId = randomUUID();
+    await db.insert(canteenMenuSyncRuns).values({
+      id: oldRunId,
+      menuSourceId: sourceId,
+      status: "failed",
+      startedAt: sql`now() - interval '31 days'`,
+      completedAt: sql`now() - interval '31 days'`,
+    });
+    stubPinmeFetch(pinmeCurrent);
+
+    const blocker = new Client({ connectionString: process.env.DATABASE_URL });
+    const observer = new Client({ connectionString: process.env.DATABASE_URL });
+    const contender = new Client({
+      connectionString: process.env.DATABASE_URL,
+    });
+    await Promise.all([
+      blocker.connect(),
+      observer.connect(),
+      contender.connect(),
+    ]);
+    let sync: Promise<
+      Awaited<ReturnType<typeof syncCanteenMenuSource>>
+    > | null = null;
+    try {
+      await blocker.query("begin");
+      await blocker.query(
+        "lock table canteen_menu_sync_runs in access exclusive mode",
+      );
+      const blockerPid = await blocker.query<{ pid: number }>(
+        "select pg_backend_pid() as pid",
+      );
+      sync = syncCanteenMenuSource(sourceId);
+
+      await vi.waitFor(
+        async () => {
+          const waiting = await observer.query<{ waiting: string }>(
+            `select exists (
+               select 1
+                 from pg_stat_activity
+                where $1 = any(pg_blocking_pids(pid))
+                  and query like 'delete from "canteen_menu_sync_runs"%'
+             )::text as waiting`,
+            [blockerPid.rows[0]?.pid],
+          );
+          expect(waiting.rows[0]?.waiting).toBe("true");
+        },
+        { timeout: 2_000, interval: 20 },
+      );
+
+      await contender.query("begin");
+      await expect(
+        contender.query(
+          "select id from canteen_menu_sources where id = $1 for update nowait",
+          [sourceId],
+        ),
+      ).resolves.toMatchObject({ rowCount: 1 });
+      await contender.query("rollback");
+    } finally {
+      await contender.query("rollback").catch(() => undefined);
+      await blocker.query("rollback").catch(() => undefined);
+      await Promise.all([blocker.end(), observer.end(), contender.end()]);
+      if (sync) await sync;
+    }
   });
 
   it("keeps the last successful menu when a provider fixture has duplicates", async () => {
