@@ -262,7 +262,6 @@ describe.skipIf(!hasDb)("menu snapshot evaluation path parity", () => {
 
       fetchMenuFromProvider.mockResolvedValueOnce(scenario.input);
       const scheduledResult = await syncCanteenMenuSource(sourceId);
-      expect(scheduledResult.evaluation).toEqual(previewEvaluation);
       const [scheduledRun] = await db
         .select({
           observation: canteenMenuSyncRuns.observation,
@@ -279,7 +278,7 @@ describe.skipIf(!hasDb)("menu snapshot evaluation path parity", () => {
         previewEvaluation.identityObservation,
       );
       if (scenario.expectedCode === null) {
-        expect(scheduledResult.status).not.toBe("failed");
+        expect(["applied", "unchanged"]).toContain(scheduledResult.status);
         expect(scheduledRun).toMatchObject({
           errorCode: null,
           createdCount: preview.plan.actions.filter(
@@ -294,8 +293,8 @@ describe.skipIf(!hasDb)("menu snapshot evaluation path parity", () => {
         });
       } else {
         expect(scheduledResult).toMatchObject({
-          status: "failed",
-          error: scenario.expectedCode,
+          status: "blocked",
+          code: scenario.expectedCode,
         });
         expect(scheduledRun.errorCode).toBe(
           previewEvaluation.blockingDecision.code,

@@ -1709,6 +1709,12 @@ export const canteenMenuSources = pgTable(
     /** Identifies the latest worker attempt; health writes are conditional on it. */
     lastAttemptId: uuid("last_attempt_id"),
     lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    /** Durable lease token for the worker currently allowed to mutate this source. */
+    syncClaimToken: uuid("sync_claim_token"),
+    /** Database-time lease deadline; an expired claim may be atomically reclaimed. */
+    syncClaimExpiresAt: timestamp("sync_claim_expires_at", {
+      withTimezone: true,
+    }),
     lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
     lastSnapshotHash: text("last_snapshot_hash"),
     observedState: text("observed_state"),
@@ -1739,6 +1745,10 @@ export const canteenMenuSources = pgTable(
     check(
       "canteen_menu_sources_locator_chk",
       sql`(${table.provider} = 'qmai' and ${table.externalOwnerId} is not null and length(trim(${table.externalOwnerId})) between 1 and 200) or (${table.provider} <> 'qmai' and ${table.externalOwnerId} is null)`,
+    ),
+    check(
+      "canteen_menu_sources_claim_chk",
+      sql`(${table.syncClaimToken} is null) = (${table.syncClaimExpiresAt} is null)`,
     ),
   ],
 );

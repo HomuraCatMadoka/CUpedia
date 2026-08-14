@@ -1,0 +1,3 @@
+ALTER TABLE "canteen_menu_sources" ADD COLUMN "sync_claim_token" uuid;--> statement-breakpoint
+ALTER TABLE "canteen_menu_sources" ADD COLUMN "sync_claim_expires_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "canteen_menu_sources" ADD CONSTRAINT "canteen_menu_sources_claim_chk" CHECK (("canteen_menu_sources"."sync_claim_token" is null) = ("canteen_menu_sources"."sync_claim_expires_at" is null));
