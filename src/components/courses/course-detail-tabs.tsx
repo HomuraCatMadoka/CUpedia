@@ -32,7 +32,7 @@ export function CourseDetailTabs({
   return (
     <nav
       aria-label="课程详情内容"
-      className="sticky top-[100px] z-10 mt-6 bg-background/95 py-2 backdrop-blur-sm sm:top-14"
+      className="sticky top-[var(--navbar-height)] z-10 mt-6 bg-background/95 py-2 backdrop-blur-sm"
     >
       <div className="grid grid-cols-2 rounded-xl border border-foreground/15 bg-secondary/60 p-1">
         {tabs.map((tab) => {

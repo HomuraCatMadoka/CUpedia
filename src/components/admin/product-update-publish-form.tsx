@@ -193,7 +193,7 @@ export function ProductUpdatePublishForm() {
         </div>
       </form>
 
-      <aside className="rounded-xl border p-5 lg:sticky lg:top-20">
+      <aside className="rounded-xl border p-5 lg:sticky lg:top-[calc(var(--navbar-height)+1.5rem)]">
         <h2 className="font-semibold">发布检查</h2>
         <dl className="mt-4 divide-y text-sm">
           <div className="py-3">

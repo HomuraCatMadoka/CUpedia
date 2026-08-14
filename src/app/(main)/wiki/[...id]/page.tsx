@@ -258,7 +258,7 @@ export default async function WikiReadPage({
           TOC (a wide-screen reading aid) drops out there. See ADR 0010. */}
       {headings.length > 0 && (
         <nav
-          className="sticky top-14 hidden h-[calc(100vh-3.5rem)] w-[var(--toc-width)] shrink-0 overflow-y-auto border-l bg-[var(--sidebar-bg)] lg:block"
+          className="sticky top-[var(--navbar-height)] hidden h-[calc(100dvh-var(--navbar-height))] w-[var(--toc-width)] shrink-0 overflow-y-auto border-l bg-[var(--sidebar-bg)] lg:block"
           style={{ borderColor: "var(--sidebar-border-color)" }}
         >
           <PageToc

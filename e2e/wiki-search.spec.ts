@@ -38,7 +38,7 @@ test.describe("#92 wiki search returns correct results", () => {
   test("global search loads on demand and opens a result", async ({ page }) => {
     await page.goto("/wiki");
     await page.getByRole("button", { name: "搜索 (⌘K)" }).click();
-    await page.getByPlaceholder("搜索页面...").fill("Dining");
+    await page.getByPlaceholder("搜索百科页面...").fill("Dining");
 
     const result = page.getByRole("option", { name: /Dining on Campus/ });
     await expect(result).toBeVisible();

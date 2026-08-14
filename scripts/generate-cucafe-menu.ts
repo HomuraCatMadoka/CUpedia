@@ -3,7 +3,10 @@ import {
   assignMealPeriodSortOrder,
   parseAigensMenuProducts,
 } from "../src/lib/canteen-aigens-parse";
-import type { MealPeriodAssignment } from "../src/lib/canteen-types";
+import type {
+  MealPeriodAssignment,
+  MenuItemPriceOptionInput,
+} from "../src/lib/canteen-types";
 
 const STORE_ID = "112891";
 const ENDPOINT = `https://aigensstoreapp.appspot.com/api/v1/menu/store/${STORE_ID}.json?locale=default&open=true&menu=prekiosk&groupId=1000&country=hk`;
@@ -16,12 +19,7 @@ type MenuRow = {
   sortOrder: number;
   svgKey: string;
   pricing: {
-    options: Array<{
-      label: null;
-      amountMinor: number;
-      currency: "HKD";
-      sortOrder: number;
-    }>;
+    options: MenuItemPriceOptionInput[];
   };
 };
 
@@ -57,14 +55,7 @@ export function buildCucafeMenu(input: unknown): {
       sortOrder: 0,
       svgKey: product.svgKey,
       pricing: {
-        options: [
-          {
-            label: null,
-            amountMinor: product.amountMinor,
-            currency: "HKD" as const,
-            sortOrder: 0,
-          },
-        ],
+        options: product.priceOptions,
       },
     })),
     (item) => item.mealPeriods,
