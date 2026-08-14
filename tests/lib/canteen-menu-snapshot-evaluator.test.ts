@@ -226,6 +226,27 @@ describe("menu snapshot evaluator", () => {
     expect(result.blockingDecision.blocked).toBe(false);
   });
 
+  it("is deterministic when the persisted projection order changes", () => {
+    const persisted = ["old-a", "old-b", "old-c", "old-d"].map(
+      (externalProductId, index) =>
+        existing({
+          id: `item-${index}`,
+          externalProductId,
+          name: `旧菜品 ${externalProductId}`,
+        }),
+    );
+    const incoming = snapshot(
+      ["new-a", "new-b", "new-c", "new-d"].map((externalProductId) => ({
+        externalProductId,
+        name: `新菜品 ${externalProductId}`,
+      })),
+    );
+
+    expect(
+      evaluateMenuSnapshot(SOURCE, incoming, [...persisted].reverse()),
+    ).toEqual(evaluateMenuSnapshot(SOURCE, incoming, persisted));
+  });
+
   it.each([
     {
       name: "exact update",

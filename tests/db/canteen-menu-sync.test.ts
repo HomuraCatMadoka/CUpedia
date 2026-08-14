@@ -348,6 +348,64 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     },
   );
 
+  it("updates an exact identity without losing its UUID or history", async () => {
+    await db
+      .update(canteenMenuItems)
+      .set({
+        menuSourceId: sourceId,
+        externalProductId: "exact-product#offering-period=lunch",
+        externalSource: "aigens:102830",
+        externalKey: "exact-product#offering-period=lunch#period=lunch",
+      })
+      .where(eq(canteenMenuItems.id, itemId));
+    const snapshot = {
+      items: [
+        {
+          externalProductId: "exact-product#offering-period=lunch",
+          name: "更新后的菜品名称",
+          mealPeriods: ["lunch"],
+          svgKey: "更新分类",
+          pricing: {
+            options: [{ amountMinor: 1888, currency: "HKD" }],
+          },
+        },
+      ],
+    };
+    const preview = await previewMenuSyncFromJson(canteenId, snapshot);
+    expect(preview.plan.actions).toEqual([
+      expect.objectContaining({ action: "update", itemId }),
+    ]);
+
+    await applyMenuSyncFromJson(canteenId, snapshot, preview.previewToken);
+
+    const [updated] = await db
+      .select()
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.id, itemId));
+    expect(updated).toMatchObject({
+      id: itemId,
+      externalProductId: "exact-product#offering-period=lunch",
+      name: "更新后的菜品名称",
+      svgKey: "更新分类",
+    });
+    const [price] = await db
+      .select({ amountMinor: canteenMenuItemPrices.amountMinor })
+      .from(canteenMenuItemPrices)
+      .where(eq(canteenMenuItemPrices.menuItemId, itemId));
+    expect(price).toEqual({ amountMinor: 1888 });
+    const history = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, itemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, itemId)),
+    ]);
+    expect(history.map(([row]) => row.value)).toEqual([1, 1]);
+  });
+
   it("rejects missing and stale preview tokens before writing", async () => {
     const snapshot = {
       items: [

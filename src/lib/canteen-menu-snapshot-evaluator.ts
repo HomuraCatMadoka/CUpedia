@@ -167,7 +167,10 @@ function canonicalizeSourceProjection(
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
 ): MenuSnapshotEvaluation["canonicalState"] {
-  const managed = existingItems.filter(
+  const orderedExistingItems = [...existingItems].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  );
+  const managed = orderedExistingItems.filter(
     (item) => item.menuSourceId === sourceId,
   );
   const canonicalManaged = canonicalizeProviderMenuState(
@@ -180,7 +183,7 @@ function canonicalizeSourceProjection(
   );
   return {
     input: canonicalManaged.input,
-    existingItems: existingItems.map(
+    existingItems: orderedExistingItems.map(
       (item) => managedById.get(item.id) ?? item,
     ),
   };
