@@ -71,6 +71,7 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cuclaw_migration_test
       MIGRATION_COMPATIBILITY_TEST: "1"
+      MENU_IDENTITY_PREFLIGHT_TEST: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -85,8 +86,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Test legacy migration compatibility
-        run: pnpm exec vitest run tests/db/canteen-menu-source-migration.test.ts
+      - name: Test legacy migration and preflight compatibility
+        run: >-
+          pnpm exec vitest run
+          tests/db/canteen-menu-source-migration.test.ts
+          tests/db/canteen-menu-identity-preflight.test.ts
 
   menu-sync-integration:
     runs-on: ubuntu-latest

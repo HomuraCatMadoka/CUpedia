@@ -7,7 +7,8 @@ import {
 } from "@/db/schema";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
+import { createMenuExternalKey } from "./canteen-menu-external-key";
+import { projectProviderMenuSourceNamespace } from "./canteen-provider-menu-identity";
 import {
   evaluateMenuSnapshot,
   type MenuSnapshotEvaluation,
@@ -17,7 +18,7 @@ import type {
   MealPeriodAssignment,
   MenuItemPriceOptionInput,
   MenuSyncInput,
-} from "@/lib/canteen-types";
+} from "./canteen-types";
 import {
   finalizeLockedClaimedRun,
   lockMenuSourceClaim,
@@ -218,17 +219,6 @@ export async function previewMenuSync(
   };
 }
 
-function shadowSourceNamespace(source: MenuSourceRow): string {
-  if (source.provider !== "qmai") {
-    return `${source.provider}:${source.externalStoreId}`;
-  }
-  const sellerId = source.externalOwnerId;
-  if (!sellerId?.trim()) {
-    throw new Error("INVALID_MENU_SOURCE_CONFIG");
-  }
-  return `qmai:${sellerId.trim()}:${source.externalStoreId}`;
-}
-
 type MenuSyncApplyMode =
   | { kind: "legacy"; sourceId: string }
   | { kind: "recurring"; completion: RecurringSyncCompletion };
@@ -336,7 +326,10 @@ async function applyMenuSync(
         )
         .map((item) => [item.externalProductId!, item]),
     );
-    const shadowSource = shadowSourceNamespace(source);
+    const shadowSource = projectProviderMenuSourceNamespace(
+      source.provider,
+      source,
+    );
 
     for (const item of evaluation.canonicalState.input.items) {
       const action = actionByProduct.get(item.externalProductId);

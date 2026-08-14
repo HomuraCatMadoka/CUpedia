@@ -1,4 +1,4 @@
-import type { MealPeriodAssignment } from "@/lib/canteen-types";
+import { MEAL_PERIOD_VALUES, type MealPeriodAssignment } from "./canteen-types";
 
 const PERIOD_MARKER = "#period=";
 const AIGENS_OFFERING_PERIOD_MARKER = "#offering-period=";
@@ -17,10 +17,27 @@ export function createAigensOfferingId(
 export function aigensOfferingProductIdentity(
   externalProductId: string,
 ): string | null {
-  const match = externalProductId.match(
-    /^(.*)#offering-period=(breakfast|lunch|dinner|allday)$/,
+  return parseAigensOfferingId(externalProductId)?.productId ?? null;
+}
+
+export function parseAigensOfferingId(externalProductId: string): {
+  productId: string;
+  mealPeriod: MealPeriodAssignment;
+} | null {
+  const markerIndex = externalProductId.lastIndexOf(
+    AIGENS_OFFERING_PERIOD_MARKER,
   );
-  return match?.[1] || null;
+  if (
+    markerIndex <= 0 ||
+    externalProductId.indexOf(AIGENS_OFFERING_PERIOD_MARKER) !== markerIndex
+  ) {
+    return null;
+  }
+  const productId = externalProductId.slice(0, markerIndex);
+  const mealPeriod = externalProductId.slice(
+    markerIndex + AIGENS_OFFERING_PERIOD_MARKER.length,
+  );
+  return isMealPeriodAssignment(mealPeriod) ? { productId, mealPeriod } : null;
 }
 
 export type OfferingIdentityTransition = {
@@ -105,8 +122,31 @@ export function createMenuExternalKey(
   return `${identity}${PERIOD_MARKER}${[...mealPeriods].sort().join("+")}`;
 }
 
+export function parseMenuExternalKey(externalKey: string): {
+  productIdentity: string;
+  mealPeriods: MealPeriodAssignment[];
+} | null {
+  const markerIndex = externalKey.lastIndexOf(PERIOD_MARKER);
+  if (markerIndex <= 0 || externalKey.indexOf(PERIOD_MARKER) !== markerIndex) {
+    return null;
+  }
+  const productIdentity = externalKey.slice(0, markerIndex);
+  const mealPeriods = externalKey
+    .slice(markerIndex + PERIOD_MARKER.length)
+    .split("+");
+  if (!mealPeriods.every(isMealPeriodAssignment)) return null;
+  if (createMenuExternalKey(productIdentity, mealPeriods) !== externalKey) {
+    return null;
+  }
+  return { productIdentity, mealPeriods };
+}
+
 /** Product portion used only for unambiguous period-change reconciliation. */
 export function menuExternalProductIdentity(externalKey: string): string {
   const marker = externalKey.lastIndexOf(PERIOD_MARKER);
   return marker === -1 ? externalKey : externalKey.slice(0, marker);
+}
+
+function isMealPeriodAssignment(value: unknown): value is MealPeriodAssignment {
+  return (MEAL_PERIOD_VALUES as readonly unknown[]).includes(value);
 }

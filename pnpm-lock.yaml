@@ -252,6 +252,12 @@ importers:
       '@types/unist':
         specifier: ^3.0.3
         version: 3.0.3
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
+      ajv-formats:
+        specifier: ^3.0.1
+        version: 3.0.1(ajv@8.20.0)
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2

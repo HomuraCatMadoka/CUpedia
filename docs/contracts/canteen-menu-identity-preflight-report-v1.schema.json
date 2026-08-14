@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "canteen-menu-identity-preflight-report-v1.schema.json",
+  "title": "Canteen menu identity preflight report v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "contractVersion",
+    "targetIssue",
+    "applicationCommit",
+    "generatedAt",
+    "result",
+    "resultCode"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "canteen-menu-identity-preflight-report/v1"
+    },
+    "contractVersion": {
+      "const": "canteen-menu-identity-preconditions/v1"
+    },
+    "targetIssue": { "const": 643 },
+    "applicationCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,64}$|^unavailable$"
+    },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "result": { "enum": ["pass", "fail", "error"] },
+    "resultCode": {
+      "enum": [
+        "PREFLIGHT_SAFE",
+        "PREFLIGHT_UNSAFE",
+        "PREFLIGHT_CONFIGURATION_ERROR",
+        "PREFLIGHT_DATABASE_ERROR"
+      ]
+    },
+    "transaction": {
+      "type": "object",
+      "required": ["isolationLevel", "readOnly"],
+      "properties": {
+        "isolationLevel": { "const": "REPEATABLE READ" },
+        "readOnly": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "sampleLimit": { "const": 5 },
+    "totals": {
+      "type": "object",
+      "required": ["menuItems", "managedItems", "manualItems"],
+      "properties": {
+        "menuItems": { "type": "integer", "minimum": 0 },
+        "managedItems": { "type": "integer", "minimum": 0 },
+        "manualItems": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "status",
+          "count",
+          "voteCount",
+          "commentCount",
+          "samples"
+        ],
+        "properties": {
+          "code": {
+            "enum": [
+              "SOURCE_CANTEEN_OWNERSHIP_MISMATCH",
+              "AUTHORITATIVE_IDENTITY_NULL_ASYMMETRY",
+              "DUPLICATE_AUTHORITATIVE_IDENTITY",
+              "ROLLOUT_SHADOW_MISMATCH",
+              "UNSUPPORTED_LEGACY_IDENTITY",
+              "MERGE_OR_UUID_REPLACEMENT_REQUIRED"
+            ]
+          },
+          "status": { "enum": ["pass", "fail"] },
+          "count": { "type": "integer", "minimum": 0 },
+          "voteCount": { "type": "integer", "minimum": 0 },
+          "commentCount": { "type": "integer", "minimum": 0 },
+          "samples": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "required": ["rowFingerprint", "reason"],
+              "properties": {
+                "rowFingerprint": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{12}$"
+                },
+                "provider": {
+                  "enum": ["aigens", "ichef", "pinme", "qmai"]
+                },
+                "reason": {
+                  "enum": [
+                    "source-owner",
+                    "authoritative-null-asymmetry",
+                    "shadow-null-asymmetry",
+                    "unsupported-source-namespace",
+                    "unsupported-product-key",
+                    "shadow-authoritative-disagreement",
+                    "duplicate-authoritative-identity",
+                    "multiple-uuids-one-authoritative-identity",
+                    "multiple-uuids-one-projected-identity"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "result": { "const": "pass" } } },
+      "then": {
+        "required": ["transaction", "sampleLimit", "totals", "checks"],
+        "properties": {
+          "applicationCommit": { "pattern": "^[0-9a-f]{7,64}$" },
+          "resultCode": { "const": "PREFLIGHT_SAFE" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "fail" } } },
+      "then": {
+        "required": ["transaction", "sampleLimit", "totals", "checks"],
+        "properties": {
+          "applicationCommit": { "pattern": "^[0-9a-f]{7,64}$" },
+          "resultCode": { "const": "PREFLIGHT_UNSAFE" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "result": { "const": "error" } } },
+      "then": {
+        "properties": {
+          "resultCode": {
+            "enum": [
+              "PREFLIGHT_CONFIGURATION_ERROR",
+              "PREFLIGHT_DATABASE_ERROR"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}
