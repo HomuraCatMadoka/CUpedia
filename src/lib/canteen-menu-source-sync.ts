@@ -1,7 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { db } from "@/db";
-import { canteenMenuSources, canteenMenuSyncRuns } from "@/db/schema";
-import { and, eq, lt } from "drizzle-orm";
+import {
+  CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
+  canteenMenuSources,
+  canteenMenuSyncRuns,
+} from "@/db/schema";
+import { and, eq, inArray, lt } from "drizzle-orm";
 import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
   applyAutomatedMenuSync,
@@ -9,6 +13,7 @@ import {
 } from "./canteen-menu-sync-store";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
 import type { MenuSnapshotEvaluation } from "./canteen-menu-snapshot-evaluator";
+import { normalizeSyncErrorCode } from "./sync-error-code";
 
 const MAX_ERROR_LENGTH = 1_000;
 const MAX_CONCURRENCY = 2;
@@ -36,9 +41,7 @@ function safeError(error: unknown): string {
 }
 
 function errorCode(error: unknown): string {
-  const message = error instanceof Error ? error.message : "UNKNOWN_SYNC_ERROR";
-  const code = message.match(/^[A-Z][A-Z0-9_]*(?:_\d{3})?/)?.[0];
-  return code ?? "UNKNOWN_SYNC_ERROR";
+  return normalizeSyncErrorCode(error instanceof Error ? error.message : null);
 }
 
 /** Sync one source by stable DB identity; callers never supply a canteen ID. */
@@ -74,6 +77,10 @@ export async function syncCanteenMenuSource(
     .where(
       and(
         eq(canteenMenuSyncRuns.menuSourceId, source.id),
+        inArray(
+          canteenMenuSyncRuns.status,
+          CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
+        ),
         lt(
           canteenMenuSyncRuns.startedAt,
           new Date(attemptedAt.getTime() - RUN_RETENTION_MS),

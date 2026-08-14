@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { and, count, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   canteenDishComments,
@@ -157,6 +157,45 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       snapshotHash: expect.stringMatching(/^[a-f0-9]{64}$/),
       itemCount: 1,
     });
+  });
+
+  it("retains unfinished runs while pruning expired completed history", async () => {
+    const olderThanRetention = new Date(Date.now() - 31 * 24 * 60 * 60 * 1_000);
+    const oldRunningRunId = randomUUID();
+    const oldTerminalRuns = [
+      { id: randomUUID(), status: "applied" as const },
+      { id: randomUUID(), status: "unchanged" as const },
+      { id: randomUUID(), status: "failed" as const },
+    ];
+    await db.insert(canteenMenuSyncRuns).values([
+      {
+        id: oldRunningRunId,
+        menuSourceId: sourceId,
+        status: "running",
+        startedAt: olderThanRetention,
+      },
+      ...oldTerminalRuns.map(({ id, status }) => ({
+        id,
+        menuSourceId: sourceId,
+        status,
+        startedAt: olderThanRetention,
+        completedAt: new Date(olderThanRetention.getTime() + 1_000),
+      })),
+    ]);
+    stubPinmeFetch(pinmeCurrent);
+
+    await syncCanteenMenuSource(sourceId);
+
+    const retained = await db
+      .select({ id: canteenMenuSyncRuns.id })
+      .from(canteenMenuSyncRuns)
+      .where(
+        inArray(canteenMenuSyncRuns.id, [
+          oldRunningRunId,
+          ...oldTerminalRuns.map((run) => run.id),
+        ]),
+      );
+    expect(retained.map((run) => run.id)).toEqual([oldRunningRunId]);
   });
 
   it("keeps the last successful menu when a provider fixture has duplicates", async () => {
