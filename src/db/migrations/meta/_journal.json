@@ -575,6 +575,13 @@
       "when": 1786640542977,
       "tag": "0081_preserve-provider-menu-offering-identity",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1786670330034,
+      "tag": "0082_bright_photon",
+      "breakpoints": true
     }
   ]
 }
