@@ -9,10 +9,6 @@ import { and, eq, getTableColumns, inArray, lt, sql } from "drizzle-orm";
 import type { MenuSyncInput } from "@/lib/canteen-types";
 import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
-import {
-  commitClaimedRecurringMenuSync,
-  previewMenuSync,
-} from "./canteen-menu-sync-store";
 import type {
   MenuSourceSyncResult,
   NormalizedSyncCode,
@@ -424,6 +420,10 @@ async function executeClaimedMenuSourceSync(
     itemCount: input.items.length,
   };
   try {
+    // The store imports claim fencing from this runtime. Load persistence only
+    // after this module is initialized so the ESM dependency graph stays acyclic.
+    const { commitClaimedRecurringMenuSync, previewMenuSync } =
+      await import("./canteen-menu-sync-store");
     const { previewToken } = await previewMenuSync(source.id, input);
     const committed = await commitClaimedRecurringMenuSync(
       input,
