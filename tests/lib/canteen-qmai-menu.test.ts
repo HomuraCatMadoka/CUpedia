@@ -1,51 +1,38 @@
 import { describe, expect, it, vi } from "vitest";
 import { fetchQmaiMenu } from "@/lib/canteen-menu-source-adapters";
 import { buildQmaiMenuSyncPayload } from "@/lib/canteen-qmai-menu";
+import qmaiCurrent from "./fixtures/canteen-providers/qmai-current.json";
 
-const menuResponse = {
-  code: "0",
-  status: true,
-  data: {
-    categoryItems: [
-      {
-        categoryName: "特色餐-西北麵",
-        available: 1,
-        itemList: [
-          {
-            goodsId: "goods-1",
-            name: "牛肉麵",
-            stockStatus: 1,
-            totalInventory: 10,
-            saleTime: {
-              weekTimeList: [{ startTime: "11:00", endTime: "14:30" }],
-            },
-            skuList: [
-              {
-                skuId: "sku-1",
-                salePrice: 35,
-                skuItemList: [{ itemName: "細麵" }],
-              },
-              {
-                skuId: "sku-2",
-                salePrice: 38,
-                skuItemList: [{ itemName: "粗麵" }],
-              },
-            ],
-          },
-          {
-            goodsId: "sold-out",
-            name: "售罄商品",
-            stockStatus: 0,
-            totalInventory: 0,
-            skuList: [{ skuId: "sku-3", salePrice: 20 }],
-          },
-        ],
-      },
-    ],
-  },
-};
+const menuResponse = qmaiCurrent;
 
 describe("Qmai menu adapter", () => {
+  it("fails closed when the same goods ID repeats in one sale period", () => {
+    const duplicateResponse = structuredClone(menuResponse);
+    const item = duplicateResponse.data.categoryItems[0].itemList[0];
+    duplicateResponse.data.categoryItems[0].itemList.unshift(
+      structuredClone(item),
+    );
+    expect(() => buildQmaiMenuSyncPayload(duplicateResponse)).toThrowError(
+      expect.objectContaining({ code: "DUPLICATE_IDENTITY" }),
+    );
+  });
+
+  it("merges the same goods ID across disjoint sale periods", () => {
+    const repeatedResponse = structuredClone(menuResponse);
+    const dinnerItem = structuredClone(
+      repeatedResponse.data.categoryItems[0].itemList[0],
+    );
+    dinnerItem.saleTime = {
+      weekTimeList: [{ startTime: "17:00", endTime: "20:00" }],
+    };
+    repeatedResponse.data.categoryItems[0].itemList.push(dinnerItem);
+
+    expect(buildQmaiMenuSyncPayload(repeatedResponse).items[0]).toMatchObject({
+      externalProductId: "goods-1",
+      mealPeriods: ["lunch", "dinner"],
+    });
+  });
+
   it("normalizes available products, variants, and sale windows", () => {
     const result = buildQmaiMenuSyncPayload(menuResponse);
 
@@ -124,6 +111,51 @@ describe("Qmai menu adapter", () => {
         name: "牛肉麵",
       }),
     ]);
+  });
+
+  it("fails closed when available duplicate IDs disagree", () => {
+    const duplicateResponse = structuredClone(menuResponse);
+    const collidingItem = structuredClone(
+      duplicateResponse.data.categoryItems[0].itemList[0],
+    );
+    collidingItem.name = "身份碰撞菜品";
+    collidingItem.skuList = [
+      {
+        skuId: "collision",
+        salePrice: 99,
+        skuItemList: [{ itemName: "碰撞規格" }],
+      },
+    ];
+    duplicateResponse.data.categoryItems.push({
+      available: 1,
+      categoryName: "另一分類",
+      itemList: [collidingItem],
+    });
+    expect(() => buildQmaiMenuSyncPayload(duplicateResponse)).toThrowError(
+      expect.objectContaining({ code: "COLLIDING_IDENTITY" }),
+    );
+  });
+
+  it("fails closed when an available item ID is empty", () => {
+    const malformed = structuredClone(menuResponse);
+    malformed.data.categoryItems[0].itemList[0].goodsId = "";
+    expect(() => buildQmaiMenuSyncPayload(malformed)).toThrowError(
+      expect.objectContaining({ code: "EMPTY_IDENTITY" }),
+    );
+  });
+
+  it("does not substitute an undeclared item ID for the goods ID", () => {
+    const malformed = structuredClone(menuResponse);
+    const item = malformed.data.categoryItems[0].itemList[0] as {
+      goodsId?: string;
+      id?: string;
+    };
+    delete item.goodsId;
+    item.id = "tempting-fallback";
+
+    expect(() => buildQmaiMenuSyncPayload(malformed)).toThrowError(
+      expect.objectContaining({ code: "EMPTY_IDENTITY" }),
+    );
   });
 
   it("rejects malformed business responses", () => {

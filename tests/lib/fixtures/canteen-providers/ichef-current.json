@@ -1,0 +1,46 @@
+{
+  "menuHoursResponse": {
+    "data": {
+      "restaurant": {
+        "onlineOrderingMenu": {
+          "menuHoursSnapshot": [
+            {
+              "startTime": "08:00",
+              "endTime": "10:30",
+              "categorySnapshotUuids": ["breakfast"]
+            },
+            {
+              "startTime": "11:00",
+              "endTime": "20:00",
+              "categorySnapshotUuids": ["daytime"]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "categoriesResponse": {
+    "data": {
+      "restaurant": {
+        "onlineOrderingMenu": {
+          "categoriesSnapshot": [
+            {
+              "uuid": "breakfast",
+              "name": "飯類",
+              "menuItemsSnapshot": [
+                { "uuid": "item-1", "name": "雞扒飯", "price": 32 }
+              ]
+            },
+            {
+              "uuid": "daytime",
+              "name": "飯類",
+              "menuItemsSnapshot": [
+                { "uuid": "item-1", "name": "雞扒飯", "price": 32 }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}

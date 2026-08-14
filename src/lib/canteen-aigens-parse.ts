@@ -1,5 +1,9 @@
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import {
+  assertCompatibleProviderIdentityOccurrence,
+  assertProviderMenuIdentityItems,
+} from "./canteen-provider-menu-identity";
+import {
   ALLDAY_MEAL_PERIOD,
   primaryMealPeriodSortKey,
   type MealPeriod,
@@ -8,7 +12,6 @@ import {
 
 export type AigensItem = {
   backendId?: string;
-  id?: string;
   name?: string;
   price?: number;
   published?: boolean;
@@ -128,7 +131,7 @@ export function parseAigensMenuProducts(
     groups.filter((group) => group.id).map((group) => [group.id!, group]),
   );
   const products: AigensParsedProduct[] = [];
-  const seen = new Set<string>();
+  const seen = new Map<string, AigensParsedProduct>();
 
   for (const category of categories) {
     if (!category.name || options.excludedCategories.has(category.name)) {
@@ -151,8 +154,14 @@ export function parseAigensMenuProducts(
 
     for (const item of primaryGroup.items) {
       if (isSkippableItem(item)) continue;
-      const backendId = String(item.backendId ?? item.id ?? "").trim();
-      if (!backendId) continue;
+      const backendId = String(item.backendId ?? "").trim();
+      assertProviderMenuIdentityItems("aigens", [
+        {
+          externalProductId: backendId
+            ? `${backendId}#offering-period=${periods[0]}`
+            : "",
+        },
+      ]);
       const name = item.name!.trim().replace(/\s+/g, " ");
       const amountMinor = parseAigensPrice(item.price);
       const svgKey = resolveMenuSectionKey({
@@ -162,16 +171,37 @@ export function parseAigensMenuProducts(
 
       for (const mealPeriod of periods) {
         const dedupeKey = `${backendId}:${mealPeriod}`;
-        if (seen.has(dedupeKey)) continue;
-        seen.add(dedupeKey);
-        products.push({
+        const product = {
           backendId,
           name,
           categoryName: category.name,
           amountMinor,
           periods: [mealPeriod],
           svgKey,
-        });
+        } satisfies AigensParsedProduct;
+        const existing = seen.get(dedupeKey);
+        if (existing) {
+          assertCompatibleProviderIdentityOccurrence(
+            "aigens",
+            {
+              externalProductId: `${existing.backendId}#offering-period=${mealPeriod}`,
+              name: existing.name,
+              priceOptions: [{ amountMinor: existing.amountMinor }],
+              mealPeriods: [mealPeriod],
+              svgKey: existing.svgKey,
+            },
+            {
+              externalProductId: `${backendId}#offering-period=${mealPeriod}`,
+              name,
+              priceOptions: [{ amountMinor }],
+              mealPeriods: [mealPeriod],
+              svgKey,
+            },
+          );
+          continue;
+        }
+        seen.set(dedupeKey, product);
+        products.push(product);
       }
     }
   }

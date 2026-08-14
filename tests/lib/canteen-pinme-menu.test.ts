@@ -5,8 +5,113 @@ import {
 } from "@/lib/canteen-pinme-menu";
 import { fetchPinmeMenu } from "@/lib/canteen-menu-source-adapters";
 import { vi } from "vitest";
+import pinmeCurrent from "./fixtures/canteen-providers/pinme-current.json";
 
 describe("PINME menu adapter", () => {
+  it("fails closed when the same product repeats in one meal-period group", () => {
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+      price: 10,
+    };
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [{ local_name: "A", products: [product, product] }],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
+  it.each([
+    [
+      "partially overlap",
+      { start_time: "08:00", end_time: "14:00" },
+      { start_time: "14:00", end_time: "20:00" },
+    ],
+    [
+      "combine all-day with a specific period",
+      {},
+      { start_time: "11:00", end_time: "14:00" },
+    ],
+  ])("fails closed when repeated product periods %s", (_, first, second) => {
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+      price: 10,
+    };
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [
+            { local_name: "A", ...first, products: [product] },
+            { local_name: "A", ...second, products: [product] },
+          ],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
+  it("fails closed when a later occurrence repeats an accumulated period", () => {
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+      price: 10,
+    };
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [
+            {
+              local_name: "A",
+              start_time: "07:00",
+              end_time: "10:00",
+              products: [product],
+            },
+            {
+              local_name: "A",
+              start_time: "11:00",
+              end_time: "16:00",
+              products: [product],
+            },
+            {
+              local_name: "A",
+              start_time: "08:00",
+              end_time: "10:00",
+              products: [product],
+            },
+          ],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  });
+
+  it("fails closed when two rows publish the same product identity", () => {
+    const duplicate = {
+      code: 200,
+      data: {
+        group: [
+          {
+            local_name: "A",
+            products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
+          },
+          {
+            local_name: "B",
+            products: [{ product_id: "42", local_name: "菜品 B", price: 20 }],
+          },
+        ],
+      },
+    };
+    expect(() => buildPinmeMenuSyncPayload(duplicate)).toThrowError(
+      expect.objectContaining({ code: "COLLIDING_IDENTITY" }),
+    );
+  });
   it("creates deterministic signed anonymous token params", () => {
     expect(Object.fromEntries(createPinmeSignedParams("5500", 123))).toEqual({
       store_id: "5500",
@@ -15,33 +120,21 @@ describe("PINME menu adapter", () => {
     });
   });
 
+  it("fails closed instead of using a product name when ID is missing", () => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          group: [
+            { products: [{ local_name: "不能當 ID", status: "1", price: 10 }] },
+          ],
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "EMPTY_IDENTITY" }));
+  });
+
   it("normalizes groups, products and price variants", () => {
-    const result = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: {
-        group: [
-          {
-            local_name: "粉麵",
-            start_time: "11:00",
-            end_time: "20:00",
-            products: [
-              {
-                product_id: "425657",
-                status: "1",
-                local_name: "喇沙魚旦烏冬",
-                prices: [
-                  {
-                    status: "1",
-                    takeout_price: "46.0000",
-                    productStandardItem: { local_name: "標準" },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    });
+    const result = buildPinmeMenuSyncPayload(pinmeCurrent);
     expect(result.items).toEqual([
       expect.objectContaining({
         externalProductId: "425657",
@@ -66,13 +159,13 @@ describe("PINME menu adapter", () => {
       data: {
         group: [
           {
-            local_name: "早餐",
+            local_name: "飲品",
             start_time: "07:00",
             end_time: "11:00",
             products: [product],
           },
           {
-            local_name: "下午茶",
+            local_name: "飲品",
             start_time: "14:00",
             end_time: "18:00",
             products: [product],
@@ -98,28 +191,7 @@ describe("PINME menu adapter", () => {
           JSON.stringify({ code: 200, data: { token: "temporary" } }),
         ),
       )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            code: 200,
-            data: {
-              group: [
-                {
-                  local_name: "飯類",
-                  products: [
-                    {
-                      product_id: "1",
-                      status: "1",
-                      local_name: "叉燒飯",
-                      price: "38.0000",
-                    },
-                  ],
-                },
-              ],
-            },
-          }),
-        ),
-      );
+      .mockResolvedValueOnce(new Response(JSON.stringify(pinmeCurrent)));
 
     const payload = await fetchPinmeMenu("5500", { fetchImpl });
     expect(payload.items).toHaveLength(1);

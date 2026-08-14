@@ -1,0 +1,36 @@
+{
+  "providers": [
+    {
+      "provider": "pinme",
+      "source": { "externalStoreId": "5198" },
+      "current": "425657",
+      "historical": ["425657#period=lunch+dinner", "425657:lunch"],
+      "canonical": "425657",
+      "periodChangeCreatesOffering": false
+    },
+    {
+      "provider": "ichef",
+      "source": { "externalStoreId": "UQftKWxU" },
+      "current": "item-1",
+      "historical": ["item-1#period=breakfast+lunch"],
+      "canonical": "item-1",
+      "periodChangeCreatesOffering": false
+    },
+    {
+      "provider": "qmai",
+      "source": { "externalOwnerId": "221033", "externalStoreId": "331725" },
+      "current": "goods-1",
+      "historical": ["goods-1#period=lunch"],
+      "canonical": "goods-1",
+      "periodChangeCreatesOffering": false
+    },
+    {
+      "provider": "aigens",
+      "source": { "externalStoreId": "102830" },
+      "current": "42#offering-period=lunch",
+      "historical": ["42:lunch", "42#period=lunch"],
+      "canonical": "42#offering-period=lunch",
+      "periodChangeCreatesOffering": true
+    }
+  ]
+}

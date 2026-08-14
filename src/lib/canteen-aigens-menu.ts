@@ -3,6 +3,7 @@ import {
   parseAigensMenuProducts,
 } from "@/lib/canteen-aigens-parse";
 import { createAigensOfferingId } from "@/lib/canteen-menu-external-key";
+import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import type { MenuSyncInput } from "./canteen-types";
 
 const EXCLUDED_CATEGORIES = new Set(["飲品", "零食", "外賣包裝"]);
@@ -33,6 +34,8 @@ export function buildAigensMenuSyncPayload(input: unknown): MenuSyncInput {
     })),
     (item) => item.mealPeriods,
   );
+
+  assertProviderMenuIdentityItems("aigens", items);
 
   return {
     takeOverLegacyItems: false,

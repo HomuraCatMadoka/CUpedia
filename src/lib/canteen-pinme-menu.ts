@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
 import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
+import {
+  assertCompatibleProviderIdentityOccurrence,
+  assertProviderMenuIdentityItems,
+} from "./canteen-provider-menu-identity";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type {
   MenuSyncInput,
@@ -101,6 +105,11 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       const product = object(productValue);
       const externalProductId = text(product?.product_id);
       const name = text(product?.local_name ?? product?.en_name);
+      if (product && text(product.status) !== "0") {
+        assertProviderMenuIdentityItems("pinme", [
+          { externalProductId: externalProductId ?? "" },
+        ]);
+      }
       if (
         !product ||
         !externalProductId ||
@@ -111,6 +120,14 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
       }
       const existing = byProductId.get(externalProductId);
       if (existing) {
+        const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
+        assertCompatibleProviderIdentityOccurrence("pinme", existing, {
+          externalProductId,
+          name,
+          priceOptions: priceOptions(product),
+          mealPeriods,
+          svgKey,
+        });
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...mealPeriods]),
         ];
@@ -130,6 +147,7 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
     sortOrder: 0,
   }));
   if (items.length === 0) throw new Error("EMPTY_PINME_MENU");
+  assertProviderMenuIdentityItems("pinme", items);
   return {
     takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),

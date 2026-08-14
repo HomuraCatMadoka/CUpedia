@@ -1,5 +1,9 @@
 import { assignMealPeriodSortOrder } from "@/lib/canteen-aigens-parse";
 import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
+import {
+  assertCompatibleProviderIdentityOccurrence,
+  assertProviderMenuIdentityItems,
+} from "./canteen-provider-menu-identity";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type {
   MealPeriodAssignment,
@@ -123,15 +127,27 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
     if (!Array.isArray(category.itemList)) throw new Error("INVALID_QMAI_MENU");
     for (const itemValue of category.itemList) {
       const item = object(itemValue);
-      const externalProductId = text(item?.goodsId ?? item?.id);
+      const externalProductId = text(item?.goodsId);
       const name = text(item?.name ?? item?.goodsName);
-      if (!item || !externalProductId || !name) continue;
+      if (!item) continue;
       if (!isAvailable(item)) continue;
+      assertProviderMenuIdentityItems("qmai", [
+        { externalProductId: externalProductId ?? "" },
+      ]);
+      if (!externalProductId || !name) continue;
       const options = priceOptions(item);
       if (options.length === 0) continue;
       const periods = mealPeriods(item);
       const existing = candidates.get(externalProductId);
       if (existing) {
+        const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
+        assertCompatibleProviderIdentityOccurrence("qmai", existing, {
+          externalProductId,
+          name,
+          priceOptions: options,
+          mealPeriods: periods,
+          svgKey,
+        });
         existing.mealPeriods = [
           ...new Set([...existing.mealPeriods, ...periods]),
         ];
@@ -149,6 +165,7 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
   }
   const items = [...candidates.values()];
   if (items.length === 0) throw new Error("EMPTY_QMAI_MENU");
+  assertProviderMenuIdentityItems("qmai", items);
   return {
     takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
