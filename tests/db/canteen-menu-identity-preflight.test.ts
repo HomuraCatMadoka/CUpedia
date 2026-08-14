@@ -576,7 +576,8 @@ describe.skipIf(!hasDb)(
       for (const item of matrixCase.items) {
         const itemId = await insertItem(fixture, {
           canteenId: canteens.get(item.canteen),
-          menuSourceId: sources.get(item.source) ?? null,
+          menuSourceId:
+            item.source === null ? null : (sources.get(item.source) ?? null),
           externalProductId: item.externalProductId,
           externalSource: item.externalSource,
           externalKey: item.externalKey,

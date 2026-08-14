@@ -8,6 +8,7 @@ import {
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
+import { projectProviderMenuSourceNamespace } from "@/lib/canteen-provider-menu-identity";
 import {
   evaluateMenuSnapshot,
   type MenuSnapshotEvaluation,
@@ -202,17 +203,6 @@ export async function previewMenuSync(
   };
 }
 
-function shadowSourceNamespace(source: MenuSourceRow): string {
-  if (source.provider !== "qmai") {
-    return `${source.provider}:${source.externalStoreId}`;
-  }
-  const sellerId = source.externalOwnerId;
-  if (!sellerId?.trim()) {
-    throw new Error("INVALID_MENU_SOURCE_CONFIG");
-  }
-  return `qmai:${sellerId.trim()}:${source.externalStoreId}`;
-}
-
 async function applyMenuSync(
   sourceId: string,
   input: MenuSyncInput,
@@ -280,7 +270,10 @@ async function applyMenuSync(
         )
         .map((item) => [item.externalProductId!, item]),
     );
-    const shadowSource = shadowSourceNamespace(source);
+    const shadowSource = projectProviderMenuSourceNamespace(
+      source.provider,
+      source,
+    );
 
     for (const item of evaluation.canonicalState.input.items) {
       const action = actionByProduct.get(item.externalProductId);

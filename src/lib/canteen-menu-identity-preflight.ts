@@ -1,35 +1,30 @@
 import { createHash } from "node:crypto";
 import type { ClientBase } from "pg";
+import type { MenuProvider } from "./canteen-provider-menu-identity";
 import {
-  normalizePublishedProviderIdentity,
-  type MenuProvider,
-} from "./canteen-provider-menu-identity";
+  createPersistedMenuIdentityInterpreter,
+  type PersistedMenuIdentityRow,
+  type PersistedMenuIdentitySource,
+} from "./canteen-menu-persisted-identity";
 import {
   CANTEEN_MENU_IDENTITY_PREFLIGHT_CONTRACT as CONTRACT,
   type CanteenMenuIdentityPreflightCheckCode,
   type CanteenMenuIdentityPreflightReasonCode,
 } from "./canteen-menu-identity-preflight-contract";
 
-type IdentityRow = {
+type IdentityRow = PersistedMenuIdentityRow & {
   id: string;
-  canteenId: string;
-  menuSourceId: string | null;
-  externalProductId: string | null;
-  externalSource: string | null;
-  externalKey: string | null;
-  sourceId: string | null;
-  sourceCanteenId: string | null;
-  provider: string | null;
-  externalOwnerId: string | null;
-  externalStoreId: string | null;
   voteCount: number;
   commentCount: number;
 };
 
 type DiagnosticRow = {
   row: IdentityRow;
+  provider: MenuProvider | null;
   reason: CanteenMenuIdentityPreflightReasonCode;
 };
+
+type EvaluatedRow = Omit<DiagnosticRow, "reason">;
 
 export type CanteenMenuIdentityPreflightCheck = {
   code: CanteenMenuIdentityPreflightCheckCode;
@@ -71,8 +66,6 @@ export type CanteenMenuIdentityPreflightOptions = {
   schema?: string;
 };
 
-const PROVIDERS = new Set<MenuProvider>(["aigens", "ichef", "pinme", "qmai"]);
-
 export async function runCanteenMenuIdentityPreflight(
   client: ClientBase,
   options: CanteenMenuIdentityPreflightOptions,
@@ -90,7 +83,8 @@ export async function runCanteenMenuIdentityPreflight(
   try {
     await assertCompleteRlsVisibility(client, schemaName);
     const rows = await readIdentityRows(client, schema);
-    const checks = evaluateChecks(rows);
+    const sources = await readIdentitySources(client, schema);
+    const checks = evaluateChecks(rows, sources);
     const unsafe = checks.some((check) => check.status === "fail");
     await client.query("commit");
     return {
@@ -216,71 +210,93 @@ async function readIdentityRows(client: ClientBase, schema: string) {
       item.external_product_id as "externalProductId",
       item.external_source as "externalSource",
       item.external_key as "externalKey",
-      source.id::text as "sourceId",
-      source.canteen_id::text as "sourceCanteenId",
-      source.provider as "provider",
-      source.external_owner_id as "externalOwnerId",
-      source.external_store_id as "externalStoreId",
       (select count(*)::integer from ${schema}.canteen_dish_votes vote
         where vote.menu_item_id = item.id) as "voteCount",
       (select count(*)::integer from ${schema}.canteen_dish_comments comment
         where comment.menu_item_id = item.id) as "commentCount"
     from ${schema}.canteen_menu_items item
-    left join ${schema}.canteen_menu_sources source
-      on source.id = item.menu_source_id
     order by item.id
+  `);
+  return result.rows;
+}
+
+async function readIdentitySources(client: ClientBase, schema: string) {
+  const result = await client.query<PersistedMenuIdentitySource>(`
+    select
+      source.id::text as "id",
+      source.canteen_id::text as "canteenId",
+      source.provider as "provider",
+      source.external_owner_id as "externalOwnerId",
+      source.external_store_id as "externalStoreId"
+    from ${schema}.canteen_menu_sources source
+    order by source.id
   `);
   return result.rows;
 }
 
 function evaluateChecks(
   rows: IdentityRow[],
+  sources: PersistedMenuIdentitySource[],
 ): CanteenMenuIdentityPreflightCheck[] {
   const findings = new Map<
     CanteenMenuIdentityPreflightCheckCode,
     DiagnosticRow[]
   >(CONTRACT.checkCodes.map((code) => [code, []]));
 
-  const actualGroups = new Map<string, IdentityRow[]>();
-  const projectedGroups = new Map<string, IdentityRow[]>();
+  const actualGroups = new Map<string, EvaluatedRow[]>();
+  const projectedGroups = new Map<string, EvaluatedRow[]>();
+  const interpreter = createPersistedMenuIdentityInterpreter(sources);
 
   for (const row of rows) {
-    if (
-      row.menuSourceId !== null &&
-      (row.sourceId === null || row.sourceCanteenId !== row.canteenId)
-    ) {
-      add(findings, "SOURCE_CANTEEN_OWNERSHIP_MISMATCH", row, "source-owner");
+    const identity = interpreter.interpret(row);
+    if (identity.sourceOwnershipMismatch) {
+      add(
+        findings,
+        "SOURCE_CANTEEN_OWNERSHIP_MISMATCH",
+        row,
+        "source-owner",
+        identity.provider,
+      );
     }
-    if ((row.menuSourceId === null) !== (row.externalProductId === null)) {
+    if (identity.authoritativeState === "partial") {
       add(
         findings,
         "AUTHORITATIVE_IDENTITY_NULL_ASYMMETRY",
         row,
         "authoritative-null-asymmetry",
+        identity.provider,
       );
     }
-    if (row.menuSourceId !== null && row.externalProductId !== null) {
-      group(
-        actualGroups,
-        `${row.menuSourceId}\u0000${row.externalProductId}`,
+    if (identity.authoritativeState === "managed") {
+      group(actualGroups, `${row.menuSourceId}\u0000${row.externalProductId}`, {
         row,
-      );
+        provider: identity.provider,
+      });
     }
 
-    const shadow = projectShadow(row);
-    if (shadow.unsupported && shadow.reason !== null) {
-      add(findings, "UNSUPPORTED_LEGACY_IDENTITY", row, shadow.reason);
+    if (identity.shadowState === "unsupported" && identity.shadowReason) {
+      add(
+        findings,
+        "UNSUPPORTED_LEGACY_IDENTITY",
+        row,
+        identity.shadowReason,
+        identity.provider,
+      );
     }
-    if (!shadow.matchesAuthoritative) {
+    if (!identity.identitiesAgree) {
       add(
         findings,
         "ROLLOUT_SHADOW_MISMATCH",
         row,
         "shadow-authoritative-disagreement",
+        identity.provider,
       );
     }
-    if (shadow.projectedIdentity !== null) {
-      group(projectedGroups, shadow.projectedIdentity, row);
+    if (identity.projectedIdentity !== null) {
+      group(projectedGroups, identity.projectedIdentity, {
+        row,
+        provider: identity.provider,
+      });
     }
   }
 
@@ -288,22 +304,25 @@ function evaluateChecks(
     add(
       findings,
       "DUPLICATE_AUTHORITATIVE_IDENTITY",
-      duplicate,
+      duplicate.row,
       "duplicate-authoritative-identity",
+      duplicate.provider,
     );
     add(
       findings,
       "MERGE_OR_UUID_REPLACEMENT_REQUIRED",
-      duplicate,
+      duplicate.row,
       "multiple-uuids-one-authoritative-identity",
+      duplicate.provider,
     );
   }
   for (const collision of duplicateRows(projectedGroups)) {
     add(
       findings,
       "MERGE_OR_UUID_REPLACEMENT_REQUIRED",
-      collision,
+      collision.row,
       "multiple-uuids-one-projected-identity",
+      collision.provider,
     );
   }
 
@@ -312,96 +331,11 @@ function evaluateChecks(
   );
 }
 
-function projectShadow(row: IdentityRow): {
-  unsupported: boolean;
-  reason: CanteenMenuIdentityPreflightReasonCode | null;
-  matchesAuthoritative: boolean;
-  projectedIdentity: string | null;
-} {
-  const authoritativeManual =
-    row.menuSourceId === null && row.externalProductId === null;
-  const shadowManual = row.externalSource === null && row.externalKey === null;
-  if (shadowManual) {
-    return {
-      unsupported: false,
-      reason: null,
-      matchesAuthoritative: authoritativeManual,
-      projectedIdentity: null,
-    };
-  }
-  if (row.externalSource === null || row.externalKey === null) {
-    return {
-      unsupported: true,
-      reason: "shadow-null-asymmetry",
-      matchesAuthoritative: false,
-      projectedIdentity: null,
-    };
-  }
-  const provider = asProvider(row.provider);
-  if (
-    provider === null ||
-    row.sourceId === null ||
-    row.externalStoreId === null ||
-    !sourceNamespaceMatches(row, provider)
-  ) {
-    return {
-      unsupported: true,
-      reason: "unsupported-source-namespace",
-      matchesAuthoritative: false,
-      projectedIdentity: null,
-    };
-  }
-  try {
-    const productId = normalizePublishedProviderIdentity(
-      provider,
-      row.externalKey,
-    );
-    return {
-      unsupported: false,
-      reason: null,
-      matchesAuthoritative:
-        row.menuSourceId === row.sourceId &&
-        row.externalProductId === productId,
-      projectedIdentity: `${row.sourceId}\u0000${productId}`,
-    };
-  } catch {
-    return {
-      unsupported: true,
-      reason: "unsupported-product-key",
-      matchesAuthoritative: false,
-      projectedIdentity: null,
-    };
-  }
-}
-
-function sourceNamespaceMatches(row: IdentityRow, provider: MenuProvider) {
-  if (provider === "qmai") {
-    return (
-      row.externalOwnerId !== null &&
-      row.externalSource ===
-        `qmai:${row.externalOwnerId}:${row.externalStoreId}`
-    );
-  }
-  if (
-    provider === "aigens" &&
-    row.externalSource === `order-place:${row.externalStoreId}`
-  ) {
-    return true;
-  }
-  return row.externalSource === `${provider}:${row.externalStoreId}`;
-}
-
-function asProvider(value: string | null): MenuProvider | null {
-  return value !== null && PROVIDERS.has(value as MenuProvider)
-    ? (value as MenuProvider)
-    : null;
-}
-
-function group(map: Map<string, IdentityRow[]>, key: string, row: IdentityRow) {
+function group<T>(map: Map<string, T[]>, key: string, row: T) {
   map.set(key, [...(map.get(key) ?? []), row]);
 }
 
-function duplicateRows(groups: Map<string, IdentityRow[]>) {
+function duplicateRows<T>(groups: Map<string, T[]>) {
   return [...groups.values()]
     .filter((groupRows) => groupRows.length > 1)
     .flat();
@@ -412,10 +346,11 @@ function add(
   code: CanteenMenuIdentityPreflightCheckCode,
   row: IdentityRow,
   reason: CanteenMenuIdentityPreflightReasonCode,
+  provider: MenuProvider | null,
 ) {
   const rows = findings.get(code)!;
   if (!rows.some((entry) => entry.row.id === row.id)) {
-    rows.push({ row, reason });
+    rows.push({ row, provider, reason });
   }
 }
 
@@ -435,16 +370,16 @@ function makeCheck(
       (sum, finding) => sum + finding.row.commentCount,
       0,
     ),
-    samples: findings.slice(0, CONTRACT.sampleLimit).map(({ row, reason }) => ({
-      rowFingerprint: createHash("sha256")
-        .update(row.id)
-        .digest("hex")
-        .slice(0, 12),
-      ...(asProvider(row.provider) === null
-        ? {}
-        : { provider: asProvider(row.provider)! }),
-      reason,
-    })),
+    samples: findings
+      .slice(0, CONTRACT.sampleLimit)
+      .map(({ row, provider, reason }) => ({
+        rowFingerprint: createHash("sha256")
+          .update(row.id)
+          .digest("hex")
+          .slice(0, 12),
+        ...(provider === null ? {} : { provider }),
+        reason,
+      })),
   };
 }
 

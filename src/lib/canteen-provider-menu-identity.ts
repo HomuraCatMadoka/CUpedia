@@ -73,7 +73,7 @@ export class ProviderMenuIdentityError extends Error {
   }
 }
 
-type SourceLocator = {
+export type ProviderMenuSourceLocator = {
   externalOwnerId?: unknown;
   externalStoreId?: unknown;
 };
@@ -131,9 +131,19 @@ export function normalizePublishedProviderIdentity(
   throw new Error("MALFORMED_IDENTITY");
 }
 
+export function projectProviderMenuSourceNamespace(
+  provider: MenuProvider,
+  source: ProviderMenuSourceLocator,
+): string {
+  assertSourceLocator(provider, source);
+  const storeId = String(source.externalStoreId);
+  if (provider !== "qmai") return `${provider}:${storeId}`;
+  return `qmai:${String(source.externalOwnerId).trim()}:${storeId}`;
+}
+
 export function assertProviderMenuIdentitySnapshot(
   provider: MenuProvider,
-  source: SourceLocator,
+  source: ProviderMenuSourceLocator,
   items: readonly IdentityItem[],
 ): string[] {
   assertSourceLocator(provider, source);
@@ -280,7 +290,7 @@ export function canonicalizeProviderMenuState(
 
 function assertSourceLocator(
   provider: MenuProvider,
-  source: SourceLocator,
+  source: ProviderMenuSourceLocator,
 ): void {
   const fields = providerMenuIdentityContracts[provider].sourceLocatorFields;
   const invalid = fields.filter((field) => {

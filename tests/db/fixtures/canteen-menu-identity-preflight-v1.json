@@ -56,6 +56,15 @@
       "externalSource": "qmai:owner-a:store-a",
       "externalKey": "product-42#period=breakfast+lunch",
       "externalProductId": "product-42"
+    },
+    {
+      "name": "qmai writer namespace from padded stored owner",
+      "provider": "qmai",
+      "externalStoreId": "store-a",
+      "externalOwnerId": " owner-a ",
+      "externalSource": "qmai:owner-a:store-a",
+      "externalKey": "product-42",
+      "externalProductId": "product-42"
     }
   ],
   "fixtureSchema": "canteen-menu-identity-history-0081.sql",
@@ -412,6 +421,104 @@
           },
           "MERGE_OR_UUID_REPLACEMENT_REQUIRED": {
             "count": 2,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "shadow-only UUIDs project to one resolvable identity",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": null,
+          "externalProductId": null,
+          "externalSource": "pinme:store-a",
+          "externalKey": "shared-product:lunch",
+          "voteCount": 2,
+          "commentCount": 1
+        },
+        {
+          "key": "item-b",
+          "canteen": "canteen-a",
+          "source": null,
+          "externalProductId": null,
+          "externalSource": "pinme:store-a",
+          "externalKey": "shared-product:lunch",
+          "voteCount": 1,
+          "commentCount": 2
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 2,
+            "voteCount": 3,
+            "commentCount": 3
+          },
+          "MERGE_OR_UUID_REPLACEMENT_REQUIRED": {
+            "count": 2,
+            "voteCount": 3,
+            "commentCount": 3
+          }
+        }
+      }
+    },
+    {
+      "name": "shadow-only namespace resolves to multiple canonical sources",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "qmai",
+          "externalOwnerId": "owner-a",
+          "externalStoreId": "store-a"
+        },
+        {
+          "key": "source-b",
+          "canteen": "canteen-a",
+          "provider": "qmai",
+          "externalOwnerId": " owner-a ",
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": null,
+          "externalProductId": null,
+          "externalSource": "qmai:owner-a:store-a",
+          "externalKey": "product-42",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "diagnosticReason": "unsupported-source-namespace",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          },
+          "UNSUPPORTED_LEGACY_IDENTITY": {
+            "count": 1,
             "voteCount": 0,
             "commentCount": 0
           }

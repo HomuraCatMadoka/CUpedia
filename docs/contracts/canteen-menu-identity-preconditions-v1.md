@@ -27,12 +27,18 @@ All predicates apply to the same `REPEATABLE READ READ ONLY` snapshot.
    non-null `menu_source_id + external_product_id`.
 4. `ROLLOUT_SHADOW_MISMATCH`: a manual row has no shadow pair; a managed row's
    shadow source resolves to its authoritative source and its shadow key
-   canonicalizes to its authoritative product/offering ID.
+   canonicalizes to its authoritative product/offering ID. When the
+   authoritative source is absent, the shadow source is resolved independently
+   against the item's canteen so projected merge risk is not lost.
 5. `UNSUPPORTED_LEGACY_IDENTITY`: shadow columns are symmetric and use a
    supported provider namespace/key. Source namespaces are
    `provider:store`, `qmai:owner:store`, plus the historical
-   `order-place:store` Aigens alias. Key canonicalization reuses
-   `normalizePublishedProviderIdentity`; it is not a second provider rule set.
+   `order-place:store` Aigens alias. Current namespaces reuse
+   `projectProviderMenuSourceNamespace`, including its Qmai owner
+   canonicalization, and keys reuse `normalizePublishedProviderIdentity`; these
+   are not second provider rule sets. A shadow-only namespace must resolve to
+   exactly one source in the item's canteen; zero or multiple matches fail
+   closed as unsupported.
 6. `MERGE_OR_UUID_REPLACEMENT_REQUIRED`: neither authoritative identities nor
    canonical shadow projections may map multiple menu UUIDs to one identity.
    Any such state fails closed. The preflight never merges, repairs, replaces,
