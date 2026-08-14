@@ -26,7 +26,11 @@ vi.mock("@/lib/canteen-menu-source-adapters", () => ({
 }));
 
 import { syncCanteenMenuSource } from "@/lib/canteen-menu-source-sync";
-import { previewMenuSync } from "@/lib/canteen-menu-sync-store";
+import {
+  executeClaimedMenuSourceSync,
+  previewMenuSync,
+} from "@/lib/canteen-menu-sync-store";
+import type { MenuSourceClaim } from "@/lib/canteen-menu-source-claim-store";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -170,6 +174,23 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       status: "source-unavailable",
       code: "MENU_SOURCE_DISABLED",
     });
+    expect(fetchMenuFromProvider).not.toHaveBeenCalled();
+  });
+
+  it("rejects a structurally forged claim before provider fetch", async () => {
+    const [source] = await db
+      .select()
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.id, sourceId));
+    const forgedClaim = {
+      source: { ...source, externalStoreId: "caller-controlled-store" },
+      runId: randomUUID(),
+      sourceFingerprint: "caller-controlled-fingerprint",
+    } as MenuSourceClaim;
+
+    await expect(executeClaimedMenuSourceSync(forgedClaim)).rejects.toThrow(
+      "MENU_SYNC_SUPERSEDED",
+    );
     expect(fetchMenuFromProvider).not.toHaveBeenCalled();
   });
 
