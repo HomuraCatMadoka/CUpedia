@@ -260,7 +260,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               <>
                 <Link
                   href="/login"
-                  aria-label="登录后查看通知"
+                  aria-label="登录后可读取通知"
                   className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:size-8"
                   data-testid="notification-slot"
                 >

@@ -114,7 +114,7 @@ test.describe("#651 global single-row Header", () => {
       for (const target of [
         page.getByRole("button", { name: "打开导航" }),
         page.getByRole("button", { name: "搜索 (⌘K)" }),
-        page.getByRole("link", { name: "登录后查看通知" }),
+        page.getByRole("link", { name: "登录后可读取通知" }),
         page.getByRole("link", { name: "登录", exact: true }),
         page.getByRole("button", { name: "打开产品菜单" }),
       ]) {
