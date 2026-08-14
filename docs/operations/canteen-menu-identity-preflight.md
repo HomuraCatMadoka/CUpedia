@@ -8,12 +8,21 @@ commit changes or any menu writer runs before the migration.
 ## Read-only execution
 
 Use a dedicated, non-superuser role with no write grants. Grant `USAGE` on the
-application schema and `SELECT` only on `canteen_menu_items`,
-`canteen_menu_sources`, `canteen_dish_votes`, and
-`canteen_dish_comments`. These tables use RLS in production, so the execution
-role must be able to see complete rows (the deployment DBA may grant
-`BYPASSRLS` to this otherwise read-only role). The command rejects an
-RLS-filtered role instead of accepting a zero-row false positive.
+application schema and column-level `SELECT` only for the fields the query
+needs:
+
+- menu items: `id`, `canteen_id`, `menu_source_id`, `external_product_id`,
+  `external_source`, `external_key`;
+- menu sources: `id`, `canteen_id`, `provider`, `external_owner_id`,
+  `external_store_id`;
+- votes/comments: `menu_item_id` only.
+
+Do not grant access to source `config`/health, sync runs, vote users, comment
+users/content, prices, or the Drizzle journal. These relations use RLS in
+production, so the execution role must be able to see complete rows (the
+deployment DBA may grant `BYPASSRLS` to this otherwise read-only role). The
+command rejects an RLS-filtered role instead of accepting a zero-row false
+positive.
 
 Inject `DATABASE_URL` through the approved secret manager and set
 `PREFLIGHT_APPLICATION_COMMIT` to the deployed commit. Do not put credentials

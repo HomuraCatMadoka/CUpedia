@@ -20,7 +20,10 @@
       "const": "canteen-menu-identity-preconditions/v1"
     },
     "targetIssue": { "const": 643 },
-    "applicationCommit": { "type": "string", "minLength": 1 },
+    "applicationCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,64}$|^unavailable$"
+    },
     "generatedAt": { "type": "string", "format": "date-time" },
     "result": { "enum": ["pass", "fail", "error"] },
     "resultCode": {
@@ -94,7 +97,19 @@
                 "provider": {
                   "enum": ["aigens", "ichef", "pinme", "qmai"]
                 },
-                "reason": { "type": "string" }
+                "reason": {
+                  "enum": [
+                    "source-owner",
+                    "authoritative-null-asymmetry",
+                    "shadow-null-asymmetry",
+                    "unsupported-source-namespace",
+                    "unsupported-product-key",
+                    "shadow-authoritative-disagreement",
+                    "duplicate-authoritative-identity",
+                    "multiple-uuids-one-authoritative-identity",
+                    "multiple-uuids-one-projected-identity"
+                  ]
+                }
               },
               "additionalProperties": false
             }

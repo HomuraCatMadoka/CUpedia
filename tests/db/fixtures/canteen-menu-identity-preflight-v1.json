@@ -58,44 +58,283 @@
       "externalProductId": "product-42"
     }
   ],
-  "resultMatrix": [
+  "fixtureSchema": "canteen-menu-identity-history-0081.sql",
+  "parityCases": [
     {
-      "fixture": "supported historical identity",
-      "resultCode": "PREFLIGHT_SAFE",
-      "failedChecks": []
+      "name": "supported historical identity",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "aigens",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42#offering-period=lunch",
+          "externalSource": "order-place:store-a",
+          "externalKey": "product-42:lunch",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": { "resultCode": "PREFLIGHT_SAFE", "failedChecks": {} }
     },
     {
-      "fixture": "contradictory rollout shadow",
-      "resultCode": "PREFLIGHT_UNSAFE",
-      "failedChecks": ["ROLLOUT_SHADOW_MISMATCH"]
+      "name": "contradictory rollout shadow",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42",
+          "externalSource": "pinme:store-a",
+          "externalKey": "different-product:lunch",
+          "voteCount": 1,
+          "commentCount": 1
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 1,
+            "commentCount": 1
+          }
+        }
+      }
     },
     {
-      "fixture": "duplicate authoritative identity",
-      "resultCode": "PREFLIGHT_UNSAFE",
-      "failedChecks": [
-        "DUPLICATE_AUTHORITATIVE_IDENTITY",
-        "MERGE_OR_UUID_REPLACEMENT_REQUIRED"
-      ]
+      "name": "duplicate authoritative identity",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "ichef",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "duplicate-product",
+          "externalSource": "ichef:store-a",
+          "externalKey": "duplicate-product",
+          "voteCount": 1,
+          "commentCount": 0
+        },
+        {
+          "key": "item-b",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "duplicate-product",
+          "externalSource": "ichef:store-a",
+          "externalKey": "duplicate-product",
+          "voteCount": 0,
+          "commentCount": 1
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "DUPLICATE_AUTHORITATIVE_IDENTITY": {
+            "count": 2,
+            "voteCount": 1,
+            "commentCount": 1
+          },
+          "MERGE_OR_UUID_REPLACEMENT_REQUIRED": {
+            "count": 2,
+            "voteCount": 1,
+            "commentCount": 1
+          }
+        }
+      }
     },
     {
-      "fixture": "source/canteen ownership mismatch",
-      "resultCode": "PREFLIGHT_UNSAFE",
-      "failedChecks": ["SOURCE_CANTEEN_OWNERSHIP_MISMATCH"]
+      "name": "source/canteen ownership mismatch",
+      "canteens": ["canteen-a", "canteen-b"],
+      "sources": [
+        {
+          "key": "source-b",
+          "canteen": "canteen-b",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-b"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-b",
+          "externalProductId": "product-42",
+          "externalSource": "pinme:store-b",
+          "externalKey": "product-42",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "SOURCE_CANTEEN_OWNERSHIP_MISMATCH": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
     },
     {
-      "fixture": "authoritative null asymmetry",
-      "resultCode": "PREFLIGHT_UNSAFE",
-      "failedChecks": ["AUTHORITATIVE_IDENTITY_NULL_ASYMMETRY"]
+      "name": "authoritative null asymmetry",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": null,
+          "externalSource": "pinme:store-a",
+          "externalKey": "product-42",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "AUTHORITATIVE_IDENTITY_NULL_ASYMMETRY": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          },
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
     },
     {
-      "fixture": "unsupported legacy namespace or key",
-      "resultCode": "PREFLIGHT_UNSAFE",
-      "failedChecks": ["UNSUPPORTED_LEGACY_IDENTITY"]
+      "name": "unsupported legacy namespace or key",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42",
+          "externalSource": "unsupported:store-a",
+          "externalKey": "product-42#unsupported",
+          "voteCount": 2,
+          "commentCount": 3
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 2,
+            "commentCount": 3
+          },
+          "UNSUPPORTED_LEGACY_IDENTITY": {
+            "count": 1,
+            "voteCount": 2,
+            "commentCount": 3
+          }
+        }
+      }
     },
     {
-      "fixture": "multiple UUIDs project to one identity",
-      "resultCode": "PREFLIGHT_UNSAFE",
-      "failedChecks": ["MERGE_OR_UUID_REPLACEMENT_REQUIRED"]
+      "name": "multiple UUIDs project to one identity",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-a",
+          "externalSource": "pinme:store-a",
+          "externalKey": "shared-product:lunch",
+          "voteCount": 0,
+          "commentCount": 0
+        },
+        {
+          "key": "item-b",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-b",
+          "externalSource": "pinme:store-a",
+          "externalKey": "shared-product:lunch",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 2,
+            "voteCount": 0,
+            "commentCount": 0
+          },
+          "MERGE_OR_UUID_REPLACEMENT_REQUIRED": {
+            "count": 2,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
     }
   ]
 }

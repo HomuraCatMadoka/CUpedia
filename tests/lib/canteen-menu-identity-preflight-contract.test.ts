@@ -25,14 +25,23 @@ describe("canteen menu identity preflight contract (#639)", () => {
     expect(reportSchema.properties.resultCode.enum).toEqual(
       Object.values(contract.resultCodes),
     );
+    expect(
+      reportSchema.properties.checks.items.properties.samples.items.properties
+        .reason.enum,
+    ).toEqual(contract.diagnosticReasonCodes);
     expect(fixtureMatrix).toMatchObject({
       contractVersion: contract.contractVersion,
       targetIssue: contract.targetIssue,
       mandatoryParityInput: true,
     });
+    expect(fixtureMatrix.fixtureSchema).toBe(
+      "canteen-menu-identity-history-0081.sql",
+    );
     expect(
       new Set(
-        fixtureMatrix.resultMatrix.flatMap((fixture) => fixture.failedChecks),
+        fixtureMatrix.parityCases.flatMap((fixture) =>
+          Object.keys(fixture.expected.failedChecks),
+        ),
       ),
     ).toEqual(new Set(contract.checkCodes));
   });

@@ -7,6 +7,7 @@ import {
 import {
   CANTEEN_MENU_IDENTITY_PREFLIGHT_CONTRACT as CONTRACT,
   type CanteenMenuIdentityPreflightCheckCode,
+  type CanteenMenuIdentityPreflightReasonCode,
 } from "./canteen-menu-identity-preflight-contract";
 
 type IdentityRow = {
@@ -27,7 +28,7 @@ type IdentityRow = {
 
 type DiagnosticRow = {
   row: IdentityRow;
-  reason: string;
+  reason: CanteenMenuIdentityPreflightReasonCode;
 };
 
 export type CanteenMenuIdentityPreflightCheck = {
@@ -39,7 +40,7 @@ export type CanteenMenuIdentityPreflightCheck = {
   samples: Array<{
     rowFingerprint: string;
     provider?: MenuProvider;
-    reason: string;
+    reason: CanteenMenuIdentityPreflightReasonCode;
   }>;
 };
 
@@ -79,7 +80,7 @@ export async function runCanteenMenuIdentityPreflight(
   const schemaName = options.schema ?? "public";
   const schema = quoteSchema(schemaName);
   const applicationCommit = options.applicationCommit.trim();
-  if (!applicationCommit) {
+  if (!isCanteenMenuIdentityApplicationCommit(applicationCommit)) {
     throw new Error("PREFLIGHT_APPLICATION_COMMIT_REQUIRED");
   }
 
@@ -119,6 +120,10 @@ export async function runCanteenMenuIdentityPreflight(
     await client.query("rollback");
     throw error;
   }
+}
+
+export function isCanteenMenuIdentityApplicationCommit(value: string) {
+  return /^[0-9a-f]{7,64}$/.test(value);
 }
 
 async function assertCompleteRlsVisibility(
@@ -263,7 +268,7 @@ function evaluateChecks(
     }
 
     const shadow = projectShadow(row);
-    if (shadow.unsupported) {
+    if (shadow.unsupported && shadow.reason !== null) {
       add(findings, "UNSUPPORTED_LEGACY_IDENTITY", row, shadow.reason);
     }
     if (!shadow.matchesAuthoritative) {
@@ -309,7 +314,7 @@ function evaluateChecks(
 
 function projectShadow(row: IdentityRow): {
   unsupported: boolean;
-  reason: string;
+  reason: CanteenMenuIdentityPreflightReasonCode | null;
   matchesAuthoritative: boolean;
   projectedIdentity: string | null;
 } {
@@ -319,7 +324,7 @@ function projectShadow(row: IdentityRow): {
   if (shadowManual) {
     return {
       unsupported: false,
-      reason: "",
+      reason: null,
       matchesAuthoritative: authoritativeManual,
       projectedIdentity: null,
     };
@@ -353,7 +358,7 @@ function projectShadow(row: IdentityRow): {
     );
     return {
       unsupported: false,
-      reason: "",
+      reason: null,
       matchesAuthoritative:
         row.menuSourceId === row.sourceId &&
         row.externalProductId === productId,
@@ -406,7 +411,7 @@ function add(
   findings: Map<CanteenMenuIdentityPreflightCheckCode, DiagnosticRow[]>,
   code: CanteenMenuIdentityPreflightCheckCode,
   row: IdentityRow,
-  reason: string,
+  reason: CanteenMenuIdentityPreflightReasonCode,
 ) {
   const rows = findings.get(code)!;
   if (!rows.some((entry) => entry.row.id === row.id)) {

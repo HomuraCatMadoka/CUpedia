@@ -8,8 +8,10 @@ This contract is the mandatory, read-only gate before the #643 contract
 migration may be deployed. The #643 migration SQL and its parity tests must
 reuse the fixture/result matrix at
 `tests/db/fixtures/canteen-menu-identity-preflight-v1.json` and reproduce every
-v1 failure category. Changing these predicates requires a new contract version;
-it must not silently change v1.
+v1 failure category. Its logical canteen/source/item rows, vote/comment counts,
+and exact expected result counts are executable fixture input; the referenced
+0081 historical DDL is part of that input. Changing these predicates or rows
+requires a new contract version; it must not silently change v1.
 
 ## Preconditions
 

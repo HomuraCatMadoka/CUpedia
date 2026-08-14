@@ -2,6 +2,7 @@ import { Client } from "pg";
 import {
   canteenMenuIdentityPreflightExitCode,
   formatCanteenMenuIdentityPreflightHuman,
+  isCanteenMenuIdentityApplicationCommit,
   runCanteenMenuIdentityPreflight,
 } from "@/lib/canteen-menu-identity-preflight";
 import { CANTEEN_MENU_IDENTITY_PREFLIGHT_CONTRACT as CONTRACT } from "@/lib/canteen-menu-identity-preflight-contract";
@@ -18,7 +19,11 @@ async function main() {
       "human",
       CONTRACT.resultCodes.configurationError,
       generatedAt,
-      process.env.PREFLIGHT_APPLICATION_COMMIT,
+      isCanteenMenuIdentityApplicationCommit(
+        process.env.PREFLIGHT_APPLICATION_COMMIT ?? "",
+      )
+        ? process.env.PREFLIGHT_APPLICATION_COMMIT
+        : undefined,
     );
     process.exitCode = CONTRACT.exitCodes.configurationError;
     return;
@@ -26,12 +31,18 @@ async function main() {
 
   const connectionString = process.env.DATABASE_URL;
   const applicationCommit = process.env.PREFLIGHT_APPLICATION_COMMIT?.trim();
-  if (!connectionString || !applicationCommit) {
+  if (
+    !connectionString ||
+    !applicationCommit ||
+    !isCanteenMenuIdentityApplicationCommit(applicationCommit)
+  ) {
     writeError(
       format,
       CONTRACT.resultCodes.configurationError,
       generatedAt,
-      applicationCommit,
+      isCanteenMenuIdentityApplicationCommit(applicationCommit ?? "")
+        ? applicationCommit
+        : undefined,
     );
     process.exitCode = CONTRACT.exitCodes.configurationError;
     return;

@@ -1,7 +1,12 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import fixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v1.json";
+import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v1.schema.json";
 import {
   canteenMenuIdentityPreflightExitCode,
   formatCanteenMenuIdentityPreflightHuman,
@@ -10,6 +15,7 @@ import {
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 const requiresDb = process.env.MENU_IDENTITY_PREFLIGHT_TEST === "1";
+const execFileAsync = promisify(execFile);
 if (requiresDb && !hasDb) {
   throw new Error(
     "DATABASE_URL is required when MENU_IDENTITY_PREFLIGHT_TEST=1",
@@ -20,11 +26,18 @@ describe.skipIf(!hasDb)(
   "canteen menu identity production preflight (#639)",
   () => {
     let client: Client;
+    let historicalFixtureSql: string;
     const schemas = new Set<string>();
 
     beforeAll(async () => {
       client = new Client({ connectionString: process.env.DATABASE_URL });
       await client.connect();
+      historicalFixtureSql = await readFile(
+        path.resolve(
+          "tests/db/fixtures/canteen-menu-identity-history-0081.sql",
+        ),
+        "utf8",
+      );
     });
 
     afterAll(async () => {
@@ -60,6 +73,30 @@ describe.skipIf(!hasDb)(
         expect(report.checks.every((check) => check.status === "pass")).toBe(
           true,
         );
+      },
+    );
+
+    it.each(fixtureMatrix.parityCases)(
+      "enforces versioned parity fixture: $name",
+      async (matrixCase) => {
+        const fixture = await createMatrixFixture(matrixCase);
+
+        const report = await preflight(fixture);
+        const failedChecks = Object.fromEntries(
+          report.checks
+            .filter((candidate) => candidate.status === "fail")
+            .map((candidate) => [
+              candidate.code,
+              {
+                count: candidate.count,
+                voteCount: candidate.voteCount,
+                commentCount: candidate.commentCount,
+              },
+            ]),
+        );
+
+        expect(report.resultCode).toBe(matrixCase.expected.resultCode);
+        expect(failedChecks).toEqual(matrixCase.expected.failedChecks);
       },
     );
 
@@ -221,6 +258,18 @@ describe.skipIf(!hasDb)(
           provider: "pinme",
           externalStoreId: "store-a",
         });
+        await client.query(
+          `update ${fixture.schema}.canteen_menu_sources
+         set last_attempt_id = $2,
+             last_attempt_at = '2026-08-14T07:00:00Z',
+             last_success_at = '2026-08-14T06:00:00Z',
+             last_snapshot_hash = 'health-snapshot',
+             observed_state = 'healthy',
+             last_error_code = 'historical-code',
+             last_error = 'historical error detail'
+         where id = $1`,
+          [sourceId, randomUUID()],
+        );
         const itemId = await insertItem(fixture, {
           menuSourceId: sourceId,
           externalProductId: "product-42",
@@ -287,9 +336,7 @@ describe.skipIf(!hasDb)(
         await client.query(
           `grant usage on schema ${fixture.schema} to ${role}`,
         );
-        await client.query(
-          `grant select on all tables in schema ${fixture.schema} to ${role}`,
-        );
+        await grantPreflightColumns(fixture.schema, role);
         await client.query(`set role ${role}`);
         const roleState = await client.query<{
           rolsuper: boolean;
@@ -297,6 +344,21 @@ describe.skipIf(!hasDb)(
         }>(
           `select rolsuper, rolbypassrls from pg_roles where rolname = current_user`,
         );
+        await expect(
+          client.query(
+            `select config from ${fixture.schema}.canteen_menu_sources`,
+          ),
+        ).rejects.toThrow(/permission denied/);
+        await expect(
+          client.query(
+            `select content from ${fixture.schema}.canteen_dish_comments`,
+          ),
+        ).rejects.toThrow(/permission denied/);
+        await expect(
+          client.query(
+            `select * from ${fixture.schema}.canteen_menu_sync_runs`,
+          ),
+        ).rejects.toThrow(/permission denied/);
 
         const report = await preflight(fixture);
 
@@ -305,9 +367,7 @@ describe.skipIf(!hasDb)(
         expect(report.resultCode).toBe("PREFLIGHT_SAFE");
       } finally {
         await client.query("reset role");
-        await client.query(
-          `revoke select on all tables in schema ${fixture.schema} from ${role}`,
-        );
+        await revokePreflightColumns(fixture.schema, role);
         await client.query(
           `revoke usage on schema ${fixture.schema} from ${role}`,
         );
@@ -339,9 +399,7 @@ describe.skipIf(!hasDb)(
         await client.query(
           `grant usage on schema ${fixture.schema} to ${role}`,
         );
-        await client.query(
-          `grant select on all tables in schema ${fixture.schema} to ${role}`,
-        );
+        await grantPreflightColumns(fixture.schema, role);
         await client.query(`set role ${role}`);
 
         await expect(preflight(fixture)).rejects.toThrow(
@@ -349,9 +407,7 @@ describe.skipIf(!hasDb)(
         );
       } finally {
         await client.query("reset role");
-        await client.query(
-          `revoke select on all tables in schema ${fixture.schema} from ${role}`,
-        );
+        await revokePreflightColumns(fixture.schema, role);
         await client.query(
           `revoke usage on schema ${fixture.schema} from ${role}`,
         );
@@ -404,75 +460,62 @@ describe.skipIf(!hasDb)(
       );
     });
 
+    it("runs the real CLI with schema-valid JSON/human output and exit 0/2", async () => {
+      const databaseName = `preflight_cli_${randomUUID().replaceAll("-", "")}`;
+      const databaseUrl = new URL(process.env.DATABASE_URL!);
+      databaseUrl.pathname = `/${databaseName}`;
+      const cliClient = new Client({
+        connectionString: databaseUrl.toString(),
+      });
+      await client.query(`create database ${databaseName}`);
+      try {
+        await cliClient.connect();
+        await cliClient.query(
+          historicalFixtureSql.replaceAll("__SCHEMA__", "public"),
+        );
+
+        const passing = await runCli(databaseUrl.toString(), "json");
+        const passingJson = JSON.parse(passing.stdout) as Record<
+          string,
+          unknown
+        >;
+
+        expect(passing.exitCode).toBe(0);
+        expectJsonReportMatchesCommittedSchema(passingJson);
+        expect(passingJson.resultCode).toBe("PREFLIGHT_SAFE");
+
+        await cliClient.query(
+          `insert into public.canteen_menu_items
+            (id, canteen_id, external_product_id)
+           values ($1, $2, 'orphan-product')`,
+          [randomUUID(), randomUUID()],
+        );
+        const failing = await runCli(databaseUrl.toString(), "json");
+        const failingJson = JSON.parse(failing.stdout) as Record<
+          string,
+          unknown
+        >;
+        const human = await runCli(databaseUrl.toString(), "human");
+
+        expect(failing.exitCode).toBe(2);
+        expectJsonReportMatchesCommittedSchema(failingJson);
+        expect(failingJson.resultCode).toBe("PREFLIGHT_UNSAFE");
+        expect(human).toMatchObject({
+          exitCode: 2,
+          stderr: "",
+        });
+        expect(human.stdout).toContain("PREFLIGHT_UNSAFE");
+      } finally {
+        await cliClient.end().catch(() => undefined);
+        await client.query(`drop database ${databaseName}`);
+      }
+    });
+
     async function createFixture() {
       const schema = `preflight_${randomUUID().replaceAll("-", "")}`;
       schemas.add(schema);
       await client.query(`create schema ${schema}`);
-      await client.query(`
-      create table ${schema}.canteens (
-        id uuid primary key,
-        name text not null
-      );
-      create table ${schema}.canteen_menu_sources (
-        id uuid primary key,
-        canteen_id uuid not null,
-        provider text not null,
-        external_owner_id text,
-        external_store_id text not null,
-        config jsonb not null default '{}'::jsonb,
-        enabled boolean not null default true,
-        last_attempt_id uuid,
-        last_attempt_at timestamptz,
-        last_success_at timestamptz,
-        last_snapshot_hash text,
-        observed_state text,
-        last_error_code text,
-        last_error text,
-        created_at timestamptz not null default now(),
-        updated_at timestamptz not null default now()
-      );
-      create table ${schema}.canteen_menu_items (
-        id uuid primary key,
-        canteen_id uuid not null,
-        name text not null default 'fixture item',
-        price integer,
-        menu_source_id uuid,
-        external_product_id text,
-        external_source text,
-        external_key text,
-        is_available boolean not null default true,
-        created_at timestamptz not null default now(),
-        updated_at timestamptz not null default now()
-      );
-      create table ${schema}.canteen_menu_item_prices (
-        id uuid primary key,
-        menu_item_id uuid not null,
-        amount_minor integer not null
-      );
-      create table ${schema}.canteen_dish_votes (
-        id uuid primary key,
-        menu_item_id uuid not null,
-        user_id uuid,
-        anonymous_session_id uuid
-      );
-      create table ${schema}.canteen_dish_comments (
-        id uuid primary key,
-        menu_item_id uuid not null,
-        user_id uuid not null,
-        content text not null
-      );
-      create table ${schema}.canteen_menu_sync_runs (
-        id uuid primary key,
-        menu_source_id uuid not null,
-        status text not null,
-        observation jsonb not null default '{}'::jsonb
-      );
-      create table ${schema}.__drizzle_migrations (
-        id serial primary key,
-        hash text not null,
-        created_at bigint
-      );
-    `);
+      await client.query(historicalFixtureSql.replaceAll("__SCHEMA__", schema));
       const canteenId = randomUUID();
       await client.query(
         `insert into ${schema}.canteens (id, name) values ($1, 'fixture canteen')`,
@@ -487,6 +530,65 @@ describe.skipIf(!hasDb)(
         applicationCommit: "0123456789abcdef",
         generatedAt: new Date("2026-08-14T08:00:00.000Z"),
       });
+    }
+
+    async function createMatrixFixture(
+      matrixCase: (typeof fixtureMatrix.parityCases)[number],
+    ) {
+      const fixture = await createFixture();
+      const canteens = new Map<string, string>();
+      for (const canteenKey of matrixCase.canteens) {
+        const canteenId = randomUUID();
+        canteens.set(canteenKey, canteenId);
+        await client.query(
+          `insert into ${fixture.schema}.canteens (id, name)
+           values ($1, $2)`,
+          [canteenId, canteenKey],
+        );
+      }
+      const sources = new Map<string, string>();
+      for (const source of matrixCase.sources) {
+        const sourceId = randomUUID();
+        sources.set(source.key, sourceId);
+        await client.query(
+          `insert into ${fixture.schema}.canteen_menu_sources
+            (id, canteen_id, provider, external_owner_id, external_store_id)
+           values ($1, $2, $3, $4, $5)`,
+          [
+            sourceId,
+            canteens.get(source.canteen),
+            source.provider,
+            source.externalOwnerId,
+            source.externalStoreId,
+          ],
+        );
+      }
+      for (const item of matrixCase.items) {
+        const itemId = await insertItem(fixture, {
+          canteenId: canteens.get(item.canteen),
+          menuSourceId: sources.get(item.source) ?? null,
+          externalProductId: item.externalProductId,
+          externalSource: item.externalSource,
+          externalKey: item.externalKey,
+        });
+        for (let index = 0; index < item.voteCount; index += 1) {
+          await client.query(
+            `insert into ${fixture.schema}.canteen_dish_votes
+              (id, menu_item_id, anonymous_session_id)
+             values ($1, $2, $3)`,
+            [randomUUID(), itemId, randomUUID()],
+          );
+        }
+        for (let index = 0; index < item.commentCount; index += 1) {
+          await client.query(
+            `insert into ${fixture.schema}.canteen_dish_comments
+              (id, menu_item_id, user_id, content)
+             values ($1, $2, $3, 'matrix comment')`,
+            [randomUUID(), itemId, randomUUID()],
+          );
+        }
+      }
+      return fixture;
     }
 
     function check(
@@ -572,6 +674,110 @@ describe.skipIf(!hasDb)(
         snapshots[table] = result.rows.map(({ row }) => row);
       }
       return snapshots;
+    }
+
+    async function grantPreflightColumns(schema: string, role: string) {
+      await client.query(`
+        grant select
+          (id, canteen_id, menu_source_id, external_product_id,
+           external_source, external_key)
+          on ${schema}.canteen_menu_items to ${role};
+        grant select
+          (id, canteen_id, provider, external_owner_id, external_store_id)
+          on ${schema}.canteen_menu_sources to ${role};
+        grant select (menu_item_id)
+          on ${schema}.canteen_dish_votes to ${role};
+        grant select (menu_item_id)
+          on ${schema}.canteen_dish_comments to ${role};
+      `);
+    }
+
+    async function revokePreflightColumns(schema: string, role: string) {
+      await client.query(`
+        revoke select
+          (id, canteen_id, menu_source_id, external_product_id,
+           external_source, external_key)
+          on ${schema}.canteen_menu_items from ${role};
+        revoke select
+          (id, canteen_id, provider, external_owner_id, external_store_id)
+          on ${schema}.canteen_menu_sources from ${role};
+        revoke select (menu_item_id)
+          on ${schema}.canteen_dish_votes from ${role};
+        revoke select (menu_item_id)
+          on ${schema}.canteen_dish_comments from ${role};
+      `);
+    }
+
+    async function runCli(connectionString: string, format: "json" | "human") {
+      const script = path.resolve("scripts/preflight-canteen-menu-identity.ts");
+      try {
+        const result = await execFileAsync(
+          process.execPath,
+          ["--import", "tsx", script, `--format=${format}`],
+          {
+            env: {
+              ...process.env,
+              DATABASE_URL: connectionString,
+              PREFLIGHT_APPLICATION_COMMIT: "0123456789abcdef",
+            },
+          },
+        );
+        return { ...result, exitCode: 0 };
+      } catch (error) {
+        const failure = error as Error & {
+          code: number;
+          stdout: string;
+          stderr: string;
+        };
+        return {
+          exitCode: failure.code,
+          stdout: failure.stdout,
+          stderr: failure.stderr,
+        };
+      }
+    }
+
+    function expectJsonReportMatchesCommittedSchema(
+      report: Record<string, unknown>,
+    ) {
+      for (const required of reportSchema.required) {
+        expect(report).toHaveProperty(required);
+      }
+      expect(Object.keys(report).sort()).toEqual(
+        Object.keys(reportSchema.properties).sort(),
+      );
+      expect(report.schemaVersion).toBe(
+        reportSchema.properties.schemaVersion.const,
+      );
+      expect(report.contractVersion).toBe(
+        reportSchema.properties.contractVersion.const,
+      );
+      expect(report.targetIssue).toBe(
+        reportSchema.properties.targetIssue.const,
+      );
+      expect(reportSchema.properties.result.enum).toContain(report.result);
+      expect(reportSchema.properties.resultCode.enum).toContain(
+        report.resultCode,
+      );
+      const checks = report.checks as Array<{
+        code: string;
+        samples: Array<{ reason: string }>;
+      }>;
+      expect(checks).toHaveLength(reportSchema.properties.checks.minItems);
+      for (const check of checks) {
+        expect(
+          reportSchema.properties.checks.items.properties.code.enum,
+        ).toContain(check.code);
+        expect(check.samples.length).toBeLessThanOrEqual(
+          reportSchema.properties.checks.items.properties.samples.maxItems,
+        );
+        for (const sample of check.samples) {
+          expect(
+            reportSchema.properties.checks.items.properties.samples.items
+              .properties.reason.enum,
+          ).toContain(sample.reason);
+        }
+      }
     }
   },
 );
