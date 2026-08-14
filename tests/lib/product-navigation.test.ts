@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DESKTOP_PRODUCT_NAVIGATION,
-  isProductNavigationItemActive,
+  getActiveProductNavigationId,
   PRODUCT_NAVIGATION,
 } from "@/lib/product-navigation";
 
@@ -33,13 +33,17 @@ describe("product navigation", () => {
     );
   });
 
-  it("marks product roots and descendants active without matching siblings", () => {
-    expect(isProductNavigationItemActive("/courses", "/courses")).toBe(true);
-    expect(isProductNavigationItemActive("/courses/CSCI3150", "/courses")).toBe(
-      true,
+  it("resolves exactly one active product using the longest registered route", () => {
+    expect(getActiveProductNavigationId("/courses")).toBe("courses");
+    expect(getActiveProductNavigationId("/courses/CSCI3150")).toBe("courses");
+    expect(getActiveProductNavigationId("/canteen")).toBe("canteen");
+    expect(getActiveProductNavigationId("/canteen/menu")).toBe("canteen");
+    expect(getActiveProductNavigationId("/canteen/shit-rank")).toBe(
+      "canteen-rank",
     );
-    expect(isProductNavigationItemActive("/course-tree", "/courses")).toBe(
-      false,
+    expect(getActiveProductNavigationId("/canteen/shit-rank/archive")).toBe(
+      "canteen-rank",
     );
+    expect(getActiveProductNavigationId("/course-tree")).toBeUndefined();
   });
 });

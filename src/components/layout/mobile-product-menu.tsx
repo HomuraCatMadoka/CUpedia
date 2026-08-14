@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
 
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  isProductNavigationItemActive,
+  getActiveProductNavigationId,
   PRODUCT_NAVIGATION,
 } from "@/lib/product-navigation";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ export function MobileProductMenu({
   onOpenChange: (open: boolean) => void;
 }) {
   const pathname = usePathname();
+  const activeProductId = getActiveProductNavigationId(pathname);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -43,7 +44,7 @@ export function MobileProductMenu({
         initialFocus={closeButtonRef}
         showCloseButton={false}
         overlayClassName="bg-black/20 supports-backdrop-filter:backdrop-blur-sm motion-reduce:animate-none"
-        className="top-[calc(env(safe-area-inset-top)+0.5rem)] right-2 bottom-2 left-2 h-auto w-auto max-w-none translate-x-0 translate-y-0 grid-rows-[3.5rem_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl bg-background p-0 ring-1 ring-foreground/10 shadow-2xl data-open:slide-in-from-top-2 data-closed:slide-out-to-top-2 motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none md:hidden"
+        className="top-[calc(env(safe-area-inset-top)+0.5rem)] right-[calc(env(safe-area-inset-right)+0.5rem)] bottom-[calc(env(safe-area-inset-bottom)+0.5rem)] left-[calc(env(safe-area-inset-left)+0.5rem)] h-auto w-auto max-w-none translate-x-0 translate-y-0 grid-rows-[3.5rem_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-2xl bg-background p-0 ring-1 ring-foreground/10 shadow-2xl data-open:slide-in-from-top-2 data-closed:slide-out-to-top-2 motion-reduce:duration-0 motion-reduce:data-open:animate-none motion-reduce:data-closed:animate-none md:hidden"
       >
         <div className="flex items-center justify-between border-b px-3">
           <DialogTitle className="text-lg font-bold tracking-[-0.035em]">
@@ -70,7 +71,7 @@ export function MobileProductMenu({
           className="min-h-0 touch-pan-y overflow-y-auto overscroll-contain px-4 py-3"
         >
           {PRODUCT_NAVIGATION.map((item) => {
-            const active = isProductNavigationItemActive(pathname, item.href);
+            const active = item.id === activeProductId;
             return (
               <Link
                 key={item.id}
@@ -101,7 +102,7 @@ export function MobileProductMenu({
           })}
         </nav>
 
-        <div className="grid gap-1 border-t px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <div className="grid gap-1 border-t px-4 pt-3 pb-3">
           <Link
             href="/updates"
             onNavigate={() => onOpenChange(false)}

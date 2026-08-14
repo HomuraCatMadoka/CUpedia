@@ -236,9 +236,11 @@ describe("Navbar sign-out", () => {
     expect(screen.getByTestId("notification-slot").className).toContain(
       "size-11",
     );
-    expect(
-      screen.getByTestId("account-hydration-placeholder").className,
-    ).toContain("size-11");
+    const hydratingAccountSlot = screen.getByTestId("account-slot");
+    const stableAccountSlotClassName = hydratingAccountSlot.className;
+    expect(hydratingAccountSlot.className).toContain("size-11");
+    expect(hydratingAccountSlot.className).toContain("md:w-[4.5rem]");
+    expect(hydratingAccountSlot.className).toContain("xl:w-40");
 
     mountedState.current = true;
     sessionState.current = null;
@@ -247,8 +249,21 @@ describe("Navbar sign-out", () => {
     expect(screen.getByTestId("notification-slot").className).toContain(
       "size-11",
     );
-    expect(screen.getByRole("link", { name: "登录" }).className).toContain(
-      "size-11",
+    expect(screen.getByTestId("account-slot").className).toBe(
+      stableAccountSlotClassName,
+    );
+
+    sessionState.current = {
+      user: {
+        email: "admin@test.com",
+        nickname: "Administrator",
+        role: "admin",
+      },
+    };
+    rerender(<Navbar />);
+
+    expect(screen.getByTestId("account-slot").className).toBe(
+      stableAccountSlotClassName,
     );
   });
 

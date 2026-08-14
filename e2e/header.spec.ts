@@ -56,6 +56,18 @@ test.describe("#651 global single-row Header", () => {
     }
   });
 
+  test("nested product routes expose exactly one current product", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 393, height: MOBILE_HEIGHT });
+    await page.goto("/canteen/shit-rank");
+
+    const { dialog } = await openProductMenu(page);
+    const currentProducts = dialog.locator('[aria-current="page"]');
+    await expect(currentProducts).toHaveCount(1);
+    await expect(currentProducts).toHaveText("💩堂榜");
+  });
+
   test("menu traps focus, locks scrolling, and restores focus after every close path", async ({
     page,
   }) => {
@@ -216,5 +228,22 @@ test.describe("#651 global single-row Header", () => {
     await page.getByRole("button", { name: "打开产品菜单" }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(popover).toBeHidden();
+  });
+
+  test("desktop account slot keeps the same geometry across auth states", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+
+    const guestBox = await page.getByTestId("account-slot").boundingBox();
+    expect(guestBox?.width).toBe(160);
+
+    await loginWithPassword(page, "user@test.com", "password123");
+    await page.goto("/");
+
+    const signedInBox = await page.getByTestId("account-slot").boundingBox();
+    expect(signedInBox?.width).toBe(guestBox?.width);
+    expect(signedInBox?.x).toBe(guestBox?.x);
   });
 });

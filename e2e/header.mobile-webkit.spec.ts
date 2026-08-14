@@ -5,6 +5,10 @@ test.describe("#651 mobile WebKit Header", () => {
     page,
   }) => {
     await page.goto("/campus-bus");
+    await expect(page.locator('meta[name="viewport"]')).toHaveAttribute(
+      "content",
+      /viewport-fit=cover/,
+    );
 
     const trigger = page.getByRole("button", { name: "打开产品菜单" });
     await trigger.tap();
@@ -26,5 +30,29 @@ test.describe("#651 mobile WebKit Header", () => {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBe(await page.evaluate(() => document.documentElement.clientWidth));
+  });
+
+  test("landscape keeps the Header and product menu inside the visual viewport", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 667, height: 375 });
+    await page.goto("/canteen");
+
+    const headerBox = await page.getByTestId("global-header").boundingBox();
+    expect(headerBox?.x).toBeGreaterThanOrEqual(0);
+    expect((headerBox?.x ?? 0) + (headerBox?.width ?? 0)).toBeLessThanOrEqual(
+      667,
+    );
+
+    await page.getByRole("button", { name: "打开产品菜单" }).tap();
+    const dialogBox = await page.getByRole("dialog").boundingBox();
+    expect(dialogBox?.x).toBeGreaterThanOrEqual(0);
+    expect(dialogBox?.y).toBeGreaterThanOrEqual(0);
+    expect((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0)).toBeLessThanOrEqual(
+      667,
+    );
+    expect((dialogBox?.y ?? 0) + (dialogBox?.height ?? 0)).toBeLessThanOrEqual(
+      375,
+    );
   });
 });

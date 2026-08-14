@@ -52,9 +52,16 @@ export const DESKTOP_PRODUCT_NAVIGATION = PRODUCT_NAVIGATION.filter(
   (item) => item.desktop,
 );
 
-export function isProductNavigationItemActive(
+export function getActiveProductNavigationId(
   pathname: string,
-  href: string,
-): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
+): ProductNavigationItem["id"] | undefined {
+  return PRODUCT_NAVIGATION.reduce<ProductNavigationItem | undefined>(
+    (best, item) => {
+      const matches =
+        pathname === item.href || pathname.startsWith(`${item.href}/`);
+      if (!matches) return best;
+      return !best || item.href.length > best.href.length ? item : best;
+    },
+    undefined,
+  )?.id;
 }

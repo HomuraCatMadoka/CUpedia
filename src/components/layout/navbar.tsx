@@ -25,7 +25,7 @@ import {
 import { BellIcon, SparklesIcon, UserRoundIcon } from "lucide-react";
 import { CommandSearch } from "@/components/layout/command-search";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { MobileProductMenu } from "@/components/layout/mobile-product-menu";
+import { MobileProductMenu } from "./mobile-product-menu";
 import { AchievementAvatar } from "@/components/user/achievement-avatar";
 import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 import { DESKTOP_PRODUCT_NAVIGATION } from "@/lib/product-navigation";
@@ -36,6 +36,9 @@ const NotificationCenter = dynamic(() =>
     (module) => module.NotificationCenter,
   ),
 );
+
+const accountSlotClassName =
+  "flex size-11 shrink-0 items-center justify-end md:h-8 md:w-[4.5rem] xl:w-40";
 
 export function Navbar({ leading }: { leading?: React.ReactNode }) {
   const router = useRouter();
@@ -139,7 +142,7 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
         data-testid="global-header"
         className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-background/95 backdrop-blur-md supports-backdrop-filter:bg-background/85"
       >
-        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center px-2 pt-[env(safe-area-inset-top)] md:flex md:gap-4 md:px-4 md:pt-0">
+        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center pt-[env(safe-area-inset-top)] pr-[calc(env(safe-area-inset-right)+0.5rem)] pl-[calc(env(safe-area-inset-left)+0.5rem)] md:flex md:gap-4 md:pt-0 md:pr-[calc(env(safe-area-inset-right)+1rem)] md:pl-[calc(env(safe-area-inset-left)+1rem)]">
           <div className="flex min-w-0 items-center md:shrink-0">
             {leading}
             <Link
@@ -204,57 +207,65 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                     }
                   />
                 </span>
-                <DropdownMenu
-                  open={activeOverlay === "account"}
-                  onOpenChange={(open) =>
-                    setActiveOverlay(open ? "account" : null)
-                  }
+                <span
+                  data-testid="account-slot"
+                  className={accountSlotClassName}
                 >
-                  <DropdownMenuTrigger
-                    aria-label={sessionDisplayName}
-                    className="flex size-11 touch-manipulation items-center justify-center gap-2 rounded-md text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:h-8 md:w-auto md:min-w-11 md:px-1"
+                  <DropdownMenu
+                    open={activeOverlay === "account"}
+                    onOpenChange={(open) =>
+                      setActiveOverlay(open ? "account" : null)
+                    }
                   >
-                    <span className="relative">
-                      <AchievementAvatar image={session.user.image} size="xs" />
-                      {achievementNoticeCount > 0 && (
-                        <span
-                          data-testid="achievement-notice-badge"
-                          aria-label={`${achievementNoticeCount} 个未读成就提醒`}
-                          className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-semibold text-white tabular-nums"
-                        >
-                          {achievementNoticeCount > 9
-                            ? "9+"
-                            : achievementNoticeCount}
-                        </span>
-                      )}
-                    </span>
-                    <span className="hidden max-w-32 truncate xl:inline">
-                      {sessionDisplayName}
-                    </span>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => router.push("/courses/my-reviews")}
+                    <DropdownMenuTrigger
+                      aria-label={sessionDisplayName}
+                      className="flex size-11 touch-manipulation items-center justify-center gap-2 rounded-md text-sm transition-[background-color,transform] hover:bg-accent active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:h-8 md:w-auto md:min-w-11 md:px-1"
                     >
-                      我的测评
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => router.push("/courses/achievements")}
-                    >
-                      我的成就
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={openNicknameDialog}>
-                      修改昵称
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={signingOut}
-                      onClick={handleSignOut}
-                    >
-                      {signingOut ? "登出中..." : "登出"}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <span className="relative">
+                        <AchievementAvatar
+                          image={session.user.image}
+                          size="xs"
+                        />
+                        {achievementNoticeCount > 0 && (
+                          <span
+                            data-testid="achievement-notice-badge"
+                            aria-label={`${achievementNoticeCount} 个未读成就提醒`}
+                            className="absolute -top-1 -right-1 flex min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-4 font-semibold text-white tabular-nums"
+                          >
+                            {achievementNoticeCount > 9
+                              ? "9+"
+                              : achievementNoticeCount}
+                          </span>
+                        )}
+                      </span>
+                      <span className="hidden max-w-32 truncate xl:inline">
+                        {sessionDisplayName}
+                      </span>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => router.push("/courses/my-reviews")}
+                      >
+                        我的测评
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => router.push("/courses/achievements")}
+                      >
+                        我的成就
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={openNicknameDialog}>
+                        修改昵称
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        disabled={signingOut}
+                        onClick={handleSignOut}
+                      >
+                        {signingOut ? "登出中..." : "登出"}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </span>
               </>
             ) : mounted ? (
               <>
@@ -266,20 +277,25 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                 >
                   <BellIcon aria-hidden="true" className="size-5" />
                 </Link>
-                <Link
-                  href="/login"
-                  aria-label="登录"
-                  className={cn(
-                    buttonVariants({ size: "sm", variant: "default" }),
-                    "size-11 touch-manipulation px-0 active:scale-[0.98] motion-reduce:transition-none md:h-8 md:w-auto md:min-w-11 md:px-3",
-                  )}
+                <span
+                  data-testid="account-slot"
+                  className={accountSlotClassName}
                 >
-                  <UserRoundIcon
-                    aria-hidden="true"
-                    className="size-4 md:hidden"
-                  />
-                  <span className="hidden md:inline">登录</span>
-                </Link>
+                  <Link
+                    href="/login"
+                    aria-label="登录"
+                    className={cn(
+                      buttonVariants({ size: "sm", variant: "default" }),
+                      "size-11 touch-manipulation px-0 active:scale-[0.98] motion-reduce:transition-none md:h-8 md:w-auto md:min-w-11 md:px-3",
+                    )}
+                  >
+                    <UserRoundIcon
+                      aria-hidden="true"
+                      className="size-4 md:hidden"
+                    />
+                    <span className="hidden md:inline">登录</span>
+                  </Link>
+                </span>
               </>
             ) : (
               <>
@@ -292,15 +308,20 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                 >
                   <BellIcon aria-hidden="true" className="size-5" />
                 </button>
-                <button
-                  type="button"
-                  disabled
-                  aria-label="正在加载账户"
-                  data-testid="account-hydration-placeholder"
-                  className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground md:h-8 md:w-11"
+                <span
+                  data-testid="account-slot"
+                  className={accountSlotClassName}
                 >
-                  <UserRoundIcon aria-hidden="true" className="size-4" />
-                </button>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label="正在加载账户"
+                    data-testid="account-hydration-placeholder"
+                    className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground md:h-8 md:w-11"
+                  >
+                    <UserRoundIcon aria-hidden="true" className="size-4" />
+                  </button>
+                </span>
               </>
             )}
             <MobileProductMenu
