@@ -8,12 +8,11 @@ import {
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createMenuExternalKey } from "@/lib/canteen-menu-external-key";
-import { canonicalizeProviderMenuState } from "./canteen-provider-menu-identity";
 import {
-  planMenuSync,
-  type ExistingSyncMenuItem,
-  type MenuSyncPlan,
-} from "@/lib/canteen-menu-sync";
+  evaluateMenuSnapshot,
+  type MenuSnapshotEvaluation,
+} from "./canteen-menu-snapshot-evaluator";
+import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import type {
   MealPeriodAssignment,
   MenuItemPriceOptionInput,
@@ -122,8 +121,7 @@ function syncMenuSelection() {
   };
 }
 
-export type MenuSyncPreview = {
-  plan: MenuSyncPlan;
+export type MenuSyncPreview = MenuSnapshotEvaluation & {
   previewToken: string;
 };
 
@@ -185,22 +183,21 @@ export async function previewMenuSync(
   const existing = collectExistingSyncItems(
     await selectExistingItems(db, source.canteenId),
   );
-  const canonical = canonicalizeProviderMenuState(
-    source.provider,
+  const evaluation = evaluateMenuSnapshot(
+    {
+      id: source.id,
+      provider: source.provider,
+      legacyAdoptionOpen: source.legacyTakeoverAt === null,
+    },
     input,
     existing,
   );
   return {
-    plan: planMenuSync(
-      source.id,
-      canonical.input,
-      canonical.existingItems,
-      source.legacyTakeoverAt === null,
-    ),
+    ...evaluation,
     previewToken: createMenuSyncPreviewToken(
       source,
-      canonical.input,
-      canonical.existingItems,
+      evaluation.canonicalState.input,
+      evaluation.canonicalState.existingItems,
     ),
   };
 }
@@ -222,9 +219,9 @@ async function applyMenuSync(
   expectedPreviewToken: unknown,
   shouldRevalidate = true,
   expectedAttemptId?: string,
-): Promise<MenuSyncPlan> {
+): Promise<MenuSnapshotEvaluation> {
   const now = new Date();
-  const plan = await db.transaction(async (tx) => {
+  const evaluationResult = await db.transaction(async (tx) => {
     // Lock the source first. This serializes even the very first sync, when no
     // managed menu rows exist yet, and fixes source/canteen ownership in DB.
     const [source] = await tx
@@ -242,8 +239,12 @@ async function applyMenuSync(
 
     const rows = await selectExistingItems(tx, source.canteenId);
     const existing = collectExistingSyncItems(rows);
-    const canonical = canonicalizeProviderMenuState(
-      source.provider,
+    const evaluation = evaluateMenuSnapshot(
+      {
+        id: source.id,
+        provider: source.provider,
+        legacyAdoptionOpen: source.legacyTakeoverAt === null,
+      },
       input,
       existing,
     );
@@ -253,25 +254,26 @@ async function applyMenuSync(
       expectedPreviewToken !==
         createMenuSyncPreviewToken(
           source,
-          canonical.input,
-          canonical.existingItems,
+          evaluation.canonicalState.input,
+          evaluation.canonicalState.existingItems,
         )
     ) {
       throw new Error("MENU_SYNC_STALE");
     }
-    const currentPlan = planMenuSync(
-      source.id,
-      canonical.input,
-      canonical.existingItems,
-      source.legacyTakeoverAt === null,
-    );
-    if (currentPlan.conflicts.length > 0) throw new Error("MENU_SYNC_CONFLICT");
+    const currentPlan = evaluation.plan;
+    if (evaluation.blockingDecision.blocked) {
+      throw Object.assign(new Error(evaluation.blockingDecision.code), {
+        evaluation,
+        observation: evaluation.identityObservation,
+        blockingDecision: evaluation.blockingDecision,
+      });
+    }
 
     const actionByProduct = new Map(
       currentPlan.actions.map((action) => [action.externalProductId, action]),
     );
     const existingByProduct = new Map(
-      canonical.existingItems
+      evaluation.canonicalState.existingItems
         .filter(
           (item) =>
             item.menuSourceId === source.id && item.externalProductId !== null,
@@ -280,7 +282,7 @@ async function applyMenuSync(
     );
     const shadowSource = shadowSourceNamespace(source);
 
-    for (const item of canonical.input.items) {
+    for (const item of evaluation.canonicalState.input.items) {
       const action = actionByProduct.get(item.externalProductId);
       const shadowKey = createMenuExternalKey(
         item.externalProductId,
@@ -369,7 +371,7 @@ async function applyMenuSync(
         .set({ legacyTakeoverAt: now, enabled: true, updatedAt: now })
         .where(eq(canteenMenuSources.id, source.id));
     }
-    return currentPlan;
+    return evaluation;
   });
 
   if (shouldRevalidate) {
@@ -383,14 +385,14 @@ async function applyMenuSync(
       revalidatePath(`/canteen/${source.canteenId}`);
     }
   }
-  return plan;
+  return evaluationResult;
 }
 
 export function applyPreviewedMenuSync(
   sourceId: string,
   input: MenuSyncInput,
   previewToken: unknown,
-): Promise<MenuSyncPlan> {
+): Promise<MenuSnapshotEvaluation> {
   return applyMenuSync(sourceId, input, previewToken);
 }
 
@@ -399,7 +401,7 @@ export function applyAutomatedMenuSync(
   input: MenuSyncInput,
   previewToken: unknown,
   attemptId: string,
-): Promise<MenuSyncPlan> {
+): Promise<MenuSnapshotEvaluation> {
   if (input.takeOverLegacyItems) {
     return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
   }

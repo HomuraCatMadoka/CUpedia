@@ -32,6 +32,8 @@ import {
 } from "@/lib/canteen-admin-actions";
 import { getCanteenMenuItems } from "@/lib/canteen-actions";
 import { createDishComment } from "@/lib/canteen-comment-actions";
+import { applyPreviewedMenuSync } from "@/lib/canteen-menu-sync-store";
+import { parseMenuSyncJson } from "@/lib/canteen-types";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -109,7 +111,13 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     };
     const preview = await previewMenuSyncFromJson(canteenId, firstSnapshot);
     expect(preview.plan.actions[0]).toMatchObject({ action: "claim", itemId });
-    await applyMenuSyncFromJson(canteenId, firstSnapshot, preview.previewToken);
+    const { previewToken, ...previewEvaluation } = preview;
+    const transactionEvaluation = await applyPreviewedMenuSync(
+      sourceId,
+      parseMenuSyncJson(firstSnapshot),
+      previewToken,
+    );
+    expect(transactionEvaluation).toEqual(previewEvaluation);
 
     const [claimed] = await db
       .select()
@@ -149,10 +157,17 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       itemId,
       externalProductId: "product-42#offering-period=dinner",
     });
-    await applyMenuSyncFromJson(
-      canteenId,
-      periodChangedSnapshot,
-      periodChangedPreview.previewToken,
+    const {
+      previewToken: periodChangedToken,
+      ...periodChangedPreviewEvaluation
+    } = periodChangedPreview;
+    const periodChangedTransactionEvaluation = await applyPreviewedMenuSync(
+      sourceId,
+      parseMenuSyncJson(periodChangedSnapshot),
+      periodChangedToken,
+    );
+    expect(periodChangedTransactionEvaluation).toEqual(
+      periodChangedPreviewEvaluation,
     );
     const [periodChanged] = await db
       .select()
@@ -333,6 +348,64 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     },
   );
 
+  it("updates an exact identity without losing its UUID or history", async () => {
+    await db
+      .update(canteenMenuItems)
+      .set({
+        menuSourceId: sourceId,
+        externalProductId: "exact-product#offering-period=lunch",
+        externalSource: "aigens:102830",
+        externalKey: "exact-product#offering-period=lunch#period=lunch",
+      })
+      .where(eq(canteenMenuItems.id, itemId));
+    const snapshot = {
+      items: [
+        {
+          externalProductId: "exact-product#offering-period=lunch",
+          name: "更新后的菜品名称",
+          mealPeriods: ["lunch"],
+          svgKey: "更新分类",
+          pricing: {
+            options: [{ amountMinor: 1888, currency: "HKD" }],
+          },
+        },
+      ],
+    };
+    const preview = await previewMenuSyncFromJson(canteenId, snapshot);
+    expect(preview.plan.actions).toEqual([
+      expect.objectContaining({ action: "update", itemId }),
+    ]);
+
+    await applyMenuSyncFromJson(canteenId, snapshot, preview.previewToken);
+
+    const [updated] = await db
+      .select()
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.id, itemId));
+    expect(updated).toMatchObject({
+      id: itemId,
+      externalProductId: "exact-product#offering-period=lunch",
+      name: "更新后的菜品名称",
+      svgKey: "更新分类",
+    });
+    const [price] = await db
+      .select({ amountMinor: canteenMenuItemPrices.amountMinor })
+      .from(canteenMenuItemPrices)
+      .where(eq(canteenMenuItemPrices.menuItemId, itemId));
+    expect(price).toEqual({ amountMinor: 1888 });
+    const history = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, itemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, itemId)),
+    ]);
+    expect(history.map(([row]) => row.value)).toEqual([1, 1]);
+  });
+
   it("rejects missing and stale preview tokens before writing", async () => {
     const snapshot = {
       items: [
@@ -369,6 +442,69 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     await db
       .delete(canteenMenuItems)
       .where(eq(canteenMenuItems.id, interveningItemId));
+  });
+
+  it("re-evaluates an ambiguous split under lock and performs no mutation", async () => {
+    await db
+      .update(canteenMenuItems)
+      .set({
+        menuSourceId: sourceId,
+        externalProductId: "secret-product#offering-period=breakfast",
+        externalSource: "aigens:102830",
+        externalKey:
+          "secret-product#offering-period=breakfast#period=breakfast",
+      })
+      .where(eq(canteenMenuItems.id, itemId));
+    const splitSnapshot = {
+      items: [
+        {
+          externalProductId: "secret-product#offering-period=lunch",
+          name: "午餐示例菜品",
+          mealPeriods: ["lunch"],
+        },
+        {
+          externalProductId: "secret-product#offering-period=dinner",
+          name: "晚餐示例菜品",
+          mealPeriods: ["dinner"],
+        },
+      ],
+    };
+
+    const preview = await previewMenuSyncFromJson(canteenId, splitSnapshot);
+    expect(preview.blockingDecision).toMatchObject({
+      blocked: true,
+      code: "MENU_SYNC_CONFLICT",
+    });
+    await expect(
+      applyMenuSyncFromJson(canteenId, splitSnapshot, preview.previewToken),
+    ).rejects.toThrow("MENU_SYNC_CONFLICT");
+
+    const items = await db
+      .select({
+        id: canteenMenuItems.id,
+        externalProductId: canteenMenuItems.externalProductId,
+        isAvailable: canteenMenuItems.isAvailable,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.canteenId, canteenId));
+    expect(items).toEqual([
+      {
+        id: itemId,
+        externalProductId: "secret-product#offering-period=breakfast",
+        isAvailable: true,
+      },
+    ]);
+    const history = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, itemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, itemId)),
+    ]);
+    expect(history.map(([row]) => row.value)).toEqual([1, 1]);
   });
 
   it("enforces one external identity per canteen", async () => {

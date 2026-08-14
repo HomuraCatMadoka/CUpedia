@@ -14,14 +14,17 @@ describe("menu identity churn observation", () => {
     expect(observation).toMatchObject({
       newProductCount: 1,
       missingProductCount: 1,
-      suspectedReplacements: [
+      suspectedReplacementCount: 1,
+      suspectedReplacementSamples: [
         {
-          previousProductId: "old-id",
-          nextProductId: "new-id",
-          normalizedName: "凍奶茶",
+          previousProductId: expect.stringMatching(/^[a-f0-9]{12}$/),
+          nextProductId: expect.stringMatching(/^[a-f0-9]{12}$/),
         },
       ],
     });
+    expect(JSON.stringify(observation)).not.toContain("old-id");
+    expect(JSON.stringify(observation)).not.toContain("new-id");
+    expect(JSON.stringify(observation)).not.toContain("凍奶茶");
     expect(isSuspiciousMenuIdentityChurn(observation, 1)).toBe(true);
   });
 
@@ -44,8 +47,10 @@ describe("menu identity churn observation", () => {
     expect(observation).toMatchObject({
       newProductCount: 0,
       missingProductCount: 0,
-      suspectedReplacements: [],
-      ambiguousOfferingTransitions: [],
+      suspectedReplacementCount: 0,
+      suspectedReplacementSamples: [],
+      ambiguousOfferingTransitionCount: 0,
+      ambiguousOfferingTransitionSamples: [],
     });
     expect(isSuspiciousMenuIdentityChurn(observation, 1)).toBe(false);
   });
@@ -70,16 +75,11 @@ describe("menu identity churn observation", () => {
       ],
     );
 
-    expect(observation.ambiguousOfferingTransitions).toEqual([
-      {
-        productIdentity: "product-42",
-        previousProductIds: ["product-42#offering-period=breakfast"],
-        nextProductIds: [
-          "product-42#offering-period=lunch",
-          "product-42#offering-period=dinner",
-        ],
-      },
+    expect(observation.ambiguousOfferingTransitionCount).toBe(1);
+    expect(observation.ambiguousOfferingTransitionSamples).toEqual([
+      expect.stringMatching(/^[a-f0-9]{12}$/),
     ]);
+    expect(JSON.stringify(observation)).not.toContain("product-42");
     expect(isSuspiciousMenuIdentityChurn(observation, 1)).toBe(true);
   });
 
@@ -101,7 +101,8 @@ describe("menu identity churn observation", () => {
     );
 
     expect(observation.newProductCount).toBe(1);
-    expect(observation.suspectedReplacements).toEqual([]);
+    expect(observation.suspectedReplacementCount).toBe(0);
+    expect(observation.suspectedReplacementSamples).toEqual([]);
     expect(isSuspiciousMenuIdentityChurn(observation, 4)).toBe(false);
   });
 
@@ -118,7 +119,7 @@ describe("menu identity churn observation", () => {
 
     expect(observation.newProductCount).toBe(30);
     expect(observation.missingProductCount).toBe(30);
-    expect(observation.newProductIds).toHaveLength(25);
+    expect(observation.newProductSamples).toHaveLength(25);
     expect(observation.truncated).toBe(true);
     expect(isSuspiciousMenuIdentityChurn(observation, 100)).toBe(true);
   });
