@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertProviderMenuIdentitySnapshot,
   canonicalizeProviderMenuState,
+  normalizePersistedMenuShadowKey,
   normalizePublishedProviderIdentity,
   providerMenuIdentityContracts,
   ProviderMenuIdentityError,
@@ -96,6 +97,34 @@ describe("provider menu identity contract (#636)", () => {
           normalizePublishedProviderIdentity(provider, identity),
         ),
       ).toEqual(historical.map(() => canonical));
+    },
+  );
+
+  it("decodes only the exact Aigens writer shadow envelope", () => {
+    expect(
+      normalizePersistedMenuShadowKey(
+        "aigens",
+        "product-42#offering-period=lunch#period=lunch",
+      ),
+    ).toBe("product-42#offering-period=lunch");
+
+    for (const malformed of [
+      "product-42#offering-period=lunch#period=bogus",
+      "product-42#offering-period=lunch#period=",
+      "product-42#offering-period=lunch#period=dinner",
+    ]) {
+      expect(() =>
+        normalizePersistedMenuShadowKey("aigens", malformed),
+      ).toThrow("MALFORMED_IDENTITY");
+    }
+  });
+
+  it.each(["pinme", "ichef", "qmai"] as const)(
+    "$provider rejects malformed writer period suffixes",
+    (provider) => {
+      expect(() =>
+        normalizePersistedMenuShadowKey(provider, "product-42#period=bogus"),
+      ).toThrow("MALFORMED_IDENTITY");
     },
   );
 

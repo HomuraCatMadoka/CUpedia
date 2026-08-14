@@ -346,6 +346,88 @@
       }
     },
     {
+      "name": "malformed writer period suffix",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42",
+          "externalSource": "pinme:store-a",
+          "externalKey": "product-42#period=bogus",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "diagnosticReason": "unsupported-product-key",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          },
+          "UNSUPPORTED_LEGACY_IDENTITY": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "malformed Aigens writer envelope",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "aigens",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42#offering-period=lunch",
+          "externalSource": "aigens:store-a",
+          "externalKey": "product-42#offering-period=lunch#period=bogus",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "diagnosticReason": "unsupported-product-key",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          },
+          "UNSUPPORTED_LEGACY_IDENTITY": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
+    },
+    {
       "name": "rollout shadow null asymmetry",
       "canteens": ["canteen-a"],
       "sources": [
