@@ -320,6 +320,7 @@ describe.skipIf(!hasDb)("menu snapshot evaluation path parity", () => {
           applyPreviewedMenuSync(sourceId, scenario.input, previewToken),
         ).rejects.toMatchObject({
           message: scenario.expectedCode,
+          evaluation: previewEvaluation,
           blockingDecision: previewEvaluation.blockingDecision,
           observation: previewEvaluation.identityObservation,
         });

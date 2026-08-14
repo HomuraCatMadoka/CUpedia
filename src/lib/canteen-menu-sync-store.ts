@@ -263,6 +263,7 @@ async function applyMenuSync(
     const currentPlan = evaluation.plan;
     if (evaluation.blockingDecision.blocked) {
       throw Object.assign(new Error(evaluation.blockingDecision.code), {
+        evaluation,
         observation: evaluation.identityObservation,
         blockingDecision: evaluation.blockingDecision,
       });
