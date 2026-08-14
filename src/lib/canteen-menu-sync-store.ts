@@ -180,9 +180,8 @@ function createMenuSyncPreviewToken(
 async function selectExistingItems(
   executor: Pick<typeof db, "select">,
   canteenId: string,
-  lockForUpdate = false,
 ) {
-  const query = executor
+  return executor
     .select(syncMenuSelection())
     .from(canteenMenuItems)
     .leftJoin(
@@ -191,7 +190,18 @@ async function selectExistingItems(
     )
     .where(eq(canteenMenuItems.canteenId, canteenId))
     .orderBy(canteenMenuItems.id);
-  return lockForUpdate ? query.for("update", { of: canteenMenuItems }) : query;
+}
+
+async function lockExistingMenuItems(
+  executor: Pick<typeof db, "select">,
+  canteenId: string,
+): Promise<void> {
+  await executor
+    .select({ id: canteenMenuItems.id })
+    .from(canteenMenuItems)
+    .where(eq(canteenMenuItems.canteenId, canteenId))
+    .orderBy(canteenMenuItems.id)
+    .for("update", { of: canteenMenuItems });
 }
 
 export async function previewMenuSync(
@@ -287,7 +297,8 @@ async function applyMenuSync(
       throw new Error("IDENTITY_TRANSITION_LEGACY_TAKEOVER_FORBIDDEN");
     }
 
-    const rows = await selectExistingItems(tx, source.canteenId, true);
+    await lockExistingMenuItems(tx, source.canteenId);
+    const rows = await selectExistingItems(tx, source.canteenId);
     const existing = collectExistingSyncItems(rows);
     const baselineEvaluation = evaluateMenuSnapshot(
       {

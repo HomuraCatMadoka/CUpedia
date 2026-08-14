@@ -806,7 +806,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     });
   });
 
-  it("does not overwrite an admin edit committed while a transition waits", async () => {
+  it("does not overwrite an admin price edit committed while a transition waits", async () => {
     const previousProductId = "old-product#offering-period=lunch";
     const nextProductId = "new-product#offering-period=lunch";
     await db
@@ -818,6 +818,11 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         externalKey: `${previousProductId}#period=lunch`,
       })
       .where(eq(canteenMenuItems.id, itemId));
+    await db.insert(canteenMenuItemPrices).values({
+      menuItemId: itemId,
+      label: "原价",
+      amountMinor: 1000,
+    });
     const input = parseMenuSyncJson({
       items: [
         {
@@ -825,6 +830,9 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
           name: "演示菜品 A",
           mealPeriods: ["lunch"],
           svgKey: "drink",
+          pricing: {
+            options: [{ label: "原价", amountMinor: 1000, currency: "HKD" }],
+          },
         },
       ],
     });
@@ -836,7 +844,14 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
           mealPeriods: ["lunch"],
           sortOrder: 0,
           svgKey: "drink",
-          priceOptions: [],
+          priceOptions: [
+            {
+              label: "原价",
+              amountMinor: 1000,
+              currency: "HKD",
+              sortOrder: 0,
+            },
+          ],
           menuSourceId: sourceId,
           externalProductId: previousProductId,
           isAvailable: true,
@@ -885,8 +900,16 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         "select pg_backend_pid() as pid",
       );
       await adminClient.query(
-        "update canteen_menu_items set svg_key = $1, updated_at = now() where id = $2",
-        ["人工并发修订", itemId],
+        "update canteen_menu_items set updated_at = now() where id = $1",
+        [itemId],
+      );
+      await adminClient.query(
+        "delete from canteen_menu_item_prices where menu_item_id = $1",
+        [itemId],
+      );
+      await adminClient.query(
+        "insert into canteen_menu_item_prices (menu_item_id, label, amount_minor, currency, sort_order) values ($1, $2, $3, $4, $5)",
+        [itemId, "人工新价", 1200, "HKD", 0],
       );
 
       const transition = applyApprovedMenuIdentityTransition(
@@ -909,14 +932,20 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
     const [preserved] = await db
       .select({
-        svgKey: canteenMenuItems.svgKey,
         externalProductId: canteenMenuItems.externalProductId,
+        label: canteenMenuItemPrices.label,
+        amountMinor: canteenMenuItemPrices.amountMinor,
       })
       .from(canteenMenuItems)
+      .innerJoin(
+        canteenMenuItemPrices,
+        eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
+      )
       .where(eq(canteenMenuItems.id, itemId));
     expect(preserved).toEqual({
-      svgKey: "人工并发修订",
       externalProductId: previousProductId,
+      label: "人工新价",
+      amountMinor: 1200,
     });
   });
 
