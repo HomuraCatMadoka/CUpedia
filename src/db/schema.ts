@@ -1781,6 +1781,21 @@ export const canteenOrderingHandoffs = pgTable(
   ],
 );
 
+export const CANTEEN_MENU_SYNC_RUN_STATUSES = [
+  "running",
+  "applied",
+  "unchanged",
+  "failed",
+] as const;
+export type CanteenMenuSyncRunStatus =
+  (typeof CANTEEN_MENU_SYNC_RUN_STATUSES)[number];
+
+export const CANTEEN_MENU_SYNC_TERMINAL_STATUSES = [
+  "applied",
+  "unchanged",
+  "failed",
+] as const satisfies readonly CanteenMenuSyncRunStatus[];
+
 export const canteenMenuSyncRuns = pgTable(
   "canteen_menu_sync_runs",
   {
@@ -1788,7 +1803,10 @@ export const canteenMenuSyncRuns = pgTable(
     menuSourceId: uuid("menu_source_id")
       .notNull()
       .references(() => canteenMenuSources.id, { onDelete: "cascade" }),
-    status: text("status").notNull().default("running"),
+    status: text("status")
+      .$type<CanteenMenuSyncRunStatus>()
+      .notNull()
+      .default("running"),
     snapshotHash: text("snapshot_hash"),
     itemCount: integer("item_count"),
     createdCount: integer("created_count"),
@@ -1817,7 +1835,11 @@ export const canteenMenuSyncRuns = pgTable(
     ),
     check(
       "canteen_menu_sync_runs_status_chk",
-      sql`${table.status} in ('running', 'applied', 'unchanged', 'failed')`,
+      sql`${table.status} in (${sql.raw(
+        CANTEEN_MENU_SYNC_RUN_STATUSES.map((status) => `'${status}'`).join(
+          ", ",
+        ),
+      )})`,
     ),
     check(
       "canteen_menu_sync_runs_counts_chk",
