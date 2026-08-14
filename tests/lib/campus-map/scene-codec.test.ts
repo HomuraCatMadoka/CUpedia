@@ -1,0 +1,294 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  decodeCampusMapUrl,
+  decodeCampusMapHistorySnapshot,
+  encodeCampusMapUrl,
+  encodeCampusMapHistorySnapshot,
+  normalizeCampusMapHistorySession,
+  normalizeCampusMapUrlSession,
+} from "@/lib/campus-map/scene-codec";
+import type {
+  CampusMapSceneCatalog,
+  CampusMapSession,
+} from "@/lib/campus-map/scene-kernel";
+import { EMPTY_CAMPUS_MAP_SCENE_SESSION } from "@/lib/campus-map/scene-kernel";
+
+const catalog: CampusMapSceneCatalog = {
+  categories: ["water", "classroom"],
+  buildings: { science: { floorIds: ["G", "1", "4"] } },
+  facilities: {
+    fountain: {
+      buildingId: "science",
+      floorId: "1",
+      category: "water",
+    },
+  },
+  contents: {
+    room401: {
+      buildingId: "science",
+      floorId: "4",
+      category: "classroom",
+      kind: "room",
+    },
+  },
+};
+
+describe("Campus Map versioned scene codec", () => {
+  it("round-trips a facility URL without derived relationship fields", () => {
+    const session: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "facility", facilityId: "fountain", snap: "full" },
+    };
+
+    const encoded = encodeCampusMapUrl(session, catalog);
+    expect(encoded.toString()).toBe("v=1&scene=facility&id=fountain&snap=full");
+    expect(encoded.has("building")).toBe(false);
+    expect(encoded.has("floor")).toBe(false);
+    expect(encoded.has("category")).toBe(false);
+    expect(decodeCampusMapUrl(encoded, catalog)).toEqual({
+      status: "decoded",
+      session,
+    });
+  });
+
+  it.each([
+    [EMPTY_CAMPUS_MAP_SCENE_SESSION, "v=1", EMPTY_CAMPUS_MAP_SCENE_SESSION],
+    [
+      {
+        mode: "browse",
+        scene: { kind: "search-results", query: "science", snap: "peek" },
+      },
+      "v=1&scene=search&q=science&snap=peek",
+      null,
+    ],
+    [
+      {
+        mode: "browse",
+        scene: { kind: "category-results", category: "water", snap: "full" },
+      },
+      "v=1&scene=category&id=water&snap=full",
+      null,
+    ],
+    [
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "science",
+          floorId: "4",
+          snap: "peek",
+        },
+      },
+      "v=1&scene=building&id=science&floor=4&snap=peek",
+      null,
+    ],
+    [
+      {
+        mode: "browse",
+        scene: { kind: "content", contentId: "room401", snap: "full" },
+      },
+      "v=1&scene=content&id=room401&snap=full",
+      null,
+    ],
+    [
+      {
+        mode: "task",
+        task: {
+          kind: "create",
+          anchor: { kind: "building", buildingId: "science" },
+        },
+      },
+      "v=1&task=create&anchor=building&id=science",
+      null,
+    ],
+    [
+      {
+        mode: "browse",
+        scene: {
+          kind: "provider-poi",
+          provider: "amap",
+          providerPoiId: "external",
+          name: "External",
+          position: [114.2, 22.4],
+        },
+      },
+      "v=1",
+      EMPTY_CAMPUS_MAP_SCENE_SESSION,
+    ],
+  ] satisfies readonly [CampusMapSession, string, CampusMapSession | null][])(
+    "stabilizes encode/decode/normalize for a canonical session",
+    (session, encoded, normalizedOverride) => {
+      expect(encodeCampusMapUrl(session, catalog).toString()).toBe(encoded);
+      const normalized =
+        normalizedOverride ?? normalizeCampusMapUrlSession(session, catalog);
+      expect(decodeCampusMapUrl(encoded, catalog)).toEqual({
+        status: "decoded",
+        session: normalized,
+      });
+      expect(normalizeCampusMapUrlSession(normalized, catalog)).toEqual(
+        normalized,
+      );
+    },
+  );
+
+  it("round-trips versioned history snapshots including transient scenes", () => {
+    const session: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "provider-poi",
+        provider: "amap",
+        providerPoiId: "external",
+        name: "External",
+        position: [114.2, 22.4],
+      },
+    };
+
+    const encoded = encodeCampusMapHistorySnapshot(session, catalog, 3);
+    expect(encoded).toEqual({
+      campusMapScene: true,
+      version: 1,
+      depth: 3,
+      session,
+    });
+    expect(decodeCampusMapHistorySnapshot(encoded, catalog)).toEqual({
+      status: "decoded",
+      session,
+      depth: 3,
+    });
+    expect(normalizeCampusMapHistorySession(session, catalog)).toEqual(session);
+  });
+
+  it.each([
+    EMPTY_CAMPUS_MAP_SCENE_SESSION,
+    {
+      mode: "browse",
+      scene: { kind: "search-results", query: "science", snap: "peek" },
+    },
+    {
+      mode: "browse",
+      scene: { kind: "category-results", category: "water", snap: "full" },
+    },
+    {
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: "science",
+        floorId: "4",
+        snap: "peek",
+      },
+    },
+    {
+      mode: "browse",
+      scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+    },
+    {
+      mode: "browse",
+      scene: { kind: "content", contentId: "room401", snap: "full" },
+    },
+    {
+      mode: "browse",
+      scene: {
+        kind: "provider-poi",
+        provider: "amap",
+        providerPoiId: "external",
+        name: "External",
+        position: [114.2, 22.4],
+      },
+    },
+    {
+      mode: "task",
+      task: {
+        kind: "create",
+        anchor: { kind: "building", buildingId: "science" },
+      },
+    },
+  ] satisfies readonly CampusMapSession[])(
+    "keeps every canonical session stable through the history codec",
+    (session) => {
+      const normalized = normalizeCampusMapHistorySession(session, catalog);
+      const encoded = encodeCampusMapHistorySnapshot(session, catalog, 2);
+      expect(decodeCampusMapHistorySnapshot(encoded, catalog)).toEqual({
+        status: "decoded",
+        session: normalized,
+        depth: 2,
+      });
+      expect(normalizeCampusMapHistorySession(normalized, catalog)).toEqual(
+        normalized,
+      );
+    },
+  );
+
+  it.each([
+    [
+      "old version",
+      {
+        campusMapScene: true,
+        version: 0,
+        depth: 1,
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      },
+      "unsupported-version",
+    ],
+    [
+      "conflicting derived relationships",
+      {
+        campusMapScene: true,
+        version: 1,
+        depth: 1,
+        session: {
+          mode: "browse",
+          scene: {
+            kind: "facility",
+            facilityId: "fountain",
+            buildingId: "library",
+            floorId: "G",
+            category: "water",
+            snap: "peek",
+          },
+        },
+      },
+      "conflicting-fields",
+    ],
+    [
+      "missing deep-link entity",
+      {
+        campusMapScene: true,
+        version: 1,
+        depth: 2,
+        session: {
+          mode: "browse",
+          scene: { kind: "content", contentId: "missing", snap: "full" },
+        },
+      },
+      "unknown-entity",
+    ],
+  ])("safely falls back for $0", (_label, snapshot, reason) => {
+    expect(decodeCampusMapHistorySnapshot(snapshot, catalog)).toEqual({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      depth: 0,
+      reason,
+    });
+  });
+
+  it("safely falls back for invalid and conflicting deep links", () => {
+    expect(
+      decodeCampusMapUrl("v=1&scene=facility&id=missing&snap=peek", catalog),
+    ).toMatchObject({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "unknown-entity",
+    });
+    expect(
+      decodeCampusMapUrl(
+        "v=1&scene=facility&id=fountain&building=science&snap=peek",
+        catalog,
+      ),
+    ).toMatchObject({
+      status: "fallback",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      reason: "conflicting-fields",
+    });
+  });
+});
