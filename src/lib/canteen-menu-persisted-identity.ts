@@ -95,11 +95,12 @@ export function createPersistedMenuIdentityInterpreter(
       const identitiesAgree =
         (authoritative.kind === "manual" && shadow.kind === "manual") ||
         (authoritative.kind === "managed" &&
-          shadow.kind === "resolved" &&
-          canonicalMenuIdentitiesEqual(
-            authoritative.identity,
-            shadow.identity,
-          ));
+          (shadow.kind === "manual" ||
+            (shadow.kind === "resolved" &&
+              canonicalMenuIdentitiesEqual(
+                authoritative.identity,
+                shadow.identity,
+              ))));
 
       return {
         authoritative,

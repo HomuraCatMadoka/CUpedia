@@ -7,9 +7,7 @@ import {
 } from "@/db/schema";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { createMenuExternalKey } from "./canteen-menu-external-key";
 import { lockCanteenMenuMutationForSource } from "./canteen-menu-mutation-lock";
-import { projectProviderMenuSourceNamespace } from "./canteen-provider-menu-identity";
 import {
   evaluateMenuSnapshot,
   resolveApprovedIdentityTransitionBlocking,
@@ -410,17 +408,8 @@ async function applyMenuSync(
         )
         .map((item) => [item.externalProductId!, item]),
     );
-    const shadowSource = projectProviderMenuSourceNamespace(
-      source.provider,
-      source,
-    );
-
     for (const item of evaluation.canonicalState.input.items) {
       const action = actionByProduct.get(item.externalProductId);
-      const shadowKey = createMenuExternalKey(
-        item.externalProductId,
-        item.mealPeriods,
-      );
       if (action?.action === "create") {
         const [created] = await tx
           .insert(canteenMenuItems)
@@ -433,8 +422,6 @@ async function applyMenuSync(
             svgKey: item.svgKey,
             menuSourceId: source.id,
             externalProductId: item.externalProductId,
-            externalSource: shadowSource,
-            externalKey: shadowKey,
             isAvailable: true,
             lastSyncedAt: now,
             createdAt: now,
@@ -462,8 +449,6 @@ async function applyMenuSync(
           svgKey: item.svgKey,
           menuSourceId: source.id,
           externalProductId: item.externalProductId,
-          externalSource: shadowSource,
-          externalKey: shadowKey,
           isAvailable: true,
           lastSyncedAt: now,
           updatedAt: now,
