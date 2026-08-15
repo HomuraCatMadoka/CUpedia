@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { evaluateMenuSnapshot } from "@/lib/canteen-menu-snapshot-evaluator";
+import {
+  evaluateMenuSnapshot,
+  resolveApprovedIdentityTransitionBlocking,
+} from "@/lib/canteen-menu-snapshot-evaluator";
 import type { ExistingSyncMenuItem } from "@/lib/canteen-menu-sync";
 import { parseMenuSyncJson } from "@/lib/canteen-types";
 
@@ -199,6 +202,53 @@ describe("menu snapshot evaluator", () => {
     expect(result.blockingDecision).toMatchObject({
       blocked: true,
       code: "MENU_SYNC_SUSPICIOUS_DROP",
+    });
+  });
+
+  it("retains every independently applicable blocking reason", () => {
+    const persisted = ["old-a", "old-b", "old-c", "old-d"].map(
+      (externalProductId, index) =>
+        existing({
+          id: `item-${index}`,
+          externalProductId,
+          name: `旧菜品 ${index}`,
+        }),
+    );
+    const result = evaluateMenuSnapshot(
+      SOURCE,
+      snapshot([{ externalProductId: "new-a", name: "新菜品" }]),
+      persisted,
+    );
+
+    expect(result.blockingReasons.map((reason) => reason.code)).toEqual([
+      "MENU_SYNC_IDENTITY_CHURN",
+      "MENU_SYNC_SUSPICIOUS_DROP",
+    ]);
+    expect(result.blockingDecision.code).toBe("MENU_SYNC_IDENTITY_CHURN");
+  });
+
+  it("resolves reviewed identity-transition reasons as one evaluation", () => {
+    const persisted = ["old-a", "old-b", "old-c", "old-d"].map(
+      (externalProductId, index) =>
+        existing({
+          id: `item-${index}`,
+          externalProductId,
+          name: `旧菜品 ${index}`,
+        }),
+    );
+    const evaluation = evaluateMenuSnapshot(
+      SOURCE,
+      snapshot([{ externalProductId: "new-a", name: "新菜品" }]),
+      persisted,
+    );
+
+    const resolved = resolveApprovedIdentityTransitionBlocking(evaluation);
+
+    expect(resolved.blockingReasons).toEqual([]);
+    expect(resolved.blockingDecision).toEqual({
+      blocked: false,
+      code: null,
+      samples: [],
     });
   });
 

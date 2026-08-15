@@ -256,6 +256,7 @@ describe.skipIf(!hasDb)("menu snapshot evaluation path parity", () => {
         canonicalState: preview.canonicalState,
         plan: preview.plan,
         identityObservation: preview.identityObservation,
+        blockingReasons: preview.blockingReasons,
         blockingDecision: preview.blockingDecision,
       };
       expect(preview.blockingDecision.code).toBe(scenario.expectedCode);

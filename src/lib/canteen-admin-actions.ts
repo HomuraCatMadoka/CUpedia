@@ -55,6 +55,7 @@ import {
   previewMenuSync,
   type MenuSyncPreview,
 } from "@/lib/canteen-menu-sync-store";
+import { lockCanteenMenuMutation } from "./canteen-menu-mutation-lock";
 
 function mapMenuItem(
   row: typeof canteenMenuItems.$inferSelect,
@@ -256,18 +257,13 @@ export async function createMenuItem(
     revalidatePath(`/canteen/${canteenId}`);
     return row;
   }
-  const canteen = await db.query.canteens.findFirst({
-    where: eq(canteens.id, canteenId),
-    columns: { id: true },
-  });
-  if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
-
   const mealPeriods = mealPeriodsFromRow(input as Record<string, unknown>);
   if (!mealPeriods) throw new Error("INVALID_MEAL_PERIOD");
   const options = validatePricingInput(input.pricing, input.price) ?? [];
 
   const now = new Date();
   const row = await db.transaction(async (tx) => {
+    await lockCanteenMenuMutation(tx, canteenId);
     const [menuItem] = await tx
       .insert(canteenMenuItems)
       .values({
@@ -311,14 +307,9 @@ export async function bulkImportMenuItemsFromJson(
     return created;
   }
 
-  const canteen = await db.query.canteens.findFirst({
-    where: eq(canteens.id, canteenId),
-    columns: { id: true },
-  });
-  if (!canteen) throw new Error("CANTEEN_NOT_FOUND");
-
   const now = new Date();
   const created = await db.transaction(async (tx) => {
+    await lockCanteenMenuMutation(tx, canteenId);
     const menuItems: CanteenMenuItem[] = [];
     for (const row of rows) {
       const [menuItem] = await tx
@@ -430,6 +421,7 @@ export async function updateMenuItem(
   if (input.svgKey !== undefined) updates.svgKey = validateSvgKey(input.svgKey);
 
   const row = await db.transaction(async (tx) => {
+    await lockCanteenMenuMutation(tx, canteenId);
     const [menuItem] = await tx
       .update(canteenMenuItems)
       .set(updates)
@@ -481,15 +473,18 @@ export async function deleteMenuItem(
     revalidatePath(`/canteen/${canteenId}`);
     return;
   }
-  const result = await db
-    .delete(canteenMenuItems)
-    .where(
-      and(
-        eq(canteenMenuItems.id, itemId),
-        eq(canteenMenuItems.canteenId, canteenId),
-      ),
-    )
-    .returning({ id: canteenMenuItems.id });
+  const result = await db.transaction(async (tx) => {
+    await lockCanteenMenuMutation(tx, canteenId);
+    return tx
+      .delete(canteenMenuItems)
+      .where(
+        and(
+          eq(canteenMenuItems.id, itemId),
+          eq(canteenMenuItems.canteenId, canteenId),
+        ),
+      )
+      .returning({ id: canteenMenuItems.id });
+  });
 
   if (result.length === 0) {
     throw new Error("MENU_ITEM_NOT_FOUND");
@@ -513,16 +508,13 @@ export async function deleteAllMenuItems(
     return result;
   }
 
-  const existing = await db.query.canteens.findFirst({
-    where: eq(canteens.id, canteenId),
-    columns: { id: true },
+  const deleted = await db.transaction(async (tx) => {
+    await lockCanteenMenuMutation(tx, canteenId);
+    return tx
+      .delete(canteenMenuItems)
+      .where(eq(canteenMenuItems.canteenId, canteenId))
+      .returning({ id: canteenMenuItems.id });
   });
-  if (!existing) throw new Error("CANTEEN_NOT_FOUND");
-
-  const deleted = await db
-    .delete(canteenMenuItems)
-    .where(eq(canteenMenuItems.canteenId, canteenId))
-    .returning({ id: canteenMenuItems.id });
 
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);

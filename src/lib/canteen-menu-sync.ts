@@ -6,6 +6,12 @@ import type {
 } from "./canteen-types";
 import { reconcileOfferingIdentityTransitions } from "./canteen-menu-external-key";
 
+export type ApprovedMenuIdentityReplacement = {
+  itemId: string;
+  previousProductId: string;
+  nextProductId: string;
+};
+
 export type ExistingSyncMenuItem = {
   id: string;
   name: string;
@@ -54,6 +60,7 @@ export function planMenuSync(
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
   legacyAdoptionOpen = true,
+  approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[] = [],
 ): MenuSyncPlan {
   const managedByProduct = new Map(
     existingItems
@@ -63,9 +70,29 @@ export function planMenuSync(
       )
       .map((item) => [item.externalProductId!, item]),
   );
+  const approvedPreviousIds = new Set(
+    approvedIdentityReplacements.map(
+      (replacement) => replacement.previousProductId,
+    ),
+  );
+  const approvedNextIds = new Set(
+    approvedIdentityReplacements.map(
+      (replacement) => replacement.nextProductId,
+    ),
+  );
+  const approvedByNextId = new Map(
+    approvedIdentityReplacements.map((replacement) => [
+      replacement.nextProductId,
+      replacement,
+    ]),
+  );
   const offeringTransitions = reconcileOfferingIdentityTransitions(
-    [...managedByProduct.keys()],
-    input.items.map((item) => item.externalProductId),
+    [...managedByProduct.keys()].filter(
+      (productId) => !approvedPreviousIds.has(productId),
+    ),
+    input.items
+      .map((item) => item.externalProductId)
+      .filter((productId) => !approvedNextIds.has(productId)),
   );
   const previousIdByMovedId = new Map(
     offeringTransitions.safeMoves.map((move) => [
@@ -118,9 +145,22 @@ export function planMenuSync(
       });
       continue;
     }
-    let managed = managedByProduct.get(incoming.externalProductId);
+    const approvedReplacement = approvedByNextId.get(
+      incoming.externalProductId,
+    );
+    let managed = approvedReplacement
+      ? managedByProduct.get(approvedReplacement.previousProductId)
+      : managedByProduct.get(incoming.externalProductId);
+    if (
+      approvedReplacement &&
+      (!managed || managed.id !== approvedReplacement.itemId)
+    ) {
+      throw new Error("MENU_IDENTITY_TRANSITION_STALE");
+    }
     let identityChanged = false;
-    if (!managed) {
+    if (approvedReplacement) {
+      identityChanged = true;
+    } else if (!managed) {
       const previousProductId = previousIdByMovedId.get(
         incoming.externalProductId,
       );

@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 2,
+  "source": {
+    "provider": "pinme",
+    "externalOwnerId": null,
+    "externalStoreId": "4898",
+    "configurationFingerprint": "3612a69a9bf94980decd250f4e9c22a84d28d343dcb1dfb2152b27767ad86af3"
+  },
+  "audit": {
+    "summary": {
+      "existingCount": 1,
+      "incomingCount": 1,
+      "missingIdentityCount": 1,
+      "newIdentityCount": 1,
+      "replacementCandidateCount": 1,
+      "additionCount": 0,
+      "removalCount": 0,
+      "ambiguityCount": 0
+    },
+    "existingFingerprint": "d04d2c8838129765c9fb20c79f6250b1ccb5e18d2d1f6aca75720c0e2223e764",
+    "incomingFingerprint": "03a90edbc5702a2a39b7ff2e5e316e782154c5c4f1663ac01eeb63b0afc63866",
+    "replacementCandidates": [
+      {
+        "itemId": "11111111-1111-4111-a111-111111111111",
+        "previous": {
+          "externalProductId": "old-product-id",
+          "normalizedName": "凍奶茶",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "new-product-id",
+          "normalizedName": "凍奶茶",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      }
+    ],
+    "additions": [],
+    "removals": [],
+    "ambiguities": []
+  },
+  "decisions": {
+    "snapshotScope": {
+      "status": "complete",
+      "rationale": "The provider response contains the complete store menu."
+    },
+    "replacements": [
+      {
+        "itemId": "11111111-1111-4111-a111-111111111111",
+        "previousProductId": "old-product-id",
+        "nextProductId": "new-product-id",
+        "rationale": "Same normalized name, price, and meal period."
+      }
+    ],
+    "additions": [],
+    "removals": [],
+    "ambiguities": []
+  }
+}
