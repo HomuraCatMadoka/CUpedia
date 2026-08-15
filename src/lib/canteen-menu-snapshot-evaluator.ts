@@ -93,12 +93,14 @@ export function evaluateMenuSnapshot(
   const identityObservation = observeMenuIdentityChurn(
     managedIdentityProjection,
     canonicalState.input.items,
+    canonicalState.input.snapshotCompleteness,
   );
   const blockingReasons = collectMenuSnapshotBlockingReasons(
     plan,
     identityObservation,
     activeManagedCount,
     canonicalState.input.items.length,
+    canonicalState.input.snapshotCompleteness,
   );
 
   return {
@@ -115,6 +117,7 @@ function collectMenuSnapshotBlockingReasons(
   observation: MenuIdentityObservation,
   activeManagedCount: number,
   incomingItemCount: number,
+  snapshotCompleteness: MenuSyncInput["snapshotCompleteness"],
 ): MenuSnapshotBlockingReason[] {
   const reasons: MenuSnapshotBlockingReason[] = [];
   if (plan.conflicts.length > 0) {
@@ -126,7 +129,11 @@ function collectMenuSnapshotBlockingReasons(
   }
   if (
     activeManagedCount > 0 &&
-    isSuspiciousMenuIdentityChurn(observation, activeManagedCount)
+    isSuspiciousMenuIdentityChurn(
+      observation,
+      activeManagedCount,
+      snapshotCompleteness,
+    )
   ) {
     reasons.push(
       reason("MENU_SYNC_IDENTITY_CHURN", [

@@ -3,6 +3,7 @@ import { assignMealPeriodSortOrder } from "./canteen-aigens-parse";
 import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import { compareProviderText } from "./canteen-provider-menu-ordering";
 import { mealPeriodsForOperatingWindow } from "./canteen-provider-menu-periods";
+import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   normalizeMealPeriods,
@@ -192,6 +193,7 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
   if (items.length === 0) throw new Error("EMPTY_PINME_MENU");
   assertProviderMenuIdentityItems("pinme", items);
   return {
+    snapshotCompleteness: expectedMenuSnapshotCompleteness("pinme"),
     takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
   };

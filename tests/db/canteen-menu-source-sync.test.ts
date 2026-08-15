@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { count, desc, eq, inArray, sql } from "drizzle-orm";
 import { Client } from "pg";
@@ -399,6 +399,224 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     expect(votes).toHaveLength(1);
     expect(comments).toHaveLength(1);
   });
+
+  it("applies a partial PinMe window without deactivating absent managed rows", async () => {
+    const absentItemId = randomUUID();
+    const returningItemId = randomUUID();
+    await db.insert(canteenMenuItems).values([
+      {
+        id: absentItemId,
+        canteenId,
+        name: "不在当前时段但仍有效",
+        menuSourceId: sourceId,
+        externalProductId: "outside-current-window",
+        externalSource: "pinme:9900636",
+        externalKey: "outside-current-window#period=lunch",
+        isAvailable: true,
+      },
+      {
+        id: returningItemId,
+        canteenId,
+        name: "之前停供的菜品",
+        menuSourceId: sourceId,
+        externalProductId: "425657",
+        externalSource: "pinme:9900636",
+        externalKey: "425657#period=dinner+lunch",
+        isAvailable: false,
+      },
+    ]);
+    await db.insert(canteenDishVotes).values({
+      menuItemId: returningItemId,
+      userId,
+      vote: "like",
+    });
+    const partialInput = buildPinmeMenuSyncPayload(pinmeCurrent);
+    await expect(
+      previewMenuSync(sourceId, {
+        ...partialInput,
+        snapshotCompleteness: "complete",
+      }),
+    ).rejects.toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+    await expect(
+      previewMenuSync(sourceId, partialInput),
+    ).resolves.toMatchObject({
+      plan: expect.any(Object),
+      previewToken: expect.any(String),
+    });
+    fetchMenuFromProvider.mockResolvedValueOnce(partialInput);
+
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+      itemCount: 1,
+    });
+
+    const items = await db
+      .select({
+        id: canteenMenuItems.id,
+        isAvailable: canteenMenuItems.isAvailable,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.menuSourceId, sourceId));
+    expect(items).toEqual(
+      expect.arrayContaining([
+        { id: absentItemId, isAvailable: true },
+        { id: returningItemId, isAvailable: true },
+      ]),
+    );
+    const [run] = await db
+      .select({
+        deactivatedCount: canteenMenuSyncRuns.deactivatedCount,
+        snapshotHash: canteenMenuSyncRuns.snapshotHash,
+      })
+      .from(canteenMenuSyncRuns)
+      .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId))
+      .orderBy(desc(canteenMenuSyncRuns.startedAt))
+      .limit(1);
+    expect(run.deactivatedCount).toBe(0);
+    expect(run.snapshotHash).toBe(
+      createHash("sha256").update(JSON.stringify(partialInput)).digest("hex"),
+    );
+    expect(
+      await db
+        .select({ count: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, returningItemId)),
+    ).toEqual([{ count: 1 }]);
+  });
+
+  it.each([
+    {
+      storeId: "4898",
+      existingCount: 117,
+      incomingCount: 20,
+      overlapCount: 19,
+      newCount: 1,
+    },
+    {
+      storeId: "5198",
+      existingCount: 148,
+      incomingCount: 71,
+      overlapCount: 65,
+      newCount: 6,
+    },
+  ])(
+    "preserves history and apparent removals for PinMe $storeId ($existingCount -> $incomingCount)",
+    async ({
+      storeId,
+      existingCount,
+      incomingCount,
+      overlapCount,
+      newCount,
+    }) => {
+      await db
+        .update(canteenMenuSources)
+        .set({ externalStoreId: storeId })
+        .where(eq(canteenMenuSources.id, sourceId));
+
+      const existingRows = Array.from(
+        { length: existingCount },
+        (_, index) => ({
+          id: randomUUID(),
+          canteenId,
+          name: `Existing ${index}`,
+          mealPeriods: ["allday"],
+          menuSourceId: sourceId,
+          externalProductId: `existing-${index}`,
+          externalSource: `pinme:${storeId}`,
+          externalKey: `existing-${index}#period=allday`,
+          isAvailable: true,
+        }),
+      );
+      await db.insert(canteenMenuItems).values(existingRows);
+
+      const historicalItem = existingRows.at(-1)!;
+      await db.insert(canteenDishVotes).values({
+        menuItemId: historicalItem.id,
+        userId,
+        vote: "like",
+      });
+      await db.insert(canteenDishComments).values({
+        menuItemId: historicalItem.id,
+        userId,
+        content: "partial snapshot must preserve this history",
+      });
+
+      const partialInput = {
+        snapshotCompleteness: "partial" as const,
+        takeOverLegacyItems: false,
+        items: [
+          ...existingRows.slice(0, overlapCount).map((row, index) => ({
+            externalProductId: row.externalProductId,
+            name: row.name,
+            priceOptions: [],
+            mealPeriods: ["allday" as const],
+            sortOrder: index,
+            svgKey: "default",
+          })),
+          ...Array.from({ length: newCount }, (_, index) => ({
+            externalProductId: `new-${index}`,
+            name: `New ${index}`,
+            priceOptions: [],
+            mealPeriods: ["allday" as const],
+            sortOrder: overlapCount + index,
+            svgKey: "default",
+          })),
+        ],
+      };
+      expect(partialInput.items).toHaveLength(incomingCount);
+      fetchMenuFromProvider.mockResolvedValueOnce(partialInput);
+
+      await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+        status: "applied",
+        itemCount: incomingCount,
+      });
+
+      const persisted = await db
+        .select({
+          id: canteenMenuItems.id,
+          isAvailable: canteenMenuItems.isAvailable,
+        })
+        .from(canteenMenuItems)
+        .where(eq(canteenMenuItems.menuSourceId, sourceId));
+      expect(persisted).toHaveLength(existingCount + newCount);
+      expect(persisted.every((item) => item.isAvailable)).toBe(true);
+      expect(persisted).toContainEqual({
+        id: historicalItem.id,
+        isAvailable: true,
+      });
+
+      const [run] = await db
+        .select({
+          createdCount: canteenMenuSyncRuns.createdCount,
+          deactivatedCount: canteenMenuSyncRuns.deactivatedCount,
+          observation: canteenMenuSyncRuns.observation,
+        })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId))
+        .orderBy(desc(canteenMenuSyncRuns.startedAt))
+        .limit(1);
+      expect(run).toMatchObject({
+        createdCount: newCount,
+        deactivatedCount: 0,
+        observation: {
+          newProductCount: newCount,
+          missingProductCount: existingCount - overlapCount,
+        },
+      });
+
+      const history = await Promise.all([
+        db
+          .select({ value: count() })
+          .from(canteenDishVotes)
+          .where(eq(canteenDishVotes.menuItemId, historicalItem.id)),
+        db
+          .select({ value: count() })
+          .from(canteenDishComments)
+          .where(eq(canteenDishComments.menuItemId, historicalItem.id)),
+      ]);
+      expect(history.map(([row]) => row.value)).toEqual([1, 1]);
+    },
+  );
 
   it("loads the persisted locator and mutates only the source-owned canteen", async () => {
     const otherCanteenId = randomUUID();

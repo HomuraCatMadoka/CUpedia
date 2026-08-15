@@ -340,6 +340,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         .where(eq(canteenMenuItems.id, itemId));
 
       const snapshot = {
+        snapshotCompleteness:
+          provider === "pinme" ? ("partial" as const) : ("complete" as const),
         items: [
           {
             externalProductId: currentId,
@@ -533,7 +535,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
           isAvailable: true,
         },
       ],
-      input.items,
+      input,
     );
 
     const preview = await previewMenuSyncFromJson(canteenId, input);
@@ -547,7 +549,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ]);
 
     await applyApprovedMenuIdentityTransition(sourceId, input, {
-      schemaVersion: 2,
+      schemaVersion: 3,
       source: {
         provider: "aigens",
         externalOwnerId: null,
@@ -679,7 +681,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         svgKey: "drink",
       })),
     });
-    const audit = buildMenuIdentityTransitionAudit(existingItems, input.items);
+    const audit = buildMenuIdentityTransitionAudit(existingItems, input);
     const preview = await previewMenuSyncFromJson(canteenId, input);
     expect(preview.blockingReasons.map((reason) => reason.code)).toEqual([
       "MENU_SYNC_SUSPICIOUS_DROP",
@@ -687,7 +689,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
     await expect(
       applyApprovedMenuIdentityTransition(sourceId, input, {
-        schemaVersion: 2,
+        schemaVersion: 3,
         source: {
           provider: "aigens",
           externalOwnerId: null,
@@ -755,7 +757,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
           isAvailable: true,
         },
       ],
-      input.items,
+      input,
     );
     await db
       .update(canteenMenuItems)
@@ -764,7 +766,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
     await expect(
       applyApprovedMenuIdentityTransition(sourceId, input, {
-        schemaVersion: 2,
+        schemaVersion: 3,
         source: {
           provider: "aigens",
           externalOwnerId: null,
@@ -857,10 +859,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
           isAvailable: true,
         },
       ],
-      input.items,
+      input,
     );
     const artifact = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       source: {
         provider: "aigens",
         externalOwnerId: null,
@@ -990,10 +992,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
           isAvailable: true,
         },
       ],
-      input.items,
+      input,
     );
     const artifact = {
-      schemaVersion: 2,
+      schemaVersion: 3,
       source: {
         provider: "aigens",
         externalOwnerId: null,

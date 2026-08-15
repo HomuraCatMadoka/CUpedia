@@ -205,6 +205,34 @@ describe("menu snapshot evaluator", () => {
     });
   });
 
+  it("observes absences without blocking or deactivating a partial snapshot", () => {
+    const persisted = ["a", "b", "c", "d"].map((externalProductId, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId,
+        name: `示例菜品 ${index}`,
+      }),
+    );
+    const result = evaluateMenuSnapshot(
+      SOURCE,
+      {
+        ...snapshot([{ externalProductId: "new-a", name: "时段新品" }]),
+        snapshotCompleteness: "partial",
+      },
+      persisted,
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 1,
+      missingProductCount: 4,
+    });
+    expect(
+      result.plan.actions.some((action) => action.action === "deactivate"),
+    ).toBe(false);
+    expect(result.blockingReasons).toEqual([]);
+    expect(result.blockingDecision.blocked).toBe(false);
+  });
+
   it("retains every independently applicable blocking reason", () => {
     const persisted = ["old-a", "old-b", "old-c", "old-d"].map(
       (externalProductId, index) =>

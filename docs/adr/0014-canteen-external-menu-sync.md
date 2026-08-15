@@ -6,8 +6,10 @@ Accepted
 
 ## Context
 
-External ordering systems publish complete menu snapshots. Re-importing those
-snapshots as inserts creates duplicates. Deleting the old menu first is worse:
+External ordering systems publish menu observations with different scope. Some
+responses are complete catalogs; others contain only the current service window
+or available subset. Re-importing those observations as inserts creates
+duplicates. Deleting the old menu first is worse:
 votes and comments reference menu item IDs with cascading foreign keys, so a
 replacement import destroys the dish history.
 
@@ -41,23 +43,33 @@ same Aigens group.
    ambiguous and fails closed. Category never becomes part of the stable
    identity. Canonical category selection and price ordering make the normalized
    result independent of raw occurrence order.
-3. Sync is a two-stage admin operation: preview a deterministic plan, then apply
+3. Every adapter labels its normalized response `complete` or `partial` from
+   verified provider semantics. Only a complete snapshot may deactivate managed
+   identities that are absent. A partial snapshot may update, create or
+   reactivate identities that are present, but preserves absent rows unchanged.
+   Completeness participates in preview and snapshot fingerprints; it is never
+   inferred from counts, time, thresholds or provider branching inside
+   reconciliation. PinMe `product-menus` is partial until the upstream supplies
+   a verified full-catalog response or completeness signal.
+4. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.
-4. Existing source-bound rows are updated in place. Missing rows become
+5. Existing source-bound rows are updated in place. In a complete snapshot,
+   missing rows become
    `isAvailable = false`; they are not deleted. A later snapshot can reactivate
    the same row and recover its public vote/comment history.
-5. A first migration may explicitly set `takeOverLegacyItems: true`. This makes
+6. A first migration may explicitly set `takeOverLegacyItems: true`. This makes
    unmatched, source-less legacy rows unavailable. The preview must expose every
-   affected row before apply, and a persisted timestamp prevents the same source
-   from performing another legacy takeover.
-6. Public menu reads and new vote/comment writes only accept available items.
+   affected row before apply, a persisted timestamp prevents the same source
+   from performing another legacy takeover, and partial snapshots cannot request
+   takeover.
+7. Public menu reads and new vote/comment writes only accept available items.
    Historical rows remain available to server-side admin workflows.
-7. Product-ID churn is observed before aliasing is introduced. Each scheduled
+8. Product-ID churn is observed before aliasing is introduced. Each scheduled
    run stores bounded new/missing ID samples, counts and one-to-one same-name
    candidates. Suspected replacement or bulk churn fails closed: the last
    successful public menu remains visible and no vote/comment identity moves.
-8. Resolving a blocked identity transition requires a versioned artifact that
+9. Resolving a blocked identity transition requires a versioned artifact that
    separates deterministic audit facts from reviewer decisions. The decisions
    classify every missing and new identity exactly once as a UUID-preserving
    replacement, expected addition, or expected removal. Application locks the
@@ -88,6 +100,10 @@ same Aigens group.
 - An approved identity transition becomes stale whenever the source or either
   audited menu projection changes. Operators must regenerate and review it;
   they cannot silently carry approval forward to a later provider snapshot.
+- A partial provider response cannot retire a dish merely because that dish is
+  outside the current service or availability window. This can retain stale
+  offerings until a complete source or separate reviewed retirement policy
+  supplies removal evidence.
 - Identity backfill and audited canteen provisioning use versioned Drizzle
   custom migrations because they must update existing UUID-addressed rows in
   place; generated schema DDL alone cannot express those data decisions.

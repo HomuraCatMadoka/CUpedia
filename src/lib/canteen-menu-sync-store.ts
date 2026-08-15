@@ -30,6 +30,7 @@ import {
   lockMenuSourceClaim,
   type MenuSourceClaim,
 } from "./canteen-menu-source-sync-runtime";
+import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
 
@@ -213,6 +214,10 @@ export async function previewMenuSync(
     where: eq(canteenMenuSources.id, sourceId),
   });
   if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
+  assertProviderSnapshotCompleteness(
+    source.provider,
+    input.snapshotCompleteness,
+  );
   if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
     throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
   }
@@ -310,6 +315,10 @@ async function applyMenuSync(
         mode.kind === "recurring" ? "MENU_SYNC_SUPERSEDED" : "MENU_SYNC_STALE",
       );
     }
+    assertProviderSnapshotCompleteness(
+      source.provider,
+      input.snapshotCompleteness,
+    );
     const now = source.databaseNow;
     if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
       throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
@@ -350,7 +359,7 @@ async function applyMenuSync(
         baselineEvaluation.canonicalState.existingItems.filter(
           (item) => item.menuSourceId === source.id,
         ),
-        baselineEvaluation.canonicalState.input.items,
+        baselineEvaluation.canonicalState.input,
         mode.artifact,
       );
       evaluation = evaluateMenuSnapshot(

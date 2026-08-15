@@ -41,13 +41,13 @@ async function main() {
   );
   const audit = buildMenuIdentityTransitionAudit(
     managed,
-    preview.canonicalState.input.items,
+    preview.canonicalState.input,
   );
 
   process.stdout.write(
     `${JSON.stringify(
       {
-        schemaVersion: 2,
+        schemaVersion: 3,
         source: {
           provider: source.provider,
           externalOwnerId: source.externalOwnerId,

@@ -1,0 +1,51 @@
+import { describe, expect, it } from "vitest";
+import {
+  assertProviderSnapshotCompleteness,
+  expectedMenuSnapshotCompleteness,
+  parseMenuSnapshotCompleteness,
+  snapshotAbsenceIsEvidence,
+} from "@/lib/canteen-menu-snapshot-completeness";
+import { parseMenuSyncJson } from "@/lib/canteen-types";
+
+describe("menu snapshot completeness", () => {
+  it("defines completeness at the provider boundary", () => {
+    expect(expectedMenuSnapshotCompleteness("pinme")).toBe("partial");
+    expect(expectedMenuSnapshotCompleteness("aigens")).toBe("complete");
+    expect(expectedMenuSnapshotCompleteness("ichef")).toBe("complete");
+    expect(expectedMenuSnapshotCompleteness("qmai")).toBe("complete");
+
+    expect(() =>
+      assertProviderSnapshotCompleteness("pinme", "complete"),
+    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+    expect(() =>
+      assertProviderSnapshotCompleteness("pinme", "partial"),
+    ).not.toThrow();
+  });
+
+  it("parses explicit partial input and preserves the legacy default", () => {
+    const item = { externalProductId: "item-1", name: "Item 1" };
+    expect(parseMenuSnapshotCompleteness(undefined, "complete")).toBe(
+      "complete",
+    );
+    expect(
+      parseMenuSyncJson({ snapshotCompleteness: "partial", items: [item] }),
+    ).toMatchObject({ snapshotCompleteness: "partial" });
+    expect(parseMenuSyncJson({ items: [item] })).toMatchObject({
+      snapshotCompleteness: "complete",
+    });
+  });
+
+  it("rejects invalid completeness instead of manufacturing complete", () => {
+    expect(() =>
+      parseMenuSyncJson({
+        snapshotCompleteness: "unknown",
+        items: [{ externalProductId: "item-1", name: "Item 1" }],
+      }),
+    ).toThrow("INVALID_MENU_SNAPSHOT_COMPLETENESS");
+  });
+
+  it("treats absence as evidence only for complete snapshots", () => {
+    expect(snapshotAbsenceIsEvidence("complete")).toBe(true);
+    expect(snapshotAbsenceIsEvidence("partial")).toBe(false);
+  });
+});
