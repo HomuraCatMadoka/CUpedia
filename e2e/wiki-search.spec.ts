@@ -35,12 +35,41 @@ test.describe("#92 wiki search returns correct results", () => {
     await expect(page.getByText("找到 0 个结果")).toBeVisible();
   });
 
-  test("global search loads on demand and opens a result", async ({ page }) => {
+  test("#652 Wiki Header search covers every request state and opens a result", async ({
+    page,
+  }) => {
     await page.goto("/wiki");
-    await page.getByRole("button", { name: "搜索 (⌘K)" }).click();
-    await page.getByPlaceholder("搜索百科页面...").fill("Dining");
+    await page.getByRole("button", { name: "搜索 Wiki (⌘K)" }).click();
+    const dialog = page.getByRole("dialog", { name: "搜索百科页面" });
+    const input = dialog.getByRole("combobox", { name: "搜索百科页面" });
+    await expect(
+      dialog.getByText("输入至少 2 个字符，搜索百科页面"),
+    ).toBeVisible();
 
-    const result = page.getByRole("option", { name: /Dining on Campus/ });
+    let releaseFailure: (() => void) | undefined;
+    const failureGate = new Promise<void>((resolve) => {
+      releaseFailure = resolve;
+    });
+    await page.route("**/api/search?*", async (route) => {
+      await failureGate;
+      await route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "forced failure" }),
+      });
+    });
+    await input.fill("failure");
+    await expect(dialog.getByText("搜索中...")).toBeVisible();
+    releaseFailure?.();
+    await expect(dialog.getByRole("alert")).toContainText("搜索失败，请重试");
+    await page.unroute("**/api/search?*");
+
+    await input.fill("zzzznomatchzzzz");
+    await expect(dialog.getByText("未找到结果")).toBeVisible();
+
+    await input.fill("Dining");
+
+    const result = dialog.getByRole("option", { name: /Dining on Campus/ });
     await expect(result).toBeVisible();
     await result.click();
     await expect(page).toHaveURL(`/wiki/${PAGE_IDS.dining}`);

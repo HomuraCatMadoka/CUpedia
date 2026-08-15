@@ -1431,7 +1431,7 @@ export function WikiSidebar({
               }}
               className="pointer-events-auto h-[100dvh] w-[min(20rem,calc(100vw-3rem))] -translate-x-0 bg-[#f9f8f7] text-foreground shadow-2xl outline-none transition-transform duration-200 ease-out data-ending-style:-translate-x-full data-starting-style:-translate-x-full motion-reduce:transform-none motion-reduce:transition-none dark:bg-[#191919]"
             >
-              <Drawer.Content className="flex h-full min-h-0 flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+              <Drawer.Content className="flex h-full min-h-0 flex-col overflow-hidden pt-[var(--safe-area-top)] pb-[var(--safe-area-bottom)]">
                 <div
                   className="flex min-h-14 shrink-0 items-center gap-2 border-b px-3"
                   style={{ borderColor: "var(--sidebar-border-color)" }}
