@@ -5,11 +5,15 @@ import { usePathname } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { SidebarMobileToggle } from "@/components/layout/sidebar-mobile-toggle";
 import { cn } from "@/lib/utils";
-import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
+import {
+  isFocusedWikiEditorRoute,
+  isWikiBrowsingRoute,
+} from "@/lib/wiki-routes";
 
 export function MainShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const focusedEditor = isFocusedWikiEditorRoute(pathname);
+  const wikiBrowsing = isWikiBrowsingRoute(pathname);
   const immersiveCampusBusRoute =
     pathname !== "/campus-bus/lab" && /^\/campus-bus\/[^/]+\/?$/.test(pathname);
   const hidesSiteChrome = focusedEditor || immersiveCampusBusRoute;
@@ -24,7 +28,10 @@ export function MainShell({ children }: { children: React.ReactNode }) {
           >
             跳到主要内容
           </a>
-          <Navbar leading={<SidebarMobileToggle />} />
+          <Navbar
+            variant={wikiBrowsing ? "wiki" : "default"}
+            leading={<SidebarMobileToggle />}
+          />
         </>
       )}
       <main

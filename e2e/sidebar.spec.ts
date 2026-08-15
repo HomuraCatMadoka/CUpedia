@@ -182,7 +182,9 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
     await expect(expandedNav).toBeHidden();
 
     // The Header owns the only mobile page-tree affordance.
-    await expect(page.getByRole("button", { name: "打开导航" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "打开 Wiki 目录" }),
+    ).toBeVisible();
     await expect(page.getByRole("button", EXPAND)).toHaveCount(0);
   });
 
@@ -193,7 +195,7 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
 
     // Sample the toggle button's visibility immediately and after hydration
     // settles. A flash would mean the wide nav was momentarily visible.
-    const toggle = page.getByRole("button", { name: "打开导航" });
+    const toggle = page.getByRole("button", { name: "打开 Wiki 目录" });
     await expect(toggle).toBeVisible();
 
     const wideNavVisibleEarly = await page
@@ -277,7 +279,7 @@ test.describe("#316 mobile rail is replaced by the Header Drawer", () => {
     expect(response?.status()).toBe(200);
 
     await expect(page.getByRole("button", EXPAND)).toHaveCount(0);
-    const open = page.getByRole("button", { name: "打开导航" });
+    const open = page.getByRole("button", { name: "打开 Wiki 目录" });
     await expect(open).toBeVisible();
 
     await open.click();
@@ -297,12 +299,14 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
   }) => {
     await page.goto("/wiki");
 
-    const trigger = page.getByRole("button", { name: "打开导航" });
+    const trigger = page.getByRole("button", { name: "打开 Wiki 目录" });
     await trigger.click();
 
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    const drawer = page.getByRole("dialog", { name: "Wiki 目录" });
     await expect(drawer).toBeVisible();
-    await expect(page.getByRole("button", { name: "关闭导航" })).toBeFocused();
+    await expect(
+      page.getByRole("button", { name: "关闭 Wiki 目录" }),
+    ).toBeFocused();
     await expect
       .poll(() => page.evaluate(() => getComputedStyle(document.body).overflow))
       .toBe("hidden");
@@ -321,25 +325,25 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
       )
       .toBe(true);
 
-    await page.getByRole("button", { name: "关闭导航" }).click();
+    await page.getByRole("button", { name: "关闭 Wiki 目录" }).click();
     await expect(drawer).toBeHidden();
     await expect(trigger).toBeFocused();
   });
 
   test("supports backdrop and Escape dismissal", async ({ page }) => {
     await page.goto("/wiki");
-    const trigger = page.getByRole("button", { name: "打开导航" });
+    const trigger = page.getByRole("button", { name: "打开 Wiki 目录" });
 
     await trigger.click();
     await page.getByTestId("wiki-drawer-backdrop").click({
       position: { x: 380, y: 400 },
     });
-    await expect(page.getByRole("dialog", { name: "Wiki 页面" })).toBeHidden();
+    await expect(page.getByRole("dialog", { name: "Wiki 目录" })).toBeHidden();
     await expect(trigger).toBeFocused();
 
     await trigger.click();
     await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: "Wiki 页面" })).toBeHidden();
+    await expect(page.getByRole("dialog", { name: "Wiki 目录" })).toBeHidden();
     await expect(trigger).toBeFocused();
   });
 
@@ -347,9 +351,9 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     page,
   }) => {
     await page.goto("/wiki");
-    await page.getByRole("button", { name: "打开导航" }).click();
+    await page.getByRole("button", { name: "打开 Wiki 目录" }).click();
 
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    const drawer = page.getByRole("dialog", { name: "Wiki 目录" });
     const campusRow = drawer
       .getByRole("treeitem", { name: "Campus Life" })
       .locator(":scope > .wiki-tree-row");
@@ -391,7 +395,7 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
     page,
   }) => {
     await page.goto("/wiki");
-    await page.getByRole("button", { name: "打开导航" }).click();
+    await page.getByRole("button", { name: "打开 Wiki 目录" }).click();
 
     const targetRequests: {
       isPrefetch: boolean;
@@ -407,7 +411,7 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
       await route.continue();
     });
 
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    const drawer = page.getByRole("dialog", { name: "Wiki 目录" });
     const target = drawer.getByRole("link", { name: "Getting Started" });
     await target.click({ noWaitAfter: true });
 
@@ -441,8 +445,8 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
 
   test("fast navigation does not flash pending feedback", async ({ page }) => {
     await page.goto("/wiki");
-    await page.getByRole("button", { name: "打开导航" }).click();
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    await page.getByRole("button", { name: "打开 Wiki 目录" }).click();
+    const drawer = page.getByRole("dialog", { name: "Wiki 目录" });
     await page.evaluate(() => {
       const testWindow = window as typeof window & {
         __wikiPendingSeen?: boolean;

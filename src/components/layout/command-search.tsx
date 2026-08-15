@@ -13,9 +13,11 @@ const CommandSearchDialog = dynamic(() =>
 export function CommandSearch({
   open,
   onOpenChange,
+  triggerLabel = "搜索 (⌘K)",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  triggerLabel?: string;
 }) {
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -40,7 +42,7 @@ export function CommandSearch({
       <button
         onClick={() => onOpenChange(true)}
         className="flex size-11 touch-manipulation items-center justify-center rounded-md text-sm text-muted-foreground transition-[background-color,color,transform] hover:bg-accent hover:text-foreground active:scale-95 active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:size-8"
-        aria-label="搜索 (⌘K)"
+        aria-label={triggerLabel}
       >
         <SearchIcon aria-hidden="true" className="size-4" />
       </button>

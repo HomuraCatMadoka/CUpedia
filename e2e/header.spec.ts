@@ -14,23 +14,28 @@ async function openProductMenu(page: Page) {
 }
 
 test.describe("#651 global single-row Header", () => {
-  test("brand returns home and Wiki navigation remains Wiki-only", async ({
+  test("Wiki identity returns to Wiki and navigation remains Wiki-only", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 393, height: MOBILE_HEIGHT });
     await page.goto("/wiki");
 
     const header = page.getByTestId("global-header");
-    await expect(header.getByRole("link", { name: "CUpedia" })).toHaveAttribute(
-      "href",
-      "/",
-    );
-    await expect(page.getByRole("button", { name: "打开导航" })).toBeVisible();
+    await expect(
+      header.getByRole("link", { name: "CUpedia Wiki" }),
+    ).toHaveAttribute("href", "/wiki");
+    await expect(
+      page.getByRole("button", { name: "打开 Wiki 目录" }),
+    ).toBeVisible();
 
     await page.goto("/");
-    await expect(page.getByRole("button", { name: "打开导航" })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "打开 Wiki 目录" }),
+    ).toHaveCount(0);
     await page.goto("/courses");
-    await expect(page.getByRole("button", { name: "打开导航" })).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "打开 Wiki 目录" }),
+    ).toHaveCount(0);
   });
 
   test("product menu uses the registered products on home and non-Wiki pages", async ({
@@ -115,7 +120,7 @@ test.describe("#651 global single-row Header", () => {
       expect((await header.boundingBox())?.height).toBe(56);
       await expect(
         page.getByRole("button", { name: "打开产品菜单" }),
-      ).toBeVisible();
+      ).toHaveCount(0);
       await expect(
         header.getByRole("navigation", { name: "产品导航" }),
       ).toBeHidden();
@@ -124,11 +129,10 @@ test.describe("#651 global single-row Header", () => {
       ).toBe(width);
 
       for (const target of [
-        page.getByRole("button", { name: "打开导航" }),
-        page.getByRole("button", { name: "搜索 (⌘K)" }),
+        page.getByRole("button", { name: "打开 Wiki 目录" }),
+        page.getByRole("button", { name: "搜索 Wiki (⌘K)" }),
         page.getByRole("link", { name: "登录后可读取通知" }),
         page.getByRole("link", { name: "登录", exact: true }),
-        page.getByRole("button", { name: "打开产品菜单" }),
       ]) {
         const box = await target.boundingBox();
         expect(box?.width).toBeGreaterThanOrEqual(44);

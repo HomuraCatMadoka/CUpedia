@@ -23,7 +23,7 @@ export async function waitForHydratedWikiEditor(page: Page): Promise<Locator> {
 export async function createUntitledWikiPage(page: Page) {
   await page.goto("/wiki");
   if ((page.viewportSize()?.width ?? 1280) < 768) {
-    await page.getByRole("button", { name: "打开导航" }).click();
+    await page.getByRole("button", { name: "打开 Wiki 目录" }).click();
   }
   await page.getByRole("button", { name: "新建页面" }).first().click();
   await page.waitForURL(/\?draft=1(?:&|$)/, { timeout: 30_000 });

@@ -35,7 +35,7 @@ const useDevServer = process.env.E2E_SERVER_MODE === "dev";
 const useCiGroups = process.env.E2E_CI_GROUPS === "1";
 const campusBusTest = /campus-bus\.spec\.ts$/;
 const mobileWebKitTest =
-  /(?:wiki-edit\.mobile-webkit|header\.mobile-webkit)\.spec\.ts$/;
+  /(?:wiki-edit\.mobile-webkit|header\.mobile-webkit|wiki-navigation\.mobile-webkit)\.spec\.ts$/;
 const wikiDesktopTest =
   /wiki-(?!edit\.mobile(?:-webkit)?\.spec\.ts$).*\.spec\.ts$/;
 // Historical runtime split: these files are about half of desktop Wiki time.
@@ -131,6 +131,7 @@ export default defineConfig({
       // production build more than doubles this editor-heavy E2E startup.
       NEXT_BUILD_SKIP_TYPECHECK: "1",
       BREVO_API_KEY: "",
+      WIKI_REVALIDATE_SECRET: "e2e-revalidate-wiki",
       SKIP_EMAIL_WHITELIST: "false",
       CANTEEN_MOCK_DATA: "false",
       DANMAKU_RATE_LIMIT_PER_HOUR: "100",
