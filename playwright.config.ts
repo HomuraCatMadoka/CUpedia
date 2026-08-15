@@ -77,7 +77,7 @@ export default defineConfig({
           {
             name: "chromium-wiki",
             testMatch: wikiDesktopTest,
-            testIgnore: wikiEditorCoreTest,
+            testIgnore: [wikiEditorCoreTest, mobileWebKitTest],
             use: { ...devices["Desktop Chrome"] },
           },
           {
