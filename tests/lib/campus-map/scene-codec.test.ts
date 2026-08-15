@@ -2,10 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   decodeCampusMapUrl,
-  decodeCampusMapHistorySnapshot,
+  decodeCampusMapHistoryMetadata,
   encodeCampusMapUrl,
-  encodeCampusMapHistorySnapshot,
-  normalizeCampusMapHistorySession,
+  encodeCampusMapHistoryMetadata,
   normalizeCampusMapUrlSession,
 } from "@/lib/campus-map/scene-codec";
 import type {
@@ -132,94 +131,18 @@ describe("Campus Map versioned scene codec", () => {
     },
   );
 
-  it("normalizes transient scenes out of versioned history snapshots", () => {
-    const session: CampusMapSession = {
-      mode: "browse",
-      scene: {
-        kind: "provider-poi",
-        provider: "amap",
-        providerPoiId: "external",
-        name: "External",
-        position: [114.2, 22.4],
-      },
-    };
-
-    const encoded = encodeCampusMapHistorySnapshot(session, catalog, 3);
+  it("round-trips only versioned navigation metadata in history state", () => {
+    const encoded = encodeCampusMapHistoryMetadata(3);
     expect(encoded).toEqual({
       campusMapScene: true,
       version: 1,
       depth: 3,
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
     });
-    expect(decodeCampusMapHistorySnapshot(encoded, catalog)).toEqual({
+    expect(decodeCampusMapHistoryMetadata(encoded)).toEqual({
       status: "decoded",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       depth: 3,
     });
-    expect(normalizeCampusMapHistorySession(session, catalog)).toEqual(
-      EMPTY_CAMPUS_MAP_SCENE_SESSION,
-    );
   });
-
-  it.each([
-    EMPTY_CAMPUS_MAP_SCENE_SESSION,
-    {
-      mode: "browse",
-      scene: { kind: "search-results", query: "science", snap: "peek" },
-    },
-    {
-      mode: "browse",
-      scene: { kind: "category-results", category: "water", snap: "full" },
-    },
-    {
-      mode: "browse",
-      scene: {
-        kind: "building",
-        buildingId: "science",
-        floorId: "4",
-        snap: "peek",
-      },
-    },
-    {
-      mode: "browse",
-      scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
-    },
-    {
-      mode: "browse",
-      scene: { kind: "content", contentId: "room401", snap: "full" },
-    },
-    {
-      mode: "browse",
-      scene: {
-        kind: "provider-poi",
-        provider: "amap",
-        providerPoiId: "external",
-        name: "External",
-        position: [114.2, 22.4],
-      },
-    },
-    {
-      mode: "task",
-      task: {
-        kind: "create",
-        anchor: { kind: "building", buildingId: "science" },
-      },
-    },
-  ] satisfies readonly CampusMapSession[])(
-    "keeps every canonical session stable through the history codec",
-    (session) => {
-      const normalized = normalizeCampusMapHistorySession(session, catalog);
-      const encoded = encodeCampusMapHistorySnapshot(session, catalog, 2);
-      expect(decodeCampusMapHistorySnapshot(encoded, catalog)).toEqual({
-        status: "decoded",
-        session: normalized,
-        depth: 2,
-      });
-      expect(normalizeCampusMapHistorySession(normalized, catalog)).toEqual(
-        normalized,
-      );
-    },
-  );
 
   it.each([
     [
@@ -228,75 +151,36 @@ describe("Campus Map versioned scene codec", () => {
         campusMapScene: true,
         version: 0,
         depth: 1,
-        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       },
       "unsupported-version",
     ],
     [
-      "conflicting derived relationships",
+      "negative depth",
       {
         campusMapScene: true,
         version: 1,
-        depth: 1,
-        session: {
-          mode: "browse",
-          scene: {
-            kind: "facility",
-            facilityId: "fountain",
-            buildingId: "library",
-            floorId: "G",
-            category: "water",
-            snap: "peek",
-          },
-        },
+        depth: -1,
       },
-      "conflicting-fields",
+      "invalid-snapshot",
     ],
     [
-      "missing deep-link entity",
+      "legacy session payload",
       {
         campusMapScene: true,
         version: 1,
         depth: 2,
-        session: {
-          mode: "browse",
-          scene: { kind: "content", contentId: "missing", snap: "full" },
-        },
-      },
-      "unknown-entity",
-    ],
-    [
-      "task snapshot with a present scene key",
-      {
-        campusMapScene: true,
-        version: 1,
-        depth: 1,
-        session: {
-          mode: "task",
-          scene: undefined,
-          task: { kind: "create", anchor: { kind: "map" } },
-        },
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       },
       "conflicting-fields",
     ],
     [
-      "browse snapshot with a present task key",
-      {
-        campusMapScene: true,
-        version: 1,
-        depth: 1,
-        session: {
-          mode: "browse",
-          scene: { kind: "map" },
-          task: undefined,
-        },
-      },
-      "conflicting-fields",
+      "inherited metadata",
+      Object.create({ campusMapScene: true, version: 1, depth: 2 }),
+      "invalid-snapshot",
     ],
   ])("safely falls back for $0", (_label, snapshot, reason) => {
-    expect(decodeCampusMapHistorySnapshot(snapshot, catalog)).toEqual({
+    expect(decodeCampusMapHistoryMetadata(snapshot)).toEqual({
       status: "fallback",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       depth: 0,
       reason,
     });
@@ -339,31 +223,6 @@ describe("Campus Map versioned scene codec", () => {
       }
     },
   );
-
-  it("treats an inherited task anchor as an unknown history entity", () => {
-    expect(
-      decodeCampusMapHistorySnapshot(
-        {
-          campusMapScene: true,
-          version: 1,
-          depth: 1,
-          session: {
-            mode: "task",
-            task: {
-              kind: "create",
-              anchor: { kind: "building", buildingId: "toString" },
-            },
-          },
-        },
-        catalog,
-      ),
-    ).toEqual({
-      status: "fallback",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      depth: 0,
-      reason: "unknown-entity",
-    });
-  });
 
   it.each(["facility", "content"] as const)(
     "falls back when a %s relationship targets an inherited building key",
@@ -420,71 +279,6 @@ describe("Campus Map versioned scene codec", () => {
     });
   });
 
-  it("rejects a building whose required field is inherited", () => {
-    const inheritedFieldCatalog = {
-      ...catalog,
-      buildings: { inherited: Object.create({ floorIds: ["1"] }) },
-    } as CampusMapSceneCatalog;
-
-    expect(
-      decodeCampusMapUrl(
-        "v=1&scene=building&id=inherited&floor=1&snap=peek",
-        inheritedFieldCatalog,
-      ),
-    ).toEqual({
-      status: "fallback",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      reason: "unknown-entity",
-    });
-  });
-
-  it("rejects a facility whose required fields are inherited", () => {
-    const inheritedFieldCatalog = {
-      ...catalog,
-      facilities: {
-        inherited: Object.create({
-          buildingId: "science",
-          floorId: "1",
-          category: "water",
-        }),
-      },
-    } as CampusMapSceneCatalog;
-
-    expect(
-      decodeCampusMapUrl(
-        "v=1&scene=facility&id=inherited&snap=peek",
-        inheritedFieldCatalog,
-      ),
-    ).toEqual({
-      status: "fallback",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      reason: "unknown-entity",
-    });
-  });
-
-  it("rejects content whose kind is inherited", () => {
-    const inheritedKind = Object.assign(Object.create({ kind: "room" }), {
-      buildingId: "science",
-      floorId: "1",
-      category: "water",
-    });
-    const inheritedFieldCatalog = {
-      ...catalog,
-      contents: { inherited: inheritedKind },
-    } as CampusMapSceneCatalog;
-
-    expect(
-      decodeCampusMapUrl(
-        "v=1&scene=content&id=inherited&snap=peek",
-        inheritedFieldCatalog,
-      ),
-    ).toEqual({
-      status: "fallback",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      reason: "unknown-entity",
-    });
-  });
-
   it("accepts a valid catalog entity whose own ID is a prototype name", () => {
     const ownPrototypeNameCatalog: CampusMapSceneCatalog = {
       ...catalog,
@@ -510,67 +304,6 @@ describe("Campus Map versioned scene codec", () => {
     });
   });
 
-  it("fails closed without invoking a catalog field accessor", () => {
-    let accessorInvoked = false;
-    const accessorBuilding = {};
-    Object.defineProperty(accessorBuilding, "floorIds", {
-      get() {
-        accessorInvoked = true;
-        return ["1"];
-      },
-    });
-    const accessorCatalog = {
-      ...catalog,
-      buildings: { accessor: accessorBuilding },
-    } as unknown as CampusMapSceneCatalog;
-
-    expect(
-      decodeCampusMapUrl(
-        "v=1&scene=building&id=accessor&floor=1&snap=peek",
-        accessorCatalog,
-      ),
-    ).toEqual({
-      status: "fallback",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      reason: "unknown-entity",
-    });
-    expect(accessorInvoked).toBe(false);
-  });
-
-  it.each([
-    ["building", "buildings"],
-    ["facility", "facilities"],
-    ["content", "contents"],
-  ] as const)(
-    "fails closed without invoking a %s catalog entry accessor",
-    (sceneKind, catalogKey) => {
-      let accessorInvoked = false;
-      const entities = {};
-      Object.defineProperty(entities, "accessor", {
-        get() {
-          accessorInvoked = true;
-          throw new Error("catalog entry accessor must not run");
-        },
-      });
-      const accessorCatalog = {
-        ...catalog,
-        [catalogKey]: entities,
-      } as CampusMapSceneCatalog;
-
-      expect(
-        decodeCampusMapUrl(
-          `v=1&scene=${sceneKind}&id=accessor&snap=peek`,
-          accessorCatalog,
-        ),
-      ).toEqual({
-        status: "fallback",
-        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-        reason: "unknown-entity",
-      });
-      expect(accessorInvoked).toBe(false);
-    },
-  );
-
   it.each([
     "v=1&id=ghost",
     "v=1&v=1",
@@ -582,30 +315,6 @@ describe("Campus Map versioned scene codec", () => {
       status: "fallback",
       session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
       reason: "conflicting-fields",
-    });
-  });
-
-  it("normalizes provider text before history encode/decode", () => {
-    const session: CampusMapSession = {
-      mode: "browse",
-      scene: {
-        kind: "provider-poi",
-        provider: "amap",
-        providerPoiId: " external ",
-        name: " External ",
-        position: [114.2, 22.4],
-      },
-    };
-
-    expect(
-      decodeCampusMapHistorySnapshot(
-        encodeCampusMapHistorySnapshot(session, catalog, 1),
-        catalog,
-      ),
-    ).toEqual({
-      status: "decoded",
-      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
-      depth: 1,
     });
   });
 });

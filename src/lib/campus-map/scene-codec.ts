@@ -4,7 +4,6 @@ import {
   type CampusMapSession,
 } from "./scene-kernel";
 import {
-  isValidCampusMapPosition,
   resolveCampusMapSessionSemantics,
   type PersistableCampusMapSession,
 } from "./scene-semantics";
@@ -16,19 +15,13 @@ export type CampusMapDecodeResult =
   | { status: "fallback"; session: CampusMapSession; reason: string };
 
 export type CampusMapHistoryDecodeResult =
-  | { status: "decoded"; session: CampusMapSession; depth: number }
-  | {
-      status: "fallback";
-      session: CampusMapSession;
-      depth: 0;
-      reason: string;
-    };
+  | { status: "decoded"; depth: number }
+  | { status: "fallback"; depth: 0; reason: string };
 
-export interface CampusMapHistorySnapshot {
+export interface CampusMapHistoryMetadata {
   campusMapScene: true;
   version: typeof CAMPUS_MAP_SCENE_CODEC_VERSION;
   depth: number;
-  session: CampusMapSession;
 }
 
 function fallback(reason: string): CampusMapDecodeResult {
@@ -69,218 +62,6 @@ function validSession(
   return resolveCampusMapSessionSemantics(session, catalog).status === "valid";
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function hasOnlyKeys(value: Record<string, unknown>, keys: readonly string[]) {
-  return Object.keys(value).every((key) => keys.includes(key));
-}
-
-function isSnap(value: unknown): value is "peek" | "full" {
-  return value === "peek" || value === "full";
-}
-
-function isPosition(
-  value: unknown,
-): value is readonly [longitude: number, latitude: number] {
-  if (!Array.isArray(value) || value.length !== 2) return false;
-  const [longitude, latitude] = value;
-  return (
-    typeof longitude === "number" &&
-    typeof latitude === "number" &&
-    isValidCampusMapPosition([longitude, latitude])
-  );
-}
-
-type ParsedSession =
-  | { status: "parsed"; session: CampusMapSession }
-  | { status: "invalid"; reason: string };
-
-function parseHistorySession(value: unknown): ParsedSession {
-  if (!isRecord(value) || !hasOnlyKeys(value, ["mode", "scene", "task"])) {
-    return { status: "invalid", reason: "invalid-snapshot" };
-  }
-  if (value.mode === "task") {
-    if (!isRecord(value.task) || "scene" in value) {
-      return { status: "invalid", reason: "conflicting-fields" };
-    }
-    const task = value.task;
-    if (
-      !hasOnlyKeys(task, ["kind", "anchor"]) ||
-      task.kind !== "create" ||
-      !isRecord(task.anchor)
-    ) {
-      return { status: "invalid", reason: "invalid-snapshot" };
-    }
-    const anchor = task.anchor;
-    if (anchor.kind === "map" && hasOnlyKeys(anchor, ["kind"])) {
-      return {
-        status: "parsed",
-        session: {
-          mode: "task",
-          task: { kind: "create", anchor: { kind: "map" } },
-        },
-      };
-    }
-    if (
-      anchor.kind === "building" &&
-      hasOnlyKeys(anchor, ["kind", "buildingId"]) &&
-      typeof anchor.buildingId === "string" &&
-      anchor.buildingId.trim()
-    ) {
-      return {
-        status: "parsed",
-        session: {
-          mode: "task",
-          task: {
-            kind: "create",
-            anchor: { kind: "building", buildingId: anchor.buildingId.trim() },
-          },
-        },
-      };
-    }
-    return { status: "invalid", reason: "invalid-snapshot" };
-  }
-
-  if (value.mode !== "browse" || !isRecord(value.scene) || "task" in value) {
-    return { status: "invalid", reason: "conflicting-fields" };
-  }
-  const scene = value.scene;
-  if (scene.kind === "map" && hasOnlyKeys(scene, ["kind"])) {
-    return { status: "parsed", session: EMPTY_CAMPUS_MAP_SCENE_SESSION };
-  }
-  if (
-    scene.kind === "search-results" &&
-    hasOnlyKeys(scene, ["kind", "query", "snap"]) &&
-    typeof scene.query === "string" &&
-    scene.query.trim() &&
-    isSnap(scene.snap)
-  ) {
-    return {
-      status: "parsed",
-      session: {
-        mode: "browse",
-        scene: {
-          kind: "search-results",
-          query: scene.query.trim(),
-          snap: scene.snap,
-        },
-      },
-    };
-  }
-  if (
-    scene.kind === "category-results" &&
-    hasOnlyKeys(scene, ["kind", "category", "snap"]) &&
-    typeof scene.category === "string" &&
-    scene.category.trim() &&
-    isSnap(scene.snap)
-  ) {
-    return {
-      status: "parsed",
-      session: {
-        mode: "browse",
-        scene: {
-          kind: "category-results",
-          category: scene.category.trim(),
-          snap: scene.snap,
-        },
-      },
-    };
-  }
-  if (
-    scene.kind === "building" &&
-    hasOnlyKeys(scene, ["kind", "buildingId", "floorId", "snap"]) &&
-    typeof scene.buildingId === "string" &&
-    scene.buildingId.trim() &&
-    (scene.floorId === null || typeof scene.floorId === "string") &&
-    isSnap(scene.snap)
-  ) {
-    return {
-      status: "parsed",
-      session: {
-        mode: "browse",
-        scene: {
-          kind: "building",
-          buildingId: scene.buildingId.trim(),
-          floorId:
-            typeof scene.floorId === "string"
-              ? scene.floorId.trim() || null
-              : null,
-          snap: scene.snap,
-        },
-      },
-    };
-  }
-  if (scene.kind === "facility" || scene.kind === "content") {
-    if ("buildingId" in scene || "floorId" in scene || "category" in scene) {
-      return { status: "invalid", reason: "conflicting-fields" };
-    }
-    const idKey = scene.kind === "facility" ? "facilityId" : "contentId";
-    const entityId = scene[idKey];
-    if (
-      !hasOnlyKeys(scene, ["kind", idKey, "snap"]) ||
-      typeof entityId !== "string" ||
-      !entityId.trim() ||
-      !isSnap(scene.snap)
-    ) {
-      return { status: "invalid", reason: "invalid-snapshot" };
-    }
-    return {
-      status: "parsed",
-      session:
-        scene.kind === "facility"
-          ? {
-              mode: "browse",
-              scene: {
-                kind: "facility",
-                facilityId: entityId.trim(),
-                snap: scene.snap,
-              },
-            }
-          : {
-              mode: "browse",
-              scene: {
-                kind: "content",
-                contentId: entityId.trim(),
-                snap: scene.snap,
-              },
-            },
-    };
-  }
-  if (
-    scene.kind === "provider-poi" &&
-    hasOnlyKeys(scene, [
-      "kind",
-      "provider",
-      "providerPoiId",
-      "name",
-      "position",
-    ]) &&
-    scene.provider === "amap" &&
-    typeof scene.providerPoiId === "string" &&
-    scene.providerPoiId.trim() &&
-    typeof scene.name === "string" &&
-    scene.name.trim() &&
-    isPosition(scene.position)
-  ) {
-    return {
-      status: "parsed",
-      session: {
-        mode: "browse",
-        scene: {
-          kind: "provider-poi",
-          provider: "amap",
-          providerPoiId: scene.providerPoiId.trim(),
-          name: scene.name.trim(),
-          position: scene.position,
-        },
-      },
-    };
-  }
-  return { status: "invalid", reason: "invalid-snapshot" };
-}
-
 function normalizePersistentSession(
   session: CampusMapSession,
   catalog: CampusMapSceneCatalog,
@@ -299,59 +80,53 @@ export function normalizeCampusMapUrlSession(
   return normalizePersistentSession(session, catalog);
 }
 
-export function normalizeCampusMapHistorySession(
-  session: CampusMapSession,
-  catalog: CampusMapSceneCatalog,
-): CampusMapSession {
-  return normalizePersistentSession(session, catalog);
-}
-
-export function encodeCampusMapHistorySnapshot(
-  session: CampusMapSession,
-  catalog: CampusMapSceneCatalog,
+export function encodeCampusMapHistoryMetadata(
   depth: number,
-): CampusMapHistorySnapshot {
+): CampusMapHistoryMetadata {
   return {
     campusMapScene: true,
     version: CAMPUS_MAP_SCENE_CODEC_VERSION,
     depth: Number.isInteger(depth) && depth >= 0 ? depth : 0,
-    session: normalizeCampusMapHistorySession(session, catalog),
   };
 }
 
-export function decodeCampusMapHistorySnapshot(
+export function decodeCampusMapHistoryMetadata(
   value: unknown,
-  catalog: CampusMapSceneCatalog,
 ): CampusMapHistoryDecodeResult {
   const historyFallback = (reason: string): CampusMapHistoryDecodeResult => ({
     status: "fallback",
-    session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
     depth: 0,
     reason,
   });
-  if (!isRecord(value) || value.campusMapScene !== true) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
     return historyFallback("invalid-snapshot");
   }
-  if (value.version !== CAMPUS_MAP_SCENE_CODEC_VERSION) {
-    return historyFallback("unsupported-version");
-  }
-  if (
-    !hasOnlyKeys(value, ["campusMapScene", "version", "depth", "session"]) ||
-    !Number.isInteger(value.depth) ||
-    (value.depth as number) < 0
-  ) {
+  try {
+    const snapshot = value as Record<string, unknown>;
+    if (snapshot.campusMapScene !== true) {
+      return historyFallback("invalid-snapshot");
+    }
+    if (snapshot.version !== CAMPUS_MAP_SCENE_CODEC_VERSION) {
+      return historyFallback("unsupported-version");
+    }
+    const allowedKeys = ["campusMapScene", "version", "depth"];
+    const keys = Object.keys(snapshot);
+    if (
+      keys.length !== allowedKeys.length ||
+      keys.some((key) => !allowedKeys.includes(key)) ||
+      !Number.isInteger(snapshot.depth) ||
+      (snapshot.depth as number) < 0
+    ) {
+      return historyFallback(
+        Object.hasOwn(snapshot, "session")
+          ? "conflicting-fields"
+          : "invalid-snapshot",
+      );
+    }
+    return { status: "decoded", depth: snapshot.depth as number };
+  } catch {
     return historyFallback("invalid-snapshot");
   }
-  const parsed = parseHistorySession(value.session);
-  if (parsed.status === "invalid") return historyFallback(parsed.reason);
-  if (!validSession(parsed.session, catalog)) {
-    return historyFallback("unknown-entity");
-  }
-  return {
-    status: "decoded",
-    session: normalizeCampusMapHistorySession(parsed.session, catalog),
-    depth: value.depth as number,
-  };
 }
 
 export function encodeCampusMapUrl(

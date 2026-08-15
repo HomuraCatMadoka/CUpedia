@@ -50,18 +50,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function ownDataProperty(value: Record<string, unknown>, key: string): unknown {
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  return descriptor && "value" in descriptor ? descriptor.value : undefined;
+function ownCatalogValue(
+  entities: Readonly<Record<string, unknown>>,
+  id: string,
+): unknown {
+  return Object.hasOwn(entities, id) ? entities[id] : undefined;
 }
 
 function findBuilding(
   catalog: CampusMapSceneCatalog,
   buildingId: string,
 ): CatalogBuilding | undefined {
-  const value = ownDataProperty(catalog.buildings, buildingId);
+  const value = ownCatalogValue(catalog.buildings, buildingId);
   if (!isRecord(value)) return undefined;
-  const floorIds = ownDataProperty(value, "floorIds");
+  const floorIds = value.floorIds;
   return Array.isArray(floorIds) &&
     floorIds.every((floorId) => typeof floorId === "string")
     ? { floorIds: [...floorIds] }
@@ -70,9 +72,7 @@ function findBuilding(
 
 function decodeCatalogRelation(value: unknown): CatalogRelation | undefined {
   if (!isRecord(value)) return undefined;
-  const buildingId = ownDataProperty(value, "buildingId");
-  const floorId = ownDataProperty(value, "floorId");
-  const category = ownDataProperty(value, "category");
+  const { buildingId, floorId, category } = value;
   return typeof buildingId === "string" &&
     typeof floorId === "string" &&
     typeof category === "string"
@@ -81,15 +81,15 @@ function decodeCatalogRelation(value: unknown): CatalogRelation | undefined {
 }
 
 function findFacility(catalog: CampusMapSceneCatalog, facilityId: string) {
-  const value = ownDataProperty(catalog.facilities, facilityId);
+  const value = ownCatalogValue(catalog.facilities, facilityId);
   return decodeCatalogRelation(value);
 }
 
 function findContent(catalog: CampusMapSceneCatalog, contentId: string) {
-  const value = ownDataProperty(catalog.contents, contentId);
+  const value = ownCatalogValue(catalog.contents, contentId);
   const relation = decodeCatalogRelation(value);
   if (!relation || !isRecord(value)) return undefined;
-  const kind = ownDataProperty(value, "kind");
+  const { kind } = value;
   return typeof kind === "string" ? { ...relation, kind } : undefined;
 }
 

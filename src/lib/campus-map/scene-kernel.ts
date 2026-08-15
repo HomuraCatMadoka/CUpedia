@@ -4,10 +4,7 @@ import type {
   CampusMapSessionTransition,
 } from "./map-session";
 import type { CampusMapSheetSnap } from "./map-state";
-import {
-  isValidCampusMapPosition,
-  resolveCampusMapSessionSemantics,
-} from "./scene-semantics";
+import { resolveCampusMapSessionSemantics } from "./scene-semantics";
 
 /**
  * Pure product kernel layered on the #593 ports. Provider gesture arbitration,
@@ -502,9 +499,18 @@ export function transitionCampusMapSession(
   if (event.type === "OPEN_PROVIDER_POI") {
     const providerPoiId = event.providerPoiId.trim();
     const name = event.name.trim();
-    if (!providerPoiId || !name || !isValidCampusMapPosition(event.position)) {
-      return reject(session, "invalid-provider-poi");
-    }
+    const candidate: CampusMapSession = {
+      mode: "browse",
+      scene: {
+        kind: "provider-poi",
+        provider: "amap",
+        providerPoiId,
+        name,
+        position: event.position,
+      },
+    };
+    const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
+    if (resolved.status === "invalid") return reject(session, resolved.reason);
     if (
       session.scene.kind === "provider-poi" &&
       session.scene.providerPoiId === providerPoiId &&
@@ -516,16 +522,7 @@ export function transitionCampusMapSession(
     }
     return {
       status: "accepted",
-      session: {
-        mode: "browse",
-        scene: {
-          kind: "provider-poi",
-          provider: "amap",
-          providerPoiId,
-          name,
-          position: event.position,
-        },
-      },
+      session: resolved.session,
       commands: {
         history: historyCommandFor("transient"),
         camera: { kind: "cancel" },
@@ -540,9 +537,16 @@ export function transitionCampusMapSession(
     };
   }
 
-  if (!catalog.categories.includes(event.category)) {
-    return reject(session, "unknown-category");
-  }
+  const candidate: CampusMapSession = {
+    mode: "browse",
+    scene: {
+      kind: "category-results",
+      category: event.category,
+      snap: "peek",
+    },
+  };
+  const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
+  if (resolved.status === "invalid") return reject(session, resolved.reason);
   if (
     session.scene.kind === "category-results" &&
     session.scene.category === event.category
@@ -551,14 +555,7 @@ export function transitionCampusMapSession(
   }
   return {
     status: "accepted",
-    session: {
-      mode: "browse",
-      scene: {
-        kind: "category-results",
-        category: event.category,
-        snap: "peek",
-      },
-    },
+    session: resolved.session,
     commands: {
       history: historyCommandFor(
         session.scene.kind === "building" ||

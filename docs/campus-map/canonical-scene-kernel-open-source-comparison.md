@@ -25,12 +25,24 @@
 3. **MapComplete 更接近 reactive store + actor，而非单一 session union。** selection、menu、hash 分别通过 store callback 协作；这证明 seam 有价值，也说明不能把多 store 的最终组合合法性交给运行时碰运气。
 4. **MapLibre 管的是手势兼容性，不是产品导航。** `HandlerManager` 的 allowed/blocked 规则适合 provider adapter；category、building、contribution task、URL fallback 等语义必须留在更高层 kernel。
 
+## 运行时信任边界：对当前修复的补充
+
+所检查的 Web 地图实现大多没有把任意 `history.state` 对象直接解码成产品 session，而是缩小持久化输入面：
+
+- MapLibre 从 `location.hash` 得到字符串数组，先验证字段数量、数值和坐标/zoom/bearing/pitch 范围；失败便返回 `false`，不调用 `jumpTo`。写回时只 `replaceState` URL，并把已有 `history.state` 原样传回（[解析、写回与校验](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/hash.ts#L76-L157)；[畸形与空 hash 测试](https://github.com/maplibre/maplibre-gl-js/blob/06cac16ca843bbc9b029aff71d4120ef448f79b4/src/ui/hash.test.ts#L55-L166)）。
+- uMap 同样只解析 `location.hash` 的三个 primitive 字段；字段数或数值不合法时不发 `map:view:update`，地图移动只用 `replaceState(null, ...)` 更新当前位置（[源码](https://github.com/umap-project/umap/blob/40b1c703fb1875ff644288970186d6994746c50f/umap/static/umap/js/modules/ui/hash.js#L1-L34)）。
+- MapComplete 把 hash 当作 menu 名或 entity ID，再通过已建立的 `featuresById` 索引解析；未知 ID 不改变 selection，`last_click` 临时 feature 也不会被 hash 恢复为 selection。它还用 `isUpdatingHash` 隔离自身写回与 Back/hashchange 恢复（[恢复与写回](https://github.com/pietervdvn/MapComplete/blob/cf368606d31fdc7542de44f1231ec2f25212f87d/src/Logic/Web/ThemeViewStateHashActor.ts#L49-L83)、[索引解析与临时点击规则](https://github.com/pietervdvn/MapComplete/blob/cf368606d31fdc7542de44f1231ec2f25212f87d/src/Logic/Web/ThemeViewStateHashActor.ts#L90-L151)）。
+
+这些源码共同支持“**外部表示先验证，失败不产生产品动作**”；MapComplete 进一步支持“命中 canonical index 后才恢复 selection，瞬态 selection 不参与恢复”。它们也说明：当 URL 已完整表达 persistent scene 时，没有必要在 `history.state` 再保存第二份产品状态。
+
+Campus Map 因此只在 canonical URL 持久化 scene。Browser history state 仅保存 ownership marker、codec version 和 navigation depth；Back/Forward 将这份 metadata 与当前 URL 组合。Catalog lookup 仍要求 entity ID 是 own property，避免 `toString` 等不可信 deep-link ID 命中对象原型；catalog value 则按受信任的 JSON-shaped 应用数据处理，不扩展成 accessor/Proxy runtime schema。Provider POI 继续保持 transient，不参与恢复。
+
 ## 对当前设计的直接约束
 
 开源对照支持保留三个深层不变量：
 
 - **唯一产品权威**：accepted transition 的 next session 必须 canonical；rejected/noop 不改变 session，也不发 command。
 - **导航由转换语义推导**：`enter → push`、`refine → replace`、`restore/transient/noop → none`、`return → back-or-push`，而不是把 history 固定成 event 的属性。
-- **持久化是独立协议边界**：URL 与 history 共用 canonical projection 和 strict versioned parser；`normalize` 幂等，`decode(encode(session))` 等于 canonical session，provider transient scene 归一为 map。
+- **持久化只有一个 scene 权威**：URL 使用 strict versioned codec，`normalize` 幂等且 `decode(encode(session))` 等于 canonical session；history metadata 只独立 round-trip navigation depth，provider transient scene 归一为 map。
 
 所以答案不是“我们照搬了某个开源地图仓库”，而是：**互斥 mode、typed transition、provider adaptor 和转换测试都有直接先例；navigation class、严格 versioned codec、catalog-derived relation 以及完整 scene × event × command 契约，是 Campus Map 针对 Web 深链与多领域场景做出的组合式加强。**

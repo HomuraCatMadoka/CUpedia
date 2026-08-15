@@ -11,8 +11,9 @@ this kernel.
   commands.
 - `resolveCampusMapScene(session, catalog)` validates the session and derives
   the building, floor, and category context required by a projection.
-- The versioned URL and history codecs are the only persistence seams. Decode
-  always validates through the catalog and falls back safely.
+- The versioned URL codec is the only persistent scene seam. Browser history
+  stores only a versioned ownership marker and navigation depth; Back/Forward
+  restores the scene from the canonical URL.
 
 `scene-semantics.ts` is an internal seam, not a second product API. Its single
 resolver owns session validity, catalog-derived context, restore focus,
@@ -75,13 +76,15 @@ returnable while switching result filters replaces the current entry.
 2. A facility/content scene stores only its entity ID and sheet snap. Its
    building, floor, and category are validated and derived from the catalog.
 3. A canonical URL never repeats catalog relationships. Provider POIs are
-   transient and therefore normalize to map in both URL and history codecs;
-   popstate never resurrects their overlay.
-4. URL and history formats carry an explicit version. Unknown versions,
-   malformed or repeated fields, conflicting legacy relationship fields, and
-   missing catalog entities fall back to the empty map session.
-5. Encode/decode is stable after normalization:
-   `decode(encode(session)) === normalize(session)`.
+   transient and therefore normalize to map in the URL codec; popstate restores
+   that URL scene and never resurrects their overlay.
+4. URL and history metadata carry an explicit version. Unknown versions,
+   malformed or repeated URL fields, conflicting legacy relationship fields,
+   and missing catalog entities fall back safely. Invalid history metadata
+   resets navigation depth without becoming a second scene source.
+5. URL encode/decode is stable after normalization:
+   `decode(encode(session)) === normalize(session)`. History metadata
+   encode/decode independently round-trips navigation depth.
 6. `RESTORE` represents popstate/Back/Forward. It emits no history command, so
    restore cannot write another browser-history entry.
 7. The kernel imports #593 command contracts but never calls browser, DOM, or
@@ -96,7 +99,6 @@ returnable while switching result filters replaces the current entry.
 10. Catalog validity, derived building context, restore focus, contribution
     anchors, and persistence eligibility have one internal semantic resolver.
     The transition and codec modules consume that projection instead of
-    re-deriving scene meaning independently. Catalog membership requires an
-    own property whose required fields are own data properties with the
-    expected runtime shape; inherited keys, accessors, and malformed entries
-    are treated as missing entities.
+    re-deriving scene meaning independently. Catalog entity IDs must be own
+    properties so untrusted deep-link IDs cannot resolve through the object
+    prototype; JSON-shaped entity values are checked for required fields.
