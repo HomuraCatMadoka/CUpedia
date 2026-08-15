@@ -949,6 +949,125 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     });
   });
 
+  it("waits for a concurrent admin insert before verifying a transition", async () => {
+    const previousProductId = "old-product#offering-period=lunch";
+    const nextProductId = "new-product#offering-period=lunch";
+    const addedProductId = "added-product#offering-period=lunch";
+    await db
+      .update(canteenMenuItems)
+      .set({
+        menuSourceId: sourceId,
+        externalProductId: previousProductId,
+        externalSource: "aigens:102830",
+        externalKey: `${previousProductId}#period=lunch`,
+      })
+      .where(eq(canteenMenuItems.id, itemId));
+    const input = parseMenuSyncJson({
+      items: [
+        {
+          externalProductId: nextProductId,
+          name: "演示菜品 A",
+          mealPeriods: ["lunch"],
+        },
+        {
+          externalProductId: addedProductId,
+          name: "并发新增菜品",
+          mealPeriods: ["lunch"],
+        },
+      ],
+    });
+    const audit = buildMenuIdentityTransitionAudit(
+      [
+        {
+          id: itemId,
+          name: "演示菜品 A",
+          mealPeriods: ["lunch"],
+          sortOrder: 0,
+          svgKey: "drink",
+          priceOptions: [],
+          menuSourceId: sourceId,
+          externalProductId: previousProductId,
+          isAvailable: true,
+        },
+      ],
+      input.items,
+    );
+    const artifact = {
+      schemaVersion: 2,
+      source: {
+        provider: "aigens",
+        externalOwnerId: null,
+        externalStoreId: "102830",
+        configurationFingerprint: transitionSourceFingerprint(),
+      },
+      audit,
+      decisions: {
+        snapshotScope: {
+          status: "complete",
+          rationale: "The provider response contains the complete store menu.",
+        },
+        replacements: [
+          {
+            itemId,
+            previousProductId,
+            nextProductId,
+            rationale: "Same normalized name, price, and meal period.",
+          },
+        ],
+        additions: [addedProductId],
+        removals: [],
+        ambiguities: [],
+      },
+    } as const;
+
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 1,
+    });
+    const adminClient = await pool.connect();
+    let adminTransactionOpen = false;
+    try {
+      await adminClient.query("begin");
+      adminTransactionOpen = true;
+      const blocker = await adminClient.query<{ pid: number }>(
+        "select pg_backend_pid() as pid",
+      );
+      await adminClient.query(
+        "insert into canteen_menu_items (canteen_id, name, meal_periods, svg_key) values ($1, $2, $3, $4)",
+        [canteenId, "并发新增菜品", ["lunch"], "default"],
+      );
+
+      const transition = applyApprovedMenuIdentityTransition(
+        sourceId,
+        input,
+        artifact,
+      );
+      await waitForBlockedTransaction(adminClient, blocker.rows[0].pid);
+      await adminClient.query("commit");
+      adminTransactionOpen = false;
+
+      await expect(transition).rejects.toThrow("MENU_SYNC_CONFLICT");
+    } finally {
+      if (adminTransactionOpen) await adminClient.query("rollback");
+      adminClient.release();
+      await pool.end();
+    }
+
+    const rows = await db
+      .select({
+        name: canteenMenuItems.name,
+        externalProductId: canteenMenuItems.externalProductId,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.canteenId, canteenId));
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { name: "演示菜品 A", externalProductId: previousProductId },
+        { name: "并发新增菜品", externalProductId: null },
+      ]),
+    );
+  });
+
   it("rejects malformed identity artifacts at the transaction boundary", async () => {
     await db
       .update(canteenMenuItems)

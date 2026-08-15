@@ -81,9 +81,14 @@ import { getAdminUserForApi } from "@/lib/auth-guard";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  const whereResult = {
+    for: vi.fn().mockResolvedValue([{ id: "c1" }]),
+    then: (resolve: (value: unknown[]) => unknown) =>
+      Promise.resolve([]).then(resolve),
+  };
   mockDbSelect.mockReturnValue({
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockResolvedValue([]),
+      where: vi.fn().mockReturnValue(whereResult),
     }),
   });
 });

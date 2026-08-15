@@ -61,8 +61,9 @@ same Aigens group.
    separates deterministic audit facts from reviewer decisions. The decisions
    classify every missing and new identity exactly once as a UUID-preserving
    replacement, expected addition, or expected removal. Application locks the
-   source and existing menu rows covered by the projection, verifies its locator
-   and exact before/after fingerprints, rejects
+   canteen, source, and existing menu rows covered by the projection in that
+   order. The canteen parent lock serializes inserts that no existing-row lock
+   can cover. Application verifies its locator and exact fingerprints, rejects
    incomplete or ambiguous classifications, and then reuses the normal menu
    writes in one transaction. The artifact is a one-snapshot authorization,
    not a permanent alias or a relaxation of the global churn threshold.

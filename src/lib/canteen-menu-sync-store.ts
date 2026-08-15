@@ -8,6 +8,7 @@ import {
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { createMenuExternalKey } from "./canteen-menu-external-key";
+import { lockCanteenMenuMutationForSource } from "./canteen-menu-mutation-lock";
 import { projectProviderMenuSourceNamespace } from "./canteen-provider-menu-identity";
 import {
   evaluateMenuSnapshot,
@@ -263,8 +264,23 @@ async function applyMenuSync(
   expectedPreviewToken?: unknown,
 ): Promise<MenuSnapshotEvaluation | RecurringMenuSyncCommit> {
   const evaluationResult = await db.transaction(async (tx) => {
-    // Lock the source first. This serializes even the very first sync, when no
-    // managed menu rows exist yet, and fixes source/canteen ownership in DB.
+    // Every menu writer locks canteen -> source -> existing items. The parent
+    // lock covers inserts, while the fixed order avoids delete-cascade deadlocks.
+    const sourceId =
+      mode.kind === "recurring"
+        ? mode.completion.claim.source.id
+        : mode.sourceId;
+    const lockedCanteenId = await lockCanteenMenuMutationForSource(
+      tx,
+      sourceId,
+    );
+    if (!lockedCanteenId) {
+      throw new Error(
+        mode.kind === "recurring"
+          ? "MENU_SYNC_SUPERSEDED"
+          : "MENU_SOURCE_NOT_FOUND",
+      );
+    }
     const source =
       mode.kind === "recurring"
         ? await lockMenuSourceClaim(tx, mode.completion.claim)
@@ -287,6 +303,11 @@ async function applyMenuSync(
         mode.kind === "recurring"
           ? "MENU_SYNC_SUPERSEDED"
           : "MENU_SOURCE_NOT_FOUND",
+      );
+    }
+    if (source.canteenId !== lockedCanteenId) {
+      throw new Error(
+        mode.kind === "recurring" ? "MENU_SYNC_SUPERSEDED" : "MENU_SYNC_STALE",
       );
     }
     const now = source.databaseNow;
