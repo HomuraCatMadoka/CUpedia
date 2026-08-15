@@ -589,6 +589,13 @@
       "when": 1786697189668,
       "tag": "0083_next_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1786756224117,
+      "tag": "0084_prepare-shadow-free-menu-identity-writes",
+      "breakpoints": true
     }
   ]
 }

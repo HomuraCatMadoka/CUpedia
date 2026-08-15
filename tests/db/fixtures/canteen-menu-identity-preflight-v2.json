@@ -1,0 +1,38 @@
+{
+  "contractVersion": "canteen-menu-identity-preconditions/v2",
+  "targetIssue": 643,
+  "mandatoryParityInput": true,
+  "fixtureSchema": "canteen-menu-identity-history-0081.sql",
+  "extends": "canteen-menu-identity-preflight-v1.json",
+  "parityCases": [
+    {
+      "name": "authoritative-only managed identity",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "pinme",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42",
+          "externalSource": null,
+          "externalKey": null,
+          "voteCount": 2,
+          "commentCount": 1
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_SAFE",
+        "failedChecks": {}
+      }
+    }
+  ]
+}

@@ -89,6 +89,8 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     const items = await db
       .select({
         externalProductId: canteenMenuItems.externalProductId,
+        externalSource: canteenMenuItems.externalSource,
+        externalKey: canteenMenuItems.externalKey,
         name: canteenMenuItems.name,
         isAvailable: canteenMenuItems.isAvailable,
       })
@@ -97,6 +99,8 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     expect(items).toEqual([
       {
         externalProductId: "425657",
+        externalSource: null,
+        externalKey: null,
         name: "喇沙魚旦烏冬",
         isAvailable: true,
       },
@@ -339,8 +343,6 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       name: "旧名称",
       menuSourceId: sourceId,
       externalProductId: "425657",
-      externalSource: "pinme:9900636",
-      externalKey: "425657#period=dinner+lunch",
       isAvailable: true,
     });
     await db.insert(canteenMenuItemPrices).values({
@@ -629,8 +631,6 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       mealPeriods: ["lunch", "dinner"],
       menuSourceId: sourceId,
       externalProductId: "425657",
-      externalSource: "pinme:9900636",
-      externalKey: "425657#period=dinner+lunch",
       isAvailable: true,
     });
     await db.insert(canteenDishVotes).values({
@@ -714,8 +714,6 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       name: "同名示例菜品",
       menuSourceId: sourceId,
       externalProductId: "secret-old-id",
-      externalSource: "pinme:9900636",
-      externalKey: "secret-old-id#period=allday",
       isAvailable: true,
     });
     await db.insert(canteenDishVotes).values({

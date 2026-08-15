@@ -7,8 +7,9 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
-import fixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v1.json";
-import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v1.schema.json";
+import v1FixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v1.json";
+import v2FixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v2.json";
+import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v2.schema.json";
 import {
   canteenMenuIdentityPreflightExitCode,
   formatCanteenMenuIdentityPreflightHuman,
@@ -21,6 +22,10 @@ const execFileAsync = promisify(execFile);
 const validateReport = addFormats(new Ajv2020({ allErrors: true })).compile(
   reportSchema,
 );
+const fixtureMatrix = {
+  supportedHistoricalIdentities: v1FixtureMatrix.supportedHistoricalIdentities,
+  parityCases: [...v1FixtureMatrix.parityCases, ...v2FixtureMatrix.parityCases],
+};
 if (requiresDb && !hasDb) {
   throw new Error(
     "DATABASE_URL is required when MENU_IDENTITY_PREFLIGHT_TEST=1",
@@ -28,7 +33,7 @@ if (requiresDb && !hasDb) {
 }
 
 describe.skipIf(!hasDb)(
-  "canteen menu identity production preflight (#639)",
+  "canteen menu identity production preflight v2 (#665)",
   () => {
     let client: Client;
     let historicalFixtureSql: string;
@@ -473,8 +478,8 @@ describe.skipIf(!hasDb)(
         "checks",
       ]);
       expect(passing).toMatchObject({
-        schemaVersion: "canteen-menu-identity-preflight-report/v1",
-        contractVersion: "canteen-menu-identity-preconditions/v1",
+        schemaVersion: "canteen-menu-identity-preflight-report/v2",
+        contractVersion: "canteen-menu-identity-preconditions/v2",
         targetIssue: 643,
         applicationCommit: "0123456789abcdef",
         generatedAt: "2026-08-14T08:00:00.000Z",
@@ -541,7 +546,7 @@ describe.skipIf(!hasDb)(
         await cliClient.end().catch(() => undefined);
         await client.query(`drop database ${databaseName}`);
       }
-    });
+    }, 15_000);
 
     async function createFixture() {
       const schema = `preflight_${randomUUID().replaceAll("-", "")}`;

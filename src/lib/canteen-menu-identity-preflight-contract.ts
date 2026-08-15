@@ -1,6 +1,6 @@
 export const CANTEEN_MENU_IDENTITY_PREFLIGHT_CONTRACT = {
-  contractVersion: "canteen-menu-identity-preconditions/v1",
-  reportSchemaVersion: "canteen-menu-identity-preflight-report/v1",
+  contractVersion: "canteen-menu-identity-preconditions/v2",
+  reportSchemaVersion: "canteen-menu-identity-preflight-report/v2",
   targetIssue: 643,
   sampleLimit: 5,
   transaction: {

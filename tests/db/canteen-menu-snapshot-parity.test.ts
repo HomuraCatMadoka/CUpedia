@@ -216,8 +216,6 @@ describe.skipIf(!hasDb)("menu snapshot evaluation path parity", () => {
         mealPeriods: existing.mealPeriods,
         menuSourceId: sourceId,
         externalProductId: existing.externalProductId,
-        externalSource: `${scenario.provider}:parity-store`,
-        externalKey: existing.externalProductId,
         isAvailable: existing.isAvailable,
       })),
     );
