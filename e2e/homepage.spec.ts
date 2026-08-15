@@ -46,12 +46,17 @@ const BRAND = "CUpedia";
 const TAGLINE = "你的中大百科全书";
 
 test.describe("#97 wiki home brand & tagline", () => {
-  test("wiki home shows the brand name exactly once", async ({ page }) => {
+  test("wiki home shows the brand once in the visible desktop header", async ({
+    page,
+  }) => {
     const response = await page.goto("/wiki");
     expect(response?.status()).toBe(200);
 
-    const count = await page.getByText(BRAND, { exact: true }).count();
-    expect(count).toBe(1);
+    await expect(
+      page
+        .getByTestId("global-header")
+        .getByRole("link", { name: BRAND, exact: true }),
+    ).toHaveCount(1);
   });
 
   test("wiki home and landing page share the same tagline", async ({
