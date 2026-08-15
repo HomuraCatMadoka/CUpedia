@@ -358,7 +358,12 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
       .getByRole("treeitem", { name: "Campus Life" })
       .locator(":scope > .wiki-tree-row");
 
-    await expect(campusRow.getByRole("button")).toHaveCount(0);
+    await expect(campusRow.getByRole("button")).toHaveCount(1);
+    await expect(
+      campusRow.getByRole("button", {
+        name: /^(展开|折叠) Campus Life$/,
+      }),
+    ).toBeVisible();
     await longPress(campusRow);
     const pageActions = page.getByRole("dialog", {
       name: "Campus Life 页面操作",
