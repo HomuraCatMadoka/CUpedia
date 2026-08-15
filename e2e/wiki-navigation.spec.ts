@@ -193,6 +193,11 @@ test.describe("#652 Wiki navigation surface", () => {
     await expect(
       tree.getByRole("treeitem", { name: "Campus Life" }),
     ).toHaveAttribute("aria-expanded", "true");
+    const disclosureBox = await tree
+      .getByRole("button", { name: "折叠 Campus Life", exact: true })
+      .boundingBox();
+    expect(disclosureBox?.width).toBeGreaterThanOrEqual(44);
+    expect(disclosureBox?.height).toBeGreaterThanOrEqual(44);
 
     const treeScroller = drawer.getByRole("navigation", {
       name: "Wiki 页面树",
@@ -230,6 +235,16 @@ test.describe("#652 Wiki navigation surface", () => {
     await expect(
       tree.getByRole("treeitem", { name: "Campus Life" }),
     ).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      drawer.getByRole("button", { name: "探索其他功能" }),
+    ).toBeFocused();
+
+    await drawer.getByRole("button", { name: "探索其他功能" }).click();
+    await page
+      .getByRole("dialog", { name: "探索 CUpedia" })
+      .getByRole("button", { name: "关闭产品列表" })
+      .click();
+    await expect(page.getByRole("dialog", { name: "Wiki 目录" })).toBeVisible();
     await expect(
       drawer.getByRole("button", { name: "探索其他功能" }),
     ).toBeFocused();

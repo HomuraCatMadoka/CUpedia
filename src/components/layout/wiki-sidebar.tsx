@@ -451,7 +451,7 @@ function PageTreeItem({
           focusedEditor && active && "bg-[#eeeceb]",
         )}
         style={{
-          paddingLeft: `${(isMobile ? 2 : 10) + depth * 8}px`,
+          paddingLeft: `${(isMobile ? 2 : 10) + depth * (isMobile ? 12 : 8)}px`,
           paddingRight: "4px",
         }}
       >
@@ -476,26 +476,26 @@ function PageTreeItem({
                 ?.focus({ preventScroll: true });
               onToggle(node.id);
             }}
-            className="relative hidden size-5 shrink-0 items-center justify-center rounded-md text-[#a09e9a] transition-[background-color,transform] group-hover/row:bg-black/[0.045] active:scale-95 focus-visible:outline-none md:flex"
+            className="relative flex size-11 shrink-0 items-center justify-center rounded-md text-[#8f8d89] transition-[background-color,transform] hover:bg-black/[0.045] active:scale-95 focus-visible:outline-none md:size-5"
             aria-label={`${collapsed ? "展开" : "折叠"} ${displayTitle}`}
           >
             <PageIcon
               icon={node.icon}
-              className="group-hover/row:opacity-0 group-focus-visible/tree-item:opacity-0"
+              className="hidden group-hover/row:opacity-0 group-focus-visible/tree-item:opacity-0 md:block"
             />
             {collapsed ? (
               <ChevronRightIcon
                 data-testid="wiki-disclosure-icon"
                 aria-hidden="true"
                 strokeWidth={2.25}
-                className="absolute size-4 text-[#5f5e5a] opacity-0 group-hover/row:opacity-100 group-focus-visible/tree-item:opacity-100"
+                className="size-4 text-[#5f5e5a] md:absolute md:opacity-0 md:group-hover/row:opacity-100 md:group-focus-visible/tree-item:opacity-100"
               />
             ) : (
               <ChevronDownIcon
                 data-testid="wiki-disclosure-icon"
                 aria-hidden="true"
                 strokeWidth={2.25}
-                className="absolute size-4 text-[#5f5e5a] opacity-0 group-hover/row:opacity-100 group-focus-visible/tree-item:opacity-100"
+                className="size-4 text-[#5f5e5a] md:absolute md:opacity-0 md:group-hover/row:opacity-100 md:group-focus-visible/tree-item:opacity-100"
               />
             )}
           </button>
@@ -541,9 +541,10 @@ function PageTreeItem({
               "rounded-md px-2 py-0 text-sm normal-case tracking-normal",
             active &&
               cn(
-                "bg-[#eeeceb] font-semibold text-[#2c2c2b]",
+                "font-semibold text-[#2c2c2b]",
+                !isMobile && "bg-[#eeeceb]",
                 isMobile &&
-                  "dark:bg-[#39273f] dark:text-[#d3a5e4] dark:hover:text-[#d3a5e4]",
+                  "relative bg-[#5b2a73]/[0.08] before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-[#5b2a73] dark:bg-purple-300/10 dark:text-purple-100 dark:before:bg-purple-300 dark:hover:text-purple-100",
               ),
             showFeedback &&
               cn(
@@ -1465,7 +1466,16 @@ export function WikiSidebar({
                       <PlusIcon aria-hidden="true" className="size-4" />
                     </WikiCreateButton>
                   )}
-                  {wikiNavigationView === "wiki-tree" && (
+                  {wikiNavigationView === "product-switcher" ? (
+                    <button
+                      type="button"
+                      onClick={showWikiTree}
+                      className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                      aria-label="关闭产品列表"
+                    >
+                      <XIcon aria-hidden="true" className="size-4" />
+                    </button>
+                  ) : (
                     <Drawer.Close
                       ref={mobileCloseRef}
                       className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
@@ -1545,7 +1555,7 @@ export function WikiSidebar({
                   )}
                 </nav>
                 {wikiNavigationView === "wiki-tree" && (
-                  <div className="grid shrink-0 gap-1 border-t px-3 py-2">
+                  <div className="grid shrink-0 gap-1 border-t bg-white/45 px-3 py-2 dark:bg-white/[0.025]">
                     <button
                       type="button"
                       onClick={() => openSurface("search")}
@@ -1584,6 +1594,7 @@ export function WikiSidebar({
                     pendingHref={pendingHref}
                     feedbackHref={feedbackHref}
                     className="flex-1"
+                    variant="wiki"
                   />
                 )}
                 <MobilePageActionsSheet

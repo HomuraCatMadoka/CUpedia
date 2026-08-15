@@ -57,6 +57,9 @@ test.describe("#97 wiki home brand & tagline", () => {
         .getByTestId("global-header")
         .getByRole("link", { name: BRAND, exact: true }),
     ).toHaveCount(1);
+    await expect(
+      page.getByText(BRAND, { exact: true }).filter({ visible: true }),
+    ).toHaveCount(1);
   });
 
   test("wiki home and landing page share the same tagline", async ({

@@ -17,6 +17,7 @@ export function ProductNavigationLinks({
   pendingHref = null,
   feedbackHref = null,
   className,
+  variant = "default",
 }: {
   pathname: string;
   onClick?: (event: MouseEvent<HTMLAnchorElement>, href: string) => void;
@@ -24,14 +25,17 @@ export function ProductNavigationLinks({
   pendingHref?: string | null;
   feedbackHref?: string | null;
   className?: string;
+  variant?: "default" | "wiki";
 }) {
   const activeProductId = getActiveProductNavigationId(pathname);
+  const wikiVariant = variant === "wiki";
 
   return (
     <nav
       aria-label="CUpedia 产品"
       className={cn(
         "min-h-0 touch-pan-y overflow-y-auto overscroll-contain px-4 py-3",
+        wikiVariant && "px-2 py-2",
         className,
       )}
     >
@@ -57,9 +61,15 @@ export function ProductNavigationLinks({
             onNavigate={onNavigate}
             className={cn(
               "flex min-h-14 touch-manipulation items-center justify-between gap-4 rounded-xl px-3 text-xl font-semibold tracking-[-0.025em] transition-[background-color,color,transform] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
-              active
+              wikiVariant &&
+                "relative min-h-12 gap-3 rounded-md px-3 text-[15px] font-medium tracking-normal",
+              active && !wikiVariant
                 ? "bg-[#5b2a73]/10 text-[#5b2a73] dark:bg-purple-300/15 dark:text-purple-200"
-                : "text-foreground hover:bg-accent",
+                : !wikiVariant && "text-foreground hover:bg-accent",
+              active && wikiVariant
+                ? "bg-[#5b2a73]/[0.08] font-semibold text-[#2c2c2b] before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-[#5b2a73] dark:bg-purple-300/10 dark:text-purple-100 dark:before:bg-purple-300"
+                : wikiVariant &&
+                    "text-[#5f5e5a] hover:bg-[#eeeceb] hover:text-[#2c2c2b] dark:text-[#c7c7cc] dark:hover:bg-white/10 dark:hover:text-white",
               pending && "pointer-events-none opacity-70",
             )}
           >

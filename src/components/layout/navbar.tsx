@@ -169,7 +169,12 @@ export function Navbar({
         data-testid="global-header"
         className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-background/95 backdrop-blur-md supports-backdrop-filter:bg-background/85"
       >
-        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center pt-[var(--safe-area-top)] pr-[calc(var(--safe-area-right)+0.5rem)] pl-[calc(var(--safe-area-left)+0.5rem)] md:flex md:gap-4 md:pr-[calc(var(--safe-area-right)+1rem)] md:pl-[calc(var(--safe-area-left)+1rem)]">
+        <div
+          className={cn(
+            "grid h-full grid-cols-[minmax(0,1fr)_auto] items-center pt-[var(--safe-area-top)] pr-[calc(var(--safe-area-right)+0.5rem)] pl-[calc(var(--safe-area-left)+0.5rem)] md:flex md:gap-4 md:pr-[calc(var(--safe-area-right)+1rem)] md:pl-[calc(var(--safe-area-left)+1rem)]",
+            wikiVariant && "md:gap-3 lg:gap-4",
+          )}
+        >
           <div className="flex min-w-0 items-center md:shrink-0">
             {leading}
             {wikiVariant ? (
@@ -199,7 +204,10 @@ export function Navbar({
           </div>
           <nav
             aria-label="产品导航"
-            className="hidden min-w-0 flex-1 items-center gap-3 md:flex"
+            className={cn(
+              "hidden min-w-0 flex-1 items-center gap-3 md:flex",
+              wikiVariant && "md:gap-2 lg:gap-3",
+            )}
           >
             {DESKTOP_PRODUCT_NAVIGATION.map((item) => (
               <Link
@@ -210,7 +218,11 @@ export function Navbar({
                     ? `${item.desktopLabel ?? item.label} · ${item.status}`
                     : undefined
                 }
-                className="flex min-h-8 shrink-0 touch-manipulation items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
+                className={cn(
+                  "flex min-h-8 shrink-0 touch-manipulation items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
+                  wikiVariant &&
+                    "md:gap-1 md:text-[13px] lg:gap-1.5 lg:text-sm",
+                )}
               >
                 <span aria-hidden={item.status ? "true" : undefined}>
                   {item.desktopLabel ?? item.label}
