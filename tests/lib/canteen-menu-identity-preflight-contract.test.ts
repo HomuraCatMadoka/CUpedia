@@ -5,15 +5,16 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { CANTEEN_MENU_IDENTITY_PREFLIGHT_CONTRACT as contract } from "@/lib/canteen-menu-identity-preflight-contract";
-import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v1.schema.json";
-import fixtureMatrix from "../db/fixtures/canteen-menu-identity-preflight-v1.json";
+import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v2.schema.json";
+import v1FixtureMatrix from "../db/fixtures/canteen-menu-identity-preflight-v1.json";
+import v2FixtureMatrix from "../db/fixtures/canteen-menu-identity-preflight-v2.json";
 
 const execFileAsync = promisify(execFile);
 const validateReport = addFormats(new Ajv2020({ allErrors: true })).compile(
   reportSchema,
 );
 
-describe("canteen menu identity preflight contract (#639)", () => {
+describe("canteen menu identity preflight contract v2 (#665)", () => {
   it("keeps the versioned schema and mandatory #643 parity matrix aligned", () => {
     expect(reportSchema.properties.schemaVersion.const).toBe(
       contract.reportSchemaVersion,
@@ -34,17 +35,32 @@ describe("canteen menu identity preflight contract (#639)", () => {
       reportSchema.properties.checks.items.properties.samples.items.properties
         .reason.enum,
     ).toEqual(contract.diagnosticReasonCodes);
-    expect(fixtureMatrix).toMatchObject({
-      contractVersion: contract.contractVersion,
+    expect(v1FixtureMatrix).toMatchObject({
+      contractVersion: "canteen-menu-identity-preconditions/v1",
       targetIssue: contract.targetIssue,
       mandatoryParityInput: true,
     });
-    expect(fixtureMatrix.fixtureSchema).toBe(
+    expect(v1FixtureMatrix.fixtureSchema).toBe(
       "canteen-menu-identity-history-0081.sql",
     );
+    expect(v2FixtureMatrix.extends).toBe(
+      "canteen-menu-identity-preflight-v1.json",
+    );
+    expect(v2FixtureMatrix).toMatchObject({
+      contractVersion: contract.contractVersion,
+      targetIssue: contract.targetIssue,
+      mandatoryParityInput: true,
+      fixtureSchema: "canteen-menu-identity-history-0081.sql",
+    });
+    expect(v2FixtureMatrix.parityCases).toEqual([
+      expect.objectContaining({
+        name: "authoritative-only managed identity",
+        expected: { resultCode: "PREFLIGHT_SAFE", failedChecks: {} },
+      }),
+    ]);
     expect(
       new Set(
-        fixtureMatrix.parityCases.flatMap((fixture) =>
+        v1FixtureMatrix.parityCases.flatMap((fixture) =>
           Object.keys(fixture.expected.failedChecks),
         ),
       ),

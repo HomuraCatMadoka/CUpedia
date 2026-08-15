@@ -67,6 +67,33 @@ describe("persisted canteen menu identity interpretation", () => {
     });
   });
 
+  it("accepts an authoritative managed identity without rollout shadows", () => {
+    const interpreter = createPersistedMenuIdentityInterpreter([
+      {
+        id: SOURCE_ID,
+        canteenId: CANTEEN_ID,
+        provider: "pinme",
+        externalOwnerId: null,
+        externalStoreId: "store-a",
+      },
+    ]);
+
+    expect(
+      interpreter.interpret({
+        canteenId: CANTEEN_ID,
+        menuSourceId: SOURCE_ID,
+        externalProductId: "product-42",
+        externalSource: null,
+        externalKey: null,
+      }),
+    ).toMatchObject({
+      authoritative: { kind: "managed" },
+      shadow: { kind: "manual" },
+      identitiesAgree: true,
+      diagnosticProvider: "pinme",
+    });
+  });
+
   it("fails closed when canonicalization leaves multiple source candidates", () => {
     const interpreter = createPersistedMenuIdentityInterpreter([
       {

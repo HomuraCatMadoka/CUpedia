@@ -1907,10 +1907,6 @@ export const canteenMenuItems = pgTable(
       sql`(${table.menuSourceId} is null) = (${table.externalProductId} is null)`,
     ),
     check(
-      "canteen_menu_items_rollout_identity_chk",
-      sql`(${table.externalSource} is null) = (${table.menuSourceId} is null)`,
-    ),
-    check(
       "canteen_menu_items_external_product_id_chk",
       sql`${table.externalProductId} is null or length(trim(${table.externalProductId})) between 1 and 200`,
     ),

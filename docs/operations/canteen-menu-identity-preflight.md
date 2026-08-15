@@ -5,6 +5,15 @@ the #643 deployment is active, all older writers are stopped, and immediately
 before approving the #643 contract migration. Run it again if the application
 commit changes or any menu writer runs before the migration.
 
+## Compatibility-release boundary
+
+The immediately previous compatible application commit is
+`5fcc9ee86c140ebd3696d7afb654df480f7579a4`. It dual-writes authoritative and
+shadow identities and remains compatible with migration 0084. The #665
+application writes authoritative identity only. Do not deploy #643 while the
+previous writer, or any older writer, may still run; first stop those instances
+and run this v2 preflight from the deployed #665 application commit.
+
 ## Read-only execution
 
 Use a dedicated, non-superuser role with no write grants. Grant `USAGE` on the
@@ -35,7 +44,7 @@ umask 077
 export PREFLIGHT_APPLICATION_COMMIT="<deployed-commit>"
 # The secret manager injects DATABASE_URL into this process environment.
 node --import tsx scripts/preflight-canteen-menu-identity.ts --format=json \
-  > canteen-menu-identity-preflight-v1.json
+  > canteen-menu-identity-preflight-v2.json
 status=$?
 unset DATABASE_URL
 test "$status" -eq 0
