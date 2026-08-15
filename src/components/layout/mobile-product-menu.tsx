@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRightIcon, MenuIcon, SparklesIcon, XIcon } from "lucide-react";
+import { MenuIcon, SparklesIcon, XIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef } from "react";
@@ -14,11 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  getActiveProductNavigationId,
-  PRODUCT_NAVIGATION,
-} from "@/lib/product-navigation";
-import { cn } from "@/lib/utils";
+import { ProductNavigationLinks } from "./product-navigation-links";
 
 export function MobileProductMenu({
   open,
@@ -28,7 +24,6 @@ export function MobileProductMenu({
   onOpenChange: (open: boolean) => void;
 }) {
   const pathname = usePathname();
-  const activeProductId = getActiveProductNavigationId(pathname);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   return (
@@ -66,41 +61,10 @@ export function MobileProductMenu({
           </DialogClose>
         </div>
 
-        <nav
-          aria-label="CUpedia 产品"
-          className="min-h-0 touch-pan-y overflow-y-auto overscroll-contain px-4 py-3"
-        >
-          {PRODUCT_NAVIGATION.map((item) => {
-            const active = item.id === activeProductId;
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                onNavigate={() => onOpenChange(false)}
-                className={cn(
-                  "flex min-h-14 touch-manipulation items-center justify-between gap-4 rounded-xl px-3 text-xl font-semibold tracking-[-0.025em] transition-[background-color,color,transform] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
-                  active
-                    ? "bg-[#5b2a73]/10 text-[#5b2a73] dark:bg-purple-300/15 dark:text-purple-200"
-                    : "text-foreground hover:bg-accent",
-                )}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span>{item.label}</span>
-                  {item.status && (
-                    <span className="shrink-0 rounded-full bg-[#5b2a73]/10 px-2 py-1 text-[11px] leading-none font-semibold text-[#5b2a73] dark:bg-purple-300/15 dark:text-purple-200">
-                      {item.status}
-                    </span>
-                  )}
-                </span>
-                <ChevronRightIcon
-                  aria-hidden="true"
-                  className="size-4 shrink-0 text-muted-foreground"
-                />
-              </Link>
-            );
-          })}
-        </nav>
+        <ProductNavigationLinks
+          pathname={pathname}
+          onNavigate={() => onOpenChange(false)}
+        />
 
         <div className="grid gap-1 border-t px-4 pt-3 pb-3">
           <Link

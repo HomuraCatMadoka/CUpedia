@@ -153,11 +153,28 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 }));
 
 import { Navbar } from "@/components/layout/navbar";
+import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { AchievementNoticesSeen } from "@/components/courses/achievement-notices-seen";
+
+function renderWithShell(ui: React.ReactNode = <Navbar />) {
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <SidebarProvider initialCollapsed={false}>{children}</SidebarProvider>
+    ),
+  });
+}
 
 describe("Navbar sign-out", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: vi.fn().mockImplementation(() => ({
+        matches: false,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    });
     signOut.mockResolvedValue({ error: null });
     achievementNoticeCount.mockResolvedValue(0);
     markAchievementNoticesSeen.mockResolvedValue(undefined);
@@ -174,7 +191,7 @@ describe("Navbar sign-out", () => {
         completeSignOut = resolve;
       }),
     );
-    render(<Navbar />);
+    renderWithShell();
 
     fireEvent.click(screen.getByRole("button", { name: "登出" }));
 
@@ -192,7 +209,7 @@ describe("Navbar sign-out", () => {
 
   it("keeps the user in place and reports a sign-out failure", async () => {
     signOut.mockResolvedValue({ error: { message: "请求失败" } });
-    render(<Navbar />);
+    renderWithShell();
 
     fireEvent.click(screen.getByRole("button", { name: "登出" }));
 
@@ -202,7 +219,7 @@ describe("Navbar sign-out", () => {
   });
 
   it("offers global links to personal course pages", () => {
-    render(<Navbar />);
+    renderWithShell();
 
     fireEvent.click(screen.getByRole("button", { name: "我的测评" }));
     expect(push).toHaveBeenCalledWith("/courses/my-reviews");
@@ -212,7 +229,7 @@ describe("Navbar sign-out", () => {
   });
 
   it("labels the CU Bus entry as testing and links to the route list", () => {
-    render(<Navbar />);
+    renderWithShell();
 
     expect(
       screen
@@ -222,7 +239,7 @@ describe("Navbar sign-out", () => {
   });
 
   it("offers a public product updates entry", () => {
-    render(<Navbar />);
+    renderWithShell();
 
     expect(
       screen.getByRole("link", { name: "产品更新" }).getAttribute("href"),
@@ -231,7 +248,7 @@ describe("Navbar sign-out", () => {
 
   it("reserves stable notification and account slots during hydration and logout", () => {
     mountedState.current = false;
-    const { rerender } = render(<Navbar />);
+    const { rerender } = renderWithShell();
 
     expect(screen.getByTestId("notification-slot").className).toContain(
       "size-11",
@@ -276,7 +293,7 @@ describe("Navbar sign-out", () => {
       },
     };
 
-    render(<Navbar />);
+    renderWithShell();
 
     const account = screen.getByRole("button", {
       name: "一个非常非常长但不应该挤压导航的管理员昵称",
@@ -286,7 +303,7 @@ describe("Navbar sign-out", () => {
   });
 
   it("keeps search, notifications, account, and product menu mutually exclusive", () => {
-    render(<Navbar />);
+    renderWithShell();
 
     fireEvent.click(screen.getByRole("button", { name: "搜索" }));
     fireEvent.click(screen.getByRole("button", { name: "通知" }));
@@ -306,7 +323,7 @@ describe("Navbar sign-out", () => {
   it("shows achievement notices on the visible account trigger", async () => {
     achievementNoticeCount.mockResolvedValue(3);
 
-    render(<Navbar />);
+    renderWithShell();
 
     expect(
       (await screen.findByTestId("achievement-notice-badge")).textContent,
@@ -322,7 +339,7 @@ describe("Navbar sign-out", () => {
       }),
     );
 
-    render(
+    renderWithShell(
       <>
         <Navbar />
         <AchievementNoticesSeen unseenCount={3} />

@@ -110,6 +110,13 @@ async function openNotificationCenter(page: Page) {
   return page.locator('[data-slot="popover-content"]');
 }
 
+function waitForWikiServerAction(page: Page) {
+  return page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return response.request().method() === "POST" && url.pathname === "/wiki";
+  });
+}
+
 test.describe.serial("#446 global notification center", () => {
   test.afterEach(cleanup);
 
@@ -284,5 +291,48 @@ test.describe.serial("#446 global notification center", () => {
         }),
       )
       .toBe(2);
+  });
+
+  test("keeps every notification state intact in the mobile Wiki Header", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 393, height: 852 });
+    await loginWithPassword(page, "user@test.com", "password123");
+    const initialCount = waitForWikiServerAction(page);
+    await page.goto("/wiki");
+    await initialCount;
+    await expect(page.getByTestId("notification-badge")).toHaveCount(0);
+
+    await seedNotifications(3);
+    await page.reload();
+    await expect(page.getByTestId("notification-badge")).toHaveText("3");
+
+    await seedNotifications(8);
+    await page.reload();
+    await expect(page.getByTestId("notification-badge")).toHaveText("9+");
+
+    await cleanup();
+    const clearedCount = waitForWikiServerAction(page);
+    await page.reload();
+    await clearedCount;
+    await expect(page.getByTestId("notification-badge")).toHaveCount(0);
+
+    let releaseRequests: (() => void) | undefined;
+    const requestGate = new Promise<void>((resolve) => {
+      releaseRequests = resolve;
+    });
+    await page.route("**/wiki", async (route) => {
+      if (route.request().method() !== "POST") {
+        await route.continue();
+        return;
+      }
+      await requestGate;
+      await route.abort("failed");
+    });
+
+    const popover = await openNotificationCenter(page);
+    await expect(popover.getByText("正在加载通知…")).toBeVisible();
+    releaseRequests?.();
+    await expect(popover.getByText("通知加载失败")).toBeVisible();
   });
 });

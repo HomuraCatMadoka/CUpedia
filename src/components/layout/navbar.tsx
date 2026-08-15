@@ -30,6 +30,7 @@ import { AchievementAvatar } from "@/components/user/achievement-avatar";
 import { getAchievementNoticeCount } from "@/lib/achievement-notice-actions";
 import { DESKTOP_PRODUCT_NAVIGATION } from "@/lib/product-navigation";
 import { cn } from "@/lib/utils";
+import { useSidebar } from "./sidebar-provider";
 
 const NotificationCenter = dynamic(() =>
   import("@/components/layout/notification-center").then(
@@ -39,8 +40,16 @@ const NotificationCenter = dynamic(() =>
 
 const accountSlotClassName =
   "flex size-11 shrink-0 items-center justify-end md:h-8 md:w-[4.5rem] xl:w-40";
+const brandLinkClassName =
+  "min-h-11 min-w-0 touch-manipulation items-center rounded-md px-1 text-lg font-bold tracking-[-0.035em] transition-[background-color,transform] active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:min-h-0 md:px-0";
 
-export function Navbar({ leading }: { leading?: React.ReactNode }) {
+export function Navbar({
+  leading,
+  variant = "default",
+}: {
+  leading?: React.ReactNode;
+  variant?: "default" | "wiki";
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = authClient.useSession();
@@ -51,9 +60,8 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
   // branch on mount so the server output and the first client render agree on
   // fixed-size placeholders; the real session UI swaps in right after mount.
   const mounted = useMounted();
-  const [activeOverlay, setActiveOverlay] = useState<
-    "search" | "notifications" | "account" | "products" | null
-  >(null);
+  const { activeSurface, openSurface, closeSurface } = useSidebar();
+  const wikiVariant = variant === "wiki";
   const sessionUserId = session?.user?.id ?? session?.user?.email;
   const [nicknameOpen, setNicknameOpen] = useState(false);
   const [nickname, setNickname] = useState("");
@@ -77,14 +85,18 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
     const desktopViewport = window.matchMedia("(min-width: 768px)");
     const closeMobileProductMenu = () => {
       if (!desktopViewport.matches) return;
-      setActiveOverlay((current) => (current === "products" ? null : current));
+      closeSurface("products");
     };
 
     closeMobileProductMenu();
     desktopViewport.addEventListener("change", closeMobileProductMenu);
     return () =>
       desktopViewport.removeEventListener("change", closeMobileProductMenu);
-  }, []);
+  }, [closeSurface]);
+
+  useEffect(() => {
+    closeSurface(wikiVariant ? "products" : "wiki-navigation");
+  }, [closeSurface, wikiVariant]);
 
   useEffect(() => {
     if (!mounted || !sessionUserId) return;
@@ -157,19 +169,45 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
         data-testid="global-header"
         className="sticky top-0 z-30 h-[var(--navbar-height)] border-b bg-background/95 backdrop-blur-md supports-backdrop-filter:bg-background/85"
       >
-        <div className="grid h-full grid-cols-[minmax(0,1fr)_auto] items-center pt-[var(--safe-area-top)] pr-[calc(var(--safe-area-right)+0.5rem)] pl-[calc(var(--safe-area-left)+0.5rem)] md:flex md:gap-4 md:pr-[calc(var(--safe-area-right)+1rem)] md:pl-[calc(var(--safe-area-left)+1rem)]">
+        <div
+          className={cn(
+            "grid h-full grid-cols-[minmax(0,1fr)_auto] items-center pt-[var(--safe-area-top)] pr-[calc(var(--safe-area-right)+0.5rem)] pl-[calc(var(--safe-area-left)+0.5rem)] md:flex md:gap-4 md:pr-[calc(var(--safe-area-right)+1rem)] md:pl-[calc(var(--safe-area-left)+1rem)]",
+            wikiVariant && "md:gap-3 lg:gap-4",
+          )}
+        >
           <div className="flex min-w-0 items-center md:shrink-0">
             {leading}
-            <Link
-              href="/"
-              className="flex min-h-11 min-w-0 touch-manipulation items-center rounded-md px-1 text-lg font-bold tracking-[-0.035em] transition-[background-color,transform] active:scale-[0.98] active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:min-h-0 md:px-0"
-            >
-              CUpedia
-            </Link>
+            {wikiVariant ? (
+              <>
+                <Link
+                  href="/wiki"
+                  aria-label="CUpedia Wiki"
+                  className={cn(brandLinkClassName, "flex md:hidden")}
+                >
+                  <span>CUpedia</span>
+                  <span className="ml-1 text-xs font-medium tracking-normal text-muted-foreground">
+                    Wiki
+                  </span>
+                </Link>
+                <Link
+                  href="/"
+                  className={cn(brandLinkClassName, "hidden md:flex")}
+                >
+                  CUpedia
+                </Link>
+              </>
+            ) : (
+              <Link href="/" className={cn(brandLinkClassName, "flex")}>
+                CUpedia
+              </Link>
+            )}
           </div>
           <nav
             aria-label="产品导航"
-            className="hidden min-w-0 flex-1 items-center gap-3 md:flex"
+            className={cn(
+              "hidden min-w-0 flex-1 items-center gap-3 md:flex",
+              wikiVariant && "md:gap-2 lg:gap-3",
+            )}
           >
             {DESKTOP_PRODUCT_NAVIGATION.map((item) => (
               <Link
@@ -180,7 +218,11 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                     ? `${item.desktopLabel ?? item.label} · ${item.status}`
                     : undefined
                 }
-                className="flex min-h-8 shrink-0 touch-manipulation items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none"
+                className={cn(
+                  "flex min-h-8 shrink-0 touch-manipulation items-center gap-1.5 rounded-md text-sm text-muted-foreground transition-[background-color,color,transform] hover:text-foreground active:scale-[0.98] active:bg-accent active:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none",
+                  wikiVariant &&
+                    "md:gap-1 md:text-[13px] lg:gap-1.5 lg:text-sm",
+                )}
               >
                 <span aria-hidden={item.status ? "true" : undefined}>
                   {item.desktopLabel ?? item.label}
@@ -209,16 +251,21 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
               <ThemeToggle />
             </span>
             <CommandSearch
-              open={activeOverlay === "search"}
-              onOpenChange={(open) => setActiveOverlay(open ? "search" : null)}
+              open={activeSurface === "search"}
+              onOpenChange={(open) =>
+                open ? openSurface("search") : closeSurface("search")
+              }
+              triggerLabel={wikiVariant ? "搜索 Wiki (⌘K)" : undefined}
             />
             {mounted && session?.user ? (
               <>
                 <span className="flex size-11 shrink-0 items-center justify-center md:size-8">
                   <NotificationCenter
-                    open={activeOverlay === "notifications"}
+                    open={activeSurface === "notifications"}
                     onOpenChange={(open) =>
-                      setActiveOverlay(open ? "notifications" : null)
+                      open
+                        ? openSurface("notifications")
+                        : closeSurface("notifications")
                     }
                   />
                 </span>
@@ -227,9 +274,9 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                   className={accountSlotClassName}
                 >
                   <DropdownMenu
-                    open={activeOverlay === "account"}
+                    open={activeSurface === "account"}
                     onOpenChange={(open) =>
-                      setActiveOverlay(open ? "account" : null)
+                      open ? openSurface("account") : closeSurface("account")
                     }
                   >
                     <DropdownMenuTrigger
@@ -339,12 +386,14 @@ export function Navbar({ leading }: { leading?: React.ReactNode }) {
                 </span>
               </>
             )}
-            <MobileProductMenu
-              open={activeOverlay === "products"}
-              onOpenChange={(open) =>
-                setActiveOverlay(open ? "products" : null)
-              }
-            />
+            {!wikiVariant && (
+              <MobileProductMenu
+                open={activeSurface === "products"}
+                onOpenChange={(open) =>
+                  open ? openSurface("products") : closeSurface("products")
+                }
+              />
+            )}
           </nav>
         </div>
       </header>

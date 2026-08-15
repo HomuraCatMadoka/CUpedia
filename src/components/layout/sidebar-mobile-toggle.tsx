@@ -1,6 +1,6 @@
 "use client";
 
-import { MenuIcon } from "lucide-react";
+import { ListTreeIcon, MenuIcon } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { useSidebar } from "@/components/layout/sidebar-provider";
@@ -24,15 +24,16 @@ export function SidebarMobileToggle({
       ref={mobileTriggerRef}
       onClick={openMobile}
       className="flex size-11 touch-manipulation items-center justify-center rounded-md transition-[background-color,transform] hover:bg-accent active:scale-95 active:bg-accent focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 motion-reduce:transition-none md:hidden"
-      aria-label="打开导航"
+      aria-label={editor ? "打开导航" : "打开 Wiki 目录"}
       aria-controls="wiki-mobile-drawer"
       aria-expanded={state === "mobile-open"}
       aria-haspopup="dialog"
     >
-      <MenuIcon
-        aria-hidden="true"
-        className={editor ? "size-6 stroke-[1.8]" : "size-4"}
-      />
+      {editor ? (
+        <MenuIcon aria-hidden="true" className="size-6 stroke-[1.8]" />
+      ) : (
+        <ListTreeIcon aria-hidden="true" className="size-5 stroke-[1.8]" />
+      )}
     </button>
   );
 }

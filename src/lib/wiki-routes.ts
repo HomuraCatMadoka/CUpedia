@@ -8,3 +8,10 @@ export function isCanonicalWikiPageId(pageId: string) {
 export function isFocusedWikiEditorRoute(pathname: string) {
   return CANONICAL_WIKI_PAGE_ROUTE.test(pathname);
 }
+
+export function isWikiBrowsingRoute(pathname: string) {
+  return (
+    (pathname === "/wiki" || pathname.startsWith("/wiki/")) &&
+    !isFocusedWikiEditorRoute(pathname)
+  );
+}

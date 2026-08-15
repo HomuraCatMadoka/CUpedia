@@ -20,6 +20,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Drawer } from "@base-ui/react/drawer";
 import {
   ArrowDownIcon,
+  ArrowLeftIcon,
   ArrowUpIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -28,6 +29,7 @@ import {
   FileTextIcon,
   GripVerticalIcon,
   HomeIcon,
+  LayoutGridIcon,
   LoaderCircleIcon,
   PlusIcon,
   SearchIcon,
@@ -37,7 +39,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { isFocusedWikiEditorRoute } from "@/lib/wiki-routes";
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
-import { useSidebar } from "@/components/layout/sidebar-provider";
+import { useSidebar } from "./sidebar-provider";
 import { PrefetchLink } from "@/components/layout/prefetch-link";
 import {
   DropdownMenu,
@@ -48,6 +50,7 @@ import {
 import { WikiCreateButton } from "@/components/wiki/wiki-create-button";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
 import { reorderWikiPage, type WikiPageMove } from "@/lib/wiki-actions";
+import { ProductNavigationLinks } from "./product-navigation-links";
 
 type TreeNode = {
   id: string;
@@ -59,6 +62,7 @@ type TreeNode = {
 
 const STORAGE_KEY = "wiki-sidebar-collapsed";
 const NAVIGATION_FEEDBACK_DELAY_MS = 180;
+const NAVIGATION_FAILURE_TIMEOUT_MS = 10_000;
 const MOBILE_LONG_PRESS_MS = 500;
 const MOBILE_LONG_PRESS_MOVE_TOLERANCE = 10;
 const DEFAULT_COLLAPSED_SNAPSHOT = "";
@@ -443,10 +447,11 @@ function PageTreeItem({
         }}
         className={cn(
           "wiki-tree-row group/row relative flex min-h-11 touch-manipulation select-none items-center rounded-md transition-colors hover:bg-[#eeeceb] group-focus-visible/tree-item:ring-3 group-focus-visible/tree-item:ring-ring/50 md:min-h-[30px]",
+          isMobile && "dark:hover:bg-white/10",
           focusedEditor && active && "bg-[#eeeceb]",
         )}
         style={{
-          paddingLeft: `${(isMobile ? 2 : 10) + depth * 8}px`,
+          paddingLeft: `${(isMobile ? 2 : 10) + depth * (isMobile ? 12 : 8)}px`,
           paddingRight: "4px",
         }}
       >
@@ -471,26 +476,26 @@ function PageTreeItem({
                 ?.focus({ preventScroll: true });
               onToggle(node.id);
             }}
-            className="relative hidden size-5 shrink-0 items-center justify-center rounded-md text-[#a09e9a] transition-[background-color,transform] group-hover/row:bg-black/[0.045] active:scale-95 focus-visible:outline-none md:flex"
+            className="relative flex size-11 shrink-0 items-center justify-center rounded-md text-[#8f8d89] transition-[background-color,transform] hover:bg-black/[0.045] active:scale-95 focus-visible:outline-none md:size-5"
             aria-label={`${collapsed ? "展开" : "折叠"} ${displayTitle}`}
           >
             <PageIcon
               icon={node.icon}
-              className="group-hover/row:opacity-0 group-focus-visible/tree-item:opacity-0"
+              className="hidden group-hover/row:opacity-0 group-focus-visible/tree-item:opacity-0 md:block"
             />
             {collapsed ? (
               <ChevronRightIcon
                 data-testid="wiki-disclosure-icon"
                 aria-hidden="true"
                 strokeWidth={2.25}
-                className="absolute size-4 text-[#5f5e5a] opacity-0 group-hover/row:opacity-100 group-focus-visible/tree-item:opacity-100"
+                className="size-4 text-[#5f5e5a] md:absolute md:opacity-0 md:group-hover/row:opacity-100 md:group-focus-visible/tree-item:opacity-100"
               />
             ) : (
               <ChevronDownIcon
                 data-testid="wiki-disclosure-icon"
                 aria-hidden="true"
                 strokeWidth={2.25}
-                className="absolute size-4 text-[#5f5e5a] opacity-0 group-hover/row:opacity-100 group-focus-visible/tree-item:opacity-100"
+                className="size-4 text-[#5f5e5a] md:absolute md:opacity-0 md:group-hover/row:opacity-100 md:group-focus-visible/tree-item:opacity-100"
               />
             )}
           </button>
@@ -528,14 +533,24 @@ function PageTreeItem({
           }}
           className={cn(
             "flex min-h-11 min-w-0 flex-1 touch-manipulation items-center truncate rounded py-1 pr-2 text-sm font-medium text-[#5f5e5a] transition-[color,transform,padding] hover:text-[#2c2c2b] active:scale-[0.99] focus-visible:outline-none md:min-h-[30px] md:px-2",
+            isMobile && "dark:text-[#c7c7cc] dark:hover:text-white",
             canEdit
               ? "md:group-focus-within/row:pr-16 md:group-hover/row:pr-16"
               : "md:group-focus-within/row:pr-6 md:group-hover/row:pr-6",
             focusedEditor &&
               "rounded-md px-2 py-0 text-sm normal-case tracking-normal",
-            active && "bg-[#eeeceb] font-semibold text-[#2c2c2b]",
+            active &&
+              cn(
+                "font-semibold text-[#2c2c2b]",
+                !isMobile && "bg-[#eeeceb]",
+                isMobile &&
+                  "relative bg-[#5b2a73]/[0.08] before:absolute before:top-2 before:bottom-2 before:left-0 before:w-0.5 before:rounded-full before:bg-[#5b2a73] dark:bg-purple-300/10 dark:text-purple-100 dark:before:bg-purple-300 dark:hover:text-purple-100",
+              ),
             showFeedback &&
-              "bg-[#eeeceb] font-medium motion-reduce:transition-none",
+              cn(
+                "bg-[#eeeceb] font-medium motion-reduce:transition-none",
+                isMobile && "dark:bg-white/10",
+              ),
           )}
         >
           <span
@@ -1020,8 +1035,14 @@ export function WikiSidebar({
   }[];
   canEdit?: boolean;
 }) {
-  const { state, isMobile, collapse, closeMobile, mobileTriggerRef } =
-    useSidebar();
+  const {
+    state,
+    isMobile,
+    collapse,
+    closeMobile,
+    openSurface,
+    mobileTriggerRef,
+  } = useSidebar();
   const pathname = usePathname();
   const focusedEditor = isFocusedWikiEditorRoute(pathname);
   const router = useRouter();
@@ -1033,8 +1054,12 @@ export function WikiSidebar({
     [pathname, projectedPages],
   );
   const mobileCloseRef = useRef<HTMLButtonElement>(null);
+  const productBackRef = useRef<HTMLButtonElement>(null);
+  const exploreProductsRef = useRef<HTMLButtonElement>(null);
   const pendingHrefRef = useRef<string | null>(null);
+  const pendingKindRef = useRef<"page" | "product">("page");
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const failureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isPending, startTransition] = useTransition();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [feedbackHref, setFeedbackHref] = useState<string | null>(null);
@@ -1048,6 +1073,9 @@ export function WikiSidebar({
   > | null>(null);
   const [moving, startMoveTransition] = useTransition();
   const [reorderAnnouncement, setReorderAnnouncement] = useState("");
+  const [wikiNavigationView, setWikiNavigationView] = useState<
+    "wiki-tree" | "product-switcher"
+  >("wiki-tree");
 
   const collapsedSnapshot = useSyncExternalStore(
     subscribeCollapsed,
@@ -1110,10 +1138,22 @@ export function WikiSidebar({
 
   const clearPending = useCallback(() => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    if (failureTimerRef.current) clearTimeout(failureTimerRef.current);
     feedbackTimerRef.current = null;
+    failureTimerRef.current = null;
     pendingHrefRef.current = null;
     setPendingHref(null);
     setFeedbackHref(null);
+  }, []);
+
+  const showWikiTree = useCallback(() => {
+    setWikiNavigationView("wiki-tree");
+    queueMicrotask(() => exploreProductsRef.current?.focus());
+  }, []);
+
+  const showProductSwitcher = useCallback(() => {
+    setWikiNavigationView("product-switcher");
+    queueMicrotask(() => productBackRef.current?.focus());
   }, []);
 
   const openMobilePageActions = useCallback<OpenMobilePageActions>(
@@ -1156,8 +1196,12 @@ export function WikiSidebar({
     [draggedPage, movePage, moving],
   );
 
-  const onNavigate = useCallback<NavigateToPage>(
-    (event, href) => {
+  const beginMobileNavigation = useCallback(
+    (
+      event: MouseEvent<HTMLAnchorElement>,
+      href: string,
+      kind: "page" | "product",
+    ) => {
       if (
         event.defaultPrevented ||
         !isMobile ||
@@ -1178,14 +1222,35 @@ export function WikiSidebar({
       }
 
       pendingHrefRef.current = href;
+      pendingKindRef.current = kind;
       setPendingHref(href);
       feedbackTimerRef.current = setTimeout(() => {
         setFeedbackHref(href);
       }, NAVIGATION_FEEDBACK_DELAY_MS);
+      failureTimerRef.current = setTimeout(() => {
+        if (pendingHrefRef.current !== href) return;
+        clearPending();
+        toast.error(
+          kind === "product"
+            ? "无法打开该功能，请重试"
+            : "无法打开页面，请重试",
+        );
+      }, NAVIGATION_FAILURE_TIMEOUT_MS);
 
       startTransition(() => router.push(href));
     },
-    [closeMobile, isMobile, pathname, router],
+    [clearPending, closeMobile, isMobile, pathname, router],
+  );
+
+  const onNavigate = useCallback<NavigateToPage>(
+    (event, href) => beginMobileNavigation(event, href, "page"),
+    [beginMobileNavigation],
+  );
+
+  const onProductNavigate = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>, href: string) =>
+      beginMobileNavigation(event, href, "product"),
+    [beginMobileNavigation],
   );
 
   useEffect(() => {
@@ -1193,7 +1258,15 @@ export function WikiSidebar({
     const reachedTarget = pathname === pendingHref;
     const settle = window.setTimeout(() => {
       clearPending();
-      if (reachedTarget) closeMobile();
+      if (reachedTarget) {
+        closeMobile();
+      } else {
+        toast.error(
+          pendingKindRef.current === "product"
+            ? "无法打开该功能，请重试"
+            : "无法打开页面，请重试",
+        );
+      }
     }, 0);
     return () => window.clearTimeout(settle);
   }, [clearPending, closeMobile, isPending, pathname, pendingHref]);
@@ -1201,6 +1274,7 @@ export function WikiSidebar({
   useEffect(
     () => () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+      if (failureTimerRef.current) clearTimeout(failureTimerRef.current);
     },
     [],
   );
@@ -1331,6 +1405,7 @@ export function WikiSidebar({
           if (!open) {
             closeMobilePageActions();
             closeMobile();
+            setWikiNavigationView("wiki-tree");
           }
         }}
         swipeDirection="left"
@@ -1345,40 +1420,80 @@ export function WikiSidebar({
               id="wiki-mobile-drawer"
               initialFocus={mobileCloseRef}
               finalFocus={mobileTriggerRef}
-              className="pointer-events-auto h-[100dvh] w-[min(20rem,calc(100vw-3rem))] -translate-x-0 bg-[#f9f8f7] text-foreground shadow-2xl outline-none transition-transform duration-200 ease-out data-ending-style:-translate-x-full data-starting-style:-translate-x-full motion-reduce:transform-none motion-reduce:transition-none"
+              onKeyDownCapture={(event) => {
+                if (
+                  event.key === "Escape" &&
+                  wikiNavigationView === "product-switcher"
+                ) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  showWikiTree();
+                }
+              }}
+              className="pointer-events-auto h-[100dvh] w-[min(20rem,calc(100vw-3rem))] -translate-x-0 bg-[#f9f8f7] text-foreground shadow-2xl outline-none transition-transform duration-200 ease-out data-ending-style:-translate-x-full data-starting-style:-translate-x-full motion-reduce:transform-none motion-reduce:transition-none dark:bg-[#191919]"
             >
-              <Drawer.Content className="flex h-full min-h-0 flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+              <Drawer.Content className="flex h-full min-h-0 flex-col overflow-hidden pt-[var(--safe-area-top)] pb-[var(--safe-area-bottom)]">
                 <div
                   className="flex min-h-14 shrink-0 items-center gap-2 border-b px-3"
                   style={{ borderColor: "var(--sidebar-border-color)" }}
                 >
+                  {wikiNavigationView === "product-switcher" ? (
+                    <button
+                      ref={productBackRef}
+                      type="button"
+                      onClick={showWikiTree}
+                      className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                      aria-label="返回 Wiki 页面树"
+                    >
+                      <ArrowLeftIcon aria-hidden="true" className="size-4" />
+                    </button>
+                  ) : null}
                   <div className="min-w-0 flex-1">
                     <Drawer.Title className="text-sm font-semibold">
-                      Wiki 页面
+                      {wikiNavigationView === "wiki-tree"
+                        ? "Wiki 目录"
+                        : "探索 CUpedia"}
                     </Drawer.Title>
                   </div>
-                  {canEdit && (
+                  {wikiNavigationView === "wiki-tree" && canEdit && (
                     <WikiCreateButton
                       variant="ghost"
                       size="icon-lg"
                       onCreated={closeMobile}
-                      className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
                       aria-label="新建页面"
                     >
                       <PlusIcon aria-hidden="true" className="size-4" />
                     </WikiCreateButton>
                   )}
-                  <Drawer.Close
-                    ref={mobileCloseRef}
-                    className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
-                    aria-label="关闭导航"
-                  >
-                    <XIcon aria-hidden="true" className="size-4" />
-                  </Drawer.Close>
+                  {wikiNavigationView === "product-switcher" ? (
+                    <button
+                      type="button"
+                      onClick={showWikiTree}
+                      className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                      aria-label="关闭产品列表"
+                    >
+                      <XIcon aria-hidden="true" className="size-4" />
+                    </button>
+                  ) : (
+                    <Drawer.Close
+                      ref={mobileCloseRef}
+                      className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] hover:bg-[#eeeceb] hover:text-foreground active:scale-95 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                      aria-label="关闭 Wiki 目录"
+                    >
+                      <XIcon aria-hidden="true" className="size-4" />
+                    </Drawer.Close>
+                  )}
                 </div>
                 <nav
                   aria-label="Wiki 页面树"
-                  className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain"
+                  aria-hidden={
+                    wikiNavigationView === "product-switcher" || undefined
+                  }
+                  className={cn(
+                    "min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain",
+                    wikiNavigationView === "product-switcher" && "hidden",
+                  )}
                 >
                   {focusedEditor && (
                     <div className="px-2 pt-2">
@@ -1433,7 +1548,55 @@ export function WikiSidebar({
                     pendingHref={pendingHref}
                     feedbackHref={feedbackHref}
                   />
+                  {tree.length === 0 && (
+                    <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      暂无 Wiki 页面
+                    </div>
+                  )}
                 </nav>
+                {wikiNavigationView === "wiki-tree" && (
+                  <div className="grid shrink-0 gap-1 border-t bg-white/45 px-3 py-2 dark:bg-white/[0.025]">
+                    <button
+                      type="button"
+                      onClick={() => openSurface("search")}
+                      className="flex min-h-11 touch-manipulation items-center gap-3 rounded-lg px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-[#eeeceb] hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                    >
+                      <SearchIcon aria-hidden="true" className="size-4" />
+                      搜索 Wiki
+                    </button>
+                    <Link
+                      href="/"
+                      onNavigate={closeMobile}
+                      className="flex min-h-11 touch-manipulation items-center gap-3 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-[#eeeceb] hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                    >
+                      <HomeIcon aria-hidden="true" className="size-4" />
+                      返回 CUpedia 首页
+                    </Link>
+                    <button
+                      ref={exploreProductsRef}
+                      type="button"
+                      onClick={showProductSwitcher}
+                      className="flex min-h-11 touch-manipulation items-center gap-3 rounded-lg px-2 text-left text-sm text-muted-foreground transition-colors hover:bg-[#eeeceb] hover:text-foreground focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50 dark:hover:bg-white/10"
+                    >
+                      <LayoutGridIcon aria-hidden="true" className="size-4" />
+                      探索其他功能
+                      <ChevronRightIcon
+                        aria-hidden="true"
+                        className="ml-auto size-4"
+                      />
+                    </button>
+                  </div>
+                )}
+                {wikiNavigationView === "product-switcher" && (
+                  <ProductNavigationLinks
+                    pathname={pathname}
+                    onClick={onProductNavigate}
+                    pendingHref={pendingHref}
+                    feedbackHref={feedbackHref}
+                    className="flex-1"
+                    variant="wiki"
+                  />
+                )}
                 <MobilePageActionsSheet
                   node={mobileActionNode}
                   collapsed={

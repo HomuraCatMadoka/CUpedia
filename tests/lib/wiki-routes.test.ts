@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   isCanonicalWikiPageId,
   isFocusedWikiEditorRoute,
+  isWikiBrowsingRoute,
 } from "@/lib/wiki-routes";
 
 describe("isFocusedWikiEditorRoute", () => {
@@ -19,6 +20,20 @@ describe("isFocusedWikiEditorRoute", () => {
         "/wiki/history/019c58f4-09d3-4db8-862a-468e26724409",
       ),
     ).toBe(false);
+  });
+});
+
+describe("isWikiBrowsingRoute", () => {
+  it("uses the shared Header Wiki variant only for ordinary Wiki routes", () => {
+    expect(isWikiBrowsingRoute("/wiki")).toBe(true);
+    expect(isWikiBrowsingRoute("/wiki/search")).toBe(true);
+    expect(
+      isWikiBrowsingRoute("/wiki/history/019c58f4-09d3-4db8-862a-468e26724409"),
+    ).toBe(true);
+    expect(
+      isWikiBrowsingRoute("/wiki/019c58f4-09d3-4db8-862a-468e26724409"),
+    ).toBe(false);
+    expect(isWikiBrowsingRoute("/courses")).toBe(false);
   });
 });
 
