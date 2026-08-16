@@ -216,10 +216,13 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await expect(page.getByText("4.5", { exact: true }).first()).toBeVisible();
 
   // Like: toggle the like on the just-posted review, count 0 → 1.
-  const likeBtn = page.locator('button[title="点赞"]');
+  const reviewCard = page.getByRole("listitem").filter({ hasText: review });
+  const likeBtn = reviewCard.getByRole("button", { name: "点赞" });
   await expect(likeBtn).toContainText("0");
   await likeBtn.click();
   await expect(likeBtn).toContainText("1");
+  await expect(likeBtn).toHaveAttribute("aria-busy", "false");
+  await expect(likeBtn).toHaveAttribute("aria-pressed", "true");
 
   // Persists across a reload.
   await page.reload();
@@ -227,7 +230,12 @@ test("#178 logged-in rate + review + like lifecycle", async ({ page }) => {
   await expect(
     page.getByRole("listitem").filter({ hasText: review }),
   ).toBeVisible();
-  await expect(page.locator('button[title="点赞"]')).toContainText("1");
+  await expect(
+    page
+      .getByRole("listitem")
+      .filter({ hasText: review })
+      .getByRole("button", { name: "点赞" }),
+  ).toContainText("1");
 
   // The redesigned list card reflects the new rating.
   await page.goto("/courses?subject=CSCI");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useCallback, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -36,6 +36,9 @@ export function ProductUpdatePublishForm() {
   const [isPending, startTransition] = useTransition();
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
+  const markHydrated = useCallback((element: HTMLFormElement | null) => {
+    if (element) element.dataset.formHydrated = "true";
+  }, []);
 
   function toggleArea(area: ProductUpdateArea) {
     setForm((current) => ({
@@ -68,6 +71,7 @@ export function ProductUpdatePublishForm() {
   return (
     <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-12">
       <form
+        ref={markHydrated}
         id="product-update-form"
         onSubmit={handleSubmit}
         className="space-y-6"

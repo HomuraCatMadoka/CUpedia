@@ -21,8 +21,13 @@ import { ProductUpdatePublishForm } from "@/components/admin/product-update-publ
 
 describe("ProductUpdatePublishForm", () => {
   it("shows the immediate publication contract and controlled choices", () => {
-    render(<ProductUpdatePublishForm />);
+    const { container } = render(<ProductUpdatePublishForm />);
 
+    expect(
+      container.querySelector(
+        '#product-update-form[data-form-hydrated="true"]',
+      ),
+    ).toBeTruthy();
     expect(screen.getByText("确认后立即发布")).toBeTruthy();
     expect(screen.getByText("不会发送站内通知")).toBeTruthy();
     expect(screen.getByLabelText("新功能")).toBeTruthy();
