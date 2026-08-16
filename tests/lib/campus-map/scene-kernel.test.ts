@@ -159,6 +159,207 @@ describe("Campus Map canonical scene transition", () => {
     });
   });
 
+  it("rejects rather than trims a non-canonical provider POI identity", () => {
+    expect(
+      transitionCampusMapSession(
+        EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        {
+          type: "OPEN_PROVIDER_POI",
+          providerPoiId: " external ",
+          name: "External",
+          position: [114.2, 22.4],
+        },
+        catalog,
+      ),
+    ).toEqual({
+      status: "rejected",
+      reason: "invalid-provider-poi",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      commands: {
+        history: null,
+        camera: null,
+        focus: null,
+        overlay: null,
+      },
+    });
+  });
+
+  it.each([
+    [
+      "category ID",
+      {
+        ...catalog,
+        categories: [" water "],
+      },
+      {
+        mode: "browse",
+        scene: {
+          kind: "category-results",
+          category: " water ",
+          snap: "peek",
+        },
+      },
+      "unknown-category",
+    ],
+    [
+      "building ID",
+      {
+        ...catalog,
+        buildings: { " science ": { floorIds: ["1"] } },
+      },
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: " science ",
+          floorId: null,
+          snap: "peek",
+        },
+      },
+      "unknown-building",
+    ],
+    [
+      "floor ID",
+      {
+        ...catalog,
+        buildings: { science: { floorIds: [" 1 "] } },
+      },
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "science",
+          floorId: " 1 ",
+          snap: "peek",
+        },
+      },
+      "unknown-building",
+    ],
+    [
+      "facility ID",
+      {
+        ...catalog,
+        facilities: {
+          " fountain ": {
+            buildingId: "science",
+            floorId: "1",
+            category: "water",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: " fountain ", snap: "peek" },
+      },
+      "unknown-facility",
+    ],
+    [
+      "content ID",
+      {
+        ...catalog,
+        contents: {
+          " room401 ": {
+            buildingId: "science",
+            floorId: "4",
+            category: "classroom",
+            kind: "room",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "content", contentId: " room401 ", snap: "full" },
+      },
+      "unknown-content",
+    ],
+    [
+      "facility building relation",
+      {
+        ...catalog,
+        buildings: { " science ": { floorIds: ["1"] } },
+        facilities: {
+          fountain: {
+            buildingId: " science ",
+            floorId: "1",
+            category: "water",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      },
+      "unknown-facility",
+    ],
+    [
+      "facility floor relation",
+      {
+        ...catalog,
+        buildings: { science: { floorIds: [" 1 "] } },
+        facilities: {
+          fountain: {
+            buildingId: "science",
+            floorId: " 1 ",
+            category: "water",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      },
+      "unknown-facility",
+    ],
+    [
+      "content category relation",
+      {
+        ...catalog,
+        categories: [" classroom "],
+        contents: {
+          room401: {
+            buildingId: "science",
+            floorId: "4",
+            category: " classroom ",
+            kind: "room",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "content", contentId: "room401", snap: "full" },
+      },
+      "unknown-content",
+    ],
+    [
+      "task anchor ID",
+      {
+        ...catalog,
+        buildings: { " science ": { floorIds: ["1"] } },
+      },
+      {
+        mode: "task",
+        task: {
+          kind: "create",
+          anchor: { kind: "building", buildingId: " science " },
+        },
+      },
+      "unknown-building",
+    ],
+  ] satisfies readonly (readonly [
+    string,
+    CampusMapSceneCatalog,
+    CampusMapSession,
+    string,
+  ])[])(
+    "rejects a non-canonical $0 at the semantics/catalog boundary",
+    (_label, invalidCatalog, session, reason) => {
+      expect(resolveCampusMapScene(session, invalidCatalog)).toEqual({
+        status: "invalid",
+        reason,
+      });
+    },
+  );
+
   it.each(["toString", "constructor", "__proto__"])(
     "rejects inherited catalog key %s as an unknown building event",
     (buildingId) => {

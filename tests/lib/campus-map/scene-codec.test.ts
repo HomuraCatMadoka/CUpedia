@@ -52,6 +52,176 @@ describe("Campus Map versioned scene codec", () => {
   });
 
   it.each([
+    [
+      "category ID",
+      { ...catalog, categories: [" water "] },
+      {
+        mode: "browse",
+        scene: {
+          kind: "category-results",
+          category: " water ",
+          snap: "peek",
+        },
+      },
+    ],
+    [
+      "empty category ID",
+      { ...catalog, categories: [""] },
+      {
+        mode: "browse",
+        scene: { kind: "category-results", category: "", snap: "peek" },
+      },
+    ],
+    [
+      "building ID",
+      { ...catalog, buildings: { " science ": { floorIds: ["1"] } } },
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: " science ",
+          floorId: null,
+          snap: "peek",
+        },
+      },
+    ],
+    [
+      "floor ID",
+      { ...catalog, buildings: { science: { floorIds: [" 4 "] } } },
+      {
+        mode: "browse",
+        scene: {
+          kind: "building",
+          buildingId: "science",
+          floorId: " 4 ",
+          snap: "peek",
+        },
+      },
+    ],
+    [
+      "facility ID",
+      {
+        ...catalog,
+        facilities: {
+          " fountain ": {
+            buildingId: "science",
+            floorId: "1",
+            category: "water",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: " fountain ", snap: "peek" },
+      },
+    ],
+    [
+      "content ID",
+      {
+        ...catalog,
+        contents: {
+          " room401 ": {
+            buildingId: "science",
+            floorId: "4",
+            category: "classroom",
+            kind: "room",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "content", contentId: " room401 ", snap: "full" },
+      },
+    ],
+    [
+      "facility building relation",
+      {
+        ...catalog,
+        buildings: { " science ": { floorIds: ["1"] } },
+        facilities: {
+          fountain: {
+            buildingId: " science ",
+            floorId: "1",
+            category: "water",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      },
+    ],
+    [
+      "facility floor relation",
+      {
+        ...catalog,
+        buildings: { science: { floorIds: [" 1 "] } },
+        facilities: {
+          fountain: {
+            buildingId: "science",
+            floorId: " 1 ",
+            category: "water",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      },
+    ],
+    [
+      "content category relation",
+      {
+        ...catalog,
+        categories: [" classroom "],
+        contents: {
+          room401: {
+            buildingId: "science",
+            floorId: "4",
+            category: " classroom ",
+            kind: "room",
+          },
+        },
+      },
+      {
+        mode: "browse",
+        scene: { kind: "content", contentId: "room401", snap: "full" },
+      },
+    ],
+    [
+      "task anchor ID",
+      { ...catalog, buildings: { " science ": { floorIds: ["1"] } } },
+      {
+        mode: "task",
+        task: {
+          kind: "create",
+          anchor: { kind: "building", buildingId: " science " },
+        },
+      },
+    ],
+  ] satisfies readonly (readonly [
+    string,
+    CampusMapSceneCatalog,
+    CampusMapSession,
+  ])[])(
+    "falls back consistently for a non-canonical $0",
+    (_label, nonCanonicalCatalog, session) => {
+      const normalized = normalizeCampusMapUrlSession(
+        session,
+        nonCanonicalCatalog,
+      );
+      const encoded = encodeCampusMapUrl(session, nonCanonicalCatalog);
+
+      expect(normalized).toEqual(EMPTY_CAMPUS_MAP_SCENE_SESSION);
+      expect(encoded.toString()).toBe("v=1");
+      expect(decodeCampusMapUrl(encoded, nonCanonicalCatalog)).toEqual({
+        status: "decoded",
+        session: normalized,
+      });
+    },
+  );
+
+  it.each([
     [EMPTY_CAMPUS_MAP_SCENE_SESSION, "v=1", EMPTY_CAMPUS_MAP_SCENE_SESSION],
     [
       {
@@ -205,6 +375,24 @@ describe("Campus Map versioned scene codec", () => {
       reason: "conflicting-fields",
     });
   });
+
+  it.each([
+    "v=1&scene=category&id=%20water%20&snap=peek",
+    "v=1&scene=building&id=%20science%20&snap=peek",
+    "v=1&scene=building&id=science&floor=%204%20&snap=peek",
+    "v=1&scene=facility&id=%20fountain%20&snap=peek",
+    "v=1&scene=content&id=%20room401%20&snap=full",
+    "v=1&task=create&anchor=building&id=%20science%20",
+  ])(
+    "falls back instead of trimming a non-canonical URL identity: %s",
+    (input) => {
+      expect(decodeCampusMapUrl(input, catalog)).toEqual({
+        status: "fallback",
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        reason: "invalid-identity",
+      });
+    },
+  );
 
   it.each(["toString", "constructor", "__proto__"])(
     "treats inherited catalog key %s as an unknown deep-link entity",

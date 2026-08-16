@@ -50,11 +50,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+export function isCanonicalCampusMapId(value: unknown): value is string {
+  return (
+    typeof value === "string" && value.length > 0 && value === value.trim()
+  );
+}
+
+function hasCategory(catalog: CampusMapSceneCatalog, category: string) {
+  return (
+    isCanonicalCampusMapId(category) &&
+    catalog.categories.some(
+      (candidate) =>
+        isCanonicalCampusMapId(candidate) && candidate === category,
+    )
+  );
+}
+
 function ownCatalogValue(
   entities: Readonly<Record<string, unknown>>,
   id: string,
 ): unknown {
-  return Object.hasOwn(entities, id) ? entities[id] : undefined;
+  return isCanonicalCampusMapId(id) && Object.hasOwn(entities, id)
+    ? entities[id]
+    : undefined;
 }
 
 function findBuilding(
@@ -64,8 +82,7 @@ function findBuilding(
   const value = ownCatalogValue(catalog.buildings, buildingId);
   if (!isRecord(value)) return undefined;
   const floorIds = value.floorIds;
-  return Array.isArray(floorIds) &&
-    floorIds.every((floorId) => typeof floorId === "string")
+  return Array.isArray(floorIds) && floorIds.every(isCanonicalCampusMapId)
     ? { floorIds: [...floorIds] }
     : undefined;
 }
@@ -73,9 +90,9 @@ function findBuilding(
 function decodeCatalogRelation(value: unknown): CatalogRelation | undefined {
   if (!isRecord(value)) return undefined;
   const { buildingId, floorId, category } = value;
-  return typeof buildingId === "string" &&
-    typeof floorId === "string" &&
-    typeof category === "string"
+  return isCanonicalCampusMapId(buildingId) &&
+    isCanonicalCampusMapId(floorId) &&
+    isCanonicalCampusMapId(category)
     ? { buildingId, floorId, category }
     : undefined;
 }
@@ -154,7 +171,7 @@ export function resolveCampusMapSessionSemantics(
     };
   }
   if (scene.kind === "category-results") {
-    if (!catalog.categories.includes(scene.category)) {
+    if (!hasCategory(catalog, scene.category)) {
       return { status: "invalid", reason: "unknown-category" };
     }
     return {
@@ -187,8 +204,7 @@ export function resolveCampusMapSessionSemantics(
   }
   if (scene.kind === "provider-poi") {
     if (
-      scene.providerPoiId !== scene.providerPoiId.trim() ||
-      scene.providerPoiId.length === 0 ||
+      !isCanonicalCampusMapId(scene.providerPoiId) ||
       scene.name !== scene.name.trim() ||
       scene.name.length === 0 ||
       !isValidCampusMapPosition(scene.position)
@@ -215,7 +231,7 @@ export function resolveCampusMapSessionSemantics(
     !findBuilding(catalog, entity.buildingId)?.floorIds.includes(
       entity.floorId,
     ) ||
-    !catalog.categories.includes(entity.category)
+    !hasCategory(catalog, entity.category)
   ) {
     return {
       status: "invalid",

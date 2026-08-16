@@ -497,7 +497,7 @@ export function transitionCampusMapSession(
   }
 
   if (event.type === "OPEN_PROVIDER_POI") {
-    const providerPoiId = event.providerPoiId.trim();
+    const providerPoiId = event.providerPoiId;
     const name = event.name.trim();
     const candidate: CampusMapSession = {
       mode: "browse",
