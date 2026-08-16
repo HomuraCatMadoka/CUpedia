@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   ArrowLeftIcon,
   DropletsIcon,
@@ -27,7 +34,6 @@ import {
 } from "@/lib/campus-map/amap-interaction-adapter";
 import {
   parseCampusMapState,
-  serializeCampusMapState,
   type CampusMapCatalog,
   type CampusMapState,
 } from "@/lib/campus-map/map-state";
@@ -43,13 +49,18 @@ import {
   type AmapPrototypeFacility as Facility,
   type AmapPrototypePosition as Position,
 } from "@/lib/campus-map/amap-prototype-catalog";
-import { CampusMapBrowserHistory } from "@/lib/campus-map/browser-history";
 import {
-  reduceCampusMapSession,
-  initialCampusMapSession,
+  CampusMapSceneDriver,
+  type CampusMapDriverEffectContext,
+  type CampusMapDriverIntent,
+  type CampusMapSceneDriverPorts,
+} from "@/lib/campus-map/scene-driver";
+import { encodeCampusMapUrl } from "@/lib/campus-map/scene-codec";
+import {
+  EMPTY_CAMPUS_MAP_SCENE_SESSION,
+  type CampusMapSceneCatalog,
   type CampusMapSession,
-  type CampusMapSessionCommand,
-} from "@/lib/campus-map/map-session";
+} from "@/lib/campus-map/scene-kernel";
 import { cn } from "@/lib/utils";
 
 type Amenity = CampusMapAmenity;
@@ -161,7 +172,7 @@ const CATEGORIES: ReadonlyArray<{
   { id: "printer", label: "打印机", icon: PrinterIcon, color: "#675aa7" },
 ];
 
-const CATALOG: CampusMapCatalog = {
+const LEGACY_CATALOG: CampusMapCatalog = {
   categories: CATEGORIES.map((category) => category.id),
   buildings: Object.fromEntries(
     BUILDINGS.map((building) => [building.id, { floorIds: building.floorIds }]),
@@ -177,6 +188,143 @@ const CATALOG: CampusMapCatalog = {
     ]),
   ),
 };
+
+const CATALOG: CampusMapSceneCatalog = {
+  categories: CATEGORIES.map((category) => category.id),
+  buildings: Object.fromEntries(
+    BUILDINGS.map((building) => [building.id, { floorIds: building.floorIds }]),
+  ),
+  facilities: Object.fromEntries(
+    FACILITIES.map((facility) => [
+      facility.id,
+      {
+        buildingId: facility.buildingId,
+        floorId: facility.floorId,
+        category: facility.category,
+      },
+    ]),
+  ),
+  contents: {},
+};
+
+function canonicalSessionFromLegacySearch(search: string): CampusMapSession {
+  const params = new URLSearchParams(search);
+  if (params.get("v") === "1") return EMPTY_CAMPUS_MAP_SCENE_SESSION;
+  if (params.get("building") === "building:15") {
+    params.set("building", "science-centre");
+  }
+  const state = parseCampusMapState(params, LEGACY_CATALOG);
+  const snap = state.sheet.snap === "full" ? "full" : "peek";
+  if (state.selection.kind === "facility") {
+    return {
+      mode: "browse",
+      scene: { kind: "facility", facilityId: state.selection.facilityId, snap },
+    };
+  }
+  if (state.selection.kind === "content") {
+    return {
+      mode: "browse",
+      scene: { kind: "content", contentId: state.selection.contentId, snap },
+    };
+  }
+  if (state.selection.kind === "building") {
+    return {
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: state.selection.buildingId,
+        floorId: state.buildingContext.floorId,
+        snap,
+      },
+    };
+  }
+  if (state.mapFilter.category) {
+    return {
+      mode: "browse",
+      scene: {
+        kind: "category-results",
+        category: state.mapFilter.category,
+        snap,
+      },
+    };
+  }
+  if (state.mapFilter.query) {
+    return {
+      mode: "browse",
+      scene: { kind: "search-results", query: state.mapFilter.query, snap },
+    };
+  }
+  return EMPTY_CAMPUS_MAP_SCENE_SESSION;
+}
+
+function canonicalInitialSearch(search: string) {
+  const params = new URLSearchParams(search);
+  if (params.get("v") === "1") return search;
+  return `?${encodeCampusMapUrl(canonicalSessionFromLegacySearch(search), CATALOG)}`;
+}
+
+function projectedState(
+  session: CampusMapSession,
+  returnTo: CampusMapSession | null,
+): CampusMapState {
+  if (session.mode !== "browse") {
+    return {
+      selection: { kind: "none" },
+      mapFilter: { category: null, query: "" },
+      buildingContext: { floorId: null, amenity: null, query: "" },
+      sheet: { snap: "hidden" },
+    };
+  }
+  const scene = session.scene;
+  const returnScene = returnTo?.mode === "browse" ? returnTo.scene : null;
+  const facility =
+    scene.kind === "facility" ? CATALOG.facilities[scene.facilityId] : null;
+  const selection: CampusMapState["selection"] =
+    scene.kind === "building"
+      ? { kind: "building", buildingId: scene.buildingId }
+      : scene.kind === "facility" && facility
+        ? {
+            kind: "facility",
+            facilityId: scene.facilityId,
+            buildingId: facility.buildingId,
+          }
+        : scene.kind === "provider-poi"
+          ? {
+              kind: "external",
+              externalId: scene.providerPoiId,
+              position: scene.position,
+            }
+          : { kind: "none" };
+  const category =
+    scene.kind === "category-results"
+      ? scene.category
+      : returnScene?.kind === "category-results"
+        ? returnScene.category
+        : null;
+  const query =
+    scene.kind === "search-results"
+      ? scene.query
+      : returnScene?.kind === "search-results"
+        ? returnScene.query
+        : "";
+  return {
+    selection,
+    mapFilter: { category, query },
+    buildingContext: {
+      floorId:
+        scene.kind === "building"
+          ? scene.floorId
+          : scene.kind === "facility" && facility
+            ? facility.floorId
+            : null,
+      amenity: null,
+      query: "",
+    },
+    sheet: {
+      snap: "snap" in scene ? scene.snap : "hidden",
+    },
+  };
+}
 
 function rect(element: Element): ScreenRect {
   const value = element.getBoundingClientRect();
@@ -212,21 +360,6 @@ function facilityFor(selection: CampusMapState["selection"]) {
     : null;
 }
 
-function selectionKey(selection: CampusMapState["selection"]) {
-  switch (selection.kind) {
-    case "none":
-      return "none";
-    case "building":
-      return `building:${selection.buildingId}`;
-    case "facility":
-      return `facility:${selection.facilityId}`;
-    case "content":
-      return `content:${selection.contentId}`;
-    case "external":
-      return `external:${selection.externalId}`;
-  }
-}
-
 function amenityStyle(category: Amenity) {
   return CATEGORIES.find((item) => item.id === category) ?? CATEGORIES[0];
 }
@@ -256,17 +389,10 @@ export function AmapCampusPrototype({
 }: {
   initialSearch?: string;
 }) {
-  const initialMapState = useMemo(() => {
-    const params = new URLSearchParams(initialSearch);
-    if (params.get("building") === "building:15") {
-      params.set("building", "science-centre");
-    }
-    return parseCampusMapState(params, CATALOG);
-  }, [initialSearch]);
-  const [session, setSession] = useState<CampusMapSession>(() =>
-    initialCampusMapSession(initialMapState, CATALOG),
+  const driverInitialSearch = useMemo(
+    () => canonicalInitialSearch(initialSearch),
+    [initialSearch],
   );
-  const state = session.browse;
   const [config, setConfig] = useState<
     | { status: "loading" }
     | { status: "missing" }
@@ -281,7 +407,6 @@ export function AmapCampusPrototype({
   const [clusterStatus, setClusterStatus] = useState<
     "loading" | "ready" | "error"
   >("loading");
-  const [queryDraft, setQueryDraft] = useState(initialMapState.mapFilter.query);
   const mapRef = useRef<AMapMap | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
@@ -292,41 +417,17 @@ export function AmapCampusPrototype({
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingSelectionTokenRef = useRef<number | null>(null);
   const amapPositionsRef = useRef<Readonly<Record<string, Position>>>({});
-  const sessionRef = useRef(session);
-  const historyAdapterRef = useRef<CampusMapBrowserHistory | null>(null);
-  const selectionTriggerRef = useRef<HTMLElement | null>(null);
-  const selectionTriggerIdRef = useRef<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
-  const previousSelectionRef = useRef(selectionKey(state.selection));
   const interactionAdapterRef = useRef(new AmapInteractionAdapter());
   const pointerGestureCleanupRef = useRef<(() => void) | null>(null);
   const lastPanelRectRef = useRef<ScreenRect | null>(null);
-
-  const selectedBuilding = buildingFor(state.selection);
-  const selectedFacility = facilityFor(state.selection);
-  const activeAmenity = knownAmenity(state.mapFilter.category);
-  const facilityOrigin = session.entityReturnTarget?.mapFilter.category
-    ? "category"
-    : "map";
 
   const positionFor = useCallback(
     (building: Building) =>
       amapPositionsRef.current[building.id] ?? building.position,
     [],
   );
-
-  const historyAdapter = useCallback(() => {
-    if (!historyAdapterRef.current) {
-      historyAdapterRef.current = new CampusMapBrowserHistory(
-        window.history,
-        (nextSession) => {
-          const search = serializeCampusMapState(nextSession.browse).toString();
-          return `${window.location.pathname}${search ? `?${search}` : ""}`;
-        },
-      );
-    }
-    return historyAdapterRef.current;
-  }, []);
 
   const resetMapRuntime = useCallback(() => {
     pointerGestureCleanupRef.current?.();
@@ -359,7 +460,11 @@ export function AmapCampusPrototype({
   }, [resetMapRuntime]);
 
   const requestCamera = useCallback(
-    (position: Position, reason: CameraReason) => {
+    (
+      position: Position,
+      reason: CameraReason,
+      driverContext?: CampusMapDriverEffectContext,
+    ) => {
       const map = mapRef.current;
       const mapElement = mapElementRef.current;
       if (!map || !mapElement) return;
@@ -370,6 +475,7 @@ export function AmapCampusPrototype({
         window.requestAnimationFrame(() => {
           if (
             !request.isCurrent() ||
+            (driverContext && !driverContext.isCurrent()) ||
             !mapRef.current ||
             !mapElementRef.current
           ) {
@@ -412,7 +518,11 @@ export function AmapCampusPrototype({
             map.setZoomAndCenter(zoom, lngLat, true, 0);
           }
           window.requestAnimationFrame(() => {
-            if (!request.isCurrent() || !mapRef.current) {
+            if (
+              !request.isCurrent() ||
+              (driverContext && !driverContext.isCurrent()) ||
+              !mapRef.current
+            ) {
               if (pendingSelectionTokenRef.current === request.token) {
                 pendingSelectionTokenRef.current = null;
               }
@@ -452,69 +562,115 @@ export function AmapCampusPrototype({
     [],
   );
 
-  const commitSessionCommand = useCallback(
-    (command: CampusMapSessionCommand) => {
-      const result = reduceCampusMapSession(
-        sessionRef.current,
-        command,
-        CATALOG,
-      );
-      const historyResult = historyAdapter().commit(
-        result.session,
-        result.history,
-      );
-      if (historyResult === "travelled") return result;
-      sessionRef.current = result.session;
-      setSession(result.session);
-
-      const camera = result.camera;
-      if (camera?.kind === "cancel") {
-        cameraGateRef.current.invalidate();
-        pendingSelectionTokenRef.current = null;
-      } else if (camera?.kind === "focus") {
+  const [driver] = useState(() => {
+    const browserWindow = typeof window === "undefined" ? null : window;
+    const ports: CampusMapSceneDriverPorts = {
+      history: browserWindow?.history ?? {
+        state: null,
+        back: () => {},
+        pushState: () => {},
+        replaceState: () => {},
+      },
+      location: {
+        pathname: () =>
+          browserWindow?.location.pathname ?? "/prototype/campus-map",
+        search: () => browserWindow?.location.search ?? driverInitialSearch,
+      },
+      camera: (camera, context) => {
+        if (camera.kind === "cancel") {
+          cameraGateRef.current.invalidate();
+          pendingSelectionTokenRef.current = null;
+          return;
+        }
         const building = BUILDINGS.find(
           (item) => item.id === camera.buildingId,
         );
         if (building) {
-          requestCamera(positionFor(building), camera.reason);
+          requestCamera(positionFor(building), camera.reason, context);
         }
-      }
-
-      const overlay = result.overlay;
-      if (overlay?.kind === "close-external") {
-        infoWindowRef.current?.close();
-      } else if (overlay?.kind === "open-external") {
+      },
+      focus: (focus, context) => {
+        queueMicrotask(() => {
+          window.requestAnimationFrame(() => {
+            if (!context.isCurrent()) return;
+            if (focus.kind === "heading") {
+              panelTitleRef.current?.focus({ preventScroll: true });
+            } else if (focus.kind === "results") {
+              if (document.activeElement?.tagName !== "BUTTON") {
+                panelTitleRef.current?.focus({ preventScroll: true });
+              }
+            } else if (focus.kind === "search-input") {
+              searchInputRef.current?.focus({ preventScroll: true });
+            } else if (focus.kind === "map") {
+              const triggerId = document.querySelector<HTMLElement>(
+                "[data-campus-map-root]",
+              )?.dataset.returnFocus;
+              if (triggerId) {
+                document
+                  .querySelector<HTMLElement>(
+                    `[data-search-result="${triggerId}"]`,
+                  )
+                  ?.focus({ preventScroll: true });
+              }
+            }
+          });
+        });
+      },
+      overlay: (overlay) => {
+        if (overlay.kind === "close-external") {
+          infoWindowRef.current?.close();
+          return;
+        }
         const AMap = window.AMap;
         const map = mapRef.current;
-        if (AMap && map) {
-          const content = document.createElement("div");
-          content.className = "min-w-36 px-1 py-0.5 text-[#17211c]";
-          const title = document.createElement("strong");
-          title.className = "block text-sm font-semibold";
-          title.textContent = overlay.name;
-          const source = document.createElement("span");
-          source.className = "mt-1 block text-xs text-neutral-500";
-          source.textContent = "高德地图地点";
-          content.append(title, source);
-          const infoWindow =
-            infoWindowRef.current ??
-            new AMap.InfoWindow({
-              anchor: "bottom-center",
-              autoMove: true,
-              closeWhenClickMap: true,
-              offset: [0, -10],
-            });
-          infoWindowRef.current = infoWindow;
-          infoWindow.setContent(content);
-          infoWindow.open(
-            map,
-            new AMap.LngLat(overlay.position[0], overlay.position[1]),
-          );
-        }
-      }
-      return result;
-    },
-    [historyAdapter, positionFor, requestCamera],
+        if (!AMap || !map) return;
+        const content = document.createElement("div");
+        content.className = "min-w-36 px-1 py-0.5 text-[#17211c]";
+        const title = document.createElement("strong");
+        title.className = "block text-sm font-semibold";
+        title.textContent = overlay.name;
+        const source = document.createElement("span");
+        source.className = "mt-1 block text-xs text-neutral-500";
+        source.textContent = "高德地图地点";
+        content.append(title, source);
+        const infoWindow =
+          infoWindowRef.current ??
+          new AMap.InfoWindow({
+            anchor: "bottom-center",
+            autoMove: true,
+            closeWhenClickMap: true,
+            offset: [0, -10],
+          });
+        infoWindowRef.current = infoWindow;
+        infoWindow.setContent(content);
+        infoWindow.open(
+          map,
+          new AMap.LngLat(overlay.position[0], overlay.position[1]),
+        );
+      },
+      sheet: () => {},
+    };
+    return new CampusMapSceneDriver(CATALOG, ports, driverInitialSearch);
+  });
+  const driverSnapshot = useSyncExternalStore(
+    driver.subscribe,
+    driver.getSnapshot,
+    driver.getSnapshot,
+  );
+  const session = driverSnapshot.session;
+  const state = projectedState(session, driverSnapshot.returnTo);
+  const selectedBuilding = buildingFor(state.selection);
+  const selectedFacility = facilityFor(state.selection);
+  const activeAmenity = knownAmenity(state.mapFilter.category);
+  const facilityOrigin =
+    driverSnapshot.returnTo?.mode === "browse" &&
+    driverSnapshot.returnTo.scene.kind === "category-results"
+      ? "category"
+      : "map";
+
+  const dispatch = useCallback(
+    (intent: CampusMapDriverIntent) => driver.dispatch(intent),
+    [driver],
   );
 
   const selectBuilding = useCallback(
@@ -523,32 +679,41 @@ export function AmapCampusPrototype({
       source: "map" | "search" = "map",
       trigger: HTMLElement | null = null,
     ) => {
-      selectionTriggerRef.current = trigger;
-      selectionTriggerIdRef.current = trigger?.dataset.searchResult ?? null;
-      commitSessionCommand({
-        type: "open-building",
+      const root = document.querySelector<HTMLElement>(
+        "[data-campus-map-root]",
+      );
+      if (root) root.dataset.returnFocus = trigger?.dataset.searchResult ?? "";
+      dispatch({
+        type: "OPEN_BUILDING",
         buildingId: building.id,
         source,
       });
     },
-    [commitSessionCommand],
+    [dispatch],
   );
 
   const selectFacility = useCallback(
     (
       facility: Facility,
-      source: "category" | "building",
+      source: "category" | "building" | "search",
       trigger: HTMLElement | null = null,
     ) => {
-      selectionTriggerRef.current = trigger;
-      selectionTriggerIdRef.current = null;
-      commitSessionCommand({
-        type: "open-facility",
+      const root = document.querySelector<HTMLElement>(
+        "[data-campus-map-root]",
+      );
+      if (root) root.dataset.returnFocus = trigger?.dataset.searchResult ?? "";
+      dispatch({
+        type: "OPEN_FACILITY",
         facilityId: facility.id,
-        source: source === "category" ? "map" : "building",
+        source:
+          source === "category"
+            ? "map"
+            : source === "search"
+              ? "search"
+              : "building",
       });
     },
-    [commitSessionCommand],
+    [dispatch],
   );
 
   useEffect(() => {
@@ -584,71 +749,38 @@ export function AmapCampusPrototype({
   }, []);
 
   useEffect(() => {
-    const adapter = historyAdapter();
-    const restoredSession = adapter.initialize(sessionRef.current);
-    sessionRef.current = restoredSession;
-    setSession(restoredSession);
+    driver.start();
 
-    const handlePopState = () => {
-      const restoredBrowse = parseCampusMapState(
-        window.location.search,
-        CATALOG,
-      );
-      const restored = adapter.restore(
-        initialCampusMapSession(restoredBrowse, CATALOG),
-      );
-      setQueryDraft(restored.browse.mapFilter.query);
-      commitSessionCommand({
-        type: "restore",
-        session: restored,
-        cameraReason: "map-selection",
-      });
+    const handlePopState = (event: PopStateEvent) => {
+      driver.restore(window.location.search, event.state);
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [commitSessionCommand, historyAdapter]);
-
-  useEffect(() => {
-    const previous = previousSelectionRef.current;
-    const current = selectionKey(state.selection);
-    if (current !== "none" && current !== previous) {
-      window.requestAnimationFrame(() =>
-        panelTitleRef.current?.focus({ preventScroll: true }),
-      );
-    } else if (previous !== "none" && current === "none") {
-      window.requestAnimationFrame(() => {
-        const trigger = selectionTriggerRef.current;
-        if (trigger?.isConnected) trigger.focus({ preventScroll: true });
-        else if (selectionTriggerIdRef.current) {
-          document
-            .querySelector<HTMLElement>(
-              `[data-search-result="${selectionTriggerIdRef.current}"]`,
-            )
-            ?.focus({ preventScroll: true });
-        }
-      });
-    }
-    previousSelectionRef.current = current;
-  }, [state.selection]);
+  }, [driver]);
 
   const closeSelection = useCallback(() => {
-    commitSessionCommand({ type: "dismiss-entity" });
-  }, [commitSessionCommand]);
+    dispatch({ type: "DISMISS", source: "close" });
+  }, [dispatch]);
 
   const navigateEntityBack = useCallback(() => {
-    commitSessionCommand({ type: "navigate-back" });
-  }, [commitSessionCommand]);
+    dispatch({ type: "NAVIGATE_BACK" });
+  }, [dispatch]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (sessionRef.current.browse.selection.kind !== "none") {
-        closeSelection();
+      const current = driver.getSnapshot().session;
+      if (
+        current.mode === "browse" &&
+        current.scene.kind !== "map" &&
+        current.scene.kind !== "search-results"
+      ) {
+        dispatch({ type: "DISMISS", source: "escape" });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeSelection]);
+  }, [dispatch, driver]);
 
   const initialiseMap = useCallback(() => {
     if (!window.AMap || mapRef.current) return;
@@ -700,12 +832,12 @@ export function AmapCampusPrototype({
           converted.__campus = [convertedCenter.lng, convertedCenter.lat];
         amapPositionsRef.current = converted;
         setCoordinateVersion((version) => version + 1);
-        const selected = buildingFor(sessionRef.current.browse.selection);
+        const current = driver.getSnapshot();
+        const selected = buildingFor(
+          projectedState(current.session, current.returnTo).selection,
+        );
         if (selected) {
-          commitSessionCommand({
-            type: "reframe-selection",
-            reason: "deep-link",
-          });
+          dispatch({ type: "REFRAME", reason: "deep-link" });
         } else {
           const center = locations[0];
           if (center) map.setZoomAndCenter(17.2, center, true, 0);
@@ -732,9 +864,9 @@ export function AmapCampusPrototype({
           selectBuilding(building);
           return;
         }
-        commitSessionCommand({
-          type: "open-external",
-          externalId: target.providerId,
+        dispatch({
+          type: "OPEN_PROVIDER_POI",
+          providerPoiId: target.providerId,
           name: target.name,
           position: target.position,
         });
@@ -744,16 +876,14 @@ export function AmapCampusPrototype({
       interactionAdapterRef.current.dispatchMapClick(() => {
         if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
           return;
-        closeSelection();
+        dispatch({ type: "DISMISS", source: "map" });
       });
     });
     map.on("dragstart", () => {
-      cameraGateRef.current.invalidate();
-      pendingSelectionTokenRef.current = null;
+      driver.interruptCamera();
     });
     const cancelForUserZoom = () => {
-      cameraGateRef.current.invalidate();
-      pendingSelectionTokenRef.current = null;
+      driver.interruptCamera();
     };
     const container = map.getContainer();
     const beginPointerGesture = () => {
@@ -774,7 +904,7 @@ export function AmapCampusPrototype({
       container.removeEventListener("touchstart", cancelForUserZoom);
       interactionAdapterRef.current.reset();
     };
-  }, [closeSelection, commitSessionCommand, selectBuilding]);
+  }, [dispatch, driver, selectBuilding]);
 
   useEffect(() => {
     if (config.status !== "ready" || mapRef.current) return;
@@ -1015,15 +1145,12 @@ export function AmapCampusPrototype({
       ) {
         return;
       }
-      commitSessionCommand({
-        type: "reframe-selection",
-        reason: "sheet-layout",
-      });
+      dispatch({ type: "REFRAME", reason: "sheet-layout" });
     });
     observer.observe(mapElement);
     observer.observe(panel);
     return () => observer.disconnect();
-  }, [commitSessionCommand, selectedBuilding]);
+  }, [dispatch, selectedBuilding]);
 
   useEffect(
     () => () => {
@@ -1040,14 +1167,47 @@ export function AmapCampusPrototype({
   const searchResults = useMemo(() => {
     const query = normalized(state.mapFilter.query);
     if (!query) return [];
-    return BUILDINGS.filter((building) =>
+    const queryParts = state.mapFilter.query
+      .trim()
+      .split(/\s+/u)
+      .map(normalized)
+      .filter(Boolean);
+    const buildings = BUILDINGS.filter((building) =>
       [
         building.name,
         building.englishName,
         building.code,
         ...building.aliases,
       ].some((value) => normalized(value).includes(query)),
-    );
+    ).map((building) => ({ kind: "building" as const, building }));
+    const facilities = FACILITIES.flatMap((facility) => {
+      const building = BUILDINGS.find(
+        (item) => item.id === facility.buildingId,
+      );
+      if (!building) return [];
+      const searchable = [
+        building.name,
+        building.englishName,
+        ...building.aliases,
+        facility.name,
+        floorLabel(facility.floorId),
+      ].map(normalized);
+      const facilityTerms = [
+        facility.name,
+        amenityStyle(facility.category).label,
+        floorLabel(facility.floorId),
+      ].map(normalized);
+      const hasFacilityTerm = queryParts.some((part) =>
+        facilityTerms.some((value) => value.includes(part)),
+      );
+      return hasFacilityTerm &&
+        queryParts.every((part) =>
+          searchable.some((value) => value.includes(part)),
+        )
+        ? [{ kind: "facility" as const, facility, building }]
+        : [];
+    });
+    return [...buildings, ...facilities];
   }, [state.mapFilter.query]);
 
   const buildingFacilities = selectedBuilding
@@ -1072,7 +1232,10 @@ export function AmapCampusPrototype({
   const chromeHidden = state.sheet.snap === "full";
 
   return (
-    <main className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]">
+    <main
+      data-campus-map-root
+      className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]"
+    >
       <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
       <div className="absolute inset-0">
         <div
@@ -1121,7 +1284,7 @@ export function AmapCampusPrototype({
           className="pointer-events-auto mx-auto w-full max-w-[560px]"
           onSubmit={(event) => {
             event.preventDefault();
-            commitSessionCommand({ type: "set-map-query", query: queryDraft });
+            dispatch({ type: "SEARCH", query: state.mapFilter.query });
           }}
         >
           <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2">
@@ -1131,24 +1294,20 @@ export function AmapCampusPrototype({
             />
             <span className="sr-only">搜索建筑</span>
             <input
-              value={queryDraft}
-              onChange={(event) => setQueryDraft(event.target.value)}
-              onInput={(event) => {
-                const query = event.currentTarget.value;
-                commitSessionCommand({ type: "set-map-query", query });
-              }}
+              ref={searchInputRef}
+              value={state.mapFilter.query}
+              onChange={(event) =>
+                dispatch({ type: "SEARCH", query: event.currentTarget.value })
+              }
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
               placeholder="搜索建筑"
             />
-            {queryDraft ? (
+            {state.mapFilter.query ? (
               <button
                 type="button"
                 aria-label="清除搜索"
                 className="grid size-9 place-items-center rounded-full hover:bg-neutral-100"
-                onClick={() => {
-                  setQueryDraft("");
-                  commitSessionCommand({ type: "set-map-query", query: "" });
-                }}
+                onClick={() => dispatch({ type: "SEARCH", query: "" })}
               >
                 <XIcon className="size-4" />
               </button>
@@ -1157,25 +1316,54 @@ export function AmapCampusPrototype({
           {state.mapFilter.query && state.selection.kind === "none" ? (
             <div className="mt-2 overflow-hidden rounded-xl bg-white py-1 shadow-[0_8px_28px_rgba(23,33,28,.22)]">
               {searchResults.length ? (
-                searchResults.map((building) => (
+                searchResults.map((result) => (
                   <button
-                    key={building.id}
-                    data-search-result={building.id}
+                    key={
+                      result.kind === "building"
+                        ? result.building.id
+                        : result.facility.id
+                    }
+                    data-search-result={
+                      result.kind === "building"
+                        ? result.building.id
+                        : result.facility.id
+                    }
                     type="button"
                     className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none"
-                    onClick={(event) => {
-                      selectBuilding(building, "search", event.currentTarget);
+                    onClick={() => {
+                      const root = document.querySelector<HTMLElement>(
+                        "[data-campus-map-root]",
+                      );
+                      if (result.kind === "building") {
+                        if (root) root.dataset.returnFocus = result.building.id;
+                        dispatch({
+                          type: "OPEN_BUILDING",
+                          buildingId: result.building.id,
+                          source: "search",
+                        });
+                      } else {
+                        if (root) root.dataset.returnFocus = result.facility.id;
+                        dispatch({
+                          type: "OPEN_FACILITY",
+                          facilityId: result.facility.id,
+                          source: "search",
+                        });
+                      }
                     }}
                   >
                     <span className="grid size-9 place-items-center rounded-lg bg-[#e4f1eb] text-xs font-bold text-[#176346]">
-                      {building.code}
+                      {result.building.code}
                     </span>
                     <span className="min-w-0">
                       <strong className="block truncate text-sm">
-                        {building.name}
+                        {result.kind === "building"
+                          ? result.building.name
+                          : `${result.building.name} · ${result.facility.name}`}
                       </strong>
                       <span className="block truncate text-xs text-neutral-500">
-                        {building.englishName}
+                        {result.kind === "building"
+                          ? result.building.englishName
+                          : `${floorLabel(result.facility.floorId)} · ${result.facility.access}`}
                       </span>
                     </span>
                   </button>
@@ -1218,10 +1406,13 @@ export function AmapCampusPrototype({
                     : "border-black/10 bg-white text-neutral-700 hover:bg-neutral-50",
                 )}
                 onClick={() => {
-                  commitSessionCommand({
-                    type: "toggle-map-category",
-                    category: category.id,
-                  });
+                  dispatch(
+                    session.mode === "browse" &&
+                      session.scene.kind === "category-results" &&
+                      session.scene.category === category.id
+                      ? { type: "DISMISS", source: "close" }
+                      : { type: "OPEN_CATEGORY", category: category.id },
+                  );
                 }}
               >
                 <Icon className="size-4" /> {category.label}
@@ -1294,8 +1485,8 @@ export function AmapCampusPrototype({
           aria-controls="campus-map-panel-content"
           className="mx-auto grid h-11 w-20 place-items-center rounded-b-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] md:hidden"
           onClick={() => {
-            commitSessionCommand({
-              type: "set-sheet-snap",
+            dispatch({
+              type: "SET_SNAP",
               snap: state.sheet.snap === "full" ? "peek" : "full",
             });
           }}
@@ -1330,9 +1521,7 @@ export function AmapCampusPrototype({
                 type="button"
                 aria-label={`关闭${activeCategoryStyle.label}列表`}
                 className="grid size-11 place-items-center rounded-full hover:bg-neutral-100"
-                onClick={() =>
-                  commitSessionCommand({ type: "clear-map-category" })
-                }
+                onClick={() => dispatch({ type: "DISMISS", source: "close" })}
               >
                 <XIcon className="size-5" />
               </button>
@@ -1391,8 +1580,8 @@ export function AmapCampusPrototype({
                   type="button"
                   className="mt-3 min-h-11 w-full rounded-xl bg-neutral-100 text-sm font-medium"
                   onClick={() =>
-                    commitSessionCommand({
-                      type: "set-sheet-snap",
+                    dispatch({
+                      type: "SET_SNAP",
                       snap: state.sheet.snap === "full" ? "peek" : "full",
                     })
                   }
@@ -1477,10 +1666,7 @@ export function AmapCampusPrototype({
                   type="button"
                   className="mt-3 min-h-11 w-full rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white"
                   onClick={() =>
-                    commitSessionCommand({
-                      type: "reframe-selection",
-                      reason: "map-selection",
-                    })
+                    dispatch({ type: "REFRAME", reason: "map-selection" })
                   }
                 >
                   定位所属建筑
@@ -1513,8 +1699,8 @@ export function AmapCampusPrototype({
                         : "bg-neutral-100",
                     )}
                     onClick={() =>
-                      commitSessionCommand({
-                        type: "set-building-floor",
+                      dispatch({
+                        type: "SET_BUILDING_FLOOR",
                         floorId: null,
                       })
                     }
@@ -1533,8 +1719,8 @@ export function AmapCampusPrototype({
                           : "bg-neutral-100",
                       )}
                       onClick={() =>
-                        commitSessionCommand({
-                          type: "set-building-floor",
+                        dispatch({
+                          type: "SET_BUILDING_FLOOR",
                           floorId,
                         })
                       }

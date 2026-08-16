@@ -161,7 +161,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     await screen.findByRole("heading", { name: "伍何曼原楼" });
     await runtime.flushAnimationFrames();
 
-    expect(window.location.search).toContain("building=wmy");
+    expect(window.location.search).toContain("scene=building&id=wmy");
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).toHaveBeenCalledTimes(1);
   });
@@ -278,7 +278,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(
       screen.getByRole("heading", { name: "2 栋建筑有饮水机" }),
     ).not.toBeNull();
-    expect(window.location.search).not.toContain("facility=");
+    expect(window.location.search).not.toContain("scene=facility");
   });
 
   it("projects the University Library water fixture at the library building anchor", async () => {
@@ -334,7 +334,9 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
 
     expect(screen.getByRole("heading", { name: "饮水机" })).not.toBeNull();
-    expect(window.location.search).toContain("facility=science-1f-water");
+    expect(window.location.search).toContain(
+      "scene=facility&id=science-1f-water",
+    );
     expect(push).toHaveBeenCalledTimes(1);
   });
 
@@ -407,7 +409,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(runtime.infoWindows).toHaveLength(1);
     expect(runtime.infoWindows[0]!.setContent).toHaveBeenCalledTimes(1);
     expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
-    expect(window.location.search).toBe("");
+    expect(window.location.search).toBe("?v=1");
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
 
     await runtime.flushAnimationFrames();

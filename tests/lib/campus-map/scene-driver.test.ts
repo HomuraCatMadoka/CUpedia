@@ -1,0 +1,317 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  CampusMapSceneDriver,
+  type CampusMapSceneDriverPorts,
+} from "@/lib/campus-map/scene-driver";
+import type { CampusMapSceneCatalog } from "@/lib/campus-map/scene-kernel";
+
+const catalog: CampusMapSceneCatalog = {
+  categories: ["toilet", "water"],
+  buildings: {
+    science: { floorIds: ["G", "1"] },
+    library: { floorIds: ["G"] },
+  },
+  facilities: {
+    fountain: {
+      buildingId: "science",
+      floorId: "1",
+      category: "water",
+    },
+  },
+  contents: {},
+};
+
+function harness(initialSearch = "?v=1") {
+  let state: unknown = null;
+  let search = initialSearch;
+  const history = {
+    get state() {
+      return state;
+    },
+    back: vi.fn(),
+    pushState: vi.fn(
+      (nextState: unknown, _unused: string, url?: string | URL | null) => {
+        state = nextState;
+        search = new URL(String(url), "https://example.test").search;
+      },
+    ),
+    replaceState: vi.fn(
+      (nextState: unknown, _unused: string, url?: string | URL | null) => {
+        state = nextState;
+        search = new URL(String(url), "https://example.test").search;
+      },
+    ),
+  };
+  const ports: CampusMapSceneDriverPorts = {
+    history,
+    location: {
+      pathname: () => "/prototype/campus-map",
+      search: () => search,
+    },
+    camera: vi.fn(),
+    focus: vi.fn(),
+    overlay: vi.fn(),
+    sheet: vi.fn(),
+  };
+  const driver = new CampusMapSceneDriver(catalog, ports, initialSearch);
+  driver.start();
+  vi.mocked(history.replaceState).mockClear();
+  return {
+    driver,
+    history,
+    ports,
+    get search() {
+      return search;
+    },
+    setState(value: unknown) {
+      state = value;
+    },
+  };
+}
+
+describe("CampusMapSceneDriver", () => {
+  it.each([
+    [
+      "marker",
+      null,
+      { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" } as const,
+    ],
+    [
+      "category list",
+      { type: "OPEN_CATEGORY", category: "water" } as const,
+      { type: "OPEN_FACILITY", facilityId: "fountain", source: "map" } as const,
+    ],
+    [
+      "building directory",
+      { type: "OPEN_BUILDING", buildingId: "science", source: "map" } as const,
+      {
+        type: "OPEN_FACILITY",
+        facilityId: "fountain",
+        source: "building",
+      } as const,
+    ],
+  ])(
+    "opens one canonical facility from the %s with one command per effect",
+    (_entry, setup, intent) => {
+      const runtime = harness();
+      if (setup) runtime.driver.dispatch(setup);
+      vi.mocked(runtime.history.pushState).mockClear();
+      vi.mocked(runtime.history.replaceState).mockClear();
+      vi.mocked(runtime.ports.camera).mockClear();
+      vi.mocked(runtime.ports.focus).mockClear();
+      vi.mocked(runtime.ports.sheet).mockClear();
+
+      runtime.driver.dispatch(intent);
+
+      expect(runtime.driver.getSnapshot().session).toEqual({
+        mode: "browse",
+        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+      });
+      expect(runtime.search).toBe("?v=1&scene=facility&id=fountain&snap=peek");
+      expect(runtime.history.pushState).toHaveBeenCalledTimes(1);
+      expect(runtime.ports.camera).toHaveBeenCalledTimes(1);
+      expect(runtime.ports.focus).toHaveBeenCalledTimes(1);
+      expect(runtime.ports.sheet).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("switches category atomically without stale entity, query, building, or return target", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science" });
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "search",
+    });
+    runtime.driver.dispatch({ type: "SET_BUILDING_FLOOR", floorId: "1" });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "building",
+    });
+
+    runtime.driver.dispatch({ type: "OPEN_CATEGORY", category: "toilet" });
+
+    expect(runtime.driver.getSnapshot()).toMatchObject({
+      session: {
+        mode: "browse",
+        scene: { kind: "category-results", category: "toilet", snap: "peek" },
+      },
+      returnTo: null,
+    });
+    expect(runtime.search).toBe("?v=1&scene=category&id=toilet&snap=peek");
+  });
+
+  it("uses the real predecessor for Back and a building fallback for a direct facility deep link", () => {
+    const navigated = harness();
+    navigated.driver.dispatch({ type: "OPEN_CATEGORY", category: "water" });
+    navigated.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "map",
+    });
+    vi.mocked(navigated.history.pushState).mockClear();
+
+    navigated.driver.dispatch({ type: "NAVIGATE_BACK" });
+
+    expect(navigated.history.back).toHaveBeenCalledTimes(1);
+    expect(navigated.history.pushState).not.toHaveBeenCalled();
+
+    const direct = harness("?v=1&scene=facility&id=fountain&snap=peek");
+    direct.driver.dispatch({ type: "NAVIGATE_BACK" });
+    expect(direct.history.back).not.toHaveBeenCalled();
+    expect(direct.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: {
+        kind: "building",
+        buildingId: "science",
+        floorId: "1",
+        snap: "peek",
+      },
+    });
+    expect(direct.history.pushState).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps X and Escape dismissal independent from Back", () => {
+    for (const source of ["close", "escape"] as const) {
+      const runtime = harness("?v=1&scene=facility&id=fountain&snap=peek");
+
+      runtime.driver.dispatch({ type: "DISMISS", source });
+
+      expect(runtime.history.back).not.toHaveBeenCalled();
+      expect(runtime.driver.getSnapshot().session).toEqual({
+        mode: "browse",
+        scene: { kind: "map" },
+      });
+      expect(runtime.history.replaceState).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("returns a searched facility to its query and uses the search camera reason", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science fountain" });
+    runtime.driver.dispatch({
+      type: "OPEN_FACILITY",
+      facilityId: "fountain",
+      source: "search",
+    });
+
+    expect(runtime.driver.getSnapshot().returnTo).toEqual({
+      mode: "browse",
+      scene: {
+        kind: "search-results",
+        query: "science fountain",
+        snap: "peek",
+      },
+    });
+    expect(runtime.ports.camera).toHaveBeenLastCalledWith(
+      {
+        kind: "focus",
+        buildingId: "science",
+        reason: "search-selection",
+      },
+      expect.objectContaining({ token: 2 }),
+    );
+
+    runtime.driver.dispatch({ type: "DISMISS", source: "close" });
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: {
+        kind: "search-results",
+        query: "science fountain",
+        snap: "peek",
+      },
+    });
+  });
+
+  it("keeps repeated intent idempotent without changing the return target or replaying effects", () => {
+    const runtime = harness();
+    runtime.driver.dispatch({ type: "SEARCH", query: "science" });
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "search",
+    });
+    const before = runtime.driver.getSnapshot();
+    vi.mocked(runtime.history.pushState).mockClear();
+    vi.mocked(runtime.history.replaceState).mockClear();
+    vi.mocked(runtime.ports.camera).mockClear();
+    vi.mocked(runtime.ports.focus).mockClear();
+    vi.mocked(runtime.ports.overlay).mockClear();
+    vi.mocked(runtime.ports.sheet).mockClear();
+
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "map",
+    });
+
+    expect(runtime.driver.getSnapshot()).toBe(before);
+    expect(runtime.history.pushState).not.toHaveBeenCalled();
+    expect(runtime.history.replaceState).not.toHaveBeenCalled();
+    expect(runtime.ports.camera).not.toHaveBeenCalled();
+    expect(runtime.ports.focus).not.toHaveBeenCalled();
+    expect(runtime.ports.overlay).not.toHaveBeenCalled();
+    expect(runtime.ports.sheet).not.toHaveBeenCalled();
+  });
+
+  it("initializes browser history only once", () => {
+    const runtime = harness();
+
+    runtime.driver.start();
+
+    expect(runtime.history.replaceState).not.toHaveBeenCalled();
+  });
+
+  it("restores popstate from the canonical URL without writing history", () => {
+    const runtime = harness();
+    const push = runtime.history.pushState;
+    const replace = runtime.history.replaceState;
+    vi.mocked(push).mockClear();
+    vi.mocked(replace).mockClear();
+
+    runtime.driver.restore("?v=1&scene=building&id=library&snap=peek", {
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+
+    expect(runtime.driver.getSnapshot().session).toMatchObject({
+      mode: "browse",
+      scene: { kind: "building", buildingId: "library" },
+    });
+    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("invalidates stale camera work for rapid transitions and user gestures", () => {
+    const pending: Array<() => void> = [];
+    const executedTokens: number[] = [];
+    const runtime = harness();
+    vi.mocked(runtime.ports.camera).mockImplementation((_command, context) => {
+      pending.push(() => {
+        if (context.isCurrent()) executedTokens.push(context.token);
+      });
+    });
+
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "science",
+      source: "map",
+    });
+    runtime.driver.dispatch({
+      type: "OPEN_BUILDING",
+      buildingId: "library",
+      source: "map",
+    });
+    pending[0]();
+    pending[1]();
+    expect(executedTokens).toEqual([2]);
+
+    runtime.driver.dispatch({ type: "REFRAME", reason: "sheet-layout" });
+    runtime.driver.interruptCamera();
+    pending[2]();
+    expect(executedTokens).toEqual([2]);
+  });
+});

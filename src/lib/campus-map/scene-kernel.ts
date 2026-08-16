@@ -94,7 +94,7 @@ export type CampusMapEvent =
   | {
       type: "OPEN_FACILITY";
       facilityId: string;
-      source: "map" | "building";
+      source: "map" | "building" | "search";
     }
   | {
       type: "OPEN_CONTENT";
@@ -449,13 +449,16 @@ export function transitionCampusMapSession(
       commands: {
         history: historyCommandFor("enter"),
         camera:
-          event.source === "map"
-            ? {
+          event.source === "building"
+            ? { kind: "cancel" }
+            : {
                 kind: "focus",
                 buildingId: resolved.buildingId,
-                reason: "facility-selection",
-              }
-            : { kind: "cancel" },
+                reason:
+                  event.source === "search"
+                    ? "search-selection"
+                    : "facility-selection",
+              },
         focus: { kind: "heading" },
         overlay: { kind: "close-external" },
       },
