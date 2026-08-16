@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import { db } from "@/db";
 import {
+  canteenDishComments,
+  canteenDishVotes,
   canteenMenuItemPrices,
   canteenMenuItems,
   canteenMenuSources,
 } from "@/db/schema";
-import { and, eq, getTableColumns, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { lockCanteenMenuMutationForSource } from "./canteen-menu-mutation-lock";
 import {
@@ -17,9 +19,11 @@ import {
 import {
   buildMenuIdentityTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
+  type ApprovedMenuIdentityCanonicalization,
+  type ApprovedMenuIdentityMerge,
   type MenuIdentityTransitionArtifact,
   type MenuIdentityTransitionSourceConfiguration,
-  verifyMenuIdentityTransitionArtifact,
+  verifyMenuIdentityTransitionApproval,
 } from "./canteen-menu-identity-transition";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import type {
@@ -35,6 +39,7 @@ import {
 import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
+type MenuSyncTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 type RecurringSyncCompletion = {
   claim: MenuSourceClaim;
@@ -63,6 +68,153 @@ type SyncMenuRow = {
   currency: string | null;
   priceSortOrder: number | null;
 };
+
+function projectApprovedIdentityChanges(
+  existingItems: readonly ExistingSyncMenuItem[],
+  canonicalizations: readonly ApprovedMenuIdentityCanonicalization[],
+  merges: readonly ApprovedMenuIdentityMerge[],
+): ExistingSyncMenuItem[] {
+  const mergedIds = new Set(merges.flatMap((merge) => merge.mergedItemIds));
+  const mergeBySurvivor = new Map(
+    merges.map((merge) => [merge.survivorItemId, merge]),
+  );
+  const canonicalizationByItem = new Map(
+    canonicalizations.map((item) => [item.itemId, item]),
+  );
+  return existingItems.flatMap((item) => {
+    if (mergedIds.has(item.id)) return [];
+    const merge = mergeBySurvivor.get(item.id);
+    const canonicalization = canonicalizationByItem.get(item.id);
+    return merge || canonicalization
+      ? [
+          {
+            ...item,
+            externalProductId:
+              merge?.nextProductId ?? canonicalization!.nextProductId,
+          },
+        ]
+      : [item];
+  });
+}
+
+async function canonicalizeApprovedIdentities(
+  tx: MenuSyncTransaction,
+  canteenId: string,
+  now: Date,
+  canonicalizations: readonly ApprovedMenuIdentityCanonicalization[],
+): Promise<void> {
+  for (const canonicalization of canonicalizations) {
+    await tx
+      .update(canteenMenuItems)
+      .set({
+        externalProductId: canonicalization.nextProductId,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(canteenMenuItems.canteenId, canteenId),
+          eq(canteenMenuItems.id, canonicalization.itemId),
+          eq(
+            canteenMenuItems.externalProductId,
+            canonicalization.previousProductId,
+          ),
+        ),
+      );
+  }
+}
+
+async function mergeApprovedIdentityHistory(
+  tx: MenuSyncTransaction,
+  canteenId: string,
+  now: Date,
+  merges: readonly ApprovedMenuIdentityMerge[],
+): Promise<void> {
+  for (const merge of merges) {
+    const allItemIds = [merge.survivorItemId, ...merge.mergedItemIds];
+    const votes = await tx
+      .select({
+        id: canteenDishVotes.id,
+        menuItemId: canteenDishVotes.menuItemId,
+        userId: canteenDishVotes.userId,
+        anonymousSessionId: canteenDishVotes.anonymousSessionId,
+        vote: canteenDishVotes.vote,
+        createdAt: canteenDishVotes.createdAt,
+      })
+      .from(canteenDishVotes)
+      .where(inArray(canteenDishVotes.menuItemId, allItemIds))
+      .for("update", { of: canteenDishVotes });
+    const votesByActor = new Map<string, typeof votes>();
+    for (const vote of votes) {
+      const actor = vote.userId
+        ? `user:${vote.userId}`
+        : `anonymous:${vote.anonymousSessionId}`;
+      votesByActor.set(actor, [...(votesByActor.get(actor) ?? []), vote]);
+    }
+    const duplicateVoteIds: string[] = [];
+    const votesToMove: string[] = [];
+    for (const actorVotes of votesByActor.values()) {
+      if (new Set(actorVotes.map((vote) => vote.vote)).size > 1) {
+        throw new Error("MENU_IDENTITY_TRANSITION_VOTE_CONFLICT");
+      }
+      const ordered = actorVotes.toSorted(
+        (left, right) =>
+          Number(right.menuItemId === merge.survivorItemId) -
+            Number(left.menuItemId === merge.survivorItemId) ||
+          left.createdAt.getTime() - right.createdAt.getTime() ||
+          left.id.localeCompare(right.id),
+      );
+      const [keeper, ...duplicates] = ordered;
+      duplicateVoteIds.push(...duplicates.map((vote) => vote.id));
+      if (keeper.menuItemId !== merge.survivorItemId) {
+        votesToMove.push(keeper.id);
+      }
+    }
+    if (duplicateVoteIds.length > 0) {
+      await tx
+        .delete(canteenDishVotes)
+        .where(inArray(canteenDishVotes.id, duplicateVoteIds));
+    }
+    if (votesToMove.length > 0) {
+      await tx
+        .update(canteenDishVotes)
+        .set({ menuItemId: merge.survivorItemId })
+        .where(inArray(canteenDishVotes.id, votesToMove));
+    }
+    await tx
+      .update(canteenDishComments)
+      .set({ menuItemId: merge.survivorItemId })
+      .where(inArray(canteenDishComments.menuItemId, merge.mergedItemIds));
+    await tx
+      .delete(canteenMenuItemPrices)
+      .where(inArray(canteenMenuItemPrices.menuItemId, merge.mergedItemIds));
+    await tx
+      .update(canteenMenuItems)
+      .set({
+        menuSourceId: null,
+        externalProductId: null,
+        isAvailable: false,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(canteenMenuItems.canteenId, canteenId),
+          inArray(canteenMenuItems.id, merge.mergedItemIds),
+        ),
+      );
+    await tx
+      .update(canteenMenuItems)
+      .set({
+        externalProductId: merge.nextProductId,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(canteenMenuItems.canteenId, canteenId),
+          eq(canteenMenuItems.id, merge.survivorItemId),
+        ),
+      );
+  }
+}
 
 function priceOptionValues(
   menuItemId: string,
@@ -266,21 +418,27 @@ export async function auditMenuIdentityTransition(
     input,
     existing,
   );
-  if (
-    !evaluation.blockingReasons.some(
-      (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
-    )
-  ) {
-    throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
-  }
   const audit = buildMenuIdentityTransitionAudit(
     evaluation.canonicalState.existingItems.filter(
       (item) => item.menuSourceId === source.id,
     ),
     evaluation.canonicalState.input,
+    source.provider,
   );
+  if (
+    !evaluation.blockingReasons.some(
+      (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
+    ) &&
+    !(
+      source.provider === "aigens" &&
+      (audit.canonicalizationCandidates.length > 0 ||
+        audit.mergeCandidates.length > 0)
+    )
+  ) {
+    throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
+  }
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     source: {
       provider: source.provider,
       externalOwnerId: source.externalOwnerId,
@@ -291,6 +449,8 @@ export async function auditMenuIdentityTransition(
     decisions: {
       snapshotScope: { status: "unreviewed", rationale: "" },
       replacements: [],
+      canonicalizations: [],
+      merges: [],
       additions: [],
       removals: [],
       ambiguities: [],
@@ -406,15 +566,10 @@ async function applyMenuSync(
             existing,
           );
     let evaluation = baselineEvaluation;
+    let approvedCanonicalizations: ApprovedMenuIdentityCanonicalization[] = [];
+    let approvedMerges: ApprovedMenuIdentityMerge[] = [];
     if (mode.kind === "identity-transition") {
-      if (
-        !baselineEvaluation.blockingReasons.some(
-          (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
-        )
-      ) {
-        throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
-      }
-      const approvedReplacements = verifyMenuIdentityTransitionArtifact(
+      const approval = verifyMenuIdentityTransitionApproval(
         {
           provider: source.provider,
           externalOwnerId: source.externalOwnerId,
@@ -428,6 +583,17 @@ async function applyMenuSync(
         baselineEvaluation.canonicalState.input,
         mode.artifact,
       );
+      if (
+        !baselineEvaluation.blockingReasons.some(
+          (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
+        ) &&
+        approval.canonicalizations.length === 0 &&
+        approval.merges.length === 0
+      ) {
+        throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
+      }
+      approvedCanonicalizations = approval.canonicalizations;
+      approvedMerges = approval.merges;
       evaluation = evaluateMenuIdentityTransitionSnapshot(
         {
           id: source.id,
@@ -435,8 +601,12 @@ async function applyMenuSync(
           legacyAdoptionOpen: source.legacyTakeoverAt === null,
         },
         baselineEvaluation.canonicalState.input,
-        baselineEvaluation.canonicalState.existingItems,
-        approvedReplacements,
+        projectApprovedIdentityChanges(
+          baselineEvaluation.canonicalState.existingItems,
+          approvedCanonicalizations,
+          approvedMerges,
+        ),
+        approval.replacements,
       );
       evaluation = resolveApprovedIdentityTransitionBlocking(evaluation);
     } else {
@@ -472,6 +642,23 @@ async function applyMenuSync(
         observation: evaluation.identityObservation,
         blockingDecision: evaluation.blockingDecision,
       });
+    }
+
+    if (approvedCanonicalizations.length > 0) {
+      await canonicalizeApprovedIdentities(
+        tx,
+        source.canteenId,
+        now,
+        approvedCanonicalizations,
+      );
+    }
+    if (approvedMerges.length > 0) {
+      await mergeApprovedIdentityHistory(
+        tx,
+        source.canteenId,
+        now,
+        approvedMerges,
+      );
     }
 
     const actionByProduct = new Map(

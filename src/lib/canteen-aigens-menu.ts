@@ -2,7 +2,6 @@ import {
   assignMealPeriodSortOrder,
   parseAigensMenuProducts,
 } from "@/lib/canteen-aigens-parse";
-import { createAigensOfferingId } from "@/lib/canteen-menu-external-key";
 import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import type { MenuSyncInput } from "./canteen-types";
@@ -16,10 +15,7 @@ export function buildAigensMenuSyncPayload(input: unknown): MenuSyncInput {
 
   const items = assignMealPeriodSortOrder(
     products.map((product) => ({
-      externalProductId: createAigensOfferingId(
-        product.backendId,
-        product.periods[0],
-      ),
+      externalProductId: product.backendId,
       name: product.name,
       priceOptions: product.priceOptions,
       mealPeriods: product.periods,

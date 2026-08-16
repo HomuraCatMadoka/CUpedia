@@ -33,11 +33,11 @@ describe("S.H. Ho Aigens menu adapter", () => {
 
     expect(payload.snapshotCompleteness).toBe("complete");
     expect(payload.takeOverLegacyItems).toBe(false);
-    expect(payload.items).toHaveLength(2);
-    expect(payload.items.map((item) => item.externalProductId).sort()).toEqual([
-      "42#offering-period=dinner",
-      "42#offering-period=lunch",
-    ]);
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0]).toMatchObject({
+      externalProductId: "42",
+      mealPeriods: ["lunch", "dinner"],
+    });
     expect(payload.items[0]).toMatchObject({
       name: "麻辣 雞飯",
       svgKey: "飯類",
@@ -68,21 +68,15 @@ describe("S.H. Ho Aigens menu adapter", () => {
       },
     });
 
-    expect(payload.items).toHaveLength(2);
-    expect(payload.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          externalProductId: "1100031695#offering-period=lunch",
-          name: "脆腩紅燒豆腐飯",
-          priceOptions: [
-            expect.objectContaining({ label: null, amountMinor: 4700 }),
-          ],
-        }),
-        expect.objectContaining({
-          externalProductId: "1100031695#offering-period=dinner",
-        }),
-      ]),
-    );
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0]).toMatchObject({
+      externalProductId: "1100031695",
+      name: "脆腩紅燒豆腐飯",
+      mealPeriods: ["lunch", "dinner"],
+      priceOptions: [
+        expect.objectContaining({ label: null, amountMinor: 4700 }),
+      ],
+    });
   });
 
   it("preserves category-context prices under one stable offering identity", () => {
@@ -126,7 +120,8 @@ describe("S.H. Ho Aigens menu adapter", () => {
     expect(payload.items).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          externalProductId: "1100075927#offering-period=lunch",
+          externalProductId: "1100075927",
+          mealPeriods: ["lunch", "dinner"],
           name: "雞中翼 ‧ 豬肉丸船麵",
           priceOptions: [
             {
@@ -195,6 +190,50 @@ describe("S.H. Ho Aigens menu adapter", () => {
     ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
   });
 
+  it("labels period-specific prices on one dish identity", () => {
+    const payload = buildShhoMenuSyncPayload({
+      data: {
+        menu: {
+          categories: [
+            { name: "套餐", periods: ["L"], groupIds: ["lunch"] },
+            { name: "套餐", periods: ["D"], groupIds: ["dinner"] },
+          ],
+          groups: [
+            {
+              id: "lunch",
+              items: [{ backendId: "42", name: "菜品 A", price: 36 }],
+            },
+            {
+              id: "dinner",
+              items: [{ backendId: "42", name: "菜品 A", price: 48 }],
+            },
+          ],
+        },
+      },
+    });
+
+    expect(payload.items).toEqual([
+      expect.objectContaining({
+        externalProductId: "42",
+        mealPeriods: ["lunch", "dinner"],
+        priceOptions: [
+          {
+            label: "午餐 · 套餐",
+            amountMinor: 3600,
+            currency: "HKD",
+            sortOrder: 0,
+          },
+          {
+            label: "晚餐 · 套餐",
+            amountMinor: 4800,
+            currency: "HKD",
+            sortOrder: 1,
+          },
+        ],
+      }),
+    ]);
+  });
+
   it("normalizes the sanitized provider response through the fetch adapter", async () => {
     const fetchImpl = async () =>
       new Response(JSON.stringify(aigensCurrent), { status: 200 });
@@ -203,8 +242,10 @@ describe("S.H. Ho Aigens menu adapter", () => {
       fetchAigensMenu("102830", { fetchImpl }),
     ).resolves.toMatchObject({
       items: [
-        { externalProductId: "42#offering-period=lunch" },
-        { externalProductId: "42#offering-period=dinner" },
+        {
+          externalProductId: "42",
+          mealPeriods: ["lunch", "dinner"],
+        },
       ],
     });
   });
@@ -258,7 +299,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
 
     expect(payload.items).toMatchObject([
       {
-        externalProductId: "42#offering-period=allday",
+        externalProductId: "42",
         mealPeriods: ["allday"],
         svgKey: "飯類",
       },

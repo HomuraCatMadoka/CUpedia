@@ -139,7 +139,6 @@ function evaluateCanonicalMenuSnapshot(
   const identityObservation = observeMenuIdentityChurn(
     managedIdentityProjection,
     canonicalState.input.items,
-    canonicalState.input.snapshotCompleteness,
   );
   const blockingReasons = collectMenuSnapshotBlockingReasons(
     plan,
@@ -189,7 +188,6 @@ function collectMenuSnapshotBlockingReasons(
           replacement.previousProductId,
           replacement.nextProductId,
         ]),
-        ...observation.ambiguousOfferingTransitionSamples,
       ]),
     );
   }

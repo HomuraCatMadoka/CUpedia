@@ -27,10 +27,10 @@
     {
       "provider": "aigens",
       "source": { "externalStoreId": "102830" },
-      "current": "42#offering-period=lunch",
-      "historical": ["42:lunch", "42#period=lunch"],
-      "canonical": "42#offering-period=lunch",
-      "periodChangeCreatesOffering": true
+      "current": "42",
+      "historical": ["42#offering-period=lunch", "42:lunch", "42#period=lunch"],
+      "canonical": "42",
+      "periodChangeCreatesOffering": false
     }
   ]
 }

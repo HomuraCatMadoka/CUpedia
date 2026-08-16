@@ -13,10 +13,11 @@ duplicates. Deleting the old menu first is worse:
 votes and comments reference menu item IDs with cascading foreign keys, so a
 replacement import destroys the dish history.
 
-Names and meal periods alone are not stable external identities. Providers do
-not all use product IDs at the same granularity: PinMe models one product across
-periods, while Aigens can reuse a backend product ID for period-specific
-offerings with different prices and independent CUpedia history.
+Names and meal periods are not stable external identities. Both PinMe product
+IDs and Aigens backend product IDs identify dishes independently of the menu
+period or category in which providers publish them. Period-specific names and
+prices are occurrence facts that must be aggregated or rejected when they
+cannot be represented without ambiguity.
 
 Provider category trees can also reference the same offering more than once.
 These raw occurrences are not independent identities: recommendation and
@@ -28,16 +29,16 @@ same Aigens group.
 1. An externally managed menu item stores `menuSourceId` and
    `externalProductId`. Their non-null pair is unique. A composite database
    foreign key also requires the menu source and item to belong to the same
-   canteen. Adapters emit the provider's stable offering identity: PinMe uses
-   its product ID, while Aigens namespaces its reused backend ID by period.
-   Name, pricing, classification and ordering never form identity. A unique
-   one-to-one period move may update an Aigens offering identity in place;
-   ambiguous split/merge cases fail closed instead of moving history.
+   canteen. Adapters emit the provider's stable product identity: PinMe uses its
+   product ID and Aigens uses its backend product ID. Meal period, name,
+   pricing, classification and ordering never form identity. Compatible
+   occurrences of one product aggregate onto one CUpedia UUID; incompatible
+   facts fail closed instead of splitting or guessing history.
 2. Adapters aggregate repeated raw category occurrences before enforcing final
    offering uniqueness. Repeated PinMe products merge meal periods only when
-   normalized names and prices agree. Repeated Aigens category references merge
-   the same backend product and normalized period, retaining distinct
-   category-context prices as labeled options. Conflicting names, conflicting
+   normalized names and prices agree. Repeated Aigens category and period
+   references merge the same backend product, retaining distinct contextual
+   prices as deterministically labeled options. Conflicting names, conflicting
    PinMe prices, and duplicate product IDs inside one raw provider group fail
    closed; an Aigens category label that maps to two prices is likewise
    ambiguous and fails closed. Category never becomes part of the stable
@@ -83,18 +84,20 @@ same Aigens group.
    only applicable when identity churn is present; after exact scope and removal
    review it may resolve churn and suspicious-drop for that fingerprinted
    snapshot, but never conflicts or a suspicious-drop-only snapshot.
-10. Historical bare Aigens product IDs are not valid current offering
-    identities. The audited transition boundary may preserve them as
-    fingerprinted evidence so an operator can classify the migration to
-    period-scoped IDs. Ordinary synchronization still rejects them, and an
-    ambiguous split or merge remains non-executable.
+10. Aigens period-scoped external IDs are historical aliases, not current dish
+    identities. Ordinary synchronization must not silently choose a UUID when
+    multiple aliases already represent one backend product. The audited
+    transition boundary fingerprints every alias and requires an explicit
+    survivor and history-merge decision before converging them to the bare
+    backend product ID. The same reviewed transition canonicalizes aliases for
+    currently absent products, leaving one unavailable source-bound survivor
+    that an ordinary future snapshot can reactivate.
 
 ## Consequences
 
 - Upstream renames and price changes preserve the CUpedia menu item UUID.
-- An unambiguous upstream meal-period move preserves the same CUpedia menu item
-  UUID. Distinct Aigens period offerings retain separate UUIDs, prices and
-  voting history.
+- A dish published in several meal periods retains one CUpedia menu item UUID;
+  period-specific prices remain contextual price options on that dish.
 - Votes and comments survive temporary or permanent removal from a source menu.
 - Manual items and items managed by another source remain untouched unless an
   explicit first takeover is requested.

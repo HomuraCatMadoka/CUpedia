@@ -50,7 +50,7 @@ export const providerMenuIdentityContracts = {
   },
   aigens: {
     sourceLocatorFields: ["externalStoreId"],
-    offeringIdentityFields: ["backendId", "mealPeriod"],
+    offeringIdentityFields: ["backendId"],
     mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
   },
 } as const satisfies Record<MenuProvider, ProviderMenuIdentityContract>;
@@ -116,13 +116,14 @@ export function normalizePublishedProviderIdentity(
     const current = identity.match(
       new RegExp(`^(.+)#offering-period=(${MEAL_PERIOD_ALTERNATION})$`),
     );
-    if (current?.[1] && !hasReservedMarker(current[1])) return identity;
+    if (current?.[1] && !hasReservedMarker(current[1])) return current[1];
     const historical = identity.match(
       new RegExp(`^(.+?)(?::|#period=)(${MEAL_PERIOD_ALTERNATION})$`),
     );
     if (historical?.[1] && !hasReservedMarker(historical[1])) {
-      return `${historical[1]}#offering-period=${historical[2]}`;
+      return historical[1];
     }
+    if (!hasReservedMarker(identity)) return identity;
     throw new Error("MALFORMED_IDENTITY");
   }
 
@@ -380,7 +381,7 @@ export function canonicalizeProviderMenuState(
     ...input,
     items: input.items.map((item) => ({
       ...item,
-      externalProductId: normalizePublishedProviderIdentity(
+      externalProductId: normalizeCurrentProviderIdentity(
         provider,
         item.externalProductId,
       ),
@@ -392,7 +393,7 @@ export function canonicalizeProviderMenuState(
     externalProductId:
       item.externalProductId === null
         ? null
-        : normalizePublishedProviderIdentity(provider, item.externalProductId),
+        : normalizeCurrentProviderIdentity(provider, item.externalProductId),
   }));
   const managedIdentities = canonicalExistingItems
     .filter((item) => item.externalProductId !== null)
@@ -410,8 +411,8 @@ export function canonicalizeProviderMenuState(
 }
 
 /**
- * Canonicalize an audited transition without teaching ordinary sync that a
- * historical bare Aigens product ID is a valid current offering identity.
+ * Canonicalize an audited transition while preserving historical aliases as
+ * fingerprinted evidence. Only the reviewed transition may converge them.
  */
 export function canonicalizeProviderMenuIdentityTransitionState(
   provider: MenuProvider,
@@ -452,21 +453,21 @@ function normalizeAuditedPersistedProviderIdentity(
   provider: MenuProvider,
   publishedIdentity: string,
 ): string {
-  try {
-    return normalizePublishedProviderIdentity(provider, publishedIdentity);
-  } catch {
-    const identity = publishedIdentity.trim();
-    if (
-      provider === "aigens" &&
-      identity &&
-      identity.length <= 200 &&
-      !/[\u0000-\u001f\u007f]/.test(identity) &&
-      !hasReservedMarker(identity)
-    ) {
-      return identity;
-    }
+  const identity = publishedIdentity.trim();
+  normalizePublishedProviderIdentity(provider, identity);
+  return identity;
+}
+
+function normalizeCurrentProviderIdentity(
+  provider: MenuProvider,
+  publishedIdentity: string,
+): string {
+  const identity = publishedIdentity.trim();
+  const normalized = normalizePublishedProviderIdentity(provider, identity);
+  if (provider === "aigens" && normalized !== identity) {
     throw new Error("MALFORMED_IDENTITY");
   }
+  return normalized;
 }
 
 function assertSourceLocator(

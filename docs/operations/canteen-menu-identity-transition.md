@@ -20,18 +20,16 @@ Run:
 pnpm canteen:identity-transition:audit -- --source-id <source-uuid>
 ```
 
-The command prints a version-3 JSON draft. It contains only the source locator
+The command prints a version-4 JSON draft. It contains only the source locator
 and its non-reversible configuration fingerprint, bounded menu facts, current
 CUpedia UUIDs, before/after fingerprints, and empty decisions. It omits source
 configuration, raw provider payloads, errors, credentials, votes, comments, and
 user data. Audit generation fails closed if either side exceeds 500 identities;
 do not raise that bound without separately reviewing the provider scope.
 
-The audit boundary may retain a historical bare Aigens product ID as evidence
-when the persisted menu predates period-scoped offering identities. This does
-not make that ID valid for ordinary synchronization: normal preview/apply still
-rejects it, and any one-to-many or many-to-one result remains non-executable
-until the reviewer can resolve it without guessing a UUID assignment.
+The audit boundary retains historical period-scoped Aigens IDs as evidence.
+They are aliases of the bare backend product ID, but ordinary synchronization
+still rejects them so it cannot silently choose among existing UUIDs.
 
 `snapshotCompleteness` is fingerprinted with the audit and incoming snapshot.
 Apply rejects a value that differs from the provider boundary. In particular,
@@ -52,6 +50,16 @@ Classify every old and new provider identity exactly once:
 
 - `replacements`: a stable logical dish whose new provider ID must inherit the
   listed CUpedia UUID. Record a concise evidence-based `rationale`.
+- `canonicalizations`: one historical Aigens period alias converging to its
+  bare backend ID. Review these even when the complete snapshot no longer
+  contains the dish, so an unavailable survivor remains reactivatable later.
+- `merges`: Aigens period aliases that the reviewer has confirmed are one
+  backend dish. Explicitly select the surviving UUID and every retired UUID,
+  including groups absent from the current complete snapshot.
+  Votes and comments move to the survivor; duplicate votes from the same actor
+  may be deduplicated only when their values agree. Conflicting votes abort the
+  transaction. Retired UUID rows remain stored but become detached and
+  unavailable.
 - `additions`: an expected new provider identity that may create a new UUID.
 - `removals`: an expected discontinued identity whose existing UUID may become
   unavailable. It is deactivated, never deleted.
@@ -82,8 +90,8 @@ menu edits complete before the artifact is verified or wait until the
 transition commits; they cannot be silently overwritten. The transition
 fails before menu writes if the source configuration, current menu projection,
 incoming projection, artifact version, decisions, or ambiguity status differs
-from the reviewed artifact. Successful replacements update the existing rows in
-one transaction, retaining UUID-bound votes and comments.
+from the reviewed artifact. Successful replacements and reviewed merges update
+the existing rows and UUID-bound history in one transaction.
 
 The transition path is available only when the ordinary evaluator reports
 product-identity churn. A complete artifact may resolve that exact snapshot's

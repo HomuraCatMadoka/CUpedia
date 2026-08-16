@@ -14,6 +14,8 @@
       "missingIdentityCount": 1,
       "newIdentityCount": 1,
       "replacementCandidateCount": 1,
+      "canonicalizationCandidateCount": 0,
+      "mergeCandidateCount": 0,
       "additionCount": 0,
       "removalCount": 0,
       "ambiguityCount": 0
@@ -51,6 +53,8 @@
         }
       }
     ],
+    "mergeCandidates": [],
+    "canonicalizationCandidates": [],
     "additions": [],
     "removals": [],
     "ambiguities": []

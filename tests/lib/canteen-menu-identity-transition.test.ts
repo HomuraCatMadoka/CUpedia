@@ -3,6 +3,7 @@ import {
   buildMenuIdentityTransitionAudit as buildTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
   parseMenuIdentityTransitionArtifact,
+  verifyMenuIdentityTransitionApproval,
   verifyMenuIdentityTransitionArtifact as verifyTransitionArtifact,
 } from "@/lib/canteen-menu-identity-transition";
 import type { ExistingSyncMenuItem } from "@/lib/canteen-menu-sync";
@@ -117,6 +118,8 @@ describe("menu identity transition audit", () => {
       missingIdentityCount: 1,
       newIdentityCount: 1,
       replacementCandidateCount: 1,
+      canonicalizationCandidateCount: 0,
+      mergeCandidateCount: 0,
       additionCount: 0,
       removalCount: 0,
       ambiguityCount: 0,
@@ -156,6 +159,158 @@ describe("menu identity transition audit", () => {
         ],
       }),
     ]);
+  });
+
+  it("approves an explicit Aigens many-to-one UUID merge", () => {
+    const survivor = existing({
+      externalProductId: "42",
+    });
+    const merged = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "42#offering-period=dinner",
+    });
+    const next = incoming({ externalProductId: "42" });
+    const audit = buildTransitionAudit(
+      [survivor, merged],
+      { snapshotCompleteness: "complete", items: [next] },
+      "aigens",
+    );
+
+    expect(
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [survivor, merged],
+        { snapshotCompleteness: "complete", items: [next] },
+        {
+          schemaVersion: 4,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            snapshotScope: {
+              status: "complete",
+              rationale: "The response is the complete provider snapshot.",
+            },
+            replacements: [],
+            merges: [
+              {
+                survivorItemId: survivor.id,
+                mergedItemIds: [merged.id],
+                previousProductIds: [
+                  survivor.externalProductId,
+                  merged.externalProductId,
+                ],
+                nextProductId: next.externalProductId,
+                duplicateVotePolicy: "deduplicate-identical",
+                rationale:
+                  "Both period aliases are occurrences of backend product 42.",
+              },
+            ],
+            additions: [],
+            removals: [],
+            ambiguities: [],
+          },
+        },
+      ),
+    ).toEqual({
+      replacements: [],
+      canonicalizations: [],
+      merges: [
+        {
+          survivorItemId: survivor.id,
+          mergedItemIds: [merged.id],
+          previousProductIds: [
+            survivor.externalProductId,
+            merged.externalProductId,
+          ],
+          nextProductId: next.externalProductId,
+          duplicateVotePolicy: "deduplicate-identical",
+        },
+      ],
+    });
+  });
+
+  it("canonicalizes a reviewed Aigens alias even when the dish is absent", () => {
+    const previous = existing({
+      externalProductId: "42#offering-period=lunch",
+    });
+    const audit = buildTransitionAudit(
+      [previous],
+      { snapshotCompleteness: "complete", items: [] },
+      "aigens",
+    );
+    expect(audit.canonicalizationCandidates).toEqual([
+      {
+        itemId: previous.id,
+        previous: expect.objectContaining({
+          externalProductId: previous.externalProductId,
+        }),
+        nextProductId: "42",
+        presentInSnapshot: false,
+      },
+    ]);
+
+    expect(
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [previous],
+        { snapshotCompleteness: "complete", items: [] },
+        {
+          schemaVersion: 4,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            snapshotScope: {
+              status: "complete",
+              rationale: "The response is the complete provider snapshot.",
+            },
+            replacements: [],
+            canonicalizations: [
+              {
+                itemId: previous.id,
+                previousProductId: previous.externalProductId,
+                nextProductId: "42",
+                rationale:
+                  "The period suffix is a historical alias of backend product 42.",
+              },
+            ],
+            merges: [],
+            additions: [],
+            removals: [],
+            ambiguities: [],
+          },
+        },
+      ),
+    ).toEqual({
+      replacements: [],
+      canonicalizations: [
+        {
+          itemId: previous.id,
+          previousProductId: previous.externalProductId,
+          nextProductId: "42",
+        },
+      ],
+      merges: [],
+    });
   });
 
   it("fails closed on a same-name split or merge when mutable evidence changed", () => {
@@ -596,6 +751,8 @@ describe("menu identity transition audit", () => {
       ambiguities: audit.ambiguities,
       removals: audit.removals,
       additions: audit.additions,
+      mergeCandidates: audit.mergeCandidates,
+      canonicalizationCandidates: audit.canonicalizationCandidates,
       replacementCandidates: audit.replacementCandidates,
       incomingFingerprint: audit.incomingFingerprint,
       existingFingerprint: audit.existingFingerprint,

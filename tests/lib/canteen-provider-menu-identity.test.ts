@@ -71,7 +71,7 @@ describe("provider menu identity contract (#636)", () => {
       },
       aigens: {
         sourceLocatorFields: ["externalStoreId"],
-        offeringIdentityFields: ["backendId", "mealPeriod"],
+        offeringIdentityFields: ["backendId"],
       },
     });
 
@@ -109,7 +109,7 @@ describe("provider menu identity contract (#636)", () => {
         "aigens",
         "product-42#offering-period=lunch#period=lunch",
       ),
-    ).toBe("product-42#offering-period=lunch");
+    ).toBe("product-42");
 
     for (const malformed of [
       "product-42#offering-period=lunch#period=bogus",
@@ -122,19 +122,19 @@ describe("provider menu identity contract (#636)", () => {
     }
   });
 
-  it("admits a bare Aigens product ID only at the audited transition boundary", () => {
+  it("admits period-scoped Aigens aliases only at the audited transition boundary", () => {
     const input = parseMenuSyncJson({
       snapshotCompleteness: "complete",
       items: [
         {
-          externalProductId: "product-42#offering-period=lunch",
+          externalProductId: "product-42",
           name: "菜品",
           mealPeriods: ["lunch"],
           svgKey: "dish",
         },
       ],
     });
-    const historical = persistedItem("product-42");
+    const historical = persistedItem("product-42#offering-period=lunch");
 
     expect(() =>
       canonicalizeProviderMenuState("aigens", input, [historical]),
@@ -143,7 +143,7 @@ describe("provider menu identity contract (#636)", () => {
       canonicalizeProviderMenuIdentityTransitionState("aigens", input, [
         historical,
       ]).existingItems[0].externalProductId,
-    ).toBe("product-42");
+    ).toBe("product-42#offering-period=lunch");
     expect(() =>
       canonicalizeProviderMenuIdentityTransitionState("aigens", input, [
         persistedItem("product-42#unknown"),
@@ -248,7 +248,7 @@ describe("provider menu identity contract (#636)", () => {
     ).toBe(true);
   });
 
-  it.each(fixture.providers)(
+  it.each(fixture.providers.filter(({ provider }) => provider !== "aigens"))(
     "$provider preserves a historical database UUID when current identity arrives",
     ({ provider, historical, canonical }) => {
       const state = canonicalizeProviderMenuState(
@@ -310,48 +310,23 @@ describe("provider menu identity contract (#636)", () => {
     },
   );
 
-  it("keeps simultaneous Aigens period offerings on separate UUIDs", () => {
-    const plan = planMenuSync(
-      SOURCE_ID,
-      parseMenuSyncJson({
-        snapshotCompleteness: "complete",
-        items: [
-          {
-            externalProductId: "42#offering-period=lunch",
-            name: "午餐 offering",
-            mealPeriods: ["lunch"],
-          },
-          {
-            externalProductId: "42#offering-period=dinner",
-            name: "晚餐 offering",
-            mealPeriods: ["dinner"],
-          },
-        ],
-      }),
-      [persistedItem("42#offering-period=lunch")],
-    );
-    expect(plan.conflicts).toEqual([]);
-    expect(plan.actions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          action: "update",
-          itemId: "uuid-with-votes-and-comments",
-          externalProductId: "42#offering-period=lunch",
+  it("rejects historical Aigens period aliases in ordinary sync", () => {
+    expect(() =>
+      canonicalizeProviderMenuState(
+        "aigens",
+        parseMenuSyncJson({
+          snapshotCompleteness: "complete",
+          items: [{ externalProductId: "42", name: "同一菜品" }],
         }),
-        expect.objectContaining({
-          action: "create",
-          itemId: null,
-          externalProductId: "42#offering-period=dinner",
-        }),
-      ]),
-    );
+        [persistedItem("42#offering-period=lunch")],
+      ),
+    ).toThrow("MALFORMED_IDENTITY");
   });
 
   it.each(fixture.providers)(
     "$provider creates a new UUID only for a genuinely new upstream product",
     ({ provider, current, canonical }) => {
-      const nextIdentity =
-        provider === "aigens" ? "99#offering-period=lunch" : `${canonical}-new`;
+      const nextIdentity = provider === "aigens" ? "99" : `${canonical}-new`;
       const state = canonicalizeProviderMenuState(
         provider,
         parseMenuSyncJson({
@@ -421,8 +396,7 @@ describe("provider menu identity contract (#636)", () => {
   it.each(fixture.providers)(
     "$provider makes only provider-defined offering changes into new identities",
     ({ provider, source, canonical, periodChangeCreatesOffering }) => {
-      const nextIdentity =
-        provider === "aigens" ? "42#offering-period=dinner" : canonical;
+      const nextIdentity = canonical;
       const [before] = assertProviderMenuIdentitySnapshot(provider, source, [
         { externalProductId: canonical, name: "同一菜品" },
       ]);
