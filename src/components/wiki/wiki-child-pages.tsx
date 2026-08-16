@@ -3,13 +3,13 @@ import { FileTextIcon } from "lucide-react";
 
 import { getWikiDisplayTitle } from "@/lib/wiki-title";
 
-interface ChildPage {
+export interface WikiChildPage {
   id: string;
   title: string;
   icon?: string | null;
 }
 
-export function WikiChildPages({ pages }: { pages: ChildPage[] }) {
+export function WikiChildPages({ pages }: { pages: WikiChildPage[] }) {
   if (pages.length === 0) return null;
 
   return (

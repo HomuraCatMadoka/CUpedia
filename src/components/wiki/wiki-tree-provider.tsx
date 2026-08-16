@@ -13,7 +13,9 @@ import {
 import {
   createWikiTreeState,
   projectWikiTreePages,
+  reorderWikiTreeSiblings,
   wikiTreeReducer,
+  type WikiPageMove,
   type WikiTreePage,
   type WikiTreePagePatch,
 } from "@/lib/wiki-tree-state";
@@ -22,6 +24,7 @@ interface WikiTreeContextValue {
   pages: WikiTreePage[];
   projectUpsert: (patch: WikiTreePagePatch) => string | null;
   projectDelete: (pageId: string) => string;
+  projectReorder: (pageId: string, move: WikiPageMove) => string | null;
   confirm: (token: string | null, patch?: WikiTreePagePatch) => void;
   rollback: (token: string | null) => void;
 }
@@ -92,6 +95,20 @@ export function WikiTreeProvider({
     return token;
   }, []);
 
+  const projectReorder = useCallback(
+    (pageId: string, move: WikiPageMove) => {
+      const siblings = reorderWikiTreeSiblings(pages, pageId, move);
+      if (!siblings) return null;
+      const token = crypto.randomUUID();
+      dispatch({
+        type: "project",
+        mutation: { token, type: "reorder", siblings },
+      });
+      return token;
+    },
+    [pages],
+  );
+
   const confirm = useCallback(
     (token: string | null, page?: WikiTreePagePatch) => {
       if (token) dispatch({ type: "confirm", token, page });
@@ -104,8 +121,15 @@ export function WikiTreeProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ pages, projectUpsert, projectDelete, confirm, rollback }),
-    [confirm, pages, projectDelete, projectUpsert, rollback],
+    () => ({
+      pages,
+      projectUpsert,
+      projectDelete,
+      projectReorder,
+      confirm,
+      rollback,
+    }),
+    [confirm, pages, projectDelete, projectReorder, projectUpsert, rollback],
   );
 
   return (

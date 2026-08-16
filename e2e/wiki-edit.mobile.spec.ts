@@ -1474,6 +1474,17 @@ test.describe("mobile wiki editing", () => {
       .dispatchEvent("click");
     await expect(page.getByRole("dialog", { name: "插入块" })).toHaveCount(0);
     await expect(editor).toBeFocused();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const anchor = window.getSelection()?.anchorNode;
+          const element =
+            anchor instanceof Element ? anchor : anchor?.parentElement;
+          const heading = element?.closest("h4");
+          return heading?.closest("td")?.textContent ?? null;
+        }),
+      )
+      .toContain("CSCI1130");
     await page.keyboard.type("Nested heading");
 
     const nestedHeading = editor.getByRole("heading", {
