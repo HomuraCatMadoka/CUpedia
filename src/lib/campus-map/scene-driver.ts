@@ -165,7 +165,9 @@ export class CampusMapSceneDriver {
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   };
 
   start() {
@@ -179,6 +181,22 @@ export class CampusMapSceneDriver {
       "",
       this.urlFor(this.snapshot.session),
     );
+    const projection = transitionCampusMapSession(
+      EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      { type: "RESTORE", session: this.snapshot.session },
+      this.catalog,
+    );
+    const context = this.effectContext();
+    if (projection.commands.camera) {
+      this.ports.camera(projection.commands.camera, context);
+    }
+    if (projection.commands.focus) {
+      this.ports.focus(projection.commands.focus, context);
+    }
+    if (projection.commands.overlay) {
+      this.ports.overlay(projection.commands.overlay, context);
+    }
+    this.ports.sheet(sheetCommand(this.snapshot.session), context);
     return this.snapshot;
   }
 

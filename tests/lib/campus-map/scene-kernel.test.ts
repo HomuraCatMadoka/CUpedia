@@ -222,7 +222,7 @@ describe("Campus Map canonical scene transition", () => {
   it.each([
     [
       { type: "SEARCH", query: "  science  " } as const,
-      { kind: "search-results", query: "science  ", snap: "peek" },
+      { kind: "search-results", query: "science", snap: "peek" },
     ],
     [
       { type: "OPEN_BUILDING", buildingId: "science", source: "map" } as const,

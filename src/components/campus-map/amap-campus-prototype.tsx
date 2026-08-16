@@ -51,11 +51,15 @@ import {
 } from "@/lib/campus-map/amap-prototype-catalog";
 import {
   CampusMapSceneDriver,
+  type CampusMapDriverCameraCommand,
   type CampusMapDriverEffectContext,
   type CampusMapDriverIntent,
   type CampusMapSceneDriverPorts,
 } from "@/lib/campus-map/scene-driver";
-import { encodeCampusMapUrl } from "@/lib/campus-map/scene-codec";
+import {
+  decodeCampusMapUrl,
+  encodeCampusMapUrl,
+} from "@/lib/campus-map/scene-codec";
 import {
   EMPTY_CAMPUS_MAP_SCENE_SESSION,
   type CampusMapSceneCatalog,
@@ -393,6 +397,13 @@ export function AmapCampusPrototype({
     () => canonicalInitialSearch(initialSearch),
     [initialSearch],
   );
+  const [queryDraft, setQueryDraft] = useState(
+    () =>
+      projectedState(
+        decodeCampusMapUrl(driverInitialSearch, CATALOG).session,
+        null,
+      ).mapFilter.query,
+  );
   const [config, setConfig] = useState<
     | { status: "loading" }
     | { status: "missing" }
@@ -415,6 +426,10 @@ export function AmapCampusPrototype({
   const facilityMarkersRef = useRef(new Map<string, AMapMarker>());
   const infoWindowRef = useRef<AMapInfoWindow | null>(null);
   const cameraGateRef = useRef(new CameraRequestGate());
+  const pendingDriverCameraRef = useRef<{
+    command: CampusMapDriverCameraCommand;
+    context: CampusMapDriverEffectContext;
+  } | null>(null);
   const pendingSelectionTokenRef = useRef<number | null>(null);
   const amapPositionsRef = useRef<Readonly<Record<string, Position>>>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -441,6 +456,7 @@ export function AmapCampusPrototype({
     mapRef.current = null;
     amapPositionsRef.current = {};
     cameraGateRef.current.invalidate();
+    pendingDriverCameraRef.current = null;
     pendingSelectionTokenRef.current = null;
     setMapReady(false);
     setCoordinateVersion(0);
@@ -561,6 +577,56 @@ export function AmapCampusPrototype({
     [],
   );
 
+  const executeDriverCamera = useCallback(
+    (
+      camera: CampusMapDriverCameraCommand,
+      context: CampusMapDriverEffectContext,
+    ) => {
+      if (camera.kind === "cancel") {
+        pendingDriverCameraRef.current = null;
+        cameraGateRef.current.invalidate();
+        pendingSelectionTokenRef.current = null;
+        return;
+      }
+      const map = mapRef.current;
+      const mapElement = mapElementRef.current;
+      const AMap = typeof window === "undefined" ? undefined : window.AMap;
+      if (!map || !mapElement || !AMap) {
+        pendingDriverCameraRef.current = { command: camera, context };
+        return;
+      }
+      pendingDriverCameraRef.current = null;
+      if (!context.isCurrent()) return;
+      if (camera.kind === "fit") {
+        cameraGateRef.current.invalidate();
+        const longitudes = camera.positions.map((position) => position[0]);
+        const latitudes = camera.positions.map((position) => position[1]);
+        const bounds = new AMap.Bounds(
+          new AMap.LngLat(Math.min(...longitudes), Math.min(...latitudes)),
+          new AMap.LngLat(Math.max(...longitudes), Math.max(...latitudes)),
+        );
+        const padding = deriveCameraPadding(
+          rect(mapElement),
+          panelRef.current && !panelRef.current.hidden
+            ? rect(panelRef.current)
+            : null,
+        );
+        map.setBounds(
+          bounds,
+          false,
+          [padding.top, padding.bottom, padding.left, padding.right],
+          18,
+        );
+        return;
+      }
+      const building = BUILDINGS.find((item) => item.id === camera.buildingId);
+      if (building) {
+        requestCamera(positionFor(building), camera.reason, context);
+      }
+    },
+    [positionFor, requestCamera],
+  );
+
   const [driver] = useState(() => {
     const browserWindow = typeof window === "undefined" ? null : window;
     const measureSheetGeometry = (context?: CampusMapDriverEffectContext) => {
@@ -588,45 +654,7 @@ export function AmapCampusPrototype({
           browserWindow?.location.pathname ?? "/prototype/campus-map",
         search: () => browserWindow?.location.search ?? driverInitialSearch,
       },
-      camera: (camera, context) => {
-        if (camera.kind === "cancel") {
-          cameraGateRef.current.invalidate();
-          pendingSelectionTokenRef.current = null;
-          return;
-        }
-        if (camera.kind === "fit") {
-          const map = mapRef.current;
-          const mapElement = mapElementRef.current;
-          const AMap = window.AMap;
-          if (!map || !mapElement || !AMap || !context.isCurrent()) return;
-          cameraGateRef.current.invalidate();
-          const longitudes = camera.positions.map((position) => position[0]);
-          const latitudes = camera.positions.map((position) => position[1]);
-          const bounds = new AMap.Bounds(
-            new AMap.LngLat(Math.min(...longitudes), Math.min(...latitudes)),
-            new AMap.LngLat(Math.max(...longitudes), Math.max(...latitudes)),
-          );
-          const padding = deriveCameraPadding(
-            rect(mapElement),
-            panelRef.current && !panelRef.current.hidden
-              ? rect(panelRef.current)
-              : null,
-          );
-          map.setBounds(
-            bounds,
-            false,
-            [padding.top, padding.bottom, padding.left, padding.right],
-            18,
-          );
-          return;
-        }
-        const building = BUILDINGS.find(
-          (item) => item.id === camera.buildingId,
-        );
-        if (building) {
-          requestCamera(positionFor(building), camera.reason, context);
-        }
-      },
+      camera: executeDriverCamera,
       focus: (focus, context) => {
         queueMicrotask(() => {
           window.requestAnimationFrame(() => {
@@ -716,6 +744,19 @@ export function AmapCampusPrototype({
 
   const dispatch = useCallback(
     (intent: CampusMapDriverIntent) => driver.dispatch(intent),
+    [driver],
+  );
+
+  useEffect(
+    () =>
+      driver.subscribe(() => {
+        const snapshot = driver.getSnapshot();
+        const query = projectedState(snapshot.session, snapshot.returnTo)
+          .mapFilter.query;
+        setQueryDraft((current) =>
+          current.trim() === query ? current : query,
+        );
+      }),
     [driver],
   );
 
@@ -858,12 +899,9 @@ export function AmapCampusPrototype({
           converted.__campus = [convertedCenter.lng, convertedCenter.lat];
         amapPositionsRef.current = converted;
         setCoordinateVersion((version) => version + 1);
-        const current = driver.getSnapshot();
-        const selected = buildingFor(
-          projectedState(current.session, current.returnTo).selection,
-        );
-        if (selected) {
-          dispatch({ type: "REFRAME", reason: "deep-link" });
+        const pendingCamera = pendingDriverCameraRef.current;
+        if (pendingCamera) {
+          executeDriverCamera(pendingCamera.command, pendingCamera.context);
         } else {
           const center = locations[0];
           if (center) map.setZoomAndCenter(17.2, center, true, 0);
@@ -930,7 +968,7 @@ export function AmapCampusPrototype({
       container.removeEventListener("touchstart", cancelForUserZoom);
       interactionAdapterRef.current.reset();
     };
-  }, [dispatch, driver, selectBuilding]);
+  }, [dispatch, driver, executeDriverCamera, selectBuilding]);
 
   useEffect(() => {
     if (config.status !== "ready" || mapRef.current) return;
@@ -1272,7 +1310,7 @@ export function AmapCampusPrototype({
           className="pointer-events-auto mx-auto w-full max-w-[560px]"
           onSubmit={(event) => {
             event.preventDefault();
-            dispatch({ type: "SEARCH", query: state.mapFilter.query });
+            dispatch({ type: "SEARCH", query: queryDraft });
           }}
         >
           <label className="flex h-12 items-center gap-3 rounded-xl bg-white px-4 shadow-[0_3px_14px_rgba(23,33,28,.18)] focus-within:ring-2 focus-within:ring-[#176346] focus-within:ring-offset-2">
@@ -1283,19 +1321,24 @@ export function AmapCampusPrototype({
             <span className="sr-only">搜索建筑</span>
             <input
               ref={searchInputRef}
-              value={state.mapFilter.query}
-              onChange={(event) =>
-                dispatch({ type: "SEARCH", query: event.currentTarget.value })
-              }
+              value={queryDraft}
+              onChange={(event) => {
+                const query = event.currentTarget.value;
+                setQueryDraft(query);
+                dispatch({ type: "SEARCH", query });
+              }}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
               placeholder="搜索建筑"
             />
-            {state.mapFilter.query ? (
+            {queryDraft ? (
               <button
                 type="button"
                 aria-label="清除搜索"
                 className="grid size-9 place-items-center rounded-full hover:bg-neutral-100"
-                onClick={() => dispatch({ type: "SEARCH", query: "" })}
+                onClick={() => {
+                  setQueryDraft("");
+                  dispatch({ type: "SEARCH", query: "" });
+                }}
               >
                 <XIcon className="size-4" />
               </button>

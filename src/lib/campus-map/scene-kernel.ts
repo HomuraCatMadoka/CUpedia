@@ -366,17 +366,16 @@ export function transitionCampusMapSession(
   }
 
   if (event.type === "SEARCH") {
-    const query = event.query.trimStart();
-    const hasQuery = query.trim().length > 0;
+    const query = event.query.trim();
     if (
-      (!hasQuery && session.scene.kind === "map") ||
+      (query === "" && session.scene.kind === "map") ||
       (session.scene.kind === "search-results" && session.scene.query === query)
     ) {
       return acceptNoop(session);
     }
     return {
       status: "accepted",
-      session: hasQuery
+      session: query
         ? {
             mode: "browse",
             scene: { kind: "search-results", query, snap: "peek" },

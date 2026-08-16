@@ -22,7 +22,7 @@ const catalog: CampusMapSceneCatalog = {
   contents: {},
 };
 
-function harness(initialSearch = "?v=1") {
+function harness(initialSearch = "?v=1", clearStartEffects = true) {
   let state: unknown = null;
   let search = initialSearch;
   const history = {
@@ -57,6 +57,12 @@ function harness(initialSearch = "?v=1") {
   const driver = new CampusMapSceneDriver(catalog, ports, initialSearch);
   driver.start();
   vi.mocked(history.replaceState).mockClear();
+  if (clearStartEffects) {
+    vi.mocked(ports.camera).mockClear();
+    vi.mocked(ports.focus).mockClear();
+    vi.mocked(ports.overlay).mockClear();
+    vi.mocked(ports.sheet).mockClear();
+  }
   return {
     driver,
     history,
@@ -71,6 +77,30 @@ function harness(initialSearch = "?v=1") {
 }
 
 describe("CampusMapSceneDriver", () => {
+  it("projects a deep link through one complete start transition", () => {
+    const runtime = harness("?v=1&scene=facility&id=fountain&snap=peek", false);
+
+    expect(runtime.ports.camera).toHaveBeenCalledTimes(1);
+    expect(runtime.ports.camera).toHaveBeenCalledWith(
+      {
+        kind: "focus",
+        buildingId: "science",
+        reason: "deep-link",
+      },
+      expect.any(Object),
+    );
+    expect(runtime.ports.focus).toHaveBeenCalledTimes(1);
+    expect(runtime.ports.focus).toHaveBeenCalledWith(
+      { kind: "heading" },
+      expect.any(Object),
+    );
+    expect(runtime.ports.sheet).toHaveBeenCalledTimes(1);
+    expect(runtime.ports.sheet).toHaveBeenCalledWith(
+      { kind: "show", snap: "peek" },
+      expect.any(Object),
+    );
+  });
+
   it.each([
     [
       "marker",
