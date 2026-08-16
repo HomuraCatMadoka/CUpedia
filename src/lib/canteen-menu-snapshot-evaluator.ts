@@ -1,5 +1,6 @@
 import type { CanteenMenuSourceProvider } from "@/db/schema";
 import {
+  canonicalizeProviderMenuIdentityTransitionState,
   canonicalizeProviderMenuState,
   type MenuProvider,
 } from "./canteen-provider-menu-identity";
@@ -68,6 +69,51 @@ export function evaluateMenuSnapshot(
     input,
     existingItems,
   );
+  return evaluateCanonicalMenuSnapshot(
+    source,
+    canonicalState,
+    approvedIdentityReplacements,
+  );
+}
+
+/** Evaluate the exact audited transition while preserving legacy evidence. */
+export function evaluateMenuIdentityTransitionSnapshot(
+  source: ResolvedMenuSnapshotSource,
+  input: MenuSyncInput,
+  existingItems: ExistingSyncMenuItem[],
+  approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[] = [],
+): MenuSnapshotEvaluation {
+  const orderedExistingItems = [...existingItems].sort((a, b) =>
+    a.id.localeCompare(b.id),
+  );
+  const managed = orderedExistingItems.filter(
+    (item) => item.menuSourceId === source.id,
+  );
+  const canonicalManaged = canonicalizeProviderMenuIdentityTransitionState(
+    source.provider,
+    input,
+    managed,
+  );
+  const managedById = new Map(
+    canonicalManaged.existingItems.map((item) => [item.id, item]),
+  );
+  return evaluateCanonicalMenuSnapshot(
+    source,
+    {
+      input: canonicalManaged.input,
+      existingItems: orderedExistingItems.map(
+        (item) => managedById.get(item.id) ?? item,
+      ),
+    },
+    approvedIdentityReplacements,
+  );
+}
+
+function evaluateCanonicalMenuSnapshot(
+  source: ResolvedMenuSnapshotSource,
+  canonicalState: MenuSnapshotEvaluation["canonicalState"],
+  approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[],
+): MenuSnapshotEvaluation {
   const plan = planMenuSync(
     source.id,
     canonicalState.input,

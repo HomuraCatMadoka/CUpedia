@@ -263,6 +263,18 @@ export function assertProviderMenuIdentityItems(
   provider: MenuProvider,
   items: readonly IdentityItem[],
 ): string[] {
+  return assertProviderMenuIdentityItemsWithNormalizer(
+    provider,
+    items,
+    normalizePublishedProviderIdentity,
+  );
+}
+
+function assertProviderMenuIdentityItemsWithNormalizer(
+  provider: MenuProvider,
+  items: readonly IdentityItem[],
+  normalizeIdentity: (provider: MenuProvider, identity: string) => string,
+): string[] {
   if (items.length === 0) fail(provider, "EMPTY_SNAPSHOT", []);
 
   const invalid: Array<{ index: number; identity: unknown; empty: boolean }> =
@@ -275,7 +287,7 @@ export function assertProviderMenuIdentityItems(
       continue;
     }
     try {
-      normalized.push(normalizePublishedProviderIdentity(provider, raw));
+      normalized.push(normalizeIdentity(provider, raw));
     } catch {
       invalid.push({ index, identity: raw, empty: false });
     }
@@ -395,6 +407,66 @@ export function canonicalizeProviderMenuState(
     input: canonicalInput,
     existingItems: canonicalExistingItems,
   };
+}
+
+/**
+ * Canonicalize an audited transition without teaching ordinary sync that a
+ * historical bare Aigens product ID is a valid current offering identity.
+ */
+export function canonicalizeProviderMenuIdentityTransitionState(
+  provider: MenuProvider,
+  input: MenuSyncInput,
+  existingItems: ExistingSyncMenuItem[],
+): { input: MenuSyncInput; existingItems: ExistingSyncMenuItem[] } {
+  const canonicalInput = canonicalizeProviderMenuState(provider, input, []);
+  const canonicalExistingItems = existingItems.map((item) => ({
+    ...item,
+    externalProductId:
+      item.externalProductId === null
+        ? null
+        : normalizeAuditedPersistedProviderIdentity(
+            provider,
+            item.externalProductId,
+          ),
+  }));
+  const managedIdentities = canonicalExistingItems
+    .filter((item) => item.externalProductId !== null)
+    .map((item) => ({
+      externalProductId: item.externalProductId,
+      id: item.id,
+    }));
+  if (managedIdentities.length > 0) {
+    assertProviderMenuIdentityItemsWithNormalizer(
+      provider,
+      managedIdentities,
+      normalizeAuditedPersistedProviderIdentity,
+    );
+  }
+  return {
+    input: canonicalInput.input,
+    existingItems: canonicalExistingItems,
+  };
+}
+
+function normalizeAuditedPersistedProviderIdentity(
+  provider: MenuProvider,
+  publishedIdentity: string,
+): string {
+  try {
+    return normalizePublishedProviderIdentity(provider, publishedIdentity);
+  } catch {
+    const identity = publishedIdentity.trim();
+    if (
+      provider === "aigens" &&
+      identity &&
+      identity.length <= 200 &&
+      !/[\u0000-\u001f\u007f]/.test(identity) &&
+      !hasReservedMarker(identity)
+    ) {
+      return identity;
+    }
+    throw new Error("MALFORMED_IDENTITY");
+  }
 }
 
 function assertSourceLocator(

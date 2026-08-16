@@ -83,6 +83,11 @@ same Aigens group.
    only applicable when identity churn is present; after exact scope and removal
    review it may resolve churn and suspicious-drop for that fingerprinted
    snapshot, but never conflicts or a suspicious-drop-only snapshot.
+10. Historical bare Aigens product IDs are not valid current offering
+    identities. The audited transition boundary may preserve them as
+    fingerprinted evidence so an operator can classify the migration to
+    period-scoped IDs. Ordinary synchronization still rejects them, and an
+    ambiguous split or merge remains non-executable.
 
 ## Consequences
 

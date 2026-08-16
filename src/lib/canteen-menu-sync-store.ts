@@ -9,12 +9,16 @@ import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { lockCanteenMenuMutationForSource } from "./canteen-menu-mutation-lock";
 import {
+  evaluateMenuIdentityTransitionSnapshot,
   evaluateMenuSnapshot,
   resolveApprovedIdentityTransitionBlocking,
   type MenuSnapshotEvaluation,
 } from "./canteen-menu-snapshot-evaluator";
 import {
+  buildMenuIdentityTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
+  type MenuIdentityTransitionArtifact,
+  type MenuIdentityTransitionSourceConfiguration,
   verifyMenuIdentityTransitionArtifact,
 } from "./canteen-menu-identity-transition";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
@@ -241,6 +245,59 @@ export async function previewMenuSync(
   };
 }
 
+/** Build a read-only, fail-closed draft for one exact provider snapshot. */
+export async function auditMenuIdentityTransition(
+  source: MenuIdentityTransitionSourceConfiguration,
+  input: MenuSyncInput,
+): Promise<MenuIdentityTransitionArtifact> {
+  assertProviderSnapshotCompleteness(
+    source.provider,
+    input.snapshotCompleteness,
+  );
+  const existing = collectExistingSyncItems(
+    await selectExistingItems(db, source.canteenId),
+  );
+  const evaluation = evaluateMenuIdentityTransitionSnapshot(
+    {
+      id: source.id,
+      provider: source.provider,
+      legacyAdoptionOpen: source.legacyTakeoverAt === null,
+    },
+    input,
+    existing,
+  );
+  if (
+    !evaluation.blockingReasons.some(
+      (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
+    )
+  ) {
+    throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
+  }
+  const audit = buildMenuIdentityTransitionAudit(
+    evaluation.canonicalState.existingItems.filter(
+      (item) => item.menuSourceId === source.id,
+    ),
+    evaluation.canonicalState.input,
+  );
+  return {
+    schemaVersion: 3,
+    source: {
+      provider: source.provider,
+      externalOwnerId: source.externalOwnerId,
+      externalStoreId: source.externalStoreId,
+      configurationFingerprint: fingerprintMenuIdentityTransitionSource(source),
+    },
+    audit,
+    decisions: {
+      snapshotScope: { status: "unreviewed", rationale: "" },
+      replacements: [],
+      additions: [],
+      removals: [],
+      ambiguities: [],
+    },
+  };
+}
+
 type MenuSyncApplyMode =
   | { kind: "legacy"; sourceId: string }
   | { kind: "recurring"; completion: RecurringSyncCompletion }
@@ -328,15 +385,26 @@ async function applyMenuSync(
     await lockExistingMenuItems(tx, source.canteenId);
     const rows = await selectExistingItems(tx, source.canteenId);
     const existing = collectExistingSyncItems(rows);
-    const baselineEvaluation = evaluateMenuSnapshot(
-      {
-        id: source.id,
-        provider: source.provider,
-        legacyAdoptionOpen: source.legacyTakeoverAt === null,
-      },
-      input,
-      existing,
-    );
+    const baselineEvaluation =
+      mode.kind === "identity-transition"
+        ? evaluateMenuIdentityTransitionSnapshot(
+            {
+              id: source.id,
+              provider: source.provider,
+              legacyAdoptionOpen: source.legacyTakeoverAt === null,
+            },
+            input,
+            existing,
+          )
+        : evaluateMenuSnapshot(
+            {
+              id: source.id,
+              provider: source.provider,
+              legacyAdoptionOpen: source.legacyTakeoverAt === null,
+            },
+            input,
+            existing,
+          );
     let evaluation = baselineEvaluation;
     if (mode.kind === "identity-transition") {
       if (
@@ -360,7 +428,7 @@ async function applyMenuSync(
         baselineEvaluation.canonicalState.input,
         mode.artifact,
       );
-      evaluation = evaluateMenuSnapshot(
+      evaluation = evaluateMenuIdentityTransitionSnapshot(
         {
           id: source.id,
           provider: source.provider,

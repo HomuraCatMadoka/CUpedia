@@ -27,6 +27,12 @@ configuration, raw provider payloads, errors, credentials, votes, comments, and
 user data. Audit generation fails closed if either side exceeds 500 identities;
 do not raise that bound without separately reviewing the provider scope.
 
+The audit boundary may retain a historical bare Aigens product ID as evidence
+when the persisted menu predates period-scoped offering identities. This does
+not make that ID valid for ordinary synchronization: normal preview/apply still
+rejects it, and any one-to-many or many-to-one result remains non-executable
+until the reviewer can resolve it without guessing a UUID assignment.
+
 `snapshotCompleteness` is fingerprinted with the audit and incoming snapshot.
 Apply rejects a value that differs from the provider boundary. In particular,
 PinMe remains `partial` until its adapter can attest a full-catalog response; a

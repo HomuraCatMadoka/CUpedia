@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   assertProviderMenuIdentitySnapshot,
+  canonicalizeProviderMenuIdentityTransitionState,
   canonicalizeProviderMenuState,
   matchesPersistedProviderMenuSourceNamespace,
   normalizePersistedMenuShadowKey,
@@ -119,6 +120,35 @@ describe("provider menu identity contract (#636)", () => {
         normalizePersistedMenuShadowKey("aigens", malformed),
       ).toThrow("MALFORMED_IDENTITY");
     }
+  });
+
+  it("admits a bare Aigens product ID only at the audited transition boundary", () => {
+    const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
+      items: [
+        {
+          externalProductId: "product-42#offering-period=lunch",
+          name: "菜品",
+          mealPeriods: ["lunch"],
+          svgKey: "dish",
+        },
+      ],
+    });
+    const historical = persistedItem("product-42");
+
+    expect(() =>
+      canonicalizeProviderMenuState("aigens", input, [historical]),
+    ).toThrow("MALFORMED_IDENTITY");
+    expect(
+      canonicalizeProviderMenuIdentityTransitionState("aigens", input, [
+        historical,
+      ]).existingItems[0].externalProductId,
+    ).toBe("product-42");
+    expect(() =>
+      canonicalizeProviderMenuIdentityTransitionState("aigens", input, [
+        persistedItem("product-42#unknown"),
+      ]),
+    ).toThrow("MALFORMED_IDENTITY");
   });
 
   it.each(["pinme", "ichef", "qmai"] as const)(

@@ -34,8 +34,10 @@ import {
 import { getCanteenMenuItems } from "@/lib/canteen-actions";
 import { createDishComment } from "@/lib/canteen-comment-actions";
 import {
+  auditMenuIdentityTransition,
   applyApprovedMenuIdentityTransition,
   applyPreviewedMenuSync,
+  previewMenuSync,
 } from "@/lib/canteen-menu-sync-store";
 import {
   buildMenuIdentityTransitionAudit,
@@ -71,8 +73,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
   let sourceId: string;
   let userId: string;
 
-  function transitionSourceFingerprint() {
-    return fingerprintMenuIdentityTransitionSource({
+  function transitionSourceConfiguration() {
+    return {
       id: sourceId,
       canteenId,
       provider: "aigens",
@@ -81,7 +83,13 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       config: {},
       enabled: true,
       legacyTakeoverAt: null,
-    });
+    } as const;
+  }
+
+  function transitionSourceFingerprint() {
+    return fingerprintMenuIdentityTransitionSource(
+      transitionSourceConfiguration(),
+    );
   }
 
   beforeEach(async () => {
@@ -628,6 +636,195 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     );
     expect(retry.actions).toEqual([]);
     expect(retry.unchanged).toBe(1);
+  });
+
+  it("audits the Production-shaped mixed Aigens projection without weakening ordinary sync", async () => {
+    const exactItems = Array.from({ length: 41 }, (_, index) => ({
+      id: randomUUID(),
+      canteenId,
+      name: `保留菜品 ${index}`,
+      mealPeriods: ["lunch" as const],
+      svgKey: "dish",
+      menuSourceId: sourceId,
+      externalProductId: `exact-${index}#offering-period=lunch`,
+    }));
+    const removedScopedItems = Array.from({ length: 12 }, (_, index) => ({
+      id: randomUUID(),
+      canteenId,
+      name: `停售菜品 ${index}`,
+      mealPeriods: ["lunch" as const],
+      svgKey: "dish",
+      menuSourceId: sourceId,
+      externalProductId: `removed-${index}#offering-period=lunch`,
+    }));
+    const ambiguousBareItems = Array.from({ length: 26 }, (_, index) => ({
+      id: randomUUID(),
+      canteenId,
+      name: `跨時段菜品 ${index}`,
+      mealPeriods: ["allday" as const],
+      svgKey: "dish",
+      menuSourceId: sourceId,
+      externalProductId: `historical-${index}`,
+    }));
+    const removedBareItems = Array.from({ length: 2 }, (_, index) => ({
+      id: randomUUID(),
+      canteenId,
+      name: `歷史停售菜品 ${index}`,
+      mealPeriods: ["allday" as const],
+      svgKey: "dish",
+      menuSourceId: sourceId,
+      externalProductId: `historical-removed-${index}`,
+    }));
+    await db
+      .insert(canteenMenuItems)
+      .values([
+        ...exactItems,
+        ...removedScopedItems,
+        ...ambiguousBareItems,
+        ...removedBareItems,
+      ]);
+    const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
+      items: [
+        ...exactItems.map((item) => ({
+          externalProductId: item.externalProductId,
+          name: item.name,
+          mealPeriods: item.mealPeriods,
+          svgKey: item.svgKey,
+        })),
+        ...ambiguousBareItems.flatMap((item, index) =>
+          (["lunch", "dinner"] as const).map((mealPeriod) => ({
+            externalProductId: `historical-${index}#offering-period=${mealPeriod}`,
+            name: item.name,
+            mealPeriods: [mealPeriod],
+            svgKey: item.svgKey,
+          })),
+        ),
+        ...Array.from({ length: 9 }, (_, index) => ({
+          externalProductId: `addition-${index}#offering-period=lunch`,
+          name: `新增菜品 ${index}`,
+          mealPeriods: ["lunch" as const],
+          svgKey: "dish",
+        })),
+      ],
+    });
+
+    await expect(previewMenuSync(sourceId, input)).rejects.toThrow(
+      "MALFORMED_IDENTITY",
+    );
+    const artifact = await auditMenuIdentityTransition(
+      transitionSourceConfiguration(),
+      input,
+    );
+    expect(artifact.audit.summary).toMatchObject({
+      existingCount: 81,
+      incomingCount: 102,
+      missingIdentityCount: 40,
+      newIdentityCount: 61,
+      replacementCandidateCount: 0,
+      additionCount: 9,
+      removalCount: 14,
+      ambiguityCount: 26,
+    });
+    expect(artifact.audit.ambiguities).toHaveLength(26);
+    await expect(
+      applyApprovedMenuIdentityTransition(sourceId, input, artifact),
+    ).rejects.toThrow("MENU_IDENTITY_TRANSITION_AMBIGUOUS");
+    const activeManaged = await db
+      .select({ value: count() })
+      .from(canteenMenuItems)
+      .where(
+        and(
+          eq(canteenMenuItems.menuSourceId, sourceId),
+          eq(canteenMenuItems.isAvailable, true),
+        ),
+      );
+    expect(activeManaged[0].value).toBe(81);
+  });
+
+  it("applies an exact reviewed bare Aigens replacement and preserves UUID history", async () => {
+    const previousProductId = "historical-product";
+    const nextProductId = "historical-product#offering-period=lunch";
+    await db
+      .update(canteenMenuItems)
+      .set({
+        menuSourceId: sourceId,
+        externalProductId: previousProductId,
+      })
+      .where(eq(canteenMenuItems.id, itemId));
+    const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
+      items: [
+        {
+          externalProductId: nextProductId,
+          name: "演示菜品 A",
+          mealPeriods: ["lunch"],
+          svgKey: "drink",
+        },
+      ],
+    });
+    const draft = await auditMenuIdentityTransition(
+      transitionSourceConfiguration(),
+      input,
+    );
+    const artifact = {
+      ...draft,
+      decisions: {
+        ...draft.decisions,
+        snapshotScope: {
+          status: "complete" as const,
+          rationale: "The provider response contains the complete store menu.",
+        },
+        replacements: [
+          {
+            itemId,
+            previousProductId,
+            nextProductId,
+            rationale: "The reviewed one-to-one offering retains this UUID.",
+          },
+        ],
+      },
+    };
+
+    await db
+      .update(canteenMenuItems)
+      .set({ svgKey: "併發人工修訂" })
+      .where(eq(canteenMenuItems.id, itemId));
+    await expect(
+      applyApprovedMenuIdentityTransition(sourceId, input, artifact),
+    ).rejects.toThrow("MENU_IDENTITY_TRANSITION_STALE");
+    await db
+      .update(canteenMenuItems)
+      .set({ svgKey: "drink" })
+      .where(eq(canteenMenuItems.id, itemId));
+
+    await applyApprovedMenuIdentityTransition(sourceId, input, artifact);
+    const [persisted] = await db
+      .select({
+        id: canteenMenuItems.id,
+        externalProductId: canteenMenuItems.externalProductId,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.id, itemId));
+    expect(persisted).toEqual({ id: itemId, externalProductId: nextProductId });
+    const history = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, itemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, itemId)),
+    ]);
+    expect(history.map(([row]) => row.value)).toEqual([1, 1]);
+    const retry = await previewMenuSync(sourceId, input);
+    expect(retry.blockingDecision).toEqual({
+      blocked: false,
+      code: null,
+      samples: [],
+    });
+    expect(retry.plan.actions).toEqual([]);
   });
 
   it("rejects identity-transition mode when only suspicious-drop is blocking", async () => {
