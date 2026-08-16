@@ -45,6 +45,43 @@ describe("S.H. Ho Aigens menu adapter", () => {
     });
   });
 
+  it("collapses a 102830-shaped 102 occurrences into 76 backend products", () => {
+    const lunchProducts = Array.from({ length: 76 }, (_, index) => ({
+      backendId: `102830-product-${index + 1}`,
+      name: `净化菜品 ${index + 1}`,
+      price: 30 + (index % 10),
+      published: true,
+    }));
+    const payload = buildShhoMenuSyncPayload({
+      data: {
+        menu: {
+          categories: [
+            { name: "午餐", periods: ["L"], groupIds: ["lunch"] },
+            { name: "晚餐", periods: ["D"], groupIds: ["dinner"] },
+          ],
+          groups: [
+            { id: "lunch", items: lunchProducts },
+            { id: "dinner", items: lunchProducts.slice(0, 26) },
+          ],
+        },
+      },
+    });
+
+    expect(lunchProducts.length + 26).toBe(102);
+    expect(payload.items).toHaveLength(76);
+    expect(
+      new Set(payload.items.map((item) => item.externalProductId)).size,
+    ).toBe(76);
+    expect(
+      payload.items.filter(
+        (item) => item.mealPeriods.join(",") === "lunch,dinner",
+      ),
+    ).toHaveLength(26);
+    expect(
+      payload.items.filter((item) => item.mealPeriods.join(",") === "lunch"),
+    ).toHaveLength(50);
+  });
+
   it("coalesces category aliases that reference the same provider group", () => {
     const item = {
       backendId: "1100031695",

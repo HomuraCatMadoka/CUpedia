@@ -12,6 +12,41 @@
   "supersededParityCases": ["supported historical identity"],
   "parityCases": [
     {
+      "name": "authoritative-only Aigens period alias requires audited transition",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "aigens",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42#offering-period=lunch",
+          "externalSource": null,
+          "externalKey": null,
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
+    },
+    {
       "name": "Aigens period-scoped identity requires audited transition",
       "canteens": ["canteen-a"],
       "sources": [

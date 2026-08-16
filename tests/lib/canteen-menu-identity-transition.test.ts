@@ -11,7 +11,7 @@ import type {
   MenuSnapshotCompleteness,
   MenuSyncItemInput,
 } from "@/lib/canteen-types";
-import transitionFixture from "./fixtures/canteen-menu-identity-transition-v3.json";
+import transitionFixture from "./fixtures/canteen-menu-identity-transition-v4.json";
 
 function buildMenuIdentityTransitionAudit(
   existingItems: readonly ExistingSyncMenuItem[],
@@ -201,6 +201,7 @@ describe("menu identity transition audit", () => {
               rationale: "The response is the complete provider snapshot.",
             },
             replacements: [],
+            canonicalizations: [],
             merges: [
               {
                 survivorItemId: survivor.id,
@@ -452,7 +453,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -475,6 +476,8 @@ describe("menu identity transition audit", () => {
                   "Provider listing and operator evidence confirm the same dish.",
               },
             ],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -506,7 +509,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -521,6 +524,8 @@ describe("menu identity transition audit", () => {
                 "The provider response contains the complete store menu.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -546,7 +551,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -560,6 +565,8 @@ describe("menu identity transition audit", () => {
               rationale: "The response omitted a known menu period.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -586,7 +593,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -601,6 +608,8 @@ describe("menu identity transition audit", () => {
                 "The provider response contains the complete store menu.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [
@@ -630,6 +639,15 @@ describe("menu identity transition audit", () => {
         [incoming()],
         null as never,
       ),
+    ).toThrow("INVALID_MENU_IDENTITY_TRANSITION_ARTIFACT");
+  });
+
+  it("rejects obsolete v3 artifacts instead of claiming compatibility", () => {
+    expect(() =>
+      parseMenuIdentityTransitionArtifact({
+        ...transitionFixture,
+        schemaVersion: 3,
+      }),
     ).toThrow("INVALID_MENU_IDENTITY_TRANSITION_ARTIFACT");
   });
 
@@ -719,7 +737,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "pinme",
             externalOwnerId: null,
@@ -733,6 +751,8 @@ describe("menu identity transition audit", () => {
               rationale: "Reviewer claimed a complete catalog.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -770,7 +790,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -792,6 +812,8 @@ describe("menu identity transition audit", () => {
                 rationale: "Same normalized name, price, and meal period.",
               },
             ],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],

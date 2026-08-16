@@ -65,7 +65,11 @@ same Aigens group.
    from performing another legacy takeover, and partial snapshots cannot request
    takeover.
 7. Public menu reads and new vote/comment writes only accept available items.
-   Historical rows remain available to server-side admin workflows.
+   Each history write locks and rechecks the available menu row in the same
+   short transaction as its insert/upsert. The shared row lock permits
+   concurrent public history writes but makes an audited transition wait until
+   they commit, so no new history can land on a retired UUID after its merge
+   scan. Historical rows remain available to server-side admin workflows.
 8. Product-ID churn is observed before aliasing is introduced. Each scheduled
    run stores bounded new/missing ID samples, counts and one-to-one same-name
    candidates. Suspected replacement or bulk churn fails closed: the last

@@ -88,6 +88,9 @@ existing menu rows in that order. The canteen parent lock also serializes new
 menu-item inserts, which cannot be covered by existing-row locks. Concurrent
 menu edits complete before the artifact is verified or wait until the
 transition commits; they cannot be silently overwritten. The transition
+also waits for any in-flight public vote/comment transaction holding a shared
+menu-row lock; later public history writes recheck availability after the
+transition and reject retired UUIDs. The transition
 fails before menu writes if the source configuration, current menu projection,
 incoming projection, artifact version, decisions, or ambiguity status differs
 from the reviewed artifact. Successful replacements and reviewed merges update

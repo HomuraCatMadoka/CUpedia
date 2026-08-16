@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Pool, type PoolClient } from "pg";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { and, count, eq, sql } from "drizzle-orm";
+import { and, count, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   accounts,
@@ -14,16 +14,19 @@ import {
   users,
 } from "@/db/schema";
 
-const { mockRequireCommentAuth } = vi.hoisted(() => ({
+const { mockGetSessionVoterUser, mockRequireCommentAuth } = vi.hoisted(() => ({
+  mockGetSessionVoterUser: vi.fn(),
   mockRequireCommentAuth: vi.fn(),
 }));
 
 vi.mock("@/lib/auth-guard", () => ({
   requireAdmin: vi.fn().mockResolvedValue({ id: "admin" }),
+  getSessionVoterUser: (...args: unknown[]) => mockGetSessionVoterUser(...args),
   requireCommentAuth: (...args: unknown[]) => mockRequireCommentAuth(...args),
 }));
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
   unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
 }));
 
@@ -33,6 +36,7 @@ import {
 } from "@/lib/canteen-admin-actions";
 import { getCanteenMenuItems } from "@/lib/canteen-actions";
 import { createDishComment } from "@/lib/canteen-comment-actions";
+import { upsertDishVote } from "@/lib/canteen-vote-actions";
 import {
   auditMenuIdentityTransition,
   applyApprovedMenuIdentityTransition,
@@ -51,17 +55,24 @@ async function waitForBlockedTransaction(
   client: PoolClient,
   blockerPid: number,
 ): Promise<void> {
+  await waitForBlockedTransactionCount(client, blockerPid, 1);
+}
+
+async function waitForBlockedTransactionCount(
+  client: PoolClient,
+  blockerPid: number,
+  expectedCount: number,
+): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
-    const result = await client.query<{ blocked: boolean }>(
-      `select exists (
-        select 1
+    const result = await client.query<{ blockedCount: number }>(
+      `select count(*)::int as "blockedCount"
         from pg_stat_activity
         where pid <> $1
           and $1 = any(pg_blocking_pids(pid))
-      ) as blocked`,
+      `,
       [blockerPid],
     );
-    if (result.rows[0]?.blocked) return;
+    if ((result.rows[0]?.blockedCount ?? 0) >= expectedCount) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error("EXPECTED_CONCURRENT_MENU_WRITE_TO_BLOCK");
@@ -72,6 +83,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
   let itemId: string;
   let sourceId: string;
   let userId: string;
+  let additionalUserIds: string[];
 
   function transitionSourceConfiguration() {
     return {
@@ -97,11 +109,13 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     itemId = randomUUID();
     sourceId = randomUUID();
     userId = randomUUID();
+    additionalUserIds = [];
     mockRequireCommentAuth.mockResolvedValue({
       id: userId,
       nickname: "同步测试",
       hasPassword: true,
     });
+    mockGetSessionVoterUser.mockResolvedValue({ id: userId, banned: false });
     await db.insert(users).values({
       id: userId,
       email: `${userId}@test.com`,
@@ -142,7 +156,9 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
   afterEach(async () => {
     await db.delete(canteens).where(eq(canteens.id, canteenId));
-    await db.delete(users).where(eq(users.id, userId));
+    await db
+      .delete(users)
+      .where(inArray(users.id, [userId, ...additionalUserIds]));
   });
 
   it("claims a legacy item and later deactivates it without losing history", async () => {
@@ -545,7 +561,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ]);
 
     await applyApprovedMenuIdentityTransition(sourceId, input, {
-      schemaVersion: 3,
+      schemaVersion: 4,
       source: {
         provider: "aigens",
         externalOwnerId: null,
@@ -566,6 +582,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
             rationale: "Same normalized name, price, and meal period.",
           },
         ],
+        canonicalizations: [],
+        merges: [],
         additions: [],
         removals: [
           { itemId: removedItemId, externalProductId: removedProductId },
@@ -788,7 +806,116 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       .update(canteenDishVotes)
       .set({ vote: "like" })
       .where(eq(canteenDishVotes.menuItemId, mergedItemId));
-    await applyApprovedMenuIdentityTransition(sourceId, input, artifact);
+    const concurrentUserId = randomUUID();
+    additionalUserIds.push(concurrentUserId);
+    await db.insert(users).values({
+      id: concurrentUserId,
+      email: `${concurrentUserId}@test.com`,
+      nickname: "并发用户",
+      role: "user",
+    });
+    await db.insert(accounts).values({
+      accountId: concurrentUserId,
+      providerId: "credential",
+      userId: concurrentUserId,
+      password: "test-password-hash",
+    });
+    mockRequireCommentAuth.mockResolvedValue({
+      id: concurrentUserId,
+      email: `${concurrentUserId}@test.com`,
+      nickname: "并发用户",
+      hasPassword: true,
+    });
+    mockGetSessionVoterUser.mockResolvedValue({
+      id: concurrentUserId,
+      banned: false,
+    });
+
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      max: 1,
+    });
+    const blockerClient = await pool.connect();
+    const triggerSuffix = concurrentUserId.replaceAll("-", "");
+    const triggerFunction = `test_block_history_${triggerSuffix}`;
+    const commentTrigger = `test_block_comment_${triggerSuffix}`;
+    const voteTrigger = `test_block_vote_${triggerSuffix}`;
+    const advisoryKey = Number.parseInt(triggerSuffix.slice(0, 8), 16);
+    let advisoryLockHeld = false;
+    let commentWrite: ReturnType<typeof createDishComment> | undefined;
+    let voteWrite: ReturnType<typeof upsertDishVote> | undefined;
+    let transition:
+      | ReturnType<typeof applyApprovedMenuIdentityTransition>
+      | undefined;
+    try {
+      await blockerClient.query(`
+        create function ${triggerFunction}() returns trigger
+        language plpgsql as $$
+        begin
+          perform pg_advisory_xact_lock(${advisoryKey});
+          return new;
+        end
+        $$
+      `);
+      await blockerClient.query(`
+        create trigger ${commentTrigger}
+        before insert on canteen_dish_comments
+        for each row execute function ${triggerFunction}()
+      `);
+      await blockerClient.query(`
+        create trigger ${voteTrigger}
+        before insert on canteen_dish_votes
+        for each row execute function ${triggerFunction}()
+      `);
+      await blockerClient.query("select pg_advisory_lock($1)", [advisoryKey]);
+      advisoryLockHeld = true;
+      const blocker = await blockerClient.query<{ pid: number }>(
+        "select pg_backend_pid() as pid",
+      );
+
+      commentWrite = createDishComment(mergedItemId, "并发写入的评论");
+      voteWrite = upsertDishVote(mergedItemId, "like");
+      await waitForBlockedTransactionCount(
+        blockerClient,
+        blocker.rows[0].pid,
+        2,
+      );
+
+      let transitionSettled = false;
+      transition = applyApprovedMenuIdentityTransition(
+        sourceId,
+        input,
+        artifact,
+      ).finally(() => {
+        transitionSettled = true;
+      });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(transitionSettled).toBe(false);
+
+      await blockerClient.query("select pg_advisory_unlock($1)", [advisoryKey]);
+      advisoryLockHeld = false;
+      await Promise.all([commentWrite, voteWrite, transition]);
+    } finally {
+      if (advisoryLockHeld) {
+        await blockerClient.query("select pg_advisory_unlock($1)", [
+          advisoryKey,
+        ]);
+      }
+      await Promise.allSettled(
+        [commentWrite, voteWrite, transition].filter(
+          (promise) => promise !== undefined,
+        ),
+      );
+      await blockerClient.query(
+        `drop trigger if exists ${commentTrigger} on canteen_dish_comments`,
+      );
+      await blockerClient.query(
+        `drop trigger if exists ${voteTrigger} on canteen_dish_votes`,
+      );
+      await blockerClient.query(`drop function if exists ${triggerFunction}()`);
+      blockerClient.release();
+      await pool.end();
+    }
 
     const rows = await db
       .select({
@@ -829,8 +956,19 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       .select({ value: count() })
       .from(canteenDishComments)
       .where(eq(canteenDishComments.menuItemId, itemId));
-    expect(voteCount.value).toBe(1);
-    expect(commentCount.value).toBe(2);
+    expect(voteCount.value).toBe(2);
+    expect(commentCount.value).toBe(3);
+    const retiredHistory = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(canteenDishVotes)
+        .where(eq(canteenDishVotes.menuItemId, mergedItemId)),
+      db
+        .select({ value: count() })
+        .from(canteenDishComments)
+        .where(eq(canteenDishComments.menuItemId, mergedItemId)),
+    ]);
+    expect(retiredHistory.map(([row]) => row.value)).toEqual([0, 0]);
 
     const retry = await previewMenuSync(sourceId, input);
     expect(retry.blockingDecision.blocked).toBe(false);
@@ -972,7 +1110,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
     await expect(
       applyApprovedMenuIdentityTransition(sourceId, input, {
-        schemaVersion: 3,
+        schemaVersion: 4,
         source: {
           provider: "aigens",
           externalOwnerId: null,
@@ -987,6 +1125,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
               "The provider response contains the complete store menu.",
           },
           replacements: [],
+          canonicalizations: [],
+          merges: [],
           additions: [],
           removals: additionalIds.slice(1).map((id, index) => ({
             itemId: id,
@@ -1048,7 +1188,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
     await expect(
       applyApprovedMenuIdentityTransition(sourceId, input, {
-        schemaVersion: 3,
+        schemaVersion: 4,
         source: {
           provider: "aigens",
           externalOwnerId: null,
@@ -1070,6 +1210,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
               rationale: "Same normalized name, price, and meal period.",
             },
           ],
+          canonicalizations: [],
+          merges: [],
           additions: [],
           removals: [],
           ambiguities: [],
@@ -1143,7 +1285,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       input,
     );
     const artifact = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       source: {
         provider: "aigens",
         externalOwnerId: null,
@@ -1164,6 +1306,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
             rationale: "Same normalized name, price, and meal period.",
           },
         ],
+        canonicalizations: [],
+        merges: [],
         additions: [],
         removals: [],
         ambiguities: [],
@@ -1275,7 +1419,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       input,
     );
     const artifact = {
-      schemaVersion: 3,
+      schemaVersion: 4,
       source: {
         provider: "aigens",
         externalOwnerId: null,
@@ -1296,6 +1440,8 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
             rationale: "Same normalized name, price, and meal period.",
           },
         ],
+        canonicalizations: [],
+        merges: [],
         additions: [addedProductId],
         removals: [],
         ambiguities: [],

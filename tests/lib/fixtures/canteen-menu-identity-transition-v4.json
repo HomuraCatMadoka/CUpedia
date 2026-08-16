@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "source": {
     "provider": "aigens",
     "externalOwnerId": null,
@@ -72,6 +72,8 @@
         "rationale": "Same normalized name, price, and meal period."
       }
     ],
+    "canonicalizations": [],
+    "merges": [],
     "additions": [],
     "removals": [],
     "ambiguities": []

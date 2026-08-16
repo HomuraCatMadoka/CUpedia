@@ -25,6 +25,7 @@ import type { MenuItemVoteCounts, VoteChoice } from "@/lib/canteen-types";
 import { parseVote } from "@/lib/canteen-types";
 import { checkVoteRateLimit } from "@/lib/canteen-vote-rate-limit";
 import { CANTEEN_VOTE_COUNTS_TAG } from "@/lib/canteen-vote-queries";
+import { lockAvailableCanteenMenuItem } from "./canteen-menu-mutation-lock";
 
 type VoterIdentity = { userId: string } | { anonymousSessionId: string };
 
@@ -70,28 +71,14 @@ async function resolveVoterIdentityForRead(): Promise<VoterIdentity | null> {
   return { anonymousSessionId: anonId };
 }
 
-async function assertMenuItemExists(menuItemId: string): Promise<void> {
-  if (isCanteenMockMode()) {
-    if (!mockMenuItemExists(menuItemId)) {
-      throw new Error("MENU_ITEM_NOT_FOUND");
-    }
-    return;
+function assertMockMenuItemExists(menuItemId: string): void {
+  if (!mockMenuItemExists(menuItemId)) {
+    throw new Error("MENU_ITEM_NOT_FOUND");
   }
-
-  const items = await db
-    .select({ id: canteenMenuItems.id })
-    .from(canteenMenuItems)
-    .where(
-      and(
-        eq(canteenMenuItems.id, menuItemId),
-        eq(canteenMenuItems.isAvailable, true),
-      ),
-    )
-    .limit(1);
-  if (!items[0]) throw new Error("MENU_ITEM_NOT_FOUND");
 }
 
 async function upsertVoteRow(
+  executor: Pick<typeof db, "insert">,
   menuItemId: string,
   identity: VoterIdentity,
   vote: VoteChoice,
@@ -100,7 +87,7 @@ async function upsertVoteRow(
   const base = { menuItemId, vote, updatedAt: now };
 
   if ("userId" in identity) {
-    await db
+    await executor
       .insert(canteenDishVotes)
       .values({
         ...base,
@@ -115,7 +102,7 @@ async function upsertVoteRow(
     return;
   }
 
-  await db
+  await executor
     .insert(canteenDishVotes)
     .values({
       ...base,
@@ -241,9 +228,8 @@ export async function upsertDishVote(
 ): Promise<{ menuItemId: string; vote: VoteChoice }> {
   const vote = parseVote(voteInput);
 
-  await assertMenuItemExists(menuItemId);
-
   if (isCanteenMockMode()) {
+    assertMockMenuItemExists(menuItemId);
     await syncMockVoterFromSession();
     const sessionUser = await getSessionVoterUser();
     if (sessionUser?.banned) throw new Error("USER_BANNED");
@@ -255,11 +241,13 @@ export async function upsertDishVote(
   }
 
   const identity = await resolveVoterIdentityForWrite();
-  if (!checkVoteRateLimit(rateLimitKey(identity))) {
-    throw new Error("RATE_LIMIT_EXCEEDED");
-  }
-
-  await upsertVoteRow(menuItemId, identity, vote);
+  await db.transaction(async (tx) => {
+    await lockAvailableCanteenMenuItem(tx, menuItemId);
+    if (!checkVoteRateLimit(rateLimitKey(identity))) {
+      throw new Error("RATE_LIMIT_EXCEEDED");
+    }
+    await upsertVoteRow(tx, menuItemId, identity, vote);
+  });
   revalidateTag(CANTEEN_VOTE_COUNTS_TAG, "max");
 
   return { menuItemId, vote };

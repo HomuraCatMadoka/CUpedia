@@ -74,6 +74,15 @@ describe("canteen menu identity preflight contract v3 (#679)", () => {
     );
     expect(v3FixtureMatrix.parityCases).toEqual([
       expect.objectContaining({
+        name: "authoritative-only Aigens period alias requires audited transition",
+        expected: expect.objectContaining({
+          resultCode: "PREFLIGHT_UNSAFE",
+          failedChecks: expect.objectContaining({
+            ROLLOUT_SHADOW_MISMATCH: expect.any(Object),
+          }),
+        }),
+      }),
+      expect.objectContaining({
         name: "Aigens period-scoped identity requires audited transition",
         expected: expect.objectContaining({
           resultCode: "PREFLIGHT_UNSAFE",

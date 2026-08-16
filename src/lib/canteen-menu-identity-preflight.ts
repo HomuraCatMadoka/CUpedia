@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ClientBase } from "pg";
+import { parseAigensOfferingId } from "./canteen-menu-external-key";
 import type { MenuProvider } from "./canteen-provider-menu-identity";
 import {
   canonicalMenuIdentityKey,
@@ -288,7 +289,11 @@ function evaluateChecks(
         identity.diagnosticProvider,
       );
     }
-    if (!identity.identitiesAgree) {
+    const requiresAigensIdentityTransition =
+      identity.authoritative.kind === "managed" &&
+      identity.authoritative.provider === "aigens" &&
+      parseAigensOfferingId(identity.authoritative.identity.productId) !== null;
+    if (!identity.identitiesAgree || requiresAigensIdentityTransition) {
       add(
         findings,
         "ROLLOUT_SHADOW_MISMATCH",
