@@ -421,7 +421,6 @@ export function AmapCampusPrototype({
   const panelTitleRef = useRef<HTMLHeadingElement | null>(null);
   const interactionAdapterRef = useRef(new AmapInteractionAdapter());
   const pointerGestureCleanupRef = useRef<(() => void) | null>(null);
-  const lastPanelRectRef = useRef<ScreenRect | null>(null);
 
   const positionFor = useCallback(
     (building: Building) =>
@@ -564,6 +563,19 @@ export function AmapCampusPrototype({
 
   const [driver] = useState(() => {
     const browserWindow = typeof window === "undefined" ? null : window;
+    const measureSheetGeometry = (context?: CampusMapDriverEffectContext) => {
+      queueMicrotask(() => {
+        browserWindow?.requestAnimationFrame(() => {
+          if (context && !context.isCurrent()) return;
+          const panel = panelRef.current;
+          if (!panel || panel.hidden || !mapElementRef.current) {
+            sceneDriver.updateSheetGeometry(null);
+            return;
+          }
+          sceneDriver.updateSheetGeometry(rect(panel));
+        });
+      });
+    };
     const ports: CampusMapSceneDriverPorts = {
       history: browserWindow?.history ?? {
         state: null,
@@ -580,6 +592,32 @@ export function AmapCampusPrototype({
         if (camera.kind === "cancel") {
           cameraGateRef.current.invalidate();
           pendingSelectionTokenRef.current = null;
+          return;
+        }
+        if (camera.kind === "fit") {
+          const map = mapRef.current;
+          const mapElement = mapElementRef.current;
+          const AMap = window.AMap;
+          if (!map || !mapElement || !AMap || !context.isCurrent()) return;
+          cameraGateRef.current.invalidate();
+          const longitudes = camera.positions.map((position) => position[0]);
+          const latitudes = camera.positions.map((position) => position[1]);
+          const bounds = new AMap.Bounds(
+            new AMap.LngLat(Math.min(...longitudes), Math.min(...latitudes)),
+            new AMap.LngLat(Math.max(...longitudes), Math.max(...latitudes)),
+          );
+          const padding = deriveCameraPadding(
+            rect(mapElement),
+            panelRef.current && !panelRef.current.hidden
+              ? rect(panelRef.current)
+              : null,
+          );
+          map.setBounds(
+            bounds,
+            false,
+            [padding.top, padding.bottom, padding.left, padding.right],
+            18,
+          );
           return;
         }
         const building = BUILDINGS.find(
@@ -601,17 +639,14 @@ export function AmapCampusPrototype({
               }
             } else if (focus.kind === "search-input") {
               searchInputRef.current?.focus({ preventScroll: true });
+            } else if (focus.kind === "result") {
+              document
+                .querySelector<HTMLElement>(
+                  `[data-search-result="${focus.resultId}"], [data-return-result="${focus.resultId}"]`,
+                )
+                ?.focus({ preventScroll: true });
             } else if (focus.kind === "map") {
-              const triggerId = document.querySelector<HTMLElement>(
-                "[data-campus-map-root]",
-              )?.dataset.returnFocus;
-              if (triggerId) {
-                document
-                  .querySelector<HTMLElement>(
-                    `[data-search-result="${triggerId}"]`,
-                  )
-                  ?.focus({ preventScroll: true });
-              }
+              mapElementRef.current?.focus({ preventScroll: true });
             }
           });
         });
@@ -648,9 +683,20 @@ export function AmapCampusPrototype({
           new AMap.LngLat(overlay.position[0], overlay.position[1]),
         );
       },
-      sheet: () => {},
+      sheet: (sheet, context) => {
+        if (sheet.kind === "hide") {
+          sceneDriver.updateSheetGeometry(null);
+          return;
+        }
+        measureSheetGeometry(context);
+      },
     };
-    return new CampusMapSceneDriver(CATALOG, ports, driverInitialSearch);
+    const sceneDriver = new CampusMapSceneDriver(
+      CATALOG,
+      ports,
+      driverInitialSearch,
+    );
+    return sceneDriver;
   });
   const driverSnapshot = useSyncExternalStore(
     driver.subscribe,
@@ -674,15 +720,7 @@ export function AmapCampusPrototype({
   );
 
   const selectBuilding = useCallback(
-    (
-      building: Building,
-      source: "map" | "search" = "map",
-      trigger: HTMLElement | null = null,
-    ) => {
-      const root = document.querySelector<HTMLElement>(
-        "[data-campus-map-root]",
-      );
-      if (root) root.dataset.returnFocus = trigger?.dataset.searchResult ?? "";
+    (building: Building, source: "map" | "search" = "map") => {
       dispatch({
         type: "OPEN_BUILDING",
         buildingId: building.id,
@@ -693,15 +731,7 @@ export function AmapCampusPrototype({
   );
 
   const selectFacility = useCallback(
-    (
-      facility: Facility,
-      source: "category" | "building" | "search",
-      trigger: HTMLElement | null = null,
-    ) => {
-      const root = document.querySelector<HTMLElement>(
-        "[data-campus-map-root]",
-      );
-      if (root) root.dataset.returnFocus = trigger?.dataset.searchResult ?? "";
+    (facility: Facility, source: "category" | "building" | "search") => {
       dispatch({
         type: "OPEN_FACILITY",
         facilityId: facility.id,
@@ -759,7 +789,7 @@ export function AmapCampusPrototype({
   }, [driver]);
 
   const closeSelection = useCallback(() => {
-    dispatch({ type: "DISMISS", source: "close" });
+    dispatch({ type: "DISMISS" });
   }, [dispatch]);
 
   const navigateEntityBack = useCallback(() => {
@@ -770,12 +800,8 @@ export function AmapCampusPrototype({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       const current = driver.getSnapshot().session;
-      if (
-        current.mode === "browse" &&
-        current.scene.kind !== "map" &&
-        current.scene.kind !== "search-results"
-      ) {
-        dispatch({ type: "DISMISS", source: "escape" });
+      if (current.mode === "browse" && current.scene.kind !== "map") {
+        dispatch({ type: "DISMISS" });
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -876,7 +902,7 @@ export function AmapCampusPrototype({
       interactionAdapterRef.current.dispatchMapClick(() => {
         if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
           return;
-        dispatch({ type: "DISMISS", source: "map" });
+        dispatch({ type: "DISMISS" });
       });
     });
     map.on("dragstart", () => {
@@ -1044,33 +1070,9 @@ export function AmapCampusPrototype({
             const positions = event.clusterData?.map(({ lnglat }) =>
               "lng" in lnglat ? ([lnglat.lng, lnglat.lat] as Position) : lnglat,
             );
-            if (!positions?.length || !window.AMap || !mapElementRef.current)
-              return;
-            cameraGateRef.current.invalidate();
-            const longitudes = positions.map((position) => position[0]);
-            const latitudes = positions.map((position) => position[1]);
-            const bounds = new window.AMap.Bounds(
-              new window.AMap.LngLat(
-                Math.min(...longitudes),
-                Math.min(...latitudes),
-              ),
-              new window.AMap.LngLat(
-                Math.max(...longitudes),
-                Math.max(...latitudes),
-              ),
-            );
-            const padding = deriveCameraPadding(
-              rect(mapElementRef.current),
-              panelRef.current && !panelRef.current.hidden
-                ? rect(panelRef.current)
-                : null,
-            );
-            map.setBounds(
-              bounds,
-              false,
-              [padding.top, padding.bottom, padding.left, padding.right],
-              18,
-            );
+            if (positions?.length) {
+              dispatch({ type: "FIT_CLUSTER", positions });
+            }
           });
         });
         clusterRef.current = cluster;
@@ -1088,6 +1090,7 @@ export function AmapCampusPrototype({
     activeAmenity,
     clusterStatus,
     coordinateVersion,
+    dispatch,
     mapReady,
     positionFor,
     selectFacility,
@@ -1132,25 +1135,12 @@ export function AmapCampusPrototype({
     const panel = panelRef.current;
     if (!mapElement || !panel || !selectedBuilding) return;
     const observer = new ResizeObserver(() => {
-      const nextRect = rect(panel);
-      const previousRect = lastPanelRectRef.current;
-      lastPanelRectRef.current = nextRect;
-      if (
-        pendingSelectionTokenRef.current !== null ||
-        !previousRect ||
-        (previousRect.top === nextRect.top &&
-          previousRect.right === nextRect.right &&
-          previousRect.bottom === nextRect.bottom &&
-          previousRect.left === nextRect.left)
-      ) {
-        return;
-      }
-      dispatch({ type: "REFRAME", reason: "sheet-layout" });
+      driver.updateSheetGeometry(panel.hidden ? null : rect(panel));
     });
     observer.observe(mapElement);
     observer.observe(panel);
     return () => observer.disconnect();
-  }, [dispatch, selectedBuilding]);
+  }, [driver, selectedBuilding]);
 
   useEffect(
     () => () => {
@@ -1232,15 +1222,13 @@ export function AmapCampusPrototype({
   const chromeHidden = state.sheet.snap === "full";
 
   return (
-    <main
-      data-campus-map-root
-      className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]"
-    >
+    <main className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]">
       <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
           ref={mapElementRef}
+          tabIndex={-1}
           className="h-full w-full"
         />
       </div>
@@ -1331,23 +1319,10 @@ export function AmapCampusPrototype({
                     type="button"
                     className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:bg-neutral-50 focus-visible:outline-none"
                     onClick={() => {
-                      const root = document.querySelector<HTMLElement>(
-                        "[data-campus-map-root]",
-                      );
                       if (result.kind === "building") {
-                        if (root) root.dataset.returnFocus = result.building.id;
-                        dispatch({
-                          type: "OPEN_BUILDING",
-                          buildingId: result.building.id,
-                          source: "search",
-                        });
+                        selectBuilding(result.building, "search");
                       } else {
-                        if (root) root.dataset.returnFocus = result.facility.id;
-                        dispatch({
-                          type: "OPEN_FACILITY",
-                          facilityId: result.facility.id,
-                          source: "search",
-                        });
+                        selectFacility(result.facility, "search");
                       }
                     }}
                   >
@@ -1410,7 +1385,7 @@ export function AmapCampusPrototype({
                     session.mode === "browse" &&
                       session.scene.kind === "category-results" &&
                       session.scene.category === category.id
-                      ? { type: "DISMISS", source: "close" }
+                      ? { type: "DISMISS" }
                       : { type: "OPEN_CATEGORY", category: category.id },
                   );
                 }}
@@ -1521,7 +1496,7 @@ export function AmapCampusPrototype({
                 type="button"
                 aria-label={`关闭${activeCategoryStyle.label}列表`}
                 className="grid size-11 place-items-center rounded-full hover:bg-neutral-100"
-                onClick={() => dispatch({ type: "DISMISS", source: "close" })}
+                onClick={() => dispatch({ type: "DISMISS" })}
               >
                 <XIcon className="size-5" />
               </button>
@@ -1552,11 +1527,10 @@ export function AmapCampusPrototype({
                 return (
                   <button
                     key={facility.id}
+                    data-return-result={facility.id}
                     type="button"
                     className="flex min-h-16 w-full items-center gap-3 border-b border-black/8 py-3 text-left"
-                    onClick={(event) =>
-                      selectFacility(facility, "category", event.currentTarget)
-                    }
+                    onClick={() => selectFacility(facility, "category")}
                   >
                     <span
                       className="grid size-9 shrink-0 place-items-center rounded-full text-white"
@@ -1744,15 +1718,10 @@ export function AmapCampusPrototype({
                         return (
                           <button
                             key={facility.id}
+                            data-return-result={facility.id}
                             type="button"
                             className="flex w-full items-center gap-3 py-3 text-left hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#176346]"
-                            onClick={(event) =>
-                              selectFacility(
-                                facility,
-                                "building",
-                                event.currentTarget,
-                              )
-                            }
+                            onClick={() => selectFacility(facility, "building")}
                           >
                             <span
                               className="grid size-9 shrink-0 place-items-center rounded-full text-white"

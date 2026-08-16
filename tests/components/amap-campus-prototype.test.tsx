@@ -312,6 +312,20 @@ describe("AmapCampusPrototype", () => {
     );
   });
 
+  it("returns focus to the map when dismissing a non-search selection", async () => {
+    render(
+      <AmapCampusPrototype initialSearch="?v=1&scene=building&id=science-centre&snap=peek" />,
+    );
+    await screen.findByRole("heading", { name: "科学馆" });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        document.querySelector("#amap-campus-canvas"),
+      );
+    });
+  });
+
   it("writes one history entry per selection in Strict Mode", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
@@ -333,6 +347,34 @@ describe("AmapCampusPrototype", () => {
     expect(
       await screen.findByRole("button", { name: /科学馆/ }),
     ).not.toBeNull();
+  });
+
+  it("preserves a typed word separator for multi-token facility search", async () => {
+    render(<AmapCampusPrototype initialSearch="?v=1" />);
+    const search = screen.getByPlaceholderText("搜索建筑");
+
+    fireEvent.change(search, { target: { value: "大学图书馆" } });
+    fireEvent.change(search, { target: { value: "大学图书馆 " } });
+    expect((search as HTMLInputElement).value).toBe("大学图书馆 ");
+    fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
+
+    expect(
+      await screen.findByRole("button", { name: /大学图书馆.*饮水机/ }),
+    ).not.toBeNull();
+  });
+
+  it("dismisses search results with Escape", async () => {
+    render(<AmapCampusPrototype initialSearch="?v=1" />);
+    const search = screen.getByPlaceholderText("搜索建筑");
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    expect(
+      await screen.findByRole("button", { name: /科学馆/ }),
+    ).not.toBeNull();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => expect((search as HTMLInputElement).value).toBe(""));
+    expect(window.location.search).toBe("?v=1");
   });
 
   it("opens a facility search result at the same canonical facility URL", async () => {

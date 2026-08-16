@@ -1,4 +1,4 @@
-import type { CameraReason } from "./camera-policy";
+import type { CameraReason, ScreenRect } from "./camera-policy";
 import {
   decodeCampusMapHistoryMetadata,
   decodeCampusMapUrl,
@@ -11,20 +11,35 @@ import {
   type CampusMapEvent,
   type CampusMapFocusCommand,
   type CampusMapSceneCatalog,
+  type CampusMapSceneCommands,
   type CampusMapSession,
 } from "./scene-kernel";
 import { resolveCampusMapSessionSemantics } from "./scene-semantics";
 import type {
   CampusMapCameraCommand,
   CampusMapOverlayCommand,
-  CampusMapSessionTransition,
 } from "./map-session";
 
 export type CampusMapDriverIntent =
   | CampusMapEvent
   | { type: "NAVIGATE_BACK" }
-  | { type: "DISMISS"; source: "close" | "escape" | "map" }
+  | { type: "DISMISS" }
+  | {
+      type: "FIT_CLUSTER";
+      positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
+    }
   | { type: "REFRAME"; reason: CameraReason };
+
+export type CampusMapDriverCameraCommand =
+  | CampusMapCameraCommand
+  | {
+      kind: "fit";
+      positions: ReadonlyArray<readonly [longitude: number, latitude: number]>;
+    };
+
+export type CampusMapDriverFocusCommand =
+  | CampusMapFocusCommand
+  | { kind: "result"; resultId: string };
 
 export type CampusMapSheetCommand =
   | { kind: "hide" }
@@ -57,11 +72,11 @@ export interface CampusMapSceneDriverPorts {
     search(): string;
   };
   camera(
-    command: CampusMapCameraCommand,
+    command: CampusMapDriverCameraCommand,
     context: CampusMapDriverEffectContext,
   ): void;
   focus(
-    command: CampusMapFocusCommand,
+    command: CampusMapDriverFocusCommand,
     context: CampusMapDriverEffectContext,
   ): void;
   overlay(
@@ -74,7 +89,16 @@ export interface CampusMapSceneDriverPorts {
   ): void;
 }
 
-type HistoryCommand = CampusMapSessionTransition["history"] | null;
+interface CampusMapDriverCommit {
+  session: CampusMapSession;
+  returnTo: CampusMapSession | null;
+  commands: Omit<CampusMapSceneCommands, "camera" | "focus"> & {
+    camera: CampusMapDriverCameraCommand | null;
+    focus: CampusMapDriverFocusCommand | null;
+  };
+  syncSheet: boolean;
+  bumpToken?: boolean;
+}
 
 function sheetCommand(session: CampusMapSession): CampusMapSheetCommand {
   if (session.mode === "task") return { kind: "hide" };
@@ -113,7 +137,9 @@ function returnTargetFor(
 
 export class CampusMapSceneDriver {
   private currentDepth = 0;
+  private lastSheetRect: ScreenRect | null = null;
   private started = false;
+  private suppressNextSheetReframe = false;
   private snapshot: CampusMapDriverSnapshot;
   private readonly listeners = new Set<() => void>();
   private readonly returnTargetsByDepth = new Map<
@@ -125,15 +151,14 @@ export class CampusMapSceneDriver {
     private readonly catalog: CampusMapSceneCatalog,
     private readonly ports: CampusMapSceneDriverPorts,
     initialSearch = ports.location.search(),
-    initialReturnTo: CampusMapSession | null = null,
   ) {
     const decoded = decodeCampusMapUrl(initialSearch, catalog);
     this.snapshot = {
       session: decoded.session,
-      returnTo: initialReturnTo,
+      returnTo: null,
       transitionToken: 0,
     };
-    this.returnTargetsByDepth.set(0, initialReturnTo);
+    this.returnTargetsByDepth.set(0, null);
   }
 
   getSnapshot = () => this.snapshot;
@@ -161,16 +186,19 @@ export class CampusMapSceneDriver {
     if (intent.type === "NAVIGATE_BACK") return this.navigateBack();
     if (intent.type === "DISMISS") {
       const target = this.snapshot.returnTo ?? EMPTY_CAMPUS_MAP_SCENE_SESSION;
-      return this.accept(
-        target,
-        null,
-        "replace",
-        { kind: "cancel" },
-        { kind: "map" },
-        { kind: "close-external" },
-        true,
-      );
+      return this.commitTransition({
+        session: target,
+        returnTo: null,
+        commands: {
+          history: "replace",
+          camera: { kind: "cancel" },
+          focus: this.dismissFocus(target),
+          overlay: { kind: "close-external" },
+        },
+        syncSheet: true,
+      });
     }
+    if (intent.type === "FIT_CLUSTER") return this.fitCluster(intent.positions);
     if (intent.type === "REFRAME") return this.reframe(intent.reason);
     return this.applyKernelEvent(
       intent,
@@ -188,21 +216,38 @@ export class CampusMapSceneDriver {
       this.catalog,
     );
     const returnTo = this.returnTargetsByDepth.get(this.currentDepth) ?? null;
-    return this.accept(
-      result.session,
+    return this.commitTransition({
+      session: result.session,
       returnTo,
-      null,
-      result.commands.camera,
-      result.commands.focus,
-      result.commands.overlay,
-      true,
-    );
+      commands: result.commands,
+      syncSheet: true,
+    });
   }
 
   interruptCamera() {
     this.bumpToken();
     const context = this.effectContext();
     this.ports.camera({ kind: "cancel" }, context);
+  }
+
+  updateSheetGeometry(nextRect: ScreenRect | null) {
+    const previousRect = this.lastSheetRect;
+    this.lastSheetRect = nextRect;
+    if (this.suppressNextSheetReframe) {
+      this.suppressNextSheetReframe = false;
+      return this.snapshot;
+    }
+    if (
+      !previousRect ||
+      !nextRect ||
+      (previousRect.top === nextRect.top &&
+        previousRect.right === nextRect.right &&
+        previousRect.bottom === nextRect.bottom &&
+        previousRect.left === nextRect.left)
+    ) {
+      return this.snapshot;
+    }
+    return this.reframe("sheet-layout");
   }
 
   private applyKernelEvent(
@@ -223,38 +268,38 @@ export class CampusMapSceneDriver {
     ) {
       return result;
     }
-    return this.accept(
-      result.session,
-      nextReturnTo === undefined ? this.snapshot.returnTo : nextReturnTo,
-      result.commands.history,
-      result.commands.camera,
-      result.commands.focus,
-      result.commands.overlay,
-      result.session !== this.snapshot.session,
-    );
+    return this.commitTransition({
+      session: result.session,
+      returnTo:
+        nextReturnTo === undefined ? this.snapshot.returnTo : nextReturnTo,
+      commands: result.commands,
+      syncSheet: result.session !== this.snapshot.session,
+    });
   }
 
   private navigateBack() {
     this.bumpToken();
     if (this.currentDepth > 0) {
-      this.ports.camera({ kind: "cancel" }, this.effectContext());
       this.ports.history.back();
       return { status: "travelled" as const };
     }
 
     const fallback = this.fallbackFor(this.snapshot.session);
-    return this.accept(
-      fallback,
-      null,
-      "back-or-push",
-      { kind: "cancel" },
-      fallback.mode === "browse" && fallback.scene.kind === "building"
-        ? { kind: "heading" }
-        : { kind: "map" },
-      { kind: "close-external" },
-      true,
-      false,
-    );
+    return this.commitTransition({
+      session: fallback,
+      returnTo: null,
+      commands: {
+        history: "back-or-push",
+        camera: { kind: "cancel" },
+        focus:
+          fallback.mode === "browse" && fallback.scene.kind === "building"
+            ? { kind: "heading" }
+            : { kind: "map" },
+        overlay: { kind: "close-external" },
+      },
+      syncSheet: true,
+      bumpToken: false,
+    });
   }
 
   private fallbackFor(session: CampusMapSession): CampusMapSession {
@@ -293,19 +338,48 @@ export class CampusMapSceneDriver {
     return this.snapshot;
   }
 
-  private accept(
-    session: CampusMapSession,
-    returnTo: CampusMapSession | null,
-    history: HistoryCommand,
-    camera: CampusMapCameraCommand | null,
-    focus: CampusMapFocusCommand | null,
-    overlay: CampusMapOverlayCommand | null,
-    syncSheet: boolean,
-    bumpToken = true,
+  private fitCluster(
+    positions: ReadonlyArray<readonly [longitude: number, latitude: number]>,
   ) {
+    if (positions.length === 0) return this.snapshot;
+    this.bumpToken();
+    this.ports.camera({ kind: "fit", positions }, this.effectContext());
+    return this.snapshot;
+  }
+
+  private dismissFocus(target: CampusMapSession): CampusMapDriverFocusCommand {
+    const current = this.snapshot.session;
+    if (current.mode === "browse" && target.mode === "browse") {
+      const resultId =
+        current.scene.kind === "building"
+          ? current.scene.buildingId
+          : current.scene.kind === "facility"
+            ? current.scene.facilityId
+            : current.scene.kind === "content"
+              ? current.scene.contentId
+              : null;
+      if (
+        resultId &&
+        (target.scene.kind === "search-results" ||
+          target.scene.kind === "category-results" ||
+          target.scene.kind === "building")
+      ) {
+        return { kind: "result", resultId };
+      }
+    }
+    const resolved = resolveCampusMapSessionSemantics(target, this.catalog);
+    return resolved.status === "valid" ? resolved.focus : { kind: "map" };
+  }
+
+  private commitTransition({
+    session,
+    returnTo,
+    commands: { history, camera, focus, overlay },
+    syncSheet,
+    bumpToken = true,
+  }: CampusMapDriverCommit) {
     if (bumpToken) this.bumpToken();
     if (history === "back-or-push" && this.currentDepth > 0) {
-      this.ports.camera({ kind: "cancel" }, this.effectContext());
       this.ports.history.back();
       return { status: "travelled" as const };
     }
@@ -338,6 +412,9 @@ export class CampusMapSceneDriver {
 
     for (const listener of this.listeners) listener();
     const context = this.effectContext();
+    if (syncSheet && camera?.kind === "focus") {
+      this.suppressNextSheetReframe = true;
+    }
     if (camera) this.ports.camera(camera, context);
     if (focus) this.ports.focus(focus, context);
     if (overlay) this.ports.overlay(overlay, context);

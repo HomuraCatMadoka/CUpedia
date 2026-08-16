@@ -157,7 +157,10 @@ export function resolveCampusMapSessionSemantics(
     };
   }
   if (scene.kind === "search-results") {
-    if (scene.query !== scene.query.trim() || scene.query.length === 0) {
+    if (
+      scene.query !== scene.query.trimStart() ||
+      scene.query.trim().length === 0
+    ) {
       return { status: "invalid", reason: "invalid-query" };
     }
     return {

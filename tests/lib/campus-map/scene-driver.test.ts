@@ -152,11 +152,13 @@ describe("CampusMapSceneDriver", () => {
       source: "map",
     });
     vi.mocked(navigated.history.pushState).mockClear();
+    vi.mocked(navigated.ports.camera).mockClear();
 
     navigated.driver.dispatch({ type: "NAVIGATE_BACK" });
 
     expect(navigated.history.back).toHaveBeenCalledTimes(1);
     expect(navigated.history.pushState).not.toHaveBeenCalled();
+    expect(navigated.ports.camera).not.toHaveBeenCalled();
 
     const direct = harness("?v=1&scene=facility&id=fountain&snap=peek");
     direct.driver.dispatch({ type: "NAVIGATE_BACK" });
@@ -173,19 +175,17 @@ describe("CampusMapSceneDriver", () => {
     expect(direct.history.pushState).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps X and Escape dismissal independent from Back", () => {
-    for (const source of ["close", "escape"] as const) {
-      const runtime = harness("?v=1&scene=facility&id=fountain&snap=peek");
+  it.each(["X", "Escape"])("keeps %s dismissal independent from Back", () => {
+    const runtime = harness("?v=1&scene=facility&id=fountain&snap=peek");
 
-      runtime.driver.dispatch({ type: "DISMISS", source });
+    runtime.driver.dispatch({ type: "DISMISS" });
 
-      expect(runtime.history.back).not.toHaveBeenCalled();
-      expect(runtime.driver.getSnapshot().session).toEqual({
-        mode: "browse",
-        scene: { kind: "map" },
-      });
-      expect(runtime.history.replaceState).toHaveBeenCalledTimes(1);
-    }
+    expect(runtime.history.back).not.toHaveBeenCalled();
+    expect(runtime.driver.getSnapshot().session).toEqual({
+      mode: "browse",
+      scene: { kind: "map" },
+    });
+    expect(runtime.history.replaceState).toHaveBeenCalledTimes(1);
   });
 
   it("returns a searched facility to its query and uses the search camera reason", () => {
@@ -214,7 +214,7 @@ describe("CampusMapSceneDriver", () => {
       expect.objectContaining({ token: 2 }),
     );
 
-    runtime.driver.dispatch({ type: "DISMISS", source: "close" });
+    runtime.driver.dispatch({ type: "DISMISS" });
     expect(runtime.driver.getSnapshot().session).toEqual({
       mode: "browse",
       scene: {
@@ -223,6 +223,34 @@ describe("CampusMapSceneDriver", () => {
         snap: "peek",
       },
     });
+    expect(runtime.ports.focus).toHaveBeenLastCalledWith(
+      { kind: "result", resultId: "fountain" },
+      expect.any(Object),
+    );
+  });
+
+  it("routes a cluster fit through one driver camera command", () => {
+    const runtime = harness();
+
+    runtime.driver.dispatch({
+      type: "FIT_CLUSTER",
+      positions: [
+        [114.2, 22.4],
+        [114.21, 22.41],
+      ],
+    });
+
+    expect(runtime.ports.camera).toHaveBeenCalledTimes(1);
+    expect(runtime.ports.camera).toHaveBeenCalledWith(
+      {
+        kind: "fit",
+        positions: [
+          [114.2, 22.4],
+          [114.21, 22.41],
+        ],
+      },
+      expect.any(Object),
+    );
   });
 
   it("keeps repeated intent idempotent without changing the return target or replaying effects", () => {

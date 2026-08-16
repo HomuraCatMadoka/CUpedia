@@ -238,8 +238,10 @@ export function decodeCampusMapUrl(
     if (!hasOnlyUrlKeys(params, ["v", "scene", "q", "snap"])) {
       return fallback("conflicting-fields");
     }
-    const query = params.get("q")?.trim();
-    if (!query) return fallback("invalid-scene");
+    const query = params.get("q");
+    if (!query || query !== query.trimStart() || query.trim().length === 0) {
+      return fallback("invalid-scene");
+    }
     session = {
       mode: "browse",
       scene: { kind: "search-results", query, snap: panelSnap },
