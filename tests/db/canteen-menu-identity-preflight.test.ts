@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import v1FixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v1.json";
 import v2FixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v2.json";
+import v3FixtureMatrix from "./fixtures/canteen-menu-identity-preflight-v3.json";
 import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v2.schema.json";
 import {
   canteenMenuIdentityPreflightExitCode,
@@ -22,9 +23,28 @@ const execFileAsync = promisify(execFile);
 const validateReport = addFormats(new Ajv2020({ allErrors: true })).compile(
   reportSchema,
 );
+const migrationRequiredIdentityNames = new Set(
+  v3FixtureMatrix.migrationRequiredHistoricalIdentityNames,
+);
+const supersededParityCaseNames = new Set(
+  v3FixtureMatrix.supersededParityCases,
+);
 const fixtureMatrix = {
-  supportedHistoricalIdentities: v1FixtureMatrix.supportedHistoricalIdentities,
-  parityCases: [...v1FixtureMatrix.parityCases, ...v2FixtureMatrix.parityCases],
+  supportedHistoricalIdentities:
+    v1FixtureMatrix.supportedHistoricalIdentities.filter(
+      (identity) => !migrationRequiredIdentityNames.has(identity.name),
+    ),
+  migrationRequiredHistoricalIdentities:
+    v1FixtureMatrix.supportedHistoricalIdentities.filter((identity) =>
+      migrationRequiredIdentityNames.has(identity.name),
+    ),
+  parityCases: [
+    ...v1FixtureMatrix.parityCases.filter(
+      (matrixCase) => !supersededParityCaseNames.has(matrixCase.name),
+    ),
+    ...v2FixtureMatrix.parityCases,
+    ...v3FixtureMatrix.parityCases,
+  ],
 };
 if (requiresDb && !hasDb) {
   throw new Error(
@@ -33,7 +53,7 @@ if (requiresDb && !hasDb) {
 }
 
 describe.skipIf(!hasDb)(
-  "canteen menu identity production preflight v2 (#665)",
+  "canteen menu identity production preflight v3 (#679)",
   () => {
     let client: Client;
     let historicalFixtureSql: string;
@@ -83,6 +103,36 @@ describe.skipIf(!hasDb)(
         expect(report.checks.every((check) => check.status === "pass")).toBe(
           true,
         );
+      },
+    );
+
+    it.each(fixtureMatrix.migrationRequiredHistoricalIdentities)(
+      "rejects migration-required historical identity: $name",
+      async (identity) => {
+        const fixture = await createFixture();
+        const sourceId = await insertSource(fixture, {
+          provider: identity.provider,
+          externalOwnerId: identity.externalOwnerId ?? undefined,
+          externalStoreId: identity.externalStoreId,
+        });
+        await insertItem(fixture, {
+          menuSourceId: sourceId,
+          externalSource: identity.externalSource,
+          externalKey: identity.externalKey,
+          externalProductId: identity.externalProductId,
+        });
+
+        const report = await runCanteenMenuIdentityPreflight(client, {
+          schema: fixture.schema,
+          applicationCommit: "0123456789abcdef",
+          generatedAt: new Date("2026-08-14T08:00:00.000Z"),
+        });
+
+        expect(report.resultCode).toBe("PREFLIGHT_UNSAFE");
+        expect(check(report, "ROLLOUT_SHADOW_MISMATCH")).toMatchObject({
+          status: "fail",
+          count: 1,
+        });
       },
     );
 
@@ -479,7 +529,7 @@ describe.skipIf(!hasDb)(
       ]);
       expect(passing).toMatchObject({
         schemaVersion: "canteen-menu-identity-preflight-report/v2",
-        contractVersion: "canteen-menu-identity-preconditions/v2",
+        contractVersion: "canteen-menu-identity-preconditions/v3",
         targetIssue: 643,
         applicationCommit: "0123456789abcdef",
         generatedAt: "2026-08-14T08:00:00.000Z",

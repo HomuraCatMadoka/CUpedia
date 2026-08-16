@@ -1,0 +1,50 @@
+{
+  "contractVersion": "canteen-menu-identity-preconditions/v3",
+  "targetIssue": 643,
+  "mandatoryParityInput": true,
+  "fixtureSchema": "canteen-menu-identity-history-0081.sql",
+  "extends": "canteen-menu-identity-preflight-v2.json",
+  "migrationRequiredHistoricalIdentityNames": [
+    "aigens order-place scalar period",
+    "aigens historical period marker",
+    "aigens current writer rollout key"
+  ],
+  "supersededParityCases": ["supported historical identity"],
+  "parityCases": [
+    {
+      "name": "Aigens period-scoped identity requires audited transition",
+      "canteens": ["canteen-a"],
+      "sources": [
+        {
+          "key": "source-a",
+          "canteen": "canteen-a",
+          "provider": "aigens",
+          "externalOwnerId": null,
+          "externalStoreId": "store-a"
+        }
+      ],
+      "items": [
+        {
+          "key": "item-a",
+          "canteen": "canteen-a",
+          "source": "source-a",
+          "externalProductId": "product-42#offering-period=lunch",
+          "externalSource": "order-place:store-a",
+          "externalKey": "product-42:lunch",
+          "voteCount": 0,
+          "commentCount": 0
+        }
+      ],
+      "expected": {
+        "resultCode": "PREFLIGHT_UNSAFE",
+        "failedChecks": {
+          "ROLLOUT_SHADOW_MISMATCH": {
+            "count": 1,
+            "voteCount": 0,
+            "commentCount": 0
+          }
+        }
+      }
+    }
+  ]
+}
