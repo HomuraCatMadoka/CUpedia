@@ -13,6 +13,8 @@ import type {
 } from "@/lib/campus-map/scene-kernel";
 import { EMPTY_CAMPUS_MAP_SCENE_SESSION } from "@/lib/campus-map/scene-kernel";
 
+import { buildNonCanonicalCampusMapIdentityCases } from "./canonical-id-fixtures";
+
 const catalog: CampusMapSceneCatalog = {
   categories: ["water", "classroom"],
   buildings: { science: { floorIds: ["G", "1", "4"] } },
@@ -51,161 +53,9 @@ describe("Campus Map versioned scene codec", () => {
     });
   });
 
-  it.each([
-    [
-      "category ID",
-      { ...catalog, categories: [" water "] },
-      {
-        mode: "browse",
-        scene: {
-          kind: "category-results",
-          category: " water ",
-          snap: "peek",
-        },
-      },
-    ],
-    [
-      "empty category ID",
-      { ...catalog, categories: [""] },
-      {
-        mode: "browse",
-        scene: { kind: "category-results", category: "", snap: "peek" },
-      },
-    ],
-    [
-      "building ID",
-      { ...catalog, buildings: { " science ": { floorIds: ["1"] } } },
-      {
-        mode: "browse",
-        scene: {
-          kind: "building",
-          buildingId: " science ",
-          floorId: null,
-          snap: "peek",
-        },
-      },
-    ],
-    [
-      "floor ID",
-      { ...catalog, buildings: { science: { floorIds: [" 4 "] } } },
-      {
-        mode: "browse",
-        scene: {
-          kind: "building",
-          buildingId: "science",
-          floorId: " 4 ",
-          snap: "peek",
-        },
-      },
-    ],
-    [
-      "facility ID",
-      {
-        ...catalog,
-        facilities: {
-          " fountain ": {
-            buildingId: "science",
-            floorId: "1",
-            category: "water",
-          },
-        },
-      },
-      {
-        mode: "browse",
-        scene: { kind: "facility", facilityId: " fountain ", snap: "peek" },
-      },
-    ],
-    [
-      "content ID",
-      {
-        ...catalog,
-        contents: {
-          " room401 ": {
-            buildingId: "science",
-            floorId: "4",
-            category: "classroom",
-            kind: "room",
-          },
-        },
-      },
-      {
-        mode: "browse",
-        scene: { kind: "content", contentId: " room401 ", snap: "full" },
-      },
-    ],
-    [
-      "facility building relation",
-      {
-        ...catalog,
-        buildings: { " science ": { floorIds: ["1"] } },
-        facilities: {
-          fountain: {
-            buildingId: " science ",
-            floorId: "1",
-            category: "water",
-          },
-        },
-      },
-      {
-        mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
-      },
-    ],
-    [
-      "facility floor relation",
-      {
-        ...catalog,
-        buildings: { science: { floorIds: [" 1 "] } },
-        facilities: {
-          fountain: {
-            buildingId: "science",
-            floorId: " 1 ",
-            category: "water",
-          },
-        },
-      },
-      {
-        mode: "browse",
-        scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
-      },
-    ],
-    [
-      "content category relation",
-      {
-        ...catalog,
-        categories: [" classroom "],
-        contents: {
-          room401: {
-            buildingId: "science",
-            floorId: "4",
-            category: " classroom ",
-            kind: "room",
-          },
-        },
-      },
-      {
-        mode: "browse",
-        scene: { kind: "content", contentId: "room401", snap: "full" },
-      },
-    ],
-    [
-      "task anchor ID",
-      { ...catalog, buildings: { " science ": { floorIds: ["1"] } } },
-      {
-        mode: "task",
-        task: {
-          kind: "create",
-          anchor: { kind: "building", buildingId: " science " },
-        },
-      },
-    ],
-  ] satisfies readonly (readonly [
-    string,
-    CampusMapSceneCatalog,
-    CampusMapSession,
-  ])[])(
-    "falls back consistently for a non-canonical $0",
-    (_label, nonCanonicalCatalog, session) => {
+  it.each(buildNonCanonicalCampusMapIdentityCases(catalog))(
+    "falls back consistently for a non-canonical $label",
+    ({ catalog: nonCanonicalCatalog, session }) => {
       const normalized = normalizeCampusMapUrlSession(
         session,
         nonCanonicalCatalog,
