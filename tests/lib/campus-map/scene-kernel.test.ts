@@ -9,6 +9,8 @@ import {
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
 
+import { buildNonCanonicalCampusMapIdentityCases } from "./canonical-id-fixtures";
+
 const catalog: CampusMapSceneCatalog = {
   categories: ["water", "classroom"],
   buildings: {
@@ -158,6 +160,41 @@ describe("Campus Map canonical scene transition", () => {
       },
     });
   });
+
+  it("rejects rather than trims a non-canonical provider POI identity", () => {
+    expect(
+      transitionCampusMapSession(
+        EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        {
+          type: "OPEN_PROVIDER_POI",
+          providerPoiId: " external ",
+          name: "External",
+          position: [114.2, 22.4],
+        },
+        catalog,
+      ),
+    ).toEqual({
+      status: "rejected",
+      reason: "invalid-provider-poi",
+      session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+      commands: {
+        history: null,
+        camera: null,
+        focus: null,
+        overlay: null,
+      },
+    });
+  });
+
+  it.each(buildNonCanonicalCampusMapIdentityCases(catalog))(
+    "rejects a non-canonical $label at the semantics/catalog boundary",
+    ({ catalog: invalidCatalog, session, reason }) => {
+      expect(resolveCampusMapScene(session, invalidCatalog)).toEqual({
+        status: "invalid",
+        reason,
+      });
+    },
+  );
 
   it.each(["toString", "constructor", "__proto__"])(
     "rejects inherited catalog key %s as an unknown building event",

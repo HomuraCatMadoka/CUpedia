@@ -101,4 +101,7 @@ returnable while switching result filters replaces the current entry.
     The transition and codec modules consume that projection instead of
     re-deriving scene meaning independently. Catalog entity IDs must be own
     properties so untrusted deep-link IDs cannot resolve through the object
-    prototype; JSON-shaped entity values are checked for required fields.
+    prototype; JSON-shaped entity values are checked for required fields. Every
+    catalog, relationship, session, and task-anchor ID is canonical only when it
+    is a non-empty string equal to its trimmed value. Non-canonical identities
+    are rejected or fall back; codecs never trim them into a different identity.

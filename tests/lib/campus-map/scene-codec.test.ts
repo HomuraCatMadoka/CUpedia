@@ -13,6 +13,8 @@ import type {
 } from "@/lib/campus-map/scene-kernel";
 import { EMPTY_CAMPUS_MAP_SCENE_SESSION } from "@/lib/campus-map/scene-kernel";
 
+import { buildNonCanonicalCampusMapIdentityCases } from "./canonical-id-fixtures";
+
 const catalog: CampusMapSceneCatalog = {
   categories: ["water", "classroom"],
   buildings: { science: { floorIds: ["G", "1", "4"] } },
@@ -50,6 +52,24 @@ describe("Campus Map versioned scene codec", () => {
       session,
     });
   });
+
+  it.each(buildNonCanonicalCampusMapIdentityCases(catalog))(
+    "falls back consistently for a non-canonical $label",
+    ({ catalog: nonCanonicalCatalog, session }) => {
+      const normalized = normalizeCampusMapUrlSession(
+        session,
+        nonCanonicalCatalog,
+      );
+      const encoded = encodeCampusMapUrl(session, nonCanonicalCatalog);
+
+      expect(normalized).toEqual(EMPTY_CAMPUS_MAP_SCENE_SESSION);
+      expect(encoded.toString()).toBe("v=1");
+      expect(decodeCampusMapUrl(encoded, nonCanonicalCatalog)).toEqual({
+        status: "decoded",
+        session: normalized,
+      });
+    },
+  );
 
   it.each([
     [EMPTY_CAMPUS_MAP_SCENE_SESSION, "v=1", EMPTY_CAMPUS_MAP_SCENE_SESSION],
@@ -205,6 +225,24 @@ describe("Campus Map versioned scene codec", () => {
       reason: "conflicting-fields",
     });
   });
+
+  it.each([
+    "v=1&scene=category&id=%20water%20&snap=peek",
+    "v=1&scene=building&id=%20science%20&snap=peek",
+    "v=1&scene=building&id=science&floor=%204%20&snap=peek",
+    "v=1&scene=facility&id=%20fountain%20&snap=peek",
+    "v=1&scene=content&id=%20room401%20&snap=full",
+    "v=1&task=create&anchor=building&id=%20science%20",
+  ])(
+    "falls back instead of trimming a non-canonical URL identity: %s",
+    (input) => {
+      expect(decodeCampusMapUrl(input, catalog)).toEqual({
+        status: "fallback",
+        session: EMPTY_CAMPUS_MAP_SCENE_SESSION,
+        reason: "invalid-identity",
+      });
+    },
+  );
 
   it.each(["toString", "constructor", "__proto__"])(
     "treats inherited catalog key %s as an unknown deep-link entity",

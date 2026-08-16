@@ -4,6 +4,7 @@ import {
   type CampusMapSession,
 } from "./scene-kernel";
 import {
+  isCanonicalCampusMapId,
   resolveCampusMapSessionSemantics,
   type PersistableCampusMapSession,
 } from "./scene-semantics";
@@ -210,16 +211,21 @@ export function decodeCampusMapUrl(
         mode: "task",
         task: { kind: "create", anchor: { kind: "map" } },
       };
-    } else if (anchor === "building" && params.get("id")?.trim()) {
+    } else if (
+      anchor === "building" &&
+      isCanonicalCampusMapId(params.get("id"))
+    ) {
       session = {
         mode: "task",
         task: {
           kind: "create",
-          anchor: { kind: "building", buildingId: params.get("id")!.trim() },
+          anchor: { kind: "building", buildingId: params.get("id")! },
         },
       };
     } else {
-      return fallback("invalid-task");
+      return fallback(
+        anchor === "building" ? "invalid-identity" : "invalid-task",
+      );
     }
     return validSession(session, catalog)
       ? { status: "decoded", session }
@@ -242,8 +248,10 @@ export function decodeCampusMapUrl(
     if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "snap"])) {
       return fallback("conflicting-fields");
     }
-    const category = params.get("id")?.trim();
-    if (!category) return fallback("invalid-scene");
+    const category = params.get("id");
+    if (!isCanonicalCampusMapId(category)) {
+      return fallback("invalid-identity");
+    }
     session = {
       mode: "browse",
       scene: { kind: "category-results", category, snap: panelSnap },
@@ -252,9 +260,14 @@ export function decodeCampusMapUrl(
     if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "floor", "snap"])) {
       return fallback("conflicting-fields");
     }
-    const buildingId = params.get("id")?.trim();
-    const floorId = params.get("floor")?.trim() || null;
-    if (!buildingId) return fallback("invalid-scene");
+    const buildingId = params.get("id");
+    const floorId = params.get("floor");
+    if (
+      !isCanonicalCampusMapId(buildingId) ||
+      (floorId !== null && !isCanonicalCampusMapId(floorId))
+    ) {
+      return fallback("invalid-identity");
+    }
     session = {
       mode: "browse",
       scene: { kind: "building", buildingId, floorId, snap: panelSnap },
@@ -266,8 +279,10 @@ export function decodeCampusMapUrl(
     if (!hasOnlyUrlKeys(params, ["v", "scene", "id", "snap"])) {
       return fallback("conflicting-fields");
     }
-    const id = params.get("id")?.trim();
-    if (!id) return fallback("invalid-scene");
+    const id = params.get("id");
+    if (!isCanonicalCampusMapId(id)) {
+      return fallback("invalid-identity");
+    }
     session =
       sceneKind === "facility"
         ? {
