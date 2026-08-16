@@ -13,8 +13,14 @@ export type WikiPageMove =
   | { direction: "up" | "down" }
   | { targetPageId: string; placement: "before" | "after" };
 
-export type WikiSiblingReorderResult<T> =
-  | { status: "moved"; siblings: T[] }
+export type WikiSiblingReorderResult<
+  T extends { id: string; sortOrder: number },
+> =
+  | {
+      status: "moved";
+      siblings: T[];
+      updates: { id: T["id"]; sortOrder: T["sortOrder"] }[];
+    }
   | { status: "unchanged" }
   | { status: "source-not-found" }
   | { status: "target-not-found" };
@@ -126,12 +132,26 @@ export function reorderWikiSiblings<
   if (targetIndex < 0) return { status: "target-not-found" };
   reordered.splice(targetIndex + (placement === "after" ? 1 : 0), 0, source);
 
+  if (reordered.every((sibling, index) => sibling.id === siblings[index].id)) {
+    return { status: "unchanged" };
+  }
+
+  const previousSortOrders = new Map(
+    siblings.map((sibling) => [sibling.id, sibling.sortOrder]),
+  );
+  const nextSiblings = reordered.map((sibling, sortOrder) => ({
+    ...sibling,
+    sortOrder,
+  }));
+
   return {
     status: "moved",
-    siblings: reordered.map((sibling, sortOrder) => ({
-      ...sibling,
-      sortOrder,
-    })),
+    siblings: nextSiblings,
+    updates: nextSiblings
+      .filter(
+        (sibling) => previousSortOrders.get(sibling.id) !== sibling.sortOrder,
+      )
+      .map(({ id, sortOrder }) => ({ id, sortOrder })),
   };
 }
 

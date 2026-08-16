@@ -1459,7 +1459,7 @@ test.describe("mobile wiki editing", () => {
     page,
   }) => {
     await page.goto(`/wiki/${PAGE_IDS.richContent}`);
-    const editor = page.locator('[data-slate-editor="true"]').first();
+    const editor = await waitForHydratedWikiEditor(page, PAGE_IDS.richContent);
     await editor.click();
     const cell = editor.locator("td").filter({ hasText: "CSCI1130" }).first();
     await cell.getByText("CSCI1130", { exact: true }).click();
@@ -1522,7 +1522,10 @@ test.describe("mobile wiki editing", () => {
 
     try {
       await page.goto(`/wiki/${PAGE_IDS.richContent}`);
-      const editor = page.locator('[data-slate-editor="true"]');
+      const editor = await waitForHydratedWikiEditor(
+        page,
+        PAGE_IDS.richContent,
+      );
       const calloutText = editor.getByText(
         "CUpedia is maintained by students — contribute freely.",
         { exact: true },

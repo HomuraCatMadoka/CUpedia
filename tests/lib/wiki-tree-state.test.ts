@@ -49,6 +49,10 @@ describe("wiki tree mutation projection", () => {
           { id: "third", sortOrder: 1 },
           { id: "second", sortOrder: 2 },
         ],
+        updates: [
+          { id: "third", sortOrder: 1 },
+          { id: "second", sortOrder: 2 },
+        ],
       },
     );
     expect(reorderWikiSiblings(siblings, "first", { direction: "up" })).toEqual(
@@ -63,6 +67,12 @@ describe("wiki tree mutation projection", () => {
         placement: "after",
       }),
     ).toEqual({ status: "target-not-found" });
+    expect(
+      reorderWikiSiblings(siblings, "second", {
+        targetPageId: "first",
+        placement: "after",
+      }),
+    ).toEqual({ status: "unchanged" });
     expect(siblings.map((sibling) => sibling.id)).toEqual([
       "first",
       "second",

@@ -353,11 +353,10 @@ export async function reorderWikiPage(pageId: string, move: WikiPageMove) {
     }
     if (result.status === "unchanged") return;
 
-    for (const [sortOrder, sibling] of result.siblings.entries()) {
-      if (sibling.sortOrder === sortOrder) continue;
+    for (const sibling of result.updates) {
       await tx
         .update(wikiPages)
-        .set({ sortOrder })
+        .set({ sortOrder: sibling.sortOrder })
         .where(eq(wikiPages.id, sibling.id));
     }
   });
