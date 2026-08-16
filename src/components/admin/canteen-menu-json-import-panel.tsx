@@ -11,6 +11,7 @@ import type { MenuSyncPlan } from "@/lib/canteen-menu-sync";
 import { cn } from "@/lib/utils";
 
 const SAMPLE_JSON = `{
+  "snapshotCompleteness": "complete",
   "takeOverLegacyItems": false,
   "items": [
     {
@@ -40,6 +41,8 @@ function jsonImportErrorMessage(code: string): string {
     return "同一份菜单中 externalProductId 不可重复。";
   if (code === "INVALID_TAKEOVER_FLAG")
     return "takeOverLegacyItems 须为 true 或 false。";
+  if (code === "INVALID_MENU_SNAPSHOT_COMPLETENESS")
+    return 'snapshotCompleteness 须明确填写为 "complete" 或 "partial"。';
   if (code === "MENU_SYNC_CONFLICT")
     return "同步存在匹配冲突，请先处理冲突后再应用。";
   if (code === "MENU_SYNC_STALE") return "菜单已发生变化，请重新预览后再应用。";
@@ -150,7 +153,9 @@ export function CanteenMenuJsonImportPanel({
           外部菜单同步
         </h3>
         <p className="mt-1 text-xs text-[var(--canteen-muted)]">
-          粘贴完整来源快照，先预览差异，再应用同步。缺失菜品会停止供应，但不会删除历史。
+          粘贴来源快照并明确标记 complete 或
+          partial，先预览差异，再应用同步。只有 complete
+          快照中的缺失菜品会停止供应，历史不会删除。
         </p>
       </div>
 

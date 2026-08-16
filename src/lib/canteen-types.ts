@@ -219,7 +219,6 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
   const takeOverLegacyItems = record.takeOverLegacyItems === true;
   const snapshotCompleteness = parseMenuSnapshotCompleteness(
     record.snapshotCompleteness,
-    "complete",
   );
   if (!Array.isArray(record.items)) throw new Error("INVALID_MENU_SYNC");
   const rows = parseMenuItemsJson(record.items);

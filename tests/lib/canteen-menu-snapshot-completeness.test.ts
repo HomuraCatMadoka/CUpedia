@@ -22,17 +22,17 @@ describe("menu snapshot completeness", () => {
     ).not.toThrow();
   });
 
-  it("parses explicit partial input and preserves the legacy default", () => {
+  it("requires the caller to assert completeness explicitly", () => {
     const item = { externalProductId: "item-1", name: "Item 1" };
-    expect(parseMenuSnapshotCompleteness(undefined, "complete")).toBe(
-      "complete",
-    );
     expect(
       parseMenuSyncJson({ snapshotCompleteness: "partial", items: [item] }),
     ).toMatchObject({ snapshotCompleteness: "partial" });
-    expect(parseMenuSyncJson({ items: [item] })).toMatchObject({
-      snapshotCompleteness: "complete",
-    });
+    expect(() => parseMenuSyncJson({ items: [item] })).toThrow(
+      "INVALID_MENU_SNAPSHOT_COMPLETENESS",
+    );
+    expect(() => parseMenuSnapshotCompleteness(undefined)).toThrow(
+      "INVALID_MENU_SNAPSHOT_COMPLETENESS",
+    );
   });
 
   it("rejects invalid completeness instead of manufacturing complete", () => {

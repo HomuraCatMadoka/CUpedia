@@ -26,6 +26,7 @@ function existing(
 
 function input(name = "凍奶茶") {
   return parseMenuSyncJson({
+    snapshotCompleteness: "complete",
     items: [
       {
         externalProductId: "product-42",
@@ -62,6 +63,7 @@ describe("menu sync planner", () => {
 
   it("uses source plus product ID across rename and period changes", () => {
     const changed = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: "product-42",
@@ -84,6 +86,7 @@ describe("menu sync planner", () => {
 
   it("preserves a UUID when one period-scoped offering moves periods", () => {
     const changed = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: "product-42#offering-period=dinner",
@@ -116,6 +119,7 @@ describe("menu sync planner", () => {
 
   it("fails closed across an ambiguous period split", () => {
     const split = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: "product-42#offering-period=lunch",
@@ -189,6 +193,7 @@ describe("menu sync planner", () => {
 
   it("preserves the unmatched UUID after removing exact period matches", () => {
     const changed = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: "product-42#offering-period=dinner",
@@ -241,6 +246,7 @@ describe("menu sync planner", () => {
       SOURCE_ID,
       {
         ...parseMenuSyncJson({
+          snapshotCompleteness: "complete",
           items: [
             {
               externalProductId: "product-42#offering-period=dinner",
@@ -332,6 +338,7 @@ describe("menu sync planner", () => {
   it("rejects duplicate product IDs in one snapshot", () => {
     expect(() =>
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           { externalProductId: "same", name: "A" },
           { externalProductId: "same", name: "B" },

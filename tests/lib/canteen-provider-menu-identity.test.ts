@@ -224,6 +224,7 @@ describe("provider menu identity contract (#636)", () => {
       const state = canonicalizeProviderMenuState(
         provider,
         parseMenuSyncJson({
+          snapshotCompleteness: "complete",
           items: [{ externalProductId: canonical, name: "目前菜品" }],
         }),
         [persistedItem(historical[0])],
@@ -252,6 +253,7 @@ describe("provider menu identity contract (#636)", () => {
         current,
       );
       const input = parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId,
@@ -282,6 +284,7 @@ describe("provider menu identity contract (#636)", () => {
     const plan = planMenuSync(
       SOURCE_ID,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId: "42#offering-period=lunch",
@@ -322,6 +325,7 @@ describe("provider menu identity contract (#636)", () => {
       const state = canonicalizeProviderMenuState(
         provider,
         parseMenuSyncJson({
+          snapshotCompleteness: "complete",
           items: [{ externalProductId: nextIdentity, name: "真正新菜品" }],
         }),
         [persistedItem(current)],
@@ -349,6 +353,7 @@ describe("provider menu identity contract (#636)", () => {
       const state = canonicalizeProviderMenuState(
         provider,
         parseMenuSyncJson({
+          snapshotCompleteness: "complete",
           items: [{ externalProductId: current, name: "重新供應" }],
         }),
         [{ ...persistedItem(current), isAvailable: false }],

@@ -139,6 +139,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
   it("claims a legacy item and later deactivates it without losing history", async () => {
     const firstSnapshot = {
+      snapshotCompleteness: "complete" as const,
       takeOverLegacyItems: true,
       items: [
         {
@@ -179,6 +180,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     expect(activatedSource.enabled).toBe(true);
 
     const periodChangedSnapshot = {
+      snapshotCompleteness: "complete" as const,
       items: [
         {
           externalProductId: "product-42#offering-period=dinner",
@@ -234,6 +236,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     expect(preservedHistory.map(([row]) => row.value)).toEqual([1, 1]);
 
     const secondSnapshot = {
+      snapshotCompleteness: "complete" as const,
       items: [
         {
           externalProductId: "product-99#offering-period=lunch",
@@ -399,6 +402,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })
       .where(eq(canteenMenuItems.id, itemId));
     const snapshot = {
+      snapshotCompleteness: "complete" as const,
       items: [
         {
           externalProductId: "exact-product#offering-period=lunch",
@@ -481,6 +485,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       },
     ]);
     const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: nextProductId,
@@ -661,6 +666,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       isAvailable: true,
     }));
     const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: productIds.slice(0, 2).map((externalProductId, index) => ({
         externalProductId,
         name: `菜品 ${String.fromCharCode(97 + index)}`,
@@ -719,6 +725,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })
       .where(eq(canteenMenuItems.id, itemId));
     const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: nextProductId,
@@ -809,6 +816,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       amountMinor: 1000,
     });
     const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: nextProductId,
@@ -946,6 +954,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })
       .where(eq(canteenMenuItems.id, itemId));
     const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: nextProductId,
@@ -1060,6 +1069,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })
       .where(eq(canteenMenuItems.id, itemId));
     const input = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
       items: [
         {
           externalProductId: "new-product#offering-period=lunch",
@@ -1082,6 +1092,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
   it("rejects missing and stale preview tokens before writing", async () => {
     const snapshot = {
+      snapshotCompleteness: "complete" as const,
       items: [
         {
           externalProductId: "item-c#offering-period=lunch",
@@ -1127,6 +1138,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })
       .where(eq(canteenMenuItems.id, itemId));
     const splitSnapshot = {
+      snapshotCompleteness: "complete" as const,
       items: [
         {
           externalProductId: "secret-product#offering-period=lunch",

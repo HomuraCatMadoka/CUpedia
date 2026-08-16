@@ -31,9 +31,7 @@ export function assertProviderSnapshotCompleteness(
 
 export function parseMenuSnapshotCompleteness(
   input: unknown,
-  legacyDefault: MenuSnapshotCompleteness,
 ): MenuSnapshotCompleteness {
-  if (input === undefined) return legacyDefault;
   if (
     typeof input !== "string" ||
     !MENU_SNAPSHOT_COMPLETENESS.includes(input as MenuSnapshotCompleteness)

@@ -510,9 +510,10 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       overlapCount,
       newCount,
     }) => {
+      const testStoreId = `${storeId}-shape-${sourceId}`;
       await db
         .update(canteenMenuSources)
-        .set({ externalStoreId: storeId })
+        .set({ externalStoreId: testStoreId })
         .where(eq(canteenMenuSources.id, sourceId));
 
       const existingRows = Array.from(
@@ -524,7 +525,7 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
           mealPeriods: ["allday"],
           menuSourceId: sourceId,
           externalProductId: `existing-${index}`,
-          externalSource: `pinme:${storeId}`,
+          externalSource: `pinme:${testStoreId}`,
           externalKey: `existing-${index}#period=allday`,
           isAvailable: true,
         }),

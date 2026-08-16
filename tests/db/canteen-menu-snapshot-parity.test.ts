@@ -14,6 +14,7 @@ import type {
   MenuSnapshotEvaluation,
 } from "@/lib/canteen-menu-snapshot-evaluator";
 import { syncCanteenMenuSource } from "@/lib/canteen-menu-source-sync";
+import { expectedMenuSnapshotCompleteness } from "@/lib/canteen-menu-snapshot-completeness";
 import {
   applyPreviewedMenuSync,
   previewMenuSync,
@@ -66,13 +67,18 @@ function item(
 }
 
 function input(
+  provider: CanteenMenuSourceProvider,
   items: Array<{
     externalProductId: string;
     name: string;
     mealPeriods?: MealPeriodAssignment[];
   }>,
 ): MenuSyncInput {
-  return parseMenuSyncJson({ items, takeOverLegacyItems: false });
+  return parseMenuSyncJson({
+    snapshotCompleteness: expectedMenuSnapshotCompleteness(provider),
+    items,
+    takeOverLegacyItems: false,
+  });
 }
 
 const scenarios: ParityScenario[] = [
@@ -80,14 +86,16 @@ const scenarios: ParityScenario[] = [
     name: "exact update",
     provider: "pinme",
     existing: [item("exact", { name: "旧名称" })],
-    input: input([{ externalProductId: "exact", name: "新名称" }]),
+    input: input("pinme", [{ externalProductId: "exact", name: "新名称" }]),
     expectedCode: null,
   },
   {
     name: "reactivation",
     provider: "pinme",
     existing: [item("reactivate", { isAvailable: false })],
-    input: input([{ externalProductId: "reactivate", name: "恢复供应菜品" }]),
+    input: input("pinme", [
+      { externalProductId: "reactivate", name: "恢复供应菜品" },
+    ]),
     expectedCode: null,
   },
   {
@@ -103,7 +111,7 @@ const scenarios: ParityScenario[] = [
         mealPeriods: ["dinner"],
       }),
     ],
-    input: input([
+    input: input("aigens", [
       {
         externalProductId: "move#offering-period=breakfast",
         name: "移动菜品",
@@ -125,7 +133,7 @@ const scenarios: ParityScenario[] = [
         mealPeriods: ["breakfast"],
       }),
     ],
-    input: input([
+    input: input("aigens", [
       {
         externalProductId: "split#offering-period=lunch",
         name: "午餐菜品",
@@ -146,7 +154,7 @@ const scenarios: ParityScenario[] = [
       item("merge#offering-period=lunch", { mealPeriods: ["lunch"] }),
       item("merge#offering-period=dinner", { mealPeriods: ["dinner"] }),
     ],
-    input: input([
+    input: input("aigens", [
       {
         externalProductId: "merge#offering-period=breakfast",
         name: "合并菜品",
@@ -160,6 +168,7 @@ const scenarios: ParityScenario[] = [
     provider: "pinme",
     existing: ["a", "b", "c", "d"].map((id) => item(id)),
     input: input(
+      "pinme",
       ["a", "b", "c"].map((id) => ({
         externalProductId: id,
         name: `菜品 ${id}`,
@@ -168,22 +177,24 @@ const scenarios: ParityScenario[] = [
     expectedCode: null,
   },
   {
-    name: "suspicious drop",
+    name: "large partial omission",
     provider: "pinme",
     existing: ["drop-a", "drop-b", "drop-c", "drop-d"].map((id) => item(id)),
     input: input(
+      "pinme",
       ["drop-a", "drop-b"].map((id) => ({
         externalProductId: id,
         name: `菜品 ${id}`,
       })),
     ),
-    expectedCode: "MENU_SYNC_SUSPICIOUS_DROP",
+    expectedCode: null,
   },
   {
     name: "wholesale product-ID churn",
     provider: "pinme",
     existing: ["old-a", "old-b", "old-c", "old-d"].map((id) => item(id)),
     input: input(
+      "pinme",
       ["new-a", "new-b", "new-c", "new-d"].map((id) => ({
         externalProductId: id,
         name: `新菜品 ${id}`,

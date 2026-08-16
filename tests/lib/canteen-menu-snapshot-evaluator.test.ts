@@ -36,7 +36,7 @@ function snapshot(
     mealPeriods?: string[];
   }>,
 ) {
-  return parseMenuSyncJson({ items });
+  return parseMenuSyncJson({ snapshotCompleteness: "complete", items });
 }
 
 describe("menu snapshot evaluator", () => {
@@ -44,6 +44,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId: "product-42",
@@ -90,6 +91,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       { ...SOURCE, provider: "aigens" },
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId: "secret-product#offering-period=lunch",
@@ -131,6 +133,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId: "secret-new-id",
@@ -184,6 +187,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           { externalProductId: "a", name: "示例菜品 0" },
           { externalProductId: "b", name: "示例菜品 1" },
@@ -284,6 +288,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [{ externalProductId: "product-42", name: "恢复供应菜品" }],
       }),
       [
