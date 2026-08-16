@@ -31,6 +31,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
   it("keeps primary products, maps periods, and excludes generic categories", () => {
     const payload = buildShhoMenuSyncPayload(aigensCurrent);
 
+    expect(payload.snapshotCompleteness).toBe("complete");
     expect(payload.takeOverLegacyItems).toBe(false);
     expect(payload.items).toHaveLength(2);
     expect(payload.items.map((item) => item.externalProductId).sort()).toEqual([

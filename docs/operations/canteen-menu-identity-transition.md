@@ -20,12 +20,17 @@ Run:
 pnpm canteen:identity-transition:audit -- --source-id <source-uuid>
 ```
 
-The command prints a version-2 JSON draft. It contains only the source locator
+The command prints a version-3 JSON draft. It contains only the source locator
 and its non-reversible configuration fingerprint, bounded menu facts, current
 CUpedia UUIDs, before/after fingerprints, and empty decisions. It omits source
 configuration, raw provider payloads, errors, credentials, votes, comments, and
 user data. Audit generation fails closed if either side exceeds 500 identities;
 do not raise that bound without separately reviewing the provider scope.
+
+`snapshotCompleteness` is fingerprinted with the audit and incoming snapshot.
+Apply rejects a value that differs from the provider boundary. In particular,
+PinMe remains `partial` until its adapter can attest a full-catalog response; a
+reviewer cannot promote it to `complete` by editing the artifact JSON.
 
 Save the output under a reviewed operations-artifact path. The empty decision
 arrays are intentionally invalid for a non-empty diff, so generation alone can

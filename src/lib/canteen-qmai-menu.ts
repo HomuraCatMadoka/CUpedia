@@ -4,6 +4,7 @@ import {
   assertCompatibleProviderIdentityOccurrence,
   assertProviderMenuIdentityItems,
 } from "./canteen-provider-menu-identity";
+import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type {
   MealPeriodAssignment,
@@ -167,6 +168,7 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
   if (items.length === 0) throw new Error("EMPTY_QMAI_MENU");
   assertProviderMenuIdentityItems("qmai", items);
   return {
+    snapshotCompleteness: expectedMenuSnapshotCompleteness("qmai"),
     takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
   };

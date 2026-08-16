@@ -16,6 +16,15 @@ import {
   parseMealPeriod,
   primaryMealPeriodSortKey,
 } from "@/lib/canteen-meal-periods";
+import {
+  parseMenuSnapshotCompleteness,
+  type MenuSnapshotCompleteness,
+} from "./canteen-menu-snapshot-completeness";
+
+export {
+  MENU_SNAPSHOT_COMPLETENESS,
+  type MenuSnapshotCompleteness,
+} from "./canteen-menu-snapshot-completeness";
 
 export {
   MEAL_PERIODS,
@@ -140,6 +149,7 @@ export type MenuSyncItemInput = MenuItemJsonImportRow & {
 };
 
 export type MenuSyncInput = {
+  snapshotCompleteness: MenuSnapshotCompleteness;
   takeOverLegacyItems: boolean;
   items: MenuSyncItemInput[];
 };
@@ -183,7 +193,7 @@ export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
   });
 }
 
-/** Parse a complete external-source snapshot used by preview/apply sync. */
+/** Parse an external-source snapshot used by preview/apply sync. */
 export function parseMenuSyncJson(input: unknown): MenuSyncInput {
   let parsed: unknown = input;
   if (typeof input === "string") {
@@ -207,6 +217,9 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
     throw new Error("INVALID_TAKEOVER_FLAG");
   }
   const takeOverLegacyItems = record.takeOverLegacyItems === true;
+  const snapshotCompleteness = parseMenuSnapshotCompleteness(
+    record.snapshotCompleteness,
+  );
   if (!Array.isArray(record.items)) throw new Error("INVALID_MENU_SYNC");
   const rows = parseMenuItemsJson(record.items);
   const rawItems = record.items as Array<Record<string, unknown>>;
@@ -222,7 +235,7 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
     seen.add(externalProductId);
     return { ...row, externalProductId };
   });
-  return { takeOverLegacyItems, items };
+  return { snapshotCompleteness, takeOverLegacyItems, items };
 }
 
 function validateExternalIdentity(input: unknown, code: string): string {

@@ -33,7 +33,7 @@ _Avoid_: 用菜名或供应商数组顺序作为长期身份；对所有供应�
 **供应商菜单 occurrence（Provider menu occurrence）**: 供应商原始分类树中对一道 offering 的一次引用，不等于新的菜品身份。同一 PinMe product 可同时出现在推荐区和常规分类，只有名称与规范化价格选项一致时才合并餐段；同一 Aigens group 可被多个分类引用，同一 backend product + 规范化餐段会合并分类语境中的价格为带标签选项。同一 Aigens 分类标签出现不同价格属于无法表达的歧义，必须中止。适配器先在供应商边界聚合 occurrence，再对最终 offering 身份执行唯一性校验；分类选择和价格排序采用固定规则，等价 occurrence 的排列不改变快照。
 _Avoid_: 在读取分类树时立即把每个 occurrence 当成独立菜品；为消除重复而把分类加入长期身份；无条件保留第一个 occurrence 并丢弃其余价格或餐段事实。
 
-**外部菜单同步**: Admin 对已经配置的菜单来源提交含 `items[].externalProductId` 的完整来源快照，必须先 dry-run 再应用。首次可用规范化菜名 + 餐段集合接管唯一手工菜；接管只允许在该来源上成功一次。来源中消失的托管菜改为 `isAvailable = false`，不删除 UUID、投票或评论；名称、价格或餐段变化原地更新同一 UUID。周期任务只接受菜单来源 ID，并强制禁止接管。有分类时保留店家分类作 `svgKey`，不以菜名重分类。
+**外部菜单同步**: Admin 对已经配置的菜单来源提交含 `items[].externalProductId` 与快照完整性的来源快照，必须先 dry-run 再应用。首次接管只接受完整快照；完整快照中消失的托管菜改为 `isAvailable = false`，部分快照则保留未出现的托管菜不变；两者都对本次出现的稳定身份原地更新或恢复同一 UUID。周期任务只接受菜单来源 ID，并强制禁止接管。
 
 **商品身份漂移（Product identity churn）**: 同一菜单来源在相邻快照中出现一批新 product ID，同时旧 ID 消失。观察期内只记录新增、消失与疑似一换一，不自动把新 ID 继承到旧菜品；疑似换 ID 或成批漂移必须保留最近成功菜单并等待审核。
 _Avoid_: 让调用者同时传 source string 与 canteen ID；先清空菜单再导入；把普通追加导入当全量来源快照；无 dry-run 直接接管手工菜品。
@@ -47,8 +47,11 @@ _Avoid_: 常驻白名单；全局放宽 churn 阈值；无版本的生产手工�
 **菜单来源（Menu source）**: 周期性读取某个供应商门店菜单的配置、托管菜品所有权与同步状态。一个菜单来源只归属一个食堂，托管菜品通过数据库约束同时引用来源与同一食堂；同步入口只接受来源 ID，再由来源决定食堂。它标识 provider、外部门店身份及非敏感读取参数；其职责止于产生规范化菜单快照。供应商响应先经过单次同步期间的临时 provider schema，数据库只保存公开展示和稳定关联所需的字段。
 _Avoid_: 把上游完整 JSON、匿名 token、会员身份、购物车、优惠码或支付状态写入菜单来源；在页面或 cron 中直接拼供应商请求。
 
-**菜单快照（Menu snapshot）**: 某一观察时刻从菜单来源取得并通过 provider schema 校验的完整公开菜单事实。快照可因营业时段、停售或库存而变化；空响应不自动表示整店永久下架。规范化后才成为本系统的菜品与价格选项。
-_Avoid_: 把一次抓取当成供应商永久目录；闭店或上游故障时用空快照覆盖最近成功菜单。
+**菜单快照（Menu snapshot）**: 某一观察时刻从菜单来源取得并通过 provider schema 校验的公开菜单事实，以及由 provider 边界声明的快照完整性。它可以是完整目录，也可以只是当前营业时段、库存或可售范围内的子集。
+_Avoid_: 把每次抓取都称为完整快照；从条目数量、时钟或 churn 阈值猜测完整性。
+
+**快照完整性（Snapshot completeness）**: `complete` 表示本次未出现可作为停供证据；`partial` 表示未出现不是删除证据，只能更新、增加或恢复本次出现的身份。完整性由 provider 边界根据已验证的上游语义声明，PinMe `product-menus` 在没有全目录信号前属于 `partial`。
+_Avoid_: 用 `isFull` 布尔值；把 safety threshold 的结果反推为完整性；让 reconciliation 按 provider 名称分支。
 
 **点餐交接（Ordering handoff）**: 将用户交给供应商官方页面继续选择规格、使用本人优惠、创建订单并付款的稳定入口。交接保存人工确认的完整 URL 及 provider；其 mode、table、multi/location 等参数是入口身份的一部分。它与菜单来源相互独立：同一食堂可从公开 API 同步菜单，却通过品牌域名或扫码 URL 点餐。
 _Avoid_: 从 `externalStoreId` 猜点餐 URL；把 QR 图片路径当业务入口；保存带临时 session/order/token 的 URL；由 CUpedia 代理真实下单或支付。

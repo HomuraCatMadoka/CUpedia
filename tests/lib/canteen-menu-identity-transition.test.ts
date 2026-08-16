@@ -1,13 +1,42 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildMenuIdentityTransitionAudit,
+  buildMenuIdentityTransitionAudit as buildTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
   parseMenuIdentityTransitionArtifact,
-  verifyMenuIdentityTransitionArtifact,
+  verifyMenuIdentityTransitionArtifact as verifyTransitionArtifact,
 } from "@/lib/canteen-menu-identity-transition";
 import type { ExistingSyncMenuItem } from "@/lib/canteen-menu-sync";
-import type { MenuSyncItemInput } from "@/lib/canteen-types";
-import transitionFixture from "./fixtures/canteen-menu-identity-transition-v2.json";
+import type {
+  MenuSnapshotCompleteness,
+  MenuSyncItemInput,
+} from "@/lib/canteen-types";
+import transitionFixture from "./fixtures/canteen-menu-identity-transition-v3.json";
+
+function buildMenuIdentityTransitionAudit(
+  existingItems: readonly ExistingSyncMenuItem[],
+  incomingItems: readonly MenuSyncItemInput[],
+  snapshotCompleteness: MenuSnapshotCompleteness = "complete",
+) {
+  return buildTransitionAudit(existingItems, {
+    snapshotCompleteness,
+    items: [...incomingItems],
+  });
+}
+
+function verifyMenuIdentityTransitionArtifact(
+  source: Parameters<typeof verifyTransitionArtifact>[0],
+  existingItems: Parameters<typeof verifyTransitionArtifact>[1],
+  incomingItems: readonly MenuSyncItemInput[],
+  artifact: unknown,
+  snapshotCompleteness: MenuSnapshotCompleteness = "complete",
+) {
+  return verifyTransitionArtifact(
+    source,
+    existingItems,
+    { snapshotCompleteness, items: [...incomingItems] },
+    artifact,
+  );
+}
 
 function existing(
   overrides: Partial<ExistingSyncMenuItem> = {},
@@ -260,19 +289,19 @@ describe("menu identity transition audit", () => {
     expect(
       verifyMenuIdentityTransitionArtifact(
         {
-          provider: "pinme",
+          provider: "aigens",
           externalOwnerId: null,
-          externalStoreId: "4898",
+          externalStoreId: "102830",
           configurationFingerprint: "a".repeat(64),
         },
         [previous],
         [next],
         {
-          schemaVersion: 2,
+          schemaVersion: 3,
           source: {
-            provider: "pinme",
+            provider: "aigens",
             externalOwnerId: null,
-            externalStoreId: "4898",
+            externalStoreId: "102830",
             configurationFingerprint: "a".repeat(64),
           },
           audit,
@@ -314,19 +343,19 @@ describe("menu identity transition audit", () => {
     expect(() =>
       verifyMenuIdentityTransitionArtifact(
         {
-          provider: "pinme",
+          provider: "aigens",
           externalOwnerId: null,
-          externalStoreId: "4898",
+          externalStoreId: "102830",
           configurationFingerprint: "a".repeat(64),
         },
         [previous],
         [next],
         {
-          schemaVersion: 2,
+          schemaVersion: 3,
           source: {
-            provider: "pinme",
+            provider: "aigens",
             externalOwnerId: null,
-            externalStoreId: "4898",
+            externalStoreId: "102830",
             configurationFingerprint: "a".repeat(64),
           },
           audit,
@@ -354,19 +383,19 @@ describe("menu identity transition audit", () => {
     expect(() =>
       verifyMenuIdentityTransitionArtifact(
         {
-          provider: "pinme",
+          provider: "aigens",
           externalOwnerId: null,
-          externalStoreId: "4898",
+          externalStoreId: "102830",
           configurationFingerprint: "a".repeat(64),
         },
         [previous],
         [next],
         {
-          schemaVersion: 2,
+          schemaVersion: 3,
           source: {
-            provider: "pinme",
+            provider: "aigens",
             externalOwnerId: null,
-            externalStoreId: "4898",
+            externalStoreId: "102830",
             configurationFingerprint: "a".repeat(64),
           },
           audit,
@@ -394,19 +423,19 @@ describe("menu identity transition audit", () => {
     expect(() =>
       verifyMenuIdentityTransitionArtifact(
         {
-          provider: "pinme",
+          provider: "aigens",
           externalOwnerId: null,
-          externalStoreId: "4898",
+          externalStoreId: "102830",
           configurationFingerprint: "a".repeat(64),
         },
         [previous],
         [next],
         {
-          schemaVersion: 2,
+          schemaVersion: 3,
           source: {
-            provider: "pinme",
+            provider: "aigens",
             externalOwnerId: null,
-            externalStoreId: "4898",
+            externalStoreId: "102830",
             configurationFingerprint: "a".repeat(64),
           },
           audit,
@@ -437,9 +466,9 @@ describe("menu identity transition audit", () => {
     expect(() =>
       verifyMenuIdentityTransitionArtifact(
         {
-          provider: "pinme",
+          provider: "aigens",
           externalOwnerId: null,
-          externalStoreId: "4898",
+          externalStoreId: "102830",
           configurationFingerprint: "a".repeat(64),
         },
         [existing()],
@@ -499,11 +528,71 @@ describe("menu identity transition audit", () => {
     ]);
   });
 
+  it("rejects completeness that contradicts the reviewed provider", () => {
+    const artifact = parseMenuIdentityTransitionArtifact(transitionFixture);
+
+    expect(() =>
+      verifyMenuIdentityTransitionArtifact(
+        artifact.source,
+        [
+          existing({
+            id: "11111111-1111-4111-a111-111111111111",
+            name: "凍奶茶",
+            menuSourceId: "22222222-2222-4222-a222-222222222222",
+          }),
+        ],
+        [incoming({ sortOrder: 0, svgKey: "drink" })],
+        artifact,
+        "partial",
+      ),
+    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+  });
+
+  it("rejects promoting a partial PinMe snapshot to complete", () => {
+    const previous = existing();
+    const next = incoming();
+    const audit = buildMenuIdentityTransitionAudit([previous], [next]);
+
+    expect(() =>
+      verifyMenuIdentityTransitionArtifact(
+        {
+          provider: "pinme",
+          externalOwnerId: null,
+          externalStoreId: "4898",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [previous],
+        [next],
+        {
+          schemaVersion: 3,
+          source: {
+            provider: "pinme",
+            externalOwnerId: null,
+            externalStoreId: "4898",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            snapshotScope: {
+              status: "complete",
+              rationale: "Reviewer claimed a complete catalog.",
+            },
+            replacements: [],
+            additions: [],
+            removals: [],
+            ambiguities: [],
+          },
+        },
+      ),
+    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+  });
+
   it("ignores JSON object key order when verifying audit facts", () => {
     const previous = existing();
     const next = incoming();
     const audit = buildMenuIdentityTransitionAudit([previous], [next]);
     const reorderedAudit = {
+      snapshotCompleteness: audit.snapshotCompleteness,
       ambiguities: audit.ambiguities,
       removals: audit.removals,
       additions: audit.additions,
@@ -516,19 +605,19 @@ describe("menu identity transition audit", () => {
     expect(
       verifyMenuIdentityTransitionArtifact(
         {
-          provider: "pinme",
+          provider: "aigens",
           externalOwnerId: null,
-          externalStoreId: "4898",
+          externalStoreId: "102830",
           configurationFingerprint: "a".repeat(64),
         },
         [previous],
         [next],
         {
-          schemaVersion: 2,
+          schemaVersion: 3,
           source: {
-            provider: "pinme",
+            provider: "aigens",
             externalOwnerId: null,
-            externalStoreId: "4898",
+            externalStoreId: "102830",
             configurationFingerprint: "a".repeat(64),
           },
           audit: reorderedAudit,

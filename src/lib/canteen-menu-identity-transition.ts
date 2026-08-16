@@ -8,11 +8,17 @@ import type {
   ApprovedMenuIdentityReplacement,
   ExistingSyncMenuItem,
 } from "./canteen-menu-sync";
-import type {
-  MealPeriodAssignment,
-  MenuItemPriceOptionInput,
-  MenuSyncItemInput,
+import {
+  type MealPeriodAssignment,
+  type MenuItemPriceOptionInput,
+  type MenuSyncInput,
+  type MenuSyncItemInput,
 } from "./canteen-types";
+import {
+  MENU_SNAPSHOT_COMPLETENESS,
+  assertProviderSnapshotCompleteness,
+  snapshotAbsenceIsEvidence,
+} from "./canteen-menu-snapshot-completeness";
 
 export type MenuIdentityTransitionEvidence = {
   externalProductId: string;
@@ -37,6 +43,7 @@ export type MenuIdentityTransitionAmbiguity = {
 };
 
 export type MenuIdentityTransitionAudit = {
+  snapshotCompleteness: MenuSyncInput["snapshotCompleteness"];
   summary: {
     existingCount: number;
     incomingCount: number;
@@ -59,7 +66,7 @@ export type MenuIdentityTransitionAudit = {
 };
 
 export type MenuIdentityTransitionArtifact = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   source: {
     provider: CanteenMenuSourceProvider;
     externalOwnerId: string | null;
@@ -126,8 +133,9 @@ export function fingerprintMenuIdentityTransitionSource(
 /** Build a deterministic, read-only audit of identity changes. */
 export function buildMenuIdentityTransitionAudit(
   existingItems: readonly ExistingSyncMenuItem[],
-  incomingItems: readonly MenuSyncItemInput[],
+  input: Pick<MenuSyncInput, "snapshotCompleteness" | "items">,
 ): MenuIdentityTransitionAudit {
+  const incomingItems = input.items;
   if (
     existingItems.length > IDENTITY_TRANSITION_ITEM_LIMIT ||
     incomingItems.length > IDENTITY_TRANSITION_ITEM_LIMIT
@@ -153,8 +161,9 @@ export function buildMenuIdentityTransitionAudit(
       }))
       .sort((left, right) => compareProviderText(left.itemId, right.itemId)),
   );
-  const incomingFingerprint = fingerprint(
-    incomingItems
+  const incomingFingerprint = fingerprint({
+    snapshotCompleteness: input.snapshotCompleteness,
+    items: incomingItems
       .map((item) => ({
         externalProductId: item.externalProductId,
         name: item.name,
@@ -166,7 +175,7 @@ export function buildMenuIdentityTransitionAudit(
       .sort((left, right) =>
         compareProviderText(left.externalProductId, right.externalProductId),
       ),
-  );
+  });
   const activeExistingIds = new Set(
     existingItems
       .filter((item) => item.isAvailable && item.externalProductId !== null)
@@ -231,6 +240,7 @@ export function buildMenuIdentityTransitionAudit(
   }
 
   return {
+    snapshotCompleteness: input.snapshotCompleteness,
     summary: {
       existingCount: activeExistingIds.size,
       incomingCount: incoming.length,
@@ -255,12 +265,16 @@ export function buildMenuIdentityTransitionAudit(
 export function verifyMenuIdentityTransitionArtifact(
   source: MenuIdentityTransitionArtifact["source"],
   existingItems: readonly ExistingSyncMenuItem[],
-  incomingItems: readonly MenuSyncItemInput[],
+  input: Pick<MenuSyncInput, "snapshotCompleteness" | "items">,
   artifactInput: unknown,
 ): ApprovedMenuIdentityReplacement[] {
+  assertProviderSnapshotCompleteness(
+    source.provider,
+    input.snapshotCompleteness,
+  );
   const artifact = parseMenuIdentityTransitionArtifact(artifactInput);
   if (
-    artifact.schemaVersion !== 2 ||
+    artifact.schemaVersion !== 3 ||
     artifact.source.provider !== source.provider ||
     artifact.source.externalOwnerId !== source.externalOwnerId ||
     artifact.source.externalStoreId !== source.externalStoreId ||
@@ -268,10 +282,7 @@ export function verifyMenuIdentityTransitionArtifact(
   ) {
     throw new Error("MENU_IDENTITY_TRANSITION_SOURCE_MISMATCH");
   }
-  const currentAudit = buildMenuIdentityTransitionAudit(
-    existingItems,
-    incomingItems,
-  );
+  const currentAudit = buildMenuIdentityTransitionAudit(existingItems, input);
   if (
     fingerprint(canonicalJson(currentAudit)) !==
     fingerprint(canonicalJson(artifact.audit))
@@ -309,7 +320,10 @@ export function verifyMenuIdentityTransitionArtifact(
   ) {
     throw new Error("MENU_IDENTITY_TRANSITION_INVALID_DECISIONS");
   }
-  if (decisions.snapshotScope.status !== "complete") {
+  if (
+    !snapshotAbsenceIsEvidence(currentAudit.snapshotCompleteness) ||
+    decisions.snapshotScope.status !== "complete"
+  ) {
     throw new Error("MENU_IDENTITY_TRANSITION_SCOPE_REJECTED");
   }
   const coveredPrevious = new Set<string>();
@@ -388,7 +402,7 @@ export function parseMenuIdentityTransitionArtifact(
   const audit = record(artifact?.audit);
   const decisions = record(artifact?.decisions);
   if (
-    artifact?.schemaVersion !== 2 ||
+    artifact?.schemaVersion !== 3 ||
     !source ||
     typeof source.provider !== "string" ||
     !CANTEEN_MENU_SOURCE_PROVIDERS.includes(
@@ -401,6 +415,9 @@ export function parseMenuIdentityTransitionArtifact(
     typeof source.configurationFingerprint !== "string" ||
     !/^[a-f0-9]{64}$/.test(source.configurationFingerprint) ||
     !audit ||
+    !MENU_SNAPSHOT_COMPLETENESS.includes(
+      audit.snapshotCompleteness as MenuSyncInput["snapshotCompleteness"],
+    ) ||
     !decisions ||
     !validSnapshotScopeDecision(decisions.snapshotScope) ||
     !Array.isArray(decisions.replacements) ||

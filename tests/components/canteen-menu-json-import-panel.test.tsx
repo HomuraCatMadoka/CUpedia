@@ -27,6 +27,7 @@ vi.mock("@/lib/canteen-admin-actions", () => ({
 }));
 
 const JSON_INPUT = JSON.stringify({
+  snapshotCompleteness: "complete",
   items: [{ externalProductId: "42:lunch", name: "演示菜品" }],
 });
 

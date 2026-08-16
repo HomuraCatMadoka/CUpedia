@@ -36,7 +36,7 @@ function snapshot(
     mealPeriods?: string[];
   }>,
 ) {
-  return parseMenuSyncJson({ items });
+  return parseMenuSyncJson({ snapshotCompleteness: "complete", items });
 }
 
 describe("menu snapshot evaluator", () => {
@@ -44,6 +44,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId: "product-42",
@@ -90,6 +91,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       { ...SOURCE, provider: "aigens" },
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId: "secret-product#offering-period=lunch",
@@ -131,6 +133,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           {
             externalProductId: "secret-new-id",
@@ -184,6 +187,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [
           { externalProductId: "a", name: "示例菜品 0" },
           { externalProductId: "b", name: "示例菜品 1" },
@@ -203,6 +207,34 @@ describe("menu snapshot evaluator", () => {
       blocked: true,
       code: "MENU_SYNC_SUSPICIOUS_DROP",
     });
+  });
+
+  it("observes absences without blocking or deactivating a partial snapshot", () => {
+    const persisted = ["a", "b", "c", "d"].map((externalProductId, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId,
+        name: `示例菜品 ${index}`,
+      }),
+    );
+    const result = evaluateMenuSnapshot(
+      SOURCE,
+      {
+        ...snapshot([{ externalProductId: "new-a", name: "时段新品" }]),
+        snapshotCompleteness: "partial",
+      },
+      persisted,
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 1,
+      missingProductCount: 4,
+    });
+    expect(
+      result.plan.actions.some((action) => action.action === "deactivate"),
+    ).toBe(false);
+    expect(result.blockingReasons).toEqual([]);
+    expect(result.blockingDecision.blocked).toBe(false);
   });
 
   it("retains every independently applicable blocking reason", () => {
@@ -256,6 +288,7 @@ describe("menu snapshot evaluator", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,
       parseMenuSyncJson({
+        snapshotCompleteness: "complete",
         items: [{ externalProductId: "product-42", name: "恢复供应菜品" }],
       }),
       [

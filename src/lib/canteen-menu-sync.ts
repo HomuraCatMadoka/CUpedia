@@ -5,6 +5,7 @@ import type {
   MenuSyncItemInput,
 } from "./canteen-types";
 import { reconcileOfferingIdentityTransitions } from "./canteen-menu-external-key";
+import { snapshotAbsenceIsEvidence } from "./canteen-menu-snapshot-completeness";
 
 export type ApprovedMenuIdentityReplacement = {
   itemId: string;
@@ -62,6 +63,12 @@ export function planMenuSync(
   legacyAdoptionOpen = true,
   approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[] = [],
 ): MenuSyncPlan {
+  const absenceIsEvidence = snapshotAbsenceIsEvidence(
+    input.snapshotCompleteness,
+  );
+  if (!absenceIsEvidence && input.takeOverLegacyItems) {
+    throw new Error("PARTIAL_SNAPSHOT_LEGACY_TAKEOVER_FORBIDDEN");
+  }
   const managedByProduct = new Map(
     existingItems
       .filter(
@@ -95,10 +102,12 @@ export function planMenuSync(
       .filter((productId) => !approvedNextIds.has(productId)),
   );
   const previousIdByMovedId = new Map(
-    offeringTransitions.safeMoves.map((move) => [
-      move.nextProductId,
-      move.previousProductId,
-    ]),
+    absenceIsEvidence
+      ? offeringTransitions.safeMoves.map((move) => [
+          move.nextProductId,
+          move.previousProductId,
+        ])
+      : [],
   );
   const ambiguousByIncomingId = new Map<string, string[]>();
   const ambiguousExistingIds = new Set<string>();
@@ -244,23 +253,25 @@ export function planMenuSync(
     });
   }
 
-  for (const item of existingItems) {
-    const belongsToSource = item.menuSourceId === sourceId;
-    const adoptableLegacy =
-      input.takeOverLegacyItems && item.menuSourceId === null;
-    if (
-      item.isAvailable &&
-      (belongsToSource || adoptableLegacy) &&
-      !ambiguousExistingIds.has(item.id) &&
-      !seenItemIds.has(item.id)
-    ) {
-      actions.push({
-        action: "deactivate",
-        itemId: item.id,
-        externalProductId: item.externalProductId ?? `legacy:${item.id}`,
-        name: item.name,
-        changedFields: ["isAvailable"],
-      });
+  if (absenceIsEvidence) {
+    for (const item of existingItems) {
+      const belongsToSource = item.menuSourceId === sourceId;
+      const adoptableLegacy =
+        input.takeOverLegacyItems && item.menuSourceId === null;
+      if (
+        item.isAvailable &&
+        (belongsToSource || adoptableLegacy) &&
+        !ambiguousExistingIds.has(item.id) &&
+        !seenItemIds.has(item.id)
+      ) {
+        actions.push({
+          action: "deactivate",
+          itemId: item.id,
+          externalProductId: item.externalProductId ?? `legacy:${item.id}`,
+          name: item.name,
+          changedFields: ["isAvailable"],
+        });
+      }
     }
   }
 

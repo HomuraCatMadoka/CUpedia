@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 import { reconcileOfferingIdentityTransitions } from "./canteen-menu-external-key";
+import {
+  snapshotAbsenceIsEvidence,
+  type MenuSnapshotCompleteness,
+} from "./canteen-menu-snapshot-completeness";
 
 declare const redactedMenuSampleBrand: unique symbol;
 export type RedactedMenuSample = string & {
@@ -36,6 +40,7 @@ export function observeMenuIdentityChurn(
     isAvailable?: boolean;
   }>,
   incoming: Array<{ externalProductId: string; name: string }>,
+  snapshotCompleteness: MenuSnapshotCompleteness,
 ): MenuIdentityObservation {
   const existingIds = new Set(existing.map((item) => item.externalProductId));
   const incomingIds = new Set(incoming.map((item) => item.externalProductId));
@@ -43,11 +48,14 @@ export function observeMenuIdentityChurn(
     [...existingIds],
     [...incomingIds],
   );
+  const safeMoves = snapshotAbsenceIsEvidence(snapshotCompleteness)
+    ? offeringTransitions.safeMoves
+    : [];
   const safelyMovedPreviousIds = new Set(
-    offeringTransitions.safeMoves.map((move) => move.previousProductId),
+    safeMoves.map((move) => move.previousProductId),
   );
   const safelyMovedNextIds = new Set(
-    offeringTransitions.safeMoves.map((move) => move.nextProductId),
+    safeMoves.map((move) => move.nextProductId),
   );
   const newItems = incoming.filter(
     (item) =>
@@ -132,11 +140,11 @@ export function redactMenuDiagnosticSample(value: string): RedactedMenuSample {
 export function isSuspiciousMenuIdentityChurn(
   observation: MenuIdentityObservation,
   existingCount: number,
+  snapshotCompleteness: MenuSnapshotCompleteness,
 ): boolean {
-  const changed = Math.max(
-    observation.newProductCount,
-    observation.missingProductCount,
-  );
+  const changed = snapshotAbsenceIsEvidence(snapshotCompleteness)
+    ? Math.max(observation.newProductCount, observation.missingProductCount)
+    : observation.newProductCount;
   return (
     observation.suspectedReplacementCount > 0 ||
     observation.ambiguousOfferingTransitionCount > 0 ||

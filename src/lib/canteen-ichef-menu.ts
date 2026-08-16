@@ -4,6 +4,7 @@ import {
   assertCompatibleProviderIdentityOccurrence,
   assertProviderMenuIdentityItems,
 } from "./canteen-provider-menu-identity";
+import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type { MealPeriodAssignment, MenuSyncInput } from "@/lib/canteen-types";
 
@@ -118,6 +119,7 @@ export function buildIchefMenuSyncPayload(
   if (items.length === 0) throw new Error("EMPTY_ICHEF_MENU");
   assertProviderMenuIdentityItems("ichef", items);
   return {
+    snapshotCompleteness: expectedMenuSnapshotCompleteness("ichef"),
     takeOverLegacyItems: false,
     items,
   };

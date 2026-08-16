@@ -286,6 +286,7 @@ describe("PINME menu adapter", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(pinmeCurrent)));
 
     const payload = await fetchPinmeMenu("5500", { fetchImpl });
+    expect(payload.snapshotCompleteness).toBe("partial");
     expect(payload.items).toHaveLength(1);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
     expect(String(fetchImpl.mock.calls[0][0])).toContain("/api/account/token?");
