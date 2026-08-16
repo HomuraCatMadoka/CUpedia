@@ -747,18 +747,20 @@ export function AmapCampusPrototype({
     [driver],
   );
 
-  useEffect(
-    () =>
-      driver.subscribe(() => {
-        const snapshot = driver.getSnapshot();
-        const query = projectedState(snapshot.session, snapshot.returnTo)
-          .mapFilter.query;
+  useEffect(() => {
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) {
+        const query = state.mapFilter.query;
         setQueryDraft((current) =>
           current.trim() === query ? current : query,
         );
-      }),
-    [driver],
-  );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [state.mapFilter.query]);
 
   const selectBuilding = useCallback(
     (building: Building, source: "map" | "search" = "map") => {

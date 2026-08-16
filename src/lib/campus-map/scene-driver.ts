@@ -186,17 +186,12 @@ export class CampusMapSceneDriver {
       { type: "RESTORE", session: this.snapshot.session },
       this.catalog,
     );
-    const context = this.effectContext();
-    if (projection.commands.camera) {
-      this.ports.camera(projection.commands.camera, context);
-    }
-    if (projection.commands.focus) {
-      this.ports.focus(projection.commands.focus, context);
-    }
-    if (projection.commands.overlay) {
-      this.ports.overlay(projection.commands.overlay, context);
-    }
-    this.ports.sheet(sheetCommand(this.snapshot.session), context);
+    this.executeCommands(
+      projection.commands,
+      this.snapshot.session,
+      true,
+      this.effectContext(),
+    );
     return this.snapshot;
   }
 
@@ -430,6 +425,22 @@ export class CampusMapSceneDriver {
 
     for (const listener of this.listeners) listener();
     const context = this.effectContext();
+    this.executeCommands(
+      { history, camera, focus, overlay },
+      session,
+      syncSheet,
+      context,
+    );
+    return { status: "committed" as const, snapshot: this.snapshot };
+  }
+
+  private executeCommands(
+    commands: CampusMapDriverCommit["commands"],
+    session: CampusMapSession,
+    syncSheet: boolean,
+    context: CampusMapDriverEffectContext,
+  ) {
+    const { camera, focus, overlay } = commands;
     if (syncSheet && camera?.kind === "focus") {
       this.suppressNextSheetReframe = true;
     }
@@ -437,7 +448,6 @@ export class CampusMapSceneDriver {
     if (focus) this.ports.focus(focus, context);
     if (overlay) this.ports.overlay(overlay, context);
     if (syncSheet) this.ports.sheet(sheetCommand(session), context);
-    return { status: "committed" as const, snapshot: this.snapshot };
   }
 
   private bumpToken() {
