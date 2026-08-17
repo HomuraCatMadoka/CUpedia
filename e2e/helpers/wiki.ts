@@ -39,7 +39,10 @@ export async function waitForHydratedWikiEditor(
 export async function createUntitledWikiPage(page: Page) {
   await page.goto("/wiki");
   if ((page.viewportSize()?.width ?? 1280) < 768) {
-    await page.getByRole("button", { name: "打开导航" }).click();
+    const openNavigation = page.getByRole("button", { name: "打开导航" });
+    await expect(openNavigation).toHaveAttribute("data-client-ready", "true");
+    await openNavigation.click();
+    await expect(page.getByRole("dialog", { name: "Wiki 页面" })).toBeVisible();
   }
   const createButton = page.getByRole("button", { name: "新建页面" }).first();
   await expect(createButton).toHaveAttribute("data-client-ready", "true");
