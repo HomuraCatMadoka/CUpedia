@@ -475,6 +475,38 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(window.location.search).toBe("?v=1");
   });
 
+  it("ignores a delayed close event from a driver-owned overlay transition", async () => {
+    const { runtime, map } = await renderWithRuntime();
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "provider-east-wing",
+        name: "科学馆东座",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      });
+    });
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        name: "ScienceCentre 科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+    await screen.findByRole("heading", { name: "科学馆" });
+
+    await runtime.flushInfoWindowCloseEvents();
+
+    expect(screen.getByRole("heading", { name: "科学馆" })).not.toBeNull();
+    expect(window.location.search).toContain(
+      "scene=building&id=science-centre",
+    );
+  });
+
   it("closes a transient provider InfoWindow when browser history restores", async () => {
     const { runtime, map } = await renderWithRuntime();
 

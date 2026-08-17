@@ -426,7 +426,6 @@ export function AmapCampusPrototype({
   const clusterCategoryRef = useRef<Amenity | null>(null);
   const facilityMarkersRef = useRef(new Map<string, AMapMarker>());
   const infoWindowRef = useRef<AMapInfoWindow | null>(null);
-  const suppressInfoWindowCloseRef = useRef(false);
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingDriverCameraRef = useRef<{
     command: CampusMapDriverCameraCommand;
@@ -445,16 +444,6 @@ export function AmapCampusPrototype({
     [],
   );
 
-  const closeInfoWindow = useCallback(() => {
-    const infoWindow = infoWindowRef.current;
-    if (!infoWindow) return;
-    suppressInfoWindowCloseRef.current = true;
-    infoWindow.close();
-    queueMicrotask(() => {
-      suppressInfoWindowCloseRef.current = false;
-    });
-  }, []);
-
   const resetMapRuntime = useCallback(() => {
     pointerGestureCleanupRef.current?.();
     pointerGestureCleanupRef.current = null;
@@ -462,8 +451,9 @@ export function AmapCampusPrototype({
     clusterRef.current = null;
     clusterCategoryRef.current = null;
     facilityMarkersRef.current.clear();
-    closeInfoWindow();
+    const infoWindow = infoWindowRef.current;
     infoWindowRef.current = null;
+    infoWindow?.close();
     mapRef.current?.destroy();
     mapRef.current = null;
     amapPositionsRef.current = {};
@@ -473,7 +463,7 @@ export function AmapCampusPrototype({
     setMapReady(false);
     setCoordinateVersion(0);
     setClusterStatus("loading");
-  }, [closeInfoWindow]);
+  }, []);
 
   const retryMapLoad = useCallback(() => {
     resetMapRuntime();
@@ -693,7 +683,7 @@ export function AmapCampusPrototype({
       },
       overlay: (overlay) => {
         if (overlay.kind === "close-external") {
-          closeInfoWindow();
+          infoWindowRef.current?.close();
           return;
         }
         const AMap = window.AMap;
@@ -717,8 +707,14 @@ export function AmapCampusPrototype({
             offset: [0, -10],
           });
           infoWindow.on("close", () => {
-            if (suppressInfoWindowCloseRef.current) return;
-            sceneDriver.dispatch({ type: "DISMISS" });
+            if (infoWindowRef.current !== infoWindow) return;
+            const currentSession = sceneDriver.getSnapshot().session;
+            if (
+              currentSession.mode === "browse" &&
+              currentSession.scene.kind === "provider-poi"
+            ) {
+              sceneDriver.dispatch({ type: "DISMISS" });
+            }
           });
         }
         infoWindowRef.current = infoWindow;
@@ -1203,11 +1199,13 @@ export function AmapCampusPrototype({
       pointerGestureCleanupRef.current?.();
       pointerGestureCleanupRef.current = null;
       clusterRef.current?.setMap(null);
-      closeInfoWindow();
+      const infoWindow = infoWindowRef.current;
+      infoWindowRef.current = null;
+      infoWindow?.close();
       mapRef.current?.destroy();
       mapRef.current = null;
     },
-    [closeInfoWindow],
+    [],
   );
 
   const searchResults = useMemo(() => {

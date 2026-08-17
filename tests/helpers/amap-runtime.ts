@@ -17,6 +17,7 @@ export function installAmapRuntime(options?: {
   projectedPoint?: { x: number; y: number };
 }) {
   const rafQueue: FrameRequestCallback[] = [];
+  const infoWindowCloseQueue: Array<() => void> = [];
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
 
   class MockLngLat implements LngLat {
@@ -179,7 +180,8 @@ export function installAmapRuntime(options?: {
     private readonly handlers = new Map<string, Array<() => void>>();
     private openState = false;
     readonly close = vi.fn(() => {
-      this.emit("close");
+      this.openState = false;
+      infoWindowCloseQueue.push(() => this.emit("close"));
     });
     readonly open = vi.fn(() => {
       this.openState = true;
@@ -274,6 +276,11 @@ export function installAmapRuntime(options?: {
           for (const callback of callbacks) callback(0);
           await Promise.resolve();
         }
+      });
+    },
+    async flushInfoWindowCloseEvents() {
+      await act(async () => {
+        for (const callback of infoWindowCloseQueue.splice(0)) callback();
       });
     },
     async triggerResize() {
