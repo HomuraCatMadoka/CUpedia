@@ -1399,12 +1399,13 @@ test.describe("mobile wiki editing", () => {
   });
 
   test("a new page autosaves before browser Back", async ({ page }) => {
-    await createUntitledWikiPage(page);
-    mobileCreatedIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
+    const pageId = await createUntitledWikiPage(page);
+    mobileCreatedIds.push(pageId);
+    const editor = await waitForHydratedWikiEditor(page, pageId);
     await page
       .getByRole("textbox", { name: "页面标题" })
       .fill("Unsaved mobile page");
-    await page.locator('[data-slate-editor="true"]').fill("Unsaved body");
+    await editor.fill("Unsaved body");
     const createUrl = page.url();
     await page.goBack();
     await expect(page).not.toHaveURL(createUrl);

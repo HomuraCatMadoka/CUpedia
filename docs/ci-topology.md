@@ -83,12 +83,14 @@ behavior under test:
 Successful-path screenshots were removed. Playwright retains screenshots and
 traces on failure, plus the HTML report, test results, and Actions server log.
 
-Two retry-disabled regression runs exposed client-readiness races rather than
+Three retry-disabled regression runs exposed client-readiness races rather than
 missing behavior coverage. The canteen vote journey now waits for the hydrated
 menu-period state before selecting lunch, and Campus Bus route links disable
-duplicate automatic RSC prefetches while retaining click navigation. Both
-behaviors remain covered by full-stack Chromium tests and their component
-tests; neither fix adds a retry or extends a timeout.
+duplicate automatic RSC prefetches while retaining click navigation. The mobile
+new-page Back journey binds its edits to the published page's hydrated editor
+shell instead of a page-wide selector that could also see the outgoing shell.
+All behaviors remain covered by full-stack Chromium tests and the applicable
+component tests; no fix adds a retry or extends a timeout.
 
 No E2E behavior was downshifted to unit/component scope in #669. Existing
 lighter-layer coverage, including the Campus Bus mapping in
