@@ -2,6 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
 import {
   createUntitledWikiPage,
+  dropPublishedWikiFixtures,
+  openPublishedWikiFixture,
   waitForHydratedWikiEditor,
 } from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
@@ -122,6 +124,7 @@ async function openWikiEditor(page: Page, pageId: string) {
 }
 
 test.describe("#203 contextual desktop toolbar", () => {
+  const fixturePageIds: string[] = [];
   test.beforeAll(async () => {
     gettingStartedBaseline = await readWikiContent(PAGE_IDS.gettingStarted);
   });
@@ -133,6 +136,7 @@ test.describe("#203 contextual desktop toolbar", () => {
 
   test.afterEach(async ({ page }) => {
     if (!page.isClosed()) await page.close();
+    await dropPublishedWikiFixtures(fixturePageIds.splice(0));
     await restoreWikiContent(PAGE_IDS.gettingStarted, gettingStartedBaseline);
   });
 
@@ -630,7 +634,7 @@ test.describe("#203 contextual desktop toolbar", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
     await page.keyboard.type("New to CUHK?");

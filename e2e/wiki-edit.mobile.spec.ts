@@ -6,6 +6,7 @@ import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 import {
   createUntitledWikiPage,
+  openPublishedWikiFixture,
   waitForHydratedWikiEditor,
   wikiPageUrl,
 } from "./helpers/wiki";
@@ -1564,8 +1565,7 @@ test.describe("mobile wiki editing", () => {
   test("deleting the only block leaves a focused editable paragraph", async ({
     page,
   }) => {
-    await createUntitledWikiPage(page);
-    mobileCreatedIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
+    mobileCreatedIds.push(await openPublishedWikiFixture(page));
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
     await page
@@ -1745,8 +1745,7 @@ test.describe("mobile wiki editing", () => {
   test("mobile Done saves the current Plate draft and only dismisses focus", async ({
     page,
   }) => {
-    await createUntitledWikiPage(page);
-    mobileCreatedIds.push(new URL(page.url()).pathname.split("/").at(-1)!);
+    mobileCreatedIds.push(await openPublishedWikiFixture(page));
     await page
       .getByRole("textbox", { name: "页面标题" })
       .fill("Mobile editor done");

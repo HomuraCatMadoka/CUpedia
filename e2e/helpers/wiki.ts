@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { Pool } from "pg";
 
@@ -16,12 +17,61 @@ const publishedPagePool = new Pool({
   allowExitOnIdle: true,
 });
 
+const EMPTY_WIKI_CONTENT = JSON.stringify([
+  { type: "p", children: [{ text: "" }] },
+]);
+
+interface PublishedWikiFixtureOptions {
+  title?: string;
+  content?: string;
+  icon?: string | null;
+  parentId?: string | null;
+}
+
 async function isPublishedWikiPage(pageId: string) {
   const result = await publishedPagePool.query(
     "select 1 from wiki_pages where id = $1",
     [pageId],
   );
   return result.rowCount === 1;
+}
+
+export async function openPublishedWikiFixture(
+  page: Page,
+  options: PublishedWikiFixtureOptions = {},
+) {
+  const pageId = randomUUID();
+  const user = await publishedPagePool.query<{ id: string }>(
+    "select id from users where email = $1",
+    ["admin@test.com"],
+  );
+  const adminId = user.rows[0]?.id;
+  if (!adminId) throw new Error("Seed admin is missing");
+
+  await publishedPagePool.query(
+    `insert into wiki_pages
+       (id, title, icon, content, parent_id, created_by, updated_by)
+     values ($1, $2, $3, $4, $5, $6, $6)`,
+    [
+      pageId,
+      options.title ?? `E2E fixture ${pageId.slice(0, 8)}`,
+      options.icon ?? null,
+      options.content ?? EMPTY_WIKI_CONTENT,
+      options.parentId ?? null,
+      adminId,
+    ],
+  );
+  await page.goto(`/wiki/${pageId}`);
+  await waitForHydratedWikiEditor(page, pageId);
+  return pageId;
+}
+
+export async function dropPublishedWikiFixtures(pageIds: string[]) {
+  if (pageIds.length === 0) return;
+  await publishedPagePool.query(
+    "delete from wiki_pages where id = any($1::uuid[])",
+    [pageIds],
+  );
 }
 
 export async function waitForPublishedWikiPage(

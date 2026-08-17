@@ -45,26 +45,43 @@ CI now has zero retries, so either failure makes the run fail.
 No test behavior is deleted or moved to a fake database. The Playwright listing
 is 48 files and 288 tests both before and after the topology change.
 
-| Before                                         | After                                                              | Preserved behavior / boundary                                                                                                                                                                                                             |
-| ---------------------------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lint-and-test`, `typecheck`                   | `quality`                                                          | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate.                                                                                                                                                      |
-| `migration-compatibility`                      | `database-integration` on real PostgreSQL 16                       | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                                                   |
-| `menu-sync-integration`                        | The same `database-integration` job on real zhparser PostgreSQL 17 | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once.                               |
-| `chromium-general` + `campus-bus`              | `chromium-general`                                                 | All non-Wiki journeys, Campus Bus browser/map coverage, and mobile WebKit exclusions are unchanged.                                                                                                                                       |
-| `chromium-wiki` + `chromium-wiki-editor`       | Split between the two Chromium groups by measured spec time        | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `wiki-edit.shell` and `wiki-edit.toolbar` move to general only to balance time.                                                  |
-| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                              | All mobile editor tests remain Chromium full-stack E2E. This file includes image upload, so its runner owns MinIO.                                                                                                                        |
-| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                              | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                                                         |
-| `webkit-mobile`                                | WebKit phase in `database-integration`                             | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The phase reuses the integration runner's checkout, dependencies, PostgreSQL, and the single Next build. |
+| Before                                         | After                                                       | Preserved behavior / boundary                                                                                                                                                                                 |
+| ---------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lint-and-test`, `typecheck`                   | `quality`                                                   | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate.                                                                                                                          |
+| `migration-compatibility`                      | `quality` on real PostgreSQL 16                             | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                       |
+| `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17       | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once.   |
+| `chromium-general` + `campus-bus`              | `chromium-general`                                          | All non-Wiki journeys, Campus Bus browser/map coverage, and mobile WebKit exclusions are unchanged.                                                                                                           |
+| `chromium-wiki` + `chromium-wiki-editor`       | Split between the two Chromium groups by measured spec time | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `wiki-edit.shell` and `wiki-edit.toolbar` move to general only to balance time.                      |
+| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                       | All mobile editor tests remain Chromium full-stack E2E. This file includes image upload, so its runner owns MinIO.                                                                                            |
+| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                       | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                             |
+| `webkit-mobile`                                | `webkit-risk` in the official Playwright container          | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The runner uses real zhparser PostgreSQL and the single uploaded Next build. |
 
-The new CI list contains 189 `chromium-general`, 95
+The new CI list contains 177 `chromium-general`, 107
 `chromium-wiki-media`, and 4 `webkit-mobile` tests. Test count is intentionally
-not the balancing input: the Actions baseline predicts approximately 185
-seconds of test body for each Chromium group. PostgreSQL remains present on all
-three full-stack browser runners. MinIO is started only by
+not the balancing input: the groups are assigned by measured spec time.
+PostgreSQL remains present on all three full-stack browser runners. MinIO is started only by
 `chromium-wiki-media`, and only the upload tests call it.
 
-Successful-path screenshots were removed. Playwright now retains screenshot,
-trace, HTML report, test results, and the Actions server log on failure.
+Seventeen browser journeys that created and published a page only as test setup
+now insert the same final page state through a shared real-PostgreSQL fixture.
+This removes repeated navigation, hydration, autosave, and publish startup from
+`wiki-edit.block-commands`, `wiki-edit.shell`, `wiki-edit.toolbar`,
+`wiki-edit.mobile-webkit`, `wiki-edit.mobile`, `wiki-upload`, `wiki-discussion`,
+and `wiki-links`. Their assertions still exercise the production Next server,
+authentication, reads, writes, autosave, upload, comments, links, and reloads
+against real PostgreSQL. The fixture has no fake or in-memory database.
+
+Five journeys retain the complete UI creation path because creation is the
+behavior under test:
+
+- `wiki-discussion.responsive`: comments are available immediately on a new page.
+- `wiki-edit.autosave`: a newly created page autosaves before navigation.
+- `wiki-lifecycle`: create, read, update, delete, and restore lifecycle.
+- `wiki-edit.toolbar`: the create route hydrates without an auth mismatch.
+- `wiki-edit.mobile`: a new page autosaves before browser Back.
+
+Successful-path screenshots were removed. Playwright retains screenshots and
+traces on failure, plus the HTML report, test results, and Actions server log.
 
 No E2E behavior was downshifted to unit/component scope in #669. Existing
 lighter-layer coverage, including the Campus Bus mapping in
@@ -73,36 +90,6 @@ the full unit command.
 
 ## After validation
 
-Run `31995879188` at `27c9ee1fd` was rerun four times after its initial run.
-All five attempts completed successfully with Playwright retries set to zero.
-
-| Attempt    |  Jobs | Runner seconds | Wall seconds | Chromium general E2E | Chromium Wiki E2E | WebKit E2E |
-| ---------- | ----: | -------------: | -----------: | -------------------: | ----------------: | ---------: |
-| 1          |     5 |            851 |          330 |                  205 |               215 |         37 |
-| 2          |     5 |            885 |          341 |                  237 |               219 |         41 |
-| 3          |     5 |            943 |          344 |                  201 |               220 |         31 |
-| 4          |     5 |            857 |          347 |                  188 |               222 |         42 |
-| 5          |     5 |            889 |          362 |                  204 |               226 |         39 |
-| **Median** | **5** |        **885** |      **344** |              **204** |           **220** |     **39** |
-
-The runner-time median is 115 seconds below the 900-second ceiling, and the
-wall-time median is 16 seconds below the 360-second ceiling. Attempt 3 includes
-an 83-second WebKit install cache fluctuation and attempt 5 has a 362-second
-wall time; both are retained in the median rather than discarded.
-
-Attempt 2 is the median runner-time sample. Its principal job/step durations
-were:
-
-| Job                    | Job seconds | Principal step seconds                     |
-| ---------------------- | ----------: | ------------------------------------------ |
-| `quality`              |         153 | lint 27 + unit 76 + typecheck 26           |
-| `build`                |          67 | Next build 36                              |
-| `database-integration` |         125 | PG tests 8 + WebKit install 31 + WebKit 41 |
-| `chromium-general`     |         272 | PostgreSQL 8 + E2E 237; MinIO skipped      |
-| `chromium-wiki-media`  |         268 | PostgreSQL 10 + MinIO 5 + E2E 219          |
-
-The browser logs for every attempt were scanned for flaky, retry-pass, retry
-number, and nonzero failed-test signals. None were present. The two Chromium
-test steps have a five-attempt median difference of 16 seconds. Only the
-upload-bearing Wiki runner started MinIO; the general and PostgreSQL/WebKit
-runners did not.
+Pending a fresh five-attempt sequence on the fixture-optimized commit. Earlier
+sequences are intentionally excluded because a retry-disabled attempt exposed
+test setup races and invalidated the sequence.

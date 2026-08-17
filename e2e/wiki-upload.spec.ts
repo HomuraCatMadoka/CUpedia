@@ -2,13 +2,17 @@ import { randomUUID } from "node:crypto";
 import { test, expect } from "@playwright/test";
 import { deleteObjects, getObject } from "../src/lib/minio";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
-import { createUntitledWikiPage } from "./helpers/wiki";
+import {
+  dropPublishedWikiFixtures,
+  openPublishedWikiFixture,
+} from "./helpers/wiki";
 
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZAAAAAElFTkSuQmCC",
   "base64",
 );
 const createdKeys = new Set<string>();
+const fixturePageIds: string[] = [];
 
 function file(buffer: Buffer, name: string, mimeType: string) {
   return { name, mimeType, buffer };
@@ -21,6 +25,7 @@ function remember(url: string) {
 }
 
 test.afterAll(async () => {
+  await dropPublishedWikiFixtures(fixturePageIds);
   const keys = [...createdKeys];
   await deleteObjects(keys);
   for (const key of keys) await expect(getObject(key)).rejects.toBeTruthy();
@@ -99,8 +104,7 @@ test("editor uploads an image and saves it on a wiki page", async ({
 }) => {
   await loginAsAdmin(page);
   const title = `Upload ${randomUUID().slice(0, 8)}`;
-  await createUntitledWikiPage(page);
-  await page.getByLabel("标题").fill(title);
+  fixturePageIds.push(await openPublishedWikiFixture(page, { title }));
   const editor = page.locator('[role="textbox"]').first();
   await editor.evaluate((element, base64) => {
     const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));

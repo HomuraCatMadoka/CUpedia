@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
 import {
-  createUntitledWikiPage,
+  dropPublishedWikiFixtures,
+  openPublishedWikiFixture,
   waitForHydratedWikiEditor,
   wikiPageUrl,
 } from "./helpers/wiki";
@@ -22,8 +23,12 @@ async function dropSettingsFixture() {
 }
 
 test.describe("focused wiki editor shell", () => {
+  const fixturePageIds: string[] = [];
   test.setTimeout(180_000);
   test.afterAll(dropSettingsFixture);
+  test.afterEach(async () => {
+    await dropPublishedWikiFixtures(fixturePageIds.splice(0));
+  });
 
   test("canonical pages use one focused shell and legacy new no longer edits", async ({
     page,
@@ -448,7 +453,7 @@ test.describe("focused wiki editor shell", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     await page
       .getByRole("textbox", { name: "页面标题" })
@@ -507,7 +512,7 @@ test.describe("focused wiki editor shell", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
 
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
     await page
       .getByRole("textbox", { name: "页面标题" })
       .fill("Editor settings fixture");
@@ -552,7 +557,7 @@ test.describe("focused wiki editor shell", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     await page
       .getByRole("textbox", { name: "页面标题" })
@@ -566,7 +571,13 @@ test.describe("focused wiki editor shell", () => {
     ).toBeVisible();
 
     await page.locator('[data-slate-editor="true"]').fill("Icon body");
+    const editorShell = page.getByTestId("wiki-editor-shell");
+    await expect(editorShell).toHaveAttribute(
+      "data-autosave-status",
+      "unsaved",
+    );
     await page.keyboard.press("Control+s");
+    await expect(editorShell).toHaveAttribute("data-autosave-status", "saved");
     const iconPageId = new URL(page.url()).pathname.split("/").at(-1)!;
 
     const treeItem = page
@@ -582,8 +593,14 @@ test.describe("focused wiki editor shell", () => {
       .getByRole("dialog", { name: "选择页面图标" })
       .getByRole("button", { name: "移除" })
       .click();
+    await expect(editorShell).toHaveAttribute(
+      "data-autosave-status",
+      "unsaved",
+    );
     await page.keyboard.press("Control+s");
-    await expect(page).toHaveURL(wikiPageUrl(iconPageId));
+    await expect(editorShell).toHaveAttribute("data-autosave-status", "saved");
+    await page.reload();
+    await waitForHydratedWikiEditor(page, iconPageId);
     await expect(page.getByTestId("wiki-page-hero-icon")).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "添加页面图标" }),
@@ -595,7 +612,7 @@ test.describe("focused wiki editor shell", () => {
   }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     await page.getByRole("button", { name: "添加页面图标" }).click();
     const picker = page.getByRole("dialog", { name: "选择页面图标" });
@@ -647,7 +664,7 @@ test.describe("focused wiki editor shell", () => {
   }) => {
     await page.setViewportSize({ width: 393, height: 852 });
     await loginAsAdmin(page);
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     const addIcon = page.getByRole("button", { name: "添加页面图标" });
     expect((await addIcon.boundingBox())?.height).toBeGreaterThanOrEqual(44);
