@@ -74,8 +74,8 @@ export function CourseReviewSection({
   }
   if (prefillProfessor?.id) reviewedProfessorIds.add(prefillProfessor.id);
 
-  const filterProfessors = professorStats.filter((item) =>
-    reviewedProfessorIds.has(item.id),
+  const filterProfessors = professorStats.filter(
+    (item) => item.ratingCount > 0 || reviewedProfessorIds.has(item.id),
   );
   for (const review of reviews) {
     const candidates = review.professors?.length

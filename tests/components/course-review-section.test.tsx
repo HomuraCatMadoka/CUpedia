@@ -494,16 +494,24 @@ describe("CourseReviewSection", () => {
     ).toEqual(["", "person-1"]);
   });
 
-  it("任课教授筛选只列出有评价的教授", () => {
-    const withReview = {
-      id: "person-1",
-      name: "Professor CHAN",
+  it("任课教授筛选收录有评分或有文字评价的教授", () => {
+    const ratedOnly = {
+      id: "person-rated",
+      name: "Professor LEE",
       rating: 4,
-      ratingCount: 1,
+      ratingCount: 2,
       terms: [],
       tags: [],
     };
-    const withoutReview = {
+    const reviewedOnly = {
+      id: "person-1",
+      name: "Professor CHAN",
+      rating: null,
+      ratingCount: 0,
+      terms: [],
+      tags: [],
+    };
+    const neither = {
       id: "person-2",
       name: "Professor WONG",
       rating: null,
@@ -523,7 +531,7 @@ describe("CourseReviewSection", () => {
           },
         ]}
         ratingState={RATING_STATE}
-        professorStats={[withReview, withoutReview]}
+        professorStats={[ratedOnly, reviewedOnly, neither]}
         academicYears={["2025-26"]}
         isAuthenticated={false}
         professorOptional={false}
@@ -533,7 +541,7 @@ describe("CourseReviewSection", () => {
     const filter = screen.getByLabelText("按任课教授筛选") as HTMLSelectElement;
     expect(
       Array.from(filter.options).map((option) => option.textContent),
-    ).toEqual(["全部教授", "Prof. Chan"]);
+    ).toEqual(["全部教授", "Prof. Lee", "Prof. Chan"]);
     expect(filter.value).toBe("");
   });
 
