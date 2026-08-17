@@ -445,6 +445,36 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(window.location.search).toBe("?v=1");
   });
 
+  it("dismisses an external scene when the provider InfoWindow X closes", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    const hotspot = {
+      id: "provider-east-wing",
+      name: "科学馆东座",
+      lnglat: { lng: 114.2084, lat: 22.4198 },
+    };
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", hotspot);
+    });
+    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      runtime.infoWindows[0]!.emit("close");
+    });
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", hotspot);
+    });
+
+    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(2);
+    expect(window.location.search).toBe("?v=1");
+  });
+
   it("closes a transient provider InfoWindow when browser history restores", async () => {
     const { runtime, map } = await renderWithRuntime();
 

@@ -104,6 +104,7 @@ interface AMapMarkerCluster {
 
 interface AMapInfoWindow {
   close(): void;
+  on(event: "close", handler: () => void): void;
   open(map: AMapMap, position: AMapLngLat): void;
   setContent(content: HTMLElement): void;
 }
@@ -425,6 +426,7 @@ export function AmapCampusPrototype({
   const clusterCategoryRef = useRef<Amenity | null>(null);
   const facilityMarkersRef = useRef(new Map<string, AMapMarker>());
   const infoWindowRef = useRef<AMapInfoWindow | null>(null);
+  const suppressInfoWindowCloseRef = useRef(false);
   const cameraGateRef = useRef(new CameraRequestGate());
   const pendingDriverCameraRef = useRef<{
     command: CampusMapDriverCameraCommand;
@@ -443,6 +445,16 @@ export function AmapCampusPrototype({
     [],
   );
 
+  const closeInfoWindow = useCallback(() => {
+    const infoWindow = infoWindowRef.current;
+    if (!infoWindow) return;
+    suppressInfoWindowCloseRef.current = true;
+    infoWindow.close();
+    queueMicrotask(() => {
+      suppressInfoWindowCloseRef.current = false;
+    });
+  }, []);
+
   const resetMapRuntime = useCallback(() => {
     pointerGestureCleanupRef.current?.();
     pointerGestureCleanupRef.current = null;
@@ -450,7 +462,7 @@ export function AmapCampusPrototype({
     clusterRef.current = null;
     clusterCategoryRef.current = null;
     facilityMarkersRef.current.clear();
-    infoWindowRef.current?.close();
+    closeInfoWindow();
     infoWindowRef.current = null;
     mapRef.current?.destroy();
     mapRef.current = null;
@@ -461,7 +473,7 @@ export function AmapCampusPrototype({
     setMapReady(false);
     setCoordinateVersion(0);
     setClusterStatus("loading");
-  }, []);
+  }, [closeInfoWindow]);
 
   const retryMapLoad = useCallback(() => {
     resetMapRuntime();
@@ -681,7 +693,7 @@ export function AmapCampusPrototype({
       },
       overlay: (overlay) => {
         if (overlay.kind === "close-external") {
-          infoWindowRef.current?.close();
+          closeInfoWindow();
           return;
         }
         const AMap = window.AMap;
@@ -696,14 +708,19 @@ export function AmapCampusPrototype({
         source.className = "mt-1 block text-xs text-neutral-500";
         source.textContent = "高德地图地点";
         content.append(title, source);
-        const infoWindow =
-          infoWindowRef.current ??
-          new AMap.InfoWindow({
+        let infoWindow = infoWindowRef.current;
+        if (!infoWindow) {
+          infoWindow = new AMap.InfoWindow({
             anchor: "bottom-center",
             autoMove: true,
             closeWhenClickMap: false,
             offset: [0, -10],
           });
+          infoWindow.on("close", () => {
+            if (suppressInfoWindowCloseRef.current) return;
+            sceneDriver.dispatch({ type: "DISMISS" });
+          });
+        }
         infoWindowRef.current = infoWindow;
         infoWindow.setContent(content);
         infoWindow.open(
@@ -926,7 +943,6 @@ export function AmapCampusPrototype({
             (item) => item.id === target.buildingId,
           );
           if (!building) return;
-          infoWindowRef.current?.close();
           selectBuilding(building);
           return;
         }
@@ -1187,11 +1203,11 @@ export function AmapCampusPrototype({
       pointerGestureCleanupRef.current?.();
       pointerGestureCleanupRef.current = null;
       clusterRef.current?.setMap(null);
-      infoWindowRef.current?.close();
+      closeInfoWindow();
       mapRef.current?.destroy();
       mapRef.current = null;
     },
-    [],
+    [closeInfoWindow],
   );
 
   const searchResults = useMemo(() => {
