@@ -544,6 +544,67 @@ describe("menu identity transition audit", () => {
     );
   });
 
+  it("fingerprints price options independently of object property order", () => {
+    const labelFirst = {
+      label: null,
+      amountMinor: 1_500,
+      currency: "HKD",
+      sortOrder: 0,
+    };
+    const amountFirst = {
+      amountMinor: 1_500,
+      currency: "HKD",
+      label: null,
+      sortOrder: 0,
+    };
+    const first = buildMenuIdentityTransitionAudit(
+      [existing({ priceOptions: [labelFirst] })],
+      [incoming({ priceOptions: [labelFirst] })],
+    );
+    const reordered = buildMenuIdentityTransitionAudit(
+      [existing({ priceOptions: [amountFirst] })],
+      [incoming({ priceOptions: [amountFirst] })],
+    );
+
+    expect(reordered.existingFingerprint).toBe(first.existingFingerprint);
+    expect(reordered.incomingFingerprint).toBe(first.incomingFingerprint);
+  });
+
+  it("fingerprints scope evidence independently of object property order", () => {
+    const providerFirst: MenuSnapshotScopeEvidence = {
+      provider: "aigens",
+      externalStoreId: "102830",
+      storeName: "Sanitized Aigens store",
+      menuName: "Sanitized full catalog",
+      providerPeriodCodes: ["B", "D", "L", "T"],
+      categoryPeriodCodes: ["B", "D", "L", "T"],
+      categoryCount: 2,
+      groupCount: 3,
+    };
+    const countsFirst: MenuSnapshotScopeEvidence = {
+      categoryCount: 2,
+      groupCount: 3,
+      categoryPeriodCodes: ["B", "D", "L", "T"],
+      providerPeriodCodes: ["B", "D", "L", "T"],
+      menuName: "Sanitized full catalog",
+      storeName: "Sanitized Aigens store",
+      externalStoreId: "102830",
+      provider: "aigens",
+    };
+    const first = buildTransitionAudit([existing()], {
+      snapshotCompleteness: "complete",
+      scopeEvidence: providerFirst,
+      items: [incoming()],
+    });
+    const reordered = buildTransitionAudit([existing()], {
+      snapshotCompleteness: "complete",
+      scopeEvidence: countsFirst,
+      items: [incoming()],
+    });
+
+    expect(reordered.incomingFingerprint).toBe(first.incomingFingerprint);
+  });
+
   it("accepts an explicit reviewed mapping when mutable evidence changed", () => {
     const previous = existing();
     const next = incoming({

@@ -245,7 +245,7 @@ export function buildMenuIdentityTransitionAudit(
   );
   const incomingFingerprint = fingerprint({
     snapshotCompleteness: input.snapshotCompleteness,
-    scopeEvidence: input.scopeEvidence ?? null,
+    scopeEvidence: scopeEvidenceForFingerprint(input.scopeEvidence),
     items: incomingItems
       .map((item) => ({
         externalProductId: item.externalProductId,
@@ -917,7 +917,30 @@ function canonicalizePriceOptions(
         left.amountMinor - right.amountMinor ||
         compareProviderText(left.currency, right.currency),
     )
-    .map((option, sortOrder) => ({ ...option, sortOrder }));
+    .map((option, sortOrder) => ({
+      amountMinor: option.amountMinor,
+      currency: option.currency,
+      label: option.label,
+      sortOrder,
+    }));
+}
+
+function scopeEvidenceForFingerprint(evidence: MenuSyncInput["scopeEvidence"]) {
+  if (!evidence) return null;
+  return {
+    provider: evidence.provider,
+    externalStoreId: evidence.externalStoreId,
+    storeName: evidence.storeName,
+    menuName: evidence.menuName,
+    providerPeriodCodes: [...evidence.providerPeriodCodes].sort(
+      compareProviderText,
+    ),
+    categoryPeriodCodes: [...evidence.categoryPeriodCodes].sort(
+      compareProviderText,
+    ),
+    categoryCount: evidence.categoryCount,
+    groupCount: evidence.groupCount,
+  };
 }
 
 function fingerprint(value: unknown): string {
