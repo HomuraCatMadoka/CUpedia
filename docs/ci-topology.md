@@ -83,6 +83,13 @@ behavior under test:
 Successful-path screenshots were removed. Playwright retains screenshots and
 traces on failure, plus the HTML report, test results, and Actions server log.
 
+Two retry-disabled regression runs exposed client-readiness races rather than
+missing behavior coverage. The canteen vote journey now waits for the hydrated
+menu-period state before selecting lunch, and Campus Bus route links disable
+duplicate automatic RSC prefetches while retaining click navigation. Both
+behaviors remain covered by full-stack Chromium tests and their component
+tests; neither fix adds a retry or extends a timeout.
+
 No E2E behavior was downshifted to unit/component scope in #669. Existing
 lighter-layer coverage, including the Campus Bus mapping in
 `docs/campus-bus/test-coverage.md`, remains unchanged and is still included by
@@ -90,6 +97,26 @@ the full unit command.
 
 ## After validation
 
-Pending a fresh five-attempt sequence on the fixture-optimized commit. Earlier
-sequences are intentionally excluded because a retry-disabled attempt exposed
-test setup races and invalidated the sequence.
+GitHub Actions run `32034702979` was rerun five consecutive times at commit
+`575ebb07016c0764cddd5836b0d710077ca61691`. Every attempt completed successfully
+with Playwright retries fixed at zero.
+
+| Attempt    | Runner seconds | Wall seconds |  Build | Quality | Chromium general | Chromium media | WebKit risk |
+| ---------- | -------------: | -----------: | -----: | ------: | ---------------: | -------------: | ----------: |
+| 1          |            838 |          324 |     74 |     193 |              244 |            247 |          80 |
+| 2          |            827 |          317 |     68 |     170 |              246 |            242 |         101 |
+| 3          |            847 |          336 |     80 |     185 |              254 |            250 |          78 |
+| 4          |            813 |          329 |     81 |     176 |              232 |            245 |          79 |
+| 5          |            857 |          348 |     67 |     173 |              278 |            257 |          82 |
+| **Median** |        **838** |      **329** | **74** | **176** |          **246** |        **247** |      **80** |
+
+The median runner total is 838 seconds (budget: at most 900) and median wall
+time is 329 seconds (budget: at most 360). The median browser-test steps were
+209 seconds for Chromium general, 200 seconds for Chromium media, and 27
+seconds for WebKit risk. The two Chromium job medians differ by one second.
+
+All five complete logs were scanned for Playwright flaky, retry, retrying, and
+failed-result markers; none were present. The job metadata also records every
+job and test step as successful on its first execution. Across all five logs,
+`Start MinIO` occurs only under `chromium-wiki-media`; the other browser runners
+use PostgreSQL without starting object storage.
