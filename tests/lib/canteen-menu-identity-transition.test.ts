@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildMenuIdentityTransitionAudit as buildTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
+  getMenuIdentityTransitionStaleDetails,
   parseMenuIdentityTransitionArtifact,
   verifyMenuIdentityTransitionApproval,
   verifyMenuIdentityTransitionArtifact as verifyTransitionArtifact,
@@ -93,6 +94,74 @@ function incoming(
 }
 
 describe("menu identity transition audit", () => {
+  it("reports bounded exact-snapshot mismatch facts when verification is stale", () => {
+    const previous = existing();
+    const next = incoming();
+    const audit = buildMenuIdentityTransitionAudit([previous], [next]);
+    let thrown: unknown;
+
+    try {
+      verifyTransitionArtifact(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [previous],
+        {
+          snapshotCompleteness: "complete",
+          items: [next],
+          scopeEvidence: { ...AIGENS_SCOPE_EVIDENCE, categoryCount: 3 },
+        },
+        {
+          schemaVersion: 4,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            snapshotScope: {
+              status: "complete",
+              rationale: "The response is the complete provider snapshot.",
+            },
+            replacements: [],
+            canonicalizations: [],
+            merges: [],
+            additions: [],
+            removals: [],
+            ambiguities: [],
+          },
+        },
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect((thrown as Error).message).toBe("MENU_IDENTITY_TRANSITION_STALE");
+    expect(getMenuIdentityTransitionStaleDetails(thrown)).toEqual({
+      existingMatches: true,
+      incomingMatches: false,
+      currentSummary: expect.objectContaining({
+        existingCount: 1,
+        incomingCount: 1,
+      }),
+      currentScope: {
+        categoryCount: 3,
+        groupCount: 3,
+        providerPeriodCount: 4,
+        categoryPeriodCount: 4,
+      },
+    });
+    expect(
+      JSON.stringify(getMenuIdentityTransitionStaleDetails(thrown)),
+    ).not.toContain("凍奶茶");
+  });
+
   it("records and fingerprints provider scope evidence", () => {
     const scopeEvidence = AIGENS_SCOPE_EVIDENCE;
     const audit = buildTransitionAudit([], {
