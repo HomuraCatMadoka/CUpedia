@@ -46,30 +46,24 @@ describe("bounded full CI topology (#669)", () => {
     expect(workflow).not.toMatch(/pnpm (?:lint|test|typecheck) &/);
   });
 
-  it("keeps database coverage in one real-Postgres integration job", () => {
+  it("keeps database coverage on real Postgres without another install", () => {
     expect(workflow).toMatch(
-      /  database-integration:[\s\S]*services:\n      migration-postgres:[\s\S]*zhparser-postgres:/,
+      /  quality:[\s\S]*services:\n      migration-postgres:[\s\S]*zhparser-postgres:/,
     );
-    expect(workflow).toMatch(
-      /  database-integration:[\s\S]*Initialize zhparser/,
-    );
-    expect(workflow).toMatch(
-      /  database-integration:[\s\S]*canteen-menu-source-migration\.test\.ts/,
-    );
-    expect(workflow).toMatch(
-      /  database-integration:[\s\S]*canteen-menu-sync\.test\.ts/,
-    );
-    const databaseJob = workflow.slice(
-      workflow.indexOf("\n  database-integration:"),
+    const qualityJob = workflow.slice(
+      workflow.indexOf("\n  quality:"),
       workflow.indexOf("\n  build:"),
     );
-    expect(databaseJob).not.toContain("playwright");
+    expect(qualityJob).toContain("Initialize zhparser");
+    expect(qualityJob).toContain("canteen-menu-source-migration.test.ts");
+    expect(qualityJob).toContain("canteen-menu-sync.test.ts");
+    expect(qualityJob.match(/pnpm install --frozen-lockfile/g)).toHaveLength(1);
+    expect(qualityJob).not.toContain("playwright");
   });
 
   it("builds Next once and makes every E2E runner reuse that artifact", () => {
     expect(jobNames().filter((name) => name === "build")).toHaveLength(1);
     expect(workflow).toMatch(/  e2e:[\s\S]*needs: build/);
-    expect(workflow).toMatch(/  database-integration:[\s\S]*needs: build/);
     expect(workflow).toMatch(/  webkit-risk:[\s\S]*needs: build/);
     expect(workflow).toMatch(/  build:[\s\S]*name: next-build/);
     expect(workflow).toMatch(
