@@ -35,13 +35,13 @@ const useDevServer = process.env.E2E_SERVER_MODE === "dev";
 const useCiGroups = process.env.E2E_CI_GROUPS === "1";
 const mobileWebKitTest =
   /(?:wiki-edit\.mobile-webkit|header\.mobile-webkit)\.spec\.ts$/;
-// The August 17 five-run diagnostics left general ~23 seconds slower than the
-// wiki/media group. Sidebar is self-contained static UI coverage of roughly
-// half that gap, so assigning it here evens the runners without changing what
-// either project covers. This is also the only group with upload coverage, and
-// therefore the only one whose CI runner starts MinIO.
+// The August 17 job logs put sidebar at ~30 seconds and the lifecycle, links,
+// and routing specs at ~22 seconds together. Swapping those file boundaries
+// keeps both Chromium runners even without changing their combined coverage.
+// This is also the only group with upload coverage, and therefore the only one
+// whose CI runner starts MinIO.
 const wikiMediaTest =
-  /(?:sidebar|wiki-(?!edit\.(?:shell|toolbar|mobile-webkit)\.spec\.ts$).*)\.spec\.ts$/;
+  /(?:sidebar|wiki-(?!(?:edit\.(?:shell|toolbar|mobile-webkit)|lifecycle|links|routing)\.spec\.ts$).*)\.spec\.ts$/;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with
