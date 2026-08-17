@@ -73,6 +73,36 @@ the full unit command.
 
 ## After validation
 
-Record five consecutive successful full Actions regressions here before #669 is
-complete. Their runner-time median must be at most 900 seconds, wall-time median
-must be at most 360 seconds, and none may contain a flaky/retry-pass result.
+Run `31995879188` at `27c9ee1fd` was rerun four times after its initial run.
+All five attempts completed successfully with Playwright retries set to zero.
+
+| Attempt    |  Jobs | Runner seconds | Wall seconds | Chromium general E2E | Chromium Wiki E2E | WebKit E2E |
+| ---------- | ----: | -------------: | -----------: | -------------------: | ----------------: | ---------: |
+| 1          |     5 |            851 |          330 |                  205 |               215 |         37 |
+| 2          |     5 |            885 |          341 |                  237 |               219 |         41 |
+| 3          |     5 |            943 |          344 |                  201 |               220 |         31 |
+| 4          |     5 |            857 |          347 |                  188 |               222 |         42 |
+| 5          |     5 |            889 |          362 |                  204 |               226 |         39 |
+| **Median** | **5** |        **885** |      **344** |              **204** |           **220** |     **39** |
+
+The runner-time median is 115 seconds below the 900-second ceiling, and the
+wall-time median is 16 seconds below the 360-second ceiling. Attempt 3 includes
+an 83-second WebKit install cache fluctuation and attempt 5 has a 362-second
+wall time; both are retained in the median rather than discarded.
+
+Attempt 2 is the median runner-time sample. Its principal job/step durations
+were:
+
+| Job                    | Job seconds | Principal step seconds                     |
+| ---------------------- | ----------: | ------------------------------------------ |
+| `quality`              |         153 | lint 27 + unit 76 + typecheck 26           |
+| `build`                |          67 | Next build 36                              |
+| `database-integration` |         125 | PG tests 8 + WebKit install 31 + WebKit 41 |
+| `chromium-general`     |         272 | PostgreSQL 8 + E2E 237; MinIO skipped      |
+| `chromium-wiki-media`  |         268 | PostgreSQL 10 + MinIO 5 + E2E 219          |
+
+The browser logs for every attempt were scanned for flaky, retry-pass, retry
+number, and nonzero failed-test signals. None were present. The two Chromium
+test steps have a five-attempt median difference of 16 seconds. Only the
+upload-bearing Wiki runner started MinIO; the general and PostgreSQL/WebKit
+runners did not.
