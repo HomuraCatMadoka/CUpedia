@@ -1,7 +1,10 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage } from "./helpers/wiki";
+import {
+  createUntitledWikiPage,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("wiki editor block commands", () => {
@@ -64,7 +67,10 @@ test.describe("wiki editor block commands", () => {
   }) => {
     await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
 
-    const editor = page.locator('[data-slate-editor="true"]');
+    const editor = await waitForHydratedWikiEditor(
+      page,
+      PAGE_IDS.gettingStarted,
+    );
     const blocks = editor.getByTestId("wiki-editor-block");
     const sourceBlock = blocks.filter({
       hasText: "New to CUHK? Here are some tips to help you settle in.",

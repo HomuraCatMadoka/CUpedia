@@ -56,6 +56,7 @@ describe("WikiCreateButton", () => {
     render(<WikiCreateButton parentId="parent-1">新建</WikiCreateButton>);
 
     const button = screen.getByRole("button", { name: "新建" });
+    expect(button.getAttribute("data-client-ready")).toBe("true");
     expect(button.getAttribute("href")).toBe(
       "/wiki/new?draft=1&parent=parent-1",
     );

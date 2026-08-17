@@ -33,14 +33,14 @@ const E2E_DATABASE_URL = runtime.databaseUrl;
 const node = JSON.stringify(process.execPath);
 const useDevServer = process.env.E2E_SERVER_MODE === "dev";
 const useCiGroups = process.env.E2E_CI_GROUPS === "1";
-const campusBusTest = /campus-bus\.spec\.ts$/;
 const mobileWebKitTest =
   /(?:wiki-edit\.mobile-webkit|header\.mobile-webkit)\.spec\.ts$/;
-const wikiDesktopTest =
-  /wiki-(?!edit\.mobile(?:-webkit)?\.spec\.ts$).*\.spec\.ts$/;
-// Historical runtime split: these files are about half of desktop Wiki time.
-const wikiEditorCoreTest =
-  /wiki-edit(?:\.(?:autosave|block-commands|hydration|shell))?\.spec\.ts$/;
+// The August 17 baseline puts these specs at ~185 seconds. Leaving the editor
+// shell and toolbar with the general group keeps both Chromium runners even.
+// This is also the only group with upload coverage, and therefore the only one
+// whose CI runner starts MinIO.
+const wikiMediaTest =
+  /wiki-(?!edit\.(?:shell|toolbar|mobile-webkit)\.spec\.ts$).*\.spec\.ts$/;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with
@@ -52,37 +52,27 @@ export default defineConfig({
   // A worker owns one isolated database. CI splits files across separate
   // jobs/databases instead of racing shared fixtures in one process.
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   workers: 1,
-  reporter: "list",
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   timeout: 30_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL,
-    trace: "on-first-retry",
+    screenshot: "only-on-failure",
+    trace: "retain-on-failure",
   },
   projects: [
     ...(useCiGroups
       ? [
           {
             name: "chromium-general",
-            testIgnore: [campusBusTest, wikiDesktopTest, mobileWebKitTest],
+            testIgnore: [wikiMediaTest, mobileWebKitTest],
             use: { ...devices["Desktop Chrome"] },
           },
           {
-            name: "campus-bus",
-            testMatch: campusBusTest,
-            use: { ...devices["Desktop Chrome"] },
-          },
-          {
-            name: "chromium-wiki",
-            testMatch: wikiDesktopTest,
-            testIgnore: wikiEditorCoreTest,
-            use: { ...devices["Desktop Chrome"] },
-          },
-          {
-            name: "chromium-wiki-editor",
-            testMatch: wikiEditorCoreTest,
+            name: "chromium-wiki-media",
+            testMatch: wikiMediaTest,
             use: { ...devices["Desktop Chrome"] },
           },
         ]
