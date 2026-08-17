@@ -121,28 +121,6 @@ jobs:
           tests/db/canteen-menu-sync.test.ts
           tests/db/canteen-menu-source-sync.test.ts
 
-      - name: Restore WebKit browser cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-webkit-${{ hashFiles('pnpm-lock.yaml') }}
-
-      - name: Install WebKit
-        run: pnpm exec playwright install --with-deps --only-shell webkit
-
-      - name: Run WebKit risk coverage
-        run: pnpm test:e2e --project=webkit-mobile
-
-      - name: Upload WebKit artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report-webkit-mobile
-          path: |
-            playwright-report/
-            test-results/
-          retention-days: 7
-
   build:
     runs-on: ubuntu-latest
     steps:
@@ -191,8 +169,7 @@ jobs:
           retention-days: 1
 
   # Two Chromium runners share one production Next build and own the broad
-  # regression surface. The database integration runner reuses the same build
-  # for WebKit's two known mobile interaction risks.
+  # regression surface. A third runner limits WebKit to known interaction risks.
   e2e:
     runs-on: ubuntu-latest
     needs: build
@@ -267,6 +244,57 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-${{ matrix.project }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  webkit-risk:
+    runs-on: ubuntu-latest
+    needs: build
+    container: mcr.microsoft.com/playwright:v1.60.0-noble
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cuclaw
+      AUTH_SECRET: ci-placeholder-secret
+      AUTH_URL: http://localhost:3100
+      E2E_CI_GROUPS: "1"
+    services:
+      postgres:
+        image: abcfy2/zhparser:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cuclaw
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cuclaw"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Download Next build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+
+      - name: Extract Next build
+        run: tar -xzf next-build.tar.gz
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run WebKit risk coverage
+        run: pnpm test:e2e --project=webkit-mobile
+
+      - name: Upload WebKit artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-webkit-mobile
           path: |
             playwright-report/
             test-results/

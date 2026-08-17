@@ -30,7 +30,9 @@ describe("bounded full CI topology (#669)", () => {
       jobNames().filter((name) => name !== "e2e").length +
       e2eMatrixProjects().length;
     expect(totalJobExecutions).toBeLessThanOrEqual(6);
-    expect(e2eMatrixProjects().length).toBeLessThanOrEqual(3);
+    const browserRunnerCount =
+      e2eMatrixProjects().length + (jobNames().includes("webkit-risk") ? 1 : 0);
+    expect(browserRunnerCount).toBeLessThanOrEqual(3);
     expect(e2eMatrixProjects()).toEqual([
       "chromium-general",
       "chromium-wiki-media",
@@ -57,21 +59,24 @@ describe("bounded full CI topology (#669)", () => {
     expect(workflow).toMatch(
       /  database-integration:[\s\S]*canteen-menu-sync\.test\.ts/,
     );
-    expect(workflow).toMatch(
-      /  database-integration:[\s\S]*Run WebKit risk coverage[\s\S]*--project=webkit-mobile/,
+    const databaseJob = workflow.slice(
+      workflow.indexOf("\n  database-integration:"),
+      workflow.indexOf("\n  build:"),
     );
-    expect(workflow).toMatch(
-      /  database-integration:[\s\S]*Restore WebKit browser cache[\s\S]*~\/\.cache\/ms-playwright/,
-    );
+    expect(databaseJob).not.toContain("playwright");
   });
 
   it("builds Next once and makes every E2E runner reuse that artifact", () => {
     expect(jobNames().filter((name) => name === "build")).toHaveLength(1);
     expect(workflow).toMatch(/  e2e:[\s\S]*needs: build/);
     expect(workflow).toMatch(/  database-integration:[\s\S]*needs: build/);
+    expect(workflow).toMatch(/  webkit-risk:[\s\S]*needs: build/);
     expect(workflow).toMatch(/  build:[\s\S]*name: next-build/);
     expect(workflow).toMatch(
       /  e2e:[\s\S]*uses: actions\/download-artifact@v4/,
+    );
+    expect(workflow).toMatch(
+      /  webkit-risk:[\s\S]*mcr\.microsoft\.com\/playwright:v1\.60\.0-noble[\s\S]*uses: actions\/download-artifact@v4[\s\S]*--project=webkit-mobile/,
     );
   });
 
