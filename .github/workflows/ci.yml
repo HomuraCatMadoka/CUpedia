@@ -133,6 +133,12 @@ jobs:
           tests/db/canteen-menu-sync.test.ts
           tests/db/canteen-menu-source-sync.test.ts
 
+      - name: Restore WebKit browser cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-webkit-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Install WebKit
         run: pnpm exec playwright install --with-deps --only-shell webkit
 

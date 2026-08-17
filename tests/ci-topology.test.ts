@@ -67,6 +67,9 @@ describe("bounded full CI topology (#669)", () => {
     expect(workflow).toMatch(
       /  database-integration:[\s\S]*Run WebKit risk coverage[\s\S]*--project=webkit-mobile/,
     );
+    expect(workflow).toMatch(
+      /  database-integration:[\s\S]*Restore WebKit browser cache[\s\S]*~\/\.cache\/ms-playwright/,
+    );
   });
 
   it("builds Next once and makes every E2E runner reuse that artifact", () => {
