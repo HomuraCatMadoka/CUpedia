@@ -287,6 +287,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Trust container checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Run WebKit risk coverage
         run: pnpm test:e2e --project=webkit-mobile
 
