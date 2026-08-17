@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { reconcileOfferingIdentityTransitions } from "./canteen-menu-external-key";
 import {
   snapshotAbsenceIsEvidence,
   type MenuSnapshotCompleteness,
@@ -20,8 +19,6 @@ export type MenuIdentityObservation = {
     previousProductId: RedactedMenuSample;
     nextProductId: RedactedMenuSample;
   }>;
-  ambiguousOfferingTransitionCount: number;
-  ambiguousOfferingTransitionSamples: RedactedMenuSample[];
   truncated: boolean;
 };
 
@@ -40,33 +37,15 @@ export function observeMenuIdentityChurn(
     isAvailable?: boolean;
   }>,
   incoming: Array<{ externalProductId: string; name: string }>,
-  snapshotCompleteness: MenuSnapshotCompleteness,
 ): MenuIdentityObservation {
   const existingIds = new Set(existing.map((item) => item.externalProductId));
   const incomingIds = new Set(incoming.map((item) => item.externalProductId));
-  const offeringTransitions = reconcileOfferingIdentityTransitions(
-    [...existingIds],
-    [...incomingIds],
-  );
-  const safeMoves = snapshotAbsenceIsEvidence(snapshotCompleteness)
-    ? offeringTransitions.safeMoves
-    : [];
-  const safelyMovedPreviousIds = new Set(
-    safeMoves.map((move) => move.previousProductId),
-  );
-  const safelyMovedNextIds = new Set(
-    safeMoves.map((move) => move.nextProductId),
-  );
   const newItems = incoming.filter(
-    (item) =>
-      !existingIds.has(item.externalProductId) &&
-      !safelyMovedNextIds.has(item.externalProductId),
+    (item) => !existingIds.has(item.externalProductId),
   );
   const missingItems = existing.filter(
     (item) =>
-      item.isAvailable !== false &&
-      !incomingIds.has(item.externalProductId) &&
-      !safelyMovedPreviousIds.has(item.externalProductId),
+      item.isAvailable !== false && !incomingIds.has(item.externalProductId),
   );
   const newByName = new Map<string, typeof newItems>();
   const missingByName = new Map<string, typeof missingItems>();
@@ -109,24 +88,10 @@ export function observeMenuIdentityChurn(
         ),
         nextProductId: redactMenuDiagnosticSample(replacement.nextProductId),
       })),
-    ambiguousOfferingTransitionCount:
-      offeringTransitions.ambiguousTransitions.length,
-    ambiguousOfferingTransitionSamples: offeringTransitions.ambiguousTransitions
-      .slice(0, OBSERVATION_ID_LIMIT)
-      .map((transition) =>
-        redactMenuDiagnosticSample(
-          JSON.stringify([
-            transition.productIdentity,
-            transition.previousProductIds,
-            transition.nextProductIds,
-          ]),
-        ),
-      ),
     truncated:
       newItems.length > OBSERVATION_ID_LIMIT ||
       missingItems.length > OBSERVATION_ID_LIMIT ||
-      suspectedReplacements.length > OBSERVATION_ID_LIMIT ||
-      offeringTransitions.ambiguousTransitions.length > OBSERVATION_ID_LIMIT,
+      suspectedReplacements.length > OBSERVATION_ID_LIMIT,
   };
 }
 
@@ -147,7 +112,6 @@ export function isSuspiciousMenuIdentityChurn(
     : observation.newProductCount;
   return (
     observation.suspectedReplacementCount > 0 ||
-    observation.ambiguousOfferingTransitionCount > 0 ||
     (changed >= MIN_CHURN_COUNT &&
       changed * 100 >= existingCount * CHURN_RATIO_PERCENT)
   );

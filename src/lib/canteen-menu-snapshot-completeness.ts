@@ -1,4 +1,5 @@
 import type { CanteenMenuSourceProvider } from "@/db/schema";
+import type { MenuSnapshotScopeEvidence } from "./canteen-types";
 
 export const MENU_SNAPSHOT_COMPLETENESS = ["complete", "partial"] as const;
 export type MenuSnapshotCompleteness =
@@ -23,9 +24,20 @@ export function expectedMenuSnapshotCompleteness(
 export function assertProviderSnapshotCompleteness(
   provider: CanteenMenuSourceProvider,
   actual: MenuSnapshotCompleteness,
+  scopeEvidence?: MenuSnapshotScopeEvidence,
+  externalStoreId?: string,
 ): void {
   if (actual !== expectedMenuSnapshotCompleteness(provider)) {
     throw new Error("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+  }
+  if (provider === "aigens" && scopeEvidence?.provider !== "aigens") {
+    throw new Error("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+  }
+  if (
+    provider === "aigens" &&
+    scopeEvidence?.externalStoreId !== externalStoreId
+  ) {
+    throw new Error("MENU_SNAPSHOT_SCOPE_EVIDENCE_MISMATCH");
   }
 }
 

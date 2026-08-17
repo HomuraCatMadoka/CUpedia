@@ -11,6 +11,7 @@ const {
   mockDbQueryUsers,
   mockDbSelect,
   mockDbInsert,
+  mockDbTransaction,
   mockUnstableCache,
   mockRevalidateTag,
 } = vi.hoisted(() => ({
@@ -20,6 +21,7 @@ const {
   mockDbQueryUsers: { findFirst: vi.fn() },
   mockDbSelect: vi.fn(),
   mockDbInsert: vi.fn(),
+  mockDbTransaction: vi.fn(),
   mockUnstableCache: vi.fn((fn: unknown) => fn),
   mockRevalidateTag: vi.fn(),
 }));
@@ -52,6 +54,8 @@ vi.mock("@/db", () => ({
     query: { users: mockDbQueryUsers },
     select: (...args: unknown[]) => mockDbSelect(...args),
     insert: (...args: unknown[]) => mockDbInsert(...args),
+    transaction: (callback: (executor: unknown) => unknown) =>
+      mockDbTransaction(callback),
   },
 }));
 
@@ -81,6 +85,7 @@ function queueSelectResults(...results: unknown[]) {
     chain.where = vi.fn().mockReturnValue(chain);
     chain.groupBy = vi.fn().mockReturnValue(chain);
     chain.limit = vi.fn().mockReturnValue(chain);
+    chain.for = vi.fn().mockReturnValue(chain);
     chain.then = promise.then.bind(promise);
     return chain;
   });
@@ -108,6 +113,13 @@ describe("canteen-vote-actions (drizzle-mocked pg path)", () => {
     mockDbQueryUsers.findFirst.mockResolvedValue(null);
     mockCookiesGet.mockReturnValue(undefined);
     mockUnstableCache.mockImplementation((fn: unknown) => fn);
+    mockDbTransaction.mockImplementation(
+      (callback: (executor: unknown) => unknown) =>
+        callback({
+          select: (...args: unknown[]) => mockDbSelect(...args),
+          insert: (...args: unknown[]) => mockDbInsert(...args),
+        }),
+    );
     queueSelectResults([]);
     resetVoteRateLimitForTests();
   });

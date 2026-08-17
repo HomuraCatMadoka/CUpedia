@@ -9,7 +9,6 @@ describe("menu identity churn observation", () => {
     const observation = observeMenuIdentityChurn(
       [{ externalProductId: "old-id", name: "凍奶茶" }],
       [{ externalProductId: "new-id", name: "凍奶茶" }],
-      "complete",
     );
 
     expect(observation).toMatchObject({
@@ -31,67 +30,6 @@ describe("menu identity churn observation", () => {
     );
   });
 
-  it("does not flag an unambiguous Aigens offering period move as churn", () => {
-    const observation = observeMenuIdentityChurn(
-      [
-        {
-          externalProductId: "product-42#offering-period=lunch",
-          name: "凍奶茶",
-        },
-      ],
-      [
-        {
-          externalProductId: "product-42#offering-period=dinner",
-          name: "凍奶茶",
-        },
-      ],
-      "complete",
-    );
-
-    expect(observation).toMatchObject({
-      newProductCount: 0,
-      missingProductCount: 0,
-      suspectedReplacementCount: 0,
-      suspectedReplacementSamples: [],
-      ambiguousOfferingTransitionCount: 0,
-      ambiguousOfferingTransitionSamples: [],
-    });
-    expect(isSuspiciousMenuIdentityChurn(observation, 1, "complete")).toBe(
-      false,
-    );
-  });
-
-  it("flags an ambiguous Aigens offering split even below bulk thresholds", () => {
-    const observation = observeMenuIdentityChurn(
-      [
-        {
-          externalProductId: "product-42#offering-period=breakfast",
-          name: "早餐奶茶",
-        },
-      ],
-      [
-        {
-          externalProductId: "product-42#offering-period=lunch",
-          name: "午餐奶茶",
-        },
-        {
-          externalProductId: "product-42#offering-period=dinner",
-          name: "晚餐奶茶",
-        },
-      ],
-      "complete",
-    );
-
-    expect(observation.ambiguousOfferingTransitionCount).toBe(1);
-    expect(observation.ambiguousOfferingTransitionSamples).toEqual([
-      expect.stringMatching(/^[a-f0-9]{12}$/),
-    ]);
-    expect(JSON.stringify(observation)).not.toContain("product-42");
-    expect(isSuspiciousMenuIdentityChurn(observation, 1, "complete")).toBe(
-      true,
-    );
-  });
-
   it("allows ordinary low-volume additions without guessing identity", () => {
     const observation = observeMenuIdentityChurn(
       [
@@ -107,7 +45,6 @@ describe("menu identity churn observation", () => {
         { externalProductId: "d", name: "D" },
         { externalProductId: "e", name: "E" },
       ],
-      "complete",
     );
 
     expect(observation.newProductCount).toBe(1);
@@ -127,11 +64,7 @@ describe("menu identity churn observation", () => {
       externalProductId: index < 30 ? `new-${index}` : `old-${index}`,
       name: index < 30 ? `New ${index}` : `Old ${index}`,
     }));
-    const observation = observeMenuIdentityChurn(
-      existing,
-      incoming,
-      "complete",
-    );
+    const observation = observeMenuIdentityChurn(existing, incoming);
 
     expect(observation.newProductCount).toBe(30);
     expect(observation.missingProductCount).toBe(30);
@@ -148,7 +81,7 @@ describe("menu identity churn observation", () => {
       name: `Existing ${index}`,
     }));
     const incoming = existing.slice(0, 20);
-    const observation = observeMenuIdentityChurn(existing, incoming, "partial");
+    const observation = observeMenuIdentityChurn(existing, incoming);
 
     expect(observation).toMatchObject({
       newProductCount: 0,
@@ -172,36 +105,11 @@ describe("menu identity churn observation", () => {
         name: `New ${index}`,
       })),
     ];
-    const observation = observeMenuIdentityChurn(existing, incoming, "partial");
+    const observation = observeMenuIdentityChurn(existing, incoming);
 
     expect(observation.newProductCount).toBe(3);
     expect(isSuspiciousMenuIdentityChurn(observation, 12, "partial")).toBe(
       true,
     );
-  });
-
-  it("reports ambiguous offering transitions from a partial snapshot", () => {
-    const observation = observeMenuIdentityChurn(
-      [
-        {
-          externalProductId: "product-42#offering-period=breakfast",
-          name: "早餐奶茶",
-        },
-      ],
-      [
-        {
-          externalProductId: "product-42#offering-period=lunch",
-          name: "午餐奶茶",
-        },
-        {
-          externalProductId: "product-42#offering-period=dinner",
-          name: "晚餐奶茶",
-        },
-      ],
-      "partial",
-    );
-
-    expect(observation.ambiguousOfferingTransitionCount).toBe(1);
-    expect(isSuspiciousMenuIdentityChurn(observation, 1, "partial")).toBe(true);
   });
 });

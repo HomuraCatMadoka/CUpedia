@@ -12,7 +12,7 @@ The immediately previous compatible application commit is
 shadow identities and remains compatible with migration 0084. The #665
 application writes authoritative identity only. Do not deploy #643 while the
 previous writer, or any older writer, may still run; first stop those instances
-and run this v2 preflight from the deployed #665 application commit.
+and run the current v3 preflight from the deployed #679 application commit.
 
 ## Read-only execution
 
@@ -44,7 +44,7 @@ umask 077
 export PREFLIGHT_APPLICATION_COMMIT="<deployed-commit>"
 # The secret manager injects DATABASE_URL into this process environment.
 node --import tsx scripts/preflight-canteen-menu-identity.ts --format=json \
-  > canteen-menu-identity-preflight-v2.json
+  > canteen-menu-identity-preflight-v3.json
 status=$?
 unset DATABASE_URL
 test "$status" -eq 0
@@ -55,7 +55,10 @@ verify its `applicationCommit`, `generatedAt`, contract version, and target
 issue, then attach it to the #643 deployment decision. The default human form
 is suitable for an operator terminal but is not the approval artifact.
 
-Stop the deployment and open a separately reviewed repair issue for
+For Aigens, a period-scoped authoritative ID is expected migration evidence:
+stop and complete the audited identity transition rather than allowing ordinary
+sync to reinterpret it. Stop the deployment and open a separately reviewed
+repair issue for
 `PREFLIGHT_UNSAFE`, any failed check, any merge/UUID-replacement requirement,
 or any unsupported/contradictory identity. Also stop for configuration/database
 errors, missing complete RLS visibility, unexpected report schema/version, or

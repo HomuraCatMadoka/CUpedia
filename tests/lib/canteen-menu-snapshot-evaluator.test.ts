@@ -77,8 +77,6 @@ describe("menu snapshot evaluator", () => {
       missingProductCount: 0,
       suspectedReplacementCount: 0,
       suspectedReplacementSamples: [],
-      ambiguousOfferingTransitionCount: 0,
-      ambiguousOfferingTransitionSamples: [],
     });
     expect(result.blockingDecision).toEqual({
       blocked: false,
@@ -87,46 +85,21 @@ describe("menu snapshot evaluator", () => {
     });
   });
 
-  it("blocks an ambiguous Aigens offering split with bounded redacted samples", () => {
-    const result = evaluateMenuSnapshot(
-      { ...SOURCE, provider: "aigens" },
-      parseMenuSyncJson({
-        snapshotCompleteness: "complete",
-        items: [
-          {
-            externalProductId: "secret-product#offering-period=lunch",
-            name: "午餐示例菜品",
-            mealPeriods: ["lunch"],
-          },
-          {
-            externalProductId: "secret-product#offering-period=dinner",
-            name: "晚餐示例菜品",
-            mealPeriods: ["dinner"],
-          },
-        ],
-      }),
-      [
-        existing({
-          externalProductId: "secret-product#offering-period=breakfast",
-          mealPeriods: ["breakfast"],
+  it("rejects historical Aigens period aliases before ordinary evaluation", () => {
+    expect(() =>
+      evaluateMenuSnapshot(
+        { ...SOURCE, provider: "aigens" },
+        parseMenuSyncJson({
+          snapshotCompleteness: "complete",
+          items: [{ externalProductId: "secret-product", name: "示例菜品" }],
         }),
-      ],
-    );
-
-    expect(result.plan.actions).toEqual([]);
-    expect(result.plan.conflicts).toHaveLength(2);
-    expect(result.blockingDecision).toMatchObject({
-      blocked: true,
-      code: "MENU_SYNC_CONFLICT",
-    });
-    expect(result.blockingDecision.samples.length).toBeGreaterThan(0);
-    expect(result.blockingDecision.samples.length).toBeLessThanOrEqual(5);
-    expect(result.blockingDecision.samples).toEqual(
-      result.blockingDecision.samples.map(() =>
-        expect.stringMatching(/^[a-f0-9]{12}$/),
+        [
+          existing({
+            externalProductId: "secret-product#offering-period=lunch",
+          }),
+        ],
       ),
-    );
-    expect(JSON.stringify(result.blockingDecision)).not.toContain("secret");
+    ).toThrow("MALFORMED_IDENTITY");
   });
 
   it("observes but never joins a same-name product replacement", () => {
@@ -344,83 +317,6 @@ describe("menu snapshot evaluator", () => {
       input: snapshot([{ externalProductId: "a", name: "恢复菜品" }]),
       persisted: [existing({ externalProductId: "a", isAvailable: false })],
       code: null,
-    },
-    {
-      name: "mixed exact and residual offering move",
-      source: { ...SOURCE, provider: "aigens" as const },
-      input: snapshot([
-        {
-          externalProductId: "a#offering-period=breakfast",
-          name: "移动菜品",
-          mealPeriods: ["breakfast"],
-        },
-        {
-          externalProductId: "b#offering-period=dinner",
-          name: "精确菜品",
-          mealPeriods: ["dinner"],
-        },
-      ]),
-      persisted: [
-        existing({
-          id: "moved-item",
-          externalProductId: "a#offering-period=lunch",
-          mealPeriods: ["lunch"],
-        }),
-        existing({
-          id: "exact-item",
-          externalProductId: "b#offering-period=dinner",
-          name: "精确菜品",
-          mealPeriods: ["dinner"],
-        }),
-      ],
-      code: null,
-    },
-    {
-      name: "offering split",
-      source: { ...SOURCE, provider: "aigens" as const },
-      input: snapshot([
-        {
-          externalProductId: "a#offering-period=lunch",
-          name: "午餐菜品",
-          mealPeriods: ["lunch"],
-        },
-        {
-          externalProductId: "a#offering-period=dinner",
-          name: "晚餐菜品",
-          mealPeriods: ["dinner"],
-        },
-      ]),
-      persisted: [
-        existing({
-          externalProductId: "a#offering-period=breakfast",
-          mealPeriods: ["breakfast"],
-        }),
-      ],
-      code: "MENU_SYNC_CONFLICT",
-    },
-    {
-      name: "offering merge",
-      source: { ...SOURCE, provider: "aigens" as const },
-      input: snapshot([
-        {
-          externalProductId: "a#offering-period=breakfast",
-          name: "合并菜品",
-          mealPeriods: ["breakfast"],
-        },
-      ]),
-      persisted: [
-        existing({
-          id: "lunch-item",
-          externalProductId: "a#offering-period=lunch",
-          mealPeriods: ["lunch"],
-        }),
-        existing({
-          id: "dinner-item",
-          externalProductId: "a#offering-period=dinner",
-          mealPeriods: ["dinner"],
-        }),
-      ],
-      code: "MENU_SYNC_CONFLICT",
     },
     {
       name: "missing product",

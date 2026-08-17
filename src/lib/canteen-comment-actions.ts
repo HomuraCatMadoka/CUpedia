@@ -38,25 +38,12 @@ import { listRecentDishCommentAuditLogs } from "@/lib/admin-audit-queries";
 import { validateCommentContent } from "@/lib/canteen-types";
 import { assertNoSensitiveContent } from "@/lib/sensitive-content";
 import { assertContributorComplete } from "@/lib/contributor-account";
+import { lockAvailableCanteenMenuItem } from "./canteen-menu-mutation-lock";
 
-async function assertMenuItemExists(menuItemId: string): Promise<void> {
-  if (isCanteenMockMode()) {
-    if (!mockMenuItemExists(menuItemId)) {
-      throw new Error("MENU_ITEM_NOT_FOUND");
-    }
-    return;
+function assertMockMenuItemExists(menuItemId: string): void {
+  if (!mockMenuItemExists(menuItemId)) {
+    throw new Error("MENU_ITEM_NOT_FOUND");
   }
-  const items = await db
-    .select({ id: canteenMenuItems.id })
-    .from(canteenMenuItems)
-    .where(
-      and(
-        eq(canteenMenuItems.id, menuItemId),
-        eq(canteenMenuItems.isAvailable, true),
-      ),
-    )
-    .limit(1);
-  if (!items[0]) throw new Error("MENU_ITEM_NOT_FOUND");
 }
 
 export async function getCommentCountsForCanteen(
@@ -104,9 +91,9 @@ export async function createDishComment(
   const content = validateCommentContent(contentInput);
   assertNoSensitiveContent(content);
   const user = await assertContributorComplete(await requireCommentAuth());
-  await assertMenuItemExists(menuItemId);
 
   if (isCanteenMockMode()) {
+    assertMockMenuItemExists(menuItemId);
     return mockCreateDishComment(
       menuItemId,
       user.id,
@@ -116,21 +103,25 @@ export async function createDishComment(
     );
   }
 
-  const [row] = await db
-    .insert(canteenDishComments)
-    .values({
-      menuItemId,
-      userId: user.id,
-      content,
-    })
-    .returning({
-      id: canteenDishComments.id,
-      menuItemId: canteenDishComments.menuItemId,
-      userId: canteenDishComments.userId,
-      content: canteenDishComments.content,
-      createdAt: canteenDishComments.createdAt,
-      updatedAt: canteenDishComments.updatedAt,
-    });
+  const row = await db.transaction(async (tx) => {
+    await lockAvailableCanteenMenuItem(tx, menuItemId);
+    const [inserted] = await tx
+      .insert(canteenDishComments)
+      .values({
+        menuItemId,
+        userId: user.id,
+        content,
+      })
+      .returning({
+        id: canteenDishComments.id,
+        menuItemId: canteenDishComments.menuItemId,
+        userId: canteenDishComments.userId,
+        content: canteenDishComments.content,
+        createdAt: canteenDishComments.createdAt,
+        updatedAt: canteenDishComments.updatedAt,
+      });
+    return inserted;
+  });
 
   return {
     ...row,
