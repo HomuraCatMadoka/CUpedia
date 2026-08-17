@@ -99,23 +99,23 @@ the full unit command.
 
 ## After validation
 
-GitHub Actions run `32034702979` was rerun five consecutive times at commit
-`575ebb07016c0764cddd5836b0d710077ca61691`. Every attempt completed successfully
+GitHub Actions run `32038048327` was rerun five consecutive times at commit
+`77e36a781212c5aa103566039e1d1ceb292cb7fa`. Every attempt completed successfully
 with Playwright retries fixed at zero.
 
 | Attempt    | Runner seconds | Wall seconds |  Build | Quality | Chromium general | Chromium media | WebKit risk |
 | ---------- | -------------: | -----------: | -----: | ------: | ---------------: | -------------: | ----------: |
-| 1          |            838 |          324 |     74 |     193 |              244 |            247 |          80 |
-| 2          |            827 |          317 |     68 |     170 |              246 |            242 |         101 |
-| 3          |            847 |          336 |     80 |     185 |              254 |            250 |          78 |
-| 4          |            813 |          329 |     81 |     176 |              232 |            245 |          79 |
-| 5          |            857 |          348 |     67 |     173 |              278 |            257 |          82 |
-| **Median** |        **838** |      **329** | **74** | **176** |          **246** |        **247** |      **80** |
+| 1          |            840 |          317 |     62 |     185 |              253 |            252 |          88 |
+| 2          |            792 |          312 |     68 |     177 |              242 |            217 |          88 |
+| 3          |            831 |          339 |     83 |     191 |              254 |            216 |          87 |
+| 4          |            863 |          350 |     73 |     180 |              275 |            250 |          85 |
+| 5          |            851 |          337 |     73 |     173 |              262 |            248 |          95 |
+| **Median** |        **840** |      **337** | **73** | **180** |          **254** |        **248** |      **88** |
 
-The median runner total is 838 seconds (budget: at most 900) and median wall
-time is 329 seconds (budget: at most 360). The median browser-test steps were
-209 seconds for Chromium general, 200 seconds for Chromium media, and 27
-seconds for WebKit risk. The two Chromium job medians differ by one second.
+The median runner total is 840 seconds (budget: at most 900) and median wall
+time is 337 seconds (budget: at most 360). The median browser-test steps were
+217 seconds for Chromium general, 201 seconds for Chromium media, and 29
+seconds for WebKit risk. The two Chromium job medians differ by six seconds.
 
 All five complete logs were scanned for Playwright flaky, retry, retrying, and
 failed-result markers; none were present. The job metadata also records every
