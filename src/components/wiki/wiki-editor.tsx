@@ -56,7 +56,7 @@ import {
   serializeContentWithoutDraftComments,
 } from "@/components/wiki/discussion-draft";
 import { WikiIconPicker } from "@/components/wiki/wiki-icon-picker";
-import { WikiChildPages } from "@/components/wiki/wiki-child-pages";
+import { WikiEditorChildPages } from "@/components/wiki/wiki-editor-child-pages";
 import { cn } from "@/lib/utils";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
 import { MobileWikiEditorToolbar } from "@/components/wiki/mobile-wiki-editor-toolbar";
@@ -1320,6 +1320,7 @@ export function WikiEditor({
           <div
             ref={markEditorHydrated}
             data-testid="wiki-editor-shell"
+            data-wiki-page-id={pageId}
             data-autosave-status={autosave.status}
             aria-busy={publishing || undefined}
             inert={publishing}
@@ -1626,7 +1627,10 @@ export function WikiEditor({
                     </EditorContainer>
                   </div>
 
-                  <WikiChildPages pages={childPages} />
+                  <WikiEditorChildPages
+                    pageId={pageId}
+                    fallbackPages={childPages}
+                  />
 
                   {error && (
                     <div

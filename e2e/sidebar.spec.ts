@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 import { PAGE_IDS } from "../scripts/seed-data";
-import { wikiPageUrl } from "./helpers/wiki";
+import { getHydratedWikiEditorShell, wikiPageUrl } from "./helpers/wiki";
 
 /**
  * Sidebar behaviour across viewports.
@@ -138,9 +138,12 @@ async function publishCurrentWikiDraft(page: Page, title: string) {
     timeout: 30_000,
   });
   const draftPageId = new URL(page.url()).pathname.split("/").at(-1)!;
-  await page.getByLabel("页面标题").fill(title);
-  await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: "共享", exact: true }).click();
+  const shell = await getHydratedWikiEditorShell(page, draftPageId);
+  await shell.getByLabel("页面标题").fill(title);
+  await expect(shell.getByTestId("wiki-autosave-status")).toHaveText("已保存", {
+    timeout: 15_000,
+  });
+  await shell.getByRole("button", { name: "共享", exact: true }).click();
   await page.getByRole("button", { name: "发布到 Wiki" }).click();
   await expect(page).toHaveURL(new RegExp(`/wiki/${draftPageId}$`, "i"), {
     timeout: 15_000,
@@ -742,6 +745,12 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
       const childRow = page
         .getByRole("treeitem", { name: "Movable Campus Child" })
         .locator(":scope > .wiki-tree-row");
+      const movablePageId = (
+        await childRow.locator("[data-wiki-tree-link]").getAttribute("href")
+      )
+        ?.split("/")
+        .at(-1);
+      expect(movablePageId).toMatch(/^[0-9a-f-]{36}$/i);
       await childRow.hover();
       const dragHandle = childRow.getByRole("button", {
         name: "拖动 Movable Campus Child 调整顺序",
@@ -749,18 +758,29 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
       const diningRow = page
         .getByRole("treeitem", { name: "Dining on Campus" })
         .locator(":scope > .wiki-tree-row");
-      await dragHandle.dragTo(diningRow, {
-        targetPosition: { x: 40, y: 2 },
+      const dragBounds = await dragHandle.boundingBox();
+      const targetBounds = await diningRow.boundingBox();
+      expect(dragBounds).not.toBeNull();
+      expect(targetBounds).not.toBeNull();
+      await page.mouse.move(
+        dragBounds!.x + dragBounds!.width / 2,
+        dragBounds!.y + dragBounds!.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(targetBounds!.x + 40, targetBounds!.y + 2, {
+        steps: 5,
       });
+      await expect(
+        diningRow.getByTestId("wiki-drop-indicator-before"),
+      ).toBeVisible();
+      await page.mouse.up();
       await expect(page.getByText("页面顺序已更新")).toBeVisible();
 
-      const childLinks = page
-        .getByRole("region", { name: "子页面" })
-        .getByRole("link");
-      await expect(childLinks).toHaveText([
-        "Movable Campus Child",
-        "Dining on Campus",
-      ]);
+      await expect
+        .poll(async () =>
+          (await childPageOrder(PAGE_IDS.campusLife)).map(({ id }) => id),
+        )
+        .toEqual([movablePageId, PAGE_IDS.dining]);
       await expect(
         page
           .getByRole("treeitem", { name: "Campus Life" })
@@ -769,6 +789,13 @@ test.describe("Notion-aligned hierarchical page tree (desktop)", () => {
           ),
       ).toHaveText(["Movable Campus Child", "Dining on Campus"]);
 
+      const childLinks = page
+        .getByRole("region", { name: "子页面" })
+        .getByRole("link");
+      await expect(childLinks).toHaveText([
+        "Movable Campus Child",
+        "Dining on Campus",
+      ]);
       await page.reload();
       await expect(
         page.getByRole("region", { name: "子页面" }).getByRole("link"),
