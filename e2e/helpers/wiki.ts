@@ -92,7 +92,7 @@ export async function createUntitledWikiPage(page: Page) {
   // Setup callers only need the published editor, so recover if Next returned
   // the redirect in the action payload without applying it in the browser.
   if (page.url().includes("?draft=1")) {
-    await page.reload();
+    await page.evaluate((path) => window.location.replace(path), canonicalPath);
   }
   await expect(page).toHaveURL(wikiPageUrl(pageId), { timeout: 30_000 });
   return pageId;
