@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   requireAdmin: vi.fn(),
   execute: vi.fn(),
+  getStaleDetails: vi.fn(),
   revalidatePath: vi.fn(),
 }));
 
@@ -18,6 +19,10 @@ vi.mock("@/lib/canteen-reviewed-identity-transition", () => ({
     { key: "aigens-102830", externalStoreId: "102830" },
     { key: "aigens-112891", externalStoreId: "112891" },
   ],
+}));
+vi.mock("@/lib/canteen-menu-identity-transition", () => ({
+  getMenuIdentityTransitionStaleDetails: (...args: unknown[]) =>
+    mocks.getStaleDetails(...args),
 }));
 vi.mock("next/cache", () => ({
   revalidatePath: (...args: unknown[]) => mocks.revalidatePath(...args),
@@ -46,6 +51,7 @@ describe("executeReviewedIdentityTransitionAction", () => {
     vi.clearAllMocks();
     mocks.requireAdmin.mockResolvedValue({ id: "admin-1", role: "admin" });
     mocks.execute.mockResolvedValue(EXECUTION);
+    mocks.getStaleDetails.mockReturnValue(null);
   });
 
   it("authorizes before validating or executing", async () => {
@@ -116,5 +122,49 @@ describe("executeReviewedIdentityTransitionAction", () => {
       }),
     ).resolves.toEqual({ ok: false, code: "MENU_SYNC_STALE" });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("returns bounded stale diagnostics without refreshing health facts", async () => {
+    const diagnostic = {
+      existingMatches: true,
+      incomingMatches: false,
+      currentSummary: {
+        existingCount: 81,
+        incomingCount: 67,
+        missingIdentityCount: 53,
+        newIdentityCount: 39,
+        replacementCandidateCount: 0,
+        canonicalizationCandidateCount: 53,
+        mergeCandidateCount: 0,
+        additionCount: 39,
+        removalCount: 0,
+        ambiguityCount: 0,
+      },
+      currentScope: {
+        categoryCount: 13,
+        groupCount: 24,
+        categoryPeriodCodes: ["B"],
+      },
+    };
+    const error = new Error(
+      "MENU_IDENTITY_TRANSITION_STALE https://private.example/token=secret",
+    );
+    mocks.execute.mockRejectedValue(error);
+    mocks.getStaleDetails.mockImplementation((candidate) =>
+      candidate === error ? diagnostic : null,
+    );
+
+    await expect(
+      executeReviewedIdentityTransitionAction({
+        key: "aigens-102830",
+        confirmation: "102830",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      code: "MENU_IDENTITY_TRANSITION_STALE",
+      diagnostic,
+    });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+    expect(JSON.stringify(diagnostic)).not.toContain("private.example");
   });
 });
