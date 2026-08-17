@@ -143,7 +143,8 @@ describe("executeReviewedIdentityTransitionAction", () => {
       currentScope: {
         categoryCount: 13,
         groupCount: 24,
-        categoryPeriodCodes: ["B"],
+        providerPeriodCount: 4,
+        categoryPeriodCount: 1,
       },
     };
     const error = new Error(

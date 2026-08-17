@@ -94,7 +94,8 @@ export type MenuIdentityTransitionStaleDetails = {
   currentScope: {
     categoryCount: number;
     groupCount: number;
-    categoryPeriodCodes: string[];
+    providerPeriodCount: number;
+    categoryPeriodCount: number;
   } | null;
 };
 
@@ -471,7 +472,8 @@ export function verifyMenuIdentityTransitionApproval(
         ? {
             categoryCount: scope.categoryCount,
             groupCount: scope.groupCount,
-            categoryPeriodCodes: [...scope.categoryPeriodCodes],
+            providerPeriodCount: scope.providerPeriodCodes.length,
+            categoryPeriodCount: scope.categoryPeriodCodes.length,
           }
         : null,
     } satisfies MenuIdentityTransitionStaleDetails);

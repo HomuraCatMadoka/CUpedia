@@ -101,7 +101,8 @@ describe("CanteenReviewedIdentityTransitionPanel", () => {
         currentScope: {
           categoryCount: 13,
           groupCount: 24,
-          categoryPeriodCodes: ["B"],
+          providerPeriodCount: 4,
+          categoryPeriodCount: 1,
         },
       },
     });
@@ -116,7 +117,8 @@ describe("CanteenReviewedIdentityTransitionPanel", () => {
     expect(result.textContent).toContain("现有投影 匹配");
     expect(result.textContent).toContain("供应商快照 不匹配");
     expect(result.textContent).toContain("当前现有 81 / 传入 67");
-    expect(result.textContent).toContain("目录 13 类 / 24 组 / 时段 B");
+    expect(result.textContent).toContain("目录 13 类 / 24 组");
+    expect(result.textContent).toContain("供应商时段 4 / 分类时段 1");
     expect(result.textContent).not.toContain("private-menu.example");
   });
 });

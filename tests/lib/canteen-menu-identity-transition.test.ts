@@ -153,7 +153,8 @@ describe("menu identity transition audit", () => {
       currentScope: {
         categoryCount: 3,
         groupCount: 3,
-        categoryPeriodCodes: ["B", "D", "L", "T"],
+        providerPeriodCount: 4,
+        categoryPeriodCount: 4,
       },
     });
     expect(
