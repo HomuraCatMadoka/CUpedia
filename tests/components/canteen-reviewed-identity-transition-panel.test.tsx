@@ -78,4 +78,47 @@ describe("CanteenReviewedIdentityTransitionPanel", () => {
       "普通重试：unchanged（MENU_SYNC_UNCHANGED）",
     );
   });
+
+  it("renders bounded stale diagnostics without provider details", async () => {
+    mocks.execute.mockResolvedValue({
+      ok: false,
+      code: "MENU_IDENTITY_TRANSITION_STALE",
+      diagnostic: {
+        existingMatches: true,
+        incomingMatches: false,
+        currentSummary: {
+          existingCount: 81,
+          incomingCount: 67,
+          missingIdentityCount: 53,
+          newIdentityCount: 39,
+          replacementCandidateCount: 0,
+          canonicalizationCandidateCount: 53,
+          mergeCandidateCount: 0,
+          additionCount: 39,
+          removalCount: 0,
+          ambiguityCount: 0,
+        },
+        currentScope: {
+          categoryCount: 13,
+          groupCount: 24,
+          providerPeriodCount: 4,
+          categoryPeriodCount: 1,
+        },
+      },
+    });
+    render(<CanteenReviewedIdentityTransitionPanel options={OPTIONS} />);
+
+    fireEvent.change(screen.getByLabelText("输入来源编号 102830 确认"), {
+      target: { value: "102830" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "应用并普通重试" }));
+
+    const result = await screen.findByText(/MENU_IDENTITY_TRANSITION_STALE/);
+    expect(result.textContent).toContain("现有投影 匹配");
+    expect(result.textContent).toContain("供应商快照 不匹配");
+    expect(result.textContent).toContain("当前现有 81 / 传入 67");
+    expect(result.textContent).toContain("目录 13 类 / 24 组");
+    expect(result.textContent).toContain("供应商时段 4 / 分类时段 1");
+    expect(result.textContent).not.toContain("private-menu.example");
+  });
 });

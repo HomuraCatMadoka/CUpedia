@@ -87,6 +87,32 @@ export type MenuIdentityTransitionAudit = {
   ambiguities: MenuIdentityTransitionAmbiguity[];
 };
 
+export type MenuIdentityTransitionStaleDetails = {
+  existingMatches: boolean;
+  incomingMatches: boolean;
+  currentSummary: MenuIdentityTransitionAudit["summary"];
+  currentScope: {
+    categoryCount: number;
+    groupCount: number;
+    providerPeriodCount: number;
+    categoryPeriodCount: number;
+  } | null;
+};
+
+class MenuIdentityTransitionStaleError extends Error {
+  constructor(readonly details: MenuIdentityTransitionStaleDetails) {
+    super("MENU_IDENTITY_TRANSITION_STALE");
+  }
+}
+
+export function getMenuIdentityTransitionStaleDetails(
+  error: unknown,
+): MenuIdentityTransitionStaleDetails | null {
+  return error instanceof MenuIdentityTransitionStaleError
+    ? error.details
+    : null;
+}
+
 export type MenuIdentityTransitionArtifact = {
   schemaVersion: 4;
   source: {
@@ -435,7 +461,22 @@ export function verifyMenuIdentityTransitionApproval(
     fingerprint(canonicalJson(currentAudit)) !==
     fingerprint(canonicalJson(artifact.audit))
   ) {
-    throw new Error("MENU_IDENTITY_TRANSITION_STALE");
+    const scope = currentAudit.scopeEvidence;
+    throw new MenuIdentityTransitionStaleError({
+      existingMatches:
+        currentAudit.existingFingerprint === artifact.audit.existingFingerprint,
+      incomingMatches:
+        currentAudit.incomingFingerprint === artifact.audit.incomingFingerprint,
+      currentSummary: currentAudit.summary,
+      currentScope: scope
+        ? {
+            categoryCount: scope.categoryCount,
+            groupCount: scope.groupCount,
+            providerPeriodCount: scope.providerPeriodCodes.length,
+            categoryPeriodCount: scope.categoryPeriodCodes.length,
+          }
+        : null,
+    } satisfies MenuIdentityTransitionStaleDetails);
   }
   const previous = new Map(
     [
