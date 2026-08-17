@@ -1,0 +1,3053 @@
+{
+  "schemaVersion": 4,
+  "source": {
+    "provider": "aigens",
+    "externalOwnerId": null,
+    "externalStoreId": "112891",
+    "configurationFingerprint": "8f88a931241bf1c82996e7bb73956eb2e4a1e39e3fc99395521a99d4d8f54259"
+  },
+  "audit": {
+    "snapshotCompleteness": "complete",
+    "summary": {
+      "existingCount": 111,
+      "incomingCount": 31,
+      "missingIdentityCount": 111,
+      "newIdentityCount": 31,
+      "replacementCandidateCount": 0,
+      "canonicalizationCandidateCount": 12,
+      "mergeCandidateCount": 41,
+      "additionCount": 1,
+      "removalCount": 0,
+      "ambiguityCount": 0
+    },
+    "existingFingerprint": "bd42a58a43b9d8cc51e669de21d9ace897e865c0e771f34d6cfb605dc51df3c5",
+    "incomingFingerprint": "e14d571d0ae7f239f628417c267f0b01639324ddccfc377452ec39ecc054bd82",
+    "replacementCandidates": [],
+    "canonicalizationCandidates": [
+      {
+        "itemId": "3e420228-6b4d-4806-97e7-a955d3962d75",
+        "previous": {
+          "externalProductId": "0200073240#offering-period=breakfast",
+          "normalizedName": "馬來咖央多士套餐",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 2400,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "0200073240",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "d0924969-3082-47de-b397-d0794ec57855",
+        "previous": {
+          "externalProductId": "1100042031#offering-period=breakfast",
+          "normalizedName": "越式香茅豬扒",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 3300,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100042031",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "19d7dda0-04ca-498b-a768-a61d94d7a6b6",
+        "previous": {
+          "externalProductId": "1100044025#offering-period=breakfast",
+          "normalizedName": "西式香煎雞扒",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 3300,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100044025",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "3e4cc9b4-8a66-4692-9478-aa1cacd36613",
+        "previous": {
+          "externalProductId": "1100044894#offering-period=lunch",
+          "normalizedName": "奶油脆脆豬仔包",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "amountMinor": 2300,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100044894",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "6ef67784-f19b-4ac7-8d50-fe20829d12b4",
+        "previous": {
+          "externalProductId": "1100045286#offering-period=lunch",
+          "normalizedName": "香脆豬扒包 ‧ 薯條",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "amountMinor": 3200,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100045286",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "7532d2c8-d492-4f19-8a70-ed4642557c6b",
+        "previous": {
+          "externalProductId": "1100046972#offering-period=lunch",
+          "normalizedName": "奶醬脆脆豬仔包",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "amountMinor": 2300,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100046972",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "08cdeeea-e84d-42e8-85c6-f9959f529efd",
+        "previous": {
+          "externalProductId": "1100048802#offering-period=breakfast",
+          "normalizedName": "西式香煎雞扒",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100048802",
+        "presentInSnapshot": false
+      },
+      {
+        "itemId": "2fa29d7f-3eb3-482c-9f3a-489420177588",
+        "previous": {
+          "externalProductId": "1100054248#offering-period=lunch",
+          "normalizedName": "脆炸雞翼 ‧ 薯條",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100054248",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "af306ee8-9bbc-47bc-b4aa-5713701ee6da",
+        "previous": {
+          "externalProductId": "1100071937#offering-period=breakfast",
+          "normalizedName": "越式香茅豬扒",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 3300,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100071937",
+        "presentInSnapshot": false
+      },
+      {
+        "itemId": "e11d3563-fe13-4d12-9c9d-55590bd61653",
+        "previous": {
+          "externalProductId": "1100075924#offering-period=breakfast",
+          "normalizedName": "台式煉奶花生醬吐司套餐",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 2400,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100075924",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "73a87a7b-cfd1-401f-ab5a-63e63cef1efa",
+        "previous": {
+          "externalProductId": "1100075925#offering-period=breakfast",
+          "normalizedName": "馬來沙茶肉片湯米粉",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 3800,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100075925",
+        "presentInSnapshot": true
+      },
+      {
+        "itemId": "76fb447c-5b67-40dd-bb83-65da3598add7",
+        "previous": {
+          "externalProductId": "1100075926#offering-period=breakfast",
+          "normalizedName": "馬來風味沙茶肉片撈麵",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "amountMinor": 3500,
+              "currency": "HKD",
+              "label": null,
+              "sortOrder": 0
+            }
+          ]
+        },
+        "nextProductId": "1100075926",
+        "presentInSnapshot": false
+      }
+    ],
+    "mergeCandidates": [
+      {
+        "productIdentity": "0200020042",
+        "previous": [
+          {
+            "itemId": "1c8fc93e-6746-46da-9e9b-7fdfa5537c52",
+            "evidence": {
+              "externalProductId": "0200020042#offering-period=breakfast",
+              "normalizedName": "鮮青檸梳打",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2000,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "9cd0c0f7-cd51-4ebb-a220-973932302a17",
+            "evidence": {
+              "externalProductId": "0200020042#offering-period=dinner",
+              "normalizedName": "鮮青檸梳打",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2000,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "3acbaf83-787f-4fc6-9620-84fb9b1ed26c",
+            "evidence": {
+              "externalProductId": "0200020042#offering-period=lunch",
+              "normalizedName": "鮮青檸梳打",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2000,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "0200031729",
+        "previous": [
+          {
+            "itemId": "5001b9ef-5ab1-40dd-98d1-335ac03083fe",
+            "evidence": {
+              "externalProductId": "0200031729#offering-period=breakfast",
+              "normalizedName": "香茅豬扒湯麵",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 3300,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "4ad4a079-1786-4c54-abd1-dabad717eb9f",
+            "evidence": {
+              "externalProductId": "0200031729#offering-period=lunch",
+              "normalizedName": "香茅豬扒湯麵",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "0200031729",
+          "normalizedName": "香茅豬扒湯麵",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": "東南亞特色麵食",
+              "amountMinor": 3300,
+              "currency": "HKD",
+              "sortOrder": 0
+            },
+            {
+              "label": "東南亞麵食茶餐",
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "0200035596",
+        "previous": [
+          {
+            "itemId": "826175f6-2092-496f-a61e-758c815abee6",
+            "evidence": {
+              "externalProductId": "0200035596#offering-period=dinner",
+              "normalizedName": "咖喱雞扒飯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "bfd15e99-74cc-42a4-a7d9-28ec563678bb",
+            "evidence": {
+              "externalProductId": "0200035596#offering-period=lunch",
+              "normalizedName": "咖喱雞扒飯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "0200035596",
+          "normalizedName": "咖喱雞扒飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100000928",
+        "previous": [
+          {
+            "itemId": "cad8c68d-a21c-47d9-b242-0e957bc022ec",
+            "evidence": {
+              "externalProductId": "1100000928#offering-period=dinner",
+              "normalizedName": "咖喱豚肉飯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "6658c457-e331-4ce2-8b7f-5c01fc76c191",
+            "evidence": {
+              "externalProductId": "1100000928#offering-period=lunch",
+              "normalizedName": "咖喱豚肉飯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100000928",
+          "normalizedName": "咖喱豚肉飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100020003",
+        "previous": [
+          {
+            "itemId": "c0798ea9-a2ad-4303-b6c0-cc85853b8326",
+            "evidence": {
+              "externalProductId": "1100020003#offering-period=breakfast",
+              "normalizedName": "熱咖啡",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "2d0eb42f-0b61-436c-861f-87660cab0dce",
+            "evidence": {
+              "externalProductId": "1100020003#offering-period=dinner",
+              "normalizedName": "熱咖啡",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "9b0f5293-ffb6-4bed-bda5-be01c4d7174c",
+            "evidence": {
+              "externalProductId": "1100020003#offering-period=lunch",
+              "normalizedName": "熱咖啡",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020004",
+        "previous": [
+          {
+            "itemId": "3168d1ae-eea6-4549-aef2-a6a6ac1d01be",
+            "evidence": {
+              "externalProductId": "1100020004#offering-period=breakfast",
+              "normalizedName": "熱奶茶",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "a86178d1-291a-45b4-adc0-db1642ede678",
+            "evidence": {
+              "externalProductId": "1100020004#offering-period=dinner",
+              "normalizedName": "熱奶茶",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "8707e560-222a-4496-8212-4d5ee39f1e9a",
+            "evidence": {
+              "externalProductId": "1100020004#offering-period=lunch",
+              "normalizedName": "熱奶茶",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020005",
+        "previous": [
+          {
+            "itemId": "d9590c63-d26f-43e2-a2d1-d0e31e04ec2b",
+            "evidence": {
+              "externalProductId": "1100020005#offering-period=breakfast",
+              "normalizedName": "熱鴛鴦",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "ae46fbfb-7c7f-4e5e-9203-e5804f83838f",
+            "evidence": {
+              "externalProductId": "1100020005#offering-period=dinner",
+              "normalizedName": "熱鴛鴦",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "425c63c9-9512-47af-97fb-4733a246c445",
+            "evidence": {
+              "externalProductId": "1100020005#offering-period=lunch",
+              "normalizedName": "熱鴛鴦",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020006",
+        "previous": [
+          {
+            "itemId": "795da232-7284-4894-8efe-78e6d896a6db",
+            "evidence": {
+              "externalProductId": "1100020006#offering-period=breakfast",
+              "normalizedName": "熱齋咖啡",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "19734cfd-7d2d-44c2-8b34-45309ba4a3c6",
+            "evidence": {
+              "externalProductId": "1100020006#offering-period=dinner",
+              "normalizedName": "熱齋咖啡",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "42f2c826-4161-4393-b42c-b4a545e1fadb",
+            "evidence": {
+              "externalProductId": "1100020006#offering-period=lunch",
+              "normalizedName": "熱齋咖啡",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020007",
+        "previous": [
+          {
+            "itemId": "41a71755-d582-421f-b443-4a039031f06b",
+            "evidence": {
+              "externalProductId": "1100020007#offering-period=breakfast",
+              "normalizedName": "熱檸檬茶",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "de61afe9-cca8-486d-a1c4-c714aa836f30",
+            "evidence": {
+              "externalProductId": "1100020007#offering-period=dinner",
+              "normalizedName": "熱檸檬茶",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "e32126d4-dee5-4545-9134-7264f417ca3f",
+            "evidence": {
+              "externalProductId": "1100020007#offering-period=lunch",
+              "normalizedName": "熱檸檬茶",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020008",
+        "previous": [
+          {
+            "itemId": "38ec4950-2342-4be5-98c6-0b92328601fd",
+            "evidence": {
+              "externalProductId": "1100020008#offering-period=breakfast",
+              "normalizedName": "熱檸檬水",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "14f6527e-e6e2-4ea5-8f71-2bbdc4073581",
+            "evidence": {
+              "externalProductId": "1100020008#offering-period=dinner",
+              "normalizedName": "熱檸檬水",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "6bc83a18-2f96-4b32-b8d7-c3d5afb25179",
+            "evidence": {
+              "externalProductId": "1100020008#offering-period=lunch",
+              "normalizedName": "熱檸檬水",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020016",
+        "previous": [
+          {
+            "itemId": "ff00c727-4889-4fcf-a291-8f96cbecd9f6",
+            "evidence": {
+              "externalProductId": "1100020016#offering-period=breakfast",
+              "normalizedName": "凍咖啡",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "360786e9-b6f9-46a3-b58f-a7168a08a404",
+            "evidence": {
+              "externalProductId": "1100020016#offering-period=dinner",
+              "normalizedName": "凍咖啡",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "851c9bf8-41dc-46f0-9fdd-53043bcf8b5a",
+            "evidence": {
+              "externalProductId": "1100020016#offering-period=lunch",
+              "normalizedName": "凍咖啡",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020017",
+        "previous": [
+          {
+            "itemId": "2f9182a0-f6ad-4bd9-a20a-a656ef011bd8",
+            "evidence": {
+              "externalProductId": "1100020017#offering-period=breakfast",
+              "normalizedName": "凍奶茶",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "ab9b4cbd-87a9-44fa-a0e4-d896b720842e",
+            "evidence": {
+              "externalProductId": "1100020017#offering-period=dinner",
+              "normalizedName": "凍奶茶",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "39153296-5fec-4b80-b07c-aee0029c7ce9",
+            "evidence": {
+              "externalProductId": "1100020017#offering-period=lunch",
+              "normalizedName": "凍奶茶",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020018",
+        "previous": [
+          {
+            "itemId": "90784646-9c0c-4b7a-bedc-db12a3c0e2b4",
+            "evidence": {
+              "externalProductId": "1100020018#offering-period=breakfast",
+              "normalizedName": "凍鴛鴦",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "dff0613a-dd39-4dc4-b1b3-07a0eaf09fb8",
+            "evidence": {
+              "externalProductId": "1100020018#offering-period=dinner",
+              "normalizedName": "凍鴛鴦",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "66b9b45f-f65f-4a23-8bed-a01e73fe1b32",
+            "evidence": {
+              "externalProductId": "1100020018#offering-period=lunch",
+              "normalizedName": "凍鴛鴦",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020019",
+        "previous": [
+          {
+            "itemId": "469a9c46-d49d-4b75-9014-e7d9c513526a",
+            "evidence": {
+              "externalProductId": "1100020019#offering-period=breakfast",
+              "normalizedName": "凍齋咖啡",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "88705eeb-fec7-4a34-8216-cc24f3e3a60e",
+            "evidence": {
+              "externalProductId": "1100020019#offering-period=dinner",
+              "normalizedName": "凍齋咖啡",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "34f3f84e-476a-486d-a3e4-748e7ac0bf49",
+            "evidence": {
+              "externalProductId": "1100020019#offering-period=lunch",
+              "normalizedName": "凍齋咖啡",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020020",
+        "previous": [
+          {
+            "itemId": "685b3f60-9758-47b4-9ce5-a1be6e187a2b",
+            "evidence": {
+              "externalProductId": "1100020020#offering-period=breakfast",
+              "normalizedName": "凍檸檬茶",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "b8e8779b-b2e9-42fb-a499-580fd67b800f",
+            "evidence": {
+              "externalProductId": "1100020020#offering-period=dinner",
+              "normalizedName": "凍檸檬茶",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "858e919a-3444-4562-b223-eefbbfee7df8",
+            "evidence": {
+              "externalProductId": "1100020020#offering-period=lunch",
+              "normalizedName": "凍檸檬茶",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020021",
+        "previous": [
+          {
+            "itemId": "0309eb19-8cba-401e-97d4-42f6f1296bb8",
+            "evidence": {
+              "externalProductId": "1100020021#offering-period=breakfast",
+              "normalizedName": "凍檸檬水",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "dc958bfd-b942-4743-8339-4e575ff311e3",
+            "evidence": {
+              "externalProductId": "1100020021#offering-period=dinner",
+              "normalizedName": "凍檸檬水",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "395894cf-afcf-47ee-873d-6d5d68044c1a",
+            "evidence": {
+              "externalProductId": "1100020021#offering-period=lunch",
+              "normalizedName": "凍檸檬水",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1400,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020111",
+        "previous": [
+          {
+            "itemId": "cc60ef1c-a3d3-4495-ba8d-d235bb0c21b4",
+            "evidence": {
+              "externalProductId": "1100020111#offering-period=breakfast",
+              "normalizedName": "百事",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "5b17aad8-c284-414d-ad0c-f73ebd9f7106",
+            "evidence": {
+              "externalProductId": "1100020111#offering-period=dinner",
+              "normalizedName": "百事",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "6ffdf5eb-f5b6-46f6-9e44-7bfd67cb36ef",
+            "evidence": {
+              "externalProductId": "1100020111#offering-period=lunch",
+              "normalizedName": "百事",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020112",
+        "previous": [
+          {
+            "itemId": "d67bf8ab-c3e7-4471-b8a7-18a88daa28dc",
+            "evidence": {
+              "externalProductId": "1100020112#offering-period=breakfast",
+              "normalizedName": "輕怡百事",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "092c3df2-1956-4e0f-a51a-08ba7c9722a1",
+            "evidence": {
+              "externalProductId": "1100020112#offering-period=dinner",
+              "normalizedName": "輕怡百事",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "c30628da-87f6-484e-8be3-1c2e4f639603",
+            "evidence": {
+              "externalProductId": "1100020112#offering-period=lunch",
+              "normalizedName": "輕怡百事",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020113",
+        "previous": [
+          {
+            "itemId": "fbd741c6-4e90-4514-b559-31ff66cd7573",
+            "evidence": {
+              "externalProductId": "1100020113#offering-period=breakfast",
+              "normalizedName": "七喜",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "5f7418da-ccd3-4d29-8e6a-1646e2f01e05",
+            "evidence": {
+              "externalProductId": "1100020113#offering-period=dinner",
+              "normalizedName": "七喜",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "ce852f9d-ff46-423d-93ef-b75e7cc9972d",
+            "evidence": {
+              "externalProductId": "1100020113#offering-period=lunch",
+              "normalizedName": "七喜",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100020435",
+        "previous": [
+          {
+            "itemId": "2f4ad0c9-a930-4a4d-be3b-5c89452d0a61",
+            "evidence": {
+              "externalProductId": "1100020435#offering-period=breakfast",
+              "normalizedName": "熱柚子蜜",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "3bf41792-d144-45da-affb-46582e6dd89b",
+            "evidence": {
+              "externalProductId": "1100020435#offering-period=dinner",
+              "normalizedName": "熱柚子蜜",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "804b077c-93de-4dbf-8882-104dbfe60162",
+            "evidence": {
+              "externalProductId": "1100020435#offering-period=lunch",
+              "normalizedName": "熱柚子蜜",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100022766",
+        "previous": [
+          {
+            "itemId": "61f24dc5-29f2-4547-9da8-1e73698a97f1",
+            "evidence": {
+              "externalProductId": "1100022766#offering-period=breakfast",
+              "normalizedName": "熱薑蜜",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "17995942-3490-4e5f-8764-7791a7d5c41c",
+            "evidence": {
+              "externalProductId": "1100022766#offering-period=dinner",
+              "normalizedName": "熱薑蜜",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "5a1bf863-bc2a-47c4-81d1-af0d1f244b55",
+            "evidence": {
+              "externalProductId": "1100022766#offering-period=lunch",
+              "normalizedName": "熱薑蜜",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100023386",
+        "previous": [
+          {
+            "itemId": "02cd563e-08a5-4828-a14a-db4da8f4778e",
+            "evidence": {
+              "externalProductId": "1100023386#offering-period=breakfast",
+              "normalizedName": "熱柑桔檸檬蜜",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "b4fad3cd-4241-436b-9f82-e33f41cff698",
+            "evidence": {
+              "externalProductId": "1100023386#offering-period=dinner",
+              "normalizedName": "熱柑桔檸檬蜜",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "e5e1c79e-843c-4cd5-ab4d-6b04e6ddae78",
+            "evidence": {
+              "externalProductId": "1100023386#offering-period=lunch",
+              "normalizedName": "熱柑桔檸檬蜜",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100023465",
+        "previous": [
+          {
+            "itemId": "c45c44cb-408e-4b6b-bb80-f1d98cf0d553",
+            "evidence": {
+              "externalProductId": "1100023465#offering-period=breakfast",
+              "normalizedName": "凍柑桔檸檬蜜",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2000,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "dee6f3b8-920d-41fe-bf66-a35bf14c053c",
+            "evidence": {
+              "externalProductId": "1100023465#offering-period=dinner",
+              "normalizedName": "凍柑桔檸檬蜜",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2000,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "4bee2e73-b21d-4e9b-b453-d42e4261e2ae",
+            "evidence": {
+              "externalProductId": "1100023465#offering-period=lunch",
+              "normalizedName": "凍柑桔檸檬蜜",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2000,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": null
+      },
+      {
+        "productIdentity": "1100031475",
+        "previous": [
+          {
+            "itemId": "f2fc5aa9-2bcc-45f7-a9c4-89785d18b188",
+            "evidence": {
+              "externalProductId": "1100031475#offering-period=dinner",
+              "normalizedName": "泰式水門雞 ‧ 油飯 ‧ 例湯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 5200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "ba5a5e52-959e-4379-a3f4-4268fb82e62e",
+            "evidence": {
+              "externalProductId": "1100031475#offering-period=lunch",
+              "normalizedName": "泰式水門雞 ‧ 油飯 ‧ 例湯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 5200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100031475",
+          "normalizedName": "泰式水門雞 ‧ 油飯 ‧ 例湯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100040276",
+        "previous": [
+          {
+            "itemId": "4dcd163f-13d5-4d56-ab8a-575f10fc7d20",
+            "evidence": {
+              "externalProductId": "1100040276#offering-period=breakfast",
+              "normalizedName": "蕃茄 ‧ 炒蛋三文治",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "9eed4044-56e3-4916-a885-6f43296015b9",
+            "evidence": {
+              "externalProductId": "1100040276#offering-period=lunch",
+              "normalizedName": "蕃茄 ‧ 炒蛋三文治",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100040276",
+          "normalizedName": "蕃茄 ‧ 炒蛋三文治",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100041190",
+        "previous": [
+          {
+            "itemId": "41147409-5182-4c59-a594-3fb548a978b4",
+            "evidence": {
+              "externalProductId": "1100041190#offering-period=dinner",
+              "normalizedName": "咖喱豬扒飯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4500,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "53c01805-adbb-42fe-8a7f-2068373d25fa",
+            "evidence": {
+              "externalProductId": "1100041190#offering-period=lunch",
+              "normalizedName": "咖喱豬扒飯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4500,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100041190",
+          "normalizedName": "咖喱豬扒飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100042109",
+        "previous": [
+          {
+            "itemId": "d12ca934-3a05-45d6-a318-2236bb52ca1a",
+            "evidence": {
+              "externalProductId": "1100042109#offering-period=dinner",
+              "normalizedName": "香茅雞中翼 (3隻)",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "f7327b69-e40e-43dc-bb87-a814b746d8f5",
+            "evidence": {
+              "externalProductId": "1100042109#offering-period=lunch",
+              "normalizedName": "香茅雞中翼 (3隻)",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100042109",
+          "normalizedName": "香茅雞中翼 (3隻)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100044002",
+        "previous": [
+          {
+            "itemId": "7653ca33-0f10-4549-b045-3fb2ba2def3a",
+            "evidence": {
+              "externalProductId": "1100044002#offering-period=dinner",
+              "normalizedName": "越式網紋炸蝦 (4件)",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "04f4bc70-abd1-4d53-950a-1d97255970cc",
+            "evidence": {
+              "externalProductId": "1100044002#offering-period=lunch",
+              "normalizedName": "越式網紋炸蝦 (4件)",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100044002",
+          "normalizedName": "越式網紋炸蝦 (4件)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100044914",
+        "previous": [
+          {
+            "itemId": "1c939b7c-f0b3-405f-ba8d-7b008deb4f4a",
+            "evidence": {
+              "externalProductId": "1100044914#offering-period=breakfast",
+              "normalizedName": "午餐肉 ‧ 炒蛋三文治",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "6be5251a-9f43-4051-bd34-88f34c6c4ccf",
+            "evidence": {
+              "externalProductId": "1100044914#offering-period=lunch",
+              "normalizedName": "午餐肉 ‧ 炒蛋三文治",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100044914",
+          "normalizedName": "午餐肉 ‧ 炒蛋三文治",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100046227",
+        "previous": [
+          {
+            "itemId": "5e6c5551-ffaf-4fad-8283-79ee8ca2375e",
+            "evidence": {
+              "externalProductId": "1100046227#offering-period=dinner",
+              "normalizedName": "咖喱雜菜飯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 3800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "a2c75bed-1307-4610-beec-26bad56a5183",
+            "evidence": {
+              "externalProductId": "1100046227#offering-period=lunch",
+              "normalizedName": "咖喱雜菜飯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 3800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100046227",
+          "normalizedName": "咖喱雜菜飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100052153",
+        "previous": [
+          {
+            "itemId": "cd00e1dd-0f89-4b7d-bb48-b634a22ae562",
+            "evidence": {
+              "externalProductId": "1100052153#offering-period=breakfast",
+              "normalizedName": "鹹牛肉 ‧ 炒蛋三文治",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "41bb4ba9-10fe-492c-a092-5bfc1018be76",
+            "evidence": {
+              "externalProductId": "1100052153#offering-period=lunch",
+              "normalizedName": "鹹牛肉 ‧ 炒蛋三文治",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100052153",
+          "normalizedName": "鹹牛肉 ‧ 炒蛋三文治",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100052206",
+        "previous": [
+          {
+            "itemId": "5fa48fd4-3a4c-4aec-9c50-ff9d43d5a7c9",
+            "evidence": {
+              "externalProductId": "1100052206#offering-period=breakfast",
+              "normalizedName": "火腿 ‧ 炒蛋三文治",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "e61348df-0370-41c8-926b-c80eef0b9f06",
+            "evidence": {
+              "externalProductId": "1100052206#offering-period=lunch",
+              "normalizedName": "火腿 ‧ 炒蛋三文治",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100052206",
+          "normalizedName": "火腿 ‧ 炒蛋三文治",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100057619",
+        "previous": [
+          {
+            "itemId": "1b4b598e-2cb0-4c7c-8432-aba7ba3bd56c",
+            "evidence": {
+              "externalProductId": "1100057619#offering-period=dinner",
+              "normalizedName": "越式香茅蔥油豬扒 ‧ 煎蛋飯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "11764f0d-1cc3-43f7-a2d4-af68c31eff79",
+            "evidence": {
+              "externalProductId": "1100057619#offering-period=lunch",
+              "normalizedName": "越式香茅蔥油豬扒 ‧ 煎蛋飯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100057619",
+          "normalizedName": "越式香茅蔥油豬扒 ‧ 煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100057620",
+        "previous": [
+          {
+            "itemId": "fdf58e36-8619-435b-894a-e69e7bd3129d",
+            "evidence": {
+              "externalProductId": "1100057620#offering-period=dinner",
+              "normalizedName": "越式香蔥醬油雞扒 ‧ 煎蛋飯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "a5d7479c-b915-4486-af76-ce1c8c229061",
+            "evidence": {
+              "externalProductId": "1100057620#offering-period=lunch",
+              "normalizedName": "越式香蔥醬油雞扒 ‧ 煎蛋飯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4200,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100057620",
+          "normalizedName": "越式香蔥醬油雞扒 ‧ 煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100058973",
+        "previous": [
+          {
+            "itemId": "81986527-1be7-4d4a-9496-e93fab244767",
+            "evidence": {
+              "externalProductId": "1100058973#offering-period=breakfast",
+              "normalizedName": "咖央多士",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1900,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "ec3b11ee-5dd9-4e64-801c-94fd47a55ada",
+            "evidence": {
+              "externalProductId": "1100058973#offering-period=lunch",
+              "normalizedName": "咖央多士",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100058973",
+          "normalizedName": "咖央多士",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": "多士茶餐",
+              "amountMinor": 1600,
+              "currency": "HKD",
+              "sortOrder": 0
+            },
+            {
+              "label": "馬來咖央多士",
+              "amountMinor": 1900,
+              "currency": "HKD",
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100073073",
+        "previous": [
+          {
+            "itemId": "8acb28db-ccde-4bbb-b1c6-a07a046cda86",
+            "evidence": {
+              "externalProductId": "1100073073#offering-period=breakfast",
+              "normalizedName": "香茅豬扒 ‧ 煎蛋蔥油撈麵",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 3500,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "b4b5fdf4-b0d2-4a5c-a6ed-349a776ab375",
+            "evidence": {
+              "externalProductId": "1100073073#offering-period=lunch",
+              "normalizedName": "香茅豬扒 ‧ 煎蛋蔥油撈麵",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 2800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100073073",
+          "normalizedName": "香茅豬扒 ‧ 煎蛋蔥油撈麵",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": "東南亞特色麵食",
+              "amountMinor": 3500,
+              "currency": "HKD",
+              "sortOrder": 0
+            },
+            {
+              "label": "東南亞麵食茶餐",
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100075923",
+        "previous": [
+          {
+            "itemId": "60a24e85-cc3d-47df-9d70-1b600293678c",
+            "evidence": {
+              "externalProductId": "1100075923#offering-period=breakfast",
+              "normalizedName": "煉奶花生醬吐司",
+              "mealPeriods": ["breakfast"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1900,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "0af76682-7db8-4ff3-a461-ef234327eb2b",
+            "evidence": {
+              "externalProductId": "1100075923#offering-period=lunch",
+              "normalizedName": "煉奶花生醬吐司",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 1600,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100075923",
+          "normalizedName": "煉奶花生醬吐司",
+          "mealPeriods": ["breakfast", "lunch"],
+          "priceOptions": [
+            {
+              "label": "台式吐司",
+              "amountMinor": 1900,
+              "currency": "HKD",
+              "sortOrder": 0
+            },
+            {
+              "label": "多士茶餐",
+              "amountMinor": 1600,
+              "currency": "HKD",
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100075927",
+        "previous": [
+          {
+            "itemId": "9d9022db-1598-440f-a044-4997b5d6a6cb",
+            "evidence": {
+              "externalProductId": "1100075927#offering-period=dinner",
+              "normalizedName": "雞中翼 ‧ 豬肉丸船麵",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "c27bf1ab-be0f-4680-996f-f6293b5fdaea",
+            "evidence": {
+              "externalProductId": "1100075927#offering-period=lunch",
+              "normalizedName": "雞中翼 ‧ 豬肉丸船麵",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100075927",
+          "normalizedName": "雞中翼 ‧ 豬肉丸船麵",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": "泰式船麵",
+              "amountMinor": 4800,
+              "currency": "HKD",
+              "sortOrder": 0
+            },
+            {
+              "label": "泰式船麵茶餐",
+              "amountMinor": 3600,
+              "currency": "HKD",
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100075928",
+        "previous": [
+          {
+            "itemId": "d62ea4a9-6818-41f3-9673-55f7d9fd869b",
+            "evidence": {
+              "externalProductId": "1100075928#offering-period=dinner",
+              "normalizedName": "香茅豬扒 ‧ 豬肉丸船麵",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "f66c93b8-e5ae-4c9d-b35a-53cd6e7ab410",
+            "evidence": {
+              "externalProductId": "1100075928#offering-period=lunch",
+              "normalizedName": "香茅豬扒 ‧ 豬肉丸船麵",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100075928",
+          "normalizedName": "香茅豬扒 ‧ 豬肉丸船麵",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": "泰式船麵",
+              "amountMinor": 4800,
+              "currency": "HKD",
+              "sortOrder": 0
+            },
+            {
+              "label": "泰式船麵茶餐",
+              "amountMinor": 3600,
+              "currency": "HKD",
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100075929",
+        "previous": [
+          {
+            "itemId": "57147417-39ed-44f7-9903-b89ba63b981a",
+            "evidence": {
+              "externalProductId": "1100075929#offering-period=dinner",
+              "normalizedName": "肥牛 ‧ 豬肉丸船麵",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "6e4f1883-79f2-45a2-9b6c-d0c16220a56e",
+            "evidence": {
+              "externalProductId": "1100075929#offering-period=lunch",
+              "normalizedName": "肥牛 ‧ 豬肉丸船麵",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4800,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100075929",
+          "normalizedName": "肥牛 ‧ 豬肉丸船麵",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": "泰式船麵",
+              "amountMinor": 4800,
+              "currency": "HKD",
+              "sortOrder": 0
+            },
+            {
+              "label": "泰式船麵茶餐",
+              "amountMinor": 3600,
+              "currency": "HKD",
+              "sortOrder": 1
+            }
+          ]
+        }
+      },
+      {
+        "productIdentity": "1100075930",
+        "previous": [
+          {
+            "itemId": "72da6038-fa64-41bd-9be3-9d77b1df181e",
+            "evidence": {
+              "externalProductId": "1100075930#offering-period=dinner",
+              "normalizedName": "越式香蔥醬油鴛鴦扒‧ 煎蛋飯",
+              "mealPeriods": ["dinner"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4500,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          },
+          {
+            "itemId": "d9b028c5-a065-40a1-8f7d-f522f8fce204",
+            "evidence": {
+              "externalProductId": "1100075930#offering-period=lunch",
+              "normalizedName": "越式香蔥醬油鴛鴦扒‧ 煎蛋飯",
+              "mealPeriods": ["lunch"],
+              "priceOptions": [
+                {
+                  "amountMinor": 4500,
+                  "currency": "HKD",
+                  "label": null,
+                  "sortOrder": 0
+                }
+              ]
+            }
+          }
+        ],
+        "next": {
+          "externalProductId": "1100075930",
+          "normalizedName": "越式香蔥醬油鴛鴦扒‧ 煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      }
+    ],
+    "additions": [
+      {
+        "externalProductId": "1100075972",
+        "normalizedName": "鮮茄免治牛肉意粉 ‧ 鮮青檸梳打",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 3600,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      }
+    ],
+    "removals": [],
+    "ambiguities": []
+  },
+  "decisions": {
+    "snapshotScope": {
+      "status": "complete",
+      "rationale": "Two identical fresh reads from the configured Aigens catalog endpoint; the provider boundary attests a complete snapshot."
+    },
+    "replacements": [],
+    "canonicalizations": [
+      {
+        "itemId": "3e420228-6b4d-4806-97e7-a955d3962d75",
+        "previousProductId": "0200073240#offering-period=breakfast",
+        "nextProductId": "0200073240",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "d0924969-3082-47de-b397-d0794ec57855",
+        "previousProductId": "1100042031#offering-period=breakfast",
+        "nextProductId": "1100042031",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "19d7dda0-04ca-498b-a768-a61d94d7a6b6",
+        "previousProductId": "1100044025#offering-period=breakfast",
+        "nextProductId": "1100044025",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "3e4cc9b4-8a66-4692-9478-aa1cacd36613",
+        "previousProductId": "1100044894#offering-period=lunch",
+        "nextProductId": "1100044894",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "6ef67784-f19b-4ac7-8d50-fe20829d12b4",
+        "previousProductId": "1100045286#offering-period=lunch",
+        "nextProductId": "1100045286",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "7532d2c8-d492-4f19-8a70-ed4642557c6b",
+        "previousProductId": "1100046972#offering-period=lunch",
+        "nextProductId": "1100046972",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "08cdeeea-e84d-42e8-85c6-f9959f529efd",
+        "previousProductId": "1100048802#offering-period=breakfast",
+        "nextProductId": "1100048802",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "2fa29d7f-3eb3-482c-9f3a-489420177588",
+        "previousProductId": "1100054248#offering-period=lunch",
+        "nextProductId": "1100054248",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "af306ee8-9bbc-47bc-b4aa-5713701ee6da",
+        "previousProductId": "1100071937#offering-period=breakfast",
+        "nextProductId": "1100071937",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "e11d3563-fe13-4d12-9c9d-55590bd61653",
+        "previousProductId": "1100075924#offering-period=breakfast",
+        "nextProductId": "1100075924",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "73a87a7b-cfd1-401f-ab5a-63e63cef1efa",
+        "previousProductId": "1100075925#offering-period=breakfast",
+        "nextProductId": "1100075925",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      },
+      {
+        "itemId": "76fb447c-5b67-40dd-bb83-65da3598add7",
+        "previousProductId": "1100075926#offering-period=breakfast",
+        "nextProductId": "1100075926",
+        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+      }
+    ],
+    "merges": [
+      {
+        "survivorItemId": "1c8fc93e-6746-46da-9e9b-7fdfa5537c52",
+        "mergedItemIds": [
+          "3acbaf83-787f-4fc6-9620-84fb9b1ed26c",
+          "9cd0c0f7-cd51-4ebb-a220-973932302a17"
+        ],
+        "previousProductIds": [
+          "0200020042#offering-period=breakfast",
+          "0200020042#offering-period=dinner",
+          "0200020042#offering-period=lunch"
+        ],
+        "nextProductId": "0200020042",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "4ad4a079-1786-4c54-abd1-dabad717eb9f",
+        "mergedItemIds": ["5001b9ef-5ab1-40dd-98d1-335ac03083fe"],
+        "previousProductIds": [
+          "0200031729#offering-period=breakfast",
+          "0200031729#offering-period=lunch"
+        ],
+        "nextProductId": "0200031729",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "bfd15e99-74cc-42a4-a7d9-28ec563678bb",
+        "mergedItemIds": ["826175f6-2092-496f-a61e-758c815abee6"],
+        "previousProductIds": [
+          "0200035596#offering-period=dinner",
+          "0200035596#offering-period=lunch"
+        ],
+        "nextProductId": "0200035596",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "6658c457-e331-4ce2-8b7f-5c01fc76c191",
+        "mergedItemIds": ["cad8c68d-a21c-47d9-b242-0e957bc022ec"],
+        "previousProductIds": [
+          "1100000928#offering-period=dinner",
+          "1100000928#offering-period=lunch"
+        ],
+        "nextProductId": "1100000928",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "2d0eb42f-0b61-436c-861f-87660cab0dce",
+        "mergedItemIds": [
+          "9b0f5293-ffb6-4bed-bda5-be01c4d7174c",
+          "c0798ea9-a2ad-4303-b6c0-cc85853b8326"
+        ],
+        "previousProductIds": [
+          "1100020003#offering-period=breakfast",
+          "1100020003#offering-period=dinner",
+          "1100020003#offering-period=lunch"
+        ],
+        "nextProductId": "1100020003",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "3168d1ae-eea6-4549-aef2-a6a6ac1d01be",
+        "mergedItemIds": [
+          "8707e560-222a-4496-8212-4d5ee39f1e9a",
+          "a86178d1-291a-45b4-adc0-db1642ede678"
+        ],
+        "previousProductIds": [
+          "1100020004#offering-period=breakfast",
+          "1100020004#offering-period=dinner",
+          "1100020004#offering-period=lunch"
+        ],
+        "nextProductId": "1100020004",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "425c63c9-9512-47af-97fb-4733a246c445",
+        "mergedItemIds": [
+          "ae46fbfb-7c7f-4e5e-9203-e5804f83838f",
+          "d9590c63-d26f-43e2-a2d1-d0e31e04ec2b"
+        ],
+        "previousProductIds": [
+          "1100020005#offering-period=breakfast",
+          "1100020005#offering-period=dinner",
+          "1100020005#offering-period=lunch"
+        ],
+        "nextProductId": "1100020005",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "19734cfd-7d2d-44c2-8b34-45309ba4a3c6",
+        "mergedItemIds": [
+          "42f2c826-4161-4393-b42c-b4a545e1fadb",
+          "795da232-7284-4894-8efe-78e6d896a6db"
+        ],
+        "previousProductIds": [
+          "1100020006#offering-period=breakfast",
+          "1100020006#offering-period=dinner",
+          "1100020006#offering-period=lunch"
+        ],
+        "nextProductId": "1100020006",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "41a71755-d582-421f-b443-4a039031f06b",
+        "mergedItemIds": [
+          "de61afe9-cca8-486d-a1c4-c714aa836f30",
+          "e32126d4-dee5-4545-9134-7264f417ca3f"
+        ],
+        "previousProductIds": [
+          "1100020007#offering-period=breakfast",
+          "1100020007#offering-period=dinner",
+          "1100020007#offering-period=lunch"
+        ],
+        "nextProductId": "1100020007",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "14f6527e-e6e2-4ea5-8f71-2bbdc4073581",
+        "mergedItemIds": [
+          "38ec4950-2342-4be5-98c6-0b92328601fd",
+          "6bc83a18-2f96-4b32-b8d7-c3d5afb25179"
+        ],
+        "previousProductIds": [
+          "1100020008#offering-period=breakfast",
+          "1100020008#offering-period=dinner",
+          "1100020008#offering-period=lunch"
+        ],
+        "nextProductId": "1100020008",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "360786e9-b6f9-46a3-b58f-a7168a08a404",
+        "mergedItemIds": [
+          "851c9bf8-41dc-46f0-9fdd-53043bcf8b5a",
+          "ff00c727-4889-4fcf-a291-8f96cbecd9f6"
+        ],
+        "previousProductIds": [
+          "1100020016#offering-period=breakfast",
+          "1100020016#offering-period=dinner",
+          "1100020016#offering-period=lunch"
+        ],
+        "nextProductId": "1100020016",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "2f9182a0-f6ad-4bd9-a20a-a656ef011bd8",
+        "mergedItemIds": [
+          "39153296-5fec-4b80-b07c-aee0029c7ce9",
+          "ab9b4cbd-87a9-44fa-a0e4-d896b720842e"
+        ],
+        "previousProductIds": [
+          "1100020017#offering-period=breakfast",
+          "1100020017#offering-period=dinner",
+          "1100020017#offering-period=lunch"
+        ],
+        "nextProductId": "1100020017",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "66b9b45f-f65f-4a23-8bed-a01e73fe1b32",
+        "mergedItemIds": [
+          "90784646-9c0c-4b7a-bedc-db12a3c0e2b4",
+          "dff0613a-dd39-4dc4-b1b3-07a0eaf09fb8"
+        ],
+        "previousProductIds": [
+          "1100020018#offering-period=breakfast",
+          "1100020018#offering-period=dinner",
+          "1100020018#offering-period=lunch"
+        ],
+        "nextProductId": "1100020018",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "34f3f84e-476a-486d-a3e4-748e7ac0bf49",
+        "mergedItemIds": [
+          "469a9c46-d49d-4b75-9014-e7d9c513526a",
+          "88705eeb-fec7-4a34-8216-cc24f3e3a60e"
+        ],
+        "previousProductIds": [
+          "1100020019#offering-period=breakfast",
+          "1100020019#offering-period=dinner",
+          "1100020019#offering-period=lunch"
+        ],
+        "nextProductId": "1100020019",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "685b3f60-9758-47b4-9ce5-a1be6e187a2b",
+        "mergedItemIds": [
+          "858e919a-3444-4562-b223-eefbbfee7df8",
+          "b8e8779b-b2e9-42fb-a499-580fd67b800f"
+        ],
+        "previousProductIds": [
+          "1100020020#offering-period=breakfast",
+          "1100020020#offering-period=dinner",
+          "1100020020#offering-period=lunch"
+        ],
+        "nextProductId": "1100020020",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "0309eb19-8cba-401e-97d4-42f6f1296bb8",
+        "mergedItemIds": [
+          "395894cf-afcf-47ee-873d-6d5d68044c1a",
+          "dc958bfd-b942-4743-8339-4e575ff311e3"
+        ],
+        "previousProductIds": [
+          "1100020021#offering-period=breakfast",
+          "1100020021#offering-period=dinner",
+          "1100020021#offering-period=lunch"
+        ],
+        "nextProductId": "1100020021",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "5b17aad8-c284-414d-ad0c-f73ebd9f7106",
+        "mergedItemIds": [
+          "6ffdf5eb-f5b6-46f6-9e44-7bfd67cb36ef",
+          "cc60ef1c-a3d3-4495-ba8d-d235bb0c21b4"
+        ],
+        "previousProductIds": [
+          "1100020111#offering-period=breakfast",
+          "1100020111#offering-period=dinner",
+          "1100020111#offering-period=lunch"
+        ],
+        "nextProductId": "1100020111",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "092c3df2-1956-4e0f-a51a-08ba7c9722a1",
+        "mergedItemIds": [
+          "c30628da-87f6-484e-8be3-1c2e4f639603",
+          "d67bf8ab-c3e7-4471-b8a7-18a88daa28dc"
+        ],
+        "previousProductIds": [
+          "1100020112#offering-period=breakfast",
+          "1100020112#offering-period=dinner",
+          "1100020112#offering-period=lunch"
+        ],
+        "nextProductId": "1100020112",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "fbd741c6-4e90-4514-b559-31ff66cd7573",
+        "mergedItemIds": [
+          "5f7418da-ccd3-4d29-8e6a-1646e2f01e05",
+          "ce852f9d-ff46-423d-93ef-b75e7cc9972d"
+        ],
+        "previousProductIds": [
+          "1100020113#offering-period=breakfast",
+          "1100020113#offering-period=dinner",
+          "1100020113#offering-period=lunch"
+        ],
+        "nextProductId": "1100020113",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "2f4ad0c9-a930-4a4d-be3b-5c89452d0a61",
+        "mergedItemIds": [
+          "3bf41792-d144-45da-affb-46582e6dd89b",
+          "804b077c-93de-4dbf-8882-104dbfe60162"
+        ],
+        "previousProductIds": [
+          "1100020435#offering-period=breakfast",
+          "1100020435#offering-period=dinner",
+          "1100020435#offering-period=lunch"
+        ],
+        "nextProductId": "1100020435",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "17995942-3490-4e5f-8764-7791a7d5c41c",
+        "mergedItemIds": [
+          "5a1bf863-bc2a-47c4-81d1-af0d1f244b55",
+          "61f24dc5-29f2-4547-9da8-1e73698a97f1"
+        ],
+        "previousProductIds": [
+          "1100022766#offering-period=breakfast",
+          "1100022766#offering-period=dinner",
+          "1100022766#offering-period=lunch"
+        ],
+        "nextProductId": "1100022766",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "02cd563e-08a5-4828-a14a-db4da8f4778e",
+        "mergedItemIds": [
+          "b4fad3cd-4241-436b-9f82-e33f41cff698",
+          "e5e1c79e-843c-4cd5-ab4d-6b04e6ddae78"
+        ],
+        "previousProductIds": [
+          "1100023386#offering-period=breakfast",
+          "1100023386#offering-period=dinner",
+          "1100023386#offering-period=lunch"
+        ],
+        "nextProductId": "1100023386",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "4bee2e73-b21d-4e9b-b453-d42e4261e2ae",
+        "mergedItemIds": [
+          "c45c44cb-408e-4b6b-bb80-f1d98cf0d553",
+          "dee6f3b8-920d-41fe-bf66-a35bf14c053c"
+        ],
+        "previousProductIds": [
+          "1100023465#offering-period=breakfast",
+          "1100023465#offering-period=dinner",
+          "1100023465#offering-period=lunch"
+        ],
+        "nextProductId": "1100023465",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "ba5a5e52-959e-4379-a3f4-4268fb82e62e",
+        "mergedItemIds": ["f2fc5aa9-2bcc-45f7-a9c4-89785d18b188"],
+        "previousProductIds": [
+          "1100031475#offering-period=dinner",
+          "1100031475#offering-period=lunch"
+        ],
+        "nextProductId": "1100031475",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "4dcd163f-13d5-4d56-ab8a-575f10fc7d20",
+        "mergedItemIds": ["9eed4044-56e3-4916-a885-6f43296015b9"],
+        "previousProductIds": [
+          "1100040276#offering-period=breakfast",
+          "1100040276#offering-period=lunch"
+        ],
+        "nextProductId": "1100040276",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "41147409-5182-4c59-a594-3fb548a978b4",
+        "mergedItemIds": ["53c01805-adbb-42fe-8a7f-2068373d25fa"],
+        "previousProductIds": [
+          "1100041190#offering-period=dinner",
+          "1100041190#offering-period=lunch"
+        ],
+        "nextProductId": "1100041190",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "d12ca934-3a05-45d6-a318-2236bb52ca1a",
+        "mergedItemIds": ["f7327b69-e40e-43dc-bb87-a814b746d8f5"],
+        "previousProductIds": [
+          "1100042109#offering-period=dinner",
+          "1100042109#offering-period=lunch"
+        ],
+        "nextProductId": "1100042109",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "04f4bc70-abd1-4d53-950a-1d97255970cc",
+        "mergedItemIds": ["7653ca33-0f10-4549-b045-3fb2ba2def3a"],
+        "previousProductIds": [
+          "1100044002#offering-period=dinner",
+          "1100044002#offering-period=lunch"
+        ],
+        "nextProductId": "1100044002",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "1c939b7c-f0b3-405f-ba8d-7b008deb4f4a",
+        "mergedItemIds": ["6be5251a-9f43-4051-bd34-88f34c6c4ccf"],
+        "previousProductIds": [
+          "1100044914#offering-period=breakfast",
+          "1100044914#offering-period=lunch"
+        ],
+        "nextProductId": "1100044914",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "5e6c5551-ffaf-4fad-8283-79ee8ca2375e",
+        "mergedItemIds": ["a2c75bed-1307-4610-beec-26bad56a5183"],
+        "previousProductIds": [
+          "1100046227#offering-period=dinner",
+          "1100046227#offering-period=lunch"
+        ],
+        "nextProductId": "1100046227",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "41bb4ba9-10fe-492c-a092-5bfc1018be76",
+        "mergedItemIds": ["cd00e1dd-0f89-4b7d-bb48-b634a22ae562"],
+        "previousProductIds": [
+          "1100052153#offering-period=breakfast",
+          "1100052153#offering-period=lunch"
+        ],
+        "nextProductId": "1100052153",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "5fa48fd4-3a4c-4aec-9c50-ff9d43d5a7c9",
+        "mergedItemIds": ["e61348df-0370-41c8-926b-c80eef0b9f06"],
+        "previousProductIds": [
+          "1100052206#offering-period=breakfast",
+          "1100052206#offering-period=lunch"
+        ],
+        "nextProductId": "1100052206",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "11764f0d-1cc3-43f7-a2d4-af68c31eff79",
+        "mergedItemIds": ["1b4b598e-2cb0-4c7c-8432-aba7ba3bd56c"],
+        "previousProductIds": [
+          "1100057619#offering-period=dinner",
+          "1100057619#offering-period=lunch"
+        ],
+        "nextProductId": "1100057619",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "a5d7479c-b915-4486-af76-ce1c8c229061",
+        "mergedItemIds": ["fdf58e36-8619-435b-894a-e69e7bd3129d"],
+        "previousProductIds": [
+          "1100057620#offering-period=dinner",
+          "1100057620#offering-period=lunch"
+        ],
+        "nextProductId": "1100057620",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "81986527-1be7-4d4a-9496-e93fab244767",
+        "mergedItemIds": ["ec3b11ee-5dd9-4e64-801c-94fd47a55ada"],
+        "previousProductIds": [
+          "1100058973#offering-period=breakfast",
+          "1100058973#offering-period=lunch"
+        ],
+        "nextProductId": "1100058973",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "8acb28db-ccde-4bbb-b1c6-a07a046cda86",
+        "mergedItemIds": ["b4b5fdf4-b0d2-4a5c-a6ed-349a776ab375"],
+        "previousProductIds": [
+          "1100073073#offering-period=breakfast",
+          "1100073073#offering-period=lunch"
+        ],
+        "nextProductId": "1100073073",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "0af76682-7db8-4ff3-a461-ef234327eb2b",
+        "mergedItemIds": ["60a24e85-cc3d-47df-9d70-1b600293678c"],
+        "previousProductIds": [
+          "1100075923#offering-period=breakfast",
+          "1100075923#offering-period=lunch"
+        ],
+        "nextProductId": "1100075923",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "c27bf1ab-be0f-4680-996f-f6293b5fdaea",
+        "mergedItemIds": ["9d9022db-1598-440f-a044-4997b5d6a6cb"],
+        "previousProductIds": [
+          "1100075927#offering-period=dinner",
+          "1100075927#offering-period=lunch"
+        ],
+        "nextProductId": "1100075927",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "d62ea4a9-6818-41f3-9673-55f7d9fd869b",
+        "mergedItemIds": ["f66c93b8-e5ae-4c9d-b35a-53cd6e7ab410"],
+        "previousProductIds": [
+          "1100075928#offering-period=dinner",
+          "1100075928#offering-period=lunch"
+        ],
+        "nextProductId": "1100075928",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "57147417-39ed-44f7-9903-b89ba63b981a",
+        "mergedItemIds": ["6e4f1883-79f2-45a2-9b6c-d0c16220a56e"],
+        "previousProductIds": [
+          "1100075929#offering-period=dinner",
+          "1100075929#offering-period=lunch"
+        ],
+        "nextProductId": "1100075929",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      },
+      {
+        "survivorItemId": "d9b028c5-a065-40a1-8f7d-f522f8fce204",
+        "mergedItemIds": ["72da6038-fa64-41bd-9be3-9d77b1df181e"],
+        "previousProductIds": [
+          "1100075930#offering-period=dinner",
+          "1100075930#offering-period=lunch"
+        ],
+        "nextProductId": "1100075930",
+        "duplicateVotePolicy": "deduplicate-identical",
+        "rationale": "All aliases share one Aigens backend product and normalized name; preserve the UUID with the most history, then the oldest row with a UUID tie-break."
+      }
+    ],
+    "additions": ["1100075972"],
+    "removals": [],
+    "ambiguities": []
+  }
+}
