@@ -26,6 +26,7 @@ import { extractText } from "@/lib/plate-utils";
 import { extractWikiLinkTargets, isWikiPageId } from "@/lib/wiki-links";
 import { threeWayMergeContent } from "@/lib/merge-content";
 import { normalizeWikiIcon } from "@/lib/wiki-icon";
+import { reorderWikiSiblings, type WikiPageMove } from "@/lib/wiki-tree-state";
 import {
   shouldCoalesceRevision,
   CREATE_REVISION_SUMMARY,
@@ -314,13 +315,6 @@ export async function createWikiPage(data: {
   return page;
 }
 
-export type WikiPageMove =
-  | { direction: "up" | "down" }
-  | {
-      targetPageId: string;
-      placement: "before" | "after";
-    };
-
 export async function reorderWikiPage(pageId: string, move: WikiPageMove) {
   await assertContributorComplete(await requireEditor());
   if (
@@ -352,34 +346,17 @@ export async function reorderWikiPage(pageId: string, move: WikiPageMove) {
       )
       .orderBy(wikiPages.sortOrder, wikiPages.createdAt, wikiPages.id);
 
-    const sourceIndex = siblings.findIndex((sibling) => sibling.id === pageId);
-    if (sourceIndex < 0) throw new Error("Page not found");
-
-    let targetPageId: string;
-    let placement: "before" | "after";
-    if ("direction" in move) {
-      const targetIndex = sourceIndex + (move.direction === "up" ? -1 : 1);
-      if (targetIndex < 0 || targetIndex >= siblings.length) return;
-      targetPageId = siblings[targetIndex].id;
-      placement = move.direction === "up" ? "before" : "after";
-    } else {
-      targetPageId = move.targetPageId;
-      placement = move.placement;
+    const result = reorderWikiSiblings(siblings, pageId, move);
+    if (result.status === "source-not-found") throw new Error("Page not found");
+    if (result.status === "target-not-found") {
+      throw new Error("Pages must be siblings");
     }
+    if (result.status === "unchanged") return;
 
-    if (targetPageId === pageId) return;
-    const [source] = siblings.splice(sourceIndex, 1);
-    const targetIndex = siblings.findIndex(
-      (sibling) => sibling.id === targetPageId,
-    );
-    if (targetIndex < 0) throw new Error("Pages must be siblings");
-    siblings.splice(targetIndex + (placement === "after" ? 1 : 0), 0, source);
-
-    for (const [sortOrder, sibling] of siblings.entries()) {
-      if (sibling.sortOrder === sortOrder) continue;
+    for (const sibling of result.updates) {
       await tx
         .update(wikiPages)
-        .set({ sortOrder })
+        .set({ sortOrder: sibling.sortOrder })
         .where(eq(wikiPages.id, sibling.id));
     }
   });

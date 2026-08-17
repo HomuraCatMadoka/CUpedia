@@ -1459,7 +1459,7 @@ test.describe("mobile wiki editing", () => {
     page,
   }) => {
     await page.goto(`/wiki/${PAGE_IDS.richContent}`);
-    const editor = page.locator('[data-slate-editor="true"]').first();
+    const editor = await waitForHydratedWikiEditor(page, PAGE_IDS.richContent);
     await editor.click();
     const cell = editor.locator("td").filter({ hasText: "CSCI1130" }).first();
     await cell.getByText("CSCI1130", { exact: true }).click();
@@ -1474,6 +1474,17 @@ test.describe("mobile wiki editing", () => {
       .dispatchEvent("click");
     await expect(page.getByRole("dialog", { name: "插入块" })).toHaveCount(0);
     await expect(editor).toBeFocused();
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const anchor = window.getSelection()?.anchorNode;
+          const element =
+            anchor instanceof Element ? anchor : anchor?.parentElement;
+          const heading = element?.closest("h4");
+          return heading?.closest("td")?.textContent ?? null;
+        }),
+      )
+      .toContain("CSCI1130");
     await page.keyboard.type("Nested heading");
 
     const nestedHeading = editor.getByRole("heading", {
@@ -1511,7 +1522,10 @@ test.describe("mobile wiki editing", () => {
 
     try {
       await page.goto(`/wiki/${PAGE_IDS.richContent}`);
-      const editor = page.locator('[data-slate-editor="true"]');
+      const editor = await waitForHydratedWikiEditor(
+        page,
+        PAGE_IDS.richContent,
+      );
       const calloutText = editor.getByText(
         "CUpedia is maintained by students — contribute freely.",
         { exact: true },

@@ -47,7 +47,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { WikiCreateButton } from "@/components/wiki/wiki-create-button";
 import { useOptionalWikiTree } from "@/components/wiki/wiki-tree-provider";
-import { reorderWikiPage, type WikiPageMove } from "@/lib/wiki-actions";
+import { reorderWikiPage } from "@/lib/wiki-actions";
+import type { WikiPageMove } from "@/lib/wiki-tree-state";
 
 type TreeNode = {
   id: string;
@@ -264,6 +265,7 @@ function PageTreeItem({
     draggedPage: Pick<TreeNode, "id" | "parentId">;
     placement: "before" | "after";
   } | null>(null);
+  const dropTargetRef = useRef(dropTarget);
   const dropPlacement =
     dropTarget?.draggedPage === draggedPage ? dropTarget.placement : null;
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -393,18 +395,21 @@ function PageTreeItem({
           event.stopPropagation();
           event.dataTransfer.dropEffect = "move";
           const bounds = event.currentTarget.getBoundingClientRect();
-          setDropTarget({
+          const nextDropTarget = {
             draggedPage,
             placement:
               event.clientY < bounds.top + bounds.height / 2
                 ? "before"
                 : "after",
-          });
+          } as const;
+          dropTargetRef.current = nextDropTarget;
+          setDropTarget(nextDropTarget);
         }}
         onDragLeave={(event) => {
           if (
             !event.currentTarget.contains(event.relatedTarget as Node | null)
           ) {
+            dropTargetRef.current = null;
             setDropTarget(null);
           }
         }}
@@ -419,13 +424,17 @@ function PageTreeItem({
           event.preventDefault();
           event.stopPropagation();
           const bounds = event.currentTarget.getBoundingClientRect();
+          const latestDropTarget = dropTargetRef.current;
           movePage(draggedPage.id, {
             targetPageId: node.id,
             placement:
-              event.clientY < bounds.top + bounds.height / 2
-                ? "before"
-                : "after",
+              latestDropTarget?.draggedPage.id === draggedPage.id
+                ? latestDropTarget.placement
+                : event.clientY < bounds.top + bounds.height / 2
+                  ? "before"
+                  : "after",
           });
+          dropTargetRef.current = null;
           setDropTarget(null);
         }}
         onPointerDown={startLongPress}
@@ -572,6 +581,7 @@ function PageTreeItem({
               }}
               onDragEnd={() => {
                 setDraggedPage(null);
+                dropTargetRef.current = null;
                 setDropTarget(null);
               }}
               className="flex size-5 cursor-grab items-center justify-center rounded text-[#787774] hover:bg-black/[0.06] hover:text-[#37352f] active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -1130,12 +1140,15 @@ export function WikiSidebar({
 
   const movePage = useCallback(
     (pageId: string, move: WikiPageMove) => {
+      const mutationToken = wikiTree?.projectReorder(pageId, move) ?? null;
       startMoveTransition(async () => {
         try {
           await reorderWikiPage(pageId, move);
+          wikiTree?.confirm(mutationToken);
           router.refresh();
           setReorderAnnouncement("页面顺序已更新");
         } catch {
+          wikiTree?.rollback(mutationToken);
           toast.error("调整页面顺序失败，请重试");
           setReorderAnnouncement("页面顺序更新失败");
         } finally {
@@ -1143,7 +1156,7 @@ export function WikiSidebar({
         }
       });
     },
-    [router],
+    [router, wikiTree],
   );
 
   const reorderContextValue = useMemo<WikiTreeReorderContextValue>(

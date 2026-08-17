@@ -219,6 +219,7 @@ describe("Navbar sign-out", () => {
         .getByRole("link", { name: "CU Bus · 測試中" })
         .getAttribute("href"),
     ).toBe("/campus-bus");
+    expect(screen.queryByRole("link", { name: "模型實驗室" })).toBeNull();
   });
 
   it("offers a public product updates entry", () => {
