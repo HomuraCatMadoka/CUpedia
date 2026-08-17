@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import { Client } from "pg";
+import { Pool } from "pg";
 
 const UUID_SOURCE =
   "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
@@ -10,18 +10,18 @@ export function wikiPageUrl(pageId: string) {
   return new RegExp(`/wiki/${pageId}$`);
 }
 
+const publishedPagePool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 1,
+  allowExitOnIdle: true,
+});
+
 async function isPublishedWikiPage(pageId: string) {
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    const result = await client.query(
-      "select 1 from wiki_pages where id = $1",
-      [pageId],
-    );
-    return result.rowCount === 1;
-  } finally {
-    await client.end();
-  }
+  const result = await publishedPagePool.query(
+    "select 1 from wiki_pages where id = $1",
+    [pageId],
+  );
+  return result.rowCount === 1;
 }
 
 export async function getHydratedWikiEditorShell(
