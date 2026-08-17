@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gte,
   inArray,
   lt,
   ne,
@@ -38,7 +39,7 @@ import {
   users,
 } from "@/db/schema";
 import { hasProfessorCourseEvidence } from "@/lib/professor-course-evidence";
-import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
+import { getOptionalUser, requireAdmin, requireAuth } from "@/lib/auth-guard";
 import { assertContributorComplete } from "@/lib/contributor-account";
 import {
   getAchievementSummariesForAuthors,
@@ -1876,4 +1877,39 @@ export async function toggleLike(reviewId: string): Promise<number> {
 
   revalidatePath(`/courses/${review.courseCode}`);
   return Number(c?.cnt ?? 0);
+}
+
+export const COURSE_REVIEW_ADMIN_RECENT_DAYS = 7;
+
+export type CourseReviewAdminStats = {
+  recentWindowDays: number;
+  recentReviewCount: number;
+  totalReviewCount: number;
+  totalSubjectCount: number;
+};
+
+/** Admin overview: recent course-review growth plus catalog totals. */
+export async function getCourseReviewAdminStats(): Promise<CourseReviewAdminStats> {
+  await requireAdmin();
+
+  const recentWindowDays = COURSE_REVIEW_ADMIN_RECENT_DAYS;
+  const since = new Date(
+    Date.now() - recentWindowDays * 24 * 60 * 60 * 1000,
+  );
+
+  const [[recent], [total], subjects] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(courseReviews)
+      .where(gte(courseReviews.createdAt, since)),
+    db.select({ value: count() }).from(courseReviews),
+    getSubjects(),
+  ]);
+
+  return {
+    recentWindowDays,
+    recentReviewCount: Number(recent?.value ?? 0),
+    totalReviewCount: Number(total?.value ?? 0),
+    totalSubjectCount: subjects.length,
+  };
 }

@@ -414,10 +414,24 @@ describe("CanteenMenuView", () => {
     );
     render(<CanteenMenuView items={longMenu} voteCounts={{}} myVotes={{}} />);
 
-    await waitFor(() => expect(screen.getByText("菜品 100")).toBeTruthy());
-    expect(screen.getAllByRole("listitem")).toHaveLength(100);
+    await waitFor(() => expect(screen.getByText("菜品 1")).toBeTruthy());
+    // First page stays within 饭类 (even-index dishes), so 粉面 is not mounted yet.
+    expect(screen.getAllByRole("listitem")).toHaveLength(15);
     expect(screen.getByRole("heading", { name: /饭类/ })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: /粉面/ })).toBeNull();
+    expect(screen.getByText("已显示 15 / 100 道菜")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(30);
+    expect(screen.getByText("已显示 30 / 100 道菜")).toBeTruthy();
+
+    // Reveal the rest so both section headings are present.
+    for (let i = 0; i < 5; i += 1) {
+      fireEvent.click(screen.getByRole("button", { name: "加载更多" }));
+    }
+    expect(screen.getAllByRole("listitem")).toHaveLength(100);
     expect(screen.getByRole("heading", { name: /粉面/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "加载更多" })).toBeNull();
   });
 
   it("keeps the menu compact and opens price details in one dialog", async () => {

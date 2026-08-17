@@ -10,7 +10,12 @@ import { test, expect } from "@playwright/test";
 
 const ADMIN_EMAIL = "admin@test.com";
 const ADMIN_PASSWORD = "password123";
-const ADMIN_ROUTES = ["/admin/users", "/admin/deleted", "/admin/settings"];
+const ADMIN_ROUTES = [
+  "/admin",
+  "/admin/users",
+  "/admin/deleted",
+  "/admin/settings",
+];
 
 test("admin shell renders on every admin route", async ({ page }) => {
   await page.goto("/login");

@@ -447,6 +447,96 @@ describe("CourseReviewSection", () => {
     );
   });
 
+  it("从教授详情进入时预选任课教授筛选", () => {
+    const requiredProfessor = {
+      id: "person-1",
+      publicId: "9e831ca8-67fd-4706-aee5-36e5be2cbfa5",
+      name: "Professor CHAN",
+      rating: 4.5,
+      ratingCount: 2,
+      terms: [],
+      tags: [],
+    };
+    const otherProfessor = {
+      id: "person-2",
+      publicId: "aaaaaaaa-bbbb-4ccc-addd-eeeeeeeeeeee",
+      name: "Professor WONG",
+      rating: null,
+      ratingCount: 0,
+      terms: [],
+      tags: [],
+    };
+    render(
+      <CourseReviewSection
+        code="CSCI2100"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "chan-review",
+            content: "CHAN 的测评",
+            professors: [{ id: "person-1", name: "Professor CHAN" }],
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[requiredProfessor, otherProfessor]}
+        academicYears={["2025-26"]}
+        isAuthenticated
+        professorOptional={false}
+        prefillProfessor={requiredProfessor}
+      />,
+    );
+
+    const filter = screen.getByLabelText("按任课教授筛选") as HTMLSelectElement;
+    expect(filter.value).toBe("person-1");
+    expect(screen.getByText("CHAN 的测评")).toBeTruthy();
+    expect(
+      Array.from(filter.options).map((option) => option.value),
+    ).toEqual(["", "person-1"]);
+  });
+
+  it("任课教授筛选只列出有评价的教授", () => {
+    const withReview = {
+      id: "person-1",
+      name: "Professor CHAN",
+      rating: 4,
+      ratingCount: 1,
+      terms: [],
+      tags: [],
+    };
+    const withoutReview = {
+      id: "person-2",
+      name: "Professor WONG",
+      rating: null,
+      ratingCount: 0,
+      terms: [],
+      tags: [],
+    };
+    render(
+      <CourseReviewSection
+        code="CSCI2100"
+        reviews={[
+          {
+            ...REVIEW,
+            id: "chan-review",
+            content: "只有 CHAN",
+            professors: [{ id: "person-1", name: "Professor CHAN" }],
+          },
+        ]}
+        ratingState={RATING_STATE}
+        professorStats={[withReview, withoutReview]}
+        academicYears={["2025-26"]}
+        isAuthenticated={false}
+        professorOptional={false}
+      />,
+    );
+
+    const filter = screen.getByLabelText("按任课教授筛选") as HTMLSelectElement;
+    expect(
+      Array.from(filter.options).map((option) => option.textContent),
+    ).toEqual(["全部教授", "Prof. Chan"]);
+    expect(filter.value).toBe("");
+  });
+
   it("从教授详情进入时锁定教授并写入课程测评", async () => {
     submit.mockResolvedValue({ newAchievementNotices: [] });
     const requiredProfessor = {
