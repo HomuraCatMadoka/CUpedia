@@ -701,7 +701,7 @@ export function AmapCampusPrototype({
           new AMap.InfoWindow({
             anchor: "bottom-center",
             autoMove: true,
-            closeWhenClickMap: true,
+            closeWhenClickMap: false,
             offset: [0, -10],
           });
         infoWindowRef.current = infoWindow;

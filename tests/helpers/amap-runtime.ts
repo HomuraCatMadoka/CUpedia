@@ -60,6 +60,11 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
+      if (event === "click") {
+        for (const infoWindow of runtime.infoWindows) {
+          infoWindow.handleMapClick();
+        }
+      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
@@ -171,12 +176,25 @@ export function installAmapRuntime(options?: {
   }
 
   class MockInfoWindow {
-    readonly close = vi.fn();
-    readonly open = vi.fn();
+    private openState = false;
+    readonly close = vi.fn(() => {
+      this.openState = false;
+    });
+    readonly open = vi.fn(() => {
+      this.openState = true;
+    });
     readonly setContent = vi.fn();
 
-    constructor() {
+    constructor(
+      private readonly infoWindowOptions: { closeWhenClickMap?: boolean } = {},
+    ) {
       runtime.infoWindows.push(this);
+    }
+
+    handleMapClick() {
+      if (this.openState && this.infoWindowOptions.closeWhenClickMap) {
+        this.close();
+      }
     }
   }
 

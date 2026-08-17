@@ -423,6 +423,28 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(runtime.infoWindows[0]!.close).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps an unlinked provider InfoWindow open through its companion map click", async () => {
+    const { runtime, map } = await renderWithRuntime();
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "provider-east-wing",
+        name: "科学馆东座",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      });
+      map.emit("click", { lnglat: { lng: 114.2084, lat: 22.4198 } });
+    });
+    await runtime.flushAnimationFrames();
+
+    expect(runtime.infoWindows).toHaveLength(1);
+    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
+    expect(runtime.infoWindows[0]!.close).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?v=1");
+  });
+
   it("closes a transient provider InfoWindow when browser history restores", async () => {
     const { runtime, map } = await renderWithRuntime();
 
