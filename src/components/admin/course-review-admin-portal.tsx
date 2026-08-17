@@ -8,13 +8,23 @@ export function CourseReviewAdminPortal({
   const cards = [
     {
       label: `近 ${stats.recentWindowDays} 日新增评价`,
-      value: stats.recentReviewCount,
-      hint: "course_reviews 新增条数",
+      value: stats.recentEvaluationCount,
+      hint: "按香港自然日统计首次提交",
     },
     {
       label: "评价总数",
-      value: stats.totalReviewCount,
-      hint: "全部课程文字评价",
+      value: stats.totalEvaluationCount,
+      hint: "包含文字评价与仅评分",
+    },
+    {
+      label: "含文字评价",
+      value: stats.withTextReviewCount,
+      hint: "附有文字测评的评价",
+    },
+    {
+      label: "仅评分",
+      value: stats.ratingOnlyCount,
+      hint: "未附文字测评的评价",
     },
     {
       label: "科目总数",
@@ -32,7 +42,7 @@ export function CourseReviewAdminPortal({
         </p>
       </div>
 
-      <dl className="grid gap-3 sm:grid-cols-3">
+      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
           <div
             key={card.label}

@@ -67,6 +67,7 @@ import {
   searchProfessorCandidates,
 } from "@/lib/professor-search";
 import { assertNoSensitiveContent } from "@/lib/sensitive-content";
+import { startOfHktCalendarWindow } from "@/lib/hkt-datetime";
 import {
   getCourseGenderRestriction,
   type Course,
@@ -1614,6 +1615,7 @@ export async function submitCourseReview(
         instructorPersonId: primaryProfessor?.id ?? null,
         professorNameSnapshot: primaryProfessor?.name ?? null,
         isAnonymous,
+        firstSubmittedAt: sql`now()`,
         ...structuredTags,
       })
       .onConflictDoUpdate({
@@ -1883,33 +1885,46 @@ const COURSE_REVIEW_ADMIN_RECENT_DAYS = 7;
 
 export type CourseReviewAdminStats = {
   recentWindowDays: number;
-  recentReviewCount: number;
-  totalReviewCount: number;
+  recentEvaluationCount: number;
+  totalEvaluationCount: number;
+  withTextReviewCount: number;
+  ratingOnlyCount: number;
   totalSubjectCount: number;
 };
 
-/** Admin overview: recent course-review growth plus catalog totals. */
+/** Admin overview: HKT calendar-window growth plus current catalog totals. */
 export async function getCourseReviewAdminStats(): Promise<CourseReviewAdminStats> {
   await requireAdmin();
 
   const recentWindowDays = COURSE_REVIEW_ADMIN_RECENT_DAYS;
-  const since = new Date(
-    Date.now() - recentWindowDays * 24 * 60 * 60 * 1000,
-  );
+  const since = startOfHktCalendarWindow(new Date(), recentWindowDays);
+  const hasTextReview = sql`exists (
+    select 1 from ${courseReviews}
+    where ${courseReviews.courseCode} = ${courseRatings.courseCode}
+      and ${courseReviews.userId} = ${courseRatings.userId}
+  )`;
 
-  const [[recent], [total], subjects] = await Promise.all([
+  const [[recent], [totals], subjects] = await Promise.all([
     db
       .select({ value: count() })
-      .from(courseReviews)
-      .where(gte(courseReviews.createdAt, since)),
-    db.select({ value: count() }).from(courseReviews),
+      .from(courseRatings)
+      .where(gte(courseRatings.firstSubmittedAt, since)),
+    db
+      .select({
+        total: count(),
+        withText: sql<number>`count(*) filter (where ${hasTextReview})`,
+        ratingOnly: sql<number>`count(*) filter (where not ${hasTextReview})`,
+      })
+      .from(courseRatings),
     getSubjects(),
   ]);
 
   return {
     recentWindowDays,
-    recentReviewCount: Number(recent?.value ?? 0),
-    totalReviewCount: Number(total?.value ?? 0),
+    recentEvaluationCount: Number(recent?.value ?? 0),
+    totalEvaluationCount: Number(totals?.total ?? 0),
+    withTextReviewCount: Number(totals?.withText ?? 0),
+    ratingOnlyCount: Number(totals?.ratingOnly ?? 0),
     totalSubjectCount: subjects.length,
   };
 }

@@ -96,16 +96,18 @@ function pickInitialPeriod(
   return available[0]!;
 }
 
-function countItemsThroughSection(
+function countItemsToMountSection(
   sections: MenuSection[],
   svgKey: string,
 ): number {
-  let count = 0;
+  let countBeforeSection = 0;
   for (const section of sections) {
-    count += section.items.length;
-    if (section.svgKey === svgKey) return count;
+    if (section.svgKey === svgKey) {
+      return countBeforeSection + Math.min(1, section.items.length);
+    }
+    countBeforeSection += section.items.length;
   }
-  return count;
+  return 0;
 }
 
 function indexOfMenuItem(sections: MenuSection[], itemId: string): number {
@@ -210,7 +212,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
       const index = indexOfMenuItem(sections, revealTarget.id);
       return index >= 0 ? index + 1 : 0;
     }
-    return countItemsThroughSection(sections, revealTarget.svgKey);
+    return countItemsToMountSection(sections, revealTarget.svgKey);
   }, [revealTarget, sections]);
 
   if (revealFloor > loadedCount) {

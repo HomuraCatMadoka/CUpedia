@@ -72,11 +72,16 @@ export function CourseReviewSection({
       reviewedProfessorIds.add(review.professorId);
     }
   }
-  if (prefillProfessor?.id) reviewedProfessorIds.add(prefillProfessor.id);
-
   const filterProfessors = professorStats.filter(
     (item) => item.ratingCount > 0 || reviewedProfessorIds.has(item.id),
   );
+  const evaluatedProfessorIds = new Set(reviewedProfessorIds);
+  const filterProfessorIds = new Set(
+    filterProfessors.map((professor) => professor.id),
+  );
+  for (const professor of professorStats) {
+    if (professor.ratingCount > 0) evaluatedProfessorIds.add(professor.id);
+  }
   for (const review of reviews) {
     const candidates = review.professors?.length
       ? review.professors
@@ -89,7 +94,7 @@ export function CourseReviewSection({
           ]
         : [];
     for (const candidate of candidates) {
-      if (filterProfessors.some((item) => item.id === candidate.id)) continue;
+      if (filterProfessorIds.has(candidate.id)) continue;
       const fromStats = professorStats.find((item) => item.id === candidate.id);
       filterProfessors.push(
         fromStats ?? {
@@ -101,12 +106,10 @@ export function CourseReviewSection({
           tags: [],
         },
       );
+      filterProfessorIds.add(candidate.id);
     }
   }
-  if (
-    prefillProfessor &&
-    !filterProfessors.some((item) => item.id === prefillProfessor.id)
-  ) {
+  if (prefillProfessor && !filterProfessorIds.has(prefillProfessor.id)) {
     const fromStats = professorStats.find(
       (item) => item.id === prefillProfessor.id,
     );
@@ -121,7 +124,11 @@ export function CourseReviewSection({
         tags: [],
       },
     );
+    filterProfessorIds.add(prefillProfessor.id);
   }
+  const prefillHasEvaluation = prefillProfessor
+    ? evaluatedProfessorIds.has(prefillProfessor.id)
+    : false;
 
   const activeProfessorId = targetReviewId ? "" : selectedProfessorId;
   const selectedProfessor =
@@ -211,6 +218,9 @@ export function CourseReviewSection({
               {filterProfessors.map((item) => (
                 <option key={item.id} value={item.id}>
                   {formatProfessorNameText(item.name)}
+                  {item.id === prefillProfessor?.id && !prefillHasEvaluation
+                    ? "（暂无评价）"
+                    : ""}
                 </option>
               ))}
             </select>

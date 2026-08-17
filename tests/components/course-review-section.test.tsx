@@ -489,9 +489,10 @@ describe("CourseReviewSection", () => {
     const filter = screen.getByLabelText("按任课教授筛选") as HTMLSelectElement;
     expect(filter.value).toBe("person-1");
     expect(screen.getByText("CHAN 的测评")).toBeTruthy();
-    expect(
-      Array.from(filter.options).map((option) => option.value),
-    ).toEqual(["", "person-1"]);
+    expect(Array.from(filter.options).map((option) => option.value)).toEqual([
+      "",
+      "person-1",
+    ]);
   });
 
   it("任课教授筛选收录有评分或有文字评价的教授", () => {
@@ -568,6 +569,13 @@ describe("CourseReviewSection", () => {
         prefillProfessor={requiredProfessor}
       />,
     );
+
+    const filter = screen.getByLabelText("按任课教授筛选") as HTMLSelectElement;
+    expect(filter.value).toBe("person-1");
+    expect(
+      screen.getByRole("option", { name: "Prof. Chan（暂无评价）" }),
+    ).toBeTruthy();
+    expect(screen.getByText("该教授还没有文字测评。")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "开始填写" }));
     expect(screen.getByText("已绑定")).toBeTruthy();
