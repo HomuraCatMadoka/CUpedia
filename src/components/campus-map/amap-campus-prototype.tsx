@@ -683,7 +683,9 @@ export function AmapCampusPrototype({
       },
       overlay: (overlay) => {
         if (overlay.kind === "close-external") {
-          infoWindowRef.current?.close();
+          const infoWindow = infoWindowRef.current;
+          infoWindowRef.current = null;
+          infoWindow?.close();
           return;
         }
         const AMap = window.AMap;
@@ -698,25 +700,26 @@ export function AmapCampusPrototype({
         source.className = "mt-1 block text-xs text-neutral-500";
         source.textContent = "高德地图地点";
         content.append(title, source);
-        let infoWindow = infoWindowRef.current;
-        if (!infoWindow) {
-          infoWindow = new AMap.InfoWindow({
-            anchor: "bottom-center",
-            autoMove: true,
-            closeWhenClickMap: false,
-            offset: [0, -10],
-          });
-          infoWindow.on("close", () => {
-            if (infoWindowRef.current !== infoWindow) return;
-            const currentSession = sceneDriver.getSnapshot().session;
-            if (
-              currentSession.mode === "browse" &&
-              currentSession.scene.kind === "provider-poi"
-            ) {
-              sceneDriver.dispatch({ type: "DISMISS" });
-            }
-          });
-        }
+        const previousInfoWindow = infoWindowRef.current;
+        infoWindowRef.current = null;
+        previousInfoWindow?.close();
+        const infoWindow = new AMap.InfoWindow({
+          anchor: "bottom-center",
+          autoMove: true,
+          closeWhenClickMap: false,
+          offset: [0, -10],
+        });
+        infoWindow.on("close", () => {
+          if (infoWindowRef.current !== infoWindow) return;
+          infoWindowRef.current = null;
+          const currentSession = sceneDriver.getSnapshot().session;
+          if (
+            currentSession.mode === "browse" &&
+            currentSession.scene.kind === "provider-poi"
+          ) {
+            sceneDriver.dispatch({ type: "DISMISS" });
+          }
+        });
         infoWindowRef.current = infoWindow;
         infoWindow.setContent(content);
         infoWindow.open(

@@ -205,6 +205,10 @@ export function installAmapRuntime(options?: {
       for (const handler of this.handlers.get(event) ?? []) handler();
     }
 
+    getIsOpen() {
+      return this.openState;
+    }
+
     handleMapClick() {
       if (this.openState && this.infoWindowOptions.closeWhenClickMap) {
         this.close();
