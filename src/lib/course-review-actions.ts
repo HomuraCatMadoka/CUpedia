@@ -1879,7 +1879,7 @@ export async function toggleLike(reviewId: string): Promise<number> {
   return Number(c?.cnt ?? 0);
 }
 
-export const COURSE_REVIEW_ADMIN_RECENT_DAYS = 7;
+const COURSE_REVIEW_ADMIN_RECENT_DAYS = 7;
 
 export type CourseReviewAdminStats = {
   recentWindowDays: number;

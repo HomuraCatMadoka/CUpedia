@@ -213,9 +213,13 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
     return countItemsThroughSection(sections, revealTarget.svgKey);
   }, [revealTarget, sections]);
 
+  if (revealFloor > loadedCount) {
+    setLoadedCount(revealFloor);
+  }
+
   const visibleCount = Math.min(
     periodItems.length,
-    Math.max(loadedCount, revealFloor, MENU_INITIAL_VISIBLE_COUNT),
+    Math.max(loadedCount, MENU_INITIAL_VISIBLE_COUNT),
   );
   const hasMore = visibleCount < periodItems.length;
   const mountedSections = useMemo(
@@ -225,11 +229,8 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
 
   useLayoutEffect(() => {
     if (!revealTarget) return;
-    if (revealFloor > 0) {
-      setLoadedCount((current) => Math.max(current, revealFloor));
-    }
     onRevealHandled();
-  }, [revealTarget, revealFloor, onRevealHandled]);
+  }, [revealTarget, onRevealHandled]);
 
   useEffect(() => {
     if (view !== "menu" || !hasMore) return;
