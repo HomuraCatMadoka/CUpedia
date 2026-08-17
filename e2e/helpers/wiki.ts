@@ -24,6 +24,48 @@ async function isPublishedWikiPage(pageId: string) {
   return result.rowCount === 1;
 }
 
+export async function waitForPublishedWikiPage(
+  page: Page,
+  pageId: string,
+  timeout = 30_000,
+) {
+  const canonicalPath = `/wiki/${pageId}`;
+  await expect
+    .poll(
+      async () => {
+        if (
+          new URL(page.url()).pathname + new URL(page.url()).search ===
+          canonicalPath
+        ) {
+          return "navigated";
+        }
+        return (await isPublishedWikiPage(pageId)) ? "published" : "pending";
+      },
+      { timeout },
+    )
+    .not.toBe("pending");
+
+  // Direct navigation coverage belongs to wiki-create.spec.ts. Setup callers
+  // only need the published editor, so recover if Next returned the redirect
+  // in the action payload without applying it in the browser.
+  if (page.url().includes("?draft=1")) {
+    try {
+      await page.evaluate(
+        (path) => window.location.replace(path),
+        canonicalPath,
+      );
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes("Execution context was destroyed")
+      ) {
+        throw error;
+      }
+    }
+  }
+  await expect(page).toHaveURL(wikiPageUrl(pageId), { timeout });
+}
+
 export async function getHydratedWikiEditorShell(
   page: Page,
   pageId?: string,
@@ -72,40 +114,6 @@ export async function createUntitledWikiPage(page: Page) {
   await shell.getByRole("button", { name: "共享", exact: true }).click();
   await page.getByRole("button", { name: "发布到 Wiki", exact: true }).click();
 
-  const canonicalPath = `/wiki/${pageId}`;
-  await expect
-    .poll(
-      async () => {
-        if (
-          new URL(page.url()).pathname + new URL(page.url()).search ===
-          canonicalPath
-        ) {
-          return "navigated";
-        }
-        return (await isPublishedWikiPage(pageId)) ? "published" : "pending";
-      },
-      { timeout: 30_000 },
-    )
-    .not.toBe("pending");
-
-  // Creation/publish navigation is asserted directly in wiki-create.spec.ts.
-  // Setup callers only need the published editor, so recover if Next returned
-  // the redirect in the action payload without applying it in the browser.
-  if (page.url().includes("?draft=1")) {
-    try {
-      await page.evaluate(
-        (path) => window.location.replace(path),
-        canonicalPath,
-      );
-    } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !error.message.includes("Execution context was destroyed")
-      ) {
-        throw error;
-      }
-    }
-  }
-  await expect(page).toHaveURL(wikiPageUrl(pageId), { timeout: 30_000 });
+  await waitForPublishedWikiPage(page, pageId);
   return pageId;
 }

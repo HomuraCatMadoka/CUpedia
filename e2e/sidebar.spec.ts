@@ -2,7 +2,11 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 import { PAGE_IDS } from "../scripts/seed-data";
-import { getHydratedWikiEditorShell, wikiPageUrl } from "./helpers/wiki";
+import {
+  getHydratedWikiEditorShell,
+  waitForPublishedWikiPage,
+  wikiPageUrl,
+} from "./helpers/wiki";
 
 /**
  * Sidebar behaviour across viewports.
@@ -145,9 +149,7 @@ async function publishCurrentWikiDraft(page: Page, title: string) {
   });
   await shell.getByRole("button", { name: "共享", exact: true }).click();
   await page.getByRole("button", { name: "发布到 Wiki" }).click();
-  await expect(page).toHaveURL(new RegExp(`/wiki/${draftPageId}$`, "i"), {
-    timeout: 15_000,
-  });
+  await waitForPublishedWikiPage(page, draftPageId, 15_000);
 }
 
 test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
