@@ -237,7 +237,7 @@ export function buildMenuIdentityTransitionAudit(
         mealPeriods: [...item.mealPeriods].sort(),
         sortOrder: item.sortOrder,
         svgKey: item.svgKey,
-        priceOptions: canonicalizePriceOptions(item.priceOptions),
+        priceOptions: existingPriceOptionsForV4Fingerprint(item.priceOptions),
         menuSourceId: item.menuSourceId,
         isAvailable: item.isAvailable,
       }))
@@ -253,7 +253,7 @@ export function buildMenuIdentityTransitionAudit(
         mealPeriods: [...item.mealPeriods].sort(),
         sortOrder: item.sortOrder,
         svgKey: item.svgKey,
-        priceOptions: canonicalizePriceOptions(item.priceOptions),
+        priceOptions: incomingPriceOptionsForV4Fingerprint(item.priceOptions),
       }))
       .sort((left, right) =>
         compareProviderText(left.externalProductId, right.externalProductId),
@@ -910,19 +910,38 @@ function compareTransitionEvidence(
 function canonicalizePriceOptions(
   options: readonly MenuItemPriceOptionInput[],
 ): MenuItemPriceOptionInput[] {
-  return [...options]
-    .sort(
-      (left, right) =>
-        compareProviderText(left.label ?? "", right.label ?? "") ||
-        left.amountMinor - right.amountMinor ||
-        compareProviderText(left.currency, right.currency),
-    )
-    .map((option, sortOrder) => ({
-      amountMinor: option.amountMinor,
-      currency: option.currency,
-      label: option.label,
-      sortOrder,
-    }));
+  return sortedPriceOptions(options).map((option, sortOrder) => ({
+    label: option.label,
+    amountMinor: option.amountMinor,
+    currency: option.currency,
+    sortOrder,
+  }));
+}
+
+function existingPriceOptionsForV4Fingerprint(
+  options: readonly MenuItemPriceOptionInput[],
+): MenuItemPriceOptionInput[] {
+  return sortedPriceOptions(options).map((option, sortOrder) => ({
+    amountMinor: option.amountMinor,
+    currency: option.currency,
+    label: option.label,
+    sortOrder,
+  }));
+}
+
+function incomingPriceOptionsForV4Fingerprint(
+  options: readonly MenuItemPriceOptionInput[],
+): MenuItemPriceOptionInput[] {
+  return canonicalizePriceOptions(options);
+}
+
+function sortedPriceOptions(options: readonly MenuItemPriceOptionInput[]) {
+  return [...options].sort(
+    (left, right) =>
+      compareProviderText(left.label ?? "", right.label ?? "") ||
+      left.amountMinor - right.amountMinor ||
+      compareProviderText(left.currency, right.currency),
+  );
 }
 
 function scopeEvidenceForFingerprint(evidence: MenuSyncInput["scopeEvidence"]) {
