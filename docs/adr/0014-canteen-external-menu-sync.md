@@ -45,7 +45,11 @@ same Aigens group.
    identity. Canonical category selection and price ordering make the normalized
    result independent of raw occurrence order.
 3. Every adapter labels its normalized response `complete` or `partial` from
-   verified provider semantics. Only a complete snapshot may deactivate managed
+   verified provider semantics. Aigens parsing without an expected source is
+   partial; its source fetch may assert complete only after validating the
+   response status, requested store locator, catalog flags and declared menu
+   periods. The resulting bounded store/menu/period evidence participates in
+   transition audit and fingerprinting. Only a complete snapshot may deactivate managed
    identities that are absent. A partial snapshot may update, create or
    reactivate identities that are present, but preserves absent rows unchanged.
    Completeness participates in preview and snapshot fingerprints; it is never

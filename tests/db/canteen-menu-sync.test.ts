@@ -47,9 +47,30 @@ import {
   buildMenuIdentityTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
 } from "@/lib/canteen-menu-identity-transition";
-import { parseMenuSyncJson } from "@/lib/canteen-types";
+import {
+  type MenuSnapshotScopeEvidence,
+  parseMenuSyncJson,
+} from "@/lib/canteen-types";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
+
+const AIGENS_SCOPE_EVIDENCE: MenuSnapshotScopeEvidence = {
+  provider: "aigens",
+  externalStoreId: "102830",
+  storeName: "Sanitized Aigens store",
+  menuName: "Sanitized full catalog",
+  providerPeriodCodes: ["B", "D", "L", "T"],
+  categoryPeriodCodes: ["B", "D", "L", "T"],
+  categoryCount: 2,
+  groupCount: 3,
+};
+
+function parseValidatedAigensSnapshot(input: unknown) {
+  return {
+    ...parseMenuSyncJson(input),
+    scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+  };
+}
 
 async function waitForBlockedTransaction(
   client: PoolClient,
@@ -161,7 +182,26 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       .where(inArray(users.id, [userId, ...additionalUserIds]));
   });
 
+  it("rejects manual Aigens JSON that claims a complete provider snapshot", async () => {
+    await expect(
+      previewMenuSyncFromJson(canteenId, {
+        snapshotCompleteness: "complete",
+        items: [
+          {
+            externalProductId: "product-42",
+            name: "演示菜品 A",
+            mealPeriods: ["lunch"],
+          },
+        ],
+      }),
+    ).rejects.toThrow("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+  });
+
   it("claims a legacy item and later deactivates it without losing history", async () => {
+    await db
+      .update(canteenMenuSources)
+      .set({ provider: "ichef" })
+      .where(eq(canteenMenuSources.id, sourceId));
     const firstSnapshot = {
       snapshotCompleteness: "complete" as const,
       takeOverLegacyItems: true,
@@ -411,6 +451,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
 
   it("updates an exact identity without losing its UUID or history", async () => {
     await db
+      .update(canteenMenuSources)
+      .set({ provider: "ichef" })
+      .where(eq(canteenMenuSources.id, sourceId));
+    await db
       .update(canteenMenuItems)
       .set({
         menuSourceId: sourceId,
@@ -500,7 +544,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         externalProductId: secondRemovedProductId,
       },
     ]);
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: [
         {
@@ -550,7 +594,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       input,
     );
 
-    const preview = await previewMenuSyncFromJson(canteenId, input);
+    const preview = await previewMenuSync(sourceId, input);
     expect(preview.blockingDecision).toMatchObject({
       blocked: true,
       code: "MENU_SYNC_IDENTITY_CHURN",
@@ -633,19 +677,19 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ]);
     expect(history.map(([row]) => row.value)).toEqual([1, 1]);
 
-    const retryPreview = await previewMenuSyncFromJson(canteenId, input);
+    const retryPreview = await previewMenuSync(sourceId, input);
     expect(retryPreview.blockingDecision).toEqual({
       blocked: false,
       code: null,
       samples: [],
     });
-    const retry = await applyMenuSyncFromJson(
-      canteenId,
+    const retry = await applyPreviewedMenuSync(
+      sourceId,
       input,
       retryPreview.previewToken,
     );
-    expect(retry.actions).toEqual([]);
-    expect(retry.unchanged).toBe(1);
+    expect(retry.plan.actions).toEqual([]);
+    expect(retry.plan.unchanged).toBe(1);
   });
 
   it("merges reviewed Aigens period UUIDs and preserves deduplicated history", async () => {
@@ -692,7 +736,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       userId,
       content: "晚餐 occurrence 上的历史",
     });
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: [
         {
@@ -985,7 +1029,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         externalProductId: previousProductId,
       })
       .where(eq(canteenMenuItems.id, itemId));
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: [
         {
@@ -1093,7 +1137,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       externalProductId: productIds[index],
       isAvailable: true,
     }));
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: productIds.slice(0, 2).map((externalProductId, index) => ({
         externalProductId,
@@ -1103,7 +1147,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })),
     });
     const audit = buildMenuIdentityTransitionAudit(existingItems, input);
-    const preview = await previewMenuSyncFromJson(canteenId, input);
+    const preview = await previewMenuSync(sourceId, input);
     expect(preview.blockingReasons.map((reason) => reason.code)).toEqual([
       "MENU_SYNC_SUSPICIOUS_DROP",
     ]);
@@ -1154,7 +1198,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         externalProductId: previousProductId,
       })
       .where(eq(canteenMenuItems.id, itemId));
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: [
         {
@@ -1247,7 +1291,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       label: "原价",
       amountMinor: 1000,
     });
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: [
         {
@@ -1387,7 +1431,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         externalProductId: previousProductId,
       })
       .where(eq(canteenMenuItems.id, itemId));
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: [
         {
@@ -1504,7 +1548,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         externalProductId: "old-product",
       })
       .where(eq(canteenMenuItems.id, itemId));
-    const input = parseMenuSyncJson({
+    const input = parseValidatedAigensSnapshot({
       snapshotCompleteness: "complete",
       items: [
         {
@@ -1527,6 +1571,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
   });
 
   it("rejects missing and stale preview tokens before writing", async () => {
+    await db
+      .update(canteenMenuSources)
+      .set({ provider: "ichef" })
+      .where(eq(canteenMenuSources.id, sourceId));
     const snapshot = {
       snapshotCompleteness: "complete" as const,
       items: [

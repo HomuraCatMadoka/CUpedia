@@ -40,13 +40,21 @@ Save the output under a reviewed operations-artifact path. The empty decision
 arrays are intentionally invalid for a non-empty diff, so generation alone can
 never authorize a write.
 
+For Aigens, the audit also contains bounded `scopeEvidence`: requested external
+store ID, provider store/menu names, declared provider/category period codes,
+and category/group counts. The fetch rejects mismatched, archived, terminated,
+slim, undeclared-period, or unbounded responses before it can label the snapshot
+complete. Scope evidence is part of the incoming fingerprint.
+
 ## Review every changed identity
 
 Classify every old and new provider identity exactly once:
 
-- `snapshotScope`: set to `complete` only after confirming the response covers
-  the intended store and menu periods; otherwise record `wrong-or-incomplete`
-  and do not apply the artifact.
+- `snapshotScope`: compare the fingerprinted `scopeEvidence` with the intended
+  store and menu periods. Set to `complete` only when the store/menu names,
+  external store ID, provider/category period codes and bounded catalog counts
+  agree with the intended source; otherwise record `wrong-or-incomplete` and do
+  not apply the artifact.
 
 - `replacements`: a stable logical dish whose new provider ID must inherit the
   listed CUpedia UUID. Record a concise evidence-based `rationale`.

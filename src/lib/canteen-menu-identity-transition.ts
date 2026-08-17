@@ -61,6 +61,7 @@ export type MenuIdentityCanonicalizationCandidate = {
 
 export type MenuIdentityTransitionAudit = {
   snapshotCompleteness: MenuSyncInput["snapshotCompleteness"];
+  scopeEvidence: MenuSyncInput["scopeEvidence"] | null;
   summary: {
     existingCount: number;
     incomingCount: number;
@@ -184,7 +185,10 @@ export function fingerprintMenuIdentityTransitionSource(
 /** Build a deterministic, read-only audit of identity changes. */
 export function buildMenuIdentityTransitionAudit(
   existingItems: readonly ExistingSyncMenuItem[],
-  input: Pick<MenuSyncInput, "snapshotCompleteness" | "items">,
+  input: Pick<
+    MenuSyncInput,
+    "snapshotCompleteness" | "scopeEvidence" | "items"
+  >,
   provider?: CanteenMenuSourceProvider,
 ): MenuIdentityTransitionAudit {
   const incomingItems = input.items;
@@ -215,6 +219,7 @@ export function buildMenuIdentityTransitionAudit(
   );
   const incomingFingerprint = fingerprint({
     snapshotCompleteness: input.snapshotCompleteness,
+    scopeEvidence: input.scopeEvidence ?? null,
     items: incomingItems
       .map((item) => ({
         externalProductId: item.externalProductId,
@@ -349,6 +354,7 @@ export function buildMenuIdentityTransitionAudit(
 
   return {
     snapshotCompleteness: input.snapshotCompleteness,
+    scopeEvidence: input.scopeEvidence ?? null,
     summary: {
       existingCount: activeExistingIds.size,
       incomingCount: incoming.length,
@@ -381,7 +387,10 @@ export function buildMenuIdentityTransitionAudit(
 export function verifyMenuIdentityTransitionArtifact(
   source: MenuIdentityTransitionArtifact["source"],
   existingItems: readonly ExistingSyncMenuItem[],
-  input: Pick<MenuSyncInput, "snapshotCompleteness" | "items">,
+  input: Pick<
+    MenuSyncInput,
+    "snapshotCompleteness" | "scopeEvidence" | "items"
+  >,
   artifactInput: unknown,
 ): ApprovedMenuIdentityReplacement[] {
   return verifyMenuIdentityTransitionApproval(
@@ -395,12 +404,17 @@ export function verifyMenuIdentityTransitionArtifact(
 export function verifyMenuIdentityTransitionApproval(
   source: MenuIdentityTransitionArtifact["source"],
   existingItems: readonly ExistingSyncMenuItem[],
-  input: Pick<MenuSyncInput, "snapshotCompleteness" | "items">,
+  input: Pick<
+    MenuSyncInput,
+    "snapshotCompleteness" | "scopeEvidence" | "items"
+  >,
   artifactInput: unknown,
 ): ApprovedMenuIdentityTransition {
   assertProviderSnapshotCompleteness(
     source.provider,
     input.snapshotCompleteness,
+    input.scopeEvidence,
+    source.externalStoreId,
   );
   const artifact = parseMenuIdentityTransitionArtifact(artifactInput);
   if (

@@ -8,6 +8,16 @@
   },
   "audit": {
     "snapshotCompleteness": "complete",
+    "scopeEvidence": {
+      "provider": "aigens",
+      "externalStoreId": "102830",
+      "storeName": "Sanitized Aigens store",
+      "menuName": "Sanitized full catalog",
+      "providerPeriodCodes": ["B", "D", "L", "T"],
+      "categoryPeriodCodes": ["B", "D", "L", "T"],
+      "categoryCount": 2,
+      "groupCount": 3
+    },
     "summary": {
       "existingCount": 1,
       "incomingCount": 1,
@@ -21,7 +31,7 @@
       "ambiguityCount": 0
     },
     "existingFingerprint": "d04d2c8838129765c9fb20c79f6250b1ccb5e18d2d1f6aca75720c0e2223e764",
-    "incomingFingerprint": "38c9c1c92a94e6f941729690e6be52c87ec8c4fe9cc4b7f3344aedb6b24f5d38",
+    "incomingFingerprint": "2d4658d01e466b65de32c05158e2b9809add5f7c42800f341634e02ff46081a6",
     "replacementCandidates": [
       {
         "itemId": "11111111-1111-4111-a111-111111111111",

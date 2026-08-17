@@ -50,7 +50,7 @@ _Avoid_: 把上游完整 JSON、匿名 token、会员身份、购物车、优惠
 **菜单快照（Menu snapshot）**: 某一观察时刻从菜单来源取得并通过 provider schema 校验的公开菜单事实，以及由 provider 边界声明的快照完整性。它可以是完整目录，也可以只是当前营业时段、库存或可售范围内的子集。
 _Avoid_: 把每次抓取都称为完整快照；从条目数量、时钟或 churn 阈值猜测完整性。
 
-**快照完整性（Snapshot completeness）**: `complete` 表示本次未出现可作为停供证据；`partial` 表示未出现不是删除证据，只能更新、增加或恢复本次出现的身份。完整性由 provider 边界根据已验证的上游语义声明，PinMe `product-menus` 在没有全目录信号前属于 `partial`。
+**快照完整性（Snapshot completeness）**: `complete` 表示本次未出现可作为停供证据；`partial` 表示未出现不是删除证据，只能更新、增加或恢复本次出现的身份。完整性由 provider 边界根据已验证的上游语义声明，PinMe `product-menus` 在没有全目录信号前属于 `partial`。Aigens 纯菜单解析同样只能产生 `partial`；只有 source fetch 验证响应状态、请求门店 ID、`menu.storeIds`、published/terminated/archived/slim 状态及菜单餐段声明后，才能产生带有 bounded scope evidence 的 `complete` 快照。该 evidence 进入 identity-transition audit 与 incoming fingerprint。
 _Avoid_: 用 `isFull` 布尔值；把 safety threshold 的结果反推为完整性；让 reconciliation 按 provider 名称分支。
 
 **点餐交接（Ordering handoff）**: 将用户交给供应商官方页面继续选择规格、使用本人优惠、创建订单并付款的稳定入口。交接保存人工确认的完整 URL 及 provider；其 mode、table、multi/location 等参数是入口身份的一部分。它与菜单来源相互独立：同一食堂可从公开 API 同步菜单，却通过品牌域名或扫码 URL 点餐。

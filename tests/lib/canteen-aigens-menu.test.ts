@@ -31,7 +31,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
   it("keeps primary products, maps periods, and excludes generic categories", () => {
     const payload = buildShhoMenuSyncPayload(aigensCurrent);
 
-    expect(payload.snapshotCompleteness).toBe("complete");
+    expect(payload.snapshotCompleteness).toBe("partial");
     expect(payload.takeOverLegacyItems).toBe(false);
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0]).toMatchObject({
@@ -278,6 +278,16 @@ describe("S.H. Ho Aigens menu adapter", () => {
     await expect(
       fetchAigensMenu("102830", { fetchImpl }),
     ).resolves.toMatchObject({
+      scopeEvidence: {
+        provider: "aigens",
+        externalStoreId: "102830",
+        storeName: "Sanitized Aigens store",
+        menuName: "Sanitized full catalog",
+        providerPeriodCodes: ["B", "D", "L", "T"],
+        categoryPeriodCodes: ["B", "D", "L", "T"],
+        categoryCount: 2,
+        groupCount: 3,
+      },
       items: [
         {
           externalProductId: "42",
@@ -285,6 +295,43 @@ describe("S.H. Ho Aigens menu adapter", () => {
         },
       ],
     });
+  });
+
+  it("rejects a catalog whose store scope does not match the requested source", async () => {
+    const mismatched = {
+      ...aigensCurrent,
+      data: {
+        ...aigensCurrent.data,
+        id: 112891,
+        published: true,
+        terminated: false,
+        menu: {
+          ...aigensCurrent.data.menu,
+          archived: false,
+          storeIds: [112891],
+          periods: [{ code: "L" }, { code: "D" }],
+        },
+      },
+    };
+    const fetchImpl = async () =>
+      new Response(JSON.stringify(mismatched), { status: 200 });
+
+    await expect(fetchAigensMenu("102830", { fetchImpl })).rejects.toThrow(
+      "INVALID_AIGENS_MENU_SCOPE",
+    );
+  });
+
+  it("rejects unbounded catalog scope evidence", async () => {
+    const unbounded = {
+      ...aigensCurrent,
+      data: { ...aigensCurrent.data, name: "x".repeat(201) },
+    };
+    const fetchImpl = async () =>
+      new Response(JSON.stringify(unbounded), { status: 200 });
+
+    await expect(fetchAigensMenu("102830", { fetchImpl })).rejects.toThrow(
+      "INVALID_AIGENS_MENU_SCOPE",
+    );
   });
 
   it("rejects the whole snapshot when a product price is missing", () => {

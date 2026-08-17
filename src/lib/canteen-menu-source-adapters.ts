@@ -10,7 +10,7 @@ import {
 } from "@/lib/canteen-pinme-menu";
 import { buildQmaiMenuSyncPayload } from "@/lib/canteen-qmai-menu";
 import { assertProviderMenuIdentitySnapshot } from "./canteen-provider-menu-identity";
-import type { MenuSyncInput } from "@/lib/canteen-types";
+import type { MenuSnapshotScopeEvidence, MenuSyncInput } from "./canteen-types";
 
 const ICHEF_ENDPOINT =
   "https://shop.ichefpos.com/api/graphql/online_restaurant";
@@ -338,7 +338,90 @@ export async function fetchAigensMenu(
     { cache: "no-store" },
     options.fetchImpl ?? fetch,
   );
-  return buildAigensMenuSyncPayload(payload);
+  const scopeEvidence = readAigensCatalogScope(payload, externalStoreId);
+  return buildAigensMenuSyncPayload(payload, scopeEvidence);
+}
+
+function readAigensCatalogScope(
+  payload: unknown,
+  externalStoreId: string,
+): MenuSnapshotScopeEvidence {
+  const response = object(payload);
+  const data = object(response?.data);
+  const menu = object(data?.menu);
+  const storeIds = menu?.storeIds;
+  const periods = menu?.periods;
+  const categories = menu?.categories;
+  const validPeriodCode = (value: unknown): value is string =>
+    typeof value === "string" && /^[A-Z][A-Z0-9_-]{0,15}$/.test(value);
+  const providerPeriodsAreBounded =
+    Array.isArray(periods) &&
+    periods.length > 0 &&
+    periods.length <= 32 &&
+    periods.every((value) => validPeriodCode(object(value)?.code));
+  const declaredPeriodCodes = new Set(
+    Array.isArray(periods)
+      ? periods.flatMap((value) => {
+          const period = object(value);
+          return typeof period?.code === "string" ? [period.code] : [];
+        })
+      : [],
+  );
+  const categoryPeriodsAreDeclared =
+    Array.isArray(categories) &&
+    categories.every((value) => {
+      const category = object(value);
+      return (
+        category !== null &&
+        (category.periods === undefined ||
+          (Array.isArray(category.periods) &&
+            category.periods.length <= 32 &&
+            category.periods.every(
+              (period) =>
+                validPeriodCode(period) && declaredPeriodCodes.has(period),
+            )))
+      );
+    });
+  if (
+    response?.status !== "1" ||
+    String(data?.id ?? "") !== externalStoreId ||
+    typeof data?.name !== "string" ||
+    !data.name.trim() ||
+    data.name.trim().length > 200 ||
+    data?.published !== true ||
+    data?.terminated !== false ||
+    typeof menu?.name !== "string" ||
+    !menu.name.trim() ||
+    menu.name.trim().length > 200 ||
+    menu?.archived !== false ||
+    menu?.slim !== false ||
+    !Array.isArray(storeIds) ||
+    !storeIds.some((storeId) => String(storeId) === externalStoreId) ||
+    !providerPeriodsAreBounded ||
+    !categoryPeriodsAreDeclared ||
+    categories.length > 500 ||
+    !Array.isArray(menu.groups) ||
+    menu.groups.length > 500
+  ) {
+    throw new Error("INVALID_AIGENS_MENU_SCOPE");
+  }
+  return {
+    provider: "aigens",
+    externalStoreId,
+    storeName: (data.name as string).trim().replace(/\s+/g, " "),
+    menuName: (menu.name as string).trim().replace(/\s+/g, " "),
+    providerPeriodCodes: [...declaredPeriodCodes].sort(),
+    categoryPeriodCodes: [
+      ...new Set(
+        categories.flatMap((value) => {
+          const category = object(value)!;
+          return (category.periods as string[] | undefined) ?? [];
+        }),
+      ),
+    ].sort(),
+    categoryCount: categories.length,
+    groupCount: menu.groups.length,
+  };
 }
 
 export async function fetchPinmeMenu(

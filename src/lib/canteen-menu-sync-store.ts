@@ -371,6 +371,8 @@ export async function previewMenuSync(
   assertProviderSnapshotCompleteness(
     source.provider,
     input.snapshotCompleteness,
+    input.scopeEvidence,
+    source.externalStoreId,
   );
   if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
     throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
@@ -405,6 +407,8 @@ export async function auditMenuIdentityTransition(
   assertProviderSnapshotCompleteness(
     source.provider,
     input.snapshotCompleteness,
+    input.scopeEvidence,
+    source.externalStoreId,
   );
   const existing = collectExistingSyncItems(
     await selectExistingItems(db, source.canteenId),
@@ -533,6 +537,8 @@ async function applyMenuSync(
     assertProviderSnapshotCompleteness(
       source.provider,
       input.snapshotCompleteness,
+      input.scopeEvidence,
+      source.externalStoreId,
     );
     const now = source.databaseNow;
     if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {

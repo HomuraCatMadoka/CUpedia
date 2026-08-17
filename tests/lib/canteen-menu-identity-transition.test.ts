@@ -9,9 +9,21 @@ import {
 import type { ExistingSyncMenuItem } from "@/lib/canteen-menu-sync";
 import type {
   MenuSnapshotCompleteness,
+  MenuSnapshotScopeEvidence,
   MenuSyncItemInput,
 } from "@/lib/canteen-types";
 import transitionFixture from "./fixtures/canteen-menu-identity-transition-v4.json";
+
+const AIGENS_SCOPE_EVIDENCE: MenuSnapshotScopeEvidence = {
+  provider: "aigens",
+  externalStoreId: "102830",
+  storeName: "Sanitized Aigens store",
+  menuName: "Sanitized full catalog",
+  providerPeriodCodes: ["B", "D", "L", "T"],
+  categoryPeriodCodes: ["B", "D", "L", "T"],
+  categoryCount: 2,
+  groupCount: 3,
+};
 
 function buildMenuIdentityTransitionAudit(
   existingItems: readonly ExistingSyncMenuItem[],
@@ -21,6 +33,7 @@ function buildMenuIdentityTransitionAudit(
   return buildTransitionAudit(existingItems, {
     snapshotCompleteness,
     items: [...incomingItems],
+    scopeEvidence: AIGENS_SCOPE_EVIDENCE,
   });
 }
 
@@ -34,7 +47,12 @@ function verifyMenuIdentityTransitionArtifact(
   return verifyTransitionArtifact(
     source,
     existingItems,
-    { snapshotCompleteness, items: [...incomingItems] },
+    {
+      snapshotCompleteness,
+      items: [...incomingItems],
+      scopeEvidence:
+        source.provider === "aigens" ? AIGENS_SCOPE_EVIDENCE : undefined,
+    },
     artifact,
   );
 }
@@ -75,6 +93,25 @@ function incoming(
 }
 
 describe("menu identity transition audit", () => {
+  it("records and fingerprints provider scope evidence", () => {
+    const scopeEvidence = AIGENS_SCOPE_EVIDENCE;
+    const audit = buildTransitionAudit([], {
+      snapshotCompleteness: "complete",
+      items: [incoming()],
+      scopeEvidence,
+    });
+    const changedScope = buildTransitionAudit([], {
+      snapshotCompleteness: "complete",
+      items: [incoming()],
+      scopeEvidence: { ...scopeEvidence, categoryCount: 3 },
+    });
+
+    expect(audit.scopeEvidence).toEqual(scopeEvidence);
+    expect(audit.incomingFingerprint).not.toBe(
+      changedScope.incomingFingerprint,
+    );
+  });
+
   it("records one unambiguous identity replacement with review evidence", () => {
     const audit = buildMenuIdentityTransitionAudit([existing()], [incoming()]);
 
@@ -172,7 +209,11 @@ describe("menu identity transition audit", () => {
     const next = incoming({ externalProductId: "42" });
     const audit = buildTransitionAudit(
       [survivor, merged],
-      { snapshotCompleteness: "complete", items: [next] },
+      {
+        snapshotCompleteness: "complete",
+        items: [next],
+        scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+      },
       "aigens",
     );
 
@@ -185,7 +226,11 @@ describe("menu identity transition audit", () => {
           configurationFingerprint: "a".repeat(64),
         },
         [survivor, merged],
-        { snapshotCompleteness: "complete", items: [next] },
+        {
+          snapshotCompleteness: "complete",
+          items: [next],
+          scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+        },
         {
           schemaVersion: 4,
           source: {
@@ -246,7 +291,11 @@ describe("menu identity transition audit", () => {
     });
     const audit = buildTransitionAudit(
       [previous],
-      { snapshotCompleteness: "complete", items: [] },
+      {
+        snapshotCompleteness: "complete",
+        items: [],
+        scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+      },
       "aigens",
     );
     expect(audit.canonicalizationCandidates).toEqual([
@@ -269,7 +318,11 @@ describe("menu identity transition audit", () => {
           configurationFingerprint: "a".repeat(64),
         },
         [previous],
-        { snapshotCompleteness: "complete", items: [] },
+        {
+          snapshotCompleteness: "complete",
+          items: [],
+          scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+        },
         {
           schemaVersion: 4,
           source: {
@@ -768,6 +821,7 @@ describe("menu identity transition audit", () => {
     const audit = buildMenuIdentityTransitionAudit([previous], [next]);
     const reorderedAudit = {
       snapshotCompleteness: audit.snapshotCompleteness,
+      scopeEvidence: audit.scopeEvidence,
       ambiguities: audit.ambiguities,
       removals: audit.removals,
       additions: audit.additions,
