@@ -27,14 +27,26 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm lint
-        name: Lint
+      - name: Lint, unit tests, and typecheck
+        run: |
+          set +e
+          pnpm lint &
+          lint_pid=$!
+          pnpm test &
+          unit_pid=$!
+          pnpm typecheck &
+          typecheck_pid=$!
 
-      - run: pnpm test
-        name: Unit tests
+          wait "$lint_pid"
+          lint_status=$?
+          wait "$unit_pid"
+          unit_status=$?
+          wait "$typecheck_pid"
+          typecheck_status=$?
 
-      - run: pnpm typecheck
-        name: Typecheck
+          if ((lint_status || unit_status || typecheck_status)); then
+            exit 1
+          fi
 
   database-integration:
     runs-on: ubuntu-latest

@@ -37,6 +37,14 @@ describe("bounded full CI topology (#669)", () => {
     expect(workflow).toMatch(/  quality:[\s\S]*pnpm lint/);
     expect(workflow).toMatch(/  quality:[\s\S]*pnpm test/);
     expect(workflow).toMatch(/  quality:[\s\S]*pnpm typecheck/);
+    expect(workflow).toMatch(/wait "\$lint_pid"[\s\S]*lint_status=\$\?/);
+    expect(workflow).toMatch(/wait "\$unit_pid"[\s\S]*unit_status=\$\?/);
+    expect(workflow).toMatch(
+      /wait "\$typecheck_pid"[\s\S]*typecheck_status=\$\?/,
+    );
+    expect(workflow).toMatch(
+      /if \(\(lint_status \|\| unit_status \|\| typecheck_status\)\)/,
+    );
   });
 
   it("keeps database coverage in one real-Postgres integration job", () => {
