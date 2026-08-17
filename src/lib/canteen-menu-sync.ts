@@ -4,7 +4,6 @@ import type {
   MenuSyncInput,
   MenuSyncItemInput,
 } from "./canteen-types";
-import { reconcileOfferingIdentityTransitions } from "./canteen-menu-external-key";
 import { snapshotAbsenceIsEvidence } from "./canteen-menu-snapshot-completeness";
 
 export type ApprovedMenuIdentityReplacement = {
@@ -38,7 +37,6 @@ export type MenuSyncConflict = {
   name: string;
   reason:
     | "AMBIGUOUS_LEGACY_MATCH"
-    | "AMBIGUOUS_EXTERNAL_IDENTITY_TRANSITION"
     | "LEGACY_MATCH_ALREADY_CLAIMED"
     | "LEGACY_MATCH_REQUIRES_TAKEOVER";
   candidateIds: string[];
@@ -77,53 +75,12 @@ export function planMenuSync(
       )
       .map((item) => [item.externalProductId!, item]),
   );
-  const approvedPreviousIds = new Set(
-    approvedIdentityReplacements.map(
-      (replacement) => replacement.previousProductId,
-    ),
-  );
-  const approvedNextIds = new Set(
-    approvedIdentityReplacements.map(
-      (replacement) => replacement.nextProductId,
-    ),
-  );
   const approvedByNextId = new Map(
     approvedIdentityReplacements.map((replacement) => [
       replacement.nextProductId,
       replacement,
     ]),
   );
-  const offeringTransitions = reconcileOfferingIdentityTransitions(
-    [...managedByProduct.keys()].filter(
-      (productId) => !approvedPreviousIds.has(productId),
-    ),
-    input.items
-      .map((item) => item.externalProductId)
-      .filter((productId) => !approvedNextIds.has(productId)),
-  );
-  const previousIdByMovedId = new Map(
-    absenceIsEvidence
-      ? offeringTransitions.safeMoves.map((move) => [
-          move.nextProductId,
-          move.previousProductId,
-        ])
-      : [],
-  );
-  const ambiguousByIncomingId = new Map<string, string[]>();
-  const ambiguousExistingIds = new Set<string>();
-  for (const transition of offeringTransitions.ambiguousTransitions) {
-    const candidateIds = transition.previousProductIds.flatMap((productId) => {
-      const item = managedByProduct.get(productId);
-      return item ? [item.id] : [];
-    });
-    for (const productId of transition.previousProductIds) {
-      const item = managedByProduct.get(productId);
-      if (item) ambiguousExistingIds.add(item.id);
-    }
-    for (const productId of transition.nextProductIds) {
-      ambiguousByIncomingId.set(productId, candidateIds);
-    }
-  }
   const legacyByNamePeriod = new Map<string, ExistingSyncMenuItem[]>();
   if (legacyAdoptionOpen) {
     for (const item of existingItems) {
@@ -142,22 +99,10 @@ export function planMenuSync(
   let unchanged = 0;
 
   for (const incoming of input.items) {
-    const ambiguousCandidates = ambiguousByIncomingId.get(
-      incoming.externalProductId,
-    );
-    if (ambiguousCandidates) {
-      conflicts.push({
-        externalProductId: incoming.externalProductId,
-        name: incoming.name,
-        reason: "AMBIGUOUS_EXTERNAL_IDENTITY_TRANSITION",
-        candidateIds: ambiguousCandidates,
-      });
-      continue;
-    }
     const approvedReplacement = approvedByNextId.get(
       incoming.externalProductId,
     );
-    let managed = approvedReplacement
+    const managed = approvedReplacement
       ? managedByProduct.get(approvedReplacement.previousProductId)
       : managedByProduct.get(incoming.externalProductId);
     if (
@@ -166,18 +111,7 @@ export function planMenuSync(
     ) {
       throw new Error("MENU_IDENTITY_TRANSITION_STALE");
     }
-    let identityChanged = false;
-    if (approvedReplacement) {
-      identityChanged = true;
-    } else if (!managed) {
-      const previousProductId = previousIdByMovedId.get(
-        incoming.externalProductId,
-      );
-      managed = previousProductId
-        ? managedByProduct.get(previousProductId)
-        : undefined;
-      identityChanged = managed !== undefined;
-    }
+    const identityChanged = approvedReplacement !== undefined;
     if (managed) {
       seenItemIds.add(managed.id);
       const changedFields = changedMenuFields(managed, incoming);
@@ -261,7 +195,6 @@ export function planMenuSync(
       if (
         item.isAvailable &&
         (belongsToSource || adoptableLegacy) &&
-        !ambiguousExistingIds.has(item.id) &&
         !seenItemIds.has(item.id)
       ) {
         actions.push({

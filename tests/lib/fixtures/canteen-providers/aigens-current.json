@@ -1,6 +1,21 @@
 {
+  "status": "1",
   "data": {
+    "id": 102830,
+    "name": "Sanitized Aigens store",
+    "published": true,
+    "terminated": false,
     "menu": {
+      "name": "Sanitized full catalog",
+      "archived": false,
+      "slim": false,
+      "storeIds": [102830],
+      "periods": [
+        { "code": "B" },
+        { "code": "L" },
+        { "code": "T" },
+        { "code": "D" }
+      ],
       "categories": [
         {
           "name": "飯類",

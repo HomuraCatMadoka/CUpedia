@@ -8,18 +8,19 @@ import { CANTEEN_MENU_IDENTITY_PREFLIGHT_CONTRACT as contract } from "@/lib/cant
 import reportSchema from "../../docs/contracts/canteen-menu-identity-preflight-report-v2.schema.json";
 import v1FixtureMatrix from "../db/fixtures/canteen-menu-identity-preflight-v1.json";
 import v2FixtureMatrix from "../db/fixtures/canteen-menu-identity-preflight-v2.json";
+import v3FixtureMatrix from "../db/fixtures/canteen-menu-identity-preflight-v3.json";
 
 const execFileAsync = promisify(execFile);
 const validateReport = addFormats(new Ajv2020({ allErrors: true })).compile(
   reportSchema,
 );
 
-describe("canteen menu identity preflight contract v2 (#665)", () => {
-  it("keeps the versioned schema and mandatory #643 parity matrix aligned", () => {
+describe("canteen menu identity preflight contract v3 (#679)", () => {
+  it("keeps the versioned schema and mandatory parity matrices aligned", () => {
     expect(reportSchema.properties.schemaVersion.const).toBe(
       contract.reportSchemaVersion,
     );
-    expect(reportSchema.properties.contractVersion.const).toBe(
+    expect(reportSchema.properties.contractVersion.enum).toContain(
       contract.contractVersion,
     );
     expect(reportSchema.properties.targetIssue.const).toBe(
@@ -37,7 +38,7 @@ describe("canteen menu identity preflight contract v2 (#665)", () => {
     ).toEqual(contract.diagnosticReasonCodes);
     expect(v1FixtureMatrix).toMatchObject({
       contractVersion: "canteen-menu-identity-preconditions/v1",
-      targetIssue: contract.targetIssue,
+      targetIssue: 643,
       mandatoryParityInput: true,
     });
     expect(v1FixtureMatrix.fixtureSchema).toBe(
@@ -47,8 +48,8 @@ describe("canteen menu identity preflight contract v2 (#665)", () => {
       "canteen-menu-identity-preflight-v1.json",
     );
     expect(v2FixtureMatrix).toMatchObject({
-      contractVersion: contract.contractVersion,
-      targetIssue: contract.targetIssue,
+      contractVersion: "canteen-menu-identity-preconditions/v2",
+      targetIssue: 643,
       mandatoryParityInput: true,
       fixtureSchema: "canteen-menu-identity-history-0081.sql",
     });
@@ -56,6 +57,39 @@ describe("canteen menu identity preflight contract v2 (#665)", () => {
       expect.objectContaining({
         name: "authoritative-only managed identity",
         expected: { resultCode: "PREFLIGHT_SAFE", failedChecks: {} },
+      }),
+    ]);
+    expect(v3FixtureMatrix).toMatchObject({
+      contractVersion: contract.contractVersion,
+      targetIssue: contract.targetIssue,
+      mandatoryParityInput: true,
+      fixtureSchema: "canteen-menu-identity-history-0081.sql",
+      extends: "canteen-menu-identity-preflight-v2.json",
+      supersededParityCases: ["supported historical identity"],
+    });
+    expect(v3FixtureMatrix.migrationRequiredHistoricalIdentityNames).toEqual(
+      v1FixtureMatrix.supportedHistoricalIdentities
+        .filter((identity) => identity.provider === "aigens")
+        .map((identity) => identity.name),
+    );
+    expect(v3FixtureMatrix.parityCases).toEqual([
+      expect.objectContaining({
+        name: "authoritative-only Aigens period alias requires audited transition",
+        expected: expect.objectContaining({
+          resultCode: "PREFLIGHT_UNSAFE",
+          failedChecks: expect.objectContaining({
+            ROLLOUT_SHADOW_MISMATCH: expect.any(Object),
+          }),
+        }),
+      }),
+      expect.objectContaining({
+        name: "Aigens period-scoped identity requires audited transition",
+        expected: expect.objectContaining({
+          resultCode: "PREFLIGHT_UNSAFE",
+          failedChecks: expect.objectContaining({
+            ROLLOUT_SHADOW_MISMATCH: expect.any(Object),
+          }),
+        }),
       }),
     ]);
     expect(

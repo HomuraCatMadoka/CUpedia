@@ -22,6 +22,7 @@ import {
 import {
   parseMenuSyncJson,
   type MealPeriodAssignment,
+  type MenuSnapshotScopeEvidence,
   type MenuSyncInput,
 } from "@/lib/canteen-types";
 
@@ -35,6 +36,17 @@ vi.mock("@/lib/canteen-menu-source-adapters", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const hasDb = Boolean(process.env.DATABASE_URL);
+
+const AIGENS_SCOPE_EVIDENCE: MenuSnapshotScopeEvidence = {
+  provider: "aigens",
+  externalStoreId: "parity-store",
+  storeName: "Sanitized parity store",
+  menuName: "Sanitized parity catalog",
+  providerPeriodCodes: ["B", "D", "L"],
+  categoryPeriodCodes: ["B", "D", "L"],
+  categoryCount: 3,
+  groupCount: 3,
+};
 
 type SeedItem = {
   id: string;
@@ -74,11 +86,14 @@ function input(
     mealPeriods?: MealPeriodAssignment[];
   }>,
 ): MenuSyncInput {
-  return parseMenuSyncJson({
+  const parsed = parseMenuSyncJson({
     snapshotCompleteness: expectedMenuSnapshotCompleteness(provider),
     items,
     takeOverLegacyItems: false,
   });
+  return provider === "aigens"
+    ? { ...parsed, scopeEvidence: AIGENS_SCOPE_EVIDENCE }
+    : parsed;
 }
 
 const scenarios: ParityScenario[] = [
@@ -99,69 +114,11 @@ const scenarios: ParityScenario[] = [
     expectedCode: null,
   },
   {
-    name: "mixed exact and residual offering move",
+    name: "Aigens exact backend identity",
     provider: "aigens",
-    existing: [
-      item("move#offering-period=lunch", {
-        name: "移动菜品",
-        mealPeriods: ["lunch"],
-      }),
-      item("exact#offering-period=dinner", {
-        name: "精确菜品",
-        mealPeriods: ["dinner"],
-      }),
-    ],
-    input: input("aigens", [
-      {
-        externalProductId: "move#offering-period=breakfast",
-        name: "移动菜品",
-        mealPeriods: ["breakfast"],
-      },
-      {
-        externalProductId: "exact#offering-period=dinner",
-        name: "精确菜品",
-        mealPeriods: ["dinner"],
-      },
-    ]),
+    existing: [item("42", { name: "旧名称" })],
+    input: input("aigens", [{ externalProductId: "42", name: "新名称" }]),
     expectedCode: null,
-  },
-  {
-    name: "offering split",
-    provider: "aigens",
-    existing: [
-      item("split#offering-period=breakfast", {
-        mealPeriods: ["breakfast"],
-      }),
-    ],
-    input: input("aigens", [
-      {
-        externalProductId: "split#offering-period=lunch",
-        name: "午餐菜品",
-        mealPeriods: ["lunch"],
-      },
-      {
-        externalProductId: "split#offering-period=dinner",
-        name: "晚餐菜品",
-        mealPeriods: ["dinner"],
-      },
-    ]),
-    expectedCode: "MENU_SYNC_CONFLICT",
-  },
-  {
-    name: "offering merge",
-    provider: "aigens",
-    existing: [
-      item("merge#offering-period=lunch", { mealPeriods: ["lunch"] }),
-      item("merge#offering-period=dinner", { mealPeriods: ["dinner"] }),
-    ],
-    input: input("aigens", [
-      {
-        externalProductId: "merge#offering-period=breakfast",
-        name: "合并菜品",
-        mealPeriods: ["breakfast"],
-      },
-    ]),
-    expectedCode: "MENU_SYNC_CONFLICT",
   },
   {
     name: "missing product",

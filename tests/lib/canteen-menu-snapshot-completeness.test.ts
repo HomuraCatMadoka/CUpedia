@@ -22,6 +22,46 @@ describe("menu snapshot completeness", () => {
     ).not.toThrow();
   });
 
+  it("requires validated scope evidence before Aigens can remove absent items", () => {
+    expect(() =>
+      assertProviderSnapshotCompleteness("aigens", "complete"),
+    ).toThrow("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+    expect(() =>
+      assertProviderSnapshotCompleteness(
+        "aigens",
+        "complete",
+        {
+          provider: "aigens",
+          externalStoreId: "102830",
+          storeName: "中文大學善衡書院",
+          menuName: "中文大學",
+          providerPeriodCodes: ["B", "L"],
+          categoryPeriodCodes: ["B", "L"],
+          categoryCount: 44,
+          groupCount: 60,
+        },
+        "102830",
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertProviderSnapshotCompleteness(
+        "aigens",
+        "complete",
+        {
+          provider: "aigens",
+          externalStoreId: "102830",
+          storeName: "中文大學善衡書院",
+          menuName: "中文大學",
+          providerPeriodCodes: ["B", "L"],
+          categoryPeriodCodes: ["B", "L"],
+          categoryCount: 44,
+          groupCount: 60,
+        },
+        "112891",
+      ),
+    ).toThrow("MENU_SNAPSHOT_SCOPE_EVIDENCE_MISMATCH");
+  });
+
   it("requires the caller to assert completeness explicitly", () => {
     const item = { externalProductId: "item-1", name: "Item 1" };
     expect(

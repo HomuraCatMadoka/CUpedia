@@ -148,10 +148,22 @@ export type MenuSyncItemInput = MenuItemJsonImportRow & {
   externalProductId: string;
 };
 
+export type MenuSnapshotScopeEvidence = {
+  provider: "aigens";
+  externalStoreId: string;
+  storeName: string;
+  menuName: string;
+  providerPeriodCodes: string[];
+  categoryPeriodCodes: string[];
+  categoryCount: number;
+  groupCount: number;
+};
+
 export type MenuSyncInput = {
   snapshotCompleteness: MenuSnapshotCompleteness;
   takeOverLegacyItems: boolean;
   items: MenuSyncItemInput[];
+  scopeEvidence?: MenuSnapshotScopeEvidence;
 };
 
 /** Parse admin JSON bulk import: array or `{ items: [...] }`. */

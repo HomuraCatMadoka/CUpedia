@@ -3,14 +3,27 @@ import {
   buildMenuIdentityTransitionAudit as buildTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
   parseMenuIdentityTransitionArtifact,
+  verifyMenuIdentityTransitionApproval,
   verifyMenuIdentityTransitionArtifact as verifyTransitionArtifact,
 } from "@/lib/canteen-menu-identity-transition";
 import type { ExistingSyncMenuItem } from "@/lib/canteen-menu-sync";
 import type {
   MenuSnapshotCompleteness,
+  MenuSnapshotScopeEvidence,
   MenuSyncItemInput,
 } from "@/lib/canteen-types";
-import transitionFixture from "./fixtures/canteen-menu-identity-transition-v3.json";
+import transitionFixture from "./fixtures/canteen-menu-identity-transition-v4.json";
+
+const AIGENS_SCOPE_EVIDENCE: MenuSnapshotScopeEvidence = {
+  provider: "aigens",
+  externalStoreId: "102830",
+  storeName: "Sanitized Aigens store",
+  menuName: "Sanitized full catalog",
+  providerPeriodCodes: ["B", "D", "L", "T"],
+  categoryPeriodCodes: ["B", "D", "L", "T"],
+  categoryCount: 2,
+  groupCount: 3,
+};
 
 function buildMenuIdentityTransitionAudit(
   existingItems: readonly ExistingSyncMenuItem[],
@@ -20,6 +33,7 @@ function buildMenuIdentityTransitionAudit(
   return buildTransitionAudit(existingItems, {
     snapshotCompleteness,
     items: [...incomingItems],
+    scopeEvidence: AIGENS_SCOPE_EVIDENCE,
   });
 }
 
@@ -33,7 +47,12 @@ function verifyMenuIdentityTransitionArtifact(
   return verifyTransitionArtifact(
     source,
     existingItems,
-    { snapshotCompleteness, items: [...incomingItems] },
+    {
+      snapshotCompleteness,
+      items: [...incomingItems],
+      scopeEvidence:
+        source.provider === "aigens" ? AIGENS_SCOPE_EVIDENCE : undefined,
+    },
     artifact,
   );
 }
@@ -74,6 +93,25 @@ function incoming(
 }
 
 describe("menu identity transition audit", () => {
+  it("records and fingerprints provider scope evidence", () => {
+    const scopeEvidence = AIGENS_SCOPE_EVIDENCE;
+    const audit = buildTransitionAudit([], {
+      snapshotCompleteness: "complete",
+      items: [incoming()],
+      scopeEvidence,
+    });
+    const changedScope = buildTransitionAudit([], {
+      snapshotCompleteness: "complete",
+      items: [incoming()],
+      scopeEvidence: { ...scopeEvidence, categoryCount: 3 },
+    });
+
+    expect(audit.scopeEvidence).toEqual(scopeEvidence);
+    expect(audit.incomingFingerprint).not.toBe(
+      changedScope.incomingFingerprint,
+    );
+  });
+
   it("records one unambiguous identity replacement with review evidence", () => {
     const audit = buildMenuIdentityTransitionAudit([existing()], [incoming()]);
 
@@ -117,6 +155,8 @@ describe("menu identity transition audit", () => {
       missingIdentityCount: 1,
       newIdentityCount: 1,
       replacementCandidateCount: 1,
+      canonicalizationCandidateCount: 0,
+      mergeCandidateCount: 0,
       additionCount: 0,
       removalCount: 0,
       ambiguityCount: 0,
@@ -156,6 +196,175 @@ describe("menu identity transition audit", () => {
         ],
       }),
     ]);
+  });
+
+  it("approves an explicit Aigens many-to-one UUID merge", () => {
+    const survivor = existing({
+      externalProductId: "42",
+    });
+    const merged = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "42#offering-period=dinner",
+    });
+    const next = incoming({ externalProductId: "42" });
+    const audit = buildTransitionAudit(
+      [survivor, merged],
+      {
+        snapshotCompleteness: "complete",
+        items: [next],
+        scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+      },
+      "aigens",
+    );
+
+    expect(
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [survivor, merged],
+        {
+          snapshotCompleteness: "complete",
+          items: [next],
+          scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+        },
+        {
+          schemaVersion: 4,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            snapshotScope: {
+              status: "complete",
+              rationale: "The response is the complete provider snapshot.",
+            },
+            replacements: [],
+            canonicalizations: [],
+            merges: [
+              {
+                survivorItemId: survivor.id,
+                mergedItemIds: [merged.id],
+                previousProductIds: [
+                  survivor.externalProductId,
+                  merged.externalProductId,
+                ],
+                nextProductId: next.externalProductId,
+                duplicateVotePolicy: "deduplicate-identical",
+                rationale:
+                  "Both period aliases are occurrences of backend product 42.",
+              },
+            ],
+            additions: [],
+            removals: [],
+            ambiguities: [],
+          },
+        },
+      ),
+    ).toEqual({
+      replacements: [],
+      canonicalizations: [],
+      merges: [
+        {
+          survivorItemId: survivor.id,
+          mergedItemIds: [merged.id],
+          previousProductIds: [
+            survivor.externalProductId,
+            merged.externalProductId,
+          ],
+          nextProductId: next.externalProductId,
+          duplicateVotePolicy: "deduplicate-identical",
+        },
+      ],
+    });
+  });
+
+  it("canonicalizes a reviewed Aigens alias even when the dish is absent", () => {
+    const previous = existing({
+      externalProductId: "42#offering-period=lunch",
+    });
+    const audit = buildTransitionAudit(
+      [previous],
+      {
+        snapshotCompleteness: "complete",
+        items: [],
+        scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+      },
+      "aigens",
+    );
+    expect(audit.canonicalizationCandidates).toEqual([
+      {
+        itemId: previous.id,
+        previous: expect.objectContaining({
+          externalProductId: previous.externalProductId,
+        }),
+        nextProductId: "42",
+        presentInSnapshot: false,
+      },
+    ]);
+
+    expect(
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [previous],
+        {
+          snapshotCompleteness: "complete",
+          items: [],
+          scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+        },
+        {
+          schemaVersion: 4,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            snapshotScope: {
+              status: "complete",
+              rationale: "The response is the complete provider snapshot.",
+            },
+            replacements: [],
+            canonicalizations: [
+              {
+                itemId: previous.id,
+                previousProductId: previous.externalProductId,
+                nextProductId: "42",
+                rationale:
+                  "The period suffix is a historical alias of backend product 42.",
+              },
+            ],
+            merges: [],
+            additions: [],
+            removals: [],
+            ambiguities: [],
+          },
+        },
+      ),
+    ).toEqual({
+      replacements: [],
+      canonicalizations: [
+        {
+          itemId: previous.id,
+          previousProductId: previous.externalProductId,
+          nextProductId: "42",
+        },
+      ],
+      merges: [],
+    });
   });
 
   it("fails closed on a same-name split or merge when mutable evidence changed", () => {
@@ -297,7 +506,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -320,6 +529,8 @@ describe("menu identity transition audit", () => {
                   "Provider listing and operator evidence confirm the same dish.",
               },
             ],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -351,7 +562,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -366,6 +577,8 @@ describe("menu identity transition audit", () => {
                 "The provider response contains the complete store menu.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -391,7 +604,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -405,6 +618,8 @@ describe("menu identity transition audit", () => {
               rationale: "The response omitted a known menu period.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -431,7 +646,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -446,6 +661,8 @@ describe("menu identity transition audit", () => {
                 "The provider response contains the complete store menu.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [
@@ -475,6 +692,15 @@ describe("menu identity transition audit", () => {
         [incoming()],
         null as never,
       ),
+    ).toThrow("INVALID_MENU_IDENTITY_TRANSITION_ARTIFACT");
+  });
+
+  it("rejects obsolete v3 artifacts instead of claiming compatibility", () => {
+    expect(() =>
+      parseMenuIdentityTransitionArtifact({
+        ...transitionFixture,
+        schemaVersion: 3,
+      }),
     ).toThrow("INVALID_MENU_IDENTITY_TRANSITION_ARTIFACT");
   });
 
@@ -564,7 +790,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "pinme",
             externalOwnerId: null,
@@ -578,6 +804,8 @@ describe("menu identity transition audit", () => {
               rationale: "Reviewer claimed a complete catalog.",
             },
             replacements: [],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
@@ -593,9 +821,12 @@ describe("menu identity transition audit", () => {
     const audit = buildMenuIdentityTransitionAudit([previous], [next]);
     const reorderedAudit = {
       snapshotCompleteness: audit.snapshotCompleteness,
+      scopeEvidence: audit.scopeEvidence,
       ambiguities: audit.ambiguities,
       removals: audit.removals,
       additions: audit.additions,
+      mergeCandidates: audit.mergeCandidates,
+      canonicalizationCandidates: audit.canonicalizationCandidates,
       replacementCandidates: audit.replacementCandidates,
       incomingFingerprint: audit.incomingFingerprint,
       existingFingerprint: audit.existingFingerprint,
@@ -613,7 +844,7 @@ describe("menu identity transition audit", () => {
         [previous],
         [next],
         {
-          schemaVersion: 3,
+          schemaVersion: 4,
           source: {
             provider: "aigens",
             externalOwnerId: null,
@@ -635,6 +866,8 @@ describe("menu identity transition audit", () => {
                 rationale: "Same normalized name, price, and meal period.",
               },
             ],
+            canonicalizations: [],
+            merges: [],
             additions: [],
             removals: [],
             ambiguities: [],
