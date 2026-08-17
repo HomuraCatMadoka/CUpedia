@@ -406,6 +406,7 @@ export function CanteenMenuView({
   const [expandedPeriod, setExpandedPeriod] = useState<MealPeriod | null>(
     "lunch",
   );
+  const [clientReady, setClientReady] = useState(false);
   const [view, setView] = useState<CanteenViewMode>("menu");
   const [activeSection, setActiveSection] = useState("all");
   const [showAfternoonHint, setShowAfternoonHint] = useState(false);
@@ -531,6 +532,7 @@ export function CanteenMenuView({
       );
       setPeriod(initialPeriod);
       setExpandedPeriod(initialPeriod);
+      setClientReady(true);
       return;
     }
     if (periods.length > 0 && !periods.includes(period)) {
@@ -742,7 +744,10 @@ export function CanteenMenuView({
   const showHintNow = showAfternoonHint && period === "lunch";
 
   return (
-    <div className="mx-auto min-w-0 w-full max-w-[52rem]">
+    <div
+      className="mx-auto min-w-0 w-full max-w-[52rem]"
+      data-canteen-menu-ready={clientReady}
+    >
       <div
         ref={toolbarRef}
         className="canteen-toolbar sticky top-[var(--navbar-height)] z-20 -mx-3 sm:mx-0"
