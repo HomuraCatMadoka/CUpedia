@@ -30,7 +30,11 @@ describe("bounded full CI topology (#669)", () => {
       jobNames().filter((name) => name !== "e2e").length +
       e2eMatrixProjects().length;
     expect(totalJobExecutions).toBeLessThanOrEqual(6);
-    expect(e2eMatrixProjects()).toHaveLength(3);
+    expect(e2eMatrixProjects().length).toBeLessThanOrEqual(3);
+    expect(e2eMatrixProjects()).toEqual([
+      "chromium-general",
+      "chromium-wiki-media",
+    ]);
   });
 
   it("keeps lint, unit, and typecheck in one quality gate", () => {
@@ -60,11 +64,15 @@ describe("bounded full CI topology (#669)", () => {
     expect(workflow).toMatch(
       /  database-integration:[\s\S]*canteen-menu-sync\.test\.ts/,
     );
+    expect(workflow).toMatch(
+      /  database-integration:[\s\S]*Run WebKit risk coverage[\s\S]*--project=webkit-mobile/,
+    );
   });
 
   it("builds Next once and makes every E2E runner reuse that artifact", () => {
     expect(jobNames().filter((name) => name === "build")).toHaveLength(1);
     expect(workflow).toMatch(/  e2e:[\s\S]*needs: build/);
+    expect(workflow).toMatch(/  database-integration:[\s\S]*needs: build/);
     expect(workflow).toMatch(/  build:[\s\S]*name: next-build/);
     expect(workflow).toMatch(
       /  e2e:[\s\S]*uses: actions\/download-artifact@v4/,
