@@ -23,6 +23,7 @@ import {
  */
 
 const EXPAND = { name: "展开导航" } as const;
+const NEW_PAGE = { name: "新建页面", exact: true } as const;
 
 const HYDRATION_RE =
   /hydration|did not match|server rendered html|Text content does not match/i;
@@ -261,6 +262,18 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     viewport: { width: 393, height: 851 },
     isMobile: true,
     hasTouch: true,
+  });
+
+  test("gives an editor exactly one visible new-page entry", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await page.goto("/wiki");
+
+    const { drawer } = await openMobileDrawer(page);
+    const newPage = drawer.getByRole("button", NEW_PAGE);
+    await expect(newPage).toHaveCount(1);
+    await expect(newPage).toBeVisible();
   });
 
   test("opens modally, locks the page, and restores trigger focus on close", async ({

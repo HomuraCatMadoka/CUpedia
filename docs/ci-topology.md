@@ -51,14 +51,14 @@ rules and client state to unit/component coverage, leaving 252 browser tests.
 | `lint-and-test`, `typecheck`                   | `quality`                                             | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate.                                                                                                                                                     |
 | `migration-compatibility`                      | `quality` on real PostgreSQL 16                       | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                                                  |
 | `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17 | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once.                              |
-| `chromium-general` + `campus-bus`              | `chromium-general` + `chromium-balanced`              | Non-Wiki journeys remain Chromium. Campus Bus joins the third runner because its real-map coverage needs no MinIO.                                                                                                                       |
+| `chromium-general` + `campus-bus`              | `chromium-general`                                    | Non-Wiki journeys remain Chromium. Campus Bus joins general after measured CI showed that moving its 14.2-second test body off the third runner improves the critical-path balance without another service.                              |
 | `chromium-wiki` + `chromium-wiki-editor`       | Three measured Chromium groups                        | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `sidebar`, `wiki-create`, `wiki-edit.shell`, and `wiki-edit.toolbar` use the third runner.                                      |
 | Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                 | Mobile browser/history, upload, focus, autosave, and command boundaries remain Chromium full-stack E2E. Pure toolbar rendering and catalog state moved to component coverage. This file includes image upload, so its runner owns MinIO. |
 | `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                 | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                                                        |
 | `webkit-mobile`                                | `browser-third` in the official Playwright container  | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The same runner executes the balanced Chromium shard against one server.                                |
 
-The current CI list contains 103 `chromium-general`, 73
-`chromium-wiki-media`, 75 `chromium-balanced`, and 4 `webkit-mobile` tests.
+The current CI list contains 118 `chromium-general`, 73
+`chromium-wiki-media`, 61 `chromium-balanced`, and 4 `webkit-mobile` tests.
 Test count is not the balancing input: the groups are assigned by measured
 spec time. `chromium-balanced` and WebKit execute sequentially on the same
 third runner and reuse one production server.
@@ -141,11 +141,12 @@ All 14 original behaviors remain mapped:
 | Anonymous save points to login                                        | Retained anonymous E2E and component assertion                            |
 | Multiple named builds restore strict term state                       | Retained E2E against real PostgreSQL                                      |
 
-Mobile Wiki editing retains browser coverage for viewport geometry, visual
-viewport/keyboard behavior, file selection and MinIO upload, mention and
-discussion integration, history traversal, autosave/navigation ordering, IME,
-selection validity, and actual Plate commands. Five repeated presentation
-journeys now cross the production component interface instead:
+Mobile Wiki editing retains browser coverage for Insert and Turn-into viewport
+geometry and touch-row sizing, visual viewport/keyboard behavior, file
+selection and MinIO upload, mention and discussion integration, history
+traversal, autosave/navigation ordering, IME, selection validity, and actual
+Plate commands. Five repeated presentation journeys now cross the production
+component interface instead:
 
 | Original browser behavior                                     | New coverage                                                                       |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -179,9 +180,10 @@ Sidebar still has browser coverage for hydration, cookie-controlled first
 paint, accessible Drawer focus/inert behavior, slow/fast navigation feedback,
 tree keyboard behavior, geometry, and PostgreSQL-backed hierarchy operations.
 Repeated rail visibility/new-page ownership checks moved to
-`tests/components/sidebar-toggle.test.tsx`; an independent early/late browser
-sample plus the desktop cookie journey continue to guard the actual
-CSS/hydration first-paint boundary.
+`tests/components/sidebar-toggle.test.tsx`; an authenticated mobile browser
+sentinel still verifies that the Drawer owns exactly one visible new-page entry.
+An independent early/late browser sample plus the desktop cookie journey
+continue to guard the actual CSS/hydration first-paint boundary.
 All Drawer journeys now wait for the toggle's explicit client-ready signal
 before clicking. A pre-fix targeted run reproduced the old race as a 30-second
 timeout with the Drawer absent; the synchronized journey passed in 4.8 seconds
@@ -211,10 +213,12 @@ mutable state.
 
 The first Actions run with selective sharding measured general/media browser
 steps at 135/130 seconds but the third runner at 83 seconds. Desktop toolbar
-coverage therefore stays on the third runner alongside sidebar, Campus Bus,
-wiki creation, editor shell, and the four targeted WebKit risks. Moving it to
-media overcorrected the split; keeping it here balances runner time without
-changing coverage or starting MinIO outside the upload runner.
+therefore stays with sidebar, wiki creation, editor shell, and the four targeted
+WebKit risks on the third runner; moving toolbar to media overcorrected the
+split. A synchronized follow-up measured general/media/third at 109/119/136
+seconds. Campus Bus contributed 14.2 seconds inside third, so it moves to
+general to reduce the measured critical-path gap without changing coverage or
+starting MinIO outside the upload runner.
 
 The same local production build and 73-test media group measured 189.12 seconds
 with one Playwright process, 92.14 seconds with isolated shards before removing
@@ -225,22 +229,24 @@ PostgreSQL, MinIO upload coverage, and zero retries.
 ## Current-tree validation
 
 On 2026-08-18, the final working tree passed `pnpm lint` (zero errors), all
-1,976 Vitest tests (1,856 passed and 120 intentionally skipped),
+1,980 Vitest tests (1,859 passed and 121 intentionally skipped),
 `pnpm typecheck`, and `pnpm build`. The CI-equivalent production-build browser
-groups then passed all 255 tests on their first execution with `retries: 0`:
+groups then passed all 256 tests on their first execution with `retries: 0`:
 
 | Browser runner command | Tests | Local wall seconds |
 | ---------------------- | ----: | -----------------: |
-| Chromium general       |   103 |              87.43 |
-| Chromium Wiki/media    |    73 |              81.75 |
-| Balanced + WebKit      |    79 |              93.38 |
+| Chromium general       |   118 |             100.43 |
+| Chromium Wiki/media    |    73 |              68.07 |
+| Balanced + WebKit      |    65 |              83.16 |
 
-The three complete browser commands differ by 11.63 seconds. Their 262.56-second
-sum includes database provisioning, isolated build-tree preparation, server
-startup, and tests; in CI the three commands run on separate runners after the
-single build job. Per the maintainer's updated acceptance direction, this
-follow-up does not repeat the five-run exercise; the prior five-run CI budget
-evidence remains recorded for the bounded five-job topology.
+The 251.66-second sum includes database provisioning, isolated build-tree
+preparation, server startup, and tests. Local commands differ by 32.36 seconds,
+but their service startup differs from Actions; the synchronized CI job/step
+durations remain the authoritative runner-balance signal. In CI the three
+commands run on separate runners after the single build job. Per the
+maintainer's updated acceptance direction, this follow-up does not repeat the
+five-run exercise; the prior five-run CI budget evidence remains recorded for
+the bounded five-job topology.
 
 ## Previous five-run validation
 

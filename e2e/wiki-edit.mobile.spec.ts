@@ -1496,6 +1496,20 @@ test.describe("mobile wiki editing", () => {
         .dispatchEvent("click");
 
       const sheet = page.getByRole("dialog", { name: "Turn into" });
+      await expect(sheet).toBeVisible();
+      expect(await sheet.boundingBox()).toEqual({
+        x: 0,
+        y: 0,
+        width: MOBILE_VIEWPORT.width,
+        height: MOBILE_VIEWPORT.height,
+      });
+      const firstRowBox = await sheet
+        .locator('[data-testid="mobile-turn-into-cell"]')
+        .first()
+        .boundingBox();
+      expect(firstRowBox).not.toBeNull();
+      expect(firstRowBox!.height).toBeGreaterThanOrEqual(44);
+      expect(firstRowBox!.height).toBeLessThanOrEqual(50);
       await sheet
         .getByRole("button", { name: "标题 2", exact: true })
         .dispatchEvent("click");

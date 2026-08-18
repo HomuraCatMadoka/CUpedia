@@ -40,7 +40,7 @@ const mobileWebKitTest =
 // absorb measured Chromium hotspots without starting another runner or server.
 // None of these specs uploads files, so MinIO remains exclusive to wiki-media.
 const balancedChromiumTest =
-  /(?:campus-bus|sidebar|wiki-create|wiki-edit\.(?:shell|toolbar))\.spec\.ts$/;
+  /(?:sidebar|wiki-create|wiki-edit\.(?:shell|toolbar))\.spec\.ts$/;
 // This is also the only group with upload coverage, and therefore the only one
 // whose CI runner starts MinIO.
 const wikiMediaTest =
