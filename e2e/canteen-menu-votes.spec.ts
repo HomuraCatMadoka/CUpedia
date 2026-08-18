@@ -9,28 +9,14 @@ const USER_PASSWORD = "password123";
 const DEMO_CANTEEN_URL = `/canteen/${CANTEEN_IDS.demo}`;
 
 async function selectLunchMenu(page: Page) {
+  await expect(page.locator('[data-canteen-menu-ready="true"]')).toBeVisible();
   const lunch = page.getByRole("button", { name: "午餐", exact: true });
   await expect(lunch).toBeVisible();
-  await page.evaluate(
-    () =>
-      new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      }),
-  );
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (
-      (await lunch.getAttribute("data-current")) === "true" &&
-      (await lunch.getAttribute("aria-expanded")) === "true"
-    ) {
-      break;
-    }
+  if (
+    (await lunch.getAttribute("data-current")) !== "true" ||
+    (await lunch.getAttribute("aria-expanded")) !== "true"
+  ) {
     await lunch.click();
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolve) => {
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-        }),
-    );
   }
   await expect(lunch).toHaveAttribute("data-current", "true");
   await expect(lunch).toHaveAttribute("aria-expanded", "true");

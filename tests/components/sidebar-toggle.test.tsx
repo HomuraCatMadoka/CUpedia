@@ -3,8 +3,10 @@
  */
 import { describe, it, expect, vi } from "vitest";
 import { renderToString } from "react-dom/server";
+import { render, screen } from "@testing-library/react";
 import { SidebarProvider } from "@/components/layout/sidebar-provider";
 import { SidebarToggle } from "@/components/layout/sidebar-toggle";
+import { SidebarMobileToggle } from "@/components/layout/sidebar-mobile-toggle";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/wiki",
@@ -36,6 +38,36 @@ describe("SidebarToggle desktop rail", () => {
 });
 
 describe("SidebarToggle mobile ownership (#316)", () => {
+  it("does not claim client readiness in the server-rendered toggle", () => {
+    const html = renderToString(
+      <SidebarProvider initialCollapsed={false}>
+        <SidebarMobileToggle />
+      </SidebarProvider>,
+    );
+    expect(html).toContain('data-client-ready="false"');
+  });
+
+  it("marks the toggle ready after its click handler hydrates", () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    render(
+      <SidebarProvider initialCollapsed={false}>
+        <SidebarMobileToggle />
+      </SidebarProvider>,
+    );
+    expect(
+      screen
+        .getByRole("button", { name: "打开导航" })
+        .getAttribute("data-client-ready"),
+    ).toBe("true");
+  });
+
   it("keeps the entire rail hidden below the desktop breakpoint", () => {
     const html = ssr(true, true);
     const rail = html.match(/<div[^>]*>\s*<button/)?.[0] ?? "";

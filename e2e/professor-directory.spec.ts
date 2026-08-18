@@ -3,7 +3,6 @@ import { expect, test } from "@playwright/test";
 
 import { loginWithPassword } from "./helpers/auth";
 import { expectBottomSheetViewportToStayStill } from "./helpers/mobile-bottom-sheet";
-import { emulateColorScheme } from "./helpers/theme";
 
 const PERSON_ID = "e2e-professor-directory-person";
 const PUBLIC_ID = "7a7ca8c9-1dd2-4b06-8ff9-d55b64d7f7b5";
@@ -469,7 +468,7 @@ test("mobile professor search matches course search without triggering iOS focus
 
 test("searches a professor, opens the card, and binds a course review", async ({
   page,
-}, testInfo) => {
+}) => {
   test.setTimeout(90_000);
   await loginWithPassword(page, "contributor@test.com", "password123");
   await page.goto("/courses");
@@ -487,26 +486,6 @@ test("searches a professor, opens the card, and binds a course review", async ({
   await expect(
     page.getByRole("heading", { name: RENDERED_PROFESSOR_NAME }),
   ).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath("professor-directory.png"),
-    fullPage: true,
-    caret: "initial",
-  });
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.screenshot({
-    path: testInfo.outputPath("professor-directory-mobile.png"),
-    fullPage: true,
-    caret: "initial",
-  });
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await emulateColorScheme(page, "dark");
-  await page.screenshot({
-    path: testInfo.outputPath("professor-directory-dark.png"),
-    fullPage: true,
-    caret: "initial",
-  });
-  await emulateColorScheme(page, "light");
-
   await page.getByRole("combobox", { name: "搜索教授" }).fill("CHAN Tai");
   await expect(
     page.getByRole("option", { name: RENDERED_PROFESSOR_NAME }),
@@ -533,27 +512,6 @@ test("searches a professor, opens the card, and binds a course review", async ({
   await expect(page).toHaveURL(/chooseCourse=1/);
   await page.keyboard.press("Escape");
   await expect(page).not.toHaveURL(/chooseCourse=1/);
-  await page.screenshot({
-    path: testInfo.outputPath("professor-detail.png"),
-    fullPage: true,
-    caret: "initial",
-  });
-
-  await page.setViewportSize({ width: 375, height: 812 });
-  await page.screenshot({
-    path: testInfo.outputPath("professor-detail-mobile.png"),
-    fullPage: true,
-    caret: "initial",
-  });
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await emulateColorScheme(page, "dark");
-  await page.screenshot({
-    path: testInfo.outputPath("professor-detail-dark.png"),
-    fullPage: true,
-    caret: "initial",
-  });
-  await emulateColorScheme(page, "light");
-
   await page.getByRole("button", { name: /查看全部 \d+ 门并搜索课程/ }).click();
   await page
     .getByRole("searchbox", { name: "搜索课程代码或名称" })

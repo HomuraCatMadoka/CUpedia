@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { test, expect, type Page } from "@playwright/test";
 import { loginAsAdmin, loginWithPassword } from "./helpers/auth";
-import { createUntitledWikiPage } from "./helpers/wiki";
+import { openPublishedWikiFixture } from "./helpers/wiki";
 
 const suffix = randomUUID().slice(0, 8);
 const title = `Discussion ${suffix}`;
@@ -114,12 +114,12 @@ test("#245 annotation discussion lifecycle and permissions", async ({
 }) => {
   test.setTimeout(180_000);
   await loginAsAdmin(page);
-  await createUntitledWikiPage(page);
-  pageId = new URL(page.url()).pathname.split("/").at(-1)!;
-  await page.getByLabel("标题").fill(title);
-  await page.locator('[data-slate-editor="true"]').fill(selectedText);
-  await page.keyboard.press("Control+s");
-  await expect(page.getByText("已保存")).toBeVisible({ timeout: 15_000 });
+  pageId = await openPublishedWikiFixture(page, {
+    title,
+    content: JSON.stringify([
+      { type: "p", children: [{ text: selectedText }] },
+    ]),
+  });
 
   await page.goto("/admin/settings");
   await page.getByRole("switch", { name: "允许普通用户编辑 Wiki" }).click();

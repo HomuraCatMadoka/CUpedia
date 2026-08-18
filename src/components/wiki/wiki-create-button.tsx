@@ -33,12 +33,14 @@ export function WikiCreateButton({
   const pendingRef = useRef(false);
   const pathnameRef = useRef(pathname);
   const mountedRef = useRef(true);
+  const anchorRef = useRef<HTMLAnchorElement>(null);
   const fallbackQuery = new URLSearchParams({ draft: "1" });
   if (parentId) fallbackQuery.set("parent", parentId);
   const fallbackHref = `/wiki/new?${fallbackQuery}`;
 
   useEffect(() => {
     mountedRef.current = true;
+    anchorRef.current?.setAttribute("data-client-ready", "true");
     preloadWikiEditor();
     return () => {
       mountedRef.current = false;
@@ -114,8 +116,10 @@ export function WikiCreateButton({
 
   return (
     <a
+      ref={anchorRef}
       href={fallbackHref}
       role="button"
+      data-client-ready="false"
       aria-disabled={disabled || undefined}
       className={cn(
         buttonVariants({ variant, size, className }),

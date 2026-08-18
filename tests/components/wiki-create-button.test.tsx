@@ -8,6 +8,7 @@ const {
   mockAssign,
   mockConfirm,
   mockEnsureContributorSetup,
+  mockPreloadWikiEditor,
   mockProjectUpsert,
   mockRollback,
   navigation,
@@ -15,6 +16,7 @@ const {
   mockAssign: vi.fn(),
   mockConfirm: vi.fn(),
   mockEnsureContributorSetup: vi.fn().mockResolvedValue(true),
+  mockPreloadWikiEditor: vi.fn(),
   mockProjectUpsert: vi.fn(() => "mutation-1"),
   mockRollback: vi.fn(),
   navigation: { pathname: "/wiki" },
@@ -42,6 +44,10 @@ vi.mock("@/components/wiki/wiki-tree-provider", () => ({
   }),
 }));
 
+vi.mock("@/components/wiki/wiki-editor-lazy", () => ({
+  preloadWikiEditor: mockPreloadWikiEditor,
+}));
+
 import { WikiCreateButton } from "@/components/wiki/wiki-create-button";
 
 describe("WikiCreateButton", () => {
@@ -56,6 +62,8 @@ describe("WikiCreateButton", () => {
     render(<WikiCreateButton parentId="parent-1">新建</WikiCreateButton>);
 
     const button = screen.getByRole("button", { name: "新建" });
+    expect(button.getAttribute("data-client-ready")).toBe("true");
+    expect(mockPreloadWikiEditor).toHaveBeenCalledOnce();
     expect(button.getAttribute("href")).toBe(
       "/wiki/new?draft=1&parent=parent-1",
     );

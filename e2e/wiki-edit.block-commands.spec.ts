@@ -1,19 +1,29 @@
 import { expect, test } from "@playwright/test";
 
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage } from "./helpers/wiki";
+import {
+  dropPublishedWikiFixtures,
+  openPublishedWikiFixture,
+  waitForHydratedWikiEditor,
+} from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 test.describe("wiki editor block commands", () => {
+  const fixturePageIds: string[] = [];
+
   test.beforeEach(async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await loginAsAdmin(page);
   });
 
+  test.afterEach(async () => {
+    await dropPublishedWikiFixtures(fixturePageIds.splice(0));
+  });
+
   test("Slash search supports keyboard selection, Escape, and a clear empty state", async ({
     page,
   }) => {
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     const editor = page.locator('[data-slate-editor="true"]');
     const menu = page.getByTestId("slash-command-menu");
@@ -48,7 +58,7 @@ test.describe("wiki editor block commands", () => {
   test("Slash inserts representative rich content through existing Plate transforms", async ({
     page,
   }) => {
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
@@ -64,7 +74,10 @@ test.describe("wiki editor block commands", () => {
   }) => {
     await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
 
-    const editor = page.locator('[data-slate-editor="true"]');
+    const editor = await waitForHydratedWikiEditor(
+      page,
+      PAGE_IDS.gettingStarted,
+    );
     const blocks = editor.getByTestId("wiki-editor-block");
     const sourceBlock = blocks.filter({
       hasText: "New to CUHK? Here are some tips to help you settle in.",
@@ -95,7 +108,7 @@ test.describe("wiki editor block commands", () => {
   test("the contextual block menu uses shared labels and only offers valid text conversions", async ({
     page,
   }) => {
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();
@@ -122,7 +135,7 @@ test.describe("wiki editor block commands", () => {
   test("deleting the only block leaves an editable paragraph with focus", async ({
     page,
   }) => {
-    await createUntitledWikiPage(page);
+    fixturePageIds.push(await openPublishedWikiFixture(page));
 
     const editor = page.locator('[data-slate-editor="true"]');
     await editor.click();

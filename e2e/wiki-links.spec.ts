@@ -3,7 +3,7 @@ import path from "node:path";
 import { Client } from "pg";
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth";
-import { createUntitledWikiPage } from "./helpers/wiki";
+import { openPublishedWikiFixture } from "./helpers/wiki";
 import { PAGE_IDS } from "../scripts/seed-data";
 
 function databaseUrl(): string {
@@ -51,10 +51,9 @@ test.describe("#95 wiki links", () => {
   test("typing [[ opens the page picker and inserts an internal link", async ({
     page,
   }) => {
-    await createUntitledWikiPage(page);
-    sourcePageId = new URL(page.url()).pathname.split("/").at(-1)!;
-
-    await page.getByLabel("标题").fill(SOURCE_TITLE);
+    sourcePageId = await openPublishedWikiFixture(page, {
+      title: SOURCE_TITLE,
+    });
 
     const editor = page.locator('[role="textbox"]').first();
     await expect(editor).toBeVisible();

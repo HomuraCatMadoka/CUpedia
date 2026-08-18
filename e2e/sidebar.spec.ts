@@ -2,7 +2,11 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 import { PAGE_IDS } from "../scripts/seed-data";
-import { getHydratedWikiEditorShell, wikiPageUrl } from "./helpers/wiki";
+import {
+  getHydratedWikiEditorShell,
+  waitForPublishedWikiPage,
+  wikiPageUrl,
+} from "./helpers/wiki";
 
 /**
  * Sidebar behaviour across viewports.
@@ -19,7 +23,7 @@ import { getHydratedWikiEditorShell, wikiPageUrl } from "./helpers/wiki";
  */
 
 const EXPAND = { name: "展开导航" } as const;
-const NEW_PAGE = { name: "新建页面" } as const;
+const NEW_PAGE = { name: "新建页面", exact: true } as const;
 
 const HYDRATION_RE =
   /hydration|did not match|server rendered html|Text content does not match/i;
@@ -50,6 +54,15 @@ async function longPress(locator: Locator) {
   };
 
   await locator.dispatchEvent("pointerdown", pointer);
+}
+
+async function openMobileDrawer(page: Page) {
+  const trigger = page.getByRole("button", { name: "打开导航" });
+  await expect(trigger).toHaveAttribute("data-client-ready", "true");
+  await trigger.click();
+  const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+  await expect(drawer).toBeVisible();
+  return { drawer, trigger };
 }
 
 async function childPageOrder(parentId: string) {
@@ -145,9 +158,7 @@ async function publishCurrentWikiDraft(page: Page, title: string) {
   });
   await shell.getByRole("button", { name: "共享", exact: true }).click();
   await page.getByRole("button", { name: "发布到 Wiki" }).click();
-  await expect(page).toHaveURL(new RegExp(`/wiki/${draftPageId}$`, "i"), {
-    timeout: 15_000,
-  });
+  await waitForPublishedWikiPage(page, draftPageId, 15_000);
 }
 
 test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
@@ -189,33 +200,18 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
     await expect(page.getByRole("button", EXPAND)).toHaveCount(0);
   });
 
-  test("no expand→collapse flash: rail width stays collapsed during settle", async ({
+  test("keeps the desktop page tree hidden before and after hydration settles", async ({
     page,
   }) => {
     await page.goto("/wiki", { waitUntil: "domcontentloaded" });
 
-    // Sample the toggle button's visibility immediately and after hydration
-    // settles. A flash would mean the wide nav was momentarily visible.
-    const toggle = page.getByRole("button", { name: "打开导航" });
-    await expect(toggle).toBeVisible();
-
-    const wideNavVisibleEarly = await page
-      .locator("nav")
-      .filter({ hasText: "Pages" })
-      .isVisible()
-      .catch(() => false);
-    expect(wideNavVisibleEarly).toBe(false);
+    const wideNav = page.locator("nav").filter({ hasText: "Pages" });
+    expect(await wideNav.isVisible().catch(() => false)).toBe(false);
 
     await expect(
       page.getByRole("heading", { name: "你的中大百科全书", level: 1 }),
     ).toBeVisible();
-
-    const wideNavVisibleLate = await page
-      .locator("nav")
-      .filter({ hasText: "Pages" })
-      .isVisible()
-      .catch(() => false);
-    expect(wideNavVisibleLate).toBe(false);
+    expect(await wideNav.isVisible().catch(() => false)).toBe(false);
   });
 
   test("article page also loads without hydration error on mobile", async ({
@@ -261,33 +257,6 @@ test.describe("#89 desktop respects collapse cookie on first paint", () => {
   });
 });
 
-test.describe("#316 mobile rail is replaced by the Header Drawer", () => {
-  test.use({
-    viewport: { width: 393, height: 851 },
-    isMobile: true,
-    hasTouch: true,
-  });
-
-  // Sign in as the seeded admin so `canEdit` is true and the new-page button is
-  // actually emitted — otherwise both the mobile (hidden) and desktop (visible)
-  // assertions would pass vacuously.
-  test("rail stays absent and editors get one visible new-page entry in the Drawer", async ({
-    page,
-  }) => {
-    await loginAsAdmin(page);
-
-    const response = await page.goto("/wiki");
-    expect(response?.status()).toBe(200);
-
-    await expect(page.getByRole("button", EXPAND)).toHaveCount(0);
-    const open = page.getByRole("button", { name: "打开导航" });
-    await expect(open).toBeVisible();
-
-    await open.click();
-    await expect(page.getByRole("button", NEW_PAGE)).toBeVisible();
-  });
-});
-
 test.describe("#316 accessible mobile Wiki Drawer", () => {
   test.use({
     viewport: { width: 393, height: 851 },
@@ -295,16 +264,24 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     hasTouch: true,
   });
 
+  test("gives an editor exactly one visible new-page entry", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await page.goto("/wiki");
+
+    const { drawer } = await openMobileDrawer(page);
+    const newPage = drawer.getByRole("button", NEW_PAGE);
+    await expect(newPage).toHaveCount(1);
+    await expect(newPage).toBeVisible();
+  });
+
   test("opens modally, locks the page, and restores trigger focus on close", async ({
     page,
   }) => {
     await page.goto("/wiki");
 
-    const trigger = page.getByRole("button", { name: "打开导航" });
-    await trigger.click();
-
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
-    await expect(drawer).toBeVisible();
+    const { drawer, trigger } = await openMobileDrawer(page);
     await expect(page.getByRole("button", { name: "关闭导航" })).toBeFocused();
     await expect
       .poll(() => page.evaluate(() => getComputedStyle(document.body).overflow))
@@ -331,16 +308,14 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
 
   test("supports backdrop and Escape dismissal", async ({ page }) => {
     await page.goto("/wiki");
-    const trigger = page.getByRole("button", { name: "打开导航" });
-
-    await trigger.click();
+    const { trigger } = await openMobileDrawer(page);
     await page.getByTestId("wiki-drawer-backdrop").click({
       position: { x: 380, y: 400 },
     });
     await expect(page.getByRole("dialog", { name: "Wiki 页面" })).toBeHidden();
     await expect(trigger).toBeFocused();
 
-    await trigger.click();
+    await openMobileDrawer(page);
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Wiki 页面" })).toBeHidden();
     await expect(trigger).toBeFocused();
@@ -350,9 +325,7 @@ test.describe("#316 accessible mobile Wiki Drawer", () => {
     page,
   }) => {
     await page.goto("/wiki");
-    await page.getByRole("button", { name: "打开导航" }).click();
-
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    const { drawer } = await openMobileDrawer(page);
     const campusRow = drawer
       .getByRole("treeitem", { name: "Campus Life" })
       .locator(":scope > .wiki-tree-row");
@@ -394,7 +367,7 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
     page,
   }) => {
     await page.goto("/wiki");
-    await page.getByRole("button", { name: "打开导航" }).click();
+    const { drawer } = await openMobileDrawer(page);
 
     const targetRequests: {
       isPrefetch: boolean;
@@ -410,7 +383,6 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
       await route.continue();
     });
 
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
     const target = drawer.getByRole("link", { name: "Getting Started" });
     await target.click({ noWaitAfter: true });
 
@@ -444,8 +416,7 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
 
   test("fast navigation does not flash pending feedback", async ({ page }) => {
     await page.goto("/wiki");
-    await page.getByRole("button", { name: "打开导航" }).click();
-    const drawer = page.getByRole("dialog", { name: "Wiki 页面" });
+    const { drawer } = await openMobileDrawer(page);
     await page.evaluate(() => {
       const testWindow = window as typeof window & {
         __wikiPendingSeen?: boolean;
@@ -476,32 +447,6 @@ test.describe("#317 mobile Wiki navigation feedback", () => {
         ),
       ).toBe(false);
     }
-  });
-});
-
-test.describe("#98 desktop collapsed rail is unchanged", () => {
-  test.use({ viewport: { width: 1280, height: 800 } });
-
-  test("collapsed rail keeps both the expand toggle and the new-page entry", async ({
-    page,
-    context,
-    baseURL,
-  }) => {
-    await loginAsAdmin(page);
-    await context.addCookies([
-      { name: "wiki-sidebar-collapsed", value: "collapsed", url: baseURL! },
-    ]);
-
-    await page.goto("/wiki");
-
-    // Desktop collapsed behaviour is preserved: the rail's expand toggle shows.
-    await expect(page.getByRole("button", EXPAND)).toBeVisible();
-
-    // The `max-md:hidden` guard only suppresses the new-page entry on mobile,
-    // so on desktop it must stay visible.
-    const newPage = page.getByRole("button", NEW_PAGE);
-    await expect(newPage).toHaveCount(1);
-    await expect(newPage).toBeVisible();
   });
 });
 

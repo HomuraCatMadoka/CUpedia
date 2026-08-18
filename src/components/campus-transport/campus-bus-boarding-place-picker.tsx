@@ -75,6 +75,7 @@ function RouteBoard({ routeBoard }: { routeBoard: BoardingPlaceRouteBoard }) {
   return (
     <Link
       href={`/campus-bus/${routeBoard.routeSlug}?stop=${encodeURIComponent(routeBoard.stopOccurrenceId)}`}
+      prefetch={false}
       className="group grid min-h-20 grid-cols-[3rem_1fr_auto] items-center gap-3 border-t py-3 text-left transition-colors hover:text-[#5b2a73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#5b2a73]"
     >
       <span className="grid size-11 place-items-center rounded-xl bg-[#f1e8f5] font-bold text-[#5b2a73] dark:bg-[#2b2030] dark:text-[#e7c9f1]">

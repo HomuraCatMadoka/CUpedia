@@ -16,6 +16,7 @@
 # next.js
 /.next/
 /.next-e2e/
+/.next-e2e-shard-*/
 /out/
 
 # production
@@ -24,6 +25,8 @@
 # playwright
 /test-results/
 /playwright-report/
+/playwright-report-shard-*/
+/test-results-shard-*/
 /blob-report/
 /playwright/.cache/
 

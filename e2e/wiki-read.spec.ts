@@ -3,6 +3,7 @@ import { test, expect, type Response } from "@playwright/test";
 import dotenv from "dotenv";
 import { Pool } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
+import { waitForHydratedWikiEditor } from "./helpers/wiki";
 
 /**
  * Issue #88 — read-only wiki pages render via Plate *static* (no editable
@@ -115,11 +116,11 @@ test.describe("#88 read path: static render + clickable annotations", () => {
         }
       });
       await page.goto(`/wiki/${PAGE_ID}`);
-      await expect(
-        editable
-          ? page.locator('[role="textbox"]').first()
-          : page.getByText("annotated phrase"),
-      ).toBeVisible();
+      if (editable) {
+        await waitForHydratedWikiEditor(page, PAGE_ID);
+      } else {
+        await expect(page.getByText("annotated phrase")).toBeVisible();
+      }
       let bytes = 0;
       for (const res of jsResponses) {
         try {

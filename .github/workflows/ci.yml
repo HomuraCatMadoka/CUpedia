@@ -11,8 +11,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-test:
+  quality:
+    # Keep the published check context compatible with main branch protection.
+    name: lint-and-test
     runs-on: ubuntu-latest
+    services:
+      migration-postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cuclaw_migration_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cuclaw_migration_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      zhparser-postgres:
+        image: abcfy2/zhparser:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cuclaw_menu_sync_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cuclaw_menu_sync_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -31,106 +60,34 @@ jobs:
         name: Lint
 
       - run: pnpm test
-        name: Test
-
-  typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
+        name: Unit tests
 
       - run: pnpm typecheck
         name: Typecheck
 
-  migration-compatibility:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: cuclaw_migration_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d cuclaw_migration_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cuclaw_migration_test
-      MIGRATION_COMPATIBILITY_TEST: "1"
-      MENU_IDENTITY_PREFLIGHT_TEST: "1"
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
       - name: Test legacy migration and preflight compatibility
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cuclaw_migration_test
+          MIGRATION_COMPATIBILITY_TEST: "1"
+          MENU_IDENTITY_PREFLIGHT_TEST: "1"
         run: >-
           pnpm exec vitest run
           tests/db/canteen-menu-source-migration.test.ts
           tests/db/canteen-menu-identity-preflight.test.ts
 
-  menu-sync-integration:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: abcfy2/zhparser:17-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: cuclaw_menu_sync_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d cuclaw_menu_sync_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cuclaw_menu_sync_test
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
       - name: Initialize zhparser
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: psql "$DATABASE_URL" -f init-zhparser.sql
 
       - name: Apply migrations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: pnpm drizzle-kit migrate
 
       - name: Test menu sync persistence
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: >-
           pnpm exec vitest run
           tests/db/canteen-menu-sync.test.ts
@@ -183,10 +140,8 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-  # Non-blocking gate (not in branch-protection required checks yet): runs the
-  # Playwright suite against the same zhparser Postgres the dev stack uses, so
-  # cross-spec regressions (e.g. the #90 H1 break) surface on every PR. Promote
-  # to required once it proves stable.
+  # Three browser runners share one production Next build. The third runs the
+  # small WebKit risk surface plus a measured Chromium shard, without MinIO.
   e2e:
     runs-on: ubuntu-latest
     needs: build
@@ -197,18 +152,13 @@ jobs:
           - project: chromium-general
             browser: chromium
             install_args: --only-shell
-          - project: campus-bus
+            minio: false
+            shards: 1
+          - project: chromium-wiki-media
             browser: chromium
             install_args: --only-shell
-          - project: chromium-wiki
-            browser: chromium
-            install_args: --only-shell
-          - project: chromium-wiki-editor
-            browser: chromium
-            install_args: --only-shell
-          - project: webkit-mobile
-            browser: webkit
-            install_args: --with-deps --only-shell
+            minio: true
+            shards: 2
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
@@ -243,10 +193,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Start Postgres and MinIO
-        run: docker compose up -d --wait db minio
+      - name: Start PostgreSQL
+        run: docker compose up -d --wait db
+
+      - name: Start MinIO
+        if: matrix.minio
+        run: docker compose up -d --wait minio
 
       - name: Create uploads bucket
+        if: matrix.minio
         run: docker compose run --rm createbuckets
 
       # global-setup provisions the isolated `cuclaw_e2e` db (create + zhparser
@@ -256,7 +211,11 @@ jobs:
         run: pnpm exec playwright install ${{ matrix.install_args }} ${{ matrix.browser }}
 
       - name: Run e2e
-        run: pnpm test:e2e --project=${{ matrix.project }}
+        env:
+          E2E_SHARD_COUNT: ${{ matrix.shards }}
+        run: >-
+          node --import tsx scripts/run-e2e-shards.ts
+          --project=${{ matrix.project }}
 
       - name: Upload Playwright artifacts
         if: failure()
@@ -264,6 +223,66 @@ jobs:
         with:
           name: playwright-report-${{ matrix.project }}
           path: |
-            playwright-report/
-            test-results/
+            playwright-report-shard-*/
+            test-results-shard-*/
+          retention-days: 7
+
+  browser-third:
+    runs-on: ubuntu-latest
+    needs: build
+    container: mcr.microsoft.com/playwright:v1.60.0-noble
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cuclaw
+      E2E_DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cuclaw_e2e
+      AUTH_SECRET: ci-placeholder-secret
+      AUTH_URL: http://localhost:3100
+      E2E_CI_GROUPS: "1"
+    services:
+      postgres:
+        image: abcfy2/zhparser:17-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cuclaw
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cuclaw"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Download Next build
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+
+      - name: Extract Next build
+        run: tar -xzf next-build.tar.gz
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Trust container checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Run balanced Chromium and WebKit risk coverage
+        env:
+          E2E_SHARD_COUNT: "1"
+        run: >-
+          node --import tsx scripts/run-e2e-shards.ts
+          --project=chromium-balanced
+          --project=webkit-mobile
+
+      - name: Upload browser artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-browser-third
+          path: |
+            playwright-report-shard-*/
+            test-results-shard-*/
           retention-days: 7

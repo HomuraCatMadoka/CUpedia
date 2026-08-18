@@ -29,6 +29,7 @@ function RouteRow({
     <li>
       <Link
         href={`/campus-bus/${route.slug}`}
+        prefetch={false}
         className="group grid min-h-20 touch-manipulation grid-cols-[2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-[#6f3b86]/30 sm:px-7"
         aria-label={`${route.code} ${getCampusBusRouteDisplayName(route)}`}
       >

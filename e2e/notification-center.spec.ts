@@ -173,10 +173,10 @@ test.describe.serial("#446 global notification center", () => {
       `notification-parent-a-${randomUUID()}`,
       `notification-parent-b-${randomUUID()}`,
     ];
-    const replies = [
-      `notification-reply-a-${randomUUID()}`,
-      `notification-reply-b-${randomUUID()}`,
-    ];
+    // Keep publish-gated fixture text deterministic. Random UUID fragments can
+    // accidentally contain a sensitive-word token and make this lifecycle test
+    // fail for content unrelated to the behavior under test.
+    const replies = ["这是一条课程回复甲", "这是一条课程回复乙"];
     const seededReviewIds = await seedAnonymousReviews(contents);
 
     const contributorContext = await browser.newContext();
@@ -257,9 +257,7 @@ test.describe.serial("#446 global notification center", () => {
       .click();
     await expect(page).toHaveURL(/review=.*&reply=.*/);
     await expect(page.getByRole("region", { name: "评论回复" })).toBeVisible();
-    await expect(
-      page.getByText(new RegExp("notification-reply-")),
-    ).toBeVisible();
+    await expect(page.getByText(/这是一条课程回复[甲乙]/)).toBeVisible();
 
     await page.goto("/courses/CSCI1130");
     const missingReviewId = await unreadNotificationReviewId();
