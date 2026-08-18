@@ -182,19 +182,23 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       .where(inArray(users.id, [userId, ...additionalUserIds]));
   });
 
-  it("rejects manual Aigens JSON that claims a complete provider snapshot", async () => {
+  it("rejects complete Aigens claims at ordinary sync boundaries", async () => {
+    const completeSnapshot = {
+      snapshotCompleteness: "complete" as const,
+      items: [
+        {
+          externalProductId: "product-42",
+          name: "演示菜品 A",
+          mealPeriods: ["lunch"],
+        },
+      ],
+    };
     await expect(
-      previewMenuSyncFromJson(canteenId, {
-        snapshotCompleteness: "complete",
-        items: [
-          {
-            externalProductId: "product-42",
-            name: "演示菜品 A",
-            mealPeriods: ["lunch"],
-          },
-        ],
-      }),
-    ).rejects.toThrow("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+      previewMenuSyncFromJson(canteenId, completeSnapshot),
+    ).rejects.toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+    await expect(
+      previewMenuSync(sourceId, parseValidatedAigensSnapshot(completeSnapshot)),
+    ).rejects.toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
   });
 
   it("claims a legacy item and later deactivates it without losing history", async () => {
@@ -594,14 +598,17 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       input,
     );
 
-    const preview = await previewMenuSync(sourceId, input);
+    const ordinaryInput = {
+      ...input,
+      snapshotCompleteness: "partial" as const,
+    };
+    const preview = await previewMenuSync(sourceId, ordinaryInput);
     expect(preview.blockingDecision).toMatchObject({
       blocked: true,
       code: "MENU_SYNC_IDENTITY_CHURN",
     });
     expect(preview.blockingReasons.map((reason) => reason.code)).toEqual([
       "MENU_SYNC_IDENTITY_CHURN",
-      "MENU_SYNC_SUSPICIOUS_DROP",
     ]);
 
     await applyApprovedMenuIdentityTransition(sourceId, input, {
@@ -677,7 +684,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ]);
     expect(history.map(([row]) => row.value)).toEqual([1, 1]);
 
-    const retryPreview = await previewMenuSync(sourceId, input);
+    const retryPreview = await previewMenuSync(sourceId, ordinaryInput);
     expect(retryPreview.blockingDecision).toEqual({
       blocked: false,
       code: null,
@@ -685,11 +692,145 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     });
     const retry = await applyPreviewedMenuSync(
       sourceId,
-      input,
+      ordinaryInput,
       retryPreview.previewToken,
     );
     expect(retry.plan.actions).toEqual([]);
     expect(retry.plan.unchanged).toBe(1);
+  });
+
+  it("applies identity-only approval without deactivating dishes absent from a partial observation", async () => {
+    const visibleAlias = "product-42#offering-period=lunch";
+    const absentItemId = randomUUID();
+    const absentAlias = "product-99#offering-period=dinner";
+    await db
+      .update(canteenMenuItems)
+      .set({ menuSourceId: sourceId, externalProductId: visibleAlias })
+      .where(eq(canteenMenuItems.id, itemId));
+    await db.insert(canteenMenuItems).values({
+      id: absentItemId,
+      canteenId,
+      name: "本次未出现的菜品",
+      mealPeriods: ["dinner"],
+      svgKey: "drink",
+      menuSourceId: sourceId,
+      externalProductId: absentAlias,
+    });
+    const input = parseValidatedAigensSnapshot({
+      snapshotCompleteness: "partial",
+      items: [
+        {
+          externalProductId: "product-42",
+          name: "演示菜品 A",
+          mealPeriods: ["lunch"],
+          svgKey: "drink",
+        },
+        {
+          externalProductId: "product-77",
+          name: "本次新出现的菜品",
+          mealPeriods: ["lunch"],
+          svgKey: "drink",
+        },
+      ],
+    });
+    const existingProjection = [
+      {
+        id: itemId,
+        name: "演示菜品 A",
+        mealPeriods: ["lunch" as const],
+        sortOrder: 0,
+        svgKey: "drink",
+        priceOptions: [],
+        menuSourceId: sourceId,
+        externalProductId: visibleAlias,
+        isAvailable: true,
+      },
+      {
+        id: absentItemId,
+        name: "本次未出现的菜品",
+        mealPeriods: ["dinner" as const],
+        sortOrder: 0,
+        svgKey: "drink",
+        priceOptions: [],
+        menuSourceId: sourceId,
+        externalProductId: absentAlias,
+        isAvailable: true,
+      },
+    ];
+    const audit = buildMenuIdentityTransitionAudit(
+      existingProjection,
+      input,
+      "aigens",
+    );
+
+    const transition = await applyApprovedMenuIdentityTransition(
+      sourceId,
+      input,
+      {
+        schemaVersion: 5,
+        source: {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: transitionSourceFingerprint(),
+        },
+        audit,
+        decisions: {
+          replacements: [],
+          canonicalizations: [
+            {
+              itemId,
+              previousProductId: visibleAlias,
+              nextProductId: "product-42",
+              rationale: "Remove the historical meal-period identity suffix.",
+            },
+            {
+              itemId: absentItemId,
+              previousProductId: absentAlias,
+              nextProductId: "product-99",
+              rationale: "Remove the historical meal-period identity suffix.",
+            },
+          ],
+          merges: [],
+        },
+      },
+    );
+    expect(transition.plan.actions).toEqual([
+      expect.objectContaining({ action: "create" }),
+    ]);
+
+    const persisted = await db
+      .select({
+        id: canteenMenuItems.id,
+        externalProductId: canteenMenuItems.externalProductId,
+        isAvailable: canteenMenuItems.isAvailable,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.canteenId, canteenId));
+    expect(persisted).toEqual(
+      expect.arrayContaining([
+        { id: itemId, externalProductId: "product-42", isAvailable: true },
+        {
+          id: absentItemId,
+          externalProductId: "product-99",
+          isAvailable: true,
+        },
+        expect.objectContaining({
+          externalProductId: "product-77",
+          isAvailable: true,
+        }),
+      ]),
+    );
+
+    const retryPreview = await previewMenuSync(sourceId, input);
+    expect(retryPreview.blockingDecision.blocked).toBe(false);
+    const retry = await applyPreviewedMenuSync(
+      sourceId,
+      input,
+      retryPreview.previewToken,
+    );
+    expect(retry.plan.actions).toEqual([]);
+    expect(retry.plan.unchanged).toBe(2);
   });
 
   it("merges reviewed Aigens period UUIDs and preserves deduplicated history", async () => {
@@ -1014,12 +1155,15 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ]);
     expect(retiredHistory.map(([row]) => row.value)).toEqual([0, 0]);
 
-    const retry = await previewMenuSync(sourceId, input);
+    const retry = await previewMenuSync(sourceId, {
+      ...input,
+      snapshotCompleteness: "partial",
+    });
     expect(retry.blockingDecision.blocked).toBe(false);
     expect(retry.plan.actions).toEqual([]);
   });
 
-  it("applies an exact reviewed bare Aigens replacement and preserves UUID history", async () => {
+  it("applies an exact reviewed Aigens canonicalization and preserves UUID history", async () => {
     const previousProductId = "historical-product#offering-period=lunch";
     const nextProductId = "historical-product";
     await db
@@ -1030,7 +1174,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })
       .where(eq(canteenMenuItems.id, itemId));
     const input = parseValidatedAigensSnapshot({
-      snapshotCompleteness: "complete",
+      snapshotCompleteness: "partial",
       items: [
         {
           externalProductId: nextProductId,
@@ -1048,11 +1192,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       ...draft,
       decisions: {
         ...draft.decisions,
-        snapshotScope: {
-          status: "complete" as const,
-          rationale: "The provider response contains the complete store menu.",
-        },
-        replacements: [
+        canonicalizations: [
           {
             itemId,
             previousProductId,
@@ -1095,7 +1235,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         .where(eq(canteenDishComments.menuItemId, itemId)),
     ]);
     expect(history.map(([row]) => row.value)).toEqual([1, 1]);
-    const retry = await previewMenuSync(sourceId, input);
+    const retry = await previewMenuSync(sourceId, {
+      ...input,
+      snapshotCompleteness: "partial",
+    });
     expect(retry.blockingDecision).toEqual({
       blocked: false,
       code: null,
@@ -1147,11 +1290,6 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })),
     });
     const audit = buildMenuIdentityTransitionAudit(existingItems, input);
-    const preview = await previewMenuSync(sourceId, input);
-    expect(preview.blockingReasons.map((reason) => reason.code)).toEqual([
-      "MENU_SYNC_SUSPICIOUS_DROP",
-    ]);
-
     await expect(
       applyApprovedMenuIdentityTransition(sourceId, input, {
         schemaVersion: 4,

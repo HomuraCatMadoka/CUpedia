@@ -17,6 +17,7 @@ import {
   type MenuSnapshotEvaluation,
 } from "./canteen-menu-snapshot-evaluator";
 import {
+  assertLegacyIdentityTransitionSnapshot,
   buildMenuIdentityTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
   type ApprovedMenuIdentityCanonicalization,
@@ -442,7 +443,7 @@ export async function auditMenuIdentityTransition(
     throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
   }
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     source: {
       provider: source.provider,
       externalOwnerId: source.externalOwnerId,
@@ -451,13 +452,9 @@ export async function auditMenuIdentityTransition(
     },
     audit,
     decisions: {
-      snapshotScope: { status: "unreviewed", rationale: "" },
       replacements: [],
       canonicalizations: [],
       merges: [],
-      additions: [],
-      removals: [],
-      ambiguities: [],
     },
   };
 }
@@ -534,12 +531,16 @@ async function applyMenuSync(
         mode.kind === "recurring" ? "MENU_SYNC_SUPERSEDED" : "MENU_SYNC_STALE",
       );
     }
-    assertProviderSnapshotCompleteness(
-      source.provider,
-      input.snapshotCompleteness,
-      input.scopeEvidence,
-      source.externalStoreId,
-    );
+    if (mode.kind === "identity-transition") {
+      assertLegacyIdentityTransitionSnapshot(source, input);
+    } else {
+      assertProviderSnapshotCompleteness(
+        source.provider,
+        input.snapshotCompleteness,
+        input.scopeEvidence,
+        source.externalStoreId,
+      );
+    }
     const now = source.databaseNow;
     if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
       throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");

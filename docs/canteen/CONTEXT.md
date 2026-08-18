@@ -41,8 +41,13 @@ _Avoid_: 让调用者同时传 source string 与 canteen ID；先清空菜单再
 **身份转换审计（Identity transition audit）**: 对一个被商品身份漂移阻断的菜单来源，记录当前 CUpedia UUID、旧/新 provider ID，以及规范化名称、价格和餐段的确定性事实快照。审计可提示唯一的替换候选，但候选本身不是批准。
 _Avoid_: 把同名候选直接当成已确认的 UUID 继承；把审计报告当成可执行命令。
 
-**身份转换批准（Identity transition approval）**: Reviewer 对某一精确审计快照的每个消失/新增身份显式分类为 UUID 保留替换、预期新增或预期停供。批准仅对完整匹配的来源定位与前后指纹有效；快照变化、分类不完整或拆分/合并歧义均失败关闭。
-_Avoid_: 常驻白名单；全局放宽 churn 阈值；无版本的生产手工改行。
+**身份转换批准（Identity transition approval）**: Reviewer 对某一精确身份投影显式批准外部 ID 替换或多个重复 UUID 归并到一个 survivor。它不批准新菜、缺席菜或活跃性变化；未明确映射的身份保持不变。
+_Avoid_: 把整份菜单标记为完整来获得身份迁移权限；常驻白名单；全局放宽 churn 阈值；无版本的生产手工改行。
+
+现有 v4 artifact 对完整性、scope、新增与缺席决定的携带只属于旧身份迁移的精确重放兼容边界，不赋予普通 Aigens 同步目录权威，也不是新的批准模型；不应再签发这类批准。v5 artifact 只表达显式身份替换、历史别名规范化与 UUID 归并；新增由同一次普通 partial 同步创建，缺席身份保持原活跃性。
+
+**身份归并（Identity merge）**: 多个 UUID 被确认代表同一道菜时，将外部身份与历史归并到一个 survivor UUID，其余重复身份不再独立活跃。身份归并解决重复身份，不表达菜品当前是否供应。
+_Avoid_: 把暂时不活跃的菜品当成重复身份；让被归并的 UUID 日后独立恢复。
 
 **菜单来源（Menu source）**: 周期性读取某个供应商门店菜单的配置、托管菜品所有权与同步状态。一个菜单来源只归属一个食堂，托管菜品通过数据库约束同时引用来源与同一食堂；同步入口只接受来源 ID，再由来源决定食堂。它标识 provider、外部门店身份及非敏感读取参数；其职责止于产生规范化菜单快照。供应商响应先经过单次同步期间的临时 provider schema，数据库只保存公开展示和稳定关联所需的字段。
 _Avoid_: 把上游完整 JSON、匿名 token、会员身份、购物车、优惠码或支付状态写入菜单来源；在页面或 cron 中直接拼供应商请求。
@@ -50,7 +55,13 @@ _Avoid_: 把上游完整 JSON、匿名 token、会员身份、购物车、优惠
 **菜单快照（Menu snapshot）**: 某一观察时刻从菜单来源取得并通过 provider schema 校验的公开菜单事实，以及由 provider 边界声明的快照完整性。它可以是完整目录，也可以只是当前营业时段、库存或可售范围内的子集。
 _Avoid_: 把每次抓取都称为完整快照；从条目数量、时钟或 churn 阈值猜测完整性。
 
-**快照完整性（Snapshot completeness）**: `complete` 表示本次未出现可作为停供证据；`partial` 表示未出现不是删除证据，只能更新、增加或恢复本次出现的身份。完整性由 provider 边界根据已验证的上游语义声明，PinMe `product-menus` 在没有全目录信号前属于 `partial`。Aigens 纯菜单解析同样只能产生 `partial`；只有 source fetch 验证响应状态、请求门店 ID、`menu.storeIds`、published/terminated/archived/slim 状态及菜单餐段声明后，才能产生带有 bounded scope evidence 的 `complete` 快照。该 evidence 进入 identity-transition audit 与 incoming fingerprint。
+**菜单观察（Menu observation）**: 顾客在某一营业时刻可以从点餐入口看到的菜单事实。观察不到某道菜可能源于餐段切换、闭店、售罄或当天不供应，不表示食堂永久停供该菜。
+_Avoid_: 把当前可见菜单当成食堂主目录；把一次或多次缺席直接解释为全局不活跃。
+
+**菜品活跃性（Menu item activity）**: 菜品是否作为食堂菜单中的活跃条目展示；不活跃是可逆状态，同一外部身份再次出现时恢复原 UUID 及其历史。点餐观察中的缺席本身不改变全局活跃性。
+_Avoid_: 把不活跃称为删除或永久退役；为重新上架创建新 UUID；把某一餐段不可见等同于全局不活跃。
+
+**快照完整性（Snapshot completeness）**: `complete` 表示本次未出现可作为转为不活跃的证据；`partial` 表示未出现不改变活跃性，只能更新、增加或恢复本次出现的身份。完整性由来源本身的业务语义决定，不从条目数量、分类、餐段、时钟、重复读取或 safety threshold 猜测。面向当前点餐场景的菜单观察属于 `partial`。
 _Avoid_: 用 `isFull` 布尔值；把 safety threshold 的结果反推为完整性；让 reconciliation 按 provider 名称分支。
 
 **点餐交接（Ordering handoff）**: 将用户交给供应商官方页面继续选择规格、使用本人优惠、创建订单并付款的稳定入口。交接保存人工确认的完整 URL 及 provider；其 mode、table、multi/location 等参数是入口身份的一部分。它与菜单来源相互独立：同一食堂可从公开 API 同步菜单，却通过品牌域名或扫码 URL 点餐。

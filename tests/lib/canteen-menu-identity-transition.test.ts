@@ -94,6 +94,164 @@ function incoming(
 }
 
 describe("menu identity transition audit", () => {
+  it("approves only identity changes for a partial Aigens observation", () => {
+    const visibleAlias = existing({
+      externalProductId: "42#offering-period=lunch",
+    });
+    const absentAlias = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "99#offering-period=dinner",
+      name: "熱咖啡",
+    });
+    const visible = incoming({ externalProductId: "42" });
+    const newDish = incoming({
+      externalProductId: "77",
+      name: "新菜式",
+    });
+    const input = {
+      snapshotCompleteness: "partial" as const,
+      scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+      items: [visible, newDish],
+    };
+    const audit = buildTransitionAudit(
+      [visibleAlias, absentAlias],
+      input,
+      "aigens",
+    );
+
+    expect(audit.additions.map((item) => item.externalProductId)).toEqual([
+      "77",
+    ]);
+    expect(audit.canonicalizationCandidates).toHaveLength(2);
+    expect(
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [visibleAlias, absentAlias],
+        input,
+        {
+          schemaVersion: 5,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            replacements: [],
+            canonicalizations: [visibleAlias, absentAlias].map((item) => ({
+              itemId: item.id,
+              previousProductId: item.externalProductId,
+              nextProductId: item.externalProductId!.split("#")[0],
+              rationale: "Remove the historical meal-period identity suffix.",
+            })),
+            merges: [],
+          },
+        },
+      ),
+    ).toEqual({
+      replacements: [],
+      canonicalizations: [
+        {
+          itemId: visibleAlias.id,
+          previousProductId: visibleAlias.externalProductId,
+          nextProductId: "42",
+        },
+        {
+          itemId: absentAlias.id,
+          previousProductId: absentAlias.externalProductId,
+          nextProductId: "99",
+        },
+      ],
+      merges: [],
+    });
+  });
+
+  it("rejects a partial identity transition with unresolved ambiguity", () => {
+    const first = existing();
+    const second = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "second-old-id",
+    });
+    const next = incoming();
+    const input = {
+      snapshotCompleteness: "partial" as const,
+      scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+      items: [next],
+    };
+    const audit = buildTransitionAudit([first, second], input, "aigens");
+
+    expect(() =>
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [first, second],
+        input,
+        {
+          schemaVersion: 5,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            replacements: [],
+            canonicalizations: [],
+            merges: [],
+          },
+        },
+      ),
+    ).toThrow("MENU_IDENTITY_TRANSITION_AMBIGUOUS");
+  });
+
+  it("does not let a v5 approval promote an Aigens observation to complete", () => {
+    const input = {
+      snapshotCompleteness: "complete" as const,
+      scopeEvidence: AIGENS_SCOPE_EVIDENCE,
+      items: [] as MenuSyncItemInput[],
+    };
+    const audit = buildTransitionAudit([], input, "aigens");
+
+    expect(() =>
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "aigens",
+          externalOwnerId: null,
+          externalStoreId: "102830",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [],
+        input,
+        {
+          schemaVersion: 5,
+          source: {
+            provider: "aigens",
+            externalOwnerId: null,
+            externalStoreId: "102830",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            replacements: [],
+            canonicalizations: [],
+            merges: [],
+          },
+        },
+      ),
+    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+  });
+
   it("reports bounded exact-snapshot mismatch facts when verification is stale", () => {
     const previous = existing();
     const next = incoming();
@@ -884,7 +1042,7 @@ describe("menu identity transition audit", () => {
     ]);
   });
 
-  it("rejects completeness that contradicts the reviewed provider", () => {
+  it("rejects completeness that differs from the reviewed artifact", () => {
     const artifact = parseMenuIdentityTransitionArtifact(transitionFixture);
 
     expect(() =>
@@ -901,7 +1059,7 @@ describe("menu identity transition audit", () => {
         artifact,
         "partial",
       ),
-    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+    ).toThrow("MENU_IDENTITY_TRANSITION_STALE");
   });
 
   it("rejects promoting a partial PinMe snapshot to complete", () => {
