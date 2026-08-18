@@ -11,6 +11,7 @@ import {
 import { canViewerEdit } from "@/lib/edit-permission";
 import { normalizeEmail } from "@/lib/email";
 import { headers } from "next/headers";
+import { cache } from "react";
 
 /** True if the email already has a password (credential) account — i.e. it
  * completed registration. OTP-only sign-ins create a user row but no
@@ -94,12 +95,12 @@ export async function requireEditorOrRedirect() {
   return user;
 }
 
-export async function getOptionalUser() {
+export const getOptionalUser = cache(async function getOptionalUser() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
   return session?.user ?? null;
-}
+});
 
 /** Display-side edit context: whether to show edit affordances, computed from
  * cheap/cached inputs (session role+banned, module-cached editRole). Shares the
@@ -114,7 +115,7 @@ export async function getViewerEditContext() {
 }
 
 /** One session + user fetch for canteen voting hot paths. */
-export async function getSessionVoterUser(): Promise<{
+export const getSessionVoterUser = cache(async function getSessionVoterUser(): Promise<{
   id: string;
   banned: boolean;
 } | null> {
@@ -138,7 +139,7 @@ export async function getSessionVoterUser(): Promise<{
     columns: { id: true, banned: true },
   });
   return dbUser ? { id: dbUser.id, banned: dbUser.banned } : null;
-}
+});
 
 /** Logged-in user eligible to write dish comments (not banned). */
 export async function requireCommentAuth(): Promise<{

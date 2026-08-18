@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { count, eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { revalidateCanteenMenuCache } from "@/lib/canteen-menu-queries";
 import { requireAdmin } from "@/lib/auth-guard";
 import {
   countCommentsForCanteen,
@@ -173,6 +174,7 @@ export async function updateCanteen(
     revalidatePath(`/admin/canteens/${id}`);
     revalidatePath("/api/canteens");
     revalidatePath("/canteen");
+    revalidateCanteenMenuCache();
     revalidatePath(`/canteen/${id}`);
     return row;
   }
@@ -212,6 +214,7 @@ export async function updateCanteen(
   revalidatePath("/api/canteens");
   revalidatePath(`/api/canteens/${id}/menu`);
   revalidatePath("/canteen");
+  revalidateCanteenMenuCache();
   revalidatePath(`/canteen/${id}`);
   return row;
 }
@@ -223,6 +226,7 @@ export async function deleteCanteen(id: string): Promise<void> {
     revalidatePath("/admin/canteens");
     revalidatePath("/api/canteens");
     revalidatePath("/canteen");
+    revalidateCanteenMenuCache();
     return;
   }
   const result = await db
@@ -233,6 +237,7 @@ export async function deleteCanteen(id: string): Promise<void> {
 
   revalidatePath("/admin/canteens");
   revalidatePath("/api/canteens");
+  revalidateCanteenMenuCache();
 }
 
 export async function createMenuItem(
@@ -254,6 +259,7 @@ export async function createMenuItem(
     const row = mockCreateMenuItem(canteenId, input);
     revalidatePath(`/admin/canteens/${canteenId}`);
     revalidatePath(`/api/canteens/${canteenId}/menu`);
+    revalidateCanteenMenuCache();
     revalidatePath(`/canteen/${canteenId}`);
     return row;
   }
@@ -303,6 +309,7 @@ export async function bulkImportMenuItemsFromJson(
     const created = rows.map((row) => mockCreateMenuItem(canteenId, row));
     revalidatePath(`/admin/canteens/${canteenId}`);
     revalidatePath(`/api/canteens/${canteenId}/menu`);
+    revalidateCanteenMenuCache();
     revalidatePath(`/canteen/${canteenId}`);
     return created;
   }
@@ -339,6 +346,7 @@ export async function bulkImportMenuItemsFromJson(
 
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);
+  revalidateCanteenMenuCache();
   revalidatePath(`/canteen/${canteenId}`);
   return created;
 }
@@ -394,6 +402,7 @@ export async function updateMenuItem(
     const row = mockUpdateMenuItem(canteenId, itemId, input);
     revalidatePath(`/admin/canteens/${canteenId}`);
     revalidatePath(`/api/canteens/${canteenId}/menu`);
+    revalidateCanteenMenuCache();
     revalidatePath(`/canteen/${canteenId}`);
     return row;
   }
@@ -470,6 +479,7 @@ export async function deleteMenuItem(
     mockDeleteMenuItem(canteenId, itemId);
     revalidatePath(`/admin/canteens/${canteenId}`);
     revalidatePath(`/api/canteens/${canteenId}/menu`);
+    revalidateCanteenMenuCache();
     revalidatePath(`/canteen/${canteenId}`);
     return;
   }
@@ -503,6 +513,7 @@ export async function deleteAllMenuItems(
     const result = mockDeleteAllMenuItems(canteenId);
     revalidatePath(`/admin/canteens/${canteenId}`);
     revalidatePath(`/api/canteens/${canteenId}/menu`);
+    revalidateCanteenMenuCache();
     revalidatePath(`/canteen/${canteenId}`);
     revalidatePath("/canteen");
     return result;
@@ -518,6 +529,7 @@ export async function deleteAllMenuItems(
 
   revalidatePath(`/admin/canteens/${canteenId}`);
   revalidatePath(`/api/canteens/${canteenId}/menu`);
+  revalidateCanteenMenuCache();
   revalidatePath(`/canteen/${canteenId}`);
   revalidatePath("/canteen");
   return { deletedCount: deleted.length };

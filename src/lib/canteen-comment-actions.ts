@@ -25,7 +25,8 @@ import {
 } from "@/lib/canteen-mock";
 import {
   adminListRecentDishComments,
-  countCommentsByMenuItemForCanteen,
+  getCachedCommentCountsForCanteen,
+  revalidateCanteenCommentCountsCache,
 } from "@/lib/canteen-comment-queries";
 import type { AdminDishComment, CanteenDishComment } from "@/lib/canteen-types";
 import {
@@ -50,7 +51,7 @@ export async function getCommentCountsForCanteen(
   canteenId: string,
 ): Promise<Record<string, number>> {
   if (isCanteenMockMode()) return mockGetCommentCountsForCanteen(canteenId);
-  return countCommentsByMenuItemForCanteen(canteenId);
+  return getCachedCommentCountsForCanteen(canteenId);
 }
 
 export async function getCommentsForMenuItem(
@@ -123,6 +124,7 @@ export async function createDishComment(
     return inserted;
   });
 
+  revalidateCanteenCommentCountsCache();
   return {
     ...row,
     authorNickname: user.nickname,
@@ -186,6 +188,7 @@ export async function deleteDishComment(commentId: string): Promise<void> {
     .returning({ id: canteenDishComments.id });
 
   if (!result[0]) throw new Error("COMMENT_NOT_FOUND");
+  revalidateCanteenCommentCountsCache();
 }
 
 export async function adminListDishComments(): Promise<AdminDishComment[]> {
@@ -210,6 +213,7 @@ export async function adminDeleteDishComment(commentId: string): Promise<void> {
   if (isCanteenMockMode()) {
     mockAdminDeleteDishComment(commentId, admin);
     revalidatePath("/admin/comments");
+    revalidateCanteenCommentCountsCache();
     return;
   }
 
@@ -270,4 +274,5 @@ export async function adminDeleteDishComment(commentId: string): Promise<void> {
   });
 
   revalidatePath("/admin/comments");
+  revalidateCanteenCommentCountsCache();
 }

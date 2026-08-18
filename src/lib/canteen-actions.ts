@@ -2,17 +2,21 @@
 
 import { db } from "@/db";
 import {
-  canteenMenuItemPrices,
   canteenMenuItems,
   canteenMenuSources,
   canteenOrderingHandoffs,
   canteens,
 } from "@/db/schema";
-import { asc, eq, count, and } from "drizzle-orm";
+import { and, asc, eq, count } from "drizzle-orm";
 import type { Canteen, CanteenMenuItem } from "@/lib/canteen-types";
-import { primaryMealPeriodSortKey } from "@/lib/canteen-types";
-import { buildMenuItemPricing } from "@/lib/canteen-pricing";
-import type { OrderingHandoff } from "@/lib/canteen-ordering-handoff";
+import {
+  orderingHandoffFromMenuSource,
+  type OrderingHandoff,
+} from "@/lib/canteen-ordering-handoff";
+import {
+  getCachedPublicCanteenById,
+  getCachedPublicCanteenMenuItems,
+} from "@/lib/canteen-menu-queries";
 import {
   isCanteenMockMode,
   mockGetCanteen,
@@ -37,39 +41,52 @@ export async function getCanteens(): Promise<Canteen[]> {
 
 export async function getCanteenById(id: string): Promise<Canteen | null> {
   if (isCanteenMockMode()) return mockGetCanteen(id);
-  const rows = await db
-    .select({
-      id: canteens.id,
-      name: canteens.name,
-      location: canteens.location,
-      announcement: canteens.announcement,
-      createdAt: canteens.createdAt,
-      updatedAt: canteens.updatedAt,
-    })
-    .from(canteens)
-    .where(eq(canteens.id, id))
-    .limit(1);
-  return rows[0] ?? null;
+  return getCachedPublicCanteenById(id);
 }
 
 export async function getCanteenOrderingHandoff(
   canteenId: string,
 ): Promise<OrderingHandoff | null> {
   if (isCanteenMockMode()) return null;
+  const [stored, source] = await Promise.all([
+    db
+      .select({
+        provider: canteenOrderingHandoffs.provider,
+        url: canteenOrderingHandoffs.url,
+      })
+      .from(canteenOrderingHandoffs)
+      .where(
+        and(
+          eq(canteenOrderingHandoffs.canteenId, canteenId),
+          eq(canteenOrderingHandoffs.enabled, true),
+        ),
+      )
+      .limit(1),
+    db
+      .select({
+        provider: canteenMenuSources.provider,
+        externalStoreId: canteenMenuSources.externalStoreId,
+        config: canteenMenuSources.config,
+      })
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.canteenId, canteenId))
+      .limit(1),
+  ]);
+  return stored[0] ?? orderingHandoffFromMenuSource(source[0]);
+}
+
+export async function getOrderingHandoffForVenueName(
+  name: string,
+): Promise<OrderingHandoff | null> {
+  if (isCanteenMockMode()) return null;
   const rows = await db
-    .select({
-      provider: canteenOrderingHandoffs.provider,
-      url: canteenOrderingHandoffs.url,
-    })
-    .from(canteenOrderingHandoffs)
-    .where(
-      and(
-        eq(canteenOrderingHandoffs.canteenId, canteenId),
-        eq(canteenOrderingHandoffs.enabled, true),
-      ),
-    )
+    .select({ id: canteens.id })
+    .from(canteens)
+    .where(eq(canteens.name, name))
     .limit(1);
-  return rows[0] ?? null;
+  const canteenId = rows[0]?.id;
+  if (!canteenId) return null;
+  return getCanteenOrderingHandoff(canteenId);
 }
 
 export async function getCanteenMenuFreshness(canteenId: string): Promise<{
@@ -95,83 +112,7 @@ export async function getCanteenMenuItems(
   canteenId: string,
 ): Promise<CanteenMenuItem[]> {
   if (isCanteenMockMode()) return mockListMenuItems(canteenId);
-  const rows = await db
-    .select({
-      id: canteenMenuItems.id,
-      canteenId: canteenMenuItems.canteenId,
-      name: canteenMenuItems.name,
-      legacyPrice: canteenMenuItems.price,
-      mealPeriods: canteenMenuItems.mealPeriods,
-      sortOrder: canteenMenuItems.sortOrder,
-      svgKey: canteenMenuItems.svgKey,
-      createdAt: canteenMenuItems.createdAt,
-      updatedAt: canteenMenuItems.updatedAt,
-      priceId: canteenMenuItemPrices.id,
-      priceLabel: canteenMenuItemPrices.label,
-      amountMinor: canteenMenuItemPrices.amountMinor,
-      currency: canteenMenuItemPrices.currency,
-      priceSortOrder: canteenMenuItemPrices.sortOrder,
-    })
-    .from(canteenMenuItems)
-    .leftJoin(
-      canteenMenuItemPrices,
-      eq(canteenMenuItemPrices.menuItemId, canteenMenuItems.id),
-    )
-    .where(
-      and(
-        eq(canteenMenuItems.canteenId, canteenId),
-        eq(canteenMenuItems.isAvailable, true),
-      ),
-    );
-
-  const items = new Map<string, CanteenMenuItem>();
-  for (const row of rows) {
-    const existing = items.get(row.id);
-    const option = row.priceId
-      ? {
-          id: row.priceId,
-          label: row.priceLabel,
-          amountMinor: row.amountMinor!,
-          currency: row.currency!,
-          sortOrder: row.priceSortOrder!,
-        }
-      : null;
-    if (existing) {
-      if (option) existing.pricing!.options.push(option);
-      continue;
-    }
-    items.set(row.id, {
-      id: row.id,
-      canteenId: row.canteenId,
-      name: row.name,
-      pricing: buildMenuItemPricing(
-        row.id,
-        option ? [option] : [],
-        row.legacyPrice,
-      ),
-      mealPeriods: row.mealPeriods as CanteenMenuItem["mealPeriods"],
-      sortOrder: row.sortOrder,
-      svgKey: row.svgKey,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    });
-  }
-
-  for (const item of items.values()) {
-    item.pricing?.options.sort(
-      (a, b) =>
-        a.sortOrder - b.sortOrder || a.label?.localeCompare(b.label ?? "") || 0,
-    );
-  }
-
-  return [...items.values()].sort((a, b) => {
-    const periodCmp =
-      primaryMealPeriodSortKey(a.mealPeriods) -
-      primaryMealPeriodSortKey(b.mealPeriods);
-    if (periodCmp !== 0) return periodCmp;
-    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-    return a.name.localeCompare(b.name);
-  });
+  return getCachedPublicCanteenMenuItems(canteenId);
 }
 
 export async function getCanteenMenuItemCounts(): Promise<

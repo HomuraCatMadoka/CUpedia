@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { revalidateCanteenMenuCache } from "./canteen-menu-queries";
 import { lockCanteenMenuMutationForSource } from "./canteen-menu-mutation-lock";
 import {
   evaluateMenuIdentityTransitionSnapshot,
@@ -792,6 +793,7 @@ async function applyMenuSync(
     if (source) {
       revalidatePath(`/admin/canteens/${source.canteenId}`);
       revalidatePath(`/api/canteens/${source.canteenId}/menu`);
+      revalidateCanteenMenuCache();
       revalidatePath(`/canteen/${source.canteenId}`);
     }
   }

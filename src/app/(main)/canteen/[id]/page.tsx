@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import {
@@ -14,13 +15,23 @@ import { getOptionalUser, getSessionVoterUser } from "@/lib/auth-guard";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
 import { CanteenOrderAction } from "@/components/canteen/canteen-order-action";
 import { CanteenMenuView } from "@/components/canteen/canteen-menu-view";
+import { CanteenMenuSkeleton } from "@/components/canteen/canteen-menu-skeleton";
 import { DanmakuBanner } from "@/components/home/danmaku-banner";
 import { isCanteenMockMode } from "@/lib/canteen-mock";
 import { listCanteenDanmaku } from "@/lib/danmaku-actions";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { isPgPermissionDenied, isPgSoftFail } from "@/lib/pg-errors";
-import { messagesForFlyover, shuffleArray } from "@/lib/danmaku-types";
+import {
+  messagesForFlyover,
+  shuffleArray,
+  type PublicDanmakuMessage,
+} from "@/lib/danmaku-types";
+import type {
+  CanteenMenuItem,
+  MenuItemVoteCounts,
+  VoteChoice,
+} from "@/lib/canteen-types";
 
 export const dynamic = "force-dynamic";
 
@@ -40,59 +51,72 @@ const MOCK_VOTE_COUNTS = {
   "mock-item-dn-noodle": { likes: 1, dislikes: 8 },
 } as const;
 
-async function getDanmakuViewer() {
+const softEmpty =
+  <T,>(fallback: T) =>
+  (error: unknown) => {
+    if (isPgSoftFail(error)) return fallback;
+    throw error;
+  };
+
+type CanteenViewer =
+  | { kind: "guest" }
+  | { kind: "banned" }
+  | { kind: "member"; userId: string; nickname: string };
+
+async function getDanmakuViewer(): Promise<CanteenViewer> {
   try {
     const sessionUser = await getOptionalUser();
-    if (!sessionUser?.id) return { kind: "guest" as const };
+    if (!sessionUser?.id) return { kind: "guest" };
 
     const dbUser = await db.query.users.findFirst({
       where: eq(users.id, sessionUser.id),
       columns: { id: true, nickname: true, banned: true },
     });
-    if (!dbUser) return { kind: "guest" as const };
-    if (dbUser.banned) return { kind: "banned" as const };
+    if (!dbUser) return { kind: "guest" };
+    if (dbUser.banned) return { kind: "banned" };
     return {
-      kind: "member" as const,
+      kind: "member",
       userId: dbUser.id,
       nickname: dbUser.nickname,
     };
   } catch (error) {
-    if (isPgSoftFail(error)) return { kind: "guest" as const };
+    if (isPgSoftFail(error)) return { kind: "guest" };
     throw error;
   }
 }
 
-export default async function CanteenMenuPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const canteen = await getCanteenById(id);
-  if (!canteen) notFound();
+type MenuBundle = {
+  items: CanteenMenuItem[];
+  voteCounts: Record<string, MenuItemVoteCounts>;
+  myVotes: Record<string, VoteChoice>;
+  commentCounts: Record<string, number>;
+  sessionUser: { id: string; banned: boolean } | null;
+};
 
-  const mock = isCanteenMockMode();
-  const softEmpty =
-    <T,>(fallback: T) =>
-    (error: unknown) => {
-      if (isPgSoftFail(error)) return fallback;
-      throw error;
-    };
-  const [
-    items,
-    voteCounts,
-    myVotes,
-    commentCounts,
-    sessionUser,
-    danmaku,
-    danmakuViewer,
-    orderingHandoff,
-  ] = await Promise.all([
+function loadMenuBundle(id: string): Promise<MenuBundle> {
+  return Promise.all([
     getCanteenMenuItems(id),
     getMenuItemVoteCounts(id).catch(softEmpty({})),
     getMyVotesForCanteen(id).catch(softEmpty({})),
     getCommentCountsForCanteen(id).catch(softEmpty({})),
     getSessionVoterUser().catch(softEmpty(null)),
+  ]).then(([items, voteCounts, myVotes, commentCounts, sessionUser]) => ({
+    items,
+    voteCounts,
+    myVotes,
+    commentCounts,
+    sessionUser,
+  }));
+}
+
+type DanmakuBundle = {
+  danmaku: PublicDanmakuMessage[];
+  viewer: CanteenViewer;
+};
+
+function loadDanmakuBundle(id: string): Promise<DanmakuBundle> {
+  const mock = isCanteenMockMode();
+  return Promise.all([
     mock
       ? Promise.resolve(
           MOCK_DANMAKU.map((content, index) => {
@@ -110,16 +134,70 @@ export default async function CanteenMenuPage({
           throw error;
         }),
     mock ? Promise.resolve({ kind: "guest" as const }) : getDanmakuViewer(),
-    getCanteenOrderingHandoff(id).catch(softEmpty(null)),
-  ]);
+  ]).then(([danmaku, viewer]) => ({ danmaku, viewer }));
+}
+
+async function CanteenMenuSection({
+  data,
+}: {
+  data: Promise<MenuBundle>;
+}) {
+  const { items, voteCounts, myVotes, commentCounts, sessionUser } = await data;
   const currentUserId =
     sessionUser && !sessionUser.banned ? sessionUser.id : null;
   const commentBlocked = sessionUser?.banned ? ("banned" as const) : null;
-  const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
-  const orderUrl = orderingHandoff?.url ?? null;
-  const displayedVoteCounts = mock
+  const displayedVoteCounts = isCanteenMockMode()
     ? { ...voteCounts, ...MOCK_VOTE_COUNTS }
     : voteCounts;
+
+  return (
+    <CanteenMenuView
+      items={items}
+      voteCounts={displayedVoteCounts}
+      myVotes={myVotes}
+      commentCounts={commentCounts}
+      currentUserId={currentUserId}
+      commentBlocked={commentBlocked}
+    />
+  );
+}
+
+async function CanteenDanmakuSection({
+  id,
+  data,
+}: {
+  id: string;
+  data: Promise<DanmakuBundle>;
+}) {
+  const { danmaku, viewer } = await data;
+  const danmakuFly = shuffleArray(messagesForFlyover(danmaku));
+  return (
+    <DanmakuBanner
+      initialMessages={danmaku}
+      initialFlyMessages={danmakuFly}
+      viewer={viewer}
+      apiPath={`/api/canteen/${id}/danmaku`}
+      trackCount={3}
+      appearance="hero"
+    />
+  );
+}
+
+export default async function CanteenMenuPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const menuPromise = loadMenuBundle(id);
+  const danmakuPromise = loadDanmakuBundle(id);
+  const [canteen, orderingHandoff] = await Promise.all([
+    getCanteenById(id),
+    getCanteenOrderingHandoff(id).catch(softEmpty(null)),
+  ]);
+  if (!canteen) notFound();
+
+  const orderUrl = orderingHandoff?.url ?? null;
 
   return (
     <CanteenShell
@@ -131,24 +209,21 @@ export default async function CanteenMenuPage({
       className="canteen-detail-page"
       action={<CanteenOrderAction href={orderUrl} canteenName={canteen.name} />}
       topContent={
-        <DanmakuBanner
-          initialMessages={danmaku}
-          initialFlyMessages={danmakuFly}
-          viewer={danmakuViewer}
-          apiPath={`/api/canteen/${id}/danmaku`}
-          trackCount={3}
-          appearance="hero"
-        />
+        <Suspense
+          fallback={
+            <div
+              className="h-24 animate-pulse rounded-xl bg-[var(--canteen-line)]"
+              aria-hidden
+            />
+          }
+        >
+          <CanteenDanmakuSection id={id} data={danmakuPromise} />
+        </Suspense>
       }
     >
-      <CanteenMenuView
-        items={items}
-        voteCounts={displayedVoteCounts}
-        myVotes={myVotes}
-        commentCounts={commentCounts}
-        currentUserId={currentUserId}
-        commentBlocked={commentBlocked}
-      />
+      <Suspense fallback={<CanteenMenuSkeleton />}>
+        <CanteenMenuSection data={menuPromise} />
+      </Suspense>
     </CanteenShell>
   );
 }
