@@ -18,6 +18,7 @@ type WorkflowStep = {
 };
 
 type WorkflowJob = {
+  name?: string;
   needs?: string | string[];
   container?: string | { image?: string };
   services?: Record<string, unknown>;
@@ -84,6 +85,7 @@ describe("bounded full CI topology (#669)", () => {
   });
 
   it("keeps lint, unit, and typecheck in one quality gate", () => {
+    expect(requireJob("quality").name).toBe("lint-and-test");
     const qualityRuns = steps("quality").flatMap((step) =>
       step.run ? [step.run] : [],
     );

@@ -12,6 +12,8 @@ concurrency:
 
 jobs:
   quality:
+    # Keep the published check context compatible with main branch protection.
+    name: lint-and-test
     runs-on: ubuntu-latest
     services:
       migration-postgres:
