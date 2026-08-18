@@ -83,19 +83,21 @@ same Aigens group.
    candidates. Suspected replacement or bulk churn fails closed: the last
    successful public menu remains visible and no vote/comment identity moves.
 9. Resolving a blocked identity transition requires a versioned artifact that
-   separates deterministic audit facts from reviewer decisions. The decisions
-   classify every missing and new identity exactly once as a UUID-preserving
-   replacement, expected addition, or expected removal. Application locks the
+   separates deterministic audit facts from reviewer decisions. Current
+   decisions authorize only UUID-preserving replacements, historical alias
+   canonicalizations, and explicit many-to-one UUID merges. New identities use
+   the ordinary partial-sync create path; identities absent from the observation
+   keep their current activity. Application locks the
    canteen, source, and existing menu rows covered by the projection in that
    order. The canteen parent lock serializes inserts that no existing-row lock
    can cover. Application verifies its locator and exact fingerprints, rejects
-   incomplete or ambiguous classifications, and then reuses the normal menu
+   incomplete identity mappings or ambiguous evidence, and then reuses the normal menu
    writes in one transaction. The artifact is a one-snapshot authorization,
    not a permanent alias or a relaxation of the global churn threshold.
    The evaluator retains independent blocking reasons. This authorization is
-   only applicable when identity churn is present; after exact scope and removal
-   review it may resolve churn and suspicious-drop for that fingerprinted
-   snapshot, but never conflicts or a suspicious-drop-only snapshot.
+   only applicable when identity churn is present and may resolve that reason,
+   but never conflicts or a suspicious-drop-only snapshot. Version 4 artifacts
+   remain an exact legacy replay boundary and must not be newly issued.
 10. Aigens period-scoped external IDs are historical aliases, not current dish
     identities. Ordinary synchronization must not silently choose a UUID when
     multiple aliases already represent one backend product. The audited

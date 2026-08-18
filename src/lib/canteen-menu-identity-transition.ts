@@ -114,14 +114,16 @@ export function getMenuIdentityTransitionStaleDetails(
     : null;
 }
 
-export type MenuIdentityTransitionArtifact = {
+type MenuIdentityTransitionArtifactSource = {
+  provider: CanteenMenuSourceProvider;
+  externalOwnerId: string | null;
+  externalStoreId: string;
+  configurationFingerprint: string;
+};
+
+export type LegacyMenuIdentityTransitionArtifact = {
   schemaVersion: 4;
-  source: {
-    provider: CanteenMenuSourceProvider;
-    externalOwnerId: string | null;
-    externalStoreId: string;
-    configurationFingerprint: string;
-  };
+  source: MenuIdentityTransitionArtifactSource;
   audit: MenuIdentityTransitionAudit;
   decisions: {
     snapshotScope:
@@ -146,6 +148,25 @@ export type MenuIdentityTransitionArtifact = {
     }>;
   };
 };
+
+export type MenuIdentityTransitionArtifactV5 = {
+  schemaVersion: 5;
+  source: MenuIdentityTransitionArtifactSource;
+  audit: MenuIdentityTransitionAudit;
+  decisions: {
+    replacements: Array<
+      ApprovedMenuIdentityReplacement & { rationale: string }
+    >;
+    canonicalizations: Array<
+      ApprovedMenuIdentityCanonicalization & { rationale: string }
+    >;
+    merges: MenuIdentityMergeDecision[];
+  };
+};
+
+export type MenuIdentityTransitionArtifact =
+  | LegacyMenuIdentityTransitionArtifact
+  | MenuIdentityTransitionArtifactV5;
 
 export type MenuIdentityMergeDecision = {
   survivorItemId: string;
@@ -437,10 +458,18 @@ export function verifyMenuIdentityTransitionApproval(
   >,
   artifactInput: unknown,
 ): ApprovedMenuIdentityTransition {
-  assertLegacyIdentityTransitionSnapshot(source, input);
   const artifact = parseMenuIdentityTransitionArtifact(artifactInput);
+  if (artifact.schemaVersion === 4) {
+    assertLegacyIdentityTransitionSnapshot(source, input);
+  } else {
+    assertProviderSnapshotCompleteness(
+      source.provider,
+      input.snapshotCompleteness,
+      input.scopeEvidence,
+      source.externalStoreId,
+    );
+  }
   if (
-    artifact.schemaVersion !== 4 ||
     artifact.source.provider !== source.provider ||
     artifact.source.externalOwnerId !== source.externalOwnerId ||
     artifact.source.externalStoreId !== source.externalStoreId ||
@@ -473,6 +502,13 @@ export function verifyMenuIdentityTransitionApproval(
           }
         : null,
     } satisfies MenuIdentityTransitionStaleDetails);
+  }
+  if (artifact.schemaVersion === 5) {
+    return verifyIdentityOnlyDecisions(
+      source,
+      currentAudit,
+      artifact.decisions,
+    );
   }
   const previous = new Map(
     [
@@ -682,6 +718,146 @@ export function verifyMenuIdentityTransitionApproval(
   };
 }
 
+function verifyIdentityOnlyDecisions(
+  source: MenuIdentityTransitionArtifact["source"],
+  audit: MenuIdentityTransitionAudit,
+  decisions: MenuIdentityTransitionArtifactV5["decisions"],
+): ApprovedMenuIdentityTransition {
+  if (source.provider !== "aigens") {
+    throw new Error("MENU_IDENTITY_TRANSITION_SOURCE_MISMATCH");
+  }
+  if (audit.ambiguities.length > 0) {
+    throw new Error("MENU_IDENTITY_TRANSITION_AMBIGUOUS");
+  }
+
+  const coveredPrevious = new Set<string>();
+  const coveredNext = new Set<string>();
+  const replacements: ApprovedMenuIdentityReplacement[] = [];
+  for (const decision of decisions.replacements) {
+    const candidate = audit.replacementCandidates.find(
+      (item) =>
+        item.itemId === decision.itemId &&
+        item.previous.externalProductId === decision.previousProductId &&
+        item.next.externalProductId === decision.nextProductId,
+    );
+    if (
+      !candidate ||
+      !decision.rationale.trim() ||
+      coveredPrevious.has(decision.previousProductId) ||
+      coveredNext.has(decision.nextProductId)
+    ) {
+      throw new Error("MENU_IDENTITY_TRANSITION_INVALID_DECISIONS");
+    }
+    coveredPrevious.add(decision.previousProductId);
+    coveredNext.add(decision.nextProductId);
+    replacements.push({
+      itemId: decision.itemId,
+      previousProductId: decision.previousProductId,
+      nextProductId: decision.nextProductId,
+    });
+  }
+
+  const canonicalizations: ApprovedMenuIdentityCanonicalization[] = [];
+  for (const decision of decisions.canonicalizations) {
+    const candidate = audit.canonicalizationCandidates.find(
+      (item) =>
+        item.itemId === decision.itemId &&
+        item.previous.externalProductId === decision.previousProductId &&
+        item.nextProductId === decision.nextProductId,
+    );
+    if (
+      !candidate ||
+      !decision.rationale.trim() ||
+      coveredPrevious.has(decision.previousProductId) ||
+      coveredNext.has(decision.nextProductId)
+    ) {
+      throw new Error("MENU_IDENTITY_TRANSITION_INVALID_DECISIONS");
+    }
+    coveredPrevious.add(decision.previousProductId);
+    coveredNext.add(decision.nextProductId);
+    canonicalizations.push({
+      itemId: decision.itemId,
+      previousProductId: decision.previousProductId,
+      nextProductId: decision.nextProductId,
+    });
+  }
+
+  const merges: ApprovedMenuIdentityMerge[] = [];
+  for (const decision of decisions.merges) {
+    const itemIds = [decision.survivorItemId, ...decision.mergedItemIds];
+    const candidate = audit.mergeCandidates.find(
+      (item) =>
+        item.productIdentity === decision.nextProductId &&
+        sameStringSet(
+          item.previous.map((previous) => previous.evidence.externalProductId),
+          decision.previousProductIds,
+        ) &&
+        sameStringSet(
+          item.previous.map((previous) => previous.itemId),
+          itemIds,
+        ),
+    );
+    if (
+      !candidate ||
+      decision.mergedItemIds.includes(decision.survivorItemId) ||
+      decision.duplicateVotePolicy !== "deduplicate-identical" ||
+      !decision.rationale.trim() ||
+      decision.previousProductIds.some((id) => coveredPrevious.has(id)) ||
+      coveredNext.has(decision.nextProductId)
+    ) {
+      throw new Error("MENU_IDENTITY_TRANSITION_INVALID_DECISIONS");
+    }
+    decision.previousProductIds.forEach((id) => coveredPrevious.add(id));
+    coveredNext.add(decision.nextProductId);
+    merges.push({
+      survivorItemId: decision.survivorItemId,
+      mergedItemIds: [...decision.mergedItemIds],
+      previousProductIds: [...decision.previousProductIds],
+      nextProductId: decision.nextProductId,
+      duplicateVotePolicy: decision.duplicateVotePolicy,
+    });
+  }
+
+  const expectedPrevious = new Set([
+    ...audit.replacementCandidates.map(
+      (candidate) => candidate.previous.externalProductId,
+    ),
+    ...audit.canonicalizationCandidates.map(
+      (candidate) => candidate.previous.externalProductId,
+    ),
+    ...audit.mergeCandidates.flatMap((candidate) =>
+      candidate.previous.map((item) => item.evidence.externalProductId),
+    ),
+  ]);
+  const expectedNext = new Set([
+    ...audit.replacementCandidates.map(
+      (candidate) => candidate.next.externalProductId,
+    ),
+    ...audit.canonicalizationCandidates.map(
+      (candidate) => candidate.nextProductId,
+    ),
+    ...audit.mergeCandidates.map((candidate) => candidate.productIdentity),
+  ]);
+  if (
+    !sameStringSet([...coveredPrevious], [...expectedPrevious]) ||
+    !sameStringSet([...coveredNext], [...expectedNext])
+  ) {
+    throw new Error("MENU_IDENTITY_TRANSITION_INCOMPLETE_DECISIONS");
+  }
+
+  return {
+    replacements: replacements.sort((left, right) =>
+      compareProviderText(left.nextProductId, right.nextProductId),
+    ),
+    canonicalizations: canonicalizations.sort((left, right) =>
+      compareProviderText(left.nextProductId, right.nextProductId),
+    ),
+    merges: merges.sort((left, right) =>
+      compareProviderText(left.nextProductId, right.nextProductId),
+    ),
+  };
+}
+
 /**
  * Compatibility boundary for legacy v4 identity-transition snapshots.
  * This does not grant ordinary Aigens observations removal authority.
@@ -722,8 +898,39 @@ export function parseMenuIdentityTransitionArtifact(
   const source = record(artifact?.source);
   const audit = record(artifact?.audit);
   const decisions = record(artifact?.decisions);
+  const schemaVersion = artifact?.schemaVersion;
+  const validCommonDecisions = Boolean(
+    decisions &&
+    Array.isArray(decisions.replacements) &&
+    decisions.replacements.every(validReplacementDecision) &&
+    Array.isArray(decisions.canonicalizations) &&
+    decisions.canonicalizations.every(validCanonicalizationDecision) &&
+    Array.isArray(decisions.merges) &&
+    decisions.merges.every(validMergeDecision),
+  );
+  const validVersionDecisions =
+    schemaVersion === 5
+      ? Boolean(
+          decisions &&
+          Object.keys(decisions).every((key) =>
+            ["replacements", "canonicalizations", "merges"].includes(key),
+          ),
+        )
+      : Boolean(
+          schemaVersion === 4 &&
+          decisions &&
+          validSnapshotScopeDecision(decisions.snapshotScope) &&
+          Array.isArray(decisions.additions) &&
+          decisions.additions.every(
+            (value) => typeof value === "string" && value,
+          ) &&
+          Array.isArray(decisions.removals) &&
+          decisions.removals.every(validRemovalDecision) &&
+          Array.isArray(decisions.ambiguities) &&
+          decisions.ambiguities.every(validAmbiguityDecision),
+        );
   if (
-    artifact?.schemaVersion !== 4 ||
+    (schemaVersion !== 4 && schemaVersion !== 5) ||
     !source ||
     typeof source.provider !== "string" ||
     !CANTEEN_MENU_SOURCE_PROVIDERS.includes(
@@ -739,20 +946,8 @@ export function parseMenuIdentityTransitionArtifact(
     !MENU_SNAPSHOT_COMPLETENESS.includes(
       audit.snapshotCompleteness as MenuSyncInput["snapshotCompleteness"],
     ) ||
-    !decisions ||
-    !validSnapshotScopeDecision(decisions.snapshotScope) ||
-    !Array.isArray(decisions.replacements) ||
-    !decisions.replacements.every(validReplacementDecision) ||
-    !Array.isArray(decisions.canonicalizations) ||
-    !decisions.canonicalizations.every(validCanonicalizationDecision) ||
-    !Array.isArray(decisions.merges) ||
-    !decisions.merges.every(validMergeDecision) ||
-    !Array.isArray(decisions.additions) ||
-    !decisions.additions.every((value) => typeof value === "string" && value) ||
-    !Array.isArray(decisions.removals) ||
-    !decisions.removals.every(validRemovalDecision) ||
-    !Array.isArray(decisions.ambiguities) ||
-    !decisions.ambiguities.every(validAmbiguityDecision)
+    !validCommonDecisions ||
+    !validVersionDecisions
   ) {
     throw new Error("INVALID_MENU_IDENTITY_TRANSITION_ARTIFACT");
   }

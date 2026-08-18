@@ -405,7 +405,12 @@ export async function auditMenuIdentityTransition(
   source: MenuIdentityTransitionSourceConfiguration,
   input: MenuSyncInput,
 ): Promise<MenuIdentityTransitionArtifact> {
-  assertLegacyIdentityTransitionSnapshot(source, input);
+  assertProviderSnapshotCompleteness(
+    source.provider,
+    input.snapshotCompleteness,
+    input.scopeEvidence,
+    source.externalStoreId,
+  );
   const existing = collectExistingSyncItems(
     await selectExistingItems(db, source.canteenId),
   );
@@ -438,7 +443,7 @@ export async function auditMenuIdentityTransition(
     throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
   }
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     source: {
       provider: source.provider,
       externalOwnerId: source.externalOwnerId,
@@ -447,13 +452,9 @@ export async function auditMenuIdentityTransition(
     },
     audit,
     decisions: {
-      snapshotScope: { status: "unreviewed", rationale: "" },
       replacements: [],
       canonicalizations: [],
       merges: [],
-      additions: [],
-      removals: [],
-      ambiguities: [],
     },
   };
 }
