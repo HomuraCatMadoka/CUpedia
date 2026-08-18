@@ -132,6 +132,39 @@ describe("menu sync planner", () => {
     );
   });
 
+  it("preserves all absent rows in a 154-to-67 partial observation", () => {
+    const existingItems: ExistingSyncMenuItem[] = Array.from(
+      { length: 154 },
+      (_, index) => ({
+        id: `existing-${index}`,
+        name: `菜品 ${index}`,
+        mealPeriods: ["lunch"],
+        sortOrder: index,
+        svgKey: "dish",
+        priceOptions: [],
+        menuSourceId: SOURCE_ID,
+        externalProductId: `product-${index}`,
+        isAvailable: true,
+      }),
+    );
+    const partialInput = parseMenuSyncJson({
+      snapshotCompleteness: "partial",
+      items: Array.from({ length: 67 }, (_, index) => ({
+        externalProductId: `product-${index}`,
+        name: `菜品 ${index}`,
+        mealPeriods: ["lunch"],
+        sortOrder: index,
+        svgKey: "dish",
+      })),
+    });
+
+    const plan = planMenuSync(SOURCE_ID, partialInput, existingItems);
+
+    expect(plan.actions.some((action) => action.action === "deactivate")).toBe(
+      false,
+    );
+  });
+
   it("forbids legacy takeover from a partial provider snapshot", () => {
     expect(() =>
       planMenuSync(

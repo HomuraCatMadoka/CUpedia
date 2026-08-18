@@ -45,12 +45,16 @@ same Aigens group.
    identity. Canonical category selection and price ordering make the normalized
    result independent of raw occurrence order.
 3. Every adapter labels its normalized response `complete` or `partial` from
-   verified provider semantics. Aigens parsing without an expected source is
-   partial; its source fetch may assert complete only after validating the
-   response status, requested store locator, catalog flags and declared menu
-   periods. The resulting bounded store/menu/period evidence participates in
-   transition audit and fingerprinting. Only a complete snapshot may deactivate managed
-   identities that are absent. A partial snapshot may update, create or
+   verified provider semantics. Aigens exposes the menu visible to an ordering
+   customer in the current service context, not an authoritative master
+   catalog. Its responses are therefore partial even when store, menu and all
+   declared period locators validate: an absent item may belong to another meal
+   period, be temporarily unavailable, or be omitted while the store is closed.
+   Repeated reads, `open` parameter parity, item counts and period/category/group
+   presence do not turn that observation into global inactivity evidence. The
+   bounded store/menu/period evidence remains diagnostic and participates in
+   transition audit and fingerprinting. Only a complete snapshot may deactivate
+   managed identities that are absent. A partial snapshot may update, create or
    reactivate identities that are present, but preserves absent rows unchanged.
    Completeness participates in preview and snapshot fingerprints; it is never
    inferred from counts, time, thresholds or provider branching inside
@@ -116,10 +120,10 @@ same Aigens group.
 - An approved identity transition becomes stale whenever the source or either
   audited menu projection changes. Operators must regenerate and review it;
   they cannot silently carry approval forward to a later provider snapshot.
-- A partial provider response cannot retire a dish merely because that dish is
-  outside the current service or availability window. This can retain stale
-  offerings until a complete source or separate reviewed retirement policy
-  supplies removal evidence.
+- A partial provider response cannot make a dish globally inactive merely
+  because it is outside the current service or availability window. This can
+  retain stale offerings until a source with authoritative catalog semantics
+  supplies absence evidence.
 - Identity backfill and audited canteen provisioning use versioned Drizzle
   custom migrations because they must update existing UUID-addressed rows in
   place; generated schema DDL alone cannot express those data decisions.

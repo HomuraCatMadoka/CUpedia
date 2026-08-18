@@ -884,7 +884,7 @@ describe("menu identity transition audit", () => {
     ]);
   });
 
-  it("rejects completeness that contradicts the reviewed provider", () => {
+  it("rejects completeness that differs from the reviewed artifact", () => {
     const artifact = parseMenuIdentityTransitionArtifact(transitionFixture);
 
     expect(() =>
@@ -901,7 +901,7 @@ describe("menu identity transition audit", () => {
         artifact,
         "partial",
       ),
-    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+    ).toThrow("MENU_IDENTITY_TRANSITION_STALE");
   });
 
   it("rejects promoting a partial PinMe snapshot to complete", () => {

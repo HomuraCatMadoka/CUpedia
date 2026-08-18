@@ -31,9 +31,7 @@ export function buildAigensMenuSyncPayload(
   assertProviderMenuIdentityItems("aigens", items);
 
   return {
-    snapshotCompleteness: scopeEvidence
-      ? expectedMenuSnapshotCompleteness("aigens")
-      : "partial",
+    snapshotCompleteness: expectedMenuSnapshotCompleteness("aigens"),
     takeOverLegacyItems: false,
     items,
     ...(scopeEvidence ? { scopeEvidence } : {}),

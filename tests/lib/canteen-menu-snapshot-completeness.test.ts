@@ -10,7 +10,7 @@ import { parseMenuSyncJson } from "@/lib/canteen-types";
 describe("menu snapshot completeness", () => {
   it("defines completeness at the provider boundary", () => {
     expect(expectedMenuSnapshotCompleteness("pinme")).toBe("partial");
-    expect(expectedMenuSnapshotCompleteness("aigens")).toBe("complete");
+    expect(expectedMenuSnapshotCompleteness("aigens")).toBe("partial");
     expect(expectedMenuSnapshotCompleteness("ichef")).toBe("complete");
     expect(expectedMenuSnapshotCompleteness("qmai")).toBe("complete");
 
@@ -20,12 +20,15 @@ describe("menu snapshot completeness", () => {
     expect(() =>
       assertProviderSnapshotCompleteness("pinme", "partial"),
     ).not.toThrow();
+    expect(() =>
+      assertProviderSnapshotCompleteness("aigens", "partial"),
+    ).not.toThrow();
   });
 
-  it("requires validated scope evidence before Aigens can remove absent items", () => {
+  it("does not promote an Aigens ordering observation with diagnostic scope", () => {
     expect(() =>
       assertProviderSnapshotCompleteness("aigens", "complete"),
-    ).toThrow("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
     expect(() =>
       assertProviderSnapshotCompleteness(
         "aigens",
@@ -42,11 +45,11 @@ describe("menu snapshot completeness", () => {
         },
         "102830",
       ),
-    ).not.toThrow();
+    ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
     expect(() =>
       assertProviderSnapshotCompleteness(
         "aigens",
-        "complete",
+        "partial",
         {
           provider: "aigens",
           externalStoreId: "102830",

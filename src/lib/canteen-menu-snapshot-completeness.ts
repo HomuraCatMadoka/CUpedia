@@ -5,8 +5,8 @@ export const MENU_SNAPSHOT_COMPLETENESS = ["complete", "partial"] as const;
 export type MenuSnapshotCompleteness =
   (typeof MENU_SNAPSHOT_COMPLETENESS)[number];
 
-const PROVIDER_SNAPSHOT_COMPLETENESS = {
-  aigens: "complete",
+const PROVIDER_DEFAULT_SNAPSHOT_COMPLETENESS = {
+  aigens: "partial",
   ichef: "complete",
   pinme: "partial",
   qmai: "complete",
@@ -18,7 +18,7 @@ const PROVIDER_SNAPSHOT_COMPLETENESS = {
 export function expectedMenuSnapshotCompleteness(
   provider: CanteenMenuSourceProvider,
 ): MenuSnapshotCompleteness {
-  return PROVIDER_SNAPSHOT_COMPLETENESS[provider];
+  return PROVIDER_DEFAULT_SNAPSHOT_COMPLETENESS[provider];
 }
 
 export function assertProviderSnapshotCompleteness(
@@ -30,12 +30,20 @@ export function assertProviderSnapshotCompleteness(
   if (actual !== expectedMenuSnapshotCompleteness(provider)) {
     throw new Error("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
   }
-  if (provider === "aigens" && scopeEvidence?.provider !== "aigens") {
-    throw new Error("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+  if (scopeEvidence) {
+    assertProviderSnapshotScope(provider, scopeEvidence, externalStoreId);
   }
+}
+
+export function assertProviderSnapshotScope(
+  provider: CanteenMenuSourceProvider,
+  scopeEvidence: MenuSnapshotScopeEvidence,
+  externalStoreId?: string,
+): void {
   if (
-    provider === "aigens" &&
-    scopeEvidence?.externalStoreId !== externalStoreId
+    provider !== "aigens" ||
+    scopeEvidence.provider !== "aigens" ||
+    scopeEvidence.externalStoreId !== externalStoreId
   ) {
     throw new Error("MENU_SNAPSHOT_SCOPE_EVIDENCE_MISMATCH");
   }
