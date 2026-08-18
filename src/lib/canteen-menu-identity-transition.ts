@@ -723,9 +723,6 @@ function verifyIdentityOnlyDecisions(
   audit: MenuIdentityTransitionAudit,
   decisions: MenuIdentityTransitionArtifactV5["decisions"],
 ): ApprovedMenuIdentityTransition {
-  if (source.provider !== "aigens") {
-    throw new Error("MENU_IDENTITY_TRANSITION_SOURCE_MISMATCH");
-  }
   if (audit.ambiguities.length > 0) {
     throw new Error("MENU_IDENTITY_TRANSITION_AMBIGUOUS");
   }
@@ -766,6 +763,7 @@ function verifyIdentityOnlyDecisions(
         item.nextProductId === decision.nextProductId,
     );
     if (
+      source.provider !== "aigens" ||
       !candidate ||
       !decision.rationale.trim() ||
       coveredPrevious.has(decision.previousProductId) ||
@@ -798,6 +796,7 @@ function verifyIdentityOnlyDecisions(
         ),
     );
     if (
+      source.provider !== "aigens" ||
       !candidate ||
       decision.mergedItemIds.includes(decision.survivorItemId) ||
       decision.duplicateVotePolicy !== "deduplicate-identical" ||
