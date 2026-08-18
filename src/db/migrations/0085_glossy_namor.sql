@@ -1,0 +1,1 @@
+ALTER TABLE "course_ratings" ADD COLUMN "first_submitted_at" timestamp;

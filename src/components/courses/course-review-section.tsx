@@ -45,7 +45,9 @@ export function CourseReviewSection({
   targetReplyId?: string;
   targetReplyOffset?: number;
 }) {
-  const [selectedProfessorId, setSelectedProfessorId] = useState("");
+  const [selectedProfessorId, setSelectedProfessorId] = useState(
+    () => prefillProfessor?.id ?? "",
+  );
   const [visibleReviewLimit, setVisibleReviewLimit] = useState(() => {
     const targetIndex = reviews.findIndex(
       (review) => review.id === targetReviewId,
@@ -60,10 +62,78 @@ export function CourseReviewSection({
       ?.scrollIntoView?.({ block: "center" });
   }, [targetReviewId]);
 
-  const activeProfessorId = targetReviewId ? "" : selectedProfessorId;
-  const selectedProfessor = professorStats.find(
-    (item) => item.id === activeProfessorId,
+  const reviewedProfessorIds = new Set<string>();
+  for (const review of reviews) {
+    if (review.professors?.length) {
+      for (const professor of review.professors) {
+        reviewedProfessorIds.add(professor.id);
+      }
+    } else if (review.professorId) {
+      reviewedProfessorIds.add(review.professorId);
+    }
+  }
+  const filterProfessors = professorStats.filter(
+    (item) => item.ratingCount > 0 || reviewedProfessorIds.has(item.id),
   );
+  const evaluatedProfessorIds = new Set(reviewedProfessorIds);
+  const filterProfessorIds = new Set(
+    filterProfessors.map((professor) => professor.id),
+  );
+  for (const professor of professorStats) {
+    if (professor.ratingCount > 0) evaluatedProfessorIds.add(professor.id);
+  }
+  for (const review of reviews) {
+    const candidates = review.professors?.length
+      ? review.professors
+      : review.professorId
+        ? [
+            {
+              id: review.professorId,
+              name: review.professorName ?? review.professorId,
+            },
+          ]
+        : [];
+    for (const candidate of candidates) {
+      if (filterProfessorIds.has(candidate.id)) continue;
+      const fromStats = professorStats.find((item) => item.id === candidate.id);
+      filterProfessors.push(
+        fromStats ?? {
+          id: candidate.id,
+          name: candidate.name,
+          rating: null,
+          ratingCount: 0,
+          terms: [],
+          tags: [],
+        },
+      );
+      filterProfessorIds.add(candidate.id);
+    }
+  }
+  if (prefillProfessor && !filterProfessorIds.has(prefillProfessor.id)) {
+    const fromStats = professorStats.find(
+      (item) => item.id === prefillProfessor.id,
+    );
+    filterProfessors.push(
+      fromStats ?? {
+        id: prefillProfessor.id,
+        publicId: prefillProfessor.publicId,
+        name: prefillProfessor.name,
+        rating: null,
+        ratingCount: 0,
+        terms: [],
+        tags: [],
+      },
+    );
+    filterProfessorIds.add(prefillProfessor.id);
+  }
+  const prefillHasEvaluation = prefillProfessor
+    ? evaluatedProfessorIds.has(prefillProfessor.id)
+    : false;
+
+  const activeProfessorId = targetReviewId ? "" : selectedProfessorId;
+  const selectedProfessor =
+    filterProfessors.find((item) => item.id === activeProfessorId) ??
+    professorStats.find((item) => item.id === activeProfessorId);
   const visibleReviews = selectedProfessor
     ? reviews.filter((review) =>
         review.professors?.length
@@ -139,15 +209,18 @@ export function CourseReviewSection({
                 setShowAllTermYears(false);
                 setVisibleReviewLimit(INITIAL_REVIEW_LIMIT);
               }}
-              disabled={professorStats.length === 0}
+              disabled={filterProfessors.length === 0}
               className="h-9 w-full rounded-md border border-black/10 bg-background px-3 text-sm font-normal text-foreground outline-none transition-colors hover:border-black/20 focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">
-                {professorStats.length ? "全部教授" : "暂无教授记录"}
+                {filterProfessors.length ? "全部教授" : "暂无教授评价"}
               </option>
-              {professorStats.map((item) => (
+              {filterProfessors.map((item) => (
                 <option key={item.id} value={item.id}>
                   {formatProfessorNameText(item.name)}
+                  {item.id === prefillProfessor?.id && !prefillHasEvaluation
+                    ? "（暂无评价）"
+                    : ""}
                 </option>
               ))}
             </select>

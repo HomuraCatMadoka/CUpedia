@@ -720,6 +720,8 @@ export const courseRatings = pgTable(
     isAnonymous: boolean("is_anonymous").notNull().default(false),
     /** Last time this user rated this course (refreshed on each upsert). */
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    /** First submission time for calendar-window growth metrics. */
+    firstSubmittedAt: timestamp("first_submitted_at"),
   },
   // One rating row per (course, user): a re-rate updates it in place (upsert),
   // so the aggregate is one-vote-per-user. Leading course_code also serves the
