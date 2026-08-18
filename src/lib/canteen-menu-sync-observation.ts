@@ -107,12 +107,15 @@ export function isSuspiciousMenuIdentityChurn(
   existingCount: number,
   snapshotCompleteness: MenuSnapshotCompleteness,
 ): boolean {
-  const changed = snapshotAbsenceIsEvidence(snapshotCompleteness)
-    ? Math.max(observation.newProductCount, observation.missingProductCount)
-    : observation.newProductCount;
+  if (observation.suspectedReplacementCount > 0) return true;
+  if (!snapshotAbsenceIsEvidence(snapshotCompleteness)) return false;
+
+  const changed = Math.max(
+    observation.newProductCount,
+    observation.missingProductCount,
+  );
   return (
-    observation.suspectedReplacementCount > 0 ||
-    (changed >= MIN_CHURN_COUNT &&
-      changed * 100 >= existingCount * CHURN_RATIO_PERCENT)
+    changed >= MIN_CHURN_COUNT &&
+    changed * 100 >= existingCount * CHURN_RATIO_PERCENT
   );
 }

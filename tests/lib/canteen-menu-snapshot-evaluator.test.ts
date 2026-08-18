@@ -210,6 +210,68 @@ describe("menu snapshot evaluator", () => {
     expect(result.blockingDecision.blocked).toBe(false);
   });
 
+  it("treats a pure addition surge in a partial observation as ordinary growth", () => {
+    const persisted = ["old-a"].map((externalProductId, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId,
+        name: `旧时段菜品 ${index}`,
+      }),
+    );
+    const result = evaluateMenuSnapshot(
+      SOURCE,
+      {
+        ...snapshot(
+          ["new-a", "new-b", "new-c"].map((externalProductId, index) => ({
+            externalProductId,
+            name: `新时段菜品 ${index}`,
+          })),
+        ),
+        snapshotCompleteness: "partial",
+      },
+      persisted,
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 3,
+      missingProductCount: 1,
+      suspectedReplacementCount: 0,
+    });
+    expect(
+      result.plan.actions.filter((action) => action.action === "create"),
+    ).toHaveLength(3);
+    expect(
+      result.plan.actions.some((action) => action.action === "deactivate"),
+    ).toBe(false);
+    expect(result.blockingReasons).toEqual([]);
+    expect(result.blockingDecision.blocked).toBe(false);
+  });
+
+  it("still blocks a same-name identity replacement in a partial observation", () => {
+    const result = evaluateMenuSnapshot(
+      SOURCE,
+      {
+        ...snapshot([{ externalProductId: "new-product", name: "同一道菜" }]),
+        snapshotCompleteness: "partial",
+      },
+      [
+        existing({
+          externalProductId: "old-product",
+          name: "同一道菜",
+        }),
+      ],
+    );
+
+    expect(result.identityObservation.suspectedReplacementCount).toBe(1);
+    expect(result.blockingDecision).toMatchObject({
+      blocked: true,
+      code: "MENU_SYNC_IDENTITY_CHURN",
+    });
+    expect(
+      result.plan.actions.some((action) => action.action === "deactivate"),
+    ).toBe(false);
+  });
+
   it("retains every independently applicable blocking reason", () => {
     const persisted = ["old-a", "old-b", "old-c", "old-d"].map(
       (externalProductId, index) =>
