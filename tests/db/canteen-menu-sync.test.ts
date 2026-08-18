@@ -833,6 +833,98 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     expect(retry.plan.unchanged).toBe(2);
   });
 
+  it("applies reviewed PinMe addition churn without deactivating absent dishes", async () => {
+    const absentItemIds = [randomUUID(), randomUUID(), randomUUID()];
+    await db
+      .update(canteenMenuSources)
+      .set({ provider: "pinme", externalStoreId: "4898" })
+      .where(eq(canteenMenuSources.id, sourceId));
+    await db
+      .update(canteenMenuItems)
+      .set({ menuSourceId: sourceId, externalProductId: "existing-visible" })
+      .where(eq(canteenMenuItems.id, itemId));
+    await db.insert(canteenMenuItems).values(
+      absentItemIds.map((id, index) => ({
+        id,
+        canteenId,
+        name: `本次未出现的菜品 ${index + 1}`,
+        mealPeriods: ["lunch" as const],
+        svgKey: "other",
+        menuSourceId: sourceId,
+        externalProductId: `existing-absent-${index + 1}`,
+      })),
+    );
+    const input = {
+      snapshotCompleteness: "partial" as const,
+      takeOverLegacyItems: false,
+      items: [
+        {
+          externalProductId: "existing-visible",
+          name: "演示菜品 A",
+          mealPeriods: ["lunch" as const],
+          sortOrder: 0,
+          svgKey: "drink",
+          priceOptions: [],
+        },
+        ...[1, 2, 3].map((number) => ({
+          externalProductId: `new-product-${number}`,
+          name: `新增菜品 ${number}`,
+          mealPeriods: ["lunch" as const],
+          sortOrder: number,
+          svgKey: "other",
+          priceOptions: [],
+        })),
+      ],
+    };
+    const source = {
+      id: sourceId,
+      canteenId,
+      provider: "pinme" as const,
+      externalOwnerId: null,
+      externalStoreId: "4898",
+      config: {},
+      enabled: true,
+      legacyTakeoverAt: null,
+    };
+    const artifact = await auditMenuIdentityTransition(source, input);
+    expect(artifact.audit.summary).toMatchObject({
+      additionCount: 3,
+      removalCount: 3,
+      ambiguityCount: 0,
+    });
+
+    const transition = await applyApprovedMenuIdentityTransition(
+      sourceId,
+      input,
+      artifact,
+    );
+    expect(
+      transition.plan.actions.filter((action) => action.action === "create"),
+    ).toHaveLength(3);
+    expect(
+      transition.plan.actions.filter(
+        (action) => action.action === "deactivate",
+      ),
+    ).toHaveLength(0);
+
+    const persisted = await db
+      .select({ isAvailable: canteenMenuItems.isAvailable })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.canteenId, canteenId));
+    expect(persisted).toHaveLength(7);
+    expect(persisted.every((item) => item.isAvailable)).toBe(true);
+
+    const retryPreview = await previewMenuSync(sourceId, input);
+    expect(retryPreview.blockingDecision.blocked).toBe(false);
+    const retry = await applyPreviewedMenuSync(
+      sourceId,
+      input,
+      retryPreview.previewToken,
+    );
+    expect(retry.plan.actions).toEqual([]);
+    expect(retry.plan.unchanged).toBe(4);
+  });
+
   it("merges reviewed Aigens period UUIDs and preserves deduplicated history", async () => {
     const mergedItemId = randomUUID();
     const retiredItemId = randomUUID();
