@@ -144,31 +144,33 @@ All 14 original behaviors remain mapped:
 Existing lighter-layer coverage, including the Campus Bus mapping in
 `docs/campus-bus/test-coverage.md`, remains included by the full unit command.
 
-## First-pass validation (before test-layer split)
+## Final five-run validation
 
-GitHub Actions run `32038048327` was rerun five consecutive times at commit
-`77e36a781212c5aa103566039e1d1ceb292cb7fa`. Every attempt completed successfully
-with Playwright retries fixed at zero.
+GitHub Actions run `32099935361` was rerun five consecutive times at commit
+`6299b7fb648ab5a92d073be198161e02c55cd981`. Every attempt completed successfully
+with Playwright retries fixed at zero. Durations below are GitHub job durations,
+so the runner total includes setup, real PostgreSQL, and test execution.
 
-| Attempt    | Runner seconds | Wall seconds |  Build | Quality | Chromium general | Chromium media | WebKit risk |
-| ---------- | -------------: | -----------: | -----: | ------: | ---------------: | -------------: | ----------: |
-| 1          |            840 |          317 |     62 |     185 |              253 |            252 |          88 |
-| 2          |            792 |          312 |     68 |     177 |              242 |            217 |          88 |
-| 3          |            831 |          339 |     83 |     191 |              254 |            216 |          87 |
-| 4          |            863 |          350 |     73 |     180 |              275 |            250 |          85 |
-| 5          |            851 |          337 |     73 |     173 |              262 |            248 |          95 |
-| **Median** |        **840** |      **337** | **73** | **180** |          **254** |        **248** |      **88** |
+| Attempt    | Runner seconds | E2E runner seconds | Wall seconds |  Build | Quality | Chromium general | Chromium media | Balanced + WebKit |
+| ---------- | -------------: | -----------------: | -----------: | -----: | ------: | ---------------: | -------------: | ----------------: |
+| 1          |            865 |                597 |          297 |     85 |     183 |              184 |            203 |               210 |
+| 2          |            848 |                600 |          289 |     74 |     174 |              178 |            211 |               211 |
+| 3          |            843 |                579 |          290 |     78 |     186 |              160 |            209 |               210 |
+| 4          |            813 |                555 |          272 |     73 |     185 |              163 |            197 |               195 |
+| 5          |            861 |                594 |          285 |     72 |     195 |              185 |            198 |               211 |
+| **Median** |        **848** |            **594** |      **289** | **74** | **185** |          **178** |        **203** |           **210** |
 
-The median runner total is 840 seconds (budget: at most 900) and median wall
-time is 337 seconds (budget: at most 360). The median browser-test steps were
-217 seconds for Chromium general, 201 seconds for Chromium media, and 29
-seconds for WebKit risk. The two Chromium job medians differ by six seconds.
+The median runner total is 848 seconds (budget: at most 900) and median wall
+time is 289 seconds (budget: at most 360). CI has five job executions and three
+E2E runners. The median browser-test steps were 121 seconds for Chromium
+general, 153 seconds for Chromium media, and 150 seconds for balanced Chromium
+plus WebKit risk. The Chromium-only test steps differ by 32 seconds; the third
+runner stays within 29 seconds of the general shard while also carrying WebKit.
 
-All five complete logs were scanned for Playwright flaky, retry, retrying, and
-failed-result markers; none were present. The job metadata also records every
-job and test step as successful on its first execution. Across all five logs,
+All five complete logs were scanned for Playwright retry-number, flaky,
+failed-summary, and passed-on-retry markers; none were present. GitHub metadata
+records every job and browser-test step as successful on its first execution.
+Across all five attempts, the Chromium browser install took 5-8 seconds; the
+third runner used the official Playwright image and had no install step.
 `Start MinIO` occurs only under `chromium-wiki-media`; the other browser runners
-use PostgreSQL without starting object storage.
-
-The 269-test, three-way Chromium split requires a fresh five-run validation;
-the historical sequence above does not claim timing for the new split.
+use real PostgreSQL without starting object storage.
