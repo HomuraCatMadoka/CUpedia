@@ -10,7 +10,12 @@ import { test, expect } from "@playwright/test";
 
 const ADMIN_EMAIL = "admin@test.com";
 const ADMIN_PASSWORD = "password123";
-const ADMIN_ROUTES = ["/admin/users", "/admin/deleted", "/admin/settings"];
+const ADMIN_ROUTES = [
+  "/admin",
+  "/admin/users",
+  "/admin/deleted",
+  "/admin/settings",
+];
 
 test("admin shell renders on every admin route", async ({ page }) => {
   await page.goto("/login");
@@ -23,5 +28,12 @@ test("admin shell renders on every admin route", async ({ page }) => {
     const res = await page.goto(route);
     expect(res?.status(), `${route} should not 500`).toBe(200);
     await expect(page.getByText("管理后台")).toBeVisible();
+    if (route === "/admin") {
+      await expect(page.getByText("近 7 日新增评价")).toBeVisible();
+      await expect(page.getByText("评价总数", { exact: true })).toBeVisible();
+      await expect(page.getByText("含文字评价", { exact: true })).toBeVisible();
+      await expect(page.getByText("仅评分", { exact: true })).toBeVisible();
+      await expect(page.getByText("科目总数", { exact: true })).toBeVisible();
+    }
   }
 });

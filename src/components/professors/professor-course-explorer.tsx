@@ -73,7 +73,7 @@ export function ProfessorCourseExplorer({
   );
 
   function courseHref(code: string) {
-    return `/courses/${encodeURIComponent(code)}?from=${encodeURIComponent(detailPath)}`;
+    return `/courses/${encodeURIComponent(code)}?professor=${professor.publicId}&from=${encodeURIComponent(detailPath)}#peer-reviews`;
   }
 
   function reviewHref(code: string) {

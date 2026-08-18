@@ -25,6 +25,7 @@ const mockAssertContributorComplete = vi.hoisted(() => vi.fn());
 
 const {
   mockRequireAuth,
+  mockRequireAdmin,
   mockGetOptionalUser,
   dbQueue,
   dbSelect,
@@ -60,6 +61,7 @@ const {
     Promise.resolve(queue.length ? queue.shift() : []).then(onF, onR);
   return {
     mockRequireAuth: vi.fn(),
+    mockRequireAdmin: vi.fn(),
     mockGetOptionalUser: vi.fn(),
     dbQueue: queue,
     dbSelect: vi.fn(() => chain),
@@ -90,6 +92,7 @@ vi.mock("next/cache", () => ({
 }));
 vi.mock("@/lib/auth-guard", () => ({
   requireAuth: (...a: unknown[]) => mockRequireAuth(...a),
+  requireAdmin: (...a: unknown[]) => mockRequireAdmin(...a),
   getOptionalUser: (...a: unknown[]) => mockGetOptionalUser(...a),
 }));
 vi.mock("@/lib/contributor-account", () => ({
@@ -136,6 +139,7 @@ import {
   getCourseProfessorStats,
   searchProfessors,
   getCourseEnrollmentHistory,
+  getCourseReviewAdminStats,
   getMyCourseReviewHistory,
 } from "@/lib/course-review-actions";
 import { formatCourseCode } from "@/app/(main)/courses/course-types";
@@ -153,6 +157,23 @@ const COURSE = {
 /** Queue rows that successive `await db…` calls will resolve to, in order. */
 function queueRows(...rows: unknown[]) {
   dbQueue.push(...rows);
+}
+
+function queryResult(rows: unknown[]) {
+  const chain: Record<string, unknown> = {};
+  for (const method of [
+    "from",
+    "where",
+    "limit",
+    "orderBy",
+    "groupBy",
+    "leftJoin",
+  ]) {
+    chain[method] = vi.fn(() => chain);
+  }
+  chain.then = (resolve: (value: unknown[]) => unknown) =>
+    Promise.resolve(rows).then(resolve);
+  return chain as typeof dbChain;
 }
 
 function sqlText(value: unknown): string {
@@ -181,6 +202,7 @@ beforeEach(() => {
   professorSearchCache.clear();
   resetSensitiveMatcherForTests([]);
   mockRequireAuth.mockResolvedValue({ id: "u1", role: "user" });
+  mockRequireAdmin.mockResolvedValue({ id: "admin", role: "admin" });
   mockAssertContributorComplete.mockImplementation(async (user) => user);
   mockGetOptionalUser.mockResolvedValue(null);
   mockGetAchievementSummaries.mockResolvedValue(new Map());
@@ -575,8 +597,12 @@ describe("submitCourseReview", () => {
         instructorPersonId: "person-1",
         professorNameSnapshot: "Professor CHAN",
         isAnonymous: false,
+        firstSubmittedAt: expect.anything(),
       }),
     );
+    expect(
+      (dbChain.onConflictDoUpdate as Mock).mock.calls[0]?.[0]?.set,
+    ).not.toHaveProperty("firstSubmittedAt");
     expect(mockRebindAchievementEvidence).toHaveBeenCalledWith(
       expect.anything(),
       "u1",
@@ -1843,6 +1869,32 @@ describe("getSubjects", () => {
       { subject: "ELED", name: "English Language Education", count: 17 },
       { subject: "ELEG", name: "Electronic Engineering", count: 32 },
     ]);
+  });
+});
+
+describe("getCourseReviewAdminStats", () => {
+  it("returns rating, written-review, and rating-only totals", async () => {
+    dbSelect
+      .mockImplementationOnce(() => queryResult([{ value: 3 }]))
+      .mockImplementationOnce(() =>
+        queryResult([{ total: 12, withText: 7, ratingOnly: 5 }]),
+      )
+      .mockImplementationOnce(() =>
+        queryResult([
+          { subject: "CSCI", nameEn: "Computer Science", count: 10 },
+          { subject: "MATH", nameEn: "Mathematics", count: 8 },
+        ]),
+      );
+
+    await expect(getCourseReviewAdminStats()).resolves.toEqual({
+      recentWindowDays: 7,
+      recentEvaluationCount: 3,
+      totalEvaluationCount: 12,
+      withTextReviewCount: 7,
+      ratingOnlyCount: 5,
+      totalSubjectCount: 2,
+    });
+    expect(mockRequireAdmin).toHaveBeenCalledOnce();
   });
 });
 

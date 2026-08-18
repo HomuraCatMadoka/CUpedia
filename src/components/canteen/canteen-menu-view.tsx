@@ -71,6 +71,21 @@ type MenuDataByPeriod = Record<MealPeriod, PeriodMenuData>;
 
 const EMPTY_COMMENT_COUNTS: Record<string, number> = {};
 const MIN_REPUTATION_VOTES = 5;
+/** First paint only mounts this many dish rows; more load as the user scrolls. */
+export const MENU_INITIAL_VISIBLE_COUNT = 15;
+const MENU_VISIBLE_PAGE_SIZE = 15;
+
+type MenuRevealTarget =
+  | { kind: "item"; id: string }
+  | { kind: "section"; svgKey: string };
+
+type VisibleMenuSection = {
+  svgKey: string;
+  label: string;
+  /** Full section size (for the heading), may exceed mounted `items`. */
+  totalCount: number;
+  items: CanteenMenuItem[];
+};
 
 function pickInitialPeriod(
   available: MealPeriod[],
@@ -79,6 +94,52 @@ function pickInitialPeriod(
   if (available.length === 0) return preferred;
   if (available.includes(preferred)) return preferred;
   return available[0]!;
+}
+
+function countItemsToMountSection(
+  sections: MenuSection[],
+  svgKey: string,
+): number {
+  let countBeforeSection = 0;
+  for (const section of sections) {
+    if (section.svgKey === svgKey) {
+      return countBeforeSection + Math.min(1, section.items.length);
+    }
+    countBeforeSection += section.items.length;
+  }
+  return 0;
+}
+
+function indexOfMenuItem(sections: MenuSection[], itemId: string): number {
+  let index = 0;
+  for (const section of sections) {
+    for (const item of section.items) {
+      if (item.id === itemId) return index;
+      index += 1;
+    }
+  }
+  return -1;
+}
+
+function visibleMenuSections(
+  sections: MenuSection[],
+  limit: number,
+): VisibleMenuSection[] {
+  let remaining = limit;
+  const visible: VisibleMenuSection[] = [];
+  for (const section of sections) {
+    if (remaining <= 0) break;
+    const items = section.items.slice(0, remaining);
+    if (items.length === 0) continue;
+    visible.push({
+      svgKey: section.svgKey,
+      label: section.label,
+      totalCount: section.items.length,
+      items,
+    });
+    remaining -= items.length;
+  }
+  return visible;
 }
 
 function buildMenuDataByPeriod(items: CanteenMenuItem[]): MenuDataByPeriod {
@@ -121,6 +182,8 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
   liveVoteCounts,
   liveMyVotes,
   commentCounts,
+  revealTarget,
+  onRevealHandled,
   onVoteChange,
   onOpenDetails,
 }: {
@@ -130,6 +193,8 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
   liveVoteCounts: Record<string, MenuItemVoteCounts>;
   liveMyVotes: Record<string, VoteChoice>;
   commentCounts: Record<string, number>;
+  revealTarget: MenuRevealTarget | null;
+  onRevealHandled: () => void;
   onVoteChange: (
     itemId: string,
     prevVote: VoteChoice,
@@ -138,6 +203,54 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
   onOpenDetails: (item: CanteenMenuItem) => void;
 }) {
   const { items: periodItems, sections } = menuDataByPeriod[period];
+  const [loadedCount, setLoadedCount] = useState(MENU_INITIAL_VISIBLE_COUNT);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  const revealFloor = useMemo(() => {
+    if (!revealTarget) return 0;
+    if (revealTarget.kind === "item") {
+      const index = indexOfMenuItem(sections, revealTarget.id);
+      return index >= 0 ? index + 1 : 0;
+    }
+    return countItemsToMountSection(sections, revealTarget.svgKey);
+  }, [revealTarget, sections]);
+
+  if (revealFloor > loadedCount) {
+    setLoadedCount(revealFloor);
+  }
+
+  const visibleCount = Math.min(
+    periodItems.length,
+    Math.max(loadedCount, MENU_INITIAL_VISIBLE_COUNT),
+  );
+  const hasMore = visibleCount < periodItems.length;
+  const mountedSections = useMemo(
+    () => visibleMenuSections(sections, visibleCount),
+    [sections, visibleCount],
+  );
+
+  useLayoutEffect(() => {
+    if (!revealTarget) return;
+    onRevealHandled();
+  }, [revealTarget, onRevealHandled]);
+
+  useEffect(() => {
+    if (view !== "menu" || !hasMore) return;
+    const node = loadMoreRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setLoadedCount((current) =>
+          Math.min(periodItems.length, current + MENU_VISIBLE_PAGE_SIZE),
+        );
+      },
+      { rootMargin: "240px 0px", threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [view, hasMore, periodItems.length, visibleCount]);
 
   const periodCounts = useMemo(() => {
     const out: Record<string, MenuItemVoteCounts> = {};
@@ -186,7 +299,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
         role="tabpanel"
         aria-labelledby="canteen-view-tab-menu"
       >
-        {sections.map((section) => (
+        {mountedSections.map((section) => (
           <section
             key={section.svgKey}
             data-menu-section-key={section.svgKey}
@@ -201,7 +314,7 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
             >
               {section.label}
               <span className="text-xs font-normal tabular-nums text-[var(--canteen-muted)]">
-                {section.items.length} 款
+                {section.totalCount} 款
               </span>
             </h2>
             <ul className="canteen-menu-list">
@@ -219,6 +332,30 @@ const CanteenMenuContent = memo(function CanteenMenuContent({
             </ul>
           </section>
         ))}
+        {hasMore ? (
+          <div
+            ref={loadMoreRef}
+            className="flex flex-col items-center gap-2 px-1 py-6"
+          >
+            <p className="text-xs text-[var(--canteen-muted)]">
+              已显示 {visibleCount} / {periodItems.length} 道菜
+            </p>
+            <button
+              type="button"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-[var(--canteen-line)] bg-[var(--canteen-surface)] px-4 text-sm font-medium text-[var(--canteen-ink)] transition-colors hover:bg-[var(--canteen-fill)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--canteen-focus)]"
+              onClick={() =>
+                setLoadedCount((current) =>
+                  Math.min(
+                    periodItems.length,
+                    current + MENU_VISIBLE_PAGE_SIZE,
+                  ),
+                )
+              }
+            >
+              加载更多
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -413,6 +550,11 @@ export function CanteenMenuView({
   const [finderOpen, setFinderOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [revealTarget, setRevealTarget] = useState<MenuRevealTarget | null>(
+    null,
+  );
+  const [menuRevealEpoch, setMenuRevealEpoch] = useState(0);
+  const pendingNavigateRef = useRef<MenuRevealTarget | null>(null);
   const [liveVoteCounts, setLiveVoteCounts] =
     useState<Record<string, MenuItemVoteCounts>>(voteCounts);
   const [liveMyVotes, setLiveMyVotes] =
@@ -507,6 +649,7 @@ export function CanteenMenuView({
   }, [
     getSectionElement,
     getStickyToolbarBottom,
+    menuRevealEpoch,
     period,
     selectedSections,
     view,
@@ -609,6 +752,9 @@ export function CanteenMenuView({
       view === "menu" && targetSection
         ? { period: nextPeriod, sectionKey: targetSection }
         : null;
+    if (view === "menu" && targetSection) {
+      setRevealTarget({ kind: "section", svgKey: targetSection });
+    }
     setActiveSection(targetSection ?? "all");
     setPeriod(nextPeriod);
   }
@@ -666,29 +812,44 @@ export function CanteenMenuView({
     [getStickyToolbarBottom],
   );
 
-  const navigateToSection = useCallback(
-    (svgKey: MenuSection["svgKey"]) => {
-      const section = getSectionElement(svgKey);
-      const heading = document.getElementById(`canteen-section-${svgKey}`);
+  const handleRevealHandled = useCallback(() => {
+    const pending = pendingNavigateRef.current;
+    pendingNavigateRef.current = null;
+    setRevealTarget(null);
+    setMenuRevealEpoch((epoch) => epoch + 1);
+    if (!pending) return;
+
+    requestAnimationFrame(() => {
+      if (pending.kind === "item") {
+        navigateToElement(
+          document.getElementById(`canteen-menu-item-${pending.id}`),
+          30,
+        );
+        return;
+      }
+      const section = getSectionElement(pending.svgKey);
+      const heading = document.getElementById(
+        `canteen-section-${pending.svgKey}`,
+      );
       trackMenuPositionRef.current = false;
-      setActiveSection(svgKey);
+      setActiveSection(pending.svgKey);
       navigateToElement(section ?? null, 0, false, heading, () => {
         requestAnimationFrame(() => {
           trackMenuPositionRef.current = true;
         });
       });
-    },
-    [getSectionElement, navigateToElement],
-  );
+    });
+  }, [getSectionElement, navigateToElement]);
 
-  const navigateToItem = useCallback(
-    (itemId: string) =>
-      navigateToElement(
-        document.getElementById(`canteen-menu-item-${itemId}`),
-        30,
-      ),
-    [navigateToElement],
-  );
+  const navigateToSection = useCallback((svgKey: MenuSection["svgKey"]) => {
+    pendingNavigateRef.current = { kind: "section", svgKey };
+    setRevealTarget({ kind: "section", svgKey });
+  }, []);
+
+  const navigateToItem = useCallback((itemId: string) => {
+    pendingNavigateRef.current = { kind: "item", id: itemId };
+    setRevealTarget({ kind: "item", id: itemId });
+  }, []);
 
   function handleSidebarPeriodToggle(nextPeriod: MealPeriod) {
     if (nextPeriod === period && sidebarScrollYRef.current == null) {
@@ -805,12 +966,15 @@ export function CanteenMenuView({
 
           <div ref={contentRef} className="min-w-0">
             <CanteenMenuContent
+              key={period}
               period={period}
               view={view}
               menuDataByPeriod={menuDataByPeriod}
               liveVoteCounts={liveVoteCounts}
               liveMyVotes={liveMyVotes}
               commentCounts={liveCommentCounts}
+              revealTarget={revealTarget}
+              onRevealHandled={handleRevealHandled}
               onVoteChange={handleVoteChange}
               onOpenDetails={openDetails}
             />
