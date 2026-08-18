@@ -43,7 +43,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -96,7 +96,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
@@ -172,7 +172,7 @@ jobs:
       MINIO_BUCKET: cuclaw-uploads
       MINIO_PUBLIC_URL: http://localhost:9000/cuclaw-uploads
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4
         with:
