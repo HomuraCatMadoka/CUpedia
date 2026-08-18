@@ -199,6 +199,20 @@ test.describe("#89 sidebar hydration & first-paint (mobile viewport)", () => {
     await expect(page.getByRole("button", EXPAND)).toHaveCount(0);
   });
 
+  test("keeps the desktop page tree hidden before and after hydration settles", async ({
+    page,
+  }) => {
+    await page.goto("/wiki", { waitUntil: "domcontentloaded" });
+
+    const wideNav = page.locator("nav").filter({ hasText: "Pages" });
+    expect(await wideNav.isVisible().catch(() => false)).toBe(false);
+
+    await expect(
+      page.getByRole("heading", { name: "你的中大百科全书", level: 1 }),
+    ).toBeVisible();
+    expect(await wideNav.isVisible().catch(() => false)).toBe(false);
+  });
+
   test("article page also loads without hydration error on mobile", async ({
     page,
   }) => {

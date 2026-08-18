@@ -6,6 +6,7 @@ import { Client } from "pg";
 import { loginAsAdmin } from "./helpers/auth";
 import {
   createUntitledWikiPage,
+  dropPublishedWikiFixtures,
   openPublishedWikiFixture,
   waitForHydratedWikiEditor,
   wikiPageUrl,
@@ -19,6 +20,8 @@ const NARROW_MOBILE_WIDTHS = [360, 375] as const;
 const mobileCreatedIds: string[] = [];
 const MOBILE_NAV_PAGE_ID = randomUUID();
 let gettingStartedBaseline = "";
+let gettingStartedBaselinePromise: Promise<string> | undefined;
+let mobileNavigationFixturePromise: Promise<void> | undefined;
 const MOBILE_UPLOAD_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZAAAAAElFTkSuQmCC",
   "base64",
@@ -204,12 +207,11 @@ test.describe("mobile wiki editing", () => {
     viewport: MOBILE_VIEWPORT,
   });
 
-  test.beforeAll(async () => {
-    gettingStartedBaseline = await readWikiContent(PAGE_IDS.gettingStarted);
-    await createMobileNavigationFixture();
-  });
-
   test.beforeEach(async ({ page }) => {
+    gettingStartedBaselinePromise ??= readWikiContent(PAGE_IDS.gettingStarted);
+    gettingStartedBaseline = await gettingStartedBaselinePromise;
+    mobileNavigationFixturePromise ??= createMobileNavigationFixture();
+    await mobileNavigationFixturePromise;
     await restoreWikiContent(PAGE_IDS.gettingStarted, gettingStartedBaseline);
     await loginAsAdmin(page);
     await page.goto(`/wiki/${PAGE_IDS.gettingStarted}`);
@@ -218,23 +220,8 @@ test.describe("mobile wiki editing", () => {
   test.afterEach(async ({ page }) => {
     if (!page.isClosed()) await page.close();
     await restoreWikiContent(PAGE_IDS.gettingStarted, gettingStartedBaseline);
-  });
-
-  test.afterAll(async () => {
-    const client = new Client({ connectionString: process.env.DATABASE_URL });
-    await client.connect();
-    try {
-      await client.query("delete from wiki_pages where id = $1", [
-        MOBILE_NAV_PAGE_ID,
-      ]);
-      if (mobileCreatedIds.length > 0) {
-        await client.query("delete from wiki_pages where id = any($1)", [
-          mobileCreatedIds,
-        ]);
-      }
-    } finally {
-      await client.end();
-    }
+    await dropPublishedWikiFixtures(mobileCreatedIds);
+    mobileCreatedIds.length = 0;
   });
 
   test("the action strip follows body focus and resets before the next edit", async ({
@@ -962,7 +949,7 @@ test.describe("mobile wiki editing", () => {
     await expect(page.locator('[data-slate-editor="true"]')).toBeFocused();
   });
 
-  test("browser history closes and restores a full-screen editor surface", async ({
+  test("browser back closes a full-screen editor surface before leaving the page", async ({
     page,
   }) => {
     const editor = page.locator('[data-slate-editor="true"]');
@@ -974,16 +961,58 @@ test.describe("mobile wiki editing", () => {
       .dispatchEvent("click");
     const sheet = page.getByRole("dialog", { name: "插入块" });
     await expect(sheet).toBeVisible();
+    expect(await sheet.boundingBox()).toEqual({
+      x: 0,
+      y: 0,
+      width: MOBILE_VIEWPORT.width,
+      height: MOBILE_VIEWPORT.height,
+    });
+    const firstCellBox = await sheet
+      .locator('[data-testid="mobile-insert-cell"]')
+      .first()
+      .boundingBox();
+    expect(firstCellBox).not.toBeNull();
+    expect(firstCellBox!.height).toBeGreaterThanOrEqual(44);
+    expect(firstCellBox!.height).toBeLessThanOrEqual(50);
 
     await page.goBack();
 
     await expect(sheet).toHaveCount(0);
     expect(page.url()).toBe(editUrl);
     await expect(editor).toBeFocused();
+  });
+
+  test("browser forward restores the temporary surface instead of creating a dead history entry", async ({
+    page,
+  }) => {
+    const editor = page.locator('[data-slate-editor="true"]');
+    await editor.click();
+    await page
+      .getByRole("toolbar", { name: "键盘上方编辑工具" })
+      .getByRole("button", { name: "插入块", exact: true })
+      .dispatchEvent("click");
+    const sheet = page.getByRole("dialog", { name: "插入块" });
+    await expect(sheet).toBeVisible();
+
+    await page.goBack();
+    await expect(sheet).toHaveCount(0);
     await page.goForward();
 
     await expect(sheet).toBeVisible();
     await expect(page.locator('[data-slate-editor="true"]')).toHaveCount(1);
+  });
+
+  test("Forward restores a surface after focus moved out of the editor", async ({
+    page,
+  }) => {
+    const editor = page.locator('[data-slate-editor="true"]');
+    await editor.click();
+    await page
+      .getByRole("toolbar", { name: "键盘上方编辑工具" })
+      .getByRole("button", { name: "插入块", exact: true })
+      .dispatchEvent("click");
+    const sheet = page.getByRole("dialog", { name: "插入块" });
+    await expect(sheet).toBeVisible();
 
     await page.goBack();
     await expect(sheet).toHaveCount(0);

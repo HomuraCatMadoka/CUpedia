@@ -52,6 +52,8 @@ const editor = {
     moveNodes: vi.fn(),
     removeNodes: vi.fn(),
     select: vi.fn(),
+    setNodes: vi.fn(),
+    unsetNodes: vi.fn(),
     withoutNormalizing: vi.fn((run: () => void) => run()),
   },
   undo: vi.fn(),
@@ -144,6 +146,18 @@ describe("WikiBlockMenu local block actions (#203)", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "下移" }));
 
     expect(editor.tf.moveNodes).toHaveBeenCalledWith({ at: [1], to: [3] });
+  });
+
+  it("converts the targeted paragraph to Heading 2", () => {
+    renderMenu();
+    openMenu();
+    fireEvent.click(screen.getByRole("menuitem", { name: "转换为" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "标题 2" }));
+
+    expect(editor.tf.setNodes).toHaveBeenCalledWith(
+      { type: "h2" },
+      { at: [1] },
+    );
   });
 
   it("disables moves that would cross the document boundary", () => {

@@ -9,6 +9,7 @@ const workflow = readFileSync(
   "utf8",
 );
 type WorkflowStep = {
+  env?: Record<string, unknown>;
   name?: string;
   run?: string;
   uses?: string;
@@ -173,5 +174,23 @@ describe("bounded full CI topology (#669)", () => {
 
   it("cannot turn a retry-pass flaky test green", () => {
     expect(PLAYWRIGHT_RETRIES).toBe(0);
+  });
+
+  it("uses isolated parallel shards only for the measured media bottleneck", () => {
+    const matrix = requireJob("e2e").strategy?.matrix?.include ?? [];
+    expect(matrix.map(({ project, shards }) => ({ project, shards }))).toEqual([
+      { project: "chromium-general", shards: 1 },
+      { project: "chromium-wiki-media", shards: 2 },
+    ]);
+
+    const matrixRun = steps("e2e").find((step) => step.name === "Run e2e");
+    expect(matrixRun?.run).toContain("scripts/run-e2e-shards.ts");
+    expect(matrixRun?.env?.E2E_SHARD_COUNT).toBe("${{ matrix.shards }}");
+
+    const thirdRun = steps("browser-third").find(
+      (step) => step.name === "Run balanced Chromium and WebKit risk coverage",
+    );
+    expect(thirdRun?.run).toContain("scripts/run-e2e-shards.ts");
+    expect(thirdRun?.env?.E2E_SHARD_COUNT).toBe("1");
   });
 });

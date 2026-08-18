@@ -151,10 +151,12 @@ jobs:
             browser: chromium
             install_args: --only-shell
             minio: false
+            shards: 1
           - project: chromium-wiki-media
             browser: chromium
             install_args: --only-shell
             minio: true
+            shards: 2
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
@@ -207,7 +209,11 @@ jobs:
         run: pnpm exec playwright install ${{ matrix.install_args }} ${{ matrix.browser }}
 
       - name: Run e2e
-        run: pnpm test:e2e --project=${{ matrix.project }}
+        env:
+          E2E_SHARD_COUNT: ${{ matrix.shards }}
+        run: >-
+          node --import tsx scripts/run-e2e-shards.ts
+          --project=${{ matrix.project }}
 
       - name: Upload Playwright artifacts
         if: failure()
@@ -215,8 +221,8 @@ jobs:
         with:
           name: playwright-report-${{ matrix.project }}
           path: |
-            playwright-report/
-            test-results/
+            playwright-report-shard-*/
+            test-results-shard-*/
           retention-days: 7
 
   browser-third:
@@ -262,8 +268,10 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Run balanced Chromium and WebKit risk coverage
+        env:
+          E2E_SHARD_COUNT: "1"
         run: >-
-          pnpm test:e2e
+          node --import tsx scripts/run-e2e-shards.ts
           --project=chromium-balanced
           --project=webkit-mobile
 
@@ -273,6 +281,6 @@ jobs:
         with:
           name: playwright-report-browser-third
           path: |
-            playwright-report/
-            test-results/
+            playwright-report-shard-*/
+            test-results-shard-*/
           retention-days: 7
