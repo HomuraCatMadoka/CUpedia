@@ -40,11 +40,11 @@ const mobileWebKitTest =
 // absorb measured Chromium hotspots without starting another runner or server.
 // None of these specs uploads files, so MinIO remains exclusive to wiki-media.
 const balancedChromiumTest =
-  /(?:campus-bus|sidebar|wiki-create|wiki-edit\.shell)\.spec\.ts$/;
+  /(?:campus-bus|sidebar|wiki-create|wiki-edit\.(?:shell|toolbar))\.spec\.ts$/;
 // This is also the only group with upload coverage, and therefore the only one
 // whose CI runner starts MinIO.
 const wikiMediaTest =
-  /(?:sidebar|wiki-(?!(?:edit\.(?:shell|mobile-webkit)|lifecycle|links|routing)\.spec\.ts$).*)\.spec\.ts$/;
+  /(?:sidebar|wiki-(?!(?:edit\.(?:shell|toolbar|mobile-webkit)|lifecycle|links|routing)\.spec\.ts$).*)\.spec\.ts$/;
 
 // Point this process (and the spec workers it forks) at the isolated db so
 // fixtures land in the same db the webServer reads. Specs load .env.local with

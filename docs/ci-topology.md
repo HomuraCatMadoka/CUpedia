@@ -57,8 +57,8 @@ rules and client state to unit/component coverage, leaving 252 browser tests.
 | `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                 | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                                                        |
 | `webkit-mobile`                                | `browser-third` in the official Playwright container  | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The same runner executes the balanced Chromium shard against one server.                                |
 
-The current CI list contains 103 `chromium-general`, 87
-`chromium-wiki-media`, 61 `chromium-balanced`, and 4 `webkit-mobile` tests.
+The current CI list contains 103 `chromium-general`, 73
+`chromium-wiki-media`, 75 `chromium-balanced`, and 4 `webkit-mobile` tests.
 Test count is not the balancing input: the groups are assigned by measured
 spec time. `chromium-balanced` and WebKit execute sequentially on the same
 third runner and reuse one production server.
@@ -209,12 +209,12 @@ shard, and pages created by an individual test are removed in that test's
 cleanup. This changed the media split from 54/19 tests to 37/36 without sharing
 mutable state.
 
-Desktop toolbar coverage moves from the third runner to the media runner after
-sharding. It does not use MinIO; it reuses the already-running upload runner and
-its two isolated lanes. Moving both toolbar and sidebar overloaded the local
-two-shard run and made the mobile Back/autosave sentinel miss its unchanged
-timeout, so sidebar stays on the third runner alongside Campus Bus, wiki
-creation, editor shell, and the four targeted WebKit risks.
+The first Actions run with selective sharding measured general/media browser
+steps at 135/130 seconds but the third runner at 83 seconds. Desktop toolbar
+coverage therefore stays on the third runner alongside sidebar, Campus Bus,
+wiki creation, editor shell, and the four targeted WebKit risks. Moving it to
+media overcorrected the split; keeping it here balances runner time without
+changing coverage or starting MinIO outside the upload runner.
 
 The same local production build and 73-test media group measured 189.12 seconds
 with one Playwright process, 92.14 seconds with isolated shards before removing
@@ -232,10 +232,10 @@ groups then passed all 255 tests on their first execution with `retries: 0`:
 | Browser runner command | Tests | Local wall seconds |
 | ---------------------- | ----: | -----------------: |
 | Chromium general       |   103 |              87.43 |
-| Chromium Wiki/media    |    87 |              90.38 |
-| Balanced + WebKit      |    65 |              79.70 |
+| Chromium Wiki/media    |    73 |              81.75 |
+| Balanced + WebKit      |    79 |              93.38 |
 
-The three complete browser commands differ by 10.68 seconds. The 257.51-second
+The three complete browser commands differ by 11.63 seconds. Their 262.56-second
 sum includes database provisioning, isolated build-tree preparation, server
 startup, and tests; in CI the three commands run on separate runners after the
 single build job. Per the maintainer's updated acceptance direction, this
