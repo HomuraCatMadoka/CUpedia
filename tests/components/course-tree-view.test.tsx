@@ -8,8 +8,6 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import type { ComponentProps, ReactNode } from "react";
-import { createContext, useContext } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CourseTreeView } from "@/app/(main)/course-tree/course-tree-view";
@@ -21,6 +19,9 @@ import type {
   MajorMeta,
   MajorTree,
 } from "@/lib/course-tree/types";
+
+// Component coverage moved from browser journeys for
+// #163/#164/#235/#165/#156/#166/#167.
 
 const { getMajorTree, listMyBuilds, loadBuild, saveBuild } = vi.hoisted(() => ({
   getMajorTree: vi.fn(),
@@ -36,44 +37,9 @@ vi.mock("@/lib/build-actions", () => ({
   saveBuild,
 }));
 
-vi.mock("@/components/ui/select", () => {
-  type SelectState = {
-    items?: Record<string, string>;
-    value?: string;
-    onValueChange?: (value: string) => void;
-  };
-  const SelectContext = createContext<SelectState>({});
-  return {
-    Select: ({
-      children,
-      items,
-      value,
-      onValueChange,
-    }: SelectState & { children: ReactNode }) => (
-      <SelectContext.Provider value={{ items, value, onValueChange }}>
-        {children}
-      </SelectContext.Provider>
-    ),
-    SelectTrigger: (props: ComponentProps<"select">) => {
-      const state = useContext(SelectContext);
-      return (
-        <select
-          {...props}
-          value={state.value}
-          onChange={(event) => state.onValueChange?.(event.target.value)}
-        >
-          {Object.entries(state.items ?? {}).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      );
-    },
-    SelectValue: () => null,
-    SelectContent: () => null,
-    SelectItem: () => null,
-  };
+vi.mock("@/components/ui/select", async () => {
+  const { createSelectMock } = await import("../helpers/select-mock");
+  return createSelectMock();
 });
 
 const majors: MajorListItem[] = [

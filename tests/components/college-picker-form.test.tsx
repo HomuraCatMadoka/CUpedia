@@ -8,8 +8,8 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import type { ComponentProps, ReactNode } from "react";
-import { createContext, createElement, useContext } from "react";
+import type { ComponentProps } from "react";
+import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CollegePickerForm } from "@/app/(main)/college-picker/college-picker-form";
@@ -40,45 +40,9 @@ vi.mock("@/components/ui/checkbox", () => ({
   ),
 }));
 
-vi.mock("@/components/ui/select", () => {
-  type SelectState = {
-    items?: Record<string, string>;
-    value?: string;
-    onValueChange?: (value: string) => void;
-  };
-  const SelectContext = createContext<SelectState>({});
-
-  return {
-    Select: ({
-      children,
-      items,
-      value,
-      onValueChange,
-    }: SelectState & { children: ReactNode }) => (
-      <SelectContext.Provider value={{ items, value, onValueChange }}>
-        {children}
-      </SelectContext.Provider>
-    ),
-    SelectTrigger: (props: ComponentProps<"select">) => {
-      const state = useContext(SelectContext);
-      return (
-        <select
-          {...props}
-          value={state.value}
-          onChange={(event) => state.onValueChange?.(event.target.value)}
-        >
-          {Object.entries(state.items ?? {}).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      );
-    },
-    SelectValue: () => null,
-    SelectContent: () => null,
-    SelectItem: () => null,
-  };
+vi.mock("@/components/ui/select", async () => {
+  const { createSelectMock } = await import("../helpers/select-mock");
+  return createSelectMock();
 });
 
 beforeEach(() => {
