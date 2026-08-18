@@ -2,7 +2,7 @@ import "server-only";
 
 import { and, eq, isNull } from "drizzle-orm";
 
-import transition102830Json from "../../docs/operations/artifacts/aigens-102830-identity-transition-v4.json";
+import transition102830Json from "../../docs/operations/artifacts/aigens-102830-identity-transition-v5.json";
 import transition112891Json from "../../docs/operations/artifacts/aigens-112891-identity-transition-v4.json";
 import { db } from "@/db";
 import { canteenMenuSources } from "@/db/schema";
