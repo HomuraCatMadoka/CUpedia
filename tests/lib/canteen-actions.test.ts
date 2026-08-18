@@ -3,6 +3,8 @@ import { resetCanteenMockState } from "@/lib/canteen-mock";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
 }));
 
 describe("canteen-actions (mock mode)", () => {

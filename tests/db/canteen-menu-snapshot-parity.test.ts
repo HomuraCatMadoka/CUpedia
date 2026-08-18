@@ -33,7 +33,11 @@ const { fetchMenuFromProvider } = vi.hoisted(() => ({
 vi.mock("@/lib/canteen-menu-source-adapters", () => ({
   fetchMenuFromProvider,
 }));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 

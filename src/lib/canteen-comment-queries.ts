@@ -1,3 +1,4 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { and, count, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -10,6 +11,8 @@ import {
   ADMIN_DISH_COMMENT_LIST_LIMIT,
   type AdminDishComment,
 } from "@/lib/canteen-types";
+
+export const CANTEEN_COMMENT_COUNTS_TAG = "canteen-comment-counts";
 
 export async function countCommentsForCanteen(
   canteenId: string,
@@ -58,6 +61,23 @@ export async function countCommentsByMenuItemForCanteen(
     .groupBy(canteenDishComments.menuItemId);
 
   return Object.fromEntries(rows.map((row) => [row.menuItemId, row.value]));
+}
+
+const getCachedCommentCountsByMenuItem = unstable_cache(
+  countCommentsByMenuItemForCanteen,
+  ["canteen-comment-counts"],
+  { tags: [CANTEEN_COMMENT_COUNTS_TAG], revalidate: 60 },
+);
+
+/** Cached per-item comment totals for the public canteen menu. */
+export async function getCachedCommentCountsForCanteen(
+  canteenId: string,
+): Promise<Record<string, number>> {
+  return getCachedCommentCountsByMenuItem(canteenId);
+}
+
+export function revalidateCanteenCommentCountsCache() {
+  revalidateTag(CANTEEN_COMMENT_COUNTS_TAG, "max");
 }
 
 /** Newest-first site-wide dish comments for admin moderation. */

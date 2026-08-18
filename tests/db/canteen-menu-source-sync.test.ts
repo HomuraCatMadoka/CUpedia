@@ -16,7 +16,11 @@ import {
 import pinmeCurrent from "../lib/fixtures/canteen-providers/pinme-current.json";
 import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
 
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+  unstable_cache: (fn: (...args: unknown[]) => unknown) => fn,
+}));
 
 const { fetchMenuFromProvider } = vi.hoisted(() => ({
   fetchMenuFromProvider: vi.fn(),

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getTakeoutById, getTakeoutMenuItems } from "@/lib/takeout-actions";
+import { getOrderingHandoffForVenueName } from "@/lib/canteen-actions";
 import { CanteenShell } from "@/components/canteen/canteen-shell";
 import { CanteenOrderAction } from "@/components/canteen/canteen-order-action";
 import { DishSvgIcon } from "@/components/canteen/dish-svg-icon";
@@ -19,7 +20,9 @@ export default async function TakeoutMenuPage({
   if (!takeout) notFound();
 
   const items = await getTakeoutMenuItems(id);
-  const orderUrl = resolveCanteenOrderUrl(id, takeout.name);
+  const canteenHandoff = await getOrderingHandoffForVenueName(takeout.name);
+  const orderUrl =
+    canteenHandoff?.url ?? resolveCanteenOrderUrl(id, takeout.name);
 
   return (
     <CanteenShell
