@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "source": {
     "provider": "aigens",
     "externalOwnerId": null,
@@ -7,7 +7,7 @@
     "configurationFingerprint": "e9252ffac52f4f0d054aee74fb0c8218dfdb03a3d7886aad8976c76ed8db1956"
   },
   "audit": {
-    "snapshotCompleteness": "complete",
+    "snapshotCompleteness": "partial",
     "scopeEvidence": {
       "provider": "aigens",
       "externalStoreId": "102830",
@@ -28,23 +28,23 @@
         "T"
       ],
       "categoryPeriodCodes": ["B", "D", "L", "S1", "T"],
-      "categoryCount": 33,
-      "groupCount": 46
+      "categoryCount": 35,
+      "groupCount": 49
     },
     "summary": {
       "existingCount": 81,
-      "incomingCount": 154,
+      "incomingCount": 160,
       "missingIdentityCount": 55,
-      "newIdentityCount": 128,
+      "newIdentityCount": 134,
       "replacementCandidateCount": 0,
       "canonicalizationCandidateCount": 53,
       "mergeCandidateCount": 0,
-      "additionCount": 87,
+      "additionCount": 93,
       "removalCount": 2,
       "ambiguityCount": 0
     },
     "existingFingerprint": "bb81ea64c8e39e8a938406ead71307daae67ab966cac6a2111af1755a5fad2de",
-    "incomingFingerprint": "55854d6b95c3aad3674185d94233e919eaf021f1c535a02bb8583cd645db5c6a",
+    "incomingFingerprint": "279a91379dc2d67b782a7b1341d8e6ff8b3e33e230d98008a9c6f92e1d395e84",
     "replacementCandidates": [],
     "canonicalizationCandidates": [
       {
@@ -55,9 +55,9 @@
           "mealPeriods": ["dinner"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4800,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -73,9 +73,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2000,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -91,9 +91,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -109,9 +109,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -127,9 +127,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -145,9 +145,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -163,9 +163,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -181,9 +181,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -199,9 +199,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -217,9 +217,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -235,9 +235,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -253,9 +253,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -271,9 +271,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -289,9 +289,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2000,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -307,9 +307,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2000,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -325,9 +325,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2000,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -343,9 +343,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -361,9 +361,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -379,9 +379,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -397,9 +397,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -415,9 +415,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2700,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -433,9 +433,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -451,9 +451,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2100,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -469,9 +469,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2100,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -487,9 +487,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -505,9 +505,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 1200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -523,9 +523,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 1200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -541,9 +541,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2500,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -559,9 +559,9 @@
           "mealPeriods": ["dinner"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4800,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -577,9 +577,9 @@
           "mealPeriods": ["dinner"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 5200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -595,9 +595,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 1200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -613,9 +613,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 1200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -631,9 +631,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3400,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -649,9 +649,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -667,9 +667,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -685,9 +685,9 @@
           "mealPeriods": ["dinner"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4800,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -703,9 +703,9 @@
           "mealPeriods": ["dinner"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 5200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -721,9 +721,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4300,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -739,9 +739,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2900,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -757,9 +757,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2900,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -775,9 +775,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2800,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -793,9 +793,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2900,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -811,9 +811,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -829,9 +829,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 2600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -847,9 +847,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4300,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -865,9 +865,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4300,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -883,9 +883,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -901,9 +901,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4300,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -919,9 +919,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4300,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -937,9 +937,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4300,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -955,9 +955,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3200,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -973,9 +973,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3800,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -991,9 +991,9 @@
           "mealPeriods": ["lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 3500,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -1051,6 +1051,19 @@
           {
             "label": null,
             "amountMinor": 1900,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "1100040630",
+        "normalizedName": "冬瓜雜菇飯",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 2700,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1603,8 +1616,34 @@
         ]
       },
       {
-        "externalProductId": "1100051676",
-        "normalizedName": "焗鮮茄雞扒飯",
+        "externalProductId": "1100043789",
+        "normalizedName": "火腿蛋薯仔沙律",
+        "mealPeriods": ["breakfast", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "1100054706",
+        "normalizedName": "烤雞華都夫沙律",
+        "mealPeriods": ["breakfast", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "1100043447",
+        "normalizedName": "焗鮮茄豬扒飯",
         "mealPeriods": ["lunch"],
         "priceOptions": [
           {
@@ -1772,6 +1811,19 @@
         ]
       },
       {
+        "externalProductId": "1100074994",
+        "normalizedName": "牛肉麻辣燙.白飯",
+        "mealPeriods": ["dinner"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
         "externalProductId": "1100053490",
         "normalizedName": "玉桂丹麥酥",
         "mealPeriods": ["breakfast", "lunch"],
@@ -1792,6 +1844,19 @@
           {
             "label": null,
             "amountMinor": 700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "1100040019",
+        "normalizedName": "田園沙律",
+        "mealPeriods": ["breakfast", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 2800,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -1967,8 +2032,8 @@
         ]
       },
       {
-        "externalProductId": "1100053684",
-        "normalizedName": "薯仔排骨飯",
+        "externalProductId": "1100044187",
+        "normalizedName": "薯仔雞球飯",
         "mealPeriods": ["dinner", "lunch"],
         "priceOptions": [
           {
@@ -2032,6 +2097,19 @@
         ]
       },
       {
+        "externalProductId": "1100075601",
+        "normalizedName": "豚肉麻辣燙.白飯",
+        "mealPeriods": ["dinner"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
         "externalProductId": "1100023162",
         "normalizedName": "道地極品烏龍",
         "mealPeriods": ["breakfast", "lunch"],
@@ -2065,19 +2143,6 @@
           {
             "label": null,
             "amountMinor": 700,
-            "currency": "HKD",
-            "sortOrder": 0
-          }
-        ]
-      },
-      {
-        "externalProductId": "1100058790",
-        "normalizedName": "青瓜炒雜菇飯",
-        "mealPeriods": ["dinner", "lunch"],
-        "priceOptions": [
-          {
-            "label": null,
-            "amountMinor": 2700,
             "currency": "HKD",
             "sortOrder": 0
           }
@@ -2134,6 +2199,19 @@
             "sortOrder": 0
           }
         ]
+      },
+      {
+        "externalProductId": "1100055592",
+        "normalizedName": "黑椒牛肉田園沙律",
+        "mealPeriods": ["breakfast", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 3200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
       }
     ],
     "removals": [
@@ -2145,9 +2223,9 @@
           "mealPeriods": ["dinner", "lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4600,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -2161,9 +2239,9 @@
           "mealPeriods": ["dinner", "lunch"],
           "priceOptions": [
             {
+              "label": null,
               "amountMinor": 4800,
               "currency": "HKD",
-              "label": null,
               "sortOrder": 0
             }
           ]
@@ -2173,431 +2251,327 @@
     "ambiguities": []
   },
   "decisions": {
-    "snapshotScope": {
-      "status": "complete",
-      "rationale": "Requested store 102830 matches data.id and menu.storeIds; store 中文大學善衡書院 and menu 中文大學 match the intended source; the response is published, active, non-archived and non-slim; category periods B/D/L/S1/T are declared by the menu; open=true and open=false produce the same 154 products, 33 categories and 46 groups across repeated fresh reads."
-    },
     "replacements": [],
     "canonicalizations": [
       {
         "itemId": "f6ee4c0e-e8b5-4c2e-b6ec-d7215f339b5c",
         "previousProductId": "0200023209#offering-period=dinner",
         "nextProductId": "0200023209",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "2e5a1a97-af27-41c9-b56a-e907d98635cd",
         "previousProductId": "0200041378#offering-period=lunch",
         "nextProductId": "0200041378",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "1f187077-22b0-4b50-a3d6-ede6c66346cb",
         "previousProductId": "1100030029#offering-period=lunch",
         "nextProductId": "1100030029",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "6915dfa7-0989-481e-a3b8-52ef1564d2b3",
         "previousProductId": "1100030031#offering-period=lunch",
         "nextProductId": "1100030031",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "0911719a-a0d3-47b1-b824-473e398217be",
         "previousProductId": "1100030032#offering-period=lunch",
         "nextProductId": "1100030032",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "92c5ffc4-349a-4c03-ad07-2cf862d22f56",
         "previousProductId": "1100030033#offering-period=lunch",
         "nextProductId": "1100030033",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "a5ec6352-07c0-4c5d-a8f8-774eaae28571",
         "previousProductId": "1100030035#offering-period=lunch",
         "nextProductId": "1100030035",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "8b77a95b-6371-412c-b060-86fe9287dbd5",
         "previousProductId": "1100030036#offering-period=lunch",
         "nextProductId": "1100030036",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "973d6c73-2d34-420f-bad8-4b1aea35e915",
         "previousProductId": "1100030037#offering-period=lunch",
         "nextProductId": "1100030037",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "3a8af458-f56f-4e3d-aaeb-0e5226e5cba8",
         "previousProductId": "1100030038#offering-period=lunch",
         "nextProductId": "1100030038",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "9f1aad20-9ad3-4930-925b-e955d7347ded",
         "previousProductId": "1100030039#offering-period=lunch",
         "nextProductId": "1100030039",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "11ec7f97-2811-4ea1-b094-5b67e4a59cf8",
         "previousProductId": "1100030040#offering-period=lunch",
         "nextProductId": "1100030040",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "872eb7a6-209a-48b5-ac59-9303c4f83853",
         "previousProductId": "1100030041#offering-period=lunch",
         "nextProductId": "1100030041",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "874d9701-1c9f-490b-a272-3be097540ac8",
         "previousProductId": "1100030166#offering-period=lunch",
         "nextProductId": "1100030166",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "2004a4fd-79cc-4054-805b-340b56d1b0d1",
         "previousProductId": "1100030413#offering-period=lunch",
         "nextProductId": "1100030413",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "e9bd1c52-c82f-4e53-9eb0-d3795cd27897",
         "previousProductId": "1100030414#offering-period=lunch",
         "nextProductId": "1100030414",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "44f215be-2afc-48ba-a4be-9b4511b9912b",
         "previousProductId": "1100030546#offering-period=lunch",
         "nextProductId": "1100030546",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "bf30bf0c-6d7c-4a93-bd2d-730917153cb5",
         "previousProductId": "1100030547#offering-period=lunch",
         "nextProductId": "1100030547",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "31e1fc77-f5a0-409b-a14b-0f32277696ed",
         "previousProductId": "1100030548#offering-period=lunch",
         "nextProductId": "1100030548",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "585913ca-a1ce-4b3f-8cb2-11898c22e756",
         "previousProductId": "1100030631#offering-period=lunch",
         "nextProductId": "1100030631",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "75b585ef-39ca-4b83-915d-0a57c0ceb065",
         "previousProductId": "1100030783#offering-period=lunch",
         "nextProductId": "1100030783",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "79b27570-1cdc-409b-bb7b-56e16aa5892d",
         "previousProductId": "1100030949#offering-period=lunch",
         "nextProductId": "1100030949",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "c2272833-f647-4b1d-b5fe-a919c0d6bd7e",
         "previousProductId": "1100040219#offering-period=lunch",
         "nextProductId": "1100040219",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "d499671f-8efd-44ed-9f83-1d6c1ea0042d",
         "previousProductId": "1100040220#offering-period=lunch",
         "nextProductId": "1100040220",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "797d83ef-1ef8-4e4f-8688-c829fd3aef26",
         "previousProductId": "1100040263#offering-period=lunch",
         "nextProductId": "1100040263",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "378cd313-5c9e-49c5-a908-b3773410145a",
         "previousProductId": "1100040659#offering-period=lunch",
         "nextProductId": "1100040659",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "cb582e3c-2002-432c-a4ed-09ab0861ecfb",
         "previousProductId": "1100040695#offering-period=lunch",
         "nextProductId": "1100040695",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "e30c09ae-f686-4730-8cbd-99d15d789b7a",
         "previousProductId": "1100041216#offering-period=lunch",
         "nextProductId": "1100041216",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "cc6428c8-8125-4497-b5af-0909c1a7e915",
         "previousProductId": "1100041772#offering-period=dinner",
         "nextProductId": "1100041772",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "416c0d65-c57b-4be9-aa00-d72620121597",
         "previousProductId": "1100041811#offering-period=dinner",
         "nextProductId": "1100041811",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "e76af8fa-d0fa-4b65-8c19-bbd0b81504c7",
         "previousProductId": "1100042566#offering-period=lunch",
         "nextProductId": "1100042566",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "c44c5cce-5a9c-4b8b-af37-c3d1e2318012",
         "previousProductId": "1100042830#offering-period=lunch",
         "nextProductId": "1100042830",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "74b509db-fe18-4fbb-8965-c1b969af7b0c",
         "previousProductId": "1100045323#offering-period=lunch",
         "nextProductId": "1100045323",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "3163785d-3f5c-46cd-bed7-2457efd38869",
         "previousProductId": "1100045651#offering-period=lunch",
         "nextProductId": "1100045651",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "5e2a0633-227b-4db2-ac83-c2d541e5cb64",
         "previousProductId": "1100045752#offering-period=lunch",
         "nextProductId": "1100045752",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "a10d026e-9b8c-4272-b49a-f065202892bc",
         "previousProductId": "1100051257#offering-period=dinner",
         "nextProductId": "1100051257",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "bf65abe3-450d-4500-99c3-cec717cf5ab8",
         "previousProductId": "1100051507#offering-period=dinner",
         "nextProductId": "1100051507",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "5a798d92-b8b6-42a2-b794-3671b362afdb",
         "previousProductId": "1100052679#offering-period=lunch",
         "nextProductId": "1100052679",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "20d82bcf-c9d8-4107-8895-eff05cf94daa",
         "previousProductId": "1100053082#offering-period=lunch",
         "nextProductId": "1100053082",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "52c14c32-bbcc-485e-a90c-433ba40603ed",
         "previousProductId": "1100053083#offering-period=lunch",
         "nextProductId": "1100053083",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "6f85d3f5-67b4-4576-bb38-780bb7366d03",
         "previousProductId": "1100053084#offering-period=lunch",
         "nextProductId": "1100053084",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "d1ed903d-4e88-4caf-ad42-9c75b98ad3a4",
         "previousProductId": "1100053085#offering-period=lunch",
         "nextProductId": "1100053085",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "23a09a6c-6130-44c3-8691-0c51e41460e1",
         "previousProductId": "1100054253#offering-period=lunch",
         "nextProductId": "1100054253",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "b9a6d988-959b-4c79-9640-70851912dca0",
         "previousProductId": "1100054322#offering-period=lunch",
         "nextProductId": "1100054322",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "ae2f0bf6-dbc1-4a11-a8ef-4336d605d773",
         "previousProductId": "1100057763#offering-period=lunch",
         "nextProductId": "1100057763",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "7d1605dc-342e-43a2-b37f-429fed25b75a",
         "previousProductId": "1100057764#offering-period=lunch",
         "nextProductId": "1100057764",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "55eff22e-5d2a-4122-84ec-921d3a4c661e",
         "previousProductId": "1100059325#offering-period=lunch",
         "nextProductId": "1100059325",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "89f7167f-11ca-455d-9590-48b2010be6f7",
         "previousProductId": "1100059326#offering-period=lunch",
         "nextProductId": "1100059326",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "2a74ec05-2520-4e03-967d-283c622d986e",
         "previousProductId": "1100059327#offering-period=lunch",
         "nextProductId": "1100059327",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "63002c96-bdc6-48df-b01a-cfad974937c7",
         "previousProductId": "1100059328#offering-period=lunch",
         "nextProductId": "1100059328",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "65077602-e98d-4213-88b2-ac2d4eb96820",
         "previousProductId": "1100073459#offering-period=lunch",
         "nextProductId": "1100073459",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "c23b820d-348c-4570-97d3-8a9a686b126e",
         "previousProductId": "1100073460#offering-period=lunch",
         "nextProductId": "1100073460",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       },
       {
         "itemId": "836fc525-21c0-4a60-81f1-1c7b88162010",
         "previousProductId": "1100074066#offering-period=lunch",
         "nextProductId": "1100074066",
-        "rationale": "The period-scoped alias and bare ID share the same Aigens backend product identity."
+        "rationale": "The historical meal-period alias represents this Aigens backend product."
       }
     ],
-    "merges": [],
-    "additions": [
-      "1100022230",
-      "1100020034",
-      "1100020153",
-      "1100022229",
-      "1100022925",
-      "1100020169",
-      "1100020655",
-      "1100020585",
-      "1100020587",
-      "1100020589",
-      "1100021057",
-      "1100020586",
-      "1100020588",
-      "1100021702",
-      "0200022041",
-      "1100040529",
-      "1100040278",
-      "1100043670",
-      "1100022926",
-      "1100020702",
-      "1100020657",
-      "1100020591",
-      "1100020593",
-      "1100020595",
-      "1100021058",
-      "1100020592",
-      "1100020594",
-      "1100021703",
-      "1100020701",
-      "1100022278",
-      "1100021052",
-      "1100021049",
-      "1100021053",
-      "1100021051",
-      "1100021055",
-      "1100021056",
-      "1100021050",
-      "1100021054",
-      "1100021699",
-      "1100010403",
-      "1100074379",
-      "1100046220",
-      "1100050726",
-      "1199227119",
-      "1100075116",
-      "1100042329",
-      "1100051676",
-      "1100022117",
-      "1100020425",
-      "1100022141",
-      "1100020573",
-      "1100022139",
-      "1100020575",
-      "1100020578",
-      "1100024255",
-      "1100020574",
-      "1100020577",
-      "0200050094",
-      "1100054834",
-      "1100053490",
-      "1100080256",
-      "1100042579",
-      "1100042801",
-      "1100071928",
-      "1100074077",
-      "1100022265",
-      "1100020242",
-      "1100020325",
-      "1100040555",
-      "1100040527",
-      "1100040182",
-      "1100080261",
-      "1100040316",
-      "1100045044",
-      "1100053684",
-      "1100040329",
-      "1100053489",
-      "1100040513",
-      "1100074759",
-      "1100023162",
-      "1100023549",
-      "1100040315",
-      "1100058790",
-      "1100075813",
-      "1100075814",
-      "1100040276",
-      "1100075812"
-    ],
-    "removals": [
-      {
-        "itemId": "c1e3f521-7c5b-4766-9191-a9fdbf37a252",
-        "externalProductId": "1100044042"
-      },
-      {
-        "itemId": "da9f22aa-a77c-4fa3-a975-ea59f0f3c07f",
-        "externalProductId": "1100041633"
-      }
-    ],
-    "ambiguities": []
+    "merges": []
   }
 }

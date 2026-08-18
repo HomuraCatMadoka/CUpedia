@@ -46,7 +46,7 @@ describe("reviewed identity transition executor", () => {
     vi.clearAllMocks();
     mocks.findFirst.mockResolvedValue(SOURCE);
     mocks.fetchMenu.mockResolvedValue({
-      snapshotCompleteness: "complete",
+      snapshotCompleteness: "partial",
       scopeEvidence: {},
       takeOverLegacyItems: false,
       items: [{ externalProductId: "product-1" }],
@@ -76,10 +76,10 @@ describe("reviewed identity transition executor", () => {
         key: "aigens-102830",
         externalStoreId: "102830",
         existingCount: 81,
-        incomingCount: 154,
+        incomingCount: 160,
         canonicalizationCount: 53,
         mergeCount: 0,
-        additionCount: 87,
+        additionCount: 93,
         removalCount: 2,
       }),
       expect.objectContaining({
@@ -120,7 +120,7 @@ describe("reviewed identity transition executor", () => {
       SOURCE.id,
       expect.objectContaining({ takeOverLegacyItems: false }),
       expect.objectContaining({
-        schemaVersion: 4,
+        schemaVersion: 5,
         source: expect.objectContaining({ externalStoreId: "102830" }),
       }),
     );
