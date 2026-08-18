@@ -1,0 +1,1774 @@
+{
+  "schemaVersion": 5,
+  "source": {
+    "provider": "pinme",
+    "externalOwnerId": null,
+    "externalStoreId": "4898",
+    "configurationFingerprint": "b6d656eefd2737ee2846ab3a81bce2a9f70ad0ba7bfee9b8d8fd5c6cd2f383e9"
+  },
+  "audit": {
+    "snapshotCompleteness": "partial",
+    "scopeEvidence": null,
+    "summary": {
+      "existingCount": 117,
+      "incomingCount": 111,
+      "missingIdentityCount": 60,
+      "newIdentityCount": 54,
+      "replacementCandidateCount": 0,
+      "canonicalizationCandidateCount": 0,
+      "mergeCandidateCount": 0,
+      "additionCount": 54,
+      "removalCount": 60,
+      "ambiguityCount": 0
+    },
+    "existingFingerprint": "2ace8ca6b5b1e72287eafcddf852cf6206f9965bee2773264c199840d389ed02",
+    "incomingFingerprint": "74cbdd09e34beab0993847f818e77928b2b42219db8638746422ddc3602b57dd",
+    "replacementCandidates": [],
+    "canonicalizationCandidates": [],
+    "mergeCandidates": [],
+    "additions": [
+      {
+        "externalProductId": "389942",
+        "normalizedName": "a. 鮮菌響鈴",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "389950",
+        "normalizedName": "a. 鮮菌響鈴",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 7500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "389948",
+        "normalizedName": "b.肥牛片",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "389951",
+        "normalizedName": "b.肥牛片",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 7500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "389949",
+        "normalizedName": "c. 魚片頭",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "389952",
+        "normalizedName": "c. 魚片頭",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 7500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388670",
+        "normalizedName": "五香肉丁公仔麵配牛油餐包及火腿煎蛋(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388697",
+        "normalizedName": "五香肉丁湯公仔麵",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388672",
+        "normalizedName": "健康素菜公仔麵配牛油餐包及火腿煎蛋(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388576",
+        "normalizedName": "凍檸檬可樂",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388573",
+        "normalizedName": "咖啡",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388574",
+        "normalizedName": "奶茶",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388694",
+        "normalizedName": "惹味雞髀配司華力腸",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388693",
+        "normalizedName": "惹味雞髀配咖哩魚蛋(6粒)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388691",
+        "normalizedName": "惹味雞髀配脆薯條",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388710",
+        "normalizedName": "惹味雞髀配菠蘿油",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388695",
+        "normalizedName": "惹味雞髀配西多士",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "387702",
+        "normalizedName": "樽裝泰式奶茶(凍,固定甜度)",
+        "mealPeriods": ["breakfast", "dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 1800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388081",
+        "normalizedName": "樽裝香滑奶茶",
+        "mealPeriods": ["breakfast", "dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 1800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388570",
+        "normalizedName": "檸檬水",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388571",
+        "normalizedName": "檸檬茶",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388569",
+        "normalizedName": "檸蜜",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388696",
+        "normalizedName": "沙嗲牛肉公仔麵",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388669",
+        "normalizedName": "沙嗲牛肉公仔麵配牛油餐包及火腿煎蛋(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "389970",
+        "normalizedName": "流心奶皇月餅禮盒(六件裝)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 13800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388671",
+        "normalizedName": "火腿仿鮑絲公仔麵配牛油餐包及火腿煎蛋(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "111759",
+        "normalizedName": "特式糕點 1盒(三件)",
+        "mealPeriods": ["breakfast", "dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 1500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388702",
+        "normalizedName": "瑞士汁烤雞髀撈出前一丁",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388705",
+        "normalizedName": "瑞士汁素菜撈出前一丁",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388701",
+        "normalizedName": "瑞士汁香煎豬扒撈出前一丁",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388704",
+        "normalizedName": "瑞士汁香煎雞扒撈出前一丁",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388565",
+        "normalizedName": "紅豆冰",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388700",
+        "normalizedName": "素菜湯公仔麵",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4400,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388561",
+        "normalizedName": "罐裝汽水",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "可樂",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "忌廉",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          },
+          {
+            "label": "無糖可樂",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 2
+          },
+          {
+            "label": "雪碧",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 3
+          }
+        ]
+      },
+      {
+        "externalProductId": "389334",
+        "normalizedName": "芝麻八爪魚",
+        "mealPeriods": ["breakfast", "dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 2200,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388568",
+        "normalizedName": "菜蜜",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388708",
+        "normalizedName": "菠蘿油配咖哩魚蛋(6粒)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388706",
+        "normalizedName": "菠蘿油配脆薯條",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388709",
+        "normalizedName": "菠蘿油配街坊碗仔翅",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388683",
+        "normalizedName": "街坊碗仔翅配咖哩魚蛋(6粒)(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388684",
+        "normalizedName": "街坊碗仔翅配妙醬腸粉(3條)(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4300,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388685",
+        "normalizedName": "街坊碗仔翅配烤雞髀(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388690",
+        "normalizedName": "西多士配司華力腸",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388688",
+        "normalizedName": "西多士配咖哩魚蛋(6粒)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388686",
+        "normalizedName": "西多士配脆薯條(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388689",
+        "normalizedName": "西多士配街坊碗仔翅",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388567",
+        "normalizedName": "阿華田",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388699",
+        "normalizedName": "餐肉煎蛋湯公仔麵",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 4700,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388668",
+        "normalizedName": "香煎豬扒公仔麵配牛油餐包及火腿煎蛋(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388667",
+        "normalizedName": "香煎雞扒公仔麵配牛油餐包及火腿煎蛋(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6800,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388698",
+        "normalizedName": "香煎雞扒湯公仔麵",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 5000,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "389884",
+        "normalizedName": "鮮牛肉公仔麵配牛油餐包及火腿煎蛋(kt)",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": null,
+            "amountMinor": 6500,
+            "currency": "HKD",
+            "sortOrder": 0
+          }
+        ]
+      },
+      {
+        "externalProductId": "388572",
+        "normalizedName": "鴛鴦",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      },
+      {
+        "externalProductId": "388577",
+        "normalizedName": "齋啡",
+        "mealPeriods": ["dinner", "lunch"],
+        "priceOptions": [
+          {
+            "label": "凍",
+            "amountMinor": 2500,
+            "currency": "HKD",
+            "sortOrder": 0
+          },
+          {
+            "label": "熱",
+            "amountMinor": 2000,
+            "currency": "HKD",
+            "sortOrder": 1
+          }
+        ]
+      }
+    ],
+    "removals": [
+      {
+        "itemId": "f59a78ba-598d-421c-9b06-a2501e187579",
+        "evidence": {
+          "externalProductId": "388531",
+          "normalizedName": "(常餐)沙嗲牛肉",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c4992053-f63d-403d-a996-ae86955220ef",
+        "evidence": {
+          "externalProductId": "389356",
+          "normalizedName": "冰糖木瓜燉雪耳",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "569a602c-2de2-4d43-87c9-d15eca18f768",
+        "evidence": {
+          "externalProductId": "389581",
+          "normalizedName": "北菇紅燒豆腐配白飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "77608cc2-807c-4c08-aad0-9c015e8932cf",
+        "evidence": {
+          "externalProductId": "388188",
+          "normalizedName": "吉列魚柳",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "399ef902-61fb-4687-9b50-47f0ce567620",
+        "evidence": {
+          "externalProductId": "389347",
+          "normalizedName": "和聲跳舞雞套餐",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 14800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "3be57d9a-8e9b-4885-b8c1-4f4a720ba5a1",
+        "evidence": {
+          "externalProductId": "388351",
+          "normalizedName": "咖哩吉列魚柳",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "3ce75e3a-ccee-461b-8b69-4d059b20e2c6",
+        "evidence": {
+          "externalProductId": "388181",
+          "normalizedName": "咖哩牛腩",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4a27f827-162f-4146-b8ba-8a84cbfe60c5",
+        "evidence": {
+          "externalProductId": "388236",
+          "normalizedName": "咖哩素菜煎蛋",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "49d36f39-b694-4867-9d46-4060b07f23a2",
+        "evidence": {
+          "externalProductId": "388235",
+          "normalizedName": "咖哩雞扒",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "0259f336-9a1b-40be-bf57-4487a6a64347",
+        "evidence": {
+          "externalProductId": "388237",
+          "normalizedName": "咖哩香煎豬扒",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "efd2006e-7482-4939-a4e0-2e4c0f7e9a0f",
+        "evidence": {
+          "externalProductId": "387693",
+          "normalizedName": "好味肉醬吉列魚柳飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "602bb311-99de-4516-a8d5-aed6d1b0813e",
+        "evidence": {
+          "externalProductId": "389601",
+          "normalizedName": "好味肉醬煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "62eda468-542b-4e41-aed9-996eed732f62",
+        "evidence": {
+          "externalProductId": "88726",
+          "normalizedName": "好味肉醬脆炸雞髀飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "035cf4c2-52b1-4aaa-82bd-2613b85bac6d",
+        "evidence": {
+          "externalProductId": "387909",
+          "normalizedName": "好味肉醬香煎雞扒飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "ff16f572-29f2-40df-b848-3d83233bd8fa",
+        "evidence": {
+          "externalProductId": "389684",
+          "normalizedName": "川味口水雞配白飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4ce24562-dba3-4e52-9f80-c8d344e2f01f",
+        "evidence": {
+          "externalProductId": "387778",
+          "normalizedName": "招牌冰室公司煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "36e9e3c0-aaba-459d-8df5-e679651aa7bc",
+        "evidence": {
+          "externalProductId": "389920",
+          "normalizedName": "招牌滷水單拼飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c3eebc5c-a683-4bf9-8b51-75e4c7745c36",
+        "evidence": {
+          "externalProductId": "389919",
+          "normalizedName": "招牌滷水雙拼飯(自選兩款)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "d08b1039-1695-4027-8e8e-228e92b37f95",
+        "evidence": {
+          "externalProductId": "389737",
+          "normalizedName": "日式照燒汁吉列豬扒飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "ff9acc88-1c95-4a66-afd3-c70264b2fea9",
+        "evidence": {
+          "externalProductId": "389607",
+          "normalizedName": "日式照燒汁肥牛飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "8ce75f03-52f8-46a9-b49c-6417c5c07eb7",
+        "evidence": {
+          "externalProductId": "111895",
+          "normalizedName": "朱古力慕絲蛋糕",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "93491181-a575-4dd3-8ae9-423ad9a1940d",
+        "evidence": {
+          "externalProductId": "389796",
+          "normalizedName": "果醋炆豬軟骨配白飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "088649eb-93ae-4a42-999b-c6332b3ba009",
+        "evidence": {
+          "externalProductId": "389683",
+          "normalizedName": "梅菜扣肉配白飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "194e00bc-12b1-453f-a492-95f3c7bc055d",
+        "evidence": {
+          "externalProductId": "389885",
+          "normalizedName": "極上麻辣米線 (肥牛、牛丸、素菜、豆卜、枝竹)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "525bf18a-8aa4-44e6-bbeb-33fdb7bca428",
+        "evidence": {
+          "externalProductId": "389357",
+          "normalizedName": "樽裝檸檬薏米水",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "5971fadb-03f2-43d7-8b7b-1bfb894444c9",
+        "evidence": {
+          "externalProductId": "387673",
+          "normalizedName": "泡椒雞腳根",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "be5abfcf-5f81-4b0c-97ba-af43e00d040b",
+        "evidence": {
+          "externalProductId": "389762",
+          "normalizedName": "泰式海南雞配白飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "8572c74f-dd47-4e6a-8f2f-9cfe18e238f8",
+        "evidence": {
+          "externalProductId": "389761",
+          "normalizedName": "泰式海南雞配香油飯",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "35b92e1d-1eb0-4d67-b318-900160772046",
+        "evidence": {
+          "externalProductId": "389454",
+          "normalizedName": "清湯蘿蔔牛腩煲配白飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "b954d0a1-ddf2-42a7-9bb0-59474218333e",
+        "evidence": {
+          "externalProductId": "389921",
+          "normalizedName": "滷水拆骨鵝髀飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 8000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "bd0f71fd-2f16-4a3d-8346-dbf8b65daa0e",
+        "evidence": {
+          "externalProductId": "389922",
+          "normalizedName": "滷水鵝三寶飯(鵝肉、鵝腸、鵝腎)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "37bae348-bd2e-4cf6-973a-a6b814120aba",
+        "evidence": {
+          "externalProductId": "389905",
+          "normalizedName": "滷水鵝片雙拼飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 7800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "82f995cf-3c47-43a2-b3c3-5b2d77fffd49",
+        "evidence": {
+          "externalProductId": "389925",
+          "normalizedName": "滷水鵝片飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c1f348b8-ed4d-4c6f-9a1e-37c9d05f1115",
+        "evidence": {
+          "externalProductId": "389918",
+          "normalizedName": "滷水鵝肉雙拼飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 7500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "893bc32e-5194-4557-8726-af11ccae79a7",
+        "evidence": {
+          "externalProductId": "389926",
+          "normalizedName": "滷水鵝肉飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c79b62d3-37bb-4ee4-9da7-ce5fc5584ee3",
+        "evidence": {
+          "externalProductId": "99851",
+          "normalizedName": "白飯(一碗)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "e9b1babc-8a41-49c1-bca2-f19eca9d27f6",
+        "evidence": {
+          "externalProductId": "389806",
+          "normalizedName": "盒裝豆腐花",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "0ceca69d-2b85-4816-86dd-3fb313b55cf2",
+        "evidence": {
+          "externalProductId": "389740",
+          "normalizedName": "紅酒燴牛面肉配白飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "202b8af3-147e-4064-9fc3-9f917d30140f",
+        "evidence": {
+          "externalProductId": "115471",
+          "normalizedName": "美式芝士蛋糕",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "f96a6ed2-0dff-4e58-ad28-6897b1c2cc3a",
+        "evidence": {
+          "externalProductId": "389559",
+          "normalizedName": "薑汁燉蛋白(凍)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "be20744e-74cd-42f1-9c18-e60e29a4a8cf",
+        "evidence": {
+          "externalProductId": "388197",
+          "normalizedName": "蠔仔肉碎粥",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c653567e-2337-4264-8618-0e508731e209",
+        "evidence": {
+          "externalProductId": "389681",
+          "normalizedName": "豉汁蒸鯧魚配白飯(即點即蒸需時十五分鐘以上)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "711475d0-78f4-4607-9a2d-bba9a4e28b4f",
+        "evidence": {
+          "externalProductId": "388182",
+          "normalizedName": "金抽吉列魚柳煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c28a597a-a657-46e8-ae26-8f12c9634b34",
+        "evidence": {
+          "externalProductId": "389395",
+          "normalizedName": "金抽煎豬扒煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "0c2a23fb-e60a-49e8-84f7-c4d24acaf342",
+        "evidence": {
+          "externalProductId": "389878",
+          "normalizedName": "金抽白切雞配白飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "31c0e0ed-fc75-4bda-92c3-9a1540ee9044",
+        "evidence": {
+          "externalProductId": "389396",
+          "normalizedName": "金抽雞扒煎蛋飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "a5c8387e-f53f-41c0-94f8-1f7a1ef44e3c",
+        "evidence": {
+          "externalProductId": "389482",
+          "normalizedName": "雪耳圓肉燉桃膠",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4b93555f-3393-442d-b533-d20f202f9852",
+        "evidence": {
+          "externalProductId": "388963",
+          "normalizedName": "頭菜紅棗蒸滑雞配白飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "8f0c363d-a720-4a3b-bfb2-fc9b8dcbe5f8",
+        "evidence": {
+          "externalProductId": "388021",
+          "normalizedName": "香煎薄牛扒伴黑椒汁",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4c95db38-34a9-4121-b606-fbb9fe5f8fde",
+        "evidence": {
+          "externalProductId": "388189",
+          "normalizedName": "香煎豬扒",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "ca383816-e031-46dd-815b-ddc6c1f213b9",
+        "evidence": {
+          "externalProductId": "388185",
+          "normalizedName": "香煎雞扒",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "174c845d-3f1f-4ff7-a77d-bf32a81550d0",
+        "evidence": {
+          "externalProductId": "388190",
+          "normalizedName": "香煎鴨胸(制作需時15分鐘以上)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "ec8d8eba-7820-47a7-bc75-9eacea49daf2",
+        "evidence": {
+          "externalProductId": "389603",
+          "normalizedName": "香辣非洲雞伴薯菜",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "f46c7f43-f89a-4552-882c-633fd097b45c",
+        "evidence": {
+          "externalProductId": "387712",
+          "normalizedName": "鮮茄焗豬扒飯",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4eb74550-65f8-4f85-8a3e-8d81d73332d9",
+        "evidence": {
+          "externalProductId": "389769",
+          "normalizedName": "鮮茄牛肉湯意粉",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "69c6b2df-de98-44d1-96a6-3df32642a655",
+        "evidence": {
+          "externalProductId": "389768",
+          "normalizedName": "鮮茄牛肉湯烏冬",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "80e77919-422a-4aed-b81b-88e9529ce574",
+        "evidence": {
+          "externalProductId": "389938",
+          "normalizedName": "麻辣切雞米線",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "05efef2a-8b51-4f47-90b0-708185dea219",
+        "evidence": {
+          "externalProductId": "389874",
+          "normalizedName": "麻辣素菜米線",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "104254ad-0668-41ed-a76f-6db5472e6455",
+        "evidence": {
+          "externalProductId": "389940",
+          "normalizedName": "黑椒牛肉炒飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "ee02b724-0581-4fe8-9227-9857b7d92c64",
+        "evidence": {
+          "externalProductId": "389310",
+          "normalizedName": "黑椒牛肉鬆炒飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      }
+    ],
+    "ambiguities": []
+  },
+  "decisions": {
+    "replacements": [],
+    "canonicalizations": [],
+    "merges": []
+  }
+}

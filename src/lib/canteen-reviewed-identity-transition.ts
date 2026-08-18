@@ -4,8 +4,12 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import transition102830Json from "../../docs/operations/artifacts/aigens-102830-identity-transition-v5.json";
 import transition112891Json from "../../docs/operations/artifacts/aigens-112891-identity-transition-v4.json";
+import transition4898Json from "../../docs/operations/artifacts/pinme-4898-identity-transition-v5.json";
 import { db } from "@/db";
-import { canteenMenuSources } from "@/db/schema";
+import {
+  canteenMenuSources,
+  type CanteenMenuSourceProvider,
+} from "@/db/schema";
 import { parseMenuIdentityTransitionArtifact } from "./canteen-menu-identity-transition";
 import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
@@ -18,13 +22,14 @@ import { normalizeSyncErrorCode } from "./sync-error-code";
 const REVIEWED_TRANSITIONS = {
   "aigens-102830": parseMenuIdentityTransitionArtifact(transition102830Json),
   "aigens-112891": parseMenuIdentityTransitionArtifact(transition112891Json),
+  "pinme-4898": parseMenuIdentityTransitionArtifact(transition4898Json),
 } as const;
 
 export type ReviewedIdentityTransitionKey = keyof typeof REVIEWED_TRANSITIONS;
 
 export type ReviewedIdentityTransitionOption = {
   key: ReviewedIdentityTransitionKey;
-  provider: "aigens";
+  provider: CanteenMenuSourceProvider;
   externalStoreId: string;
   existingCount: number;
   incomingCount: number;
@@ -68,7 +73,7 @@ export function listReviewedIdentityTransitions(): ReviewedIdentityTransitionOpt
     const artifact = artifactFor(key);
     return {
       key,
-      provider: artifact.source.provider as "aigens",
+      provider: artifact.source.provider,
       externalStoreId: artifact.source.externalStoreId,
       existingCount: artifact.audit.summary.existingCount,
       incomingCount: artifact.audit.summary.incomingCount,

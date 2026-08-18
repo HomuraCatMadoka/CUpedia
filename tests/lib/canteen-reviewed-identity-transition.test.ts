@@ -92,6 +92,17 @@ describe("reviewed identity transition executor", () => {
         additionCount: 2,
         removalCount: 0,
       }),
+      expect.objectContaining({
+        key: "pinme-4898",
+        provider: "pinme",
+        externalStoreId: "4898",
+        existingCount: 117,
+        incomingCount: 111,
+        canonicalizationCount: 0,
+        mergeCount: 0,
+        additionCount: 54,
+        removalCount: 60,
+      }),
     ]);
     expect(isReviewedIdentityTransitionKey("toString")).toBe(false);
   });
