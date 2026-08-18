@@ -94,6 +94,55 @@ function incoming(
 }
 
 describe("menu identity transition audit", () => {
+  it("approves an exact PinMe partial snapshot with addition-only churn", () => {
+    const previous = existing({
+      externalProductId: "existing-product",
+      name: "Existing dish",
+    });
+    const added = incoming({
+      externalProductId: "new-product",
+      name: "New dish",
+    });
+    const input = {
+      snapshotCompleteness: "partial" as const,
+      items: [added],
+    };
+    const audit = buildTransitionAudit([previous], input, "pinme");
+
+    expect(audit.summary).toMatchObject({
+      additionCount: 1,
+      removalCount: 1,
+      ambiguityCount: 0,
+    });
+    expect(
+      verifyMenuIdentityTransitionApproval(
+        {
+          provider: "pinme",
+          externalOwnerId: null,
+          externalStoreId: "4898",
+          configurationFingerprint: "a".repeat(64),
+        },
+        [previous],
+        input,
+        {
+          schemaVersion: 5,
+          source: {
+            provider: "pinme",
+            externalOwnerId: null,
+            externalStoreId: "4898",
+            configurationFingerprint: "a".repeat(64),
+          },
+          audit,
+          decisions: {
+            replacements: [],
+            canonicalizations: [],
+            merges: [],
+          },
+        },
+      ),
+    ).toEqual({ replacements: [], canonicalizations: [], merges: [] });
+  });
+
   it("approves only identity changes for a partial Aigens observation", () => {
     const visibleAlias = existing({
       externalProductId: "42#offering-period=lunch",

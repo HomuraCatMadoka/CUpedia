@@ -490,16 +490,16 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     {
       storeId: "4898",
       existingCount: 117,
-      incomingCount: 20,
-      overlapCount: 19,
-      newCount: 1,
+      incomingCount: 111,
+      overlapCount: 57,
+      newCount: 54,
     },
     {
       storeId: "5198",
       existingCount: 148,
-      incomingCount: 71,
-      overlapCount: 65,
-      newCount: 6,
+      incomingCount: 88,
+      overlapCount: 76,
+      newCount: 12,
     },
   ])(
     "preserves history and apparent removals for PinMe $storeId ($existingCount -> $incomingCount)",
