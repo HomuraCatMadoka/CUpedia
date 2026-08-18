@@ -31,7 +31,8 @@ describe("bounded full CI topology (#669)", () => {
       e2eMatrixProjects().length;
     expect(totalJobExecutions).toBeLessThanOrEqual(6);
     const browserRunnerCount =
-      e2eMatrixProjects().length + (jobNames().includes("webkit-risk") ? 1 : 0);
+      e2eMatrixProjects().length +
+      (jobNames().includes("browser-third") ? 1 : 0);
     expect(browserRunnerCount).toBeLessThanOrEqual(3);
     expect(e2eMatrixProjects()).toEqual([
       "chromium-general",
@@ -64,13 +65,13 @@ describe("bounded full CI topology (#669)", () => {
   it("builds Next once and makes every E2E runner reuse that artifact", () => {
     expect(jobNames().filter((name) => name === "build")).toHaveLength(1);
     expect(workflow).toMatch(/  e2e:[\s\S]*needs: build/);
-    expect(workflow).toMatch(/  webkit-risk:[\s\S]*needs: build/);
+    expect(workflow).toMatch(/  browser-third:[\s\S]*needs: build/);
     expect(workflow).toMatch(/  build:[\s\S]*name: next-build/);
     expect(workflow).toMatch(
       /  e2e:[\s\S]*uses: actions\/download-artifact@v4/,
     );
     expect(workflow).toMatch(
-      /  webkit-risk:[\s\S]*mcr\.microsoft\.com\/playwright:v1\.60\.0-noble[\s\S]*uses: actions\/download-artifact@v4[\s\S]*--project=webkit-mobile/,
+      /  browser-third:[\s\S]*mcr\.microsoft\.com\/playwright:v1\.60\.0-noble[\s\S]*uses: actions\/download-artifact@v4[\s\S]*--project=chromium-balanced[\s\S]*--project=webkit-mobile/,
     );
   });
 

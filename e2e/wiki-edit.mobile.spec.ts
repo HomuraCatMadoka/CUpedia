@@ -1566,8 +1566,9 @@ test.describe("mobile wiki editing", () => {
   test("deleting the only block leaves a focused editable paragraph", async ({
     page,
   }) => {
-    mobileCreatedIds.push(await openPublishedWikiFixture(page));
-    const editor = page.locator('[data-slate-editor="true"]');
+    const pageId = await openPublishedWikiFixture(page);
+    mobileCreatedIds.push(pageId);
+    const editor = await waitForHydratedWikiEditor(page, pageId);
     await editor.click();
     await page
       .getByRole("toolbar", { name: "键盘上方编辑工具" })
@@ -1746,11 +1747,12 @@ test.describe("mobile wiki editing", () => {
   test("mobile Done saves the current Plate draft and only dismisses focus", async ({
     page,
   }) => {
-    mobileCreatedIds.push(await openPublishedWikiFixture(page));
+    const pageId = await openPublishedWikiFixture(page);
+    mobileCreatedIds.push(pageId);
+    const editor = await waitForHydratedWikiEditor(page, pageId);
     await page
       .getByRole("textbox", { name: "页面标题" })
       .fill("Mobile editor done");
-    const editor = page.locator('[data-slate-editor="true"]');
     await editor.fill("Mobile done body");
     const canonicalUrl = page.url();
     await page.getByRole("button", { name: "完成" }).click();

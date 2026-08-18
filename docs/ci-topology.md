@@ -42,23 +42,26 @@ CI now has zero retries, so either failure makes the run fail.
 
 ## Coverage map
 
-No test behavior is deleted or moved to a fake database. The Playwright listing
-is 48 files and 288 tests both before and after the topology change.
+No test behavior is deleted or moved to a fake database. The first topology
+pass preserved all 288 Playwright tests. The test-layer pass then moved pure
+rules and client state to unit/component coverage, leaving 269 browser tests.
 
-| Before                                         | After                                                       | Preserved behavior / boundary                                                                                                                                                                                 |
-| ---------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lint-and-test`, `typecheck`                   | `quality`                                                   | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate.                                                                                                                          |
-| `migration-compatibility`                      | `quality` on real PostgreSQL 16                             | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                       |
-| `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17       | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once.   |
-| `chromium-general` + `campus-bus`              | `chromium-general`                                          | All non-Wiki journeys, Campus Bus browser/map coverage, and mobile WebKit exclusions are unchanged.                                                                                                           |
-| `chromium-wiki` + `chromium-wiki-editor`       | Split between the two Chromium groups by measured spec time | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `wiki-edit.shell` and `wiki-edit.toolbar` move to general only to balance time.                      |
-| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                       | All mobile editor tests remain Chromium full-stack E2E. This file includes image upload, so its runner owns MinIO.                                                                                            |
-| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                       | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                             |
-| `webkit-mobile`                                | `webkit-risk` in the official Playwright container          | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The runner uses real zhparser PostgreSQL and the single uploaded Next build. |
+| Before                                         | After                                                 | Preserved behavior / boundary                                                                                                                                                                               |
+| ---------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lint-and-test`, `typecheck`                   | `quality`                                             | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate.                                                                                                                        |
+| `migration-compatibility`                      | `quality` on real PostgreSQL 16                       | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                     |
+| `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17 | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once. |
+| `chromium-general` + `campus-bus`              | `chromium-general` + `chromium-balanced`              | Non-Wiki journeys remain Chromium. Campus Bus joins the third runner because its real-map coverage needs no MinIO.                                                                                          |
+| `chromium-wiki` + `chromium-wiki-editor`       | Three measured Chromium groups                        | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `sidebar`, `wiki-create`, `wiki-edit.shell`, and `wiki-edit.toolbar` use the third runner.         |
+| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                 | All mobile editor tests remain Chromium full-stack E2E. This file includes image upload, so its runner owns MinIO.                                                                                          |
+| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                 | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                           |
+| `webkit-mobile`                                | `browser-third` in the official Playwright container  | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The same runner executes the balanced Chromium shard against one server.   |
 
-The new CI list contains 177 `chromium-general`, 107
-`chromium-wiki-media`, and 4 `webkit-mobile` tests. Test count is intentionally
-not the balancing input: the groups are assigned by measured spec time.
+The current CI list contains 103 `chromium-general`, 79
+`chromium-wiki-media`, 83 `chromium-balanced`, and 4 `webkit-mobile` tests.
+Test count is not the balancing input: the groups are assigned by measured
+spec time. `chromium-balanced` and WebKit execute sequentially on the same
+third runner and reuse one production server.
 PostgreSQL remains present on all three full-stack browser runners. MinIO is started only by
 `chromium-wiki-media`, and only the upload tests call it.
 
@@ -94,12 +97,54 @@ clicked course consistently receives its required professor binding. All
 behaviors remain covered by full-stack Chromium tests and the applicable
 component tests; no fix adds a retry or extends a timeout.
 
-No E2E behavior was downshifted to unit/component scope in #669. Existing
-lighter-layer coverage, including the Campus Bus mapping in
-`docs/campus-bus/test-coverage.md`, remains unchanged and is still included by
-the full unit command.
+The first post-split full regression exposed one more outgoing-shell race in
+the mobile single-block deletion journey: a page-wide Slate locator briefly
+matched both the departing and canonical editors after fixture navigation. It
+now scopes that test, and the adjacent Done/save journey, to the canonical
+page-id hydrated shell returned by the shared helper. Both paths passed 10
+consecutive retry-disabled stress repetitions after the change.
 
-## After validation
+### Test-layer coverage map
+
+College Picker keeps one anonymous production-route walking skeleton. The
+other eight original journeys map as follows:
+
+| Original browser behavior                                              | New coverage                                                                                                                        |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| FYP avoid hits remain present, labeled, and sorted inside their region | `tests/components/college-picker-form.test.tsx` avoid rendering; `tests/lib/college-picker.test.ts` avoid ordering and completeness |
+| MTR bonus changes the first rendered score to 94.0                     | `tests/components/college-picker-form.test.tsx` bonus rendering; `tests/lib/college-picker.test.ts` exact per-college bonus         |
+| Duplicate priorities show an error and keep the slot empty             | `tests/components/college-picker-form.test.tsx` duplicate interaction; `tests/lib/college-picker.test.ts` priority validation       |
+| Clearing priority two also clears priority three                       | `tests/components/college-picker-form.test.tsx` controlled-form state                                                               |
+| Preference A alone exposes the small-college questionnaire             | `tests/components/college-picker-form.test.tsx` A/B conditional rendering                                                           |
+| Incomplete preference-A answers block recommendation                   | `tests/components/college-picker-form.test.tsx` toast and absent-result assertion                                                   |
+| Four complete preference-A answers render ranked results               | `tests/components/college-picker-form.test.tsx` form flow; `tests/lib/college-picker.test.ts` exact specialization scores           |
+| Non-official and medical-program disclaimer remains visible            | Folded into the retained anonymous production-route walking skeleton                                                                |
+
+Course Tree keeps three full-stack boundaries: the anonymous seeded route,
+real SVG geometry/tooltip behavior, and authenticated PostgreSQL persistence.
+All 14 original behaviors remain mapped:
+
+| Original browser behavior                                             | Current coverage                                                          |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Default major, 11 nodes, three categories, missing placeholder        | Retained anonymous E2E; `tests/components/course-tree-view.test.tsx`      |
+| Toggle courses and update total/category progress                     | Component; `tests/lib/course-tree/evaluate-build.test.ts`                 |
+| One-of category becomes complete after one selection                  | Component; `tests/lib/course-tree/evaluate-build.test.ts`                 |
+| Switching major clears the local build                                | Component controlled-state test                                           |
+| Non-official handbook disclaimer                                      | Folded into retained anonymous E2E                                        |
+| Three real SVG edges and external-prerequisite tooltip                | Retained real-browser E2E; component edge/tooltip assertion               |
+| Free mode allows an unmet dependent and highlights a satisfied edge   | Component interaction; evaluate-build unit coverage                       |
+| Prerequisites occupy deeper topology columns                          | Retained real-browser E2E; `tests/lib/course-tree/layout-canvas.test.ts`  |
+| Equivalence member locks and unlocks its sibling                      | Component interaction; `tests/lib/course-tree/equivalence-groups.test.ts` |
+| Selecting either equivalent member satisfies downstream edges         | Component interaction; equivalence unit coverage                          |
+| Strict mode exposes eight terms, blocks seasons, and reports bypasses | Component interaction; evaluate-build unit coverage                       |
+| Configurable term cap blocks overload                                 | Component interaction; evaluate-build unit coverage                       |
+| Anonymous save points to login                                        | Retained anonymous E2E and component assertion                            |
+| Multiple named builds restore strict term state                       | Retained E2E against real PostgreSQL                                      |
+
+Existing lighter-layer coverage, including the Campus Bus mapping in
+`docs/campus-bus/test-coverage.md`, remains included by the full unit command.
+
+## First-pass validation (before test-layer split)
 
 GitHub Actions run `32038048327` was rerun five consecutive times at commit
 `77e36a781212c5aa103566039e1d1ceb292cb7fa`. Every attempt completed successfully
@@ -124,3 +169,6 @@ failed-result markers; none were present. The job metadata also records every
 job and test step as successful on its first execution. Across all five logs,
 `Start MinIO` occurs only under `chromium-wiki-media`; the other browser runners
 use PostgreSQL without starting object storage.
+
+The 269-test, three-way Chromium split requires a fresh five-run validation;
+the historical sequence above does not claim timing for the new split.

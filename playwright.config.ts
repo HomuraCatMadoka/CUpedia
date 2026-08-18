@@ -35,9 +35,11 @@ const useDevServer = process.env.E2E_SERVER_MODE === "dev";
 const useCiGroups = process.env.E2E_CI_GROUPS === "1";
 const mobileWebKitTest =
   /(?:wiki-edit\.mobile-webkit|header\.mobile-webkit)\.spec\.ts$/;
-// The August 17 job logs put sidebar at ~30 seconds and the lifecycle, links,
-// and routing specs at ~22 seconds together. Swapping those file boundaries
-// keeps both Chromium runners even without changing their combined coverage.
+// The third browser runner already owns the small WebKit risk surface. Let it
+// absorb measured Chromium hotspots without starting another runner or server.
+// None of these specs uploads files, so MinIO remains exclusive to wiki-media.
+const balancedChromiumTest =
+  /(?:campus-bus|sidebar|wiki-create|wiki-edit\.(?:shell|toolbar))\.spec\.ts$/;
 // This is also the only group with upload coverage, and therefore the only one
 // whose CI runner starts MinIO.
 const wikiMediaTest =
@@ -68,12 +70,19 @@ export default defineConfig({
       ? [
           {
             name: "chromium-general",
-            testIgnore: [wikiMediaTest, mobileWebKitTest],
+            testIgnore: [wikiMediaTest, balancedChromiumTest, mobileWebKitTest],
             use: { ...devices["Desktop Chrome"] },
           },
           {
             name: "chromium-wiki-media",
             testMatch: wikiMediaTest,
+            testIgnore: balancedChromiumTest,
+            use: { ...devices["Desktop Chrome"] },
+          },
+          {
+            name: "chromium-balanced",
+            testMatch: balancedChromiumTest,
+            testIgnore: mobileWebKitTest,
             use: { ...devices["Desktop Chrome"] },
           },
         ]

@@ -138,8 +138,8 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-  # Two Chromium runners share one production Next build and own the broad
-  # regression surface. A third runner limits WebKit to known interaction risks.
+  # Three browser runners share one production Next build. The third runs the
+  # small WebKit risk surface plus a measured Chromium shard, without MinIO.
   e2e:
     runs-on: ubuntu-latest
     needs: build
@@ -219,7 +219,7 @@ jobs:
             test-results/
           retention-days: 7
 
-  webkit-risk:
+  browser-third:
     runs-on: ubuntu-latest
     needs: build
     container: mcr.microsoft.com/playwright:v1.60.0-noble
@@ -261,14 +261,17 @@ jobs:
       - name: Trust container checkout
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Run WebKit risk coverage
-        run: pnpm test:e2e --project=webkit-mobile
+      - name: Run balanced Chromium and WebKit risk coverage
+        run: >-
+          pnpm test:e2e
+          --project=chromium-balanced
+          --project=webkit-mobile
 
-      - name: Upload WebKit artifacts
+      - name: Upload browser artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-webkit-mobile
+          name: playwright-report-browser-third
           path: |
             playwright-report/
             test-results/
