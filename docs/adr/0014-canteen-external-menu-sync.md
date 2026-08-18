@@ -80,8 +80,11 @@ same Aigens group.
    scan. Historical rows remain available to server-side admin workflows.
 8. Product-ID churn is observed before aliasing is introduced. Each scheduled
    run stores bounded new/missing ID samples, counts and one-to-one same-name
-   candidates. Suspected replacement or bulk churn fails closed: the last
-   successful public menu remains visible and no vote/comment identity moves.
+   candidates. Suspected replacement always fails closed. Bulk churn based on
+   new/missing volume fails closed only for complete snapshots, where absence
+   is evidence that an old identity disappeared. In a partial observation,
+   absence has no identity meaning and a pure addition surge is ordinary menu
+   growth; it may create new identities but cannot deactivate absent ones.
 9. Resolving a blocked identity transition requires a versioned artifact that
    separates deterministic audit facts from reviewer decisions. Current
    decisions authorize only UUID-preserving replacements, historical alias

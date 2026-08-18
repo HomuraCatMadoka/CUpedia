@@ -28,6 +28,7 @@ describe("menu identity churn observation", () => {
     expect(isSuspiciousMenuIdentityChurn(observation, 1, "complete")).toBe(
       true,
     );
+    expect(isSuspiciousMenuIdentityChurn(observation, 1, "partial")).toBe(true);
   });
 
   it("allows ordinary low-volume additions without guessing identity", () => {
@@ -93,7 +94,7 @@ describe("menu identity churn observation", () => {
     );
   });
 
-  it("still blocks bulk additions from a partial snapshot", () => {
+  it("allows bulk additions from a partial snapshot", () => {
     const existing = Array.from({ length: 12 }, (_, index) => ({
       externalProductId: `existing-${index}`,
       name: `Existing ${index}`,
@@ -109,7 +110,7 @@ describe("menu identity churn observation", () => {
 
     expect(observation.newProductCount).toBe(3);
     expect(isSuspiciousMenuIdentityChurn(observation, 12, "partial")).toBe(
-      true,
+      false,
     );
   });
 });
