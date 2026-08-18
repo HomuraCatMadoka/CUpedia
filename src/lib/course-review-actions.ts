@@ -6,6 +6,7 @@ import {
   count,
   desc,
   eq,
+  gte,
   inArray,
   lt,
   ne,
@@ -38,7 +39,7 @@ import {
   users,
 } from "@/db/schema";
 import { hasProfessorCourseEvidence } from "@/lib/professor-course-evidence";
-import { getOptionalUser, requireAuth } from "@/lib/auth-guard";
+import { getOptionalUser, requireAdmin, requireAuth } from "@/lib/auth-guard";
 import { assertContributorComplete } from "@/lib/contributor-account";
 import {
   getAchievementSummariesForAuthors,
@@ -66,6 +67,7 @@ import {
   searchProfessorCandidates,
 } from "@/lib/professor-search";
 import { assertNoSensitiveContent } from "@/lib/sensitive-content";
+import { startOfHktCalendarWindow } from "@/lib/hkt-datetime";
 import {
   getCourseGenderRestriction,
   type Course,
@@ -1613,6 +1615,7 @@ export async function submitCourseReview(
         instructorPersonId: primaryProfessor?.id ?? null,
         professorNameSnapshot: primaryProfessor?.name ?? null,
         isAnonymous,
+        firstSubmittedAt: sql`now()`,
         ...structuredTags,
       })
       .onConflictDoUpdate({
@@ -1876,4 +1879,52 @@ export async function toggleLike(reviewId: string): Promise<number> {
 
   revalidatePath(`/courses/${review.courseCode}`);
   return Number(c?.cnt ?? 0);
+}
+
+const COURSE_REVIEW_ADMIN_RECENT_DAYS = 7;
+
+export type CourseReviewAdminStats = {
+  recentWindowDays: number;
+  recentEvaluationCount: number;
+  totalEvaluationCount: number;
+  withTextReviewCount: number;
+  ratingOnlyCount: number;
+  totalSubjectCount: number;
+};
+
+/** Admin overview: HKT calendar-window growth plus current catalog totals. */
+export async function getCourseReviewAdminStats(): Promise<CourseReviewAdminStats> {
+  await requireAdmin();
+
+  const recentWindowDays = COURSE_REVIEW_ADMIN_RECENT_DAYS;
+  const since = startOfHktCalendarWindow(new Date(), recentWindowDays);
+  const hasTextReview = sql`exists (
+    select 1 from ${courseReviews}
+    where ${courseReviews.courseCode} = ${courseRatings.courseCode}
+      and ${courseReviews.userId} = ${courseRatings.userId}
+  )`;
+
+  const [[recent], [totals], subjects] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(courseRatings)
+      .where(gte(courseRatings.firstSubmittedAt, since)),
+    db
+      .select({
+        total: count(),
+        withText: sql<number>`count(*) filter (where ${hasTextReview})`,
+        ratingOnly: sql<number>`count(*) filter (where not ${hasTextReview})`,
+      })
+      .from(courseRatings),
+    getSubjects(),
+  ]);
+
+  return {
+    recentWindowDays,
+    recentEvaluationCount: Number(recent?.value ?? 0),
+    totalEvaluationCount: Number(totals?.total ?? 0),
+    withTextReviewCount: Number(totals?.withText ?? 0),
+    ratingOnlyCount: Number(totals?.ratingOnly ?? 0),
+    totalSubjectCount: subjects.length,
+  };
 }
