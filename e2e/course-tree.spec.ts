@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 import { loginWithPassword } from "./helpers/auth";
 
 /**
- * 选课技能树的 full-stack/browser boundaries — ref #163/#164/#167.
+ * 选课技能树的 full-stack/browser boundaries — ref #163/#164/#235/#167.
  *
  * Pure build rules and client-state branches run in compute-tree,
  * evaluate-build, layout-canvas, and CourseTreeView unit/component tests.

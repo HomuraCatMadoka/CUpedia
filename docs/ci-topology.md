@@ -44,21 +44,21 @@ CI now has zero retries, so either failure makes the run fail.
 
 No test behavior is deleted or moved to a fake database. The first topology
 pass preserved all 288 Playwright tests. The test-layer pass then moved pure
-rules and client state to unit/component coverage, leaving 269 browser tests.
+rules and client state to unit/component coverage, leaving 252 browser tests.
 
-| Before                                         | After                                                 | Preserved behavior / boundary                                                                                                                                                                               |
-| ---------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `lint-and-test`, `typecheck`                   | `quality`                                             | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate.                                                                                                                        |
-| `migration-compatibility`                      | `quality` on real PostgreSQL 16                       | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                     |
-| `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17 | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once. |
-| `chromium-general` + `campus-bus`              | `chromium-general` + `chromium-balanced`              | Non-Wiki journeys remain Chromium. Campus Bus joins the third runner because its real-map coverage needs no MinIO.                                                                                          |
-| `chromium-wiki` + `chromium-wiki-editor`       | Three measured Chromium groups                        | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `sidebar`, `wiki-create`, `wiki-edit.shell`, and `wiki-edit.toolbar` use the third runner.         |
-| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                 | All mobile editor tests remain Chromium full-stack E2E. This file includes image upload, so its runner owns MinIO.                                                                                          |
-| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                 | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                           |
-| `webkit-mobile`                                | `browser-third` in the official Playwright container  | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The same runner executes the balanced Chromium shard against one server.   |
+| Before                                         | After                                                 | Preserved behavior / boundary                                                                                                                                                                                                            |
+| ---------------------------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lint-and-test`, `typecheck`                   | `quality`                                             | The same `pnpm lint`, full `pnpm test`, and `pnpm typecheck` commands form one gate.                                                                                                                                                     |
+| `migration-compatibility`                      | `quality` on real PostgreSQL 16                       | Legacy menu-source migration and identity preflight tests retain their original environment flags and database version.                                                                                                                  |
+| `menu-sync-integration`                        | The same `quality` job on real zhparser PostgreSQL 17 | `init-zhparser.sql`, all migrations, menu sync persistence, and source sync persistence remain intact. The two database services start concurrently while checkout and dependency installation happen once.                              |
+| `chromium-general` + `campus-bus`              | `chromium-general` + `chromium-balanced`              | Non-Wiki journeys remain Chromium. Campus Bus joins the third runner because its real-map coverage needs no MinIO.                                                                                                                       |
+| `chromium-wiki` + `chromium-wiki-editor`       | Three measured Chromium groups                        | All Wiki read/edit/auth/query/persistence/concurrency journeys remain production Next + real PostgreSQL. `sidebar`, `wiki-create`, `wiki-edit.shell`, and `wiki-edit.toolbar` use the third runner.                                      |
+| Mobile editor previously in `chromium-general` | `chromium-wiki-media`                                 | Mobile browser/history, upload, focus, autosave, and command boundaries remain Chromium full-stack E2E. Pure toolbar rendering and catalog state moved to component coverage. This file includes image upload, so its runner owns MinIO. |
+| `wiki-upload` in `chromium-wiki`               | `chromium-wiki-media`                                 | Anonymous/editor authorization, content validation, serving, upload, save, and reload continue through production Next and MinIO.                                                                                                        |
+| `webkit-mobile`                                | `browser-third` in the official Playwright container  | Only `header.mobile-webkit.spec.ts` and `wiki-edit.mobile-webkit.spec.ts`, the known safe-area/focus/touch risks, run in WebKit. The same runner executes the balanced Chromium shard against one server.                                |
 
-The current CI list contains 103 `chromium-general`, 79
-`chromium-wiki-media`, 83 `chromium-balanced`, and 4 `webkit-mobile` tests.
+The current CI list contains 103 `chromium-general`, 71
+`chromium-wiki-media`, 74 `chromium-balanced`, and 4 `webkit-mobile` tests.
 Test count is not the balancing input: the groups are assigned by measured
 spec time. `chromium-balanced` and WebKit execute sequentially on the same
 third runner and reuse one production server.
@@ -141,10 +141,65 @@ All 14 original behaviors remain mapped:
 | Anonymous save points to login                                        | Retained anonymous E2E and component assertion                            |
 | Multiple named builds restore strict term state                       | Retained E2E against real PostgreSQL                                      |
 
+Mobile Wiki editing retains browser coverage for viewport geometry, visual
+viewport/keyboard behavior, file selection and MinIO upload, mention and
+discussion integration, history traversal, autosave/navigation ordering, IME,
+selection validity, and actual Plate commands. Five repeated presentation
+journeys now cross the production component interface instead:
+
+| Original browser behavior                                     | New coverage                                                                       |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| One toolbar with the complete default action strip            | `tests/components/mobile-wiki-editor-toolbar.test.tsx`                             |
+| Expanded selection replaces block actions with inline format  | `tests/components/mobile-wiki-editor-toolbar.test.tsx`                             |
+| Insert opens the complete full-screen command catalog         | `tests/components/mobile-wiki-editor-toolbar.test.tsx`; command-catalog unit tests |
+| Turn into marks the current type and exposes the full catalog | `tests/components/mobile-wiki-editor-toolbar.test.tsx`; command-catalog unit tests |
+| Discussion permission disables only the comment action        | `tests/components/mobile-wiki-editor-toolbar.test.tsx`                             |
+
+The full-screen surface Back/Forward cases remain browser E2E, but their three
+separate page setups are one sequential history-state journey. The separate
+Format-accessory history journey remains independent.
+
+Desktop block-menu selection, keyboard opening/focus restoration, and a
+conversion targeting a different block from the caret remain real-browser
+E2E. Local menu operations no longer pay for login, PostgreSQL reset, and a
+full page boot:
+
+| Original browser behavior                          | New coverage                                |
+| -------------------------------------------------- | ------------------------------------------- |
+| Search filters the action catalog                  | `tests/components/wiki-block-menu.test.tsx` |
+| Duplicate selects the copied block                 | `tests/components/wiki-block-menu.test.tsx` |
+| Move uses the correct sibling destination          | `tests/components/wiki-block-menu.test.tsx` |
+| First/last blocks disable invalid moves            | `tests/components/wiki-block-menu.test.tsx` |
+| Whole-block comment respects discussion permission | `tests/components/wiki-block-menu.test.tsx` |
+| Delete exposes an undo action                      | `tests/components/wiki-block-menu.test.tsx` |
+
+Sidebar still has browser coverage for hydration, cookie-controlled first
+paint, accessible Drawer focus/inert behavior, slow/fast navigation feedback,
+tree keyboard behavior, geometry, and PostgreSQL-backed hierarchy operations.
+Repeated rail visibility/new-page ownership checks moved to
+`tests/components/sidebar-toggle.test.tsx`; the retained mobile first-paint and
+desktop cookie journeys continue to guard the actual CSS/hydration boundary.
+All Drawer journeys now wait for the toggle's explicit client-ready signal
+before clicking. A pre-fix targeted run reproduced the old race as a 30-second
+timeout with the Drawer absent; the synchronized journey passed in 4.8 seconds
+after this change without retries or a timeout increase.
+
 Existing lighter-layer coverage, including the Campus Bus mapping in
 `docs/campus-bus/test-coverage.md`, remains included by the full unit command.
 
-## Final five-run validation
+## Current-tree validation
+
+On 2026-08-18, the final working tree passed `pnpm lint`, all 1,972 Vitest
+tests (1,852 passed and 120 intentionally skipped), `pnpm typecheck`, and
+`pnpm build`. One production-build Playwright regression then passed all 252
+tests on their first execution with `retries: 0`: 103 Chromium general, 71
+Chromium Wiki/media, 74 balanced Chromium, and 4 WebKit risk tests. The local
+single-worker run completed in 5.1 minutes. Per the maintainer's updated
+acceptance direction, this test-layer follow-up does not repeat the earlier
+five-run exercise below; the prior five-run CI budget evidence remains recorded
+for the same bounded topology.
+
+## Previous five-run validation
 
 GitHub Actions run `32107130513` was rerun five consecutive times at commit
 `2d063c42e3d1f1257c1ab4f858a0d7dfda441c7d`. Every attempt completed successfully

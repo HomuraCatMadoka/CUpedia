@@ -2,16 +2,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
+import { PLAYWRIGHT_RETRIES } from "../e2e/policy";
 
 const workflow = readFileSync(
   resolve(process.cwd(), ".github/workflows/ci.yml"),
   "utf8",
 );
-const playwrightConfig = readFileSync(
-  resolve(process.cwd(), "playwright.config.ts"),
-  "utf8",
-);
-
 type WorkflowStep = {
   name?: string;
   run?: string;
@@ -160,10 +156,22 @@ describe("bounded full CI topology (#669)", () => {
     );
     expect(startMinio?.if).toBe("matrix.minio");
     expect(createBucket?.if).toBe("matrix.minio");
-    expect(JSON.stringify(requireJob("browser-third"))).not.toContain("MinIO");
+    const thirdRunner = requireJob("browser-third");
+    expect(
+      Object.keys(thirdRunner.services ?? {}).some((name) =>
+        name.toLocaleLowerCase().includes("minio"),
+      ),
+    ).toBe(false);
+    expect(
+      (thirdRunner.steps ?? []).some((step) =>
+        [step.name, step.run, step.uses].some((field) =>
+          field?.toLocaleLowerCase().includes("minio"),
+        ),
+      ),
+    ).toBe(false);
   });
 
   it("cannot turn a retry-pass flaky test green", () => {
-    expect(playwrightConfig).toMatch(/retries:\s*0/);
+    expect(PLAYWRIGHT_RETRIES).toBe(0);
   });
 });

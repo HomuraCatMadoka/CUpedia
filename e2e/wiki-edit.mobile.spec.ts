@@ -237,54 +237,6 @@ test.describe("mobile wiki editing", () => {
     }
   });
 
-  test("focused content exposes one inset touch toolbar without duplicating the editor", async ({
-    page,
-  }) => {
-    const editor = page.locator('[data-slate-editor="true"]');
-
-    await expect(editor).toHaveCount(1);
-    await editor.click();
-
-    const toolbar = page.getByRole("toolbar", {
-      name: "键盘上方编辑工具",
-    });
-    await expect(toolbar).toBeVisible();
-    await expect(
-      toolbar.getByRole("button", { name: "插入块", exact: true }),
-    ).toBeVisible();
-    await expect(
-      toolbar.getByRole("button", { name: "转换块类型", exact: true }),
-    ).toBeVisible();
-    await expect(
-      toolbar.getByRole("button", { name: "插入块", exact: true }),
-    ).toHaveAttribute("aria-haspopup", "dialog");
-    await expect(
-      toolbar.getByRole("button", { name: "插入块", exact: true }),
-    ).toHaveAttribute("aria-expanded", "false");
-    await expect(
-      toolbar.getByRole("button", { name: "转换块类型", exact: true }),
-    ).toHaveAttribute("aria-haspopup", "dialog");
-
-    const toolbarBox = await toolbar.boundingBox();
-    const insertBox = await toolbar
-      .getByRole("button", { name: "插入块", exact: true })
-      .boundingBox();
-    expect(toolbarBox).not.toBeNull();
-    expect(insertBox).not.toBeNull();
-    expect(toolbarBox!.x).toBeGreaterThanOrEqual(12);
-    expect(toolbarBox!.width).toBeLessThanOrEqual(MOBILE_VIEWPORT.width - 24);
-    expect(insertBox!.width).toBeGreaterThanOrEqual(44);
-    expect(insertBox!.height).toBeGreaterThanOrEqual(44);
-    const turnIntoLabel = toolbar.getByText("Turn into", { exact: true });
-    await expect(turnIntoLabel).toBeVisible();
-    expect(
-      await turnIntoLabel.evaluate(
-        (element) => element.scrollWidth <= element.clientWidth,
-      ),
-    ).toBe(true);
-    await expect(editor).toHaveCount(1);
-  });
-
   test("the action strip follows body focus and resets before the next edit", async ({
     page,
   }) => {
@@ -303,55 +255,6 @@ test.describe("mobile wiki editing", () => {
     await expect(
       toolbar.getByRole("button", { name: "插入块", exact: true }),
     ).toBeVisible();
-  });
-
-  test("the focused editor exposes Notion Mobile Web's floating action strip", async ({
-    page,
-  }) => {
-    const editor = page.locator('[data-slate-editor="true"]');
-    await editor.click();
-    const toolbar = page.getByRole("toolbar", {
-      name: "键盘上方编辑工具",
-    });
-
-    await expect
-      .poll(() =>
-        toolbar
-          .locator("button")
-          .evaluateAll((buttons) =>
-            buttons.map((button) => button.getAttribute("aria-label")),
-          ),
-      )
-      .toEqual([
-        "插入块",
-        "转换块类型",
-        "提及页面",
-        "添加批注",
-        "插入图片",
-        "删除当前块",
-        "收起键盘",
-      ]);
-
-    const toolbarBox = await toolbar.boundingBox();
-    expect(toolbarBox).not.toBeNull();
-    expect(toolbarBox!.x).toBeGreaterThanOrEqual(12);
-    expect(toolbarBox!.width).toBeLessThanOrEqual(MOBILE_VIEWPORT.width - 24);
-    expect(
-      await toolbar.evaluate((element) =>
-        Number.parseFloat(getComputedStyle(element).borderRadius),
-      ),
-    ).toBeGreaterThanOrEqual(16);
-
-    const actionBoxes = await toolbar.locator("button").evaluateAll((buttons) =>
-      buttons.map((button) => {
-        const box = button.getBoundingClientRect();
-        return { height: box.height, width: box.width };
-      }),
-    );
-    for (const box of actionBoxes) {
-      expect(box.width).toBeGreaterThanOrEqual(44);
-      expect(box.height).toBeGreaterThanOrEqual(44);
-    }
   });
 
   test("the complete action strip fits common 360px and 375px mobile viewports", async ({
@@ -469,7 +372,7 @@ test.describe("mobile wiki editing", () => {
     await expect(editor).not.toBeFocused();
   });
 
-  test("the mobile page bar follows Notion Mobile Web's menu-title-actions structure", async ({
+  test("the mobile page bar preserves its responsive structure and dark surface", async ({
     page,
   }) => {
     const topbar = page.getByRole("banner", { name: "编辑器顶栏" });
@@ -527,11 +430,7 @@ test.describe("mobile wiki editing", () => {
     await expect
       .poll(async () => (await parentSelect.boundingBox())?.height ?? 0)
       .toBeGreaterThanOrEqual(44);
-  });
-
-  test("dark mode uses Notion Mobile Web's charcoal editor surface", async ({
-    page,
-  }) => {
+    await page.keyboard.press("Escape");
     await emulateColorScheme(page, "dark");
 
     const editorShell = page.getByTestId("wiki-editor-shell");
@@ -581,134 +480,6 @@ test.describe("mobile wiki editing", () => {
     } finally {
       await setGettingStartedIcon(null);
     }
-  });
-
-  test("an expanded text selection replaces default actions with inline formatting", async ({
-    page,
-  }) => {
-    await selectText(page, "New to CUHK?");
-
-    const toolbar = page.getByRole("toolbar", {
-      name: "键盘上方编辑工具",
-    });
-    for (const name of [
-      "粗体",
-      "斜体",
-      "链接",
-      "行内代码",
-      "添加批注",
-      "更多格式",
-    ]) {
-      await expect(toolbar.getByRole("button", { name })).toBeVisible();
-    }
-    await expect(
-      toolbar.getByRole("button", { name: "插入块", exact: true }),
-    ).toHaveCount(0);
-  });
-
-  test("Insert opens Notion Mobile Web's full-screen single-column block list", async ({
-    page,
-  }) => {
-    const editor = page.locator('[data-slate-editor="true"]');
-    await editor.click();
-    await page
-      .getByRole("toolbar", { name: "键盘上方编辑工具" })
-      .getByRole("button", { name: "插入块", exact: true })
-      // Next's dev-tools launcher occupies the same bottom-edge pixels in the
-      // dev-server verification profile; production has no such overlay.
-      .dispatchEvent("click");
-
-    await expect(
-      page.getByRole("toolbar", { name: "键盘上方编辑工具" }),
-    ).toHaveCount(0);
-
-    const sheet = page.getByRole("dialog", { name: "插入块" });
-    await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "取消" })).toBeVisible();
-    await expect(sheet.getByRole("heading", { name: "基础块" })).toBeVisible();
-    await expect(
-      sheet.getByRole("button", { name: "标题 1", exact: true }),
-    ).toBeVisible();
-    await expect(
-      sheet.getByRole("button", { name: "标题 4", exact: true }),
-    ).toBeVisible();
-    await expect(
-      sheet.getByRole("button", { name: "图片", exact: true }),
-    ).toBeVisible();
-    await expect(
-      sheet.getByRole("heading", { name: "丰富内容" }),
-    ).toBeVisible();
-    await expect(sheet.getByRole("heading", { name: "提示框" })).toBeVisible();
-    await expect(sheet.getByText("页面内最高层级标题")).toHaveCount(0);
-    await expect(page.getByRole("dialog")).toHaveCount(1);
-    await expect(page.getByTestId("mobile-editor-backdrop")).toHaveCount(0);
-
-    const firstCells = sheet.locator('[data-testid="mobile-insert-cell"]');
-    expect(await firstCells.count()).toBeGreaterThanOrEqual(14);
-    const firstCellBox = await firstCells.first().boundingBox();
-    expect(firstCellBox).not.toBeNull();
-    expect(firstCellBox!.height).toBeGreaterThanOrEqual(44);
-    expect(firstCellBox!.height).toBeLessThanOrEqual(50);
-
-    const sheetBox = await sheet.boundingBox();
-    expect(sheetBox).not.toBeNull();
-    expect(sheetBox!.x).toBe(0);
-    expect(sheetBox!.y).toBe(0);
-    expect(sheetBox!.width).toBe(MOBILE_VIEWPORT.width);
-    expect(sheetBox!.height).toBe(MOBILE_VIEWPORT.height);
-  });
-
-  test("Turn into opens a full-screen list and marks the current block type", async ({
-    page,
-  }) => {
-    const firstBlock = page
-      .getByTestId("wiki-editor-block")
-      .filter({ hasText: "New to CUHK?" })
-      .first();
-    await firstBlock.click();
-    await page
-      .getByRole("toolbar", { name: "键盘上方编辑工具" })
-      .getByRole("button", { name: "转换块类型", exact: true })
-      .dispatchEvent("click");
-
-    await expect(
-      page.getByRole("toolbar", { name: "键盘上方编辑工具" }),
-    ).toHaveCount(0);
-
-    const sheet = page.getByRole("dialog", { name: "Turn into" });
-    await expect(sheet).toBeVisible();
-    await expect(sheet.getByRole("button", { name: "取消" })).toBeVisible();
-    await expect(
-      sheet.getByRole("button", { name: "正文", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(
-      sheet.getByRole("button", { name: "标题 1", exact: true }),
-    ).toBeVisible();
-    await expect(
-      sheet.getByRole("button", { name: "标题 4", exact: true }),
-    ).toBeVisible();
-    await expect(
-      sheet.getByRole("button", { name: "项目列表", exact: true }),
-    ).toBeVisible();
-    await expect(
-      sheet.getByRole("button", { name: "代码块", exact: true }),
-    ).toBeVisible();
-    await expect(page.getByTestId("mobile-editor-backdrop")).toHaveCount(0);
-
-    const rows = sheet.locator('[data-testid="mobile-turn-into-cell"]');
-    expect(await rows.count()).toBeGreaterThanOrEqual(10);
-    const firstRowBox = await rows.first().boundingBox();
-    expect(firstRowBox).not.toBeNull();
-    expect(firstRowBox!.height).toBeGreaterThanOrEqual(44);
-    expect(firstRowBox!.height).toBeLessThanOrEqual(50);
-    const sheetBox = await sheet.boundingBox();
-    expect(sheetBox).not.toBeNull();
-    expect(sheetBox).toEqual({
-      x: 0,
-      y: 0,
-      width: MOBILE_VIEWPORT.width,
-      height: MOBILE_VIEWPORT.height,
-    });
   });
 
   test("the image action opens the platform image chooser directly", async ({
@@ -1191,7 +962,7 @@ test.describe("mobile wiki editing", () => {
     await expect(page.locator('[data-slate-editor="true"]')).toBeFocused();
   });
 
-  test("browser back closes a full-screen editor surface before leaving the page", async ({
+  test("browser history closes and restores a full-screen editor surface", async ({
     page,
   }) => {
     const editor = page.locator('[data-slate-editor="true"]');
@@ -1209,39 +980,10 @@ test.describe("mobile wiki editing", () => {
     await expect(sheet).toHaveCount(0);
     expect(page.url()).toBe(editUrl);
     await expect(editor).toBeFocused();
-  });
-
-  test("browser forward restores the temporary surface instead of creating a dead history entry", async ({
-    page,
-  }) => {
-    const editor = page.locator('[data-slate-editor="true"]');
-    await editor.click();
-    await page
-      .getByRole("toolbar", { name: "键盘上方编辑工具" })
-      .getByRole("button", { name: "插入块", exact: true })
-      .dispatchEvent("click");
-    const sheet = page.getByRole("dialog", { name: "插入块" });
-    await expect(sheet).toBeVisible();
-
-    await page.goBack();
-    await expect(sheet).toHaveCount(0);
     await page.goForward();
 
     await expect(sheet).toBeVisible();
     await expect(page.locator('[data-slate-editor="true"]')).toHaveCount(1);
-  });
-
-  test("Forward restores a surface after focus moved out of the editor", async ({
-    page,
-  }) => {
-    const editor = page.locator('[data-slate-editor="true"]');
-    await editor.click();
-    await page
-      .getByRole("toolbar", { name: "键盘上方编辑工具" })
-      .getByRole("button", { name: "插入块", exact: true })
-      .dispatchEvent("click");
-    const sheet = page.getByRole("dialog", { name: "插入块" });
-    await expect(sheet).toBeVisible();
 
     await page.goBack();
     await expect(sheet).toHaveCount(0);

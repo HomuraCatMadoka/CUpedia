@@ -2,6 +2,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { defineConfig, devices } from "@playwright/test";
 import dotenv from "dotenv";
+import { PLAYWRIGHT_RETRIES } from "./e2e/policy";
 import { deriveE2eRuntime } from "./e2e/runtime";
 
 const commonRoot = path.dirname(
@@ -55,7 +56,7 @@ export default defineConfig({
   // A worker owns one isolated database. CI splits files across separate
   // jobs/databases instead of racing shared fixtures in one process.
   forbidOnly: !!process.env.CI,
-  retries: 0,
+  retries: PLAYWRIGHT_RETRIES,
   workers: 1,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   timeout: 30_000,
