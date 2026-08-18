@@ -146,31 +146,31 @@ Existing lighter-layer coverage, including the Campus Bus mapping in
 
 ## Final five-run validation
 
-GitHub Actions run `32099935361` was rerun five consecutive times at commit
-`6299b7fb648ab5a92d073be198161e02c55cd981`. Every attempt completed successfully
+GitHub Actions run `32104543491` was rerun five consecutive times at commit
+`6151dd8dde86a0004d9bcc82bffab11f9b643701`. Every attempt completed successfully
 with Playwright retries fixed at zero. Durations below are GitHub job durations,
 so the runner total includes setup, real PostgreSQL, and test execution.
 
 | Attempt    | Runner seconds | E2E runner seconds | Wall seconds |  Build | Quality | Chromium general | Chromium media | Balanced + WebKit |
 | ---------- | -------------: | -----------------: | -----------: | -----: | ------: | ---------------: | -------------: | ----------------: |
-| 1          |            865 |                597 |          297 |     85 |     183 |              184 |            203 |               210 |
-| 2          |            848 |                600 |          289 |     74 |     174 |              178 |            211 |               211 |
-| 3          |            843 |                579 |          290 |     78 |     186 |              160 |            209 |               210 |
-| 4          |            813 |                555 |          272 |     73 |     185 |              163 |            197 |               195 |
-| 5          |            861 |                594 |          285 |     72 |     195 |              185 |            198 |               211 |
-| **Median** |        **848** |            **594** |      **289** | **74** | **185** |          **178** |        **203** |           **210** |
+| 1          |            846 |                558 |          315 |    111 |     177 |              176 |            201 |               181 |
+| 2          |            811 |                549 |          273 |     67 |     195 |              147 |            203 |               199 |
+| 3          |            833 |                565 |          274 |     74 |     194 |              174 |            194 |               197 |
+| 4          |            828 |                556 |          278 |     67 |     205 |              169 |            179 |               208 |
+| 5          |            832 |                603 |          281 |     67 |     162 |              183 |            211 |               209 |
+| **Median** |        **832** |            **558** |      **278** | **67** | **194** |          **174** |        **201** |           **199** |
 
-The median runner total is 848 seconds (budget: at most 900) and median wall
-time is 289 seconds (budget: at most 360). CI has five job executions and three
-E2E runners. The median browser-test steps were 121 seconds for Chromium
-general, 153 seconds for Chromium media, and 150 seconds for balanced Chromium
-plus WebKit risk. The Chromium-only test steps differ by 32 seconds; the third
-runner stays within 29 seconds of the general shard while also carrying WebKit.
+The median runner total is 832 seconds (budget: at most 900) and median wall
+time is 278 seconds (budget: at most 360). CI has five job executions and three
+E2E runners. The median browser-test steps were 133 seconds for Chromium
+general, 152 seconds for Chromium media, and 144 seconds for balanced Chromium
+plus WebKit risk. The Chromium-only test steps differ by 19 seconds; the third
+runner stays within 11 seconds of the general shard while also carrying WebKit.
 
 All five complete logs were scanned for Playwright retry-number, flaky,
 failed-summary, and passed-on-retry markers; none were present. GitHub metadata
 records every job and browser-test step as successful on its first execution.
-Across all five attempts, the Chromium browser install took 5-8 seconds; the
+Across all five attempts, the Chromium browser install took 6-7 seconds; the
 third runner used the official Playwright image and had no install step.
 `Start MinIO` occurs only under `chromium-wiki-media`; the other browser runners
 use real PostgreSQL without starting object storage.
