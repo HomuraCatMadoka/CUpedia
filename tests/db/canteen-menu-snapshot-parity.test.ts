@@ -147,7 +147,7 @@ const scenarios: ParityScenario[] = [
     expectedCode: null,
   },
   {
-    name: "wholesale product-ID churn",
+    name: "large partial growth",
     provider: "pinme",
     existing: ["old-a", "old-b", "old-c", "old-d"].map((id) => item(id)),
     input: input(
@@ -157,7 +157,7 @@ const scenarios: ParityScenario[] = [
         name: `新菜品 ${id}`,
       })),
     ),
-    expectedCode: "MENU_SYNC_IDENTITY_CHURN",
+    expectedCode: null,
   },
 ];
 

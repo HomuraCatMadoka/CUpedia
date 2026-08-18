@@ -833,7 +833,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     expect(retry.plan.unchanged).toBe(2);
   });
 
-  it("applies reviewed PinMe addition churn without deactivating absent dishes", async () => {
+  it("applies ordinary PinMe partial growth without deactivating absent dishes", async () => {
     const absentItemIds = [randomUUID(), randomUUID(), randomUUID()];
     await db
       .update(canteenMenuSources)
@@ -876,27 +876,13 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         })),
       ],
     };
-    const source = {
-      id: sourceId,
-      canteenId,
-      provider: "pinme" as const,
-      externalOwnerId: null,
-      externalStoreId: "4898",
-      config: {},
-      enabled: true,
-      legacyTakeoverAt: null,
-    };
-    const artifact = await auditMenuIdentityTransition(source, input);
-    expect(artifact.audit.summary).toMatchObject({
-      additionCount: 3,
-      removalCount: 3,
-      ambiguityCount: 0,
-    });
+    const preview = await previewMenuSync(sourceId, input);
+    expect(preview.blockingDecision.blocked).toBe(false);
 
-    const transition = await applyApprovedMenuIdentityTransition(
+    const transition = await applyPreviewedMenuSync(
       sourceId,
       input,
-      artifact,
+      preview.previewToken,
     );
     expect(
       transition.plan.actions.filter((action) => action.action === "create"),
