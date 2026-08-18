@@ -17,6 +17,7 @@ import {
   type MenuSnapshotEvaluation,
 } from "./canteen-menu-snapshot-evaluator";
 import {
+  assertLegacyIdentityTransitionSnapshot,
   buildMenuIdentityTransitionAudit,
   fingerprintMenuIdentityTransitionSource,
   type ApprovedMenuIdentityCanonicalization,
@@ -404,12 +405,7 @@ export async function auditMenuIdentityTransition(
   source: MenuIdentityTransitionSourceConfiguration,
   input: MenuSyncInput,
 ): Promise<MenuIdentityTransitionArtifact> {
-  assertProviderSnapshotCompleteness(
-    source.provider,
-    input.snapshotCompleteness,
-    input.scopeEvidence,
-    source.externalStoreId,
-  );
+  assertLegacyIdentityTransitionSnapshot(source, input);
   const existing = collectExistingSyncItems(
     await selectExistingItems(db, source.canteenId),
   );
@@ -534,12 +530,16 @@ async function applyMenuSync(
         mode.kind === "recurring" ? "MENU_SYNC_SUPERSEDED" : "MENU_SYNC_STALE",
       );
     }
-    assertProviderSnapshotCompleteness(
-      source.provider,
-      input.snapshotCompleteness,
-      input.scopeEvidence,
-      source.externalStoreId,
-    );
+    if (mode.kind === "identity-transition") {
+      assertLegacyIdentityTransitionSnapshot(source, input);
+    } else {
+      assertProviderSnapshotCompleteness(
+        source.provider,
+        input.snapshotCompleteness,
+        input.scopeEvidence,
+        source.externalStoreId,
+      );
+    }
     const now = source.databaseNow;
     if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
       throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");

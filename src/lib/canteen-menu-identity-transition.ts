@@ -18,6 +18,7 @@ import {
 import {
   MENU_SNAPSHOT_COMPLETENESS,
   assertProviderSnapshotCompleteness,
+  assertProviderSnapshotScope,
   snapshotAbsenceIsEvidence,
 } from "./canteen-menu-snapshot-completeness";
 
@@ -436,12 +437,7 @@ export function verifyMenuIdentityTransitionApproval(
   >,
   artifactInput: unknown,
 ): ApprovedMenuIdentityTransition {
-  assertProviderSnapshotCompleteness(
-    source.provider,
-    input.snapshotCompleteness,
-    input.scopeEvidence,
-    source.externalStoreId,
-  );
+  assertLegacyIdentityTransitionSnapshot(source, input);
   const artifact = parseMenuIdentityTransitionArtifact(artifactInput);
   if (
     artifact.schemaVersion !== 4 ||
@@ -684,6 +680,39 @@ export function verifyMenuIdentityTransitionApproval(
       compareProviderText(left.nextProductId, right.nextProductId),
     ),
   };
+}
+
+/**
+ * Compatibility boundary for legacy v4 identity-transition snapshots.
+ * This does not grant ordinary Aigens observations removal authority.
+ */
+export function assertLegacyIdentityTransitionSnapshot(
+  source: Pick<
+    MenuIdentityTransitionArtifact["source"],
+    "provider" | "externalStoreId"
+  >,
+  input: Pick<MenuSyncInput, "snapshotCompleteness" | "scopeEvidence">,
+): void {
+  if (
+    source.provider !== "aigens" ||
+    input.snapshotCompleteness !== "complete"
+  ) {
+    assertProviderSnapshotCompleteness(
+      source.provider,
+      input.snapshotCompleteness,
+      input.scopeEvidence,
+      source.externalStoreId,
+    );
+    return;
+  }
+  if (!input.scopeEvidence) {
+    throw new Error("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+  }
+  assertProviderSnapshotScope(
+    source.provider,
+    input.scopeEvidence,
+    source.externalStoreId,
+  );
 }
 
 export function parseMenuIdentityTransitionArtifact(

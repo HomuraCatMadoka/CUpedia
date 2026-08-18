@@ -182,19 +182,23 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       .where(inArray(users.id, [userId, ...additionalUserIds]));
   });
 
-  it("rejects manual Aigens JSON that claims a complete provider snapshot", async () => {
+  it("rejects complete Aigens claims at ordinary sync boundaries", async () => {
+    const completeSnapshot = {
+      snapshotCompleteness: "complete" as const,
+      items: [
+        {
+          externalProductId: "product-42",
+          name: "演示菜品 A",
+          mealPeriods: ["lunch"],
+        },
+      ],
+    };
     await expect(
-      previewMenuSyncFromJson(canteenId, {
-        snapshotCompleteness: "complete",
-        items: [
-          {
-            externalProductId: "product-42",
-            name: "演示菜品 A",
-            mealPeriods: ["lunch"],
-          },
-        ],
-      }),
-    ).rejects.toThrow("MENU_SNAPSHOT_SCOPE_EVIDENCE_REQUIRED");
+      previewMenuSyncFromJson(canteenId, completeSnapshot),
+    ).rejects.toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
+    await expect(
+      previewMenuSync(sourceId, parseValidatedAigensSnapshot(completeSnapshot)),
+    ).rejects.toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
   });
 
   it("claims a legacy item and later deactivates it without losing history", async () => {
@@ -594,14 +598,17 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       input,
     );
 
-    const preview = await previewMenuSync(sourceId, input);
+    const ordinaryInput = {
+      ...input,
+      snapshotCompleteness: "partial" as const,
+    };
+    const preview = await previewMenuSync(sourceId, ordinaryInput);
     expect(preview.blockingDecision).toMatchObject({
       blocked: true,
       code: "MENU_SYNC_IDENTITY_CHURN",
     });
     expect(preview.blockingReasons.map((reason) => reason.code)).toEqual([
       "MENU_SYNC_IDENTITY_CHURN",
-      "MENU_SYNC_SUSPICIOUS_DROP",
     ]);
 
     await applyApprovedMenuIdentityTransition(sourceId, input, {
@@ -677,7 +684,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ]);
     expect(history.map(([row]) => row.value)).toEqual([1, 1]);
 
-    const retryPreview = await previewMenuSync(sourceId, input);
+    const retryPreview = await previewMenuSync(sourceId, ordinaryInput);
     expect(retryPreview.blockingDecision).toEqual({
       blocked: false,
       code: null,
@@ -685,7 +692,7 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     });
     const retry = await applyPreviewedMenuSync(
       sourceId,
-      input,
+      ordinaryInput,
       retryPreview.previewToken,
     );
     expect(retry.plan.actions).toEqual([]);
@@ -1014,7 +1021,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ]);
     expect(retiredHistory.map(([row]) => row.value)).toEqual([0, 0]);
 
-    const retry = await previewMenuSync(sourceId, input);
+    const retry = await previewMenuSync(sourceId, {
+      ...input,
+      snapshotCompleteness: "partial",
+    });
     expect(retry.blockingDecision.blocked).toBe(false);
     expect(retry.plan.actions).toEqual([]);
   });
@@ -1095,7 +1105,10 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
         .where(eq(canteenDishComments.menuItemId, itemId)),
     ]);
     expect(history.map(([row]) => row.value)).toEqual([1, 1]);
-    const retry = await previewMenuSync(sourceId, input);
+    const retry = await previewMenuSync(sourceId, {
+      ...input,
+      snapshotCompleteness: "partial",
+    });
     expect(retry.blockingDecision).toEqual({
       blocked: false,
       code: null,
@@ -1147,11 +1160,6 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       })),
     });
     const audit = buildMenuIdentityTransitionAudit(existingItems, input);
-    const preview = await previewMenuSync(sourceId, input);
-    expect(preview.blockingReasons.map((reason) => reason.code)).toEqual([
-      "MENU_SYNC_SUSPICIOUS_DROP",
-    ]);
-
     await expect(
       applyApprovedMenuIdentityTransition(sourceId, input, {
         schemaVersion: 4,

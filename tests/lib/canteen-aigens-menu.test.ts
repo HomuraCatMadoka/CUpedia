@@ -278,6 +278,7 @@ describe("S.H. Ho Aigens menu adapter", () => {
     await expect(
       fetchAigensMenu("102830", { fetchImpl }),
     ).resolves.toMatchObject({
+      snapshotCompleteness: "partial",
       scopeEvidence: {
         provider: "aigens",
         externalStoreId: "102830",
@@ -295,6 +296,120 @@ describe("S.H. Ho Aigens menu adapter", () => {
         },
       ],
     });
+  });
+
+  it("keeps a broad ordering observation partial across ordinary item changes", async () => {
+    const expanded = structuredClone(aigensCurrent);
+    expanded.data.menu.groups[0].items.push({
+      backendId: "45",
+      name: "新增菜品",
+      price: 42,
+      published: true,
+    });
+    const fetchImpl = async () =>
+      new Response(JSON.stringify(expanded), { status: 200 });
+
+    await expect(
+      fetchAigensMenu("102830", { fetchImpl }),
+    ).resolves.toMatchObject({
+      snapshotCompleteness: "partial",
+      items: [{ externalProductId: "42" }, { externalProductId: "45" }],
+      scopeEvidence: {
+        categoryPeriodCodes: ["B", "D", "L", "T"],
+      },
+    });
+  });
+
+  it("labels broad and contracted 102830-shaped service observations partial", async () => {
+    const providerPeriodCodes = [
+      "B",
+      "D",
+      "L",
+      "M",
+      "S1",
+      "S2",
+      "S3",
+      "S4",
+      "S5",
+      "S6",
+      "S7",
+      "T",
+    ];
+    const categoryPeriods = ["B", "L", "T", "D", "S1"];
+    const itemCounts = [20, 67, 20, 20, 27];
+    let productNumber = 0;
+    const groups = categoryPeriods.map((period, categoryIndex) => ({
+      id: `period-${period}`,
+      items: Array.from({ length: itemCounts[categoryIndex] }, () => {
+        productNumber += 1;
+        return {
+          backendId: `102830-product-${productNumber}`,
+          name: `菜品 ${productNumber}`,
+          price: 30 + (productNumber % 10),
+          published: true,
+        };
+      }),
+    }));
+    const broadServiceObservation = {
+      ...structuredClone(aigensCurrent),
+      data: {
+        ...structuredClone(aigensCurrent.data),
+        menu: {
+          ...structuredClone(aigensCurrent.data.menu),
+          periods: providerPeriodCodes.map((code) => ({ code })),
+          categories: categoryPeriods.map((period) => ({
+            name: `時段 ${period}`,
+            periods: [period],
+            groupIds: [`period-${period}`],
+          })),
+          groups,
+        },
+      },
+    };
+    const contractedServiceObservation = structuredClone(
+      broadServiceObservation,
+    );
+    contractedServiceObservation.data.menu.categories = [
+      broadServiceObservation.data.menu.categories[1],
+    ];
+    contractedServiceObservation.data.menu.groups = [
+      broadServiceObservation.data.menu.groups[1],
+    ];
+    const broadPayload = await fetchAigensMenu("102830", {
+      fetchImpl: async () =>
+        new Response(JSON.stringify(broadServiceObservation), { status: 200 }),
+    });
+
+    const payload = await fetchAigensMenu("102830", {
+      fetchImpl: async () =>
+        new Response(JSON.stringify(contractedServiceObservation), {
+          status: 200,
+        }),
+    });
+
+    expect(broadPayload.items).toHaveLength(154);
+    expect(broadPayload.snapshotCompleteness).toBe("partial");
+    expect(payload.items).toHaveLength(67);
+    expect(payload.scopeEvidence).toMatchObject({
+      providerPeriodCodes: [
+        "B",
+        "D",
+        "L",
+        "M",
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S6",
+        "S7",
+        "T",
+      ],
+      categoryPeriodCodes: ["L"],
+      categoryCount: 1,
+      groupCount: 1,
+    });
+    expect(payload.snapshotCompleteness).toBe("partial");
   });
 
   it("rejects a catalog whose store scope does not match the requested source", async () => {
