@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getTableColumns } from "drizzle-orm";
 import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
+import * as schema from "@/db/schema";
 import {
   users,
   wikiDrafts,
@@ -36,6 +37,24 @@ import {
 } from "@/lib/product-update-types";
 
 describe("schema", () => {
+  it("enables RLS on every Drizzle-managed application table", () => {
+    const tableConfigs = Object.values(schema).flatMap((value) => {
+      try {
+        return [getTableConfig(value as Parameters<typeof getTableConfig>[0])];
+      } catch {
+        return [];
+      }
+    });
+
+    expect(tableConfigs.length).toBeGreaterThan(0);
+    expect(
+      tableConfigs
+        .filter((table) => !table.enableRLS)
+        .map((table) => table.name)
+        .sort(),
+    ).toEqual([]);
+  });
+
   it("users table has required custom fields", () => {
     const cols = getTableColumns(users);
     expect(cols.nickname).toBeDefined();

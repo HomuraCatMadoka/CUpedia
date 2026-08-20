@@ -38,7 +38,7 @@ export const users = pgTable("users", {
   banned: boolean("banned").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 export const sessions = pgTable("sessions", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -51,7 +51,7 @@ export const sessions = pgTable("sessions", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-});
+}).enableRLS();
 
 export const accounts = pgTable("accounts", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -69,7 +69,7 @@ export const accounts = pgTable("accounts", {
   password: text("password"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 export const verifications = pgTable("verifications", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -78,14 +78,14 @@ export const verifications = pgTable("verifications", {
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}).enableRLS();
 
 // ── Application tables ──
 
 export const siteSettings = pgTable("site_settings", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
-});
+}).enableRLS();
 
 export const campusBusArrivalObservations = pgTable(
   "campus_bus_arrival_observations",
@@ -126,7 +126,7 @@ export const campusBusArrivalObservations = pgTable(
         AND ${table.observedArrivalAt} <= ${table.receivedAt} + interval '2 minutes'`,
     ),
   ],
-);
+).enableRLS();
 
 export const campusBusFeedbackRateLimits = pgTable(
   "campus_bus_feedback_rate_limits",
@@ -145,7 +145,7 @@ export const campusBusFeedbackRateLimits = pgTable(
       sql`${table.submissionCount} >= 0`,
     ),
   ],
-);
+).enableRLS();
 
 export const campusBusPredictionModelRevisions = pgTable(
   "campus_bus_prediction_model_revisions",
@@ -219,7 +219,7 @@ export const campusBusPredictionModelRevisions = pgTable(
         AND ${table.sourceObservationCount} >= 0`,
     ),
   ],
-);
+).enableRLS();
 
 export const campusBusTripMatchCandidates = pgTable(
   "campus_bus_trip_match_candidates",
@@ -263,7 +263,7 @@ export const campusBusTripMatchCandidates = pgTable(
     ),
     check("campus_bus_trip_candidates_rank_chk", sql`${table.rank} > 0`),
   ],
-);
+).enableRLS();
 
 export const campusBusArrivalEvents = pgTable(
   "campus_bus_arrival_events",
@@ -313,7 +313,7 @@ export const campusBusArrivalEvents = pgTable(
       sql`${table.confidence} > 0 AND ${table.confidence} <= 1`,
     ),
   ],
-);
+).enableRLS();
 
 export const campusBusArrivalEventObservations = pgTable(
   "campus_bus_arrival_event_observations",
@@ -333,7 +333,7 @@ export const campusBusArrivalEventObservations = pgTable(
       table.observationId,
     ),
   ],
-);
+).enableRLS();
 
 export const campusBusPredictionAdjustments = pgTable(
   "campus_bus_prediction_adjustments",
@@ -383,7 +383,7 @@ export const campusBusPredictionAdjustments = pgTable(
       sql`${table.shrinkageWeight} > 0 AND ${table.shrinkageWeight} < 1`,
     ),
   ],
-);
+).enableRLS();
 
 export const wikiPages = pgTable(
   "wiki_pages",
@@ -407,7 +407,7 @@ export const wikiPages = pgTable(
     contentGeneration: integer("content_generation").default(0).notNull(),
   },
   (table) => [index("wiki_pages_parent_id_idx").on(table.parentId)],
-);
+).enableRLS();
 
 export const wikiDrafts = pgTable(
   "wiki_drafts",
@@ -430,7 +430,7 @@ export const wikiDrafts = pgTable(
     index("wiki_drafts_created_by_idx").on(table.createdBy),
     index("wiki_drafts_parent_id_idx").on(table.parentId),
   ],
-);
+).enableRLS();
 
 export const wikiRevisions = pgTable(
   "wiki_revisions",
@@ -448,7 +448,7 @@ export const wikiRevisions = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [index("wiki_revisions_page_id_idx").on(table.pageId)],
-);
+).enableRLS();
 
 export const wikiLinks = pgTable(
   "wiki_links",
@@ -464,7 +464,7 @@ export const wikiLinks = pgTable(
     index("wiki_links_source_id_idx").on(table.sourceId),
     index("wiki_links_target_id_idx").on(table.targetId),
   ],
-);
+).enableRLS();
 
 export const discussions = pgTable(
   "discussions",
@@ -489,7 +489,7 @@ export const discussions = pgTable(
     index("discussions_page_id_idx").on(table.pageId),
     index("discussions_comment_mark_id_idx").on(table.commentMarkId),
   ],
-);
+).enableRLS();
 
 export const discussionsRelations = relations(discussions, ({ one }) => ({
   page: one(wikiPages, {
@@ -560,7 +560,7 @@ export const courses = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [index("courses_subject_idx").on(table.subject)],
-);
+).enableRLS();
 
 // Official AQS subject catalog. Names belong to the subject, not to every
 // individual course, so keep them normalized in one database-backed catalog.
@@ -568,7 +568,7 @@ export const courseSubjects = pgTable("course_subjects", {
   code: text("code").primaryKey(),
   nameEn: text("name_en").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 export const majors = pgTable("majors", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -579,7 +579,7 @@ export const majors = pgTable("majors", {
   handbookYear: text("handbook_year").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 export const majorCategories = pgTable(
   "major_categories",
@@ -594,7 +594,7 @@ export const majorCategories = pgTable(
     pickN: integer("pick_n"),
   },
   (table) => [index("major_categories_major_id_idx").on(table.majorId)],
-);
+).enableRLS();
 
 export const categoryCourses = pgTable(
   "category_courses",
@@ -608,13 +608,13 @@ export const categoryCourses = pgTable(
     missing: boolean("missing").notNull().default(false),
   },
   (table) => [index("category_courses_category_id_idx").on(table.categoryId)],
-);
+).enableRLS();
 
 // 版本对齐：旧课号 → 新课号别名映射（含 DSME→DOTE），摄取/解析前先重映射
 export const courseAliases = pgTable("course_aliases", {
   oldCode: text("old_code").primaryKey(),
   newCode: text("new_code").notNull(),
-});
+}).enableRLS();
 
 export const majorsRelations = relations(majors, ({ many }) => ({
   categories: many(majorCategories),
@@ -662,7 +662,7 @@ export const builds = pgTable(
     index("builds_user_id_idx").on(table.userId),
     index("builds_major_id_idx").on(table.majorId),
   ],
-);
+).enableRLS();
 
 export const buildItems = pgTable(
   "build_items",
@@ -674,7 +674,7 @@ export const buildItems = pgTable(
     term: integer("term"),
   },
   (table) => [primaryKey({ columns: [table.buildId, table.courseCode] })],
-);
+).enableRLS();
 
 export const buildsRelations = relations(builds, ({ many }) => ({
   items: many(buildItems),
@@ -759,7 +759,7 @@ export const courseRatings = pgTable(
       sql`${table.language} is null or ${table.language} in ('mandarin', 'english', 'cantonese')`,
     ),
   ],
-);
+).enableRLS();
 
 // ── 课程成就：版本化规则 / 已点亮实例 / 内部证据 ──
 // 生产规则只存在数据库中；应用代码只解释通用的 subject-count 条件。
@@ -793,7 +793,7 @@ export const achievementCatalogs = pgTable(
       sql`${table.programmeCount} > 0`,
     ),
   ],
-);
+).enableRLS();
 
 export const achievementRules = pgTable(
   "achievement_rules",
@@ -845,7 +845,7 @@ export const achievementRules = pgTable(
       sql`${table.tier} in ('bronze', 'silver', 'gold')`,
     ),
   ],
-);
+).enableRLS();
 
 export const userAchievements = pgTable(
   "user_achievements",
@@ -883,7 +883,7 @@ export const userAchievements = pgTable(
       sql`${table.tier} in ('bronze', 'silver', 'gold')`,
     ),
   ],
-);
+).enableRLS();
 
 export const achievementFusionRecipes = pgTable(
   "achievement_fusion_recipes",
@@ -920,7 +920,7 @@ export const achievementFusionRecipes = pgTable(
       sql`${table.version} > 0`,
     ),
   ],
-);
+).enableRLS();
 
 export const userHiddenAchievements = pgTable(
   "user_hidden_achievements",
@@ -946,7 +946,7 @@ export const userHiddenAchievements = pgTable(
       .on(table.userId)
       .where(sql`${table.equipped} = true`),
   ],
-);
+).enableRLS();
 
 export const achievementFusionSources = pgTable(
   "achievement_fusion_sources",
@@ -966,7 +966,7 @@ export const achievementFusionSources = pgTable(
       table.sourceAchievementId,
     ),
   ],
-);
+).enableRLS();
 
 export const achievementEvidence = pgTable(
   "achievement_evidence",
@@ -983,7 +983,7 @@ export const achievementEvidence = pgTable(
     primaryKey({ columns: [table.achievementId, table.ratingId] }),
     uniqueIndex("achievement_evidence_rating_uq").on(table.ratingId),
   ],
-);
+).enableRLS();
 
 export const achievementProfiles = pgTable(
   "achievement_profiles",
@@ -1002,7 +1002,7 @@ export const achievementProfiles = pgTable(
   (table) => [
     uniqueIndex("achievement_profiles_showcase_id_uq").on(table.showcaseId),
   ],
-);
+).enableRLS();
 
 export const achievementNotices = pgTable(
   "achievement_notices",
@@ -1040,7 +1040,7 @@ export const achievementNotices = pgTable(
       sql`${table.targetTier} in ('bronze', 'silver', 'gold')`,
     ),
   ],
-);
+).enableRLS();
 
 export const staffPeople = pgTable(
   "staff_people",
@@ -1070,7 +1070,7 @@ export const staffPeople = pgTable(
       sql`${table.identityKind} in ('official', 'external', 'unverified')`,
     ),
   ],
-);
+).enableRLS();
 
 export const staffPersonSources = pgTable(
   "staff_person_sources",
@@ -1104,7 +1104,7 @@ export const staffPersonSources = pgTable(
       sql`${table.appointmentKind} is null or ${table.appointmentKind} in ('regular', 'emeritus', 'visiting', 'part_time', 'adjunct', 'honorary', 'courtesy')`,
     ),
   ],
-);
+).enableRLS();
 
 export const staffDepartments = pgTable("staff_departments", {
   id: text("id").primaryKey(),
@@ -1114,7 +1114,7 @@ export const staffDepartments = pgTable("staff_departments", {
   updatedAt: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+}).enableRLS();
 
 export const staffOrganisations = pgTable(
   "staff_organisations",
@@ -1147,7 +1147,7 @@ export const staffOrganisations = pgTable(
       sql`${table.organisationType} in ('faculty', 'department', 'school', 'unit', 'centre', 'programme', 'institute', 'office', 'laboratory', 'other')`,
     ),
   ],
-);
+).enableRLS();
 
 export const staffOrganisationAffiliations = pgTable(
   "staff_organisation_affiliations",
@@ -1172,7 +1172,7 @@ export const staffOrganisationAffiliations = pgTable(
     primaryKey({ columns: [table.personId, table.organisationId] }),
     index("staff_organisation_affiliations_org_idx").on(table.organisationId),
   ],
-);
+).enableRLS();
 
 export const staffAffiliationTitles = pgTable(
   "staff_affiliation_titles",
@@ -1201,7 +1201,7 @@ export const staffAffiliationTitles = pgTable(
     }).onDelete("cascade"),
     index("staff_affiliation_titles_org_idx").on(table.organisationId),
   ],
-);
+).enableRLS();
 
 export const staffAliases = pgTable(
   "staff_aliases",
@@ -1217,7 +1217,7 @@ export const staffAliases = pgTable(
     primaryKey({ columns: [table.personId, table.alias] }),
     index("staff_aliases_normalized_alias_idx").on(table.normalizedAlias),
   ],
-);
+).enableRLS();
 
 export const staffAffiliations = pgTable(
   "staff_affiliations",
@@ -1240,7 +1240,7 @@ export const staffAffiliations = pgTable(
     }),
     index("staff_affiliations_department_id_idx").on(table.departmentId),
   ],
-);
+).enableRLS();
 
 export const professors = pgTable(
   "professors",
@@ -1251,7 +1251,7 @@ export const professors = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [index("professors_search_text_idx").on(table.searchText)],
-);
+).enableRLS();
 
 /** A person who can be selected as an instructor in course reviews. During
  * migration, legacy professor IDs continue to live in `professors` and map
@@ -1287,7 +1287,7 @@ export const professorCourses = pgTable(
       table.instructorPersonId,
     ),
   ],
-);
+).enableRLS();
 
 /** Professors attached to one student's course experience. The legacy
  * course_ratings.professor_id column remains as the first selected professor
@@ -1337,7 +1337,7 @@ export const professorStaffIdentities = pgTable(
       sql`${table.matchMethod} in ('automatic', 'manual_override', 'source_native')`,
     ),
   ],
-);
+).enableRLS();
 
 export const staffTeachingAssignments = pgTable(
   "staff_teaching_assignments",
@@ -1369,7 +1369,7 @@ export const staffTeachingAssignments = pgTable(
       sql`${table.term} in ('Term 1', 'Term 2', 'Summer')`,
     ),
   ],
-);
+).enableRLS();
 
 export const courseEnrollments = pgTable(
   "course_enrollments",
@@ -1398,7 +1398,7 @@ export const courseEnrollments = pgTable(
     }),
     index("course_enrollments_course_code_idx").on(table.courseCode),
   ],
-);
+).enableRLS();
 
 export const courseOfferingInstructors = pgTable(
   "course_offering_instructors",
@@ -1456,7 +1456,7 @@ export const courseOfferingInstructors = pgTable(
       sql`${table.matchStatus} in ('automatic', 'manual', 'external', 'unverified')`,
     ),
   ],
-);
+).enableRLS();
 
 export const courseReviews = pgTable(
   "course_reviews",
@@ -1491,7 +1491,7 @@ export const courseReviews = pgTable(
       sql`${table.term} is null or ${table.term} in ('Term 1', 'Term 2', 'Summer')`,
     ),
   ],
-);
+).enableRLS();
 
 // One row per (review, user) like. Composite PK makes a double-like a no-op at
 // the DB level — no read-modify-write, so concurrent toggles can't lose data.
@@ -1506,7 +1506,7 @@ export const courseReviewLikes = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
   },
   (table) => [primaryKey({ columns: [table.reviewId, table.userId] })],
-);
+).enableRLS();
 
 export const courseReviewReplies = pgTable(
   "course_review_replies",
@@ -1527,7 +1527,7 @@ export const courseReviewReplies = pgTable(
       table.createdAt,
     ),
   ],
-);
+).enableRLS();
 
 export const announcements = pgTable(
   "announcements",
@@ -1561,7 +1561,7 @@ export const announcements = pgTable(
       sql`${table.expiresAt} is null or ${table.publishedAt} is null or ${table.expiresAt} > ${table.publishedAt}`,
     ),
   ],
-);
+).enableRLS();
 
 export const productUpdates = pgTable(
   "product_updates",
@@ -1598,7 +1598,7 @@ export const productUpdates = pgTable(
       )}]::text[]`,
     ),
   ],
-);
+).enableRLS();
 
 export const NOTIFICATION_KINDS = [
   "course_review_reply",
@@ -1655,7 +1655,7 @@ export const notifications = pgTable(
       sql`(${table.kind} = 'announcement_published' and ${table.announcementId} is not null) or (${table.kind} <> 'announcement_published' and ${table.announcementId} is null)`,
     ),
   ],
-);
+).enableRLS();
 
 // ── Canteen subsystem (hard delete; no deletedAt — unlike wiki soft delete) ──
 
@@ -1679,7 +1679,7 @@ export const canteens = pgTable("canteens", {
   announcement: text("announcement"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 export const CANTEEN_MENU_SOURCE_PROVIDERS = [
   "aigens",
@@ -1753,7 +1753,7 @@ export const canteenMenuSources = pgTable(
       sql`(${table.syncClaimToken} is null) = (${table.syncClaimExpiresAt} is null)`,
     ),
   ],
-);
+).enableRLS();
 
 export const CANTEEN_ORDERING_HANDOFF_PROVIDERS = [
   "aigens",
@@ -1791,7 +1791,7 @@ export const canteenOrderingHandoffs = pgTable(
       sql`length(trim(${table.url})) between 1 and 2000`,
     ),
   ],
-);
+).enableRLS();
 
 export const CANTEEN_MENU_SYNC_RUN_STATUSES = [
   "running",
@@ -1858,7 +1858,7 @@ export const canteenMenuSyncRuns = pgTable(
       sql`(${table.itemCount} is null or ${table.itemCount} >= 0) and (${table.createdCount} is null or ${table.createdCount} >= 0) and (${table.updatedCount} is null or ${table.updatedCount} >= 0) and (${table.deactivatedCount} is null or ${table.deactivatedCount} >= 0)`,
     ),
   ],
-);
+).enableRLS();
 
 export const canteenMenuItems = pgTable(
   "canteen_menu_items",
@@ -1918,7 +1918,7 @@ export const canteenMenuItems = pgTable(
       name: "canteen_menu_items_source_canteen_fk",
     }),
   ],
-);
+).enableRLS();
 
 export const canteensRelations = relations(canteens, ({ many, one }) => ({
   menuItems: many(canteenMenuItems),
@@ -2006,7 +2006,7 @@ export const canteenMenuItemPrices = pgTable(
       sql`${table.currency} ~ '^[A-Z]{3}$'`,
     ),
   ],
-);
+).enableRLS();
 
 export const canteenMenuItemPricesRelations = relations(
   canteenMenuItemPrices,
@@ -2054,7 +2054,7 @@ export const canteenDishVotes = pgTable(
       )`,
     ),
   ],
-);
+).enableRLS();
 
 /** Append-only 食堂踩票；票永久保留，榜单按 voteDate（港时自然日）过滤展示。 */
 export const canteenShameVotes = pgTable(
@@ -2090,7 +2090,7 @@ export const canteenShameVotes = pgTable(
       )`,
     ),
   ],
-);
+).enableRLS();
 
 export const canteenShameVotesRelations = relations(
   canteenShameVotes,
@@ -2142,7 +2142,7 @@ export const canteenDishComments = pgTable(
       table.id,
     ),
   ],
-);
+).enableRLS();
 
 export const adminAuditLogs = pgTable(
   "admin_audit_logs",
@@ -2172,7 +2172,7 @@ export const adminAuditLogs = pgTable(
     index("admin_audit_logs_actor_user_id_idx").on(table.actorUserId),
     index("admin_audit_logs_target_user_id_idx").on(table.targetUserId),
   ],
-);
+).enableRLS();
 
 export const canteenDishCommentsRelations = relations(
   canteenDishComments,
@@ -2206,7 +2206,7 @@ export const menuImportDrafts = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [index("menu_import_drafts_canteen_id_idx").on(table.canteenId)],
-);
+).enableRLS();
 
 export const menuImportDraftsRelations = relations(
   menuImportDrafts,
@@ -2274,7 +2274,7 @@ export const danmakuMessages = pgTable(
     index("danmaku_messages_month_idx").on(table.month),
     index("danmaku_messages_user_id_idx").on(table.userId),
   ],
-);
+).enableRLS();
 
 export const danmakuMessagesRelations = relations(
   danmakuMessages,
@@ -2296,7 +2296,7 @@ export const takeouts = pgTable("takeouts", {
   announcement: text("announcement"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}).enableRLS();
 
 export const takeoutMenuItems = pgTable(
   "takeout_menu_items",
@@ -2318,7 +2318,7 @@ export const takeoutMenuItems = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [index("takeout_menu_items_takeout_id_idx").on(table.takeoutId)],
-);
+).enableRLS();
 
 export const takeoutMenuItemPrices = pgTable(
   "takeout_menu_item_prices",
@@ -2348,7 +2348,7 @@ export const takeoutMenuItemPrices = pgTable(
       sql`${table.currency} ~ '^[A-Z]{3}$'`,
     ),
   ],
-);
+).enableRLS();
 
 export const takeoutsRelations = relations(takeouts, ({ many }) => ({
   menuItems: many(takeoutMenuItems),
