@@ -103,11 +103,27 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: psql "$DATABASE_URL" -f init-zhparser.sql
 
+      - name: Initialize Supabase client roles
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
+        run: >-
+          psql "$DATABASE_URL"
+          -c 'CREATE ROLE anon NOLOGIN'
+          -c 'CREATE ROLE authenticated NOLOGIN'
+
       - name: Apply migrations
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: pnpm drizzle-kit migrate
+
+      - name: Test public Data API security
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
+          REQUIRE_SUPABASE_CLIENT_ROLES: "1"
+        run: pnpm exec vitest run tests/db/public-data-api-security.test.ts
 
       - name: Test menu sync persistence
         if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}

@@ -123,6 +123,22 @@ describe("tiered CI topology (#670)", () => {
     expect(namedStep("quality", "Apply migrations").run).toBe(
       "pnpm drizzle-kit migrate",
     );
+    expect(
+      namedStep("quality", "Initialize Supabase client roles").run,
+    ).toContain("CREATE ROLE anon NOLOGIN");
+    expect(
+      namedStep("quality", "Initialize Supabase client roles").run,
+    ).toContain("CREATE ROLE authenticated NOLOGIN");
+    expect(namedStep("quality", "Test public Data API security")).toMatchObject(
+      {
+        run: "pnpm exec vitest run tests/db/public-data-api-security.test.ts",
+        env: {
+          DATABASE_URL:
+            "postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test",
+          REQUIRE_SUPABASE_CLIENT_ROLES: "1",
+        },
+      },
+    );
   });
 
   it("builds Next once and every selected browser reuses the artifact", () => {

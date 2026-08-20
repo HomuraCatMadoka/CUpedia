@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
+const requireClientRoles = process.env.REQUIRE_SUPABASE_CLIENT_ROLES === "1";
 
 describe.skipIf(!hasDb)("public Data API security", () => {
   let pool: Pool;
@@ -35,6 +36,13 @@ describe.skipIf(!hasDb)("public Data API security", () => {
        where rolname in ('anon', 'authenticated')
        order by rolname`,
     );
+
+    if (requireClientRoles) {
+      expect(roles.rows.map(({ rolname }) => rolname)).toEqual([
+        "anon",
+        "authenticated",
+      ]);
+    }
 
     for (const { rolname } of roles.rows) {
       const result = await pool.query<{
