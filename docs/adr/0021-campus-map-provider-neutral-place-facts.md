@@ -27,6 +27,13 @@ Pin type 是受控的浏览目录，不是身份。首批 key 为 `toilet`、`wa
 Floor 和 Pin type 可以有多个 Place；这些字段与名称、距离只能生成 duplicate candidate，
 不能成为唯一键或触发自动合并。
 
+访问限制分成 audience、credential requirement、schedule、reservation 与 temporary status。
+凭证要求使用 `none`、`campus-card`、`library-card`、`other` 或 `unknown`；CUHK member audience
+不自动意味着必须刷卡。性别和无障碍使用独立受控 facet，不从厕所或公共空间类别推断。
+
+点精度由证据性质决定而不是由坐标小数位数决定：`precise` 只用于来源或现场核对直接识别
+该 Place 实际服务位置的点；估算、建筑代表点或不能证明实际位置的点一律为 `approximate`。
+
 每个可发布事实修订都必须引用来源，并区分 source accessed date、现实 Observed at 和审核
 Verified at。`unknown` 不提升为 unrestricted、true 或 false。申请只有批准后才形成公开
 Current fact；显示精度绝不高于证据。重复 Place 的人工合并保留 survivor，并把 loser 保留
