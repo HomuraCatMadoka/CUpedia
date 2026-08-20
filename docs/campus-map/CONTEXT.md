@@ -94,7 +94,3 @@ _Avoid_: 供应商 ID 作主键；名称模糊命中后静默关联
 **地图表现（Map presentation）**: marker、类别聚合、楼层目录、provider POI、scene 和 RPG
 ArtPoint 等引用 canonical ID 的 UI 投影。
 _Avoid_: 从 scene shape 反推领域实体；presentation ID 成为 canonical identity
-
-**延后字段（Deferred fields）**: 在真实、获授权且核实的数据到位前不进入首批模型的室内
-几何、地理配准、Portal、Physical routing graph、逐段限制、垂直设施与实时设备状态。
-_Avoid_: 为未来路线预填假数据；把 unknown 写成 false
