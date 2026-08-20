@@ -4,6 +4,11 @@ Issue: #644. This is the expand step only: the existing AMap prototype keeps
 using the #593 session and runtime while later work migrates UI projections to
 this kernel.
 
+The scene and catalog names are navigation vocabulary, not a persistence
+model. In particular, a `facility` scene selects the canonical Place described
+by the [Campus Map domain language](./CONTEXT.md); it does not create a second
+Facility identity or make the scene catalog the source of map facts.
+
 ## Public seams
 
 - `transitionCampusMapSession(session, event, catalog)` is the only product
