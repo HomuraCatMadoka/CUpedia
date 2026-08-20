@@ -51,7 +51,9 @@ function namedStep(jobName: string, stepName: string) {
 
 describe("tiered CI topology (#670)", () => {
   it("always publishes the stable aggregate gate without top-level path filters", () => {
-    expect(config.on?.pull_request).toEqual({ branches: ["main"] });
+    expect(config.on?.pull_request).toEqual({
+      branches: ["main", "feat/issue-670-tiered-ci"],
+    });
     expect(job("quality").name).toBe("lint-and-test");
     expect(job("build").name).toBe("build");
     expect(job("gate").name).toBe("CI gate");
