@@ -1,6 +1,6 @@
 # Context Map
 
-CUpedia 现有六个限界上下文。
+CUpedia 现有七个限界上下文。
 
 ## Contexts
 
@@ -10,6 +10,7 @@ CUpedia 现有六个限界上下文。
 - [课程测评](./docs/course-review/CONTEXT.md) — 课程口碑：打分 / 匿名评论 / 点赞（读匿名公开，写需登录）
 - [食堂测评](./docs/canteen/CONTEXT.md) — 食堂菜单、菜品评价与菜单导入
 - [通知](./docs/notifications/CONTEXT.md) — 汇集各业务上下文面向 User 的站内消息
+- [校园地图](./docs/campus-map/CONTEXT.md) — 经核对的建筑、楼层、地点与访问事实
 
 ## Relationships
 
@@ -21,5 +22,8 @@ CUpedia 现有六个限界上下文。
 - **分院帽 ↔ 课程技能树**: 都新生向，但领域不同——分院帽选**书院**、技能树选**课**，语言不重叠，**不互链**。注意分院帽的「专业大类」（5 个粗分桶）**不是**技能树的「主修」。
 - **食堂测评 → 权限与用户管理**: 菜品评论及已登录投票归属于 User；匿名访客也可投票，写操作继续受封禁状态约束。
 - **通知 → 权限与用户管理**: 每条通知归属于唯一 User，只有该 User 可以读取或改变自己的阅读状态。
+- **校园地图 → 权限与用户管理**: 地点申请与事实审核引用 User；公共事实匿名可读，申请与治理权限由 #565 定义。
+- **校园地图 ↔ 地图供应商**: Campus Map 保存供应商无关的 canonical Building / Place 身份与 WGS84 室外事实；高德 POI、GCJ-02 和交互 scene 只通过 adapter 与显式映射投影。
+- **校园地图 ↔ 评论与评分**: 评论和评分引用 canonical `placeId`，但不属于地点事实或其来源/修订历史。
 
-课程技能树的奠基性决策见 [docs/adr/0005](./docs/adr/0005-course-tree-data-provenance.md)、[0006](./docs/adr/0006-explorer-not-graduation-auditor.md)；食堂测评的边界决策见 [docs/adr/0007](./docs/adr/0007-canteen-bounded-context.md)；通知与来源的生命周期决策见 [0016](./docs/adr/0016-notification-source-lifecycle.md)。
+课程技能树的奠基性决策见 [docs/adr/0005](./docs/adr/0005-course-tree-data-provenance.md)、[0006](./docs/adr/0006-explorer-not-graduation-auditor.md)；食堂测评的边界决策见 [docs/adr/0007](./docs/adr/0007-canteen-bounded-context.md)；通知与来源的生命周期决策见 [0016](./docs/adr/0016-notification-source-lifecycle.md)；校园地图的 canonical 事实边界见 [0021](./docs/adr/0021-campus-map-provider-neutral-place-facts.md)。
