@@ -17,6 +17,7 @@ export function installAmapRuntime(options?: {
   projectedPoint?: { x: number; y: number };
 }) {
   const rafQueue: FrameRequestCallback[] = [];
+  const infoWindowCloseQueue: Array<() => void> = [];
   const resizeObservers: Array<{ callback: ResizeObserverCallback }> = [];
 
   class MockLngLat implements LngLat {
@@ -60,6 +61,11 @@ export function installAmapRuntime(options?: {
     }
 
     emit(event: string, payload: Record<string, unknown>) {
+      if (event === "click") {
+        for (const infoWindow of runtime.infoWindows) {
+          infoWindow.handleMapClick();
+        }
+      }
       for (const handler of this.handlers.get(event) ?? []) handler(payload);
     }
 
@@ -171,12 +177,42 @@ export function installAmapRuntime(options?: {
   }
 
   class MockInfoWindow {
-    readonly close = vi.fn();
-    readonly open = vi.fn();
+    private readonly handlers = new Map<string, Array<() => void>>();
+    private openState = false;
+    readonly close = vi.fn(() => {
+      this.openState = false;
+      infoWindowCloseQueue.push(() => this.emit("close"));
+    });
+    readonly open = vi.fn(() => {
+      this.openState = true;
+    });
     readonly setContent = vi.fn();
 
-    constructor() {
+    constructor(
+      private readonly infoWindowOptions: { closeWhenClickMap?: boolean } = {},
+    ) {
       runtime.infoWindows.push(this);
+    }
+
+    on(event: string, handler: () => void) {
+      const handlers = this.handlers.get(event) ?? [];
+      handlers.push(handler);
+      this.handlers.set(event, handlers);
+    }
+
+    emit(event: string) {
+      if (event === "close") this.openState = false;
+      for (const handler of this.handlers.get(event) ?? []) handler();
+    }
+
+    getIsOpen() {
+      return this.openState;
+    }
+
+    handleMapClick() {
+      if (this.openState && this.infoWindowOptions.closeWhenClickMap) {
+        this.close();
+      }
     }
   }
 
@@ -244,6 +280,11 @@ export function installAmapRuntime(options?: {
           for (const callback of callbacks) callback(0);
           await Promise.resolve();
         }
+      });
+    },
+    async flushInfoWindowCloseEvents() {
+      await act(async () => {
+        for (const callback of infoWindowCloseQueue.splice(0)) callback();
       });
     },
     async triggerResize() {

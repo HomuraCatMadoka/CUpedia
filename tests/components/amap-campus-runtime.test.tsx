@@ -161,7 +161,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     await screen.findByRole("heading", { name: "伍何曼原楼" });
     await runtime.flushAnimationFrames();
 
-    expect(window.location.search).toContain("building=wmy");
+    expect(window.location.search).toContain("scene=building&id=wmy");
     expect(map.setZoomAndCenter).not.toHaveBeenCalled();
     expect(map.panTo).toHaveBeenCalledTimes(1);
   });
@@ -278,7 +278,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(
       screen.getByRole("heading", { name: "2 栋建筑有饮水机" }),
     ).not.toBeNull();
-    expect(window.location.search).not.toContain("facility=");
+    expect(window.location.search).not.toContain("scene=facility");
   });
 
   it("projects the University Library water fixture at the library building anchor", async () => {
@@ -334,7 +334,9 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
 
     expect(screen.getByRole("heading", { name: "饮水机" })).not.toBeNull();
-    expect(window.location.search).toContain("facility=science-1f-water");
+    expect(window.location.search).toContain(
+      "scene=facility&id=science-1f-water",
+    );
     expect(push).toHaveBeenCalledTimes(1);
   });
 
@@ -407,7 +409,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(runtime.infoWindows).toHaveLength(1);
     expect(runtime.infoWindows[0]!.setContent).toHaveBeenCalledTimes(1);
     expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
-    expect(window.location.search).toBe("");
+    expect(window.location.search).toBe("?v=1");
     expect(screen.queryByRole("heading", { name: "科学馆" })).toBeNull();
 
     await runtime.flushAnimationFrames();
@@ -419,6 +421,131 @@ describe("AmapCampusPrototype runtime effects", () => {
     });
     await runtime.flushAnimationFrames();
     expect(runtime.infoWindows[0]!.close).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an unlinked provider InfoWindow open through its companion map click", async () => {
+    const { runtime, map } = await renderWithRuntime();
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "provider-east-wing",
+        name: "科学馆东座",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      });
+      map.emit("click", { lnglat: { lng: 114.2084, lat: 22.4198 } });
+    });
+    await runtime.flushAnimationFrames();
+
+    expect(runtime.infoWindows).toHaveLength(1);
+    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
+    expect(runtime.infoWindows[0]!.close).not.toHaveBeenCalled();
+    expect(window.location.search).toBe("?v=1");
+  });
+
+  it("dismisses an external scene when the provider InfoWindow X closes", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    const hotspot = {
+      id: "provider-east-wing",
+      name: "科学馆东座",
+      lnglat: { lng: 114.2084, lat: 22.4198 },
+    };
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", hotspot);
+    });
+    expect(runtime.infoWindows[0]!.open).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      runtime.infoWindows[0]!.emit("close");
+    });
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", hotspot);
+    });
+
+    expect(runtime.infoWindows).toHaveLength(2);
+    expect(runtime.infoWindows[1]!.open).toHaveBeenCalledTimes(1);
+    expect(window.location.search).toBe("?v=1");
+  });
+
+  it("ignores a delayed close event from a driver-owned overlay transition", async () => {
+    const { runtime, map } = await renderWithRuntime();
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "provider-east-wing",
+        name: "科学馆东座",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      });
+    });
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        name: "ScienceCentre 科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+    await screen.findByRole("heading", { name: "科学馆" });
+
+    await runtime.flushInfoWindowCloseEvents();
+
+    expect(screen.getByRole("heading", { name: "科学馆" })).not.toBeNull();
+    expect(window.location.search).toContain(
+      "scene=building&id=science-centre",
+    );
+  });
+
+  it("does not let an old delayed close dismiss a newer provider POI", async () => {
+    const { runtime, map } = await renderWithRuntime();
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "provider-east-wing",
+        name: "科学馆东座",
+        lnglat: { lng: 114.2084, lat: 22.4198 },
+      });
+    });
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        name: "ScienceCentre 科学馆",
+        lnglat: { lng: 114.20801, lat: 22.41966 },
+      });
+    });
+    await screen.findByRole("heading", { name: "科学馆" });
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("hotspotclick", {
+        id: "provider-garden",
+        name: "中药园",
+        lnglat: { lng: 114.2069, lat: 22.4178 },
+      });
+    });
+    expect(runtime.infoWindows.at(-1)!.getIsOpen()).toBe(true);
+
+    await runtime.flushInfoWindowCloseEvents();
+
+    expect(runtime.infoWindows.at(-1)!.getIsOpen()).toBe(true);
   });
 
   it("closes a transient provider InfoWindow when browser history restores", async () => {

@@ -63,6 +63,27 @@ async function selectScienceCentre() {
 }
 
 describe("AmapCampusPrototype", () => {
+  it("hydrates a canonical facility deep link through the scene driver", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&scene=facility&id=library-gf-water&snap=peek",
+    );
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    const heading = await screen.findByRole("heading", { name: "饮水机" });
+    expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
+    expect(window.location.search).toBe(
+      "?v=1&scene=facility&id=library-gf-water&snap=peek",
+    );
+    expect(window.history.state).toEqual({
+      campusMapScene: true,
+      version: 1,
+      depth: 0,
+    });
+  });
+
   it("gives the AMap-owned container an explicit full-size parent", async () => {
     const { container } = render(<AmapCampusPrototype />);
     const canvas = container.querySelector("#amap-campus-canvas");
@@ -138,7 +159,9 @@ describe("AmapCampusPrototype", () => {
 
     await selectScienceCentre();
     expect(push).toHaveBeenCalledTimes(1);
-    expect(window.location.search).toContain("building=science-centre");
+    expect(window.location.search).toContain(
+      "scene=building&id=science-centre",
+    );
 
     const floor = screen.getByRole("button", { name: "LG/F" });
     floor.focus();
@@ -151,8 +174,10 @@ describe("AmapCampusPrototype", () => {
     fireEvent.click(screen.getByRole("button", { name: "洗手间公众可达" }));
     await screen.findByRole("heading", { name: "洗手间" });
     expect(push).toHaveBeenCalledTimes(2);
-    expect(window.location.search).toContain("facility=science-lg-toilet");
-    expect(window.location.search).toContain("panel=peek");
+    expect(window.location.search).toContain(
+      "scene=facility&id=science-lg-toilet",
+    );
+    expect(window.location.search).toContain("snap=peek");
   });
 
   it("uses browser history for facility back and hydrates the building", async () => {
@@ -163,13 +188,15 @@ describe("AmapCampusPrototype", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
     await screen.findByRole("heading", { name: "科学馆" });
-    expect(window.location.search).not.toContain("facility=");
+    expect(window.location.search).not.toContain("scene=facility");
 
     await act(async () => {
       window.history.forward();
     });
     await screen.findByRole("heading", { name: "洗手间" });
-    expect(window.location.search).toContain("facility=science-lg-toilet");
+    expect(window.location.search).toContain(
+      "scene=facility&id=science-lg-toilet",
+    );
   });
 
   it("canonicalizes a mismatched facility deep link to its real building", async () => {
@@ -183,8 +210,9 @@ describe("AmapCampusPrototype", () => {
     const heading = await screen.findByRole("heading", { name: "饮水机" });
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     await waitFor(() => {
-      expect(window.location.search).toContain("building=university-library");
-      expect(window.location.search).toContain("facility=library-gf-water");
+      expect(window.location.search).toBe(
+        "?v=1&scene=facility&id=library-gf-water&snap=full",
+      );
     });
   });
 
@@ -197,14 +225,14 @@ describe("AmapCampusPrototype", () => {
     const before = push.mock.calls.length;
 
     fireEvent.click(
-      screen.getByRole("button", { name: "洗手间", pressed: true }),
+      screen.getByRole("button", { name: "洗手间", pressed: false }),
     );
 
     expect(
       await screen.findByRole("heading", { name: "2 栋建筑有洗手间" }),
     ).not.toBeNull();
-    expect(window.location.search).toContain("category=toilet");
-    expect(window.location.search).not.toContain("facility=");
+    expect(window.location.search).toContain("scene=category&id=toilet");
+    expect(window.location.search).not.toContain("scene=facility");
     expect(push.mock.calls.length - before).toBe(1);
 
     await act(async () => {
@@ -239,7 +267,7 @@ describe("AmapCampusPrototype", () => {
     expect(replace.mock.calls.length - replacesBefore).toBe(1);
   });
 
-  it("keeps a direct facility deep-link fallback reversible", async () => {
+  it("keeps a direct facility deep-link building fallback reversible", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
       <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=wmy-5f-toilet&floor=5&amenity=toilet&panel=peek" />,
@@ -247,10 +275,10 @@ describe("AmapCampusPrototype", () => {
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
 
-    fireEvent.click(screen.getByRole("button", { name: "返回洗手间列表" }));
+    fireEvent.click(screen.getByRole("button", { name: "返回建筑" }));
 
     expect(
-      await screen.findByRole("heading", { name: "2 栋建筑有洗手间" }),
+      await screen.findByRole("heading", { name: "伍何曼原楼" }),
     ).not.toBeNull();
     expect(push.mock.calls.length - before).toBe(1);
   });
@@ -284,6 +312,20 @@ describe("AmapCampusPrototype", () => {
     );
   });
 
+  it("returns focus to the map when dismissing a non-search selection", async () => {
+    render(
+      <AmapCampusPrototype initialSearch="?v=1&scene=building&id=science-centre&snap=peek" />,
+    );
+    await screen.findByRole("heading", { name: "科学馆" });
+    fireEvent.click(screen.getByRole("button", { name: "关闭地点详情" }));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        document.querySelector("#amap-campus-canvas"),
+      );
+    });
+  });
+
   it("writes one history entry per selection in Strict Mode", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
@@ -305,6 +347,51 @@ describe("AmapCampusPrototype", () => {
     expect(
       await screen.findByRole("button", { name: /科学馆/ }),
     ).not.toBeNull();
+  });
+
+  it("preserves a typed word separator for multi-token facility search", async () => {
+    render(<AmapCampusPrototype initialSearch="?v=1" />);
+    const search = screen.getByPlaceholderText("搜索建筑");
+
+    fireEvent.change(search, { target: { value: "大学图书馆" } });
+    fireEvent.change(search, { target: { value: "大学图书馆 " } });
+    expect((search as HTMLInputElement).value).toBe("大学图书馆 ");
+    fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
+
+    expect(
+      await screen.findByRole("button", { name: /大学图书馆.*饮水机/ }),
+    ).not.toBeNull();
+  });
+
+  it("dismisses search results with Escape", async () => {
+    render(<AmapCampusPrototype initialSearch="?v=1" />);
+    const search = screen.getByPlaceholderText("搜索建筑");
+    fireEvent.change(search, { target: { value: "科学馆" } });
+    expect(
+      await screen.findByRole("button", { name: /科学馆/ }),
+    ).not.toBeNull();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => expect((search as HTMLInputElement).value).toBe(""));
+    expect(window.location.search).toBe("?v=1");
+  });
+
+  it("opens a facility search result at the same canonical facility URL", async () => {
+    render(<AmapCampusPrototype />);
+    const search = screen.getByPlaceholderText("搜索建筑");
+
+    fireEvent.change(search, { target: { value: "大学图书馆 饮水机" } });
+    fireEvent.click(
+      await screen.findByRole("button", { name: /大学图书馆.*饮水机/ }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "饮水机" }),
+    ).not.toBeNull();
+    expect(window.location.search).toBe(
+      "?v=1&scene=facility&id=library-gf-water&snap=peek",
+    );
   });
 
   it("keeps the known Science Centre prototype link working", async () => {

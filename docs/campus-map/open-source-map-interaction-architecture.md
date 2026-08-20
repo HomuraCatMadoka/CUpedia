@@ -76,12 +76,12 @@ react-map-gl 的 React `Map` 只创建、更新和销毁一个 wrapper，并把�
 本轮已经把上述两个最高风险 seam 接入原型：
 
 1. `AmapInteractionAdapter` 以 pointer gesture 为边界仲裁 `hotspotclick` / marker / cluster 与 companion map `click`；provider 与 background handler 只能把产品动作交给 adapter，adapter 对同一 pointer cycle 最多执行一次；background click 经过可取消 settlement，两个事件顺序均有 trace test；
-2. `map-session.ts` 暴露 building / facility / content / external 以及 floor / tag / inside-query 的语义 command，并同时返回 canonical session、history、camera 与 overlay intent；
-3. React 组件只通过 `commitSessionCommand` 提交这些转换；`CampusMapBrowserHistory` 独占 URL/history write/travel，组件再执行 camera/overlay；搜索、类别、楼层、sheet、restore、reframe 与返回不再分别拼接副作用；
+2. `scene-kernel.ts` 暴露互斥的 map / search-results / category-results / building / facility / content / provider-poi scene，以及对应的 typed intent；facility 的 building、floor 与 category 只从 catalog 推导；
+3. `scene-driver.ts` 是唯一产品 session owner。React 的搜索、类别、热点、marker、目录、deep link、Back、X、Escape、popstate 与 sheet intent 都只 dispatch 一次；driver 独占 URL/history write/travel，并统一执行 camera、focus、overlay 与 sheet command；
 4. MarkerCluster 生命周期显式区分 loading / ready / error；插件注册与 cluster 构造/更新任一失败都会进入同一 error projection，类别列表仍可独立使用；
 5. runtime contract 已覆盖 390 / 720 / desktop panel rect、两个 provider/map-click 顺序、marker/cluster、插件 pending/注册错误/构造错误、快速 A→B 以及 drag/wheel 取消。
 
-可见 Content 和楼内 tag/inside-search projection 仍由状态内核 Issue #644 承接；#593 只固定它们经过同一 session seam、保持 parent/history 且不会请求 camera，不以临时卡片伪造最终领域 UI。贡献任务和最终建筑卡信息架构也继续留在后续 issue。真实高德 SDK 的瓦片、热点事件顺序和浏览器 Back/Forward 仍必须走人工三视口验收，不能由 runtime double 代替。
+可见 Content、贡献任务和最终建筑卡信息架构继续留在后续 issue；本次迁移不以临时 UI 扩张这些领域。真实高德 SDK 的瓦片、热点事件顺序和浏览器 Back/Forward 仍必须走人工三视口验收，不能由 runtime double 代替。
 
 ## 建议采用的最小修复形态
 
