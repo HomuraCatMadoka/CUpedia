@@ -12,60 +12,82 @@ concurrency:
 
 jobs:
   quality:
-    # Keep the published check context compatible with main branch protection.
+    # Keep the legacy required context until CI gate has been observed and
+    # added to branch protection. The migration then removes this requirement.
     name: lint-and-test
     runs-on: ubuntu-latest
-    services:
-      migration-postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: cuclaw_migration_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d cuclaw_migration_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-      zhparser-postgres:
-        image: abcfy2/zhparser:17-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: cuclaw_menu_sync_test
-        ports:
-          - 5434:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d cuclaw_menu_sync_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify changes
+        id: plan
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          node scripts/ci-classifier.mjs
+          ${{ github.event_name == 'push' && '--force-full' || '' }}
+
+      - name: Check changed-file whitespace
+        if: ${{ github.event_name == 'pull_request' }}
+        run: git diff --check "$CI_BASE_SHA" "$CI_HEAD_SHA" --
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
       - uses: pnpm/action-setup@v4
+        if: ${{ fromJSON(steps.plan.outputs.plan).install }}
         with:
           version: 10
 
       - uses: actions/setup-node@v4
+        if: ${{ fromJSON(steps.plan.outputs.plan).install }}
         with:
           node-version: 20
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+        if: ${{ fromJSON(steps.plan.outputs.plan).install }}
 
       - run: pnpm lint
         name: Lint
+        if: ${{ fromJSON(steps.plan.outputs.plan).quality }}
 
       - run: pnpm test
         name: Unit tests
+        if: ${{ fromJSON(steps.plan.outputs.plan).quality }}
 
       - run: pnpm typecheck
         name: Typecheck
+        if: ${{ fromJSON(steps.plan.outputs.plan).typecheck }}
+
+      - name: Start PostgreSQL integration services
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
+        run: |
+          docker run -d --name migration-postgres \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=cuclaw_migration_test \
+            -p 5432:5432 postgres:16
+          docker run -d --name zhparser-postgres \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=cuclaw_menu_sync_test \
+            -p 5434:5432 abcfy2/zhparser:17-alpine
+          for port in 5432 5434; do
+            for attempt in {1..30}; do
+              pg_isready -h localhost -p "$port" -U postgres && break
+              if [ "$attempt" = 30 ]; then exit 1; fi
+              sleep 1
+            done
+          done
 
       - name: Test legacy migration and preflight compatibility
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cuclaw_migration_test
           MIGRATION_COMPATIBILITY_TEST: "1"
@@ -76,16 +98,19 @@ jobs:
           tests/db/canteen-menu-identity-preflight.test.ts
 
       - name: Initialize zhparser
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: psql "$DATABASE_URL" -f init-zhparser.sql
 
       - name: Apply migrations
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: pnpm drizzle-kit migrate
 
       - name: Test menu sync persistence
+        if: ${{ fromJSON(steps.plan.outputs.plan).postgres }}
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: >-
@@ -94,20 +119,39 @@ jobs:
           tests/db/canteen-menu-source-sync.test.ts
 
   build:
+    name: build
     runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.plan.outputs.plan }}
+      e2e_matrix: ${{ steps.plan.outputs.e2e_matrix }}
+      webkit_specs: ${{ steps.plan.outputs.webkit_specs }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify changes
+        id: plan
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: >-
+          node scripts/ci-classifier.mjs
+          ${{ github.event_name == 'push' && '--force-full' || '' }}
 
       - uses: pnpm/action-setup@v4
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
         with:
           version: 10
 
       - uses: actions/setup-node@v4
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
         with:
           node-version: 20
           cache: pnpm
 
       - name: Restore Next build cache
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
         uses: actions/cache@v4
         with:
           path: .next/cache
@@ -116,9 +160,11 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - run: pnpm install --frozen-lockfile
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
 
       - run: pnpm build
         name: Build
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
         env:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
           AUTH_SECRET: ci-placeholder-secret
@@ -127,11 +173,14 @@ jobs:
 
       - run: pnpm bundle:check
         name: Check client bundle budgets
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
 
       - name: Package Next build
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
         run: tar -czf next-build.tar.gz --exclude=.next/cache .next
 
       - name: Upload Next build
+        if: ${{ fromJSON(steps.plan.outputs.plan).build }}
         uses: actions/upload-artifact@v4
         with:
           name: next-build
@@ -140,30 +189,20 @@ jobs:
           compression-level: 0
           retention-days: 1
 
-  # Three browser runners share one production Next build. The third runs the
-  # small WebKit risk surface plus a measured Chromium shard, without MinIO.
+  # Full runs retain the measured Chromium lanes. Ordinary runtime changes get
+  # one capability-selected lane independent of those elapsed-time shards.
   e2e:
     runs-on: ubuntu-latest
     needs: build
+    if: ${{ fromJSON(needs.build.outputs.plan).chromium }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - project: chromium-general
-            browser: chromium
-            install_args: --only-shell
-            minio: false
-            shards: 1
-          - project: chromium-wiki-media
-            browser: chromium
-            install_args: --only-shell
-            minio: true
-            shards: 2
+      matrix: ${{ fromJSON(needs.build.outputs.e2e_matrix) }}
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5433/cuclaw
       AUTH_SECRET: ci-placeholder-secret
       AUTH_URL: http://localhost:3100
-      E2E_CI_GROUPS: "1"
+      E2E_CI_GROUPS: ${{ matrix.ci_groups }}
       MINIO_ENDPOINT: localhost
       MINIO_PORT: "9000"
       MINIO_REGION: us-east-1
@@ -197,15 +236,12 @@ jobs:
         run: docker compose up -d --wait db
 
       - name: Start MinIO
-        if: matrix.minio
+        if: ${{ matrix.minio }}
         run: docker compose up -d --wait minio
 
       - name: Create uploads bucket
-        if: matrix.minio
+        if: ${{ matrix.minio }}
         run: docker compose run --rm createbuckets
-
-      # global-setup provisions the isolated `cuclaw_e2e` db (create + zhparser
-      # + migrate + seed), so no separate migrate step is needed here.
 
       - name: Install Playwright browser
         run: pnpm exec playwright install ${{ matrix.install_args }} ${{ matrix.browser }}
@@ -213,9 +249,10 @@ jobs:
       - name: Run e2e
         env:
           E2E_SHARD_COUNT: ${{ matrix.shards }}
+          E2E_SPECS: ${{ matrix.specs }}
         run: >-
           node --import tsx scripts/run-e2e-shards.ts
-          --project=${{ matrix.project }}
+          --project=${{ matrix.project }} $E2E_SPECS
 
       - name: Upload Playwright artifacts
         if: failure()
@@ -230,6 +267,7 @@ jobs:
   browser-third:
     runs-on: ubuntu-latest
     needs: build
+    if: ${{ fromJSON(needs.build.outputs.plan).tier == 'full' || fromJSON(needs.build.outputs.plan).webkit }}
     container: mcr.microsoft.com/playwright:v1.60.0-noble
     env:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/cuclaw
@@ -270,12 +308,22 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Run balanced Chromium and WebKit risk coverage
+        if: ${{ fromJSON(needs.build.outputs.plan).tier == 'full' }}
         env:
           E2E_SHARD_COUNT: "1"
         run: >-
           node --import tsx scripts/run-e2e-shards.ts
           --project=chromium-balanced
           --project=webkit-mobile
+
+      - name: Run selective WebKit risk coverage
+        if: ${{ fromJSON(needs.build.outputs.plan).tier != 'full' }}
+        env:
+          E2E_SHARD_COUNT: "1"
+          E2E_WEBKIT_SPECS: ${{ needs.build.outputs.webkit_specs }}
+        run: >-
+          node --import tsx scripts/run-e2e-shards.ts
+          --project=webkit-mobile $E2E_WEBKIT_SPECS
 
       - name: Upload browser artifacts
         if: failure()
@@ -286,3 +334,21 @@ jobs:
             playwright-report-shard-*/
             test-results-shard-*/
           retention-days: 7
+
+  gate:
+    name: CI gate
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs: [quality, build, e2e, browser-third]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Evaluate required capabilities
+        env:
+          QUALITY_PLAN: ${{ needs.quality.outputs.plan }}
+          BUILD_PLAN: ${{ needs.build.outputs.plan }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          BROWSER_THIRD_RESULT: ${{ needs.browser-third.result }}
+        run: node scripts/ci-gate.mjs

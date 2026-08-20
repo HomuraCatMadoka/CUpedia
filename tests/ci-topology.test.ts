@@ -8,6 +8,7 @@ const workflow = readFileSync(
   resolve(process.cwd(), ".github/workflows/ci.yml"),
   "utf8",
 );
+
 type WorkflowStep = {
   env?: Record<string, unknown>;
   name?: string;
@@ -16,183 +17,146 @@ type WorkflowStep = {
   if?: string;
   with?: Record<string, unknown>;
 };
-
 type WorkflowJob = {
   name?: string;
   needs?: string | string[];
+  if?: string;
   container?: string | { image?: string };
+  outputs?: Record<string, unknown>;
   services?: Record<string, unknown>;
   steps?: WorkflowStep[];
-  strategy?: {
-    matrix?: {
-      include?: Array<Record<string, unknown>>;
-    };
-  };
+  strategy?: { matrix?: unknown };
 };
-
 type WorkflowConfig = {
+  on?: Record<string, unknown>;
   jobs?: Record<string, WorkflowJob>;
 };
 
-function parseWorkflow(source: string): WorkflowConfig {
-  return parse(source) as WorkflowConfig;
+const config = parse(workflow) as WorkflowConfig;
+const jobs = config.jobs ?? {};
+
+function job(name: string) {
+  const value = jobs[name];
+  if (!value) throw new Error(`Missing CI job: ${name}`);
+  return value;
+}
+function steps(name: string) {
+  return job(name).steps ?? [];
+}
+function namedStep(jobName: string, stepName: string) {
+  const value = steps(jobName).find((step) => step.name === stepName);
+  if (!value) throw new Error(`Missing ${jobName} step: ${stepName}`);
+  return value;
 }
 
-const config = parseWorkflow(workflow);
-
-function jobs(source = config) {
-  return source.jobs ?? {};
-}
-
-function requireJob(name: string, source = config) {
-  const job = jobs(source)[name];
-  if (!job) throw new Error(`Missing CI job: ${name}`);
-  return job;
-}
-
-function steps(name: string, source = config) {
-  return requireJob(name, source).steps ?? [];
-}
-
-function e2eMatrixProjects(source = config) {
-  return (requireJob("e2e", source).strategy?.matrix?.include ?? []).map(
-    (entry) => entry.project,
-  );
-}
-
-describe("bounded full CI topology (#669)", () => {
-  it("discovers jobs when runs-on is not the first job property", () => {
-    const reordered = parseWorkflow(`jobs:
-  quality:
-    needs: build
-    runs-on: ubuntu-latest
-`);
-    expect(Object.keys(jobs(reordered))).toEqual(["quality"]);
-  });
-
-  it("caps the workflow at six jobs and E2E at three runners", () => {
-    const totalJobExecutions =
-      Object.keys(jobs()).filter((name) => name !== "e2e").length +
-      e2eMatrixProjects().length;
-    expect(totalJobExecutions).toBeLessThanOrEqual(6);
-    const browserRunnerCount =
-      e2eMatrixProjects().length + (jobs()["browser-third"] ? 1 : 0);
-    expect(browserRunnerCount).toBeLessThanOrEqual(3);
-    expect(e2eMatrixProjects()).toEqual([
-      "chromium-general",
-      "chromium-wiki-media",
+describe("tiered CI topology (#670)", () => {
+  it("always publishes the stable aggregate gate without top-level path filters", () => {
+    expect(config.on?.pull_request).toEqual({ branches: ["main"] });
+    expect(job("quality").name).toBe("lint-and-test");
+    expect(job("build").name).toBe("build");
+    expect(job("gate").name).toBe("CI gate");
+    expect(job("gate").if).toBe("${{ always() }}");
+    expect(job("gate").needs).toEqual([
+      "quality",
+      "build",
+      "e2e",
+      "browser-third",
     ]);
   });
 
-  it("keeps lint, unit, and typecheck in one quality gate", () => {
-    expect(requireJob("quality").name).toBe("lint-and-test");
-    const qualityRuns = steps("quality").flatMap((step) =>
-      step.run ? [step.run] : [],
-    );
-    expect(qualityRuns).toContain("pnpm lint");
-    expect(qualityRuns).toContain("pnpm test");
-    expect(qualityRuns).toContain("pnpm typecheck");
-    expect(qualityRuns).not.toContain(
-      expect.stringMatching(/pnpm (?:lint|test|typecheck) &/),
+  it("classifies in the two parallel entry jobs from one implementation", () => {
+    for (const jobName of ["quality", "build"]) {
+      const classify = namedStep(jobName, "Classify changes");
+      expect(classify.run).toContain("node scripts/ci-classifier.mjs");
+      expect(classify.run).toContain("--force-full");
+      expect(classify.env).toMatchObject({
+        CI_BASE_SHA: expect.stringContaining("pull_request.base.sha"),
+        CI_HEAD_SHA: expect.stringContaining("pull_request.head.sha"),
+      });
+    }
+    expect(Object.keys(jobs)).not.toContain("classify");
+  });
+
+  it("keeps the full topology within six executions and three browsers", () => {
+    expect(Object.keys(jobs)).toEqual([
+      "quality",
+      "build",
+      "e2e",
+      "browser-third",
+      "gate",
+    ]);
+    expect(job("e2e").strategy?.matrix).toBe(
+      "${{ fromJSON(needs.build.outputs.e2e_matrix) }}",
     );
   });
 
-  it("keeps database coverage on real Postgres without another install", () => {
-    const quality = requireJob("quality");
-    expect(Object.keys(quality.services ?? {})).toEqual(
-      expect.arrayContaining(["migration-postgres", "zhparser-postgres"]),
+  it("does not install dependencies or start services for docs-only", () => {
+    const installConditions = ["quality", "build"].flatMap((jobName) =>
+      steps(jobName)
+        .filter(
+          (step) =>
+            step.uses?.includes("setup") ||
+            step.run === "pnpm install --frozen-lockfile",
+        )
+        .map((step) => step.if),
     );
-    const qualitySteps = steps("quality");
-    expect(qualitySteps.map((step) => step.name)).toContain(
-      "Initialize zhparser",
-    );
-    const qualityRuns = qualitySteps.flatMap((step) =>
-      step.run ? [step.run] : [],
-    );
-    expect(qualityRuns.join("\n")).toContain(
-      "canteen-menu-source-migration.test.ts",
-    );
-    expect(qualityRuns.join("\n")).toContain("canteen-menu-sync.test.ts");
+    expect(installConditions).not.toContain(undefined);
     expect(
-      qualityRuns.filter((run) => run === "pnpm install --frozen-lockfile"),
-    ).toHaveLength(1);
-    expect(JSON.stringify(quality)).not.toContain("playwright");
-  });
-
-  it("builds Next once and makes every E2E runner reuse that artifact", () => {
-    expect(Object.keys(jobs()).filter((name) => name === "build")).toHaveLength(
-      1,
-    );
-    expect(requireJob("e2e").needs).toBe("build");
-    expect(requireJob("browser-third").needs).toBe("build");
-    expect(
-      steps("build").some(
-        (step) =>
-          step.uses === "actions/upload-artifact@v4" &&
-          step.with?.name === "next-build",
-      ),
+      installConditions.every((value) => value?.includes("fromJSON")),
     ).toBe(true);
+    expect(job("quality").services).toBeUndefined();
     expect(
-      steps("e2e").some((step) => step.uses === "actions/download-artifact@v4"),
-    ).toBe(true);
-    expect(requireJob("browser-third").container).toBe(
-      "mcr.microsoft.com/playwright:v1.60.0-noble",
-    );
-    expect(
-      steps("browser-third").some(
-        (step) =>
-          step.uses === "actions/download-artifact@v4" &&
-          step.with?.name === "next-build",
-      ),
-    ).toBe(true);
-    const thirdRunner = steps("browser-third").find(
-      (step) => step.name === "Run balanced Chromium and WebKit risk coverage",
-    );
-    expect(thirdRunner?.run).toContain("--project=chromium-balanced");
-    expect(thirdRunner?.run).toContain("--project=webkit-mobile");
+      namedStep("quality", "Start PostgreSQL integration services").if,
+    ).toContain(".postgres");
   });
 
-  it("starts MinIO only for the upload-bearing E2E runner", () => {
-    const startMinio = steps("e2e").find((step) => step.name === "Start MinIO");
-    const createBucket = steps("e2e").find(
-      (step) => step.name === "Create uploads bucket",
+  it("keeps lint, unit, blocking typecheck, and real PostgreSQL coverage", () => {
+    expect(namedStep("quality", "Lint").run).toBe("pnpm lint");
+    expect(namedStep("quality", "Unit tests").run).toBe("pnpm test");
+    expect(namedStep("quality", "Typecheck").run).toBe("pnpm typecheck");
+    const postgres = namedStep(
+      "quality",
+      "Start PostgreSQL integration services",
     );
-    expect(startMinio?.if).toBe("matrix.minio");
-    expect(createBucket?.if).toBe("matrix.minio");
-    const thirdRunner = requireJob("browser-third");
-    expect(
-      Object.keys(thirdRunner.services ?? {}).some((name) =>
-        name.toLocaleLowerCase().includes("minio"),
-      ),
-    ).toBe(false);
-    expect(
-      (thirdRunner.steps ?? []).some((step) =>
-        [step.name, step.run, step.uses].some((field) =>
-          field?.toLocaleLowerCase().includes("minio"),
-        ),
-      ),
-    ).toBe(false);
+    expect(postgres.run).toContain("postgres:16");
+    expect(postgres.run).toContain("abcfy2/zhparser:17-alpine");
+    expect(namedStep("quality", "Apply migrations").run).toBe(
+      "pnpm drizzle-kit migrate",
+    );
   });
 
-  it("cannot turn a retry-pass flaky test green", () => {
+  it("builds Next once and every selected browser reuses the artifact", () => {
+    expect(namedStep("build", "Build").env?.NEXT_BUILD_SKIP_TYPECHECK).toBe(
+      "1",
+    );
+    expect(namedStep("build", "Upload Next build").uses).toBe(
+      "actions/upload-artifact@v4",
+    );
+    for (const jobName of ["e2e", "browser-third"]) {
+      expect(namedStep(jobName, "Download Next build").uses).toBe(
+        "actions/download-artifact@v4",
+      );
+      expect(job(jobName).needs).toBe("build");
+    }
+  });
+
+  it("starts MinIO only in the capability-selected upload lane", () => {
+    expect(namedStep("e2e", "Start MinIO").if).toBe("${{ matrix.minio }}");
+    expect(namedStep("e2e", "Create uploads bucket").if).toBe(
+      "${{ matrix.minio }}",
+    );
+    expect(JSON.stringify(job("browser-third"))).not.toContain("MinIO");
+  });
+
+  it("checks every upstream result and keeps retry-pass flakes impossible", () => {
+    const gate = namedStep("gate", "Evaluate required capabilities");
+    expect(gate.run).toBe("node scripts/ci-gate.mjs");
+    expect(gate.env).toMatchObject({
+      QUALITY_RESULT: "${{ needs.quality.result }}",
+      BUILD_RESULT: "${{ needs.build.result }}",
+      E2E_RESULT: "${{ needs.e2e.result }}",
+      BROWSER_THIRD_RESULT: "${{ needs.browser-third.result }}",
+    });
     expect(PLAYWRIGHT_RETRIES).toBe(0);
-  });
-
-  it("uses isolated parallel shards only for the measured media bottleneck", () => {
-    const matrix = requireJob("e2e").strategy?.matrix?.include ?? [];
-    expect(matrix.map(({ project, shards }) => ({ project, shards }))).toEqual([
-      { project: "chromium-general", shards: 1 },
-      { project: "chromium-wiki-media", shards: 2 },
-    ]);
-
-    const matrixRun = steps("e2e").find((step) => step.name === "Run e2e");
-    expect(matrixRun?.run).toContain("scripts/run-e2e-shards.ts");
-    expect(matrixRun?.env?.E2E_SHARD_COUNT).toBe("${{ matrix.shards }}");
-
-    const thirdRun = steps("browser-third").find(
-      (step) => step.name === "Run balanced Chromium and WebKit risk coverage",
-    );
-    expect(thirdRun?.run).toContain("scripts/run-e2e-shards.ts");
-    expect(thirdRun?.env?.E2E_SHARD_COUNT).toBe("1");
   });
 });

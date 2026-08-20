@@ -1,7 +1,76 @@
-# Bounded CI topology
+# Tiered, bounded CI topology
 
 Issue #669 keeps the full regression suite while bounding fixed runner cost.
-This document is the reviewable behavior-to-test map and timing record.
+Issue #670 adds fail-closed risk tiers without changing those full-regression
+invariants. This document is the reviewable classification, capability, gate,
+and timing record.
+
+## Risk tiers
+
+`scripts/ci-classifier.mjs` is the only path-to-plan mapping. Both parallel
+entry jobs run it directly before dependency installation; workflow YAML does
+not contain a second set of path filters. On `main`, `--force-full` ignores the
+diff and selects full regression.
+
+| Tier                   | Explicitly accepted paths                                                                                                                                                                                                                                                                                         | Quality/build/browser behavior                                                                                                                                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Docs-only              | Documentation under `docs/**` except runtime data, operation artifacts, and contracts; the named root community Markdown files; `AGENTS.md`; `CLAUDE.md`; issue templates; and the PR template                                                                                                                    | Checkout, dependency-free classification, `git diff --check`, and `CI gate`. No pnpm, Next, PostgreSQL, MinIO, or browser setup.                                                                                                                   |
+| Ordinary single-domain | Explicitly reviewed UI, pure-library, test, or E2E paths in one product domain: homepage, announcements, Campus Bus, canteen, College Picker, Course Tree, courses, professors, product updates, or Wiki                                                                                                          | Full lint, unit/component suite, and blocking typecheck; one Next build and capability-selected Chromium only for runtime/browser-boundary changes. Wiki upload coverage owns MinIO; mobile/responsive Wiki paths add the known WebKit risk specs. |
+| Full regression        | DB/migrations, direct database callers, server/app code outside the narrow ordinary allowlist, runtime data under `docs/**`, auth, persistence/actions/queries/stores, shared UI/layout/admin/editor, dependencies, workflows, build/test/E2E configuration and helpers, classifier/gate code, or unknown changes | The complete #669 quality, real-PostgreSQL integration, single build, two measured Chromium lanes, balanced Chromium plus WebKit, and MinIO upload boundary.                                                                                       |
+
+Docs mixed with code are not docs-only. Multiple ordinary domains, renames,
+copies, deletes, conflicts, unknown status codes, missing diffs, unknown paths,
+and malformed classifier input all select full regression. Both sides of a
+rename are parsed before the unsafe status fails closed. The table-driven tests
+in `tests/ci-classifier.test.ts` own these cases. A repository-derived invariant
+also requires every source file that directly imports the database connection
+to select full regression with real PostgreSQL.
+
+## Capability selection
+
+Risk classification is independent of the full suite's elapsed-time shards.
+The full plan retains `chromium-general`, `chromium-wiki-media`, and the
+`chromium-balanced` portion of the third runner. An ordinary runtime change
+instead uses the unsharded `chromium` project with the domain's explicit spec
+set, so a Wiki change can cross all three full-run groups without being forced
+into one of them. Real PostgreSQL remains the browser boundary. MinIO starts
+only when the selected plan includes upload coverage. WebKit runs only for the
+two known mobile risk specs or the full plan.
+
+The `quality` job no longer declares unconditional service containers. Its two
+real PostgreSQL instances start in a conditional step only when the plan asks
+for integration coverage. Typecheck remains an independent blocking quality
+step, so the one reusable Next build may keep `NEXT_BUILD_SKIP_TYPECHECK=1`.
+
+## Aggregate gate and required-check migration
+
+`CI gate` has a stable name, uses `always()`, and evaluates the quality and
+build plans plus every upstream job result. The two entry plans must be present,
+version-compatible, and byte-for-byte equivalent. Required capability jobs
+must be `success`; only jobs explicitly absent from the plan may be `skipped`.
+Failures, cancellations, missing/unknown results, classifier errors, and plan
+disagreement fail the gate. `tests/ci-gate.test.ts` and the structured YAML
+tests in `tests/ci-topology.test.ts` cover these semantics.
+
+Required-check migration is deliberately two-phase:
+
+1. Deploy this workflow and verify that `CI gate` concludes on docs-only,
+   ordinary, full, failed selective E2E, and cancelled-upstream samples.
+2. Add `CI gate` to branch protection while retaining `lint-and-test` and
+   `build`; after a successful protected PR, remove those two legacy contexts
+   and confirm through the branch-protection API that only `CI gate` remains.
+
+The branch-protection write must not happen in the code-only PR before the new
+context exists, because GitHub would leave every PR permanently pending.
+
+## Tier timing evidence
+
+The local tree cannot establish hosted runner budgets. Before closing #670,
+record three consecutive docs-only runs (each at most 60 runner seconds), three
+ordinary single-domain runs (median at most 480 runner seconds), one full run
+(at most 900 runner seconds and 360 wall seconds), and one intentionally failed
+selected E2E followed by its restored run. Include classifier, gate, and all
+matrix executions in runner totals. Do not repeat #669's five full runs.
 
 ## Before baseline
 
