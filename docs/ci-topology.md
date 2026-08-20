@@ -52,25 +52,58 @@ Failures, cancellations, missing/unknown results, classifier errors, and plan
 disagreement fail the gate. `tests/ci-gate.test.ts` and the structured YAML
 tests in `tests/ci-topology.test.ts` cover these semantics.
 
-Required-check migration is deliberately two-phase:
-
-1. Deploy this workflow and verify that `CI gate` concludes on docs-only,
-   ordinary, full, failed selective E2E, and cancelled-upstream samples.
-2. Add `CI gate` to branch protection while retaining `lint-and-test` and
-   `build`; after a successful protected PR, remove those two legacy contexts
-   and confirm through the branch-protection API that only `CI gate` remains.
-
-The branch-protection write must not happen in the code-only PR before the new
-context exists, because GitHub would leave every PR permanently pending.
+Required-check migration was performed in two phases. After the hosted probes
+below established that `CI gate` always concluded, it was added to branch
+protection while `lint-and-test` and `build` remained required. The final full
+run then passed with all three contexts required before the two legacy contexts
+were removed. The branch-protection API confirmed that strict mode now requires
+only the stable `CI gate` context.
 
 ## Tier timing evidence
 
-The local tree cannot establish hosted runner budgets. Before closing #670,
-record three consecutive docs-only runs (each at most 60 runner seconds), three
-ordinary single-domain runs (median at most 480 runner seconds), one full run
-(at most 900 runner seconds and 360 wall seconds), and one intentionally failed
-selected E2E followed by its restored run. Include classifier, gate, and all
-matrix executions in runner totals. Do not repeat #669's five full runs.
+Hosted rollout probes ran on temporary pull requests targeting the feature
+branch on 2026-08-20. They were closed without merging after the evidence was
+captured, and the temporary feature-branch workflow trigger was removed. Runner
+totals include the two classifier entry jobs, the gate, and every matrix
+execution; wall time spans the first job start through the final gate.
+
+| Docs-only run                                                                        | Quality | Build entry | Gate | Runner seconds | Wall seconds |
+| ------------------------------------------------------------------------------------ | ------: | ----------: | ---: | -------------: | -----------: |
+| [`32344039934`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32344039934) |       8 |           9 |    6 |             23 |           17 |
+| [`32344104568`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32344104568) |       6 |           8 |    9 |             23 |           19 |
+| [`32344165859`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32344165859) |       6 |           6 |    6 |             18 |           16 |
+
+All three docs-only runs skipped dependency and browser installation, lint,
+unit tests, typecheck, Next build, PostgreSQL, MinIO, and browser jobs. Each
+gate succeeded, and every runner total stayed below the 60-second limit.
+
+| Ordinary canteen run                                                                 | Quality | Build | Selected Chromium | Gate | Runner seconds | Wall seconds |
+| ------------------------------------------------------------------------------------ | ------: | ----: | ----------------: | ---: | -------------: | -----------: |
+| [`32344252020`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32344252020) |     137 |    86 |                68 |    4 |            295 |          163 |
+| [`32344533705`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32344533705) |     156 |    63 |                60 |    6 |            285 |          165 |
+| [`32344780386`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32344780386) |     152 |    76 |                54 |    5 |            287 |          159 |
+
+The ordinary median was 287 runner seconds, below the 480-second limit. Each
+run executed lint, the complete unit/component suite, blocking typecheck, one
+Next build, and only `e2e/canteen-*.spec.ts` in Chromium. Real PostgreSQL backed
+the browser boundary; PostgreSQL integration, MinIO, and WebKit were skipped.
+
+Run [`32345024179`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32345024179)
+temporarily hid the canteen menu tab through the same ordinary CSS path. Quality
+and build succeeded, the selected Chromium job failed four menu-vote journeys,
+and the gate rejected it with `required e2e job was failure`. Removing the
+injection produced restored run
+[`32345454138`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32345454138):
+quality 143 seconds, build 70, selected Chromium 58, gate 4, 275 runner seconds
+and 149 wall seconds, with a successful gate.
+
+The final implementation topology's full run
+[`32334796808`](https://github.com/HomuraCatMadoka/CUpedia/actions/runs/32334796808)
+used six jobs and three browser runners. Quality took 132 seconds, build 83,
+the two Chromium lanes 170 and 173, the balanced Chromium/WebKit runner 174,
+and the gate 8: 740 runner seconds and 270 wall seconds. It built Next once,
+reused the artifact in all browser jobs, kept MinIO in the upload lane, used
+zero retries, and stayed below the 900-runner-second and 360-wall-second limits.
 
 ## Before baseline
 

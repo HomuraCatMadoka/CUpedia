@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, feat/issue-670-tiered-ci]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.sha }}
