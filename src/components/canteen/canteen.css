@@ -25,6 +25,7 @@
   --canteen-fill-strong: rgba(120, 120, 128, 0.2);
   --canteen-toolbar-height: 2.75rem;
   --canteen-section-title-height: 2.5rem;
+  --ci-tier-rollout-probe: 1;
 
   font-family:
     var(--font-canteen-body),
