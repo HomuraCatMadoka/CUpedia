@@ -125,30 +125,45 @@ const placePresets: Array<{
   label: string;
   detail: string;
   defaultName: string;
+  defaultAccess: string;
+  defaultSource: string;
+  defaultPrecision: Draft["positionPrecision"];
 }> = [
   {
     id: "drinking-water",
     label: "饮水机",
     detail: "饮水、冷热水设施",
     defaultName: "大学图书馆饮水点",
+    defaultAccess: "CUHK 成员",
+    defaultSource: "现场观察 · 2026-08-21",
+    defaultPrecision: "point",
   },
   {
     id: "toilet",
     label: "洗手间",
     detail: "公共或受限使用的洗手间",
     defaultName: "大学图书馆洗手间",
+    defaultAccess: "公众",
+    defaultSource: "校方网页 · 2026-08-20",
+    defaultPrecision: "floor",
   },
   {
     id: "printer",
     label: "打印服务",
     detail: "打印、扫描或复印位置",
     defaultName: "大学图书馆打印服务",
+    defaultAccess: "CUHK 成员",
+    defaultSource: "现场观察 · 2026-08-21",
+    defaultPrecision: "point",
   },
   {
     id: "common-space",
     label: "公共空间",
     detail: "可供停留或学习的空间",
     defaultName: "大学图书馆公共空间",
+    defaultAccess: "公众",
+    defaultSource: "校方网页 · 2026-08-20",
+    defaultPrecision: "floor",
   },
 ];
 
@@ -165,7 +180,12 @@ function isDraftDirty(flow: Flow, draft: Draft) {
       flow === "placement" ||
       flow === "preset" ||
       flow === "edit" ||
-      flow === "review"
+      flow === "review" ||
+      flow === "authentication-required" ||
+      flow === "publishing" ||
+      flow === "rate-limited" ||
+      flow === "transient-error" ||
+      flow === "conflict"
     );
   }
   return (
@@ -497,13 +517,21 @@ function ReviewCard({
 }
 
 function PublishedCard({
+  operation,
   onDone,
   onOpenPlace,
   onOpenChangeset,
+  onOpenDiscussion,
+  onOpenHistory,
+  onOpenMapNote,
 }: {
+  operation: Draft["mode"];
   onDone: () => void;
   onOpenPlace: () => void;
   onOpenChangeset: () => void;
+  onOpenDiscussion: () => void;
+  onOpenHistory: () => void;
+  onOpenMapNote: () => void;
 }) {
   const [reviewRequested, setReviewRequested] = useState(false);
   return (
@@ -519,7 +547,9 @@ function PublishedCard({
       </p>
       <div className="mt-5 w-full rounded-2xl bg-[#eef4ef] p-4 text-left">
         <p className="text-xs font-bold text-[#6b7c72]">CHANGESET</p>
-        <p className="mt-1 font-black">CM-2048 · 1 项修改</p>
+        <p className="mt-1 font-black">
+          CM-2048 · {operation === "add" ? "新增 1 个地点" : "修改 1 个地点"}
+        </p>
         <p className="mt-1 text-sm text-[#66766d]">作者：CUHK User · 刚刚</p>
       </div>
       <div className="mt-5 grid w-full gap-3 sm:grid-cols-2">
@@ -545,6 +575,29 @@ function PublishedCard({
       >
         {reviewRequested ? "已请求其他贡献者检查" : "请求其他贡献者检查"}
       </button>
+      <div className="mt-3 grid w-full grid-cols-3 gap-2 border-t pt-3 text-xs font-bold">
+        <button
+          type="button"
+          onClick={onOpenHistory}
+          className={cn("min-h-11 text-[#345348]", focusRing)}
+        >
+          地点历史
+        </button>
+        <button
+          type="button"
+          onClick={onOpenDiscussion}
+          className={cn("min-h-11 text-[#345348]", focusRing)}
+        >
+          公开讨论
+        </button>
+        <button
+          type="button"
+          onClick={onOpenMapNote}
+          className={cn("min-h-11 text-[#345348]", focusRing)}
+        >
+          地图备注
+        </button>
+      </div>
       <button
         type="button"
         onClick={onDone}
@@ -561,6 +614,8 @@ function PublishedCard({
 
 function TraceabilityPanel({
   flow,
+  operation,
+  precision,
   setFlow,
   onDone,
   onEditFromNote,
@@ -569,6 +624,8 @@ function TraceabilityPanel({
     Flow,
     "place-history" | "changeset" | "discussion" | "map-note"
   >;
+  operation: Draft["mode"];
+  precision: Draft["positionPrecision"];
   setFlow: (flow: Flow) => void;
   onDone: () => void;
   onEditFromNote: () => void;
@@ -604,19 +661,20 @@ function TraceabilityPanel({
       </div>
       {flow === "place-history" ? (
         <div className="grid gap-3">
-          {["r18 · 新增现场来源", "r17 · 修正开放对象", "r16 · 建立地点"].map(
-            (item) => (
-              <article
-                key={item}
-                className="rounded-xl border bg-white p-4 text-sm"
-              >
-                <strong>{item}</strong>
-                <p className="mt-1 text-[#66766d]">
-                  稳定 deep link · typed field/position diff
-                </p>
-              </article>
-            ),
-          )}
+          {(operation === "add"
+            ? ["r1 · 建立地点"]
+            : ["r18 · 新增现场来源", "r17 · 修正开放对象", "r16 · 建立地点"]
+          ).map((item) => (
+            <article
+              key={item}
+              className="rounded-xl border bg-white p-4 text-sm"
+            >
+              <strong>{item}</strong>
+              <p className="mt-1 text-[#66766d]">
+                稳定 deep link · typed field/position diff
+              </p>
+            </article>
+          ))}
           <button
             type="button"
             onClick={() => setFlow("changeset")}
@@ -629,9 +687,13 @@ function TraceabilityPanel({
       {flow === "changeset" ? (
         <div className="grid gap-3">
           <div className="rounded-xl border bg-white p-4 text-sm">
-            <p className="font-bold">1 个地点 · point update · r17 → r18</p>
+            <p className="font-bold">
+              1 个地点 ·{" "}
+              {operation === "add" ? "create · — → r1" : "update · r17 → r18"}
+            </p>
             <p className="mt-2 text-[#66766d]">
-              楼层 G/F · 精度 point · 来源已更新
+              精度 {precision} ·{" "}
+              {operation === "add" ? "公开事实已建立" : "来源已更新"}
             </p>
           </div>
           <button
@@ -712,14 +774,29 @@ function TraceabilityPanel({
 function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
   const [publishOutcome, setPublishOutcome] =
     useState<PublishOutcome>("published");
+  const [publishedOperation, setPublishedOperation] =
+    useState<Draft["mode"]>("edit");
+  const [retryAfter, setRetryAfter] = useState(0);
+  const [otherTabOwnsDraft, setOtherTabOwnsDraft] = useState(false);
   const [mapQuery, setMapQuery] = useState("");
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [confirmDuplicate, setConfirmDuplicate] = useState(false);
   const [showAbuseReport, setShowAbuseReport] = useState(false);
+  const tabOwnerIdRef = useRef<string | null>(null);
   const preset =
     placePresets.find((item) => item.id === draft.placeType) ?? placePresets[0];
   const isDirty = isDraftDirty(flow, draft);
+  const hasDuplicateCandidate =
+    draft.mode === "add" &&
+    draft.placeType === "drinking-water" &&
+    draft.building === "大学图书馆" &&
+    draft.floor === "G/F" &&
+    draft.positionPrecision !== "building" &&
+    draft.mapX >= 40 &&
+    draft.mapX <= 55 &&
+    draft.mapY >= 35 &&
+    draft.mapY <= 50;
   const errors = [
     !draft.name.trim()
       ? { fieldId: "open-edit-名称", message: "请填写地点名称" }
@@ -750,10 +827,12 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
   };
   const startAddingPoint = () => {
     setDraft({ ...initialDraft, mode: "add" });
+    setOtherTabOwnsDraft(false);
     setFlow("placement");
   };
   const publish = () => {
     if (publishOutcome === "published") {
+      setPublishedOperation(draft.mode);
       setFlow("publishing");
       window.setTimeout(() => {
         window.sessionStorage.removeItem("campus-map-open-edit-draft");
@@ -761,6 +840,7 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
       }, 650);
       return;
     }
+    if (publishOutcome === "rate-limited") setRetryAfter(3);
     setFlow(publishOutcome);
   };
 
@@ -770,7 +850,7 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
       return;
     }
     if (!isDirty) return;
-    if (draft.mode === "add" && !draft.warningAcknowledged) {
+    if (hasDuplicateCandidate && !draft.warningAcknowledged) {
       setConfirmDuplicate(true);
       return;
     }
@@ -782,6 +862,73 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
       setFlow("edit", "replace");
     }
   }, [flow, setFlow]);
+
+  useEffect(() => {
+    if (flow !== "rate-limited" || retryAfter <= 0) return;
+    const countdown = window.setInterval(
+      () => setRetryAfter((seconds) => Math.max(0, seconds - 1)),
+      1000,
+    );
+    return () => window.clearInterval(countdown);
+  }, [flow, retryAfter]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const ownerKey = "campus-map-open-edit-owner";
+    const tabIdKey = "campus-map-open-edit-tab-id";
+    const tabId =
+      window.sessionStorage.getItem(tabIdKey) ?? window.crypto.randomUUID();
+    window.sessionStorage.setItem(tabIdKey, tabId);
+    tabOwnerIdRef.current = tabId;
+
+    const readOwner = () => {
+      const rawOwner = window.localStorage.getItem(ownerKey);
+      if (!rawOwner) return null;
+      try {
+        return JSON.parse(rawOwner) as { tabId: string; updatedAt: number };
+      } catch {
+        return null;
+      }
+    };
+    const writeOwner = () =>
+      window.localStorage.setItem(
+        ownerKey,
+        JSON.stringify({ tabId, updatedAt: Date.now() }),
+      );
+    const currentOwner = readOwner();
+    let conflictNotice: number | undefined;
+    if (
+      currentOwner &&
+      currentOwner.tabId !== tabId &&
+      Date.now() - currentOwner.updatedAt < 10_000
+    ) {
+      conflictNotice = window.setTimeout(() => setOtherTabOwnsDraft(true), 0);
+    } else {
+      writeOwner();
+    }
+
+    const heartbeat = window.setInterval(() => {
+      if (readOwner()?.tabId === tabId) writeOwner();
+    }, 3000);
+    const observeOwner = (event: StorageEvent) => {
+      if (event.key !== ownerKey) return;
+      const nextOwner = readOwner();
+      if (nextOwner && nextOwner.tabId !== tabId) {
+        setOtherTabOwnsDraft(true);
+      }
+    };
+    window.addEventListener("storage", observeOwner);
+    return () => {
+      if (conflictNotice !== undefined) {
+        window.clearTimeout(conflictNotice);
+      }
+      window.clearInterval(heartbeat);
+      window.removeEventListener("storage", observeOwner);
+      if (readOwner()?.tabId === tabId) {
+        window.localStorage.removeItem(ownerKey);
+      }
+    };
+  }, [isDirty]);
 
   useEffect(() => {
     if (!isDirty) return;
@@ -1027,6 +1174,18 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
                             draft.mode === "add"
                               ? nextPreset.defaultName
                               : draft.name,
+                          access:
+                            draft.mode === "add"
+                              ? nextPreset.defaultAccess
+                              : draft.access,
+                          source:
+                            draft.mode === "add"
+                              ? nextPreset.defaultSource
+                              : draft.source,
+                          positionPrecision:
+                            draft.mode === "add"
+                              ? nextPreset.defaultPrecision
+                              : draft.positionPrecision,
                           warningAcknowledged: false,
                         });
                       }}
@@ -1150,7 +1309,10 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
                 </p>
                 <button
                   type="button"
-                  onClick={() => setFlow("edit")}
+                  onClick={() => {
+                    setPublishOutcome("published");
+                    setFlow("edit");
+                  }}
                   className={primaryButton}
                 >
                   模拟登录并继续
@@ -1172,16 +1334,24 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
 
             {flow === "rate-limited" ? (
               <div role="alert" className="grid gap-4">
-                <h2 className="text-xl font-black">请在 28 秒后重试</h2>
+                <h2 className="text-xl font-black">
+                  {retryAfter > 0
+                    ? `请在 ${retryAfter} 秒后重试`
+                    : "现在可以重试"}
+                </h2>
                 <p className="text-sm leading-6 text-[#66766d]">
-                  修改已保留，稍后可以安全重试。
+                  修改和本次发布标识均已保留，不会产生重复 Changeset。
                 </p>
                 <button
                   type="button"
-                  onClick={() => setFlow("edit")}
+                  disabled={retryAfter > 0}
+                  onClick={() => {
+                    setPublishOutcome("published");
+                    setFlow("edit");
+                  }}
                   className={secondaryButton}
                 >
-                  返回编辑
+                  {retryAfter > 0 ? "等待重试" : "返回并重试"}
                 </button>
               </div>
             ) : null}
@@ -1239,9 +1409,16 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
 
             {flow === "published" ? (
               <PublishedCard
-                onDone={() => setFlow("browse", "reset")}
+                operation={publishedOperation}
+                onDone={() => {
+                  setDraft(initialDraft);
+                  setFlow("browse", "reset");
+                }}
                 onOpenPlace={() => setFlow("place")}
                 onOpenChangeset={() => setFlow("changeset")}
+                onOpenDiscussion={() => setFlow("discussion")}
+                onOpenHistory={() => setFlow("place-history")}
+                onOpenMapNote={() => setFlow("map-note")}
               />
             ) : null}
 
@@ -1251,6 +1428,8 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
             flow === "map-note" ? (
               <TraceabilityPanel
                 flow={flow}
+                operation={publishedOperation}
+                precision={draft.positionPrecision}
                 setFlow={setFlow}
                 onDone={() => setFlow("place")}
                 onEditFromNote={() => {
@@ -1318,8 +1497,8 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
               <AlertDialogHeader>
                 <AlertDialogTitle>附近可能已有相同地点</AlertDialogTitle>
                 <AlertDialogDescription>
-                  大学图书馆 G/F 已有一个{preset.label}
-                  。请先确认这不是同一个服务位置。
+                  {draft.building} {draft.floor} 附近已有一个{preset.label}
+                  候选。请先确认这不是同一个服务位置。
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1333,6 +1512,37 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
                   className="bg-[#17664a] text-white hover:bg-[#12553d]"
                 >
                   不是同一个，继续发布
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <AlertDialog open={otherTabOwnsDraft}>
+            <AlertDialogContent className="z-[150] before:fixed before:inset-0 before:-z-10 before:bg-black/25">
+              <AlertDialogHeader>
+                <AlertDialogTitle>另一标签页正在编辑</AlertDialogTitle>
+                <AlertDialogDescription>
+                  为避免两个标签页同时发布，Campus Map 一次只保留一个编辑
+                  session。
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={discardOperation}>
+                  返回地图
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => {
+                    const tabId = tabOwnerIdRef.current;
+                    if (tabId) {
+                      window.localStorage.setItem(
+                        "campus-map-open-edit-owner",
+                        JSON.stringify({ tabId, updatedAt: Date.now() }),
+                      );
+                    }
+                    setOtherTabOwnsDraft(false);
+                  }}
+                  className="bg-[#17664a] text-white hover:bg-[#12553d]"
+                >
+                  在此标签页继续
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -1687,9 +1897,13 @@ function VariantB({ flow, setFlow, draft, setDraft }: VariantProps) {
         ) : null}
         {flow === "published" ? (
           <PublishedCard
+            operation={draft.mode}
             onDone={() => setFlow("browse", "reset")}
             onOpenPlace={() => setFlow("place")}
             onOpenChangeset={() => setFlow("changeset")}
+            onOpenDiscussion={() => setFlow("discussion")}
+            onOpenHistory={() => setFlow("place-history")}
+            onOpenMapNote={() => setFlow("map-note")}
           />
         ) : null}
       </aside>
@@ -1734,9 +1948,13 @@ function VariantC({ flow, setFlow, draft, setDraft }: VariantProps) {
         <div className="absolute inset-x-3 bottom-3 rounded-[24px] bg-white p-5 shadow-2xl">
           {flow === "published" ? (
             <PublishedCard
+              operation={draft.mode}
               onDone={() => setFlow("place")}
               onOpenPlace={() => setFlow("place")}
               onOpenChangeset={() => setFlow("changeset")}
+              onOpenDiscussion={() => setFlow("discussion")}
+              onOpenHistory={() => setFlow("place-history")}
+              onOpenMapNote={() => setFlow("map-note")}
             />
           ) : flow === "review" ? (
             <>
