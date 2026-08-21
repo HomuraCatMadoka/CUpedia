@@ -131,8 +131,10 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5434/cuclaw_menu_sync_test
         run: >-
           pnpm exec vitest run
+          --no-file-parallelism
           tests/db/canteen-menu-sync.test.ts
           tests/db/canteen-menu-source-sync.test.ts
+          tests/db/canteen-menu-sync-scheduler.test.ts
 
   build:
     name: build

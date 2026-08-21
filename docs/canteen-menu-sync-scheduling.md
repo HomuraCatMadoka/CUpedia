@@ -22,7 +22,7 @@
 
 只读 Vercel 项目/团队信息表明 CUpedia 当前为 `hobby`、`legacy` plan iteration、状态 active，且没有 contract commitments。这里不记录无关的账号、邮箱或内部 ID。
 
-仓库当前实现：
+仓库在 #634 前的实现：
 
 - `vercel.json` 只有 `0 20 * * *`，即每天 20:00 UTC（香港次日 04:00）一次；
 - `/api/cron/canteen-menu-sync` 固定 `maxDuration = 60`；
@@ -44,9 +44,9 @@ Vercel 官方说明可在 dashboard team switcher 旁查看 plan，Usage 页面�
 | 限流         | push consumer group 可设置 max concurrency，适合按 provider 控制下游并发                                                                                | GitHub workflow `concurrency` 只能控制整轮；provider 级并发/退避仍要由 endpoint 的 DB claim 和代码控制                                                        |
 | 凭据         | push consumer 没有公网 URL，由 Vercel 内部触发；Queue API 使用 Vercel OIDC                                                                              | 最小方案需要 GitHub Actions secret + Vercel env 中同一长随机 secret；也可让 endpoint 验证 GitHub OIDC JWT，但需要自行实现 issuer/audience/repository/ref 校验 |
 | Preview 安全 | Queue push 与 deployment 绑定，消息默认回到发布它的 deployment；生产 cron 只会发布生产消息                                                              | `schedule` 只运行 default branch；workflow 必须硬编码 production origin，禁止使用 PR/preview URL，生产 secret 不得暴露给 fork PR                              |
-| 可观察性     | Queue 有 message age、throughput、consumer 等专用观测；无内建 DLQ，poison message 要在 retry callback 中终止/另存                                       | Actions 有每轮日志、通知和手动重跑；每来源真相必须落在 DB health/job 表，不能只依赖短期 runner log                                                            |
+| 可观察性     | Queue 有 message age、throughput、consumer 等专用观测；无内建 DLQ，poison message 要在 retry callback 中终止/另存                                       | Actions 有每轮日志、通知和手动重跑；每来源真相必须落在 DB source health 与 run 历史，不能只依赖短期 runner log                                                |
 | 成本         | Queue 仍为 beta；官方主页说明 all plans 可用，但本次没有在稳定 pricing 文档中确认独立 Queue operation 的长期价格。Function execution 仍计入 Vercel 用量 | 公开仓库标准 runner 免费；私有 GitHub Free 2,000 分钟/月，超额 Linux 2-core 当前为 US$0.006/min                                                               |
-| 维护负担     | 增加 Queue SDK、topic/consumer deployment 配置、retry callback、消息版本与 beta 升级关注                                                                | 增加一个小 workflow、一个受保护 endpoint、DB lease/job 状态；当前团队更容易理解和排错                                                                         |
+| 维护负担     | 增加 Queue SDK、topic/consumer deployment 配置、retry callback、消息版本与 beta 升级关注                                                                | 增加一个小 workflow、一个受保护 endpoint；复用既有 source claim 与 run 历史，当前团队更容易理解和排错                                                         |
 
 Queue 的关键保证与限制来自官方文档：消息接受后复制、失败自动重投、at-least-once、idempotency key、push concurrency、没有内建 DLQ；消息重复仍必须由业务幂等兜底。[Vercel Queues](https://vercel.com/docs/queues)，[Queues API](https://vercel.com/docs/queues/api)
 
@@ -56,30 +56,32 @@ GitHub 的关键限制是：scheduled workflow 只从 default branch 运行；�
 
 ### 1. 单来源领取接口，而不是全量 route
 
-建议 production endpoint 语义为：
+production endpoint 语义为：
 
 ```text
 POST /api/internal/canteen-menu-sync/next
 Authorization: Bearer <MENU_SYNC_TRIGGER_SECRET>
-Idempotency-Key: <schedule-window>/<attempt>
 
-200 { status: "applied" | "unchanged" | "failed", sourceId, pending }
-204 // 没有到期来源
+200 { disposition: "continue", window, sourceId, result }
+200 { disposition: "retry-later" | "stop-for-review", window, sourceId, code }
+200 { disposition: "no-work", window }
 ```
 
-一次 invocation 最多同步一个来源。endpoint 在 transaction 内：
+调用方不提交 source、canteen、provider、URL 或时间；这些事实全部来自数据库。一次 invocation 最多同步一个来源：
 
-1. 领取一条到期且未被 lease 的 source；
-2. 写入 `runId`、`leaseUntil`、`attemptCount`；
-3. 拉取并应用菜单；
-4. 写最终 health，释放 lease；
-5. 返回是否还有 pending source。
+1. 用数据库时间划分固定香港窗口：早餐 `00:00–10:59`、午餐 `11:00–16:59`、晚餐 `17:00–23:59`；
+2. 在短 transaction 内，从 enabled 来源中按现有 claim 与 run 历史原子领取一个；
+3. transaction 提交后才拉取并应用菜单；
+4. 写最终 run/source health 并释放 claim；
+5. 返回调用方应继续领取、稍后重试、停止审查或结束。
 
-Function 在第 2 步后超时也没关系：lease 到期后下次调用可重新领取。同步 apply 必须继续保持幂等，不能依靠调度器提供 exactly-once。
+`applied` 或 `unchanged` run 使该来源在当前窗口完成，即使 HTTP 响应丢失也不会重复领取。活跃 claim 不重复执行；过期 claim 沿用 source-sync fencing 接管。瞬时失败在同一窗口最多 3 次，第一次失败后退避 2 分钟、第二次失败后退避 5 分钟；达到上限、冲突、身份 churn、可疑下降或 `INVALID_*` 配置错误返回 `stop-for-review`。这些状态从既有 run 历史推导，不新增 job/lease 表或可漂移的 attempt 字段。
+
+入口只在 `VERCEL_ENV=production` 可用，缺少 `MENU_SYNC_TRIGGER_SECRET` 时 fail closed。它与旧 Vercel Cron 的 `CRON_SECRET` 分离。Function 在领取后超时也没关系：claim 到期后下次调用可按 fencing 语义接管；同步 apply 继续保持幂等，不能依靠调度器提供 exactly-once。
 
 ### 2. Workflow 只唤醒 production
 
-- 三个 schedule 避免写在整点，例如香港时间 `06:47`、`10:47`、`16:47`；GitHub 已支持 IANA timezone，也可继续用 UTC；
+- 三个 schedule 避免写在整点，并落在对应窗口开始之后，例如香港时间 `07:07`、`11:07`、`17:07`；其中午餐必须晚于已观测的 `10:55` PinMe 开始边界。GitHub 已支持 IANA timezone，也可继续用 UTC；
 - 加 `workflow_dispatch` 供补跑；
 - `permissions: { contents: read }`，若 workflow 不 checkout，甚至可设 `contents: none`；
 - 使用固定 production origin，不读取 deploy preview URL；
@@ -92,10 +94,10 @@ GitHub OIDC 能签发短期 JWT，云服务或自建 relying party 可按 issuer
 
 ### 3. Provider 限流
 
-DB claim 应支持 `provider` 和 `notBefore`：
+若未来真实出现 provider 限流，再扩展 provider 级策略；#634 当前不预建第二套调度状态：
 
 - 同一 provider 默认并发 1；不同 provider 可并发；
-- 429 尊重 `Retry-After`，写 `nextAttemptAt`；
+- 429 应尊重 `Retry-After`；在需要跨窗口保留 provider 指定时间前，不预先增加 `nextAttemptAt`；
 - timeout/5xx 指数退避并加 jitter；
 - 4xx 配置错误不自动重试；
 - 每个来源保留最后成功快照，失败不下架现有菜单。
