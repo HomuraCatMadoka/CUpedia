@@ -528,6 +528,8 @@ async function applyLockedMenuSync(
           },
           input,
           existing,
+          [],
+          { adapterAcceptedEmpty: mode.kind === "recurring" },
         );
   let evaluation = baselineEvaluation;
   let approvedCanonicalizations: ApprovedMenuIdentityCanonicalization[] = [];

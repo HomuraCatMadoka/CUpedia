@@ -358,6 +358,7 @@ describe("menu identity transition audit", () => {
         incomingCount: 1,
       }),
       currentScope: {
+        provider: "aigens",
         categoryCount: 3,
         groupCount: 3,
         providerPeriodCount: 4,
@@ -806,6 +807,33 @@ describe("menu identity transition audit", () => {
     const reordered = buildTransitionAudit([existing()], {
       snapshotCompleteness: "complete",
       scopeEvidence: countsFirst,
+      items: [incoming()],
+    });
+
+    expect(reordered.incomingFingerprint).toBe(first.incomingFingerprint);
+  });
+
+  it("fingerprints PinMe service windows independently of provider order", () => {
+    const first = buildTransitionAudit([existing()], {
+      snapshotCompleteness: "partial",
+      scopeEvidence: {
+        provider: "pinme",
+        serviceWindows: [
+          { startTime: "11:30", endTime: "14:30" },
+          { startTime: "17:30", endTime: "21:00" },
+        ],
+      },
+      items: [incoming()],
+    });
+    const reordered = buildTransitionAudit([existing()], {
+      snapshotCompleteness: "partial",
+      scopeEvidence: {
+        provider: "pinme",
+        serviceWindows: [
+          { startTime: "17:30", endTime: "21:00" },
+          { startTime: "11:30", endTime: "14:30" },
+        ],
+      },
       items: [incoming()],
     });
 

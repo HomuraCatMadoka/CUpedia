@@ -12,6 +12,8 @@ import {
   canteens,
   canteenMenuSources,
   canteenMenuSyncRuns,
+  canteenMenuSyncSnapshots,
+  canteenMenuSyncSnapshotItems,
   canteenOrderingHandoffs,
   canteenMenuItems,
   canteenMenuItemPrices,
@@ -159,6 +161,38 @@ describe("schema", () => {
     expect(cols.itemCount).toBeDefined();
     expect(cols.observation).toBeDefined();
     expect(cols.errorCode).toBeDefined();
+  });
+
+  it("canteen menu sync snapshots preserve normalized run evidence", () => {
+    const snapshots = getTableColumns(canteenMenuSyncSnapshots);
+    expect(snapshots.runId).toBeDefined();
+    expect(snapshots.menuSourceId).toBeDefined();
+    expect(snapshots.snapshotHash).toBeDefined();
+    expect(snapshots.snapshotCompleteness).toBeDefined();
+    expect(snapshots.syncWindowKey).toBeDefined();
+    expect(snapshots.hktWeekday).toBeDefined();
+    expect(snapshots.observedMinuteOfDay).toBeDefined();
+    expect(snapshots.scopeEvidence).toBeDefined();
+    expect(snapshots.observedAt).toBeDefined();
+    expect(
+      getTableConfig(canteenMenuSyncSnapshots).indexes.map(
+        (index) => index.config.name,
+      ),
+    ).toContain("canteen_menu_sync_snapshots_retention_idx");
+    expect(
+      getTableConfig(canteenMenuSyncRuns).indexes.map(
+        (index) => index.config.name,
+      ),
+    ).toContain("canteen_menu_sync_runs_retention_idx");
+
+    const items = getTableColumns(canteenMenuSyncSnapshotItems);
+    expect(items.runId).toBeDefined();
+    expect(items.externalProductId).toBeDefined();
+    expect(items.name).toBeDefined();
+    expect(items.priceOptions).toBeDefined();
+    expect(items.mealPeriods).toBeDefined();
+    expect(items.sortOrder).toBeDefined();
+    expect(items.svgKey).toBeDefined();
   });
 
   it("canteenOrderingHandoffs stores stable official ordering URLs", () => {

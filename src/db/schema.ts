@@ -1845,6 +1845,9 @@ export const canteenMenuSyncRuns = pgTable(
       table.status,
       table.startedAt,
     ),
+    index("canteen_menu_sync_runs_retention_idx")
+      .on(table.completedAt, table.id)
+      .where(sql`${table.completedAt} is not null`),
     check(
       "canteen_menu_sync_runs_status_chk",
       sql`${table.status} in (${sql.raw(
@@ -1856,6 +1859,125 @@ export const canteenMenuSyncRuns = pgTable(
     check(
       "canteen_menu_sync_runs_counts_chk",
       sql`(${table.itemCount} is null or ${table.itemCount} >= 0) and (${table.createdCount} is null or ${table.createdCount} >= 0) and (${table.updatedCount} is null or ${table.updatedCount} >= 0) and (${table.deactivatedCount} is null or ${table.deactivatedCount} >= 0)`,
+    ),
+  ],
+).enableRLS();
+
+export type CanteenMenuSyncSnapshotCompleteness = "complete" | "partial";
+
+export type CanteenMenuSyncSnapshotPriceOption = {
+  label: string | null;
+  amountMinor: number;
+  currency: string;
+  sortOrder: number;
+};
+
+/** Immutable normalized provider evidence captured for one successful run. */
+export const canteenMenuSyncSnapshots = pgTable(
+  "canteen_menu_sync_snapshots",
+  {
+    runId: uuid("run_id")
+      .primaryKey()
+      .references(() => canteenMenuSyncRuns.id, { onDelete: "cascade" }),
+    menuSourceId: uuid("menu_source_id")
+      .notNull()
+      .references(() => canteenMenuSources.id, { onDelete: "cascade" }),
+    snapshotHash: text("snapshot_hash").notNull(),
+    snapshotCompleteness: text("snapshot_completeness")
+      .$type<CanteenMenuSyncSnapshotCompleteness>()
+      .notNull(),
+    itemCount: integer("item_count").notNull(),
+    syncWindowKey: text("sync_window_key").notNull(),
+    mealPeriod: text("meal_period").$type<MealPeriod>().notNull(),
+    hktWeekday: integer("hkt_weekday").notNull(),
+    observedMinuteOfDay: integer("observed_minute_of_day").notNull(),
+    /** Bounded normalized provider scope evidence; never a raw response. */
+    scopeEvidence: jsonb("scope_evidence")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    index("canteen_menu_sync_snapshots_source_observed_idx").on(
+      table.menuSourceId,
+      table.observedAt,
+    ),
+    index("canteen_menu_sync_snapshots_retention_idx").on(
+      table.observedAt,
+      table.runId,
+    ),
+    index("canteen_menu_sync_snapshots_equivalent_window_idx").on(
+      table.menuSourceId,
+      table.hktWeekday,
+      table.mealPeriod,
+      table.observedMinuteOfDay,
+    ),
+    check(
+      "canteen_menu_sync_snapshots_hash_chk",
+      sql`length(${table.snapshotHash}) = 64`,
+    ),
+    check(
+      "canteen_menu_sync_snapshots_completeness_chk",
+      sql`${table.snapshotCompleteness} in ('complete', 'partial')`,
+    ),
+    check(
+      "canteen_menu_sync_snapshots_item_count_chk",
+      sql`${table.itemCount} >= 0`,
+    ),
+    check(
+      "canteen_menu_sync_snapshots_meal_period_chk",
+      sql`${table.mealPeriod} in ('breakfast', 'lunch', 'dinner')`,
+    ),
+    check(
+      "canteen_menu_sync_snapshots_hkt_weekday_chk",
+      sql`${table.hktWeekday} between 0 and 6`,
+    ),
+    check(
+      "canteen_menu_sync_snapshots_minute_chk",
+      sql`${table.observedMinuteOfDay} between 0 and 1439`,
+    ),
+  ],
+).enableRLS();
+
+export const canteenMenuSyncSnapshotItems = pgTable(
+  "canteen_menu_sync_snapshot_items",
+  {
+    runId: uuid("run_id")
+      .notNull()
+      .references(() => canteenMenuSyncSnapshots.runId, {
+        onDelete: "cascade",
+      }),
+    externalProductId: text("external_product_id").notNull(),
+    name: text("name").notNull(),
+    priceOptions: jsonb("price_options")
+      .$type<CanteenMenuSyncSnapshotPriceOption[]>()
+      .notNull()
+      .default([]),
+    mealPeriods: text("meal_periods")
+      .array()
+      .$type<MealPeriodAssignment[]>()
+      .notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    svgKey: text("svg_key").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.runId, table.externalProductId] }),
+    index("canteen_menu_sync_snapshot_items_product_idx").on(
+      table.externalProductId,
+      table.runId,
+    ),
+    check(
+      "canteen_menu_sync_snapshot_items_external_id_chk",
+      sql`length(trim(${table.externalProductId})) between 1 and 200`,
+    ),
+    check(
+      "canteen_menu_sync_snapshot_items_name_chk",
+      sql`length(trim(${table.name})) between 1 and 200`,
+    ),
+    check(
+      "canteen_menu_sync_snapshot_items_svg_key_chk",
+      sql`length(trim(${table.svgKey})) between 1 and 200`,
     ),
   ],
 ).enableRLS();

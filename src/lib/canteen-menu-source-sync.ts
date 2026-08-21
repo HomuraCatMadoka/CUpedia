@@ -4,8 +4,17 @@ import {
   CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
   canteenMenuSources,
   canteenMenuSyncRuns,
+  canteenMenuSyncSnapshots,
 } from "@/db/schema";
-import { and, eq, getTableColumns, inArray, lt, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  lt,
+  notExists,
+  sql,
+} from "drizzle-orm";
 import { lockCanteenMenuMutationForSource } from "./canteen-menu-mutation-lock";
 import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
@@ -15,6 +24,7 @@ import {
 } from "./canteen-menu-sync-scheduler";
 import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
+import { insertMenuSyncSnapshot } from "./canteen-menu-sync-snapshots";
 import {
   applyRecurringMenuProjection,
   type LockedMenuSource,
@@ -27,6 +37,7 @@ import { normalizeSyncErrorCode } from "./sync-error-code";
 const MAX_CONCURRENCY = 2;
 const CLAIM_DURATION_MS = 2 * 60 * 1_000;
 const MAX_ERROR_LENGTH = 1_000;
+const MENU_SYNC_RETENTION_BATCH_SIZE = 100;
 
 declare const normalizedSyncCode: unique symbol;
 export type NormalizedSyncCode = string & {
@@ -198,10 +209,21 @@ async function selectLockedSource(
   return source;
 }
 
-async function pruneTerminalMenuSyncRuns(
+async function pruneExpiredMenuSyncEvidence(
   sourceId: string,
   executor: Pick<MenuSyncTransaction, "delete"> = db,
 ): Promise<void> {
+  await executor
+    .delete(canteenMenuSyncSnapshots)
+    .where(
+      and(
+        eq(canteenMenuSyncSnapshots.menuSourceId, sourceId),
+        lt(
+          canteenMenuSyncSnapshots.observedAt,
+          sql`now() - interval '30 days'`,
+        ),
+      ),
+    );
   await executor
     .delete(canteenMenuSyncRuns)
     .where(
@@ -211,15 +233,58 @@ async function pruneTerminalMenuSyncRuns(
           canteenMenuSyncRuns.status,
           CANTEEN_MENU_SYNC_TERMINAL_STATUSES,
         ),
-        lt(canteenMenuSyncRuns.startedAt, sql`now() - interval '30 days'`),
+        lt(canteenMenuSyncRuns.completedAt, sql`now() - interval '30 days'`),
+        notExists(
+          db
+            .select({ runId: canteenMenuSyncSnapshots.runId })
+            .from(canteenMenuSyncSnapshots)
+            .where(eq(canteenMenuSyncSnapshots.runId, canteenMenuSyncRuns.id)),
+        ),
       ),
     );
+}
+
+async function pruneExpiredMenuSyncEvidenceBatch(
+  executor: Pick<MenuSyncTransaction, "execute">,
+): Promise<void> {
+  await executor.execute(sql`
+    with expired_snapshots as (
+      select snapshot.run_id
+      from ${canteenMenuSyncSnapshots} as snapshot
+      where snapshot.observed_at < now() - interval '30 days'
+      order by snapshot.observed_at, snapshot.run_id
+      limit ${MENU_SYNC_RETENTION_BATCH_SIZE}
+      for update skip locked
+    )
+    delete from ${canteenMenuSyncSnapshots} as snapshot
+    using expired_snapshots as expired
+    where snapshot.run_id = expired.run_id
+  `);
+  await executor.execute(sql`
+    with expired_runs as (
+      select run.id
+      from ${canteenMenuSyncRuns} as run
+      where run.status in ('applied', 'unchanged', 'failed')
+        and run.completed_at < now() - interval '30 days'
+        and not exists (
+          select 1
+          from ${canteenMenuSyncSnapshots} as snapshot
+          where snapshot.run_id = run.id
+        )
+      order by run.completed_at, run.id
+      limit ${MENU_SYNC_RETENTION_BATCH_SIZE}
+      for update skip locked
+    )
+    delete from ${canteenMenuSyncRuns} as run
+    using expired_runs as expired
+    where run.id = expired.id
+  `);
 }
 
 async function acquireMenuSourceClaim(
   sourceId: string,
 ): Promise<MenuSourceClaimResult> {
-  await pruneTerminalMenuSyncRuns(sourceId);
+  await pruneExpiredMenuSyncEvidence(sourceId);
 
   return db.transaction(async (tx) => {
     const source = await selectLockedSource(tx, sourceId);
@@ -305,6 +370,7 @@ type NextDueMenuSourceClaimResult =
 
 async function acquireNextDueMenuSourceClaim(): Promise<NextDueMenuSourceClaimResult> {
   return db.transaction(async (tx) => {
+    await pruneExpiredMenuSyncEvidenceBatch(tx);
     const databaseNow = await readMenuSyncDatabaseNow(tx);
     const window = menuSyncWindowAt(databaseNow);
     const candidates = await listMenuSourceScheduleCandidates(
@@ -346,7 +412,6 @@ async function acquireNextDueMenuSourceClaim(): Promise<NextDueMenuSourceClaimRe
         }
         continue;
       }
-      await pruneTerminalMenuSyncRuns(source.id, tx);
       const claimed = await claimLockedMenuSource(tx, source, databaseNow);
       if (claimed.status !== "claimed") {
         throw new Error("MENU_SYNC_CLAIM_INCONSISTENT");
@@ -554,6 +619,13 @@ async function commitClaimedRecurringMenuSync(
       );
       return projection;
     }
+    await insertMenuSyncSnapshot(tx, {
+      runId: claim.runId,
+      sourceId: source.id,
+      snapshotHash: snapshot.hash,
+      observedAt: databaseNow,
+      input,
+    });
     await finalizeLockedClaimedRun(
       tx,
       source,
@@ -582,7 +654,6 @@ async function executeClaimedMenuSourceSync(
   try {
     const fetched = await fetchMenuFromProvider(source);
     input = { ...fetched, takeOverLegacyItems: false };
-    if (input.items.length === 0) throw new Error("EMPTY_MENU_SYNC");
   } catch (error) {
     return finalizeFailureResult(claim, error, "provider-failure");
   }

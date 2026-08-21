@@ -40,6 +40,7 @@ export function assertProviderSnapshotScope(
   scopeEvidence: MenuSnapshotScopeEvidence,
   externalStoreId?: string,
 ): void {
+  if (provider === "pinme" && scopeEvidence.provider === "pinme") return;
   if (
     provider !== "aigens" ||
     scopeEvidence.provider !== "aigens" ||
@@ -65,4 +66,26 @@ export function snapshotAbsenceIsEvidence(
   completeness: MenuSnapshotCompleteness,
 ): boolean {
   return completeness === "complete";
+}
+
+/** Selects stable provider context while excluding result-dependent counts. */
+export function menuSnapshotComparisonContext(
+  evidence: Record<string, unknown>,
+): Record<string, unknown> {
+  if (evidence.provider === "aigens") {
+    return {
+      provider: evidence.provider,
+      externalStoreId: evidence.externalStoreId,
+      menuName: evidence.menuName,
+      providerPeriodCodes: evidence.providerPeriodCodes,
+      categoryPeriodCodes: evidence.categoryPeriodCodes,
+    };
+  }
+  if (evidence.provider === "pinme") {
+    return {
+      provider: evidence.provider,
+      serviceWindows: evidence.serviceWindows,
+    };
+  }
+  return evidence;
 }

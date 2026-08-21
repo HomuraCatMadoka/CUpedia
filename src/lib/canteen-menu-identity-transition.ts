@@ -92,12 +92,16 @@ export type MenuIdentityTransitionStaleDetails = {
   existingMatches: boolean;
   incomingMatches: boolean;
   currentSummary: MenuIdentityTransitionAudit["summary"];
-  currentScope: {
-    categoryCount: number;
-    groupCount: number;
-    providerPeriodCount: number;
-    categoryPeriodCount: number;
-  } | null;
+  currentScope:
+    | {
+        provider: "aigens";
+        categoryCount: number;
+        groupCount: number;
+        providerPeriodCount: number;
+        categoryPeriodCount: number;
+      }
+    | { provider: "pinme"; serviceWindowCount: number }
+    | null;
 };
 
 class MenuIdentityTransitionStaleError extends Error {
@@ -493,14 +497,21 @@ export function verifyMenuIdentityTransitionApproval(
       incomingMatches:
         currentAudit.incomingFingerprint === artifact.audit.incomingFingerprint,
       currentSummary: currentAudit.summary,
-      currentScope: scope
-        ? {
-            categoryCount: scope.categoryCount,
-            groupCount: scope.groupCount,
-            providerPeriodCount: scope.providerPeriodCodes.length,
-            categoryPeriodCount: scope.categoryPeriodCodes.length,
-          }
-        : null,
+      currentScope:
+        scope?.provider === "aigens"
+          ? {
+              provider: "aigens",
+              categoryCount: scope.categoryCount,
+              groupCount: scope.groupCount,
+              providerPeriodCount: scope.providerPeriodCodes.length,
+              categoryPeriodCount: scope.categoryPeriodCodes.length,
+            }
+          : scope?.provider === "pinme"
+            ? {
+                provider: "pinme",
+                serviceWindowCount: scope.serviceWindows.length,
+              }
+            : null,
     } satisfies MenuIdentityTransitionStaleDetails);
   }
   if (artifact.schemaVersion === 5) {
@@ -1169,6 +1180,16 @@ function sortedPriceOptions(options: readonly MenuItemPriceOptionInput[]) {
 
 function scopeEvidenceForFingerprint(evidence: MenuSyncInput["scopeEvidence"]) {
   if (!evidence) return null;
+  if (evidence.provider === "pinme") {
+    return {
+      provider: evidence.provider,
+      serviceWindows: [...evidence.serviceWindows].sort(
+        (left, right) =>
+          compareProviderText(left.startTime, right.startTime) ||
+          compareProviderText(left.endTime, right.endTime),
+      ),
+    };
+  }
   return {
     provider: evidence.provider,
     externalStoreId: evidence.externalStoreId,

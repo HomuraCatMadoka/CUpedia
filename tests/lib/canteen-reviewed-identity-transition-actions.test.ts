@@ -141,6 +141,7 @@ describe("executeReviewedIdentityTransitionAction", () => {
         ambiguityCount: 0,
       },
       currentScope: {
+        provider: "aigens",
         categoryCount: 13,
         groupCount: 24,
         providerPeriodCount: 4,

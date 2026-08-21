@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertProviderSnapshotCompleteness,
   expectedMenuSnapshotCompleteness,
+  menuSnapshotComparisonContext,
   parseMenuSnapshotCompleteness,
   snapshotAbsenceIsEvidence,
 } from "@/lib/canteen-menu-snapshot-completeness";
@@ -19,6 +20,12 @@ describe("menu snapshot completeness", () => {
     ).toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
     expect(() =>
       assertProviderSnapshotCompleteness("pinme", "partial"),
+    ).not.toThrow();
+    expect(() =>
+      assertProviderSnapshotCompleteness("pinme", "partial", {
+        provider: "pinme",
+        serviceWindows: [{ startTime: "11:00", endTime: "14:00" }],
+      }),
     ).not.toThrow();
     expect(() =>
       assertProviderSnapshotCompleteness("aigens", "partial"),
@@ -90,5 +97,26 @@ describe("menu snapshot completeness", () => {
   it("treats absence as evidence only for complete snapshots", () => {
     expect(snapshotAbsenceIsEvidence("complete")).toBe(true);
     expect(snapshotAbsenceIsEvidence("partial")).toBe(false);
+  });
+
+  it("compares stable provider context without result-dependent counts", () => {
+    expect(
+      menuSnapshotComparisonContext({
+        provider: "aigens",
+        externalStoreId: "102830",
+        storeName: "旧名称",
+        menuName: "中文大學",
+        providerPeriodCodes: ["L"],
+        categoryPeriodCodes: ["L"],
+        categoryCount: 44,
+        groupCount: 60,
+      }),
+    ).toEqual({
+      provider: "aigens",
+      externalStoreId: "102830",
+      menuName: "中文大學",
+      providerPeriodCodes: ["L"],
+      categoryPeriodCodes: ["L"],
+    });
   });
 });
