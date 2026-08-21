@@ -1,0 +1,32 @@
+name: Production canteen menu sync
+
+on:
+  schedule:
+    # GitHub schedules are UTC. Minute 17 avoids top-of-hour load.
+    # 23:17 UTC = 07:17 Asia/Hong_Kong on the following day (breakfast).
+    - cron: "17 23 * * *"
+    # 03:17 UTC = 11:17 Asia/Hong_Kong (lunch).
+    - cron: "17 3 * * *"
+    # 09:17 UTC = 17:17 Asia/Hong_Kong (dinner).
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-canteen-menu-sync
+  cancel-in-progress: false
+
+jobs:
+  drain:
+    name: Drain due menu sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Drain production menu sources
+        env:
+          MENU_SYNC_TRIGGER_SECRET: ${{ secrets.MENU_SYNC_TRIGGER_SECRET }}
+        run: node scripts/drain-canteen-menu-sync.mjs

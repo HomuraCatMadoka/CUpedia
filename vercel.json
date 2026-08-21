@@ -1,12 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["hkg1"],
-  "crons": [
-    {
-      "path": "/api/cron/canteen-menu-sync",
-      "schedule": "0 20 * * *"
-    }
-  ],
   "git": {
     "deploymentEnabled": {
       "*": false,
