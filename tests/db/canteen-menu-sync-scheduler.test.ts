@@ -10,7 +10,6 @@ import {
   canteens,
 } from "@/db/schema";
 import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
-import { listMenuSourceScheduleCandidates } from "@/lib/canteen-menu-sync-scheduler";
 import { menuSyncWindowAt } from "@/lib/canteen-menu-sync-window";
 import pinmeCurrent from "../lib/fixtures/canteen-providers/pinme-current.json";
 
@@ -24,7 +23,10 @@ vi.mock("@/lib/canteen-menu-source-adapters", () => ({
   fetchMenuFromProvider,
 }));
 
-import { syncNextDueMenuSource } from "@/lib/canteen-menu-source-sync";
+import {
+  claimNextDueMenuSourceAtForTests,
+  syncNextDueMenuSource,
+} from "@/lib/canteen-menu-source-sync";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -364,25 +366,26 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     "2026-08-20T03:00:00.000Z",
     "2026-08-20T08:59:59.999Z",
     "2026-08-20T09:00:00.000Z",
+    "2026-08-20T06:37:00.000Z",
   ])(
-    "uses a controlled database timestamp at window boundary %s",
+    "claims through the database-clock path at fixed or delayed time %s",
     async (value) => {
       const { sourceId } = await createEligibleSource("固定数据库时间来源");
       const databaseNow = new Date(value);
       const window = menuSyncWindowAt(databaseNow);
-      await db.insert(canteenMenuSyncRuns).values({
-        id: randomUUID(),
-        menuSourceId: sourceId,
-        status: "unchanged",
-        startedAt: new Date(window.startsAt.getTime() + 1),
-        completedAt: new Date(window.startsAt.getTime() + 2),
+
+      await expect(
+        claimNextDueMenuSourceAtForTests(databaseNow),
+      ).resolves.toEqual({
+        status: "claimed",
+        window: window.key,
+        sourceId,
       });
-
-      const candidates = await db.transaction((tx) =>
-        listMenuSourceScheduleCandidates(tx, window, databaseNow),
-      );
-
-      expect(candidates).toEqual([]);
+      const [run] = await db
+        .select({ status: canteenMenuSyncRuns.status })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
+      expect(run).toEqual({ status: "running" });
     },
   );
 
