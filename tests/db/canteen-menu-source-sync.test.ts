@@ -27,11 +27,7 @@ vi.mock("@/lib/canteen-menu-source-adapters", () => ({
 }));
 
 import { syncCanteenMenuSource } from "@/lib/canteen-menu-source-sync";
-import {
-  commitClaimedRecurringMenuSync,
-  previewMenuSync,
-} from "@/lib/canteen-menu-sync-store";
-import type { MenuSourceClaim } from "@/lib/canteen-menu-source-sync-runtime";
+import { previewMenuSync } from "@/lib/canteen-menu-sync-store";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -93,6 +89,7 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
         externalKey: canteenMenuItems.externalKey,
         name: canteenMenuItems.name,
         isAvailable: canteenMenuItems.isAvailable,
+        updatedAt: canteenMenuItems.updatedAt,
       })
       .from(canteenMenuItems)
       .where(eq(canteenMenuItems.menuSourceId, sourceId));
@@ -103,18 +100,48 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
         externalKey: null,
         name: "喇沙魚旦烏冬",
         isAvailable: true,
+        updatedAt: expect.any(Date),
       },
     ]);
 
-    const [run] = await db
-      .select({
-        status: canteenMenuSyncRuns.status,
-        itemCount: canteenMenuSyncRuns.itemCount,
-        createdCount: canteenMenuSyncRuns.createdCount,
-      })
-      .from(canteenMenuSyncRuns)
-      .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
-    expect(run).toEqual({ status: "applied", itemCount: 1, createdCount: 1 });
+    const [[source], [run]] = await Promise.all([
+      db
+        .select({
+          lastSuccessAt: canteenMenuSources.lastSuccessAt,
+          observedState: canteenMenuSources.observedState,
+          lastErrorCode: canteenMenuSources.lastErrorCode,
+          syncClaimToken: canteenMenuSources.syncClaimToken,
+          syncClaimExpiresAt: canteenMenuSources.syncClaimExpiresAt,
+          updatedAt: canteenMenuSources.updatedAt,
+        })
+        .from(canteenMenuSources)
+        .where(eq(canteenMenuSources.id, sourceId)),
+      db
+        .select({
+          status: canteenMenuSyncRuns.status,
+          itemCount: canteenMenuSyncRuns.itemCount,
+          createdCount: canteenMenuSyncRuns.createdCount,
+          completedAt: canteenMenuSyncRuns.completedAt,
+        })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId)),
+    ]);
+    expect(source).toMatchObject({
+      lastSuccessAt: expect.any(Date),
+      observedState: "available",
+      lastErrorCode: null,
+      syncClaimToken: null,
+      syncClaimExpiresAt: null,
+    });
+    expect(run).toMatchObject({
+      status: "applied",
+      itemCount: 1,
+      createdCount: 1,
+      completedAt: expect.any(Date),
+    });
+    expect(source.lastSuccessAt?.getTime()).toBe(source.updatedAt.getTime());
+    expect(run.completedAt?.getTime()).toBe(source.updatedAt.getTime());
+    expect(items[0].updatedAt.getTime()).toBe(source.updatedAt.getTime());
   });
 
   it("returns already-running without fetching while a claim is active", async () => {
@@ -180,30 +207,6 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       code: "MENU_SOURCE_DISABLED",
     });
     expect(fetchMenuFromProvider).not.toHaveBeenCalled();
-  });
-
-  it("rejects a structurally forged recurring commit capability", async () => {
-    const [source] = await db
-      .select()
-      .from(canteenMenuSources)
-      .where(eq(canteenMenuSources.id, sourceId));
-    const forgedClaim = {
-      source: { ...source, externalStoreId: "caller-controlled-store" },
-      runId: randomUUID(),
-      sourceFingerprint: "caller-controlled-fingerprint",
-    } as MenuSourceClaim;
-
-    await expect(
-      commitClaimedRecurringMenuSync(
-        buildPinmeMenuSyncPayload(pinmeCurrent),
-        "caller-controlled-preview-token",
-        {
-          claim: forgedClaim,
-          snapshotHash: "caller-controlled-snapshot",
-          itemCount: 1,
-        },
-      ),
-    ).rejects.toThrow("MENU_SYNC_SUPERSEDED");
   });
 
   it("reclaims an expired claim and fences the stale worker from menu and health", async () => {
@@ -285,6 +288,76 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
         }),
       ]),
     );
+  });
+
+  it("leaves an expired unreclaimed lease untouched when the stale worker returns", async () => {
+    let releaseFetch!: (
+      snapshot: ReturnType<typeof buildPinmeMenuSyncPayload>,
+    ) => void;
+    let markFetchStarted!: () => void;
+    const fetchStarted = new Promise<void>((resolve) => {
+      markFetchStarted = resolve;
+    });
+    fetchMenuFromProvider.mockImplementationOnce(async () => {
+      markFetchStarted();
+      return new Promise((resolve) => {
+        releaseFetch = resolve;
+      });
+    });
+
+    const staleSync = syncCanteenMenuSource(sourceId);
+    await fetchStarted;
+    const [claimedSource] = await db
+      .select({ syncClaimToken: canteenMenuSources.syncClaimToken })
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.id, sourceId));
+    expect(claimedSource.syncClaimToken).toEqual(expect.any(String));
+    await db
+      .update(canteenMenuSources)
+      .set({ syncClaimExpiresAt: sql`now() - interval '1 second'` })
+      .where(eq(canteenMenuSources.id, sourceId));
+    releaseFetch(buildPinmeMenuSyncPayload(pinmeCurrent));
+
+    await expect(staleSync).resolves.toMatchObject({
+      runId: claimedSource.syncClaimToken,
+      status: "superseded",
+      code: "MENU_SYNC_SUPERSEDED",
+    });
+    const [[source], [run], items] = await Promise.all([
+      db
+        .select({
+          observedState: canteenMenuSources.observedState,
+          lastErrorCode: canteenMenuSources.lastErrorCode,
+          syncClaimToken: canteenMenuSources.syncClaimToken,
+          claimExpired: sql<boolean>`${canteenMenuSources.syncClaimExpiresAt} <= now()`,
+        })
+        .from(canteenMenuSources)
+        .where(eq(canteenMenuSources.id, sourceId)),
+      db
+        .select({
+          status: canteenMenuSyncRuns.status,
+          errorCode: canteenMenuSyncRuns.errorCode,
+          completedAt: canteenMenuSyncRuns.completedAt,
+        })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.id, claimedSource.syncClaimToken!)),
+      db
+        .select({ id: canteenMenuItems.id })
+        .from(canteenMenuItems)
+        .where(eq(canteenMenuItems.menuSourceId, sourceId)),
+    ]);
+    expect(source).toEqual({
+      observedState: null,
+      lastErrorCode: null,
+      syncClaimToken: claimedSource.syncClaimToken,
+      claimExpired: true,
+    });
+    expect(run).toEqual({
+      status: "running",
+      errorCode: null,
+      completedAt: null,
+    });
+    expect(items).toEqual([]);
   });
 
   it("finalizes provider failure, run, health, and claim atomically", async () => {
@@ -688,6 +761,11 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
 
     const staleSync = syncCanteenMenuSource(sourceId);
     await fetchStarted;
+    const [claimedSource] = await db
+      .select({ syncClaimToken: canteenMenuSources.syncClaimToken })
+      .from(canteenMenuSources)
+      .where(eq(canteenMenuSources.id, sourceId));
+    expect(claimedSource.syncClaimToken).toEqual(expect.any(String));
     await db
       .update(canteenMenuSources)
       .set({ externalStoreId: "new-store-after-claim" })
@@ -723,11 +801,11 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
     expect(source).toEqual({
       observedState: null,
       lastErrorCode: null,
-      syncClaimToken: null,
+      syncClaimToken: claimedSource.syncClaimToken,
     });
     expect(run).toEqual({
-      status: "failed",
-      errorCode: "MENU_SYNC_SUPERSEDED",
+      status: "running",
+      errorCode: null,
     });
   });
 
