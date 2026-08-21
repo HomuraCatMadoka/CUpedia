@@ -63,15 +63,51 @@ _Avoid_: 用 GCJ-02 覆盖 canonical/source claim；用 RPG ArtPoint 计算距�
 
 **来源（Provenance）**: 支撑事实修订的证据集合，记录稳定引用、拥有者、版本、访问日期、
 使用权和限制；现场核对属于原创观察来源。
-_Avoid_: 自由文本 `source`；把供应商 POI 当成已批准事实
+_Avoid_: 自由文本 `source`；把供应商 POI 当成可发布事实
 
 **观察时间（Observed at）**: 来源实际观察现实状态的时间，适用于开放、临时关闭和设备
 运行等易变事实。
 _Avoid_: 网页 `Last-Modified`；抓取时间
 
-**核对时间（Verified at）**: 审核者确认来源足以支持该事实修订的时间，与审核者身份一起
-记录；它不替代 Observed at。
-_Avoid_: 用已核对暗示易变状态仍然实时有效
+**核对时间（Verified at）**: 一次明确的事后核对确认来源足以支持该事实修订的时间，与
+核对者身份一起记录；直接发布本身不产生 Verified at，它也不替代 Observed at。
+_Avoid_: 把发布者等同核对者；用已核对暗示易变状态仍然实时有效
+
+**编辑草稿（Edit draft）**: 一个用户编辑会话内尚未发布的 Place 变更，只对该用户可见，
+不是服务器申请或公共事实。
+_Avoid_: Application；待审核地点；把草稿 marker 放进其他用户的地图
+
+**变更集（Changeset）**: 一次用户任务原子发布的一组 Place 变化及其作者、说明、来源摘要
+和复核请求；发布成功后不可改写，可以公开讨论并被后续变更集反向修订。
+_Avoid_: 审批申请；用 open/closed 表示待审/批准；无作者的批量覆盖
+
+**事实修订（Fact revision）**: Changeset 为一个 Place 产生的不可变事实版本；同一
+Changeset 可以包含多个 Place 的新增、修改、停用或恢复修订。
+_Avoid_: 原地覆盖 Current fact；可修改历史快照；把通用 audit log 当事实版本
+
+**当前修订（Current revision）**: 一个 Place 最近成功发布的 Fact revision，包括 active、
+retired 或 merged redirect；CAS、restore 和 merge 都以它作为当前版本。
+_Avoid_: 只在 active Place 保存版本；把 Current revision 等同公开搜索投影
+
+**复核请求（Review request）**: 发布者请求社区或管理员在发布后检查 Changeset 的公开
+metadata；它提高 review feed 可见度，但不延迟或改变事实公开。
+_Avoid_: Approval request；Pending 状态；把未勾选理解为已核对
+
+**发布冲突（Publish conflict）**: Changeset 引用的任一 `baseRevisionId` 已不再是目标
+Place 的 Current revision，因此整个发布不产生公共修订，草稿保留供用户基于最新版重新确认。
+_Avoid_: 静默覆盖；自动字段合并；部分发布同一个 Changeset
+
+**反向修订（Revert revision）**: 用新 Changeset 发布与某个旧变化相反的新 Fact revision，
+而不删除、移动或改写既有历史。
+_Avoid_: Rollback pointer；删除错误 revision；把本地 Undo 当公开 revert
+
+**停用（Retirement）**: 表示 Place 已拆除、永久关闭或不再是独立服务位置的可恢复事实
+修订；它从默认地图结果移除，但稳定 ID、deep link 和历史继续存在。
+_Avoid_: 临时故障；hard delete；重复 Place 合并
+
+**内容隐藏（Redaction）**: 管理员因隐私、版权或法律原因限制某个历史版本内容的高风险
+治理动作；它保留版本链和审计占位，不等同事实纠错或停用。
+_Avoid_: 普通编辑删除历史；用 Redaction 隐藏产品错误
 
 **重复候选（Duplicate candidate）**: 名称、Building、Floor、Pin type、来源或距离等信号
 产生的待人工判断关系，不是唯一约束。
@@ -81,9 +117,9 @@ _Avoid_: 自动合并；认为同层只能有一个同类服务位置
 的 tombstone；两者来源、历史链接和 ID 均保留。
 _Avoid_: 删除或复用 loser ID；让旧 deep link 失效
 
-**公开事实（Current fact）**: 最近一份已批准且未退休的事实修订形成的公开投影；申请、
-供应商候选、评论和评分均不属于地点事实。
-_Avoid_: 待审核申请直接改变公共地图；用通用 audit log 代替事实修订
+**公开事实（Current fact）**: active Current revision 形成的公开搜索与地图投影；retired
+Place 只保留 tombstone/deep link，Edit draft、供应商候选、讨论和评分均不属于地点事实。
+_Avoid_: 把直接发布称为批准；把 Review request 当可见性状态；用通用 audit log 代替事实修订
 
 ### 集成边界
 

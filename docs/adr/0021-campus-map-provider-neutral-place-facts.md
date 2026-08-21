@@ -2,6 +2,8 @@
 
 状态：Accepted
 
+发布治理部分由 ADR 0022 取代；本文的 canonical identity、位置、来源与供应商边界继续有效。
+
 ## 决议
 
 Campus Map 以 Building、Floor 和 Place 组成最小 canonical 事实模型。Building 是可搜索、
@@ -34,19 +36,18 @@ Floor 和 Pin type 可以有多个 Place；这些字段与名称、距离只能�
 点精度由证据性质决定而不是由坐标小数位数决定：`precise` 只用于来源或现场核对直接识别
 该 Place 实际服务位置的点；估算、建筑代表点或不能证明实际位置的点一律为 `approximate`。
 
-每个可发布事实修订都必须引用来源，并区分 source accessed date、现实 Observed at 和审核
-Verified at。`unknown` 不提升为 unrestricted、true 或 false。申请只有批准后才形成公开
-Current fact；显示精度绝不高于证据。重复 Place 的人工合并保留 survivor，并把 loser 保留
-为永久 redirect/tombstone；普通停用是可恢复的 retired，ID 不删除、不复用。申请、批准、
-拒绝、撤回、冲突与回滚的状态机由 #565 决定。
+每个可发布事实修订都必须引用来源，并区分 source accessed date、现实 Observed at 和可选的
+Verified at。`unknown` 不提升为 unrestricted、true 或 false；显示精度绝不高于证据。直接
+发布、Changeset、冲突与事后治理由 ADR 0022 决定。重复 Place 的人工合并保留 survivor，
+并把 loser 保留为永久 redirect/tombstone；普通停用是可恢复的 retired，ID 不删除、不复用。
 
 供应商 POI 通过显式 `(provider, providerPlaceId)` 映射到 canonical ID。名称或距离匹配只能
-产生待审核候选。scene kernel、URL/history state、列表聚合、cluster、provider InfoWindow
+产生待人工关联候选。scene kernel、URL/history state、列表聚合、cluster、provider InfoWindow
 和 RPG ArtPoint 都是 presentation；它们引用 canonical ID，但不能成为事实来源或另建身份。
 
 ## 后果
 
-- 搜索、deep link、评论、贡献申请、高德地图和未来 RPG/路线投影可以共享稳定身份。
+- 搜索、deep link、讨论、Changeset、高德地图和未来 RPG/路线投影可以共享稳定身份。
 - 同层同类的多个厕所、饮水点或打印点不会因唯一约束或聚合表现而丢失。
 - 只有楼层证据时可以显示多个独立目录项，但不能在建筑中心堆叠假装精确的 marker。
 - 更换地图供应商或修正坐标不会迁移 Place；provider ID 与转换坐标不会污染 canonical fact。
