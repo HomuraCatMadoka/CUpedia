@@ -942,7 +942,12 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
 
   useEffect(() => {
     const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || flow === "browse" || confirmDiscard) {
+      if (
+        event.key !== "Escape" ||
+        flow === "browse" ||
+        flow === "publishing" ||
+        confirmDiscard
+      ) {
         return;
       }
       event.preventDefault();
@@ -976,7 +981,7 @@ function VariantA({ flow, setFlow, draft, setDraft }: VariantProps) {
               </p>
               <p className="text-sm font-black">大学图书馆一带</p>
             </div>
-            {flow !== "browse" ? (
+            {flow !== "browse" && flow !== "publishing" ? (
               <button
                 type="button"
                 aria-label="取消当前操作"
