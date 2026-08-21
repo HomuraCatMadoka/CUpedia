@@ -87,7 +87,7 @@ Authorization: Bearer <MENU_SYNC_TRIGGER_SECRET>
 - 使用固定 production origin，不读取 deploy preview URL；
 - workflow 级 `concurrency` 防止同一餐段重叠，DB lease 仍是最终保护；
 - 循环调用 `next`，设置来源数上限（例如 12）和整轮时间预算；
-- 只对 timeout、429、502、503、504 重试；401/403、schema error、业务冲突立即失败并告警；
+- 只在 endpoint 明确返回 `retry-later` 时退避重试；网络 timeout、非 2xx、schema error 与 `stop-for-review` 立即失败并告警；
 - secret 只放 GitHub Actions repository/environment secret 与 Vercel Production env，响应和日志不得打印它。
 
 GitHub OIDC 能签发短期 JWT，云服务或自建 relying party 可按 issuer/audience/claims 验证，从而避免长期 secret；但 Vercel 应用 endpoint 不会自动替本项目完成这层验证。当前最小实现先用专用随机 secret，等已有统一 OIDC verifier 再迁移，避免为了一个低频 trigger 自造不完整认证。[GitHub OIDC hardening](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-cloud-providers)
@@ -111,7 +111,7 @@ GitHub OIDC 能签发短期 JWT，云服务或自建 relying party 可按 issuer
 3. 不让 PR 参数控制 URL、source ID 或 Authorization header；fork PR 默认拿不到 Actions secrets，也不能因此放宽 endpoint；
 4. 只允许 DB 中 enabled、due 的来源被 `next` 领取，调用者不能提交 provider URL；
 5. 可选记录 trigger 类型、GitHub run ID 的 hash 和 schedule window，不保存 token；
-6. `CRON_SECRET` 与新的 external trigger secret 分离，便于单独轮换和吊销。
+6. GitHub Actions 与 Vercel Production 使用同一个专用 `MENU_SYNC_TRIGGER_SECRET`；旧 `CRON_SECRET` 不再授权任何菜单同步入口。
 
 ## 何时升级到 B / Pro
 
@@ -132,7 +132,7 @@ GitHub OIDC 能签发短期 JWT，云服务或自建 relying party 可按 issuer
 
 ## 决策
 
-当前落地 C，并把现有全量 cron route 重构为可重复调用的单来源 `next` worker。保留原 Vercel 每日 Cron 可作为低频兜底，但需要用 DB schedule window 去重，不能让它与 Actions 重复应用。
+当前落地 C，并以可重复调用的单来源 `next` worker 作为唯一生产菜单同步入口。最终 cutover 同时删除原 Vercel Cron 与全量 cron route，不保留绕过 `next` 的低频兜底。
 
 短期验收条件：
 
