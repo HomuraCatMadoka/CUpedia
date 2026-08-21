@@ -91,6 +91,34 @@ describe("production canteen menu sync drain (#635)", () => {
     expect(config.sleep).toHaveBeenCalledWith(2 * 60 * 1_000);
   });
 
+  it("starts a fresh retry budget after a source completes", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response(retryLater))
+      .mockResolvedValueOnce(response(applied))
+      .mockResolvedValueOnce(response({ ...retryLater, sourceId: "source-2" }))
+      .mockResolvedValueOnce(response(unchanged))
+      .mockResolvedValueOnce(response(noWork));
+    const config = makeDrainOptions(fetchImpl);
+
+    await expect(drainMenuSync(config)).resolves.toMatchObject({ calls: 5 });
+    expect(config.sleep).toHaveBeenNthCalledWith(1, 2 * 60 * 1_000);
+    expect(config.sleep).toHaveBeenNthCalledWith(2, 2 * 60 * 1_000);
+  });
+
+  it("does not transfer retry state when the endpoint changes source", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(response(retryLater))
+      .mockResolvedValueOnce(response({ ...retryLater, sourceId: "source-2" }))
+      .mockResolvedValueOnce(response(noWork));
+    const config = makeDrainOptions(fetchImpl);
+
+    await expect(drainMenuSync(config)).resolves.toMatchObject({ calls: 3 });
+    expect(config.sleep).toHaveBeenNthCalledWith(1, 2 * 60 * 1_000);
+    expect(config.sleep).toHaveBeenNthCalledWith(2, 2 * 60 * 1_000);
+  });
+
   it("fails after the bounded retry-later budget", async () => {
     const fetchImpl = vi.fn().mockImplementation(() => response(retryLater));
 

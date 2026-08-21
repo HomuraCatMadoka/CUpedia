@@ -167,6 +167,7 @@ export async function drainMenuSync(options = {}) {
   if (typeof fetchImpl !== "function") throw new Error("fetch is unavailable");
 
   const startedAt = now();
+  let retrySourceId;
   let retryCount = 0;
 
   for (let call = 1; call <= maxEndpointCalls; call += 1) {
@@ -191,7 +192,16 @@ export async function drainMenuSync(options = {}) {
     if (outcome.disposition === "stop-for-review") {
       throw new Error(`Review required: ${outcome.code}`);
     }
-    if (outcome.disposition === "continue") continue;
+    if (outcome.disposition === "continue") {
+      retrySourceId = undefined;
+      retryCount = 0;
+      continue;
+    }
+
+    if (retrySourceId !== outcome.sourceId) {
+      retrySourceId = outcome.sourceId;
+      retryCount = 0;
+    }
 
     const delayMs = retryDelaysMs[retryCount];
     if (delayMs === undefined) {
