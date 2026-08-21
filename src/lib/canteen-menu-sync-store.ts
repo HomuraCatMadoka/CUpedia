@@ -32,25 +32,23 @@ import type {
   MenuItemPriceOptionInput,
   MenuSyncInput,
 } from "./canteen-types";
-import {
-  finalizeLockedClaimedRun,
-  lockMenuSourceClaim,
-  type MenuSourceClaim,
-} from "./canteen-menu-source-sync-runtime";
 import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 
 type MenuSourceRow = typeof canteenMenuSources.$inferSelect;
-type MenuSyncTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type MenuSyncTransaction = Parameters<
+  Parameters<typeof db.transaction>[0]
+>[0];
 
-type RecurringSyncCompletion = {
-  claim: MenuSourceClaim;
-  snapshotHash: string;
-  itemCount: number;
+export type LockedMenuSource = MenuSourceRow & {
+  databaseNow: Date;
+  claimExpired: boolean;
 };
-
-type RecurringMenuSyncCommit = {
+export type RecurringMenuProjection = {
   status: "applied" | "unchanged" | "blocked";
   evaluation: MenuSnapshotEvaluation;
+  createdCount: number;
+  updatedCount: number;
+  deactivatedCount: number;
 };
 
 type SyncMenuRow = {
@@ -460,259 +458,194 @@ export async function auditMenuIdentityTransition(
 }
 
 type MenuSyncApplyMode =
-  | { kind: "legacy"; sourceId: string }
-  | { kind: "recurring"; completion: RecurringSyncCompletion }
-  | { kind: "identity-transition"; sourceId: string; artifact: unknown };
+  | { kind: "legacy" }
+  | { kind: "recurring" }
+  | { kind: "identity-transition"; artifact: unknown };
 
-async function applyMenuSync(
-  mode: { kind: "legacy"; sourceId: string },
+async function applyLockedMenuSync(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  mode: { kind: "legacy" },
   input: MenuSyncInput,
   expectedPreviewToken: unknown,
 ): Promise<MenuSnapshotEvaluation>;
-async function applyMenuSync(
-  mode: { kind: "recurring"; completion: RecurringSyncCompletion },
+async function applyLockedMenuSync(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  mode: { kind: "recurring" },
   input: MenuSyncInput,
-  expectedPreviewToken: unknown,
-): Promise<RecurringMenuSyncCommit>;
-async function applyMenuSync(
-  mode: { kind: "identity-transition"; sourceId: string; artifact: unknown },
+): Promise<RecurringMenuProjection>;
+async function applyLockedMenuSync(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  mode: { kind: "identity-transition"; artifact: unknown },
   input: MenuSyncInput,
 ): Promise<MenuSnapshotEvaluation>;
-
-async function applyMenuSync(
+async function applyLockedMenuSync(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
   mode: MenuSyncApplyMode,
   input: MenuSyncInput,
   expectedPreviewToken?: unknown,
-): Promise<MenuSnapshotEvaluation | RecurringMenuSyncCommit> {
-  const evaluationResult = await db.transaction(async (tx) => {
-    // Every menu writer locks canteen -> source -> existing items. The parent
-    // lock covers inserts, while the fixed order avoids delete-cascade deadlocks.
-    const sourceId =
-      mode.kind === "recurring"
-        ? mode.completion.claim.source.id
-        : mode.sourceId;
-    const lockedCanteenId = await lockCanteenMenuMutationForSource(
-      tx,
-      sourceId,
+): Promise<MenuSnapshotEvaluation | RecurringMenuProjection> {
+  if (mode.kind === "identity-transition") {
+    assertLegacyIdentityTransitionSnapshot(source, input);
+  } else {
+    assertProviderSnapshotCompleteness(
+      source.provider,
+      input.snapshotCompleteness,
+      input.scopeEvidence,
+      source.externalStoreId,
     );
-    if (!lockedCanteenId) {
-      throw new Error(
-        mode.kind === "recurring"
-          ? "MENU_SYNC_SUPERSEDED"
-          : "MENU_SOURCE_NOT_FOUND",
-      );
-    }
-    const source =
-      mode.kind === "recurring"
-        ? await lockMenuSourceClaim(tx, mode.completion.claim)
-        : (
-            await tx
-              .select({
-                ...getTableColumns(canteenMenuSources),
-                databaseNow: sql<Date>`now()`.mapWith(
-                  canteenMenuSources.updatedAt,
-                ),
-                claimExpired: sql<boolean>`${canteenMenuSources.syncClaimExpiresAt} <= now()`,
-              })
-              .from(canteenMenuSources)
-              .where(eq(canteenMenuSources.id, mode.sourceId))
-              .for("update", { of: canteenMenuSources })
-          )[0];
-    const recurring = mode.kind === "recurring" ? mode.completion : null;
-    if (!source) {
-      throw new Error(
-        mode.kind === "recurring"
-          ? "MENU_SYNC_SUPERSEDED"
-          : "MENU_SOURCE_NOT_FOUND",
-      );
-    }
-    if (source.canteenId !== lockedCanteenId) {
-      throw new Error(
-        mode.kind === "recurring" ? "MENU_SYNC_SUPERSEDED" : "MENU_SYNC_STALE",
-      );
-    }
-    if (mode.kind === "identity-transition") {
-      assertLegacyIdentityTransitionSnapshot(source, input);
-    } else {
-      assertProviderSnapshotCompleteness(
-        source.provider,
-        input.snapshotCompleteness,
-        input.scopeEvidence,
-        source.externalStoreId,
-      );
-    }
-    const now = source.databaseNow;
-    if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
-      throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
-    }
-    if (mode.kind === "identity-transition" && input.takeOverLegacyItems) {
-      throw new Error("IDENTITY_TRANSITION_LEGACY_TAKEOVER_FORBIDDEN");
-    }
+  }
+  const now = source.databaseNow;
+  if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
+    throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
+  }
+  if (mode.kind === "identity-transition" && input.takeOverLegacyItems) {
+    throw new Error("IDENTITY_TRANSITION_LEGACY_TAKEOVER_FORBIDDEN");
+  }
 
-    await lockExistingMenuItems(tx, source.canteenId);
-    const rows = await selectExistingItems(tx, source.canteenId);
-    const existing = collectExistingSyncItems(rows);
-    const baselineEvaluation =
-      mode.kind === "identity-transition"
-        ? evaluateMenuIdentityTransitionSnapshot(
-            {
-              id: source.id,
-              provider: source.provider,
-              legacyAdoptionOpen: source.legacyTakeoverAt === null,
-            },
-            input,
-            existing,
-          )
-        : evaluateMenuSnapshot(
-            {
-              id: source.id,
-              provider: source.provider,
-              legacyAdoptionOpen: source.legacyTakeoverAt === null,
-            },
-            input,
-            existing,
-          );
-    let evaluation = baselineEvaluation;
-    let approvedCanonicalizations: ApprovedMenuIdentityCanonicalization[] = [];
-    let approvedMerges: ApprovedMenuIdentityMerge[] = [];
-    if (mode.kind === "identity-transition") {
-      const approval = verifyMenuIdentityTransitionApproval(
-        {
-          provider: source.provider,
-          externalOwnerId: source.externalOwnerId,
-          externalStoreId: source.externalStoreId,
-          configurationFingerprint:
-            fingerprintMenuIdentityTransitionSource(source),
-        },
-        baselineEvaluation.canonicalState.existingItems.filter(
-          (item) => item.menuSourceId === source.id,
-        ),
-        baselineEvaluation.canonicalState.input,
-        mode.artifact,
-      );
-      if (
-        !baselineEvaluation.blockingReasons.some(
-          (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
-        ) &&
-        approval.canonicalizations.length === 0 &&
-        approval.merges.length === 0
-      ) {
-        throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
-      }
-      approvedCanonicalizations = approval.canonicalizations;
-      approvedMerges = approval.merges;
-      evaluation = evaluateMenuIdentityTransitionSnapshot(
-        {
-          id: source.id,
-          provider: source.provider,
-          legacyAdoptionOpen: source.legacyTakeoverAt === null,
-        },
-        baselineEvaluation.canonicalState.input,
-        projectApprovedIdentityChanges(
-          baselineEvaluation.canonicalState.existingItems,
-          approvedCanonicalizations,
-          approvedMerges,
-        ),
-        approval.replacements,
-      );
-      evaluation = resolveApprovedIdentityTransitionBlocking(evaluation);
-    } else {
-      if (
-        typeof expectedPreviewToken !== "string" ||
-        !expectedPreviewToken ||
-        expectedPreviewToken !==
-          createMenuSyncPreviewToken(
-            source,
-            evaluation.canonicalState.input,
-            evaluation.canonicalState.existingItems,
-          )
-      ) {
-        throw new Error("MENU_SYNC_STALE");
-      }
-    }
-    const currentPlan = evaluation.plan;
-    if (evaluation.blockingDecision.blocked) {
-      if (recurring) {
-        const code = evaluation.blockingDecision.code;
-        await finalizeLockedClaimedRun(tx, source, recurring.claim, {
-          kind: "error",
-          code,
-          message: code,
-          snapshotHash: recurring.snapshotHash,
-          itemCount: recurring.itemCount,
-          observation: evaluation.identityObservation,
-        });
-        return { status: "blocked" as const, evaluation };
-      }
-      throw Object.assign(new Error(evaluation.blockingDecision.code), {
-        evaluation,
-        observation: evaluation.identityObservation,
-        blockingDecision: evaluation.blockingDecision,
-      });
-    }
-
-    if (approvedCanonicalizations.length > 0) {
-      await canonicalizeApprovedIdentities(
-        tx,
-        source.canteenId,
-        now,
-        approvedCanonicalizations,
-      );
-    }
-    if (approvedMerges.length > 0) {
-      await mergeApprovedIdentityHistory(
-        tx,
-        source.canteenId,
-        now,
-        approvedMerges,
-      );
-    }
-
-    const actionByProduct = new Map(
-      currentPlan.actions.map((action) => [action.externalProductId, action]),
-    );
-    const existingByProduct = new Map(
-      evaluation.canonicalState.existingItems
-        .filter(
-          (item) =>
-            item.menuSourceId === source.id && item.externalProductId !== null,
+  await lockExistingMenuItems(tx, source.canteenId);
+  const rows = await selectExistingItems(tx, source.canteenId);
+  const existing = collectExistingSyncItems(rows);
+  const baselineEvaluation =
+    mode.kind === "identity-transition"
+      ? evaluateMenuIdentityTransitionSnapshot(
+          {
+            id: source.id,
+            provider: source.provider,
+            legacyAdoptionOpen: source.legacyTakeoverAt === null,
+          },
+          input,
+          existing,
         )
-        .map((item) => [item.externalProductId!, item]),
+      : evaluateMenuSnapshot(
+          {
+            id: source.id,
+            provider: source.provider,
+            legacyAdoptionOpen: source.legacyTakeoverAt === null,
+          },
+          input,
+          existing,
+        );
+  let evaluation = baselineEvaluation;
+  let approvedCanonicalizations: ApprovedMenuIdentityCanonicalization[] = [];
+  let approvedMerges: ApprovedMenuIdentityMerge[] = [];
+  if (mode.kind === "identity-transition") {
+    const approval = verifyMenuIdentityTransitionApproval(
+      {
+        provider: source.provider,
+        externalOwnerId: source.externalOwnerId,
+        externalStoreId: source.externalStoreId,
+        configurationFingerprint:
+          fingerprintMenuIdentityTransitionSource(source),
+      },
+      baselineEvaluation.canonicalState.existingItems.filter(
+        (item) => item.menuSourceId === source.id,
+      ),
+      baselineEvaluation.canonicalState.input,
+      mode.artifact,
     );
-    for (const item of evaluation.canonicalState.input.items) {
-      const action = actionByProduct.get(item.externalProductId);
-      if (action?.action === "create") {
-        const [created] = await tx
-          .insert(canteenMenuItems)
-          .values({
-            canteenId: source.canteenId,
-            name: item.name,
-            price: null,
-            mealPeriods: item.mealPeriods,
-            sortOrder: item.sortOrder,
-            svgKey: item.svgKey,
-            menuSourceId: source.id,
-            externalProductId: item.externalProductId,
-            isAvailable: true,
-            lastSyncedAt: now,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .returning({ id: canteenMenuItems.id });
-        if (item.priceOptions.length > 0) {
-          await tx
-            .insert(canteenMenuItemPrices)
-            .values(priceOptionValues(created.id, item.priceOptions, now));
-        }
-        continue;
-      }
+    if (
+      !baselineEvaluation.blockingReasons.some(
+        (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
+      ) &&
+      approval.canonicalizations.length === 0 &&
+      approval.merges.length === 0
+    ) {
+      throw new Error("MENU_IDENTITY_TRANSITION_NOT_APPLICABLE");
+    }
+    approvedCanonicalizations = approval.canonicalizations;
+    approvedMerges = approval.merges;
+    evaluation = evaluateMenuIdentityTransitionSnapshot(
+      {
+        id: source.id,
+        provider: source.provider,
+        legacyAdoptionOpen: source.legacyTakeoverAt === null,
+      },
+      baselineEvaluation.canonicalState.input,
+      projectApprovedIdentityChanges(
+        baselineEvaluation.canonicalState.existingItems,
+        approvedCanonicalizations,
+        approvedMerges,
+      ),
+      approval.replacements,
+    );
+    evaluation = resolveApprovedIdentityTransitionBlocking(evaluation);
+  } else if (mode.kind === "legacy") {
+    if (
+      typeof expectedPreviewToken !== "string" ||
+      !expectedPreviewToken ||
+      expectedPreviewToken !==
+        createMenuSyncPreviewToken(
+          source,
+          evaluation.canonicalState.input,
+          evaluation.canonicalState.existingItems,
+        )
+    ) {
+      throw new Error("MENU_SYNC_STALE");
+    }
+  }
 
-      const itemId =
-        action?.itemId ?? existingByProduct.get(item.externalProductId)?.id;
-      if (!itemId) throw new Error("MENU_SYNC_STALE");
-      await tx
-        .update(canteenMenuItems)
-        .set({
+  const currentPlan = evaluation.plan;
+  const counts = {
+    createdCount: currentPlan.actions.filter(
+      (action) => action.action === "create",
+    ).length,
+    updatedCount: currentPlan.actions.filter((action) =>
+      ["update", "reactivate", "claim"].includes(action.action),
+    ).length,
+    deactivatedCount: currentPlan.actions.filter(
+      (action) => action.action === "deactivate",
+    ).length,
+  };
+  if (evaluation.blockingDecision.blocked) {
+    if (mode.kind === "recurring") {
+      return { status: "blocked", evaluation, ...counts };
+    }
+    throw Object.assign(new Error(evaluation.blockingDecision.code), {
+      evaluation,
+      observation: evaluation.identityObservation,
+      blockingDecision: evaluation.blockingDecision,
+    });
+  }
+
+  if (approvedCanonicalizations.length > 0) {
+    await canonicalizeApprovedIdentities(
+      tx,
+      source.canteenId,
+      now,
+      approvedCanonicalizations,
+    );
+  }
+  if (approvedMerges.length > 0) {
+    await mergeApprovedIdentityHistory(
+      tx,
+      source.canteenId,
+      now,
+      approvedMerges,
+    );
+  }
+
+  const actionByProduct = new Map(
+    currentPlan.actions.map((action) => [action.externalProductId, action]),
+  );
+  const existingByProduct = new Map(
+    evaluation.canonicalState.existingItems
+      .filter(
+        (item) =>
+          item.menuSourceId === source.id && item.externalProductId !== null,
+      )
+      .map((item) => [item.externalProductId!, item]),
+  );
+  for (const item of evaluation.canonicalState.input.items) {
+    const action = actionByProduct.get(item.externalProductId);
+    if (action?.action === "create") {
+      const [created] = await tx
+        .insert(canteenMenuItems)
+        .values({
+          canteenId: source.canteenId,
           name: item.name,
           price: null,
           mealPeriods: item.mealPeriods,
@@ -722,80 +655,164 @@ async function applyMenuSync(
           externalProductId: item.externalProductId,
           isAvailable: true,
           lastSyncedAt: now,
+          createdAt: now,
           updatedAt: now,
         })
-        .where(
-          and(
-            eq(canteenMenuItems.id, itemId),
-            eq(canteenMenuItems.canteenId, source.canteenId),
-          ),
-        );
-      if (action) {
+        .returning({ id: canteenMenuItems.id });
+      if (item.priceOptions.length > 0) {
         await tx
-          .delete(canteenMenuItemPrices)
-          .where(eq(canteenMenuItemPrices.menuItemId, itemId));
-        if (item.priceOptions.length > 0) {
-          await tx
-            .insert(canteenMenuItemPrices)
-            .values(priceOptionValues(itemId, item.priceOptions, now));
-        }
+          .insert(canteenMenuItemPrices)
+          .values(priceOptionValues(created.id, item.priceOptions, now));
+      }
+      continue;
+    }
+
+    const itemId =
+      action?.itemId ?? existingByProduct.get(item.externalProductId)?.id;
+    if (!itemId) throw new Error("MENU_SYNC_STALE");
+    await tx
+      .update(canteenMenuItems)
+      .set({
+        name: item.name,
+        price: null,
+        mealPeriods: item.mealPeriods,
+        sortOrder: item.sortOrder,
+        svgKey: item.svgKey,
+        menuSourceId: source.id,
+        externalProductId: item.externalProductId,
+        isAvailable: true,
+        lastSyncedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(canteenMenuItems.id, itemId),
+          eq(canteenMenuItems.canteenId, source.canteenId),
+        ),
+      );
+    if (action) {
+      await tx
+        .delete(canteenMenuItemPrices)
+        .where(eq(canteenMenuItemPrices.menuItemId, itemId));
+      if (item.priceOptions.length > 0) {
+        await tx
+          .insert(canteenMenuItemPrices)
+          .values(priceOptionValues(itemId, item.priceOptions, now));
       }
     }
+  }
 
-    for (const action of currentPlan.actions) {
-      if (action.action !== "deactivate" || !action.itemId) continue;
-      await tx
-        .update(canteenMenuItems)
-        .set({ isAvailable: false, lastSyncedAt: now, updatedAt: now })
-        .where(
-          and(
-            eq(canteenMenuItems.id, action.itemId),
-            eq(canteenMenuItems.canteenId, source.canteenId),
-          ),
+  for (const action of currentPlan.actions) {
+    if (action.action !== "deactivate" || !action.itemId) continue;
+    await tx
+      .update(canteenMenuItems)
+      .set({ isAvailable: false, lastSyncedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(canteenMenuItems.id, action.itemId),
+          eq(canteenMenuItems.canteenId, source.canteenId),
+        ),
+      );
+  }
+  if (input.takeOverLegacyItems) {
+    await tx
+      .update(canteenMenuSources)
+      .set({ legacyTakeoverAt: now, enabled: true, updatedAt: now })
+      .where(eq(canteenMenuSources.id, source.id));
+  }
+  if (mode.kind === "recurring") {
+    return {
+      status: currentPlan.actions.length === 0 ? "unchanged" : "applied",
+      evaluation,
+      ...counts,
+    };
+  }
+  return evaluation;
+}
+
+async function selectLockedMenuSource(
+  tx: MenuSyncTransaction,
+  sourceId: string,
+): Promise<LockedMenuSource | undefined> {
+  const [source] = await tx
+    .select({
+      ...getTableColumns(canteenMenuSources),
+      databaseNow: sql<Date>`now()`.mapWith(canteenMenuSources.updatedAt),
+      claimExpired: sql<boolean>`${canteenMenuSources.syncClaimExpiresAt} <= now()`,
+    })
+    .from(canteenMenuSources)
+    .where(eq(canteenMenuSources.id, sourceId))
+    .for("update", { of: canteenMenuSources });
+  return source;
+}
+
+async function applyMenuSync(
+  mode: { kind: "legacy"; sourceId: string },
+  input: MenuSyncInput,
+  expectedPreviewToken: unknown,
+): Promise<MenuSnapshotEvaluation>;
+async function applyMenuSync(
+  mode: { kind: "identity-transition"; sourceId: string; artifact: unknown },
+  input: MenuSyncInput,
+): Promise<MenuSnapshotEvaluation>;
+async function applyMenuSync(
+  mode:
+    | { kind: "legacy"; sourceId: string }
+    | { kind: "identity-transition"; sourceId: string; artifact: unknown },
+  input: MenuSyncInput,
+  expectedPreviewToken?: unknown,
+): Promise<MenuSnapshotEvaluation> {
+  const evaluation = await db.transaction(async (tx) => {
+    // Every menu writer locks canteen -> source -> existing items. The parent
+    // lock covers inserts, while the fixed order avoids delete-cascade deadlocks.
+    const lockedCanteenId = await lockCanteenMenuMutationForSource(
+      tx,
+      mode.sourceId,
+    );
+    if (!lockedCanteenId) throw new Error("MENU_SOURCE_NOT_FOUND");
+    const source = await selectLockedMenuSource(tx, mode.sourceId);
+    if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
+    if (source.canteenId !== lockedCanteenId) {
+      throw new Error("MENU_SYNC_STALE");
+    }
+    return mode.kind === "legacy"
+      ? applyLockedMenuSync(
+          tx,
+          source,
+          { kind: "legacy" },
+          input,
+          expectedPreviewToken,
+        )
+      : applyLockedMenuSync(
+          tx,
+          source,
+          { kind: "identity-transition", artifact: mode.artifact },
+          input,
         );
-    }
-    if (input.takeOverLegacyItems) {
-      await tx
-        .update(canteenMenuSources)
-        .set({ legacyTakeoverAt: now, enabled: true, updatedAt: now })
-        .where(eq(canteenMenuSources.id, source.id));
-    }
-    if (recurring) {
-      const status: "applied" | "unchanged" =
-        currentPlan.actions.length === 0 ? "unchanged" : "applied";
-      await finalizeLockedClaimedRun(tx, source, recurring.claim, {
-        kind: "success",
-        status,
-        snapshotHash: recurring.snapshotHash,
-        itemCount: recurring.itemCount,
-        createdCount: currentPlan.actions.filter(
-          (action) => action.action === "create",
-        ).length,
-        updatedCount: currentPlan.actions.filter((action) =>
-          ["update", "reactivate", "claim"].includes(action.action),
-        ).length,
-        deactivatedCount: currentPlan.actions.filter(
-          (action) => action.action === "deactivate",
-        ).length,
-        observation: evaluation.identityObservation,
-      });
-      return { status, evaluation };
-    }
-    return evaluation;
   });
 
-  if (mode.kind !== "recurring") {
-    const source = await db.query.canteenMenuSources.findFirst({
-      where: eq(canteenMenuSources.id, mode.sourceId),
-      columns: { canteenId: true },
-    });
-    if (source) {
-      revalidatePath(`/admin/canteens/${source.canteenId}`);
-      revalidatePath(`/api/canteens/${source.canteenId}/menu`);
-      revalidatePath(`/canteen/${source.canteenId}`);
-    }
+  const source = await db.query.canteenMenuSources.findFirst({
+    where: eq(canteenMenuSources.id, mode.sourceId),
+    columns: { canteenId: true },
+  });
+  if (source) {
+    revalidatePath(`/admin/canteens/${source.canteenId}`);
+    revalidatePath(`/api/canteens/${source.canteenId}/menu`);
+    revalidatePath(`/canteen/${source.canteenId}`);
   }
-  return evaluationResult;
+  return evaluation;
+}
+
+/** Internal seam used only by recurring source sync after claim validation. */
+export function applyRecurringMenuProjection(
+  tx: MenuSyncTransaction,
+  source: LockedMenuSource,
+  input: MenuSyncInput,
+): Promise<RecurringMenuProjection> {
+  if (input.takeOverLegacyItems) {
+    return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
+  }
+  return applyLockedMenuSync(tx, source, { kind: "recurring" }, input);
 }
 
 export function applyPreviewedMenuSync(
@@ -815,15 +832,4 @@ export function applyApprovedMenuIdentityTransition(
     { kind: "identity-transition", sourceId, artifact },
     input,
   );
-}
-
-export function commitClaimedRecurringMenuSync(
-  input: MenuSyncInput,
-  previewToken: unknown,
-  completion: RecurringSyncCompletion,
-): Promise<RecurringMenuSyncCommit> {
-  if (input.takeOverLegacyItems) {
-    return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
-  }
-  return applyMenuSync({ kind: "recurring", completion }, input, previewToken);
 }
