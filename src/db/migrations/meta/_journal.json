@@ -610,6 +610,13 @@
       "when": 1787216885298,
       "tag": "0086_nervous_skullbuster",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1787300257591,
+      "tag": "0087_canteen-menu-sync-snapshots",
+      "breakpoints": true
     }
   ]
 }

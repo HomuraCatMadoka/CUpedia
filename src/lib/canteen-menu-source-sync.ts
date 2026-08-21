@@ -15,6 +15,7 @@ import {
 } from "./canteen-menu-sync-scheduler";
 import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
+import { insertMenuSyncSnapshot } from "./canteen-menu-sync-snapshots";
 import {
   applyRecurringMenuProjection,
   type LockedMenuSource,
@@ -554,6 +555,13 @@ async function commitClaimedRecurringMenuSync(
       );
       return projection;
     }
+    await insertMenuSyncSnapshot(tx, {
+      runId: claim.runId,
+      sourceId: source.id,
+      snapshotHash: snapshot.hash,
+      observedAt: databaseNow,
+      input,
+    });
     await finalizeLockedClaimedRun(
       tx,
       source,

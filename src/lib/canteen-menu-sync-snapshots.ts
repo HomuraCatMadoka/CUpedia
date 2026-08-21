@@ -1,0 +1,172 @@
+import { db } from "@/db";
+import {
+  canteenMenuSyncSnapshotItems,
+  canteenMenuSyncSnapshots,
+} from "@/db/schema";
+import { and, asc, eq, inArray } from "drizzle-orm";
+import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
+import { menuSyncWindowAt } from "./canteen-menu-sync-window";
+import type { MenuSyncInput } from "./canteen-types";
+
+const HKT_OFFSET_MS = 8 * 60 * 60 * 1_000;
+
+type SnapshotItem = typeof canteenMenuSyncSnapshotItems.$inferSelect;
+
+export type MenuSyncSnapshotChangedField =
+  | "name"
+  | "priceOptions"
+  | "mealPeriods"
+  | "sortOrder"
+  | "svgKey";
+
+export type MenuSyncSnapshotComparison = {
+  sourceId: string;
+  olderRunId: string;
+  newerRunId: string;
+  added: SnapshotItem[];
+  missing: SnapshotItem[];
+  changed: Array<{
+    externalProductId: string;
+    fields: MenuSyncSnapshotChangedField[];
+    before: SnapshotItem;
+    after: SnapshotItem;
+  }>;
+};
+
+function observationWindowFacts(observedAt: Date) {
+  const window = menuSyncWindowAt(observedAt);
+  const hkt = new Date(observedAt.getTime() + HKT_OFFSET_MS);
+  return {
+    syncWindowKey: window.key,
+    mealPeriod: window.period,
+    hktWeekday: hkt.getUTCDay(),
+    observedMinuteOfDay: hkt.getUTCHours() * 60 + hkt.getUTCMinutes(),
+  };
+}
+
+/** Records normalized provider evidence in the successful sync transaction. */
+export async function insertMenuSyncSnapshot(
+  tx: MenuSyncTransaction,
+  values: {
+    runId: string;
+    sourceId: string;
+    snapshotHash: string;
+    observedAt: Date;
+    input: MenuSyncInput;
+  },
+): Promise<void> {
+  await tx.insert(canteenMenuSyncSnapshots).values({
+    runId: values.runId,
+    menuSourceId: values.sourceId,
+    snapshotHash: values.snapshotHash,
+    snapshotCompleteness: values.input.snapshotCompleteness,
+    itemCount: values.input.items.length,
+    ...observationWindowFacts(values.observedAt),
+    scopeEvidence: values.input.scopeEvidence ?? {},
+    observedAt: values.observedAt,
+  });
+  if (values.input.items.length === 0) return;
+  await tx.insert(canteenMenuSyncSnapshotItems).values(
+    values.input.items.map((item) => ({
+      runId: values.runId,
+      externalProductId: item.externalProductId,
+      name: item.name,
+      priceOptions: item.priceOptions,
+      mealPeriods: item.mealPeriods,
+      sortOrder: item.sortOrder,
+      svgKey: item.svgKey,
+    })),
+  );
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function changedFields(
+  before: SnapshotItem,
+  after: SnapshotItem,
+): MenuSyncSnapshotChangedField[] {
+  const fields: MenuSyncSnapshotChangedField[] = [];
+  if (before.name !== after.name) fields.push("name");
+  if (!sameJson(before.priceOptions, after.priceOptions)) {
+    fields.push("priceOptions");
+  }
+  if (!sameJson(before.mealPeriods, after.mealPeriods)) {
+    fields.push("mealPeriods");
+  }
+  if (before.sortOrder !== after.sortOrder) fields.push("sortOrder");
+  if (before.svgKey !== after.svgKey) fields.push("svgKey");
+  return fields;
+}
+
+/** Compares two immutable observations belonging to the same source. */
+export async function compareMenuSyncSnapshots(
+  sourceId: string,
+  olderRunId: string,
+  newerRunId: string,
+): Promise<MenuSyncSnapshotComparison> {
+  if (olderRunId === newerRunId) {
+    throw new Error("MENU_SYNC_SNAPSHOT_IDS_MUST_DIFFER");
+  }
+  const snapshots = await db
+    .select({
+      runId: canteenMenuSyncSnapshots.runId,
+      sourceId: canteenMenuSyncSnapshots.menuSourceId,
+    })
+    .from(canteenMenuSyncSnapshots)
+    .where(
+      and(
+        eq(canteenMenuSyncSnapshots.menuSourceId, sourceId),
+        inArray(canteenMenuSyncSnapshots.runId, [olderRunId, newerRunId]),
+      ),
+    );
+  if (snapshots.length !== 2) throw new Error("MENU_SYNC_SNAPSHOT_NOT_FOUND");
+
+  const items = await db
+    .select()
+    .from(canteenMenuSyncSnapshotItems)
+    .where(
+      inArray(canteenMenuSyncSnapshotItems.runId, [olderRunId, newerRunId]),
+    )
+    .orderBy(
+      asc(canteenMenuSyncSnapshotItems.sortOrder),
+      asc(canteenMenuSyncSnapshotItems.externalProductId),
+    );
+  const older = new Map(
+    items
+      .filter((item) => item.runId === olderRunId)
+      .map((item) => [item.externalProductId, item]),
+  );
+  const newer = new Map(
+    items
+      .filter((item) => item.runId === newerRunId)
+      .map((item) => [item.externalProductId, item]),
+  );
+  const added: SnapshotItem[] = [];
+  const missing: SnapshotItem[] = [];
+  const changed: MenuSyncSnapshotComparison["changed"] = [];
+
+  for (const [externalProductId, after] of newer) {
+    const before = older.get(externalProductId);
+    if (!before) {
+      added.push(after);
+      continue;
+    }
+    const fields = changedFields(before, after);
+    if (fields.length > 0) {
+      changed.push({ externalProductId, fields, before, after });
+    }
+  }
+  for (const [externalProductId, before] of older) {
+    if (!newer.has(externalProductId)) missing.push(before);
+  }
+  return {
+    sourceId,
+    olderRunId,
+    newerRunId,
+    added,
+    missing,
+    changed,
+  };
+}
