@@ -60,6 +60,17 @@ describe("POST /api/internal/canteen-menu-sync/next", () => {
     expect(syncNextDueMenuSource).not.toHaveBeenCalled();
   });
 
+  it.each(["short", "dedicated-menu-secret-with-extra-bytes"])(
+    "rejects a different-length bearer value",
+    async (provided) => {
+      const response = await POST(request(`Bearer ${provided}`));
+
+      expect(response.status).toBe(401);
+      expect(await response.json()).toEqual({ error: "UNAUTHORIZED" });
+      expect(syncNextDueMenuSource).not.toHaveBeenCalled();
+    },
+  );
+
   it("runs once without accepting caller scheduling input", async () => {
     syncNextDueMenuSource.mockResolvedValue({
       disposition: "no-work",

@@ -1,11 +1,11 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
+
+function secretDigest(value: string): Buffer {
+  return createHash("sha256").update(value).digest();
+}
 
 export function hasBearerSecret(request: Request, secret: string): boolean {
   const value = request.headers.get("authorization");
   if (!value?.startsWith("Bearer ")) return false;
-  const provided = Buffer.from(value.slice(7));
-  const expected = Buffer.from(secret);
-  return (
-    provided.length === expected.length && timingSafeEqual(provided, expected)
-  );
+  return timingSafeEqual(secretDigest(value.slice(7)), secretDigest(secret));
 }

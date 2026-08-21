@@ -22,14 +22,14 @@ type MenuSourceScheduleFacts = {
 };
 
 export type MenuSourceScheduleCandidate =
-  | { state: "claimable"; sourceId: string }
+  | { state: "claimable"; sourceId: string; attemptNumber: number }
   | {
       state: "retry-later" | "stop-for-review";
       sourceId: string;
       code: string;
     };
 
-function date(value: unknown): Date | null {
+function parseDatabaseDate(value: unknown): Date | null {
   if (value === null || value === undefined) return null;
   const parsed = new Date(String(value));
   if (Number.isNaN(parsed.getTime())) throw new Error("INVALID_DATABASE_TIME");
@@ -79,7 +79,11 @@ function classifyMenuSourceSchedule(
       };
     }
   }
-  return { state: "claimable", sourceId: facts.sourceId };
+  return {
+    state: "claimable",
+    sourceId: facts.sourceId,
+    attemptNumber: facts.failureCount + 1,
+  };
 }
 
 function candidateRank(candidate: MenuSourceScheduleCandidate): number {
@@ -138,11 +142,11 @@ async function readMenuSourceScheduleFacts(
   `);
   return result.rows.map((row) => ({
     sourceId: row.source_id,
-    createdAt: date(row.created_at)!,
+    createdAt: parseDatabaseDate(row.created_at)!,
     activeClaim: row.active_claim,
     failureCount: Number(row.failure_count),
     latestErrorCode: row.latest_error_code,
-    latestFailedAt: date(row.latest_failed_at),
+    latestFailedAt: parseDatabaseDate(row.latest_failed_at),
   }));
 }
 

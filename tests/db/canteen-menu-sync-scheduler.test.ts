@@ -10,6 +10,7 @@ import {
   canteens,
 } from "@/db/schema";
 import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
+import { listMenuSourceScheduleCandidates } from "@/lib/canteen-menu-sync-scheduler";
 import { menuSyncWindowAt } from "@/lib/canteen-menu-sync-window";
 import pinmeCurrent from "../lib/fixtures/canteen-providers/pinme-current.json";
 
@@ -175,6 +176,67 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     expect(fetchMenuFromProvider).toHaveBeenCalledTimes(2);
   });
 
+  it("continues past a candidate changed by a concurrent claim commit", async () => {
+    const first = await createEligibleSource("并发提交来源甲");
+    const second = await createEligibleSource("并发提交来源乙");
+    await db
+      .update(canteenMenuSources)
+      .set({ createdAt: new Date(Date.now() - 60_000) })
+      .where(eq(canteenMenuSources.id, first.sourceId));
+    fetchMenuFromProvider.mockResolvedValue(
+      buildPinmeMenuSyncPayload(pinmeCurrent),
+    );
+
+    const claimant = new Client({ connectionString: process.env.DATABASE_URL });
+    const observer = new Client({ connectionString: process.env.DATABASE_URL });
+    await Promise.all([claimant.connect(), observer.connect()]);
+    const runId = randomUUID();
+    try {
+      await claimant.query("begin");
+      await claimant.query(
+        "lock table canteen_menu_sync_runs in access exclusive mode",
+      );
+      const claimantPid = await claimant.query<{ pid: number }>(
+        "select pg_backend_pid() as pid",
+      );
+      const sync = syncNextDueMenuSource();
+      await vi.waitFor(
+        async () => {
+          const waiting = await observer.query<{ waiting: boolean }>(
+            `select exists (
+               select 1 from pg_stat_activity
+               where $1 = any(pg_blocking_pids(pid))
+             ) as waiting`,
+            [claimantPid.rows[0]?.pid],
+          );
+          expect(waiting.rows[0]?.waiting).toBe(true);
+        },
+        { timeout: 2_000, interval: 20 },
+      );
+      await claimant.query(
+        `update canteen_menu_sources
+            set sync_claim_token = $2,
+                sync_claim_expires_at = now() + interval '1 minute'
+          where id = $1`,
+        [first.sourceId, runId],
+      );
+      await claimant.query(
+        `insert into canteen_menu_sync_runs (id, menu_source_id)
+         values ($1, $2)`,
+        [runId, first.sourceId],
+      );
+      await claimant.query("commit");
+
+      await expect(sync).resolves.toMatchObject({
+        disposition: "continue",
+        sourceId: second.sourceId,
+      });
+    } finally {
+      await claimant.query("rollback").catch(() => undefined);
+      await Promise.all([claimant.end(), observer.end()]);
+    }
+  });
+
   it("returns retry-later while the only due source has an active claim", async () => {
     const { sourceId, currentWindow } =
       await createEligibleSource("正在同步的来源");
@@ -272,6 +334,57 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     });
     expect(fetchMenuFromProvider).not.toHaveBeenCalled();
   });
+
+  it("returns stop-for-review immediately when the third transient attempt fails", async () => {
+    const { sourceId } = await createEligibleSource("第三次失败的来源");
+    const completedAt = new Date(Date.now() - 6 * 60_000);
+    await db.insert(canteenMenuSyncRuns).values(
+      Array.from({ length: 2 }, (_, index) => ({
+        id: randomUUID(),
+        menuSourceId: sourceId,
+        status: "failed" as const,
+        errorCode: "PROVIDER_UNAVAILABLE",
+        error: "PROVIDER_UNAVAILABLE",
+        startedAt: new Date(completedAt.getTime() - index * 1_000),
+        completedAt,
+      })),
+    );
+    fetchMenuFromProvider.mockRejectedValue(new Error("PROVIDER_UNAVAILABLE"));
+
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "stop-for-review",
+      sourceId,
+      code: "MENU_SYNC_RETRY_LIMIT",
+      result: { status: "provider-failure" },
+    });
+  });
+
+  it.each([
+    "2026-08-20T02:59:59.999Z",
+    "2026-08-20T03:00:00.000Z",
+    "2026-08-20T08:59:59.999Z",
+    "2026-08-20T09:00:00.000Z",
+  ])(
+    "uses a controlled database timestamp at window boundary %s",
+    async (value) => {
+      const { sourceId } = await createEligibleSource("固定数据库时间来源");
+      const databaseNow = new Date(value);
+      const window = menuSyncWindowAt(databaseNow);
+      await db.insert(canteenMenuSyncRuns).values({
+        id: randomUUID(),
+        menuSourceId: sourceId,
+        status: "unchanged",
+        startedAt: new Date(window.startsAt.getTime() + 1),
+        completedAt: new Date(window.startsAt.getTime() + 2),
+      });
+
+      const candidates = await db.transaction((tx) =>
+        listMenuSourceScheduleCandidates(tx, window, databaseNow),
+      );
+
+      expect(candidates).toEqual([]);
+    },
+  );
 
   it.each([
     { failures: 1, minutesAgo: 3 },

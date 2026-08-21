@@ -288,7 +288,12 @@ async function claimLockedMenuSource(
 }
 
 type NextDueMenuSourceClaimResult =
-  | { status: "claimed"; window: string; claim: MenuSourceClaim }
+  | {
+      status: "claimed";
+      window: string;
+      attemptNumber: number;
+      claim: MenuSourceClaim;
+    }
   | { status: "no-work"; window: string }
   | {
       status: "retry-later" | "stop-for-review";
@@ -312,6 +317,14 @@ async function acquireNextDueMenuSourceClaim(): Promise<NextDueMenuSourceClaimRe
       window,
       databaseNow,
     );
+    let fallback:
+      | {
+          status: "retry-later" | "stop-for-review";
+          window: string;
+          sourceId: string;
+          code: string;
+        }
+      | undefined;
     for (const candidate of candidates) {
       const source = await selectLockedSource(tx, candidate.sourceId, true);
       if (!source) continue;
@@ -323,21 +336,34 @@ async function acquireNextDueMenuSourceClaim(): Promise<NextDueMenuSourceClaimRe
       );
       if (!current) continue;
       if (current.state !== "claimable") {
-        return {
+        const nextFallback = {
           status: current.state,
           window: window.key,
           sourceId: current.sourceId,
           code: current.code,
-        };
+        } as const;
+        if (
+          !fallback ||
+          (fallback.status === "stop-for-review" &&
+            nextFallback.status === "retry-later")
+        ) {
+          fallback = nextFallback;
+        }
+        continue;
       }
       await pruneTerminalMenuSyncRuns(source.id, tx);
       const claimed = await claimLockedMenuSource(tx, source);
       if (claimed.status !== "claimed") {
         throw new Error("MENU_SYNC_CLAIM_INCONSISTENT");
       }
-      return { status: "claimed", window: window.key, claim: claimed.claim };
+      return {
+        status: "claimed",
+        window: window.key,
+        attemptNumber: current.attemptNumber,
+        claim: claimed.claim,
+      };
     }
-    return { status: "no-work", window: window.key };
+    return fallback ?? { status: "no-work", window: window.key };
   });
 }
 
@@ -660,6 +686,19 @@ export async function syncNextDueMenuSource(): Promise<NextDueMenuSourceSyncResu
       window: acquired.window,
       sourceId: acquired.claim.source.id,
       code: result.code as NormalizedSyncCode,
+      result,
+    };
+  }
+  if (
+    acquired.attemptNumber >= 3 &&
+    (result.status === "provider-failure" ||
+      result.status === "internal-failure")
+  ) {
+    return {
+      disposition: "stop-for-review",
+      window: acquired.window,
+      sourceId: acquired.claim.source.id,
+      code: "MENU_SYNC_RETRY_LIMIT" as NormalizedSyncCode,
       result,
     };
   }
