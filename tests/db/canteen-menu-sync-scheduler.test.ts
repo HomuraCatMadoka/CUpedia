@@ -10,23 +10,26 @@ import {
   canteens,
 } from "@/db/schema";
 import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
+import type { MenuSyncTransaction } from "@/lib/canteen-menu-sync-store";
 import { menuSyncWindowAt } from "@/lib/canteen-menu-sync-window";
 import pinmeCurrent from "../lib/fixtures/canteen-providers/pinme-current.json";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
-const { fetchMenuFromProvider } = vi.hoisted(() => ({
+const { fetchMenuFromProvider, readMenuSyncDatabaseNow } = vi.hoisted(() => ({
   fetchMenuFromProvider: vi.fn(),
+  readMenuSyncDatabaseNow: vi.fn(),
 }));
 
 vi.mock("@/lib/canteen-menu-source-adapters", () => ({
   fetchMenuFromProvider,
 }));
 
-import {
-  claimNextDueMenuSourceAtForTests,
-  syncNextDueMenuSource,
-} from "@/lib/canteen-menu-source-sync";
+vi.mock("@/lib/canteen-menu-sync-clock", () => ({
+  readMenuSyncDatabaseNow,
+}));
+
+import { syncNextDueMenuSource } from "@/lib/canteen-menu-source-sync";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -36,6 +39,15 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
 
   beforeEach(async () => {
     fetchMenuFromProvider.mockReset();
+    readMenuSyncDatabaseNow.mockReset();
+    readMenuSyncDatabaseNow.mockImplementation(
+      async (tx: MenuSyncTransaction) => {
+        const result = await tx.execute<{ database_now: string | Date }>(
+          sql`select now() as database_now`,
+        );
+        return new Date(String(result.rows[0]?.database_now));
+      },
+    );
     const enabledSources = await db
       .select({ id: canteenMenuSources.id })
       .from(canteenMenuSources)
@@ -373,19 +385,29 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
       const { sourceId } = await createEligibleSource("固定数据库时间来源");
       const databaseNow = new Date(value);
       const window = menuSyncWindowAt(databaseNow);
+      readMenuSyncDatabaseNow.mockImplementationOnce(
+        async (tx: MenuSyncTransaction) => {
+          const result = await tx.execute<{ database_now: string | Date }>(
+            sql`select ${databaseNow}::timestamptz as database_now`,
+          );
+          return new Date(String(result.rows[0]?.database_now));
+        },
+      );
+      fetchMenuFromProvider.mockResolvedValue(
+        buildPinmeMenuSyncPayload(pinmeCurrent),
+      );
 
-      await expect(
-        claimNextDueMenuSourceAtForTests(databaseNow),
-      ).resolves.toEqual({
-        status: "claimed",
+      await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+        disposition: "continue",
         window: window.key,
         sourceId,
+        result: { status: "applied" },
       });
       const [run] = await db
         .select({ status: canteenMenuSyncRuns.status })
         .from(canteenMenuSyncRuns)
         .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
-      expect(run).toEqual({ status: "running" });
+      expect(run).toEqual({ status: "applied" });
     },
   );
 

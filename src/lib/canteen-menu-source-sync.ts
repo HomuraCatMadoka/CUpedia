@@ -13,6 +13,7 @@ import {
   listMenuSourceScheduleCandidates,
   recheckMenuSourceScheduleCandidate,
 } from "./canteen-menu-sync-scheduler";
+import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
 import {
   applyRecurringMenuProjection,
@@ -302,24 +303,9 @@ type NextDueMenuSourceClaimResult =
       code: string;
     };
 
-type DatabaseClockQuery = (
-  tx: MenuSyncTransaction,
-) => Promise<{ rows: { database_now: string | Date }[] }>;
-
-const selectDatabaseNow: DatabaseClockQuery = (tx) =>
-  tx.execute<{ database_now: string | Date }>(
-    sql`select now() as database_now`,
-  );
-
-async function acquireNextDueMenuSourceClaim(
-  readClock: DatabaseClockQuery = selectDatabaseNow,
-): Promise<NextDueMenuSourceClaimResult> {
+async function acquireNextDueMenuSourceClaim(): Promise<NextDueMenuSourceClaimResult> {
   return db.transaction(async (tx) => {
-    const clock = await readClock(tx);
-    const databaseNow = new Date(String(clock.rows[0]?.database_now));
-    if (Number.isNaN(databaseNow.getTime())) {
-      throw new Error("DATABASE_NOW_MISSING");
-    }
+    const databaseNow = await readMenuSyncDatabaseNow(tx);
     const window = menuSyncWindowAt(databaseNow);
     const candidates = await listMenuSourceScheduleCandidates(
       tx,
@@ -374,26 +360,6 @@ async function acquireNextDueMenuSourceClaim(
     }
     return fallback ?? { status: "no-work", window: window.key };
   });
-}
-
-export async function claimNextDueMenuSourceAtForTests(
-  databaseNow: Date,
-): Promise<
-  | { status: "claimed"; window: string; sourceId: string }
-  | Exclude<NextDueMenuSourceClaimResult, { status: "claimed" }>
-> {
-  const result = await acquireNextDueMenuSourceClaim((tx) =>
-    tx.execute<{ database_now: string | Date }>(
-      sql`select ${databaseNow}::timestamptz as database_now`,
-    ),
-  );
-  return result.status === "claimed"
-    ? {
-        status: result.status,
-        window: result.window,
-        sourceId: result.claim.source.id,
-      }
-    : result;
 }
 
 async function finalizeLockedClaimedRun(
