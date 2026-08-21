@@ -1,0 +1,2 @@
+CREATE INDEX "canteen_menu_sync_runs_retention_idx" ON "canteen_menu_sync_runs" USING btree ("completed_at","id") WHERE "canteen_menu_sync_runs"."completed_at" is not null;--> statement-breakpoint
+CREATE INDEX "canteen_menu_sync_snapshots_retention_idx" ON "canteen_menu_sync_snapshots" USING btree ("observed_at","run_id");

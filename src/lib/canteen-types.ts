@@ -148,16 +148,24 @@ export type MenuSyncItemInput = MenuItemJsonImportRow & {
   externalProductId: string;
 };
 
-export type MenuSnapshotScopeEvidence = {
-  provider: "aigens";
-  externalStoreId: string;
-  storeName: string;
-  menuName: string;
-  providerPeriodCodes: string[];
-  categoryPeriodCodes: string[];
-  categoryCount: number;
-  groupCount: number;
-};
+export type MenuSnapshotScopeEvidence =
+  | {
+      provider: "aigens";
+      externalStoreId: string;
+      storeName: string;
+      menuName: string;
+      providerPeriodCodes: string[];
+      categoryPeriodCodes: string[];
+      categoryCount: number;
+      groupCount: number;
+    }
+  | {
+      provider: "pinme";
+      serviceWindows: Array<{
+        startTime: string;
+        endTime: string;
+      }>;
+    };
 
 export type MenuSyncInput = {
   snapshotCompleteness: MenuSnapshotCompleteness;

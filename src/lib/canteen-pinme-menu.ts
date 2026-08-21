@@ -7,6 +7,7 @@ import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-comple
 import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   normalizeMealPeriods,
+  type MenuSnapshotScopeEvidence,
   type MenuSyncInput,
   type MenuItemPriceOptionInput,
 } from "./canteen-types";
@@ -14,6 +15,10 @@ import {
 const PINME_SIGNING_KEY = "a91f9568fbd23881c2b2c7fa9af5b12a";
 
 type JsonObject = Record<string, unknown>;
+type PinmeServiceWindow = Extract<
+  MenuSnapshotScopeEvidence,
+  { provider: "pinme" }
+>["serviceWindows"][number];
 
 function object(value: unknown): JsonObject | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -29,6 +34,20 @@ function text(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const normalized = String(value).trim().replace(/\s+/g, " ");
   return normalized || null;
+}
+
+function serviceWindow(group: JsonObject): PinmeServiceWindow | null {
+  const startTime = text(group.start_time);
+  const endTime = text(group.end_time);
+  if (
+    !startTime ||
+    !endTime ||
+    !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(startTime) ||
+    !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(endTime)
+  ) {
+    return null;
+  }
+  return { startTime, endTime };
 }
 
 function amountMinor(value: unknown): number | null {
@@ -122,9 +141,14 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
     string,
     Omit<MenuSyncInput["items"][number], "sortOrder">
   >();
+  const serviceWindows = new Map<string, PinmeServiceWindow>();
   for (const groupValue of array(data.group)) {
     const group = object(groupValue);
     if (!group) continue;
+    const window = serviceWindow(group);
+    if (window) {
+      serviceWindows.set(`${window.startTime}/${window.endTime}`, window);
+    }
     const categoryName = text(group.local_name ?? group.en_name) ?? "其他";
     const mealPeriods = mealPeriodsForOperatingWindow(
       text(group.start_time) ?? undefined,
@@ -196,5 +220,11 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("pinme"),
     takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
+    scopeEvidence: {
+      provider: "pinme",
+      serviceWindows: [...serviceWindows.entries()]
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([, window]) => window),
+    },
   };
 }

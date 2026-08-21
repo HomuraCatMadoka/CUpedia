@@ -376,6 +376,7 @@ export function canonicalizeProviderMenuState(
   provider: MenuProvider,
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
+  options: { allowEmptySnapshot?: boolean } = {},
 ): { input: MenuSyncInput; existingItems: ExistingSyncMenuItem[] } {
   const canonicalInput = {
     ...input,
@@ -387,7 +388,9 @@ export function canonicalizeProviderMenuState(
       ),
     })),
   };
-  assertProviderMenuIdentityItems(provider, canonicalInput.items);
+  if (!options.allowEmptySnapshot || canonicalInput.items.length > 0) {
+    assertProviderMenuIdentityItems(provider, canonicalInput.items);
+  }
   const canonicalExistingItems = existingItems.map((item) => ({
     ...item,
     externalProductId:

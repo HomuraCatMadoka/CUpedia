@@ -1845,6 +1845,9 @@ export const canteenMenuSyncRuns = pgTable(
       table.status,
       table.startedAt,
     ),
+    index("canteen_menu_sync_runs_retention_idx")
+      .on(table.completedAt, table.id)
+      .where(sql`${table.completedAt} is not null`),
     check(
       "canteen_menu_sync_runs_status_chk",
       sql`${table.status} in (${sql.raw(
@@ -1899,6 +1902,10 @@ export const canteenMenuSyncSnapshots = pgTable(
     index("canteen_menu_sync_snapshots_source_observed_idx").on(
       table.menuSourceId,
       table.observedAt,
+    ),
+    index("canteen_menu_sync_snapshots_retention_idx").on(
+      table.observedAt,
+      table.runId,
     ),
     index("canteen_menu_sync_snapshots_equivalent_window_idx").on(
       table.menuSourceId,

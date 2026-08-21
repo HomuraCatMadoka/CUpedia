@@ -40,6 +40,20 @@ function snapshot(
 }
 
 describe("menu snapshot evaluator", () => {
+  it("rejects an empty snapshot outside the adapter-approved recurring path", () => {
+    expect(() =>
+      evaluateMenuSnapshot(
+        SOURCE,
+        {
+          snapshotCompleteness: "complete",
+          takeOverLegacyItems: false,
+          items: [],
+        },
+        [existing()],
+      ),
+    ).toThrowError(expect.objectContaining({ code: "EMPTY_SNAPSHOT" }));
+  });
+
   it("returns canonical state, an exact-update plan, observation, and decision together", () => {
     const result = evaluateMenuSnapshot(
       SOURCE,

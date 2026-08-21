@@ -4,6 +4,7 @@ import {
   canteenMenuSyncSnapshots,
 } from "@/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
+import { menuSnapshotComparisonContext } from "./canteen-menu-snapshot-completeness";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
 import { menuSyncWindowAt } from "./canteen-menu-sync-window";
 import type { MenuSyncInput } from "./canteen-types";
@@ -109,64 +110,85 @@ export async function compareMenuSyncSnapshots(
   if (olderRunId === newerRunId) {
     throw new Error("MENU_SYNC_SNAPSHOT_IDS_MUST_DIFFER");
   }
-  const snapshots = await db
-    .select({
-      runId: canteenMenuSyncSnapshots.runId,
-      sourceId: canteenMenuSyncSnapshots.menuSourceId,
-    })
-    .from(canteenMenuSyncSnapshots)
-    .where(
-      and(
-        eq(canteenMenuSyncSnapshots.menuSourceId, sourceId),
-        inArray(canteenMenuSyncSnapshots.runId, [olderRunId, newerRunId]),
-      ),
-    );
-  if (snapshots.length !== 2) throw new Error("MENU_SYNC_SNAPSHOT_NOT_FOUND");
+  return db.transaction(
+    async (tx) => {
+      const snapshots = await tx
+        .select({
+          runId: canteenMenuSyncSnapshots.runId,
+          sourceId: canteenMenuSyncSnapshots.menuSourceId,
+          mealPeriod: canteenMenuSyncSnapshots.mealPeriod,
+          hktWeekday: canteenMenuSyncSnapshots.hktWeekday,
+          scopeEvidence: canteenMenuSyncSnapshots.scopeEvidence,
+        })
+        .from(canteenMenuSyncSnapshots)
+        .where(
+          and(
+            eq(canteenMenuSyncSnapshots.menuSourceId, sourceId),
+            inArray(canteenMenuSyncSnapshots.runId, [olderRunId, newerRunId]),
+          ),
+        );
+      if (snapshots.length !== 2) {
+        throw new Error("MENU_SYNC_SNAPSHOT_NOT_FOUND");
+      }
+      const [first, second] = snapshots;
+      if (
+        first.mealPeriod !== second.mealPeriod ||
+        first.hktWeekday !== second.hktWeekday ||
+        !sameJson(
+          menuSnapshotComparisonContext(first.scopeEvidence),
+          menuSnapshotComparisonContext(second.scopeEvidence),
+        )
+      ) {
+        throw new Error("MENU_SYNC_SNAPSHOT_WINDOW_MISMATCH");
+      }
 
-  const items = await db
-    .select()
-    .from(canteenMenuSyncSnapshotItems)
-    .where(
-      inArray(canteenMenuSyncSnapshotItems.runId, [olderRunId, newerRunId]),
-    )
-    .orderBy(
-      asc(canteenMenuSyncSnapshotItems.sortOrder),
-      asc(canteenMenuSyncSnapshotItems.externalProductId),
-    );
-  const older = new Map(
-    items
-      .filter((item) => item.runId === olderRunId)
-      .map((item) => [item.externalProductId, item]),
-  );
-  const newer = new Map(
-    items
-      .filter((item) => item.runId === newerRunId)
-      .map((item) => [item.externalProductId, item]),
-  );
-  const added: SnapshotItem[] = [];
-  const missing: SnapshotItem[] = [];
-  const changed: MenuSyncSnapshotComparison["changed"] = [];
+      const items = await tx
+        .select()
+        .from(canteenMenuSyncSnapshotItems)
+        .where(
+          inArray(canteenMenuSyncSnapshotItems.runId, [olderRunId, newerRunId]),
+        )
+        .orderBy(
+          asc(canteenMenuSyncSnapshotItems.sortOrder),
+          asc(canteenMenuSyncSnapshotItems.externalProductId),
+        );
+      const older = new Map(
+        items
+          .filter((item) => item.runId === olderRunId)
+          .map((item) => [item.externalProductId, item]),
+      );
+      const newer = new Map(
+        items
+          .filter((item) => item.runId === newerRunId)
+          .map((item) => [item.externalProductId, item]),
+      );
+      const added: SnapshotItem[] = [];
+      const missing: SnapshotItem[] = [];
+      const changed: MenuSyncSnapshotComparison["changed"] = [];
 
-  for (const [externalProductId, after] of newer) {
-    const before = older.get(externalProductId);
-    if (!before) {
-      added.push(after);
-      continue;
-    }
-    const fields = changedFields(before, after);
-    if (fields.length > 0) {
-      changed.push({ externalProductId, fields, before, after });
-    }
-  }
-  for (const [externalProductId, before] of older) {
-    if (!newer.has(externalProductId)) missing.push(before);
-  }
-  return {
-    sourceId,
-    olderRunId,
-    newerRunId,
-    added,
-    missing,
-    changed,
-  };
+      for (const [externalProductId, after] of newer) {
+        const before = older.get(externalProductId);
+        if (!before) {
+          added.push(after);
+          continue;
+        }
+        const fields = changedFields(before, after);
+        if (fields.length > 0) {
+          changed.push({ externalProductId, fields, before, after });
+        }
+      }
+      for (const [externalProductId, before] of older) {
+        if (!newer.has(externalProductId)) missing.push(before);
+      }
+      return {
+        sourceId,
+        olderRunId,
+        newerRunId,
+        added,
+        missing,
+        changed,
+      };
+    },
+    { isolationLevel: "repeatable read", accessMode: "read only" },
+  );
 }

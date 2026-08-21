@@ -38,9 +38,12 @@ function TransitionCard({
             return;
           }
           const { currentSummary, currentScope } = response.diagnostic;
-          const scope = currentScope
-            ? `；目录 ${currentScope.categoryCount} 类 / ${currentScope.groupCount} 组；供应商时段 ${currentScope.providerPeriodCount} / 分类时段 ${currentScope.categoryPeriodCount}`
-            : "";
+          const scope =
+            currentScope?.provider === "aigens"
+              ? `；目录 ${currentScope.categoryCount} 类 / ${currentScope.groupCount} 组；供应商时段 ${currentScope.providerPeriodCount} / 分类时段 ${currentScope.categoryPeriodCount}`
+              : currentScope?.provider === "pinme"
+                ? `；供应商服务时段 ${currentScope.serviceWindowCount}`
+                : "";
           setResult(
             `未执行：${response.code}。现有投影 ${response.diagnostic.existingMatches ? "匹配" : "不匹配"}；供应商快照 ${response.diagnostic.incomingMatches ? "匹配" : "不匹配"}。当前现有 ${currentSummary.existingCount} / 传入 ${currentSummary.incomingCount}${scope}。`,
           );

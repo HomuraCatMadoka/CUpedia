@@ -164,6 +164,42 @@ describe("PINME menu adapter", () => {
     expect(result.items[0].mealPeriods).toEqual(["allday"]);
   });
 
+  it("records deterministic provider service windows", () => {
+    const product = {
+      product_id: "42",
+      status: "1",
+      local_name: "菜品 A",
+      price: 10,
+    };
+    const groups = [
+      {
+        local_name: "晚餐",
+        start_time: "17:00",
+        end_time: "21:00",
+        products: [product],
+      },
+      {
+        local_name: "午餐",
+        start_time: "11:00",
+        end_time: "14:00",
+        products: [{ ...product, product_id: "43" }],
+      },
+    ];
+
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: { group: groups.toReversed() },
+    });
+
+    expect(result.scopeEvidence).toEqual({
+      provider: "pinme",
+      serviceWindows: [
+        { startTime: "11:00", endTime: "14:00" },
+        { startTime: "17:00", endTime: "21:00" },
+      ],
+    });
+  });
+
   it("fails closed when two rows publish the same product identity", () => {
     const duplicate = {
       code: 200,

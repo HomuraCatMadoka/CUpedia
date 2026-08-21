@@ -54,6 +54,10 @@ export type MenuSnapshotEvaluation = {
   blockingDecision: MenuSnapshotBlockingDecision;
 };
 
+type MenuSnapshotEvaluationOptions = {
+  adapterAcceptedEmpty?: boolean;
+};
+
 const BLOCKING_SAMPLE_LIMIT = 5;
 
 /** Evaluate one provider snapshot without performing database I/O or mutation. */
@@ -62,12 +66,14 @@ export function evaluateMenuSnapshot(
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
   approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[] = [],
+  options: MenuSnapshotEvaluationOptions = {},
 ): MenuSnapshotEvaluation {
   const canonicalState = canonicalizeSourceProjection(
     source.id,
     source.provider,
     input,
     existingItems,
+    options,
   );
   return evaluateCanonicalMenuSnapshot(
     source,
@@ -252,6 +258,7 @@ function canonicalizeSourceProjection(
   provider: MenuProvider,
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
+  options: MenuSnapshotEvaluationOptions,
 ): MenuSnapshotEvaluation["canonicalState"] {
   const orderedExistingItems = [...existingItems].sort((a, b) =>
     a.id.localeCompare(b.id),
@@ -263,6 +270,7 @@ function canonicalizeSourceProjection(
     provider,
     input,
     managed,
+    { allowEmptySnapshot: options.adapterAcceptedEmpty },
   );
   const managedById = new Map(
     canonicalManaged.existingItems.map((item) => [item.id, item]),

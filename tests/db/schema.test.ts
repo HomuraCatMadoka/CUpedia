@@ -174,6 +174,16 @@ describe("schema", () => {
     expect(snapshots.observedMinuteOfDay).toBeDefined();
     expect(snapshots.scopeEvidence).toBeDefined();
     expect(snapshots.observedAt).toBeDefined();
+    expect(
+      getTableConfig(canteenMenuSyncSnapshots).indexes.map(
+        (index) => index.config.name,
+      ),
+    ).toContain("canteen_menu_sync_snapshots_retention_idx");
+    expect(
+      getTableConfig(canteenMenuSyncRuns).indexes.map(
+        (index) => index.config.name,
+      ),
+    ).toContain("canteen_menu_sync_runs_retention_idx");
 
     const items = getTableColumns(canteenMenuSyncSnapshotItems);
     expect(items.runId).toBeDefined();
