@@ -225,18 +225,18 @@ async function acquireMenuSourceClaim(
     const source = await selectLockedSource(tx, sourceId);
     if (!source)
       return { status: "unavailable", code: "MENU_SOURCE_NOT_FOUND" };
-    return claimLockedMenuSource(tx, source);
+    return claimLockedMenuSource(tx, source, source.databaseNow);
   });
 }
 
 async function claimLockedMenuSource(
   tx: MenuSyncTransaction,
   source: LockedMenuSource,
+  now: Date,
 ): Promise<MenuSourceClaimResult> {
   if (!source.enabled) {
     return { status: "unavailable", code: "MENU_SOURCE_DISABLED" };
   }
-  const now = source.databaseNow;
   if (
     source.syncClaimToken &&
     source.syncClaimExpiresAt &&
@@ -347,7 +347,7 @@ async function acquireNextDueMenuSourceClaim(): Promise<NextDueMenuSourceClaimRe
         continue;
       }
       await pruneTerminalMenuSyncRuns(source.id, tx);
-      const claimed = await claimLockedMenuSource(tx, source);
+      const claimed = await claimLockedMenuSource(tx, source, databaseNow);
       if (claimed.status !== "claimed") {
         throw new Error("MENU_SYNC_CLAIM_INCONSISTENT");
       }
@@ -367,11 +367,11 @@ async function finalizeLockedClaimedRun(
   source: LockedMenuSource,
   claim: MenuSourceClaim,
   outcome: ClaimedRunFinalization,
+  now: Date,
 ): Promise<void> {
   if (!isCurrentClaim(source, claim)) {
     throw new Error("MENU_SYNC_SUPERSEDED");
   }
-  const now = source.databaseNow;
   const { sourceValues, runValues } =
     outcome.kind === "success"
       ? {
@@ -452,7 +452,8 @@ async function finalizeClaimedRun(
   return db.transaction(async (tx) => {
     const source = await selectLockedSource(tx, claim.source.id);
     if (!source || !isCurrentClaim(source, claim)) return false;
-    await finalizeLockedClaimedRun(tx, source, claim, outcome);
+    const databaseNow = await readMenuSyncDatabaseNow(tx);
+    await finalizeLockedClaimedRun(tx, source, claim, outcome, databaseNow);
     return true;
   });
 }
@@ -533,29 +534,42 @@ async function commitClaimedRecurringMenuSync(
     }
 
     const projection = await applyRecurringMenuProjection(tx, source, input);
+    const databaseNow = await readMenuSyncDatabaseNow(tx);
     if (projection.status === "blocked") {
       const code = projection.evaluation.blockingDecision.code;
       if (!code) throw new Error("MENU_SYNC_BLOCKED_WITHOUT_CODE");
-      await finalizeLockedClaimedRun(tx, source, claim, {
-        kind: "error",
-        code,
-        message: code,
-        snapshotHash: snapshot.hash,
-        itemCount: snapshot.itemCount,
-        observation: projection.evaluation.identityObservation,
-      });
+      await finalizeLockedClaimedRun(
+        tx,
+        source,
+        claim,
+        {
+          kind: "error",
+          code,
+          message: code,
+          snapshotHash: snapshot.hash,
+          itemCount: snapshot.itemCount,
+          observation: projection.evaluation.identityObservation,
+        },
+        databaseNow,
+      );
       return projection;
     }
-    await finalizeLockedClaimedRun(tx, source, claim, {
-      kind: "success",
-      status: projection.status,
-      snapshotHash: snapshot.hash,
-      itemCount: snapshot.itemCount,
-      createdCount: projection.createdCount,
-      updatedCount: projection.updatedCount,
-      deactivatedCount: projection.deactivatedCount,
-      observation: projection.evaluation.identityObservation,
-    });
+    await finalizeLockedClaimedRun(
+      tx,
+      source,
+      claim,
+      {
+        kind: "success",
+        status: projection.status,
+        snapshotHash: snapshot.hash,
+        itemCount: snapshot.itemCount,
+        createdCount: projection.createdCount,
+        updatedCount: projection.updatedCount,
+        deactivatedCount: projection.deactivatedCount,
+        observation: projection.evaluation.identityObservation,
+      },
+      databaseNow,
+    );
     return projection;
   });
 }

@@ -374,18 +374,18 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
   });
 
   it.each([
-    "2026-08-20T02:59:59.999Z",
-    "2026-08-20T03:00:00.000Z",
-    "2026-08-20T08:59:59.999Z",
-    "2026-08-20T09:00:00.000Z",
-    "2026-08-20T06:37:00.000Z",
+    "2099-08-20T02:59:59.999Z",
+    "2099-08-20T03:00:00.000Z",
+    "2099-08-20T08:59:59.999Z",
+    "2099-08-20T09:00:00.000Z",
+    "2099-08-20T06:37:00.000Z",
   ])(
     "claims through the database-clock path at fixed or delayed time %s",
     async (value) => {
       const { sourceId } = await createEligibleSource("固定数据库时间来源");
       const databaseNow = new Date(value);
       const window = menuSyncWindowAt(databaseNow);
-      readMenuSyncDatabaseNow.mockImplementationOnce(
+      readMenuSyncDatabaseNow.mockImplementation(
         async (tx: MenuSyncTransaction) => {
           const result = await tx.execute<{ database_now: string | Date }>(
             sql`select ${databaseNow}::timestamptz as database_now`,
@@ -404,10 +404,22 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
         result: { status: "applied" },
       });
       const [run] = await db
-        .select({ status: canteenMenuSyncRuns.status })
+        .select({
+          status: canteenMenuSyncRuns.status,
+          startedAt: canteenMenuSyncRuns.startedAt,
+        })
         .from(canteenMenuSyncRuns)
         .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId));
-      expect(run).toEqual({ status: "applied" });
+      expect(run?.status).toBe("applied");
+      expect(run?.startedAt.getTime()).toBeGreaterThanOrEqual(
+        window.startsAt.getTime(),
+      );
+      expect(run?.startedAt.getTime()).toBeLessThan(window.endsAt.getTime());
+      await expect(syncNextDueMenuSource()).resolves.toEqual({
+        disposition: "no-work",
+        window: window.key,
+      });
+      expect(fetchMenuFromProvider).toHaveBeenCalledTimes(1);
     },
   );
 
