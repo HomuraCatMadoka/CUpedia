@@ -8,8 +8,10 @@ import {
   integer,
   numeric,
   real,
+  doublePrecision,
   jsonb,
   index,
+  unique,
   uniqueIndex,
   primaryKey,
   check,
@@ -1254,6 +1256,1096 @@ export const notifications = pgTable(
     check(
       "notifications_kind_check",
       sql`${table.kind} in ('course_review_reply')`,
+    ),
+  ],
+);
+
+// ── Campus Map canonical facts (#717) ──
+
+export const CAMPUS_MAP_PIN_TYPES = [
+  "toilet",
+  "water",
+  "printer",
+  "common-space",
+  "classroom",
+] as const;
+export type CampusMapPinType = (typeof CAMPUS_MAP_PIN_TYPES)[number];
+
+export const CAMPUS_MAP_CAPABILITIES = ["print", "scan", "copy"] as const;
+export type CampusMapCapability = (typeof CAMPUS_MAP_CAPABILITIES)[number];
+
+export const CAMPUS_MAP_GENDERS = [
+  "male",
+  "female",
+  "all-gender",
+  "unknown",
+] as const;
+export type CampusMapGender = (typeof CAMPUS_MAP_GENDERS)[number];
+
+export const CAMPUS_MAP_WHEELCHAIR_ACCESS = [
+  "yes",
+  "limited",
+  "no",
+  "unknown",
+] as const;
+export type CampusMapWheelchairAccess =
+  (typeof CAMPUS_MAP_WHEELCHAIR_ACCESS)[number];
+
+export const CAMPUS_MAP_AUDIENCES = [
+  "public",
+  "cuhk-member",
+  "library-member",
+  "unknown",
+] as const;
+export type CampusMapAudience = (typeof CAMPUS_MAP_AUDIENCES)[number];
+
+export const CAMPUS_MAP_CREDENTIAL_REQUIREMENTS = [
+  "none",
+  "campus-card",
+  "library-card",
+  "other",
+  "unknown",
+] as const;
+export type CampusMapCredentialRequirement =
+  (typeof CAMPUS_MAP_CREDENTIAL_REQUIREMENTS)[number];
+
+export type CampusMapReservationRequirement = "none" | "required" | "unknown";
+export type CampusMapTemporaryStatus =
+  | "normal"
+  | "temporarily-closed"
+  | "unknown";
+export type CampusMapLocationKind = "building" | "floor" | "outdoor-point";
+export type CampusMapPointPrecision = "approximate" | "precise";
+export type CampusMapRevisionStatus = "active" | "retired" | "merged";
+export type CampusMapPlaceOperation =
+  | "create"
+  | "update"
+  | "retire"
+  | "restore"
+  | "merge";
+export type CampusMapProvenanceKind =
+  | "official"
+  | "field-observation"
+  | "open-data"
+  | "provider-candidate"
+  | "other";
+export type CampusMapRightsStatus =
+  | "public-domain"
+  | "permission-granted"
+  | "original-observation"
+  | "restricted"
+  | "unknown";
+export const CAMPUS_MAP_SOURCE_COORDINATE_CRS = [
+  "wgs84",
+  "gcj02",
+  "hk80",
+  "hkpd",
+  "other",
+] as const;
+export type CampusMapSourceCoordinateCrs =
+  (typeof CAMPUS_MAP_SOURCE_COORDINATE_CRS)[number];
+export const CAMPUS_MAP_COORDINATE_CONVERSION_METHODS = [
+  "proj",
+  "manual",
+  "provider-adapter",
+  "other",
+] as const;
+export type CampusMapCoordinateConversionMethod =
+  (typeof CAMPUS_MAP_COORDINATE_CONVERSION_METHODS)[number];
+
+export const CAMPUS_MAP_WEEKDAYS = [
+  "mon",
+  "tue",
+  "wed",
+  "thu",
+  "fri",
+  "sat",
+  "sun",
+] as const;
+export type CampusMapWeekday = (typeof CAMPUS_MAP_WEEKDAYS)[number];
+
+export type CampusMapAccessSchedule =
+  | { kind: "unknown" }
+  | { kind: "always" }
+  | {
+      kind: "weekly";
+      timezone: "Asia/Hong_Kong";
+      intervals: Array<{
+        days: CampusMapWeekday[];
+        opensAt: string;
+        closesAt: string;
+      }>;
+    };
+
+export const CAMPUS_MAP_FACT_FIELD_KEYS = [
+  "name",
+  "pinType",
+  "capabilities",
+  "gender",
+  "wheelchairAccess",
+  "audience",
+  "credentialRequirement",
+  "accessSchedule",
+  "reservationRequirement",
+  "temporaryStatus",
+  "location",
+] as const;
+export type CampusMapFactFieldKey = (typeof CAMPUS_MAP_FACT_FIELD_KEYS)[number];
+
+export type CampusMapFactFieldDefinition =
+  | { kind: "text" }
+  | { kind: "single-select"; values: string[] }
+  | { kind: "multi-select"; values: string[] }
+  | {
+      kind: "access-schedule";
+      variants: Array<CampusMapAccessSchedule["kind"]>;
+      timezone: "Asia/Hong_Kong";
+      localTimePattern: string;
+    }
+  | {
+      kind: "location";
+      variants: CampusMapLocationKind[];
+      pointPrecisions: CampusMapPointPrecision[];
+      canonicalCrs: "wgs84";
+    };
+
+export type CampusMapFactSchemaDefinition = {
+  fields: Record<CampusMapFactFieldKey, CampusMapFactFieldDefinition>;
+  pinTypes: Record<
+    CampusMapPinType,
+    {
+      applicableFields: CampusMapFactFieldKey[];
+      requiredFields: CampusMapFactFieldKey[];
+    }
+  >;
+};
+
+const COMMON_CAMPUS_MAP_FIELDS: CampusMapFactFieldKey[] = [
+  "name",
+  "pinType",
+  "wheelchairAccess",
+  "audience",
+  "credentialRequirement",
+  "accessSchedule",
+  "reservationRequirement",
+  "temporaryStatus",
+  "location",
+];
+
+export const CAMPUS_MAP_FACT_SCHEMA_V1: CampusMapFactSchemaDefinition = {
+  fields: {
+    name: { kind: "text" },
+    pinType: { kind: "single-select", values: [...CAMPUS_MAP_PIN_TYPES] },
+    capabilities: {
+      kind: "multi-select",
+      values: [...CAMPUS_MAP_CAPABILITIES],
+    },
+    gender: {
+      kind: "single-select",
+      values: [...CAMPUS_MAP_GENDERS],
+    },
+    wheelchairAccess: {
+      kind: "single-select",
+      values: [...CAMPUS_MAP_WHEELCHAIR_ACCESS],
+    },
+    audience: {
+      kind: "single-select",
+      values: [...CAMPUS_MAP_AUDIENCES],
+    },
+    credentialRequirement: {
+      kind: "single-select",
+      values: [...CAMPUS_MAP_CREDENTIAL_REQUIREMENTS],
+    },
+    accessSchedule: {
+      kind: "access-schedule",
+      variants: ["unknown", "always", "weekly"],
+      timezone: "Asia/Hong_Kong",
+      localTimePattern: "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+    },
+    reservationRequirement: {
+      kind: "single-select",
+      values: ["none", "required", "unknown"],
+    },
+    temporaryStatus: {
+      kind: "single-select",
+      values: ["normal", "temporarily-closed", "unknown"],
+    },
+    location: {
+      kind: "location",
+      variants: ["building", "floor", "outdoor-point"],
+      pointPrecisions: ["approximate", "precise"],
+      canonicalCrs: "wgs84",
+    },
+  },
+  pinTypes: {
+    toilet: {
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS, "gender"],
+      requiredFields: ["name", "pinType", "location"],
+    },
+    water: {
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS],
+      requiredFields: ["name", "pinType", "location"],
+    },
+    printer: {
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS, "capabilities"],
+      requiredFields: ["name", "pinType", "location"],
+    },
+    "common-space": {
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS],
+      requiredFields: ["name", "pinType", "location"],
+    },
+    classroom: {
+      applicableFields: [...COMMON_CAMPUS_MAP_FIELDS],
+      requiredFields: ["name", "pinType", "location"],
+    },
+  },
+};
+
+export type CampusMapFactDisplayMetadata = Record<
+  string,
+  { label: string; valueLabels?: Record<string, string> }
+>;
+
+export const CAMPUS_MAP_FACT_DISPLAY_METADATA_V1: CampusMapFactDisplayMetadata =
+  {
+    name: { label: "名称" },
+    pinType: { label: "类型" },
+    capabilities: { label: "服务" },
+    gender: { label: "性别属性" },
+    wheelchairAccess: { label: "无障碍" },
+    audience: { label: "开放对象" },
+    credentialRequirement: { label: "凭证要求" },
+    accessSchedule: { label: "开放时间" },
+    reservationRequirement: { label: "预约要求" },
+    temporaryStatus: { label: "临时状态" },
+    location: { label: "位置" },
+  };
+
+export type CampusMapFieldDiff = Record<
+  string,
+  { before: unknown; after: unknown; label: string }
+>;
+
+function campusMapPlaceFactColumns() {
+  return {
+    name: text("name").notNull(),
+    buildingId: uuid("building_id").references(() => campusMapBuildings.id, {
+      onDelete: "restrict",
+    }),
+    floorId: uuid("floor_id"),
+    pinType: text("pin_type").$type<CampusMapPinType>().notNull(),
+    capabilities: text("capabilities")
+      .array()
+      .$type<CampusMapCapability[]>()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    gender: text("gender")
+      .$type<CampusMapGender>()
+      .notNull()
+      .default("unknown"),
+    wheelchairAccess: text("wheelchair_access")
+      .$type<CampusMapWheelchairAccess>()
+      .notNull()
+      .default("unknown"),
+    audience: text("audience")
+      .$type<CampusMapAudience>()
+      .notNull()
+      .default("unknown"),
+    credentialRequirement: text("credential_requirement")
+      .$type<CampusMapCredentialRequirement>()
+      .notNull()
+      .default("unknown"),
+    accessSchedule: jsonb("access_schedule")
+      .$type<CampusMapAccessSchedule>()
+      .notNull()
+      .default({ kind: "unknown" }),
+    reservationRequirement: text("reservation_requirement")
+      .$type<CampusMapReservationRequirement>()
+      .notNull()
+      .default("unknown"),
+    temporaryStatus: text("temporary_status")
+      .$type<CampusMapTemporaryStatus>()
+      .notNull()
+      .default("unknown"),
+    locationKind: text("location_kind")
+      .$type<CampusMapLocationKind>()
+      .notNull(),
+    pointPrecision: text("point_precision").$type<CampusMapPointPrecision>(),
+    longitude: doublePrecision("longitude"),
+    latitude: doublePrecision("latitude"),
+    coordinateCrs: text("coordinate_crs").$type<"wgs84">(),
+    observedAt: timestamp("observed_at", { withTimezone: true }),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    verifiedByActorIdSnapshot: uuid("verified_by_actor_id_snapshot"),
+  };
+}
+
+function campusMapFactChecks(
+  table: {
+    [Key in keyof ReturnType<typeof campusMapPlaceFactColumns>]: AnyPgColumn;
+  },
+  prefix: string,
+) {
+  return [
+    check(
+      `${prefix}_pin_type_check`,
+      sql`${table.pinType} in ('toilet', 'water', 'printer', 'common-space', 'classroom')`,
+    ),
+    check(
+      `${prefix}_capabilities_check`,
+      sql`${table.capabilities} <@ array['print', 'scan', 'copy']::text[]`,
+    ),
+    check(
+      `${prefix}_gender_check`,
+      sql`${table.gender} in ('male', 'female', 'all-gender', 'unknown')`,
+    ),
+    check(
+      `${prefix}_wheelchair_access_check`,
+      sql`${table.wheelchairAccess} in ('yes', 'limited', 'no', 'unknown')`,
+    ),
+    check(
+      `${prefix}_audience_check`,
+      sql`${table.audience} in ('public', 'cuhk-member', 'library-member', 'unknown')`,
+    ),
+    check(
+      `${prefix}_credential_requirement_check`,
+      sql`${table.credentialRequirement} in ('none', 'campus-card', 'library-card', 'other', 'unknown')`,
+    ),
+    check(
+      `${prefix}_schedule_kind_check`,
+      sql`(
+        ${table.accessSchedule} in ('{"kind":"unknown"}'::jsonb, '{"kind":"always"}'::jsonb)
+      ) or (
+        jsonb_typeof(${table.accessSchedule}) = 'object'
+        and ${table.accessSchedule}->>'kind' = 'weekly'
+        and ${table.accessSchedule}->>'timezone' = 'Asia/Hong_Kong'
+        and jsonb_typeof(${table.accessSchedule}->'intervals') = 'array'
+        and jsonb_array_length(${table.accessSchedule}->'intervals') > 0
+        and ${table.accessSchedule} - 'kind' - 'timezone' - 'intervals' = '{}'::jsonb
+        and not jsonb_path_exists(
+          ${table.accessSchedule},
+          '$.intervals[*] ? (
+            @.type() != "object"
+            || !exists(@.days)
+            || @.days.type() != "array"
+            || @.days.size() == 0
+            || exists(@.days[*] ? (
+              @ != "mon" && @ != "tue" && @ != "wed" && @ != "thu"
+              && @ != "fri" && @ != "sat" && @ != "sun"
+            ))
+            || !exists(@.opensAt)
+            || !(@.opensAt like_regex "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+            || !exists(@.closesAt)
+            || !(@.closesAt like_regex "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+            || @.opensAt == @.closesAt
+            || exists(@.keyvalue() ? (
+              @.key != "days" && @.key != "opensAt" && @.key != "closesAt"
+            ))
+          )'
+        )
+      )`,
+    ),
+    check(
+      `${prefix}_reservation_requirement_check`,
+      sql`${table.reservationRequirement} in ('none', 'required', 'unknown')`,
+    ),
+    check(
+      `${prefix}_temporary_status_check`,
+      sql`${table.temporaryStatus} in ('normal', 'temporarily-closed', 'unknown')`,
+    ),
+    check(
+      `${prefix}_verification_check`,
+      sql`(
+        ${table.verifiedAt} is null
+        and ${table.verifiedByActorIdSnapshot} is null
+      ) or (
+        ${table.verifiedAt} is not null
+        and ${table.verifiedByActorIdSnapshot} is not null
+      )`,
+    ),
+    check(
+      `${prefix}_location_check`,
+      sql`(
+        ${table.locationKind} = 'building'
+        and ${table.buildingId} is not null
+        and ${table.floorId} is null
+        and ${table.pointPrecision} is null
+        and ${table.longitude} is null
+        and ${table.latitude} is null
+        and ${table.coordinateCrs} is null
+      ) or (
+        ${table.locationKind} = 'floor'
+        and ${table.buildingId} is not null
+        and ${table.floorId} is not null
+        and ${table.pointPrecision} is null
+        and ${table.longitude} is null
+        and ${table.latitude} is null
+        and ${table.coordinateCrs} is null
+      ) or (
+        ${table.locationKind} = 'outdoor-point'
+        and ${table.buildingId} is null
+        and ${table.floorId} is null
+        and ${table.pointPrecision} in ('approximate', 'precise')
+        and ${table.longitude} between -180 and 180
+        and ${table.latitude} between -90 and 90
+        and ${table.coordinateCrs} = 'wgs84'
+      )`,
+    ),
+  ];
+}
+
+export const campusMapFactSchemas = pgTable(
+  "campus_map_fact_schemas",
+  {
+    version: integer("version").primaryKey(),
+    status: text("status").notNull().default("draft"),
+    definition: jsonb("definition")
+      .$type<CampusMapFactSchemaDefinition>()
+      .notNull(),
+    displayMetadata: jsonb("display_metadata")
+      .$type<CampusMapFactDisplayMetadata>()
+      .notNull(),
+    createdBy: uuid("created_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_fact_schemas_created_by_idx").on(table.createdBy),
+    uniqueIndex("campus_map_fact_schemas_one_active_uq")
+      .on(table.status)
+      .where(sql`${table.status} = 'active'`),
+    check("campus_map_fact_schemas_version_check", sql`${table.version} > 0`),
+    check(
+      "campus_map_fact_schemas_status_check",
+      sql`${table.status} in ('draft', 'active', 'superseded')`,
+    ),
+  ],
+);
+
+export const campusMapProvenanceSources = pgTable(
+  "campus_map_provenance_sources",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sourceKind: text("source_kind").$type<CampusMapProvenanceKind>().notNull(),
+    sourceRef: text("source_ref").notNull(),
+    sourceUrl: text("source_url"),
+    sourceOwner: text("source_owner"),
+    sourceVersion: text("source_version"),
+    snapshotHash: text("snapshot_hash"),
+    accessedOn: date("accessed_on").notNull(),
+    observedAt: timestamp("observed_at", { withTimezone: true }),
+    rightsStatus: text("rights_status")
+      .$type<CampusMapRightsStatus>()
+      .notNull(),
+    limitations: text("limitations"),
+    note: text("note"),
+    sourceCoordinateX: doublePrecision("source_coordinate_x"),
+    sourceCoordinateY: doublePrecision("source_coordinate_y"),
+    sourceCoordinateCrs: text(
+      "source_coordinate_crs",
+    ).$type<CampusMapSourceCoordinateCrs>(),
+    conversionMethod:
+      text("conversion_method").$type<CampusMapCoordinateConversionMethod>(),
+    conversionVersion: text("conversion_version"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_provenance_source_ref_uq").on(
+      table.sourceKind,
+      table.sourceRef,
+    ),
+    check(
+      "campus_map_provenance_source_kind_check",
+      sql`${table.sourceKind} in ('official', 'field-observation', 'open-data', 'provider-candidate', 'other')`,
+    ),
+    check(
+      "campus_map_provenance_rights_status_check",
+      sql`${table.rightsStatus} in ('public-domain', 'permission-granted', 'original-observation', 'restricted', 'unknown')`,
+    ),
+    check(
+      "campus_map_provenance_coordinate_lineage_check",
+      sql`(
+        ${table.sourceCoordinateX} is null
+        and ${table.sourceCoordinateY} is null
+        and ${table.sourceCoordinateCrs} is null
+        and ${table.conversionMethod} is null
+        and ${table.conversionVersion} is null
+      ) or (
+        ${table.sourceCoordinateX} is not null
+        and ${table.sourceCoordinateY} is not null
+        and ${table.sourceCoordinateCrs} in ('wgs84', 'gcj02', 'hk80', 'hkpd', 'other')
+        and (
+          (${table.conversionMethod} is null and ${table.conversionVersion} is null)
+          or (
+            ${table.conversionMethod} in ('proj', 'manual', 'provider-adapter', 'other')
+            and nullif(btrim(${table.conversionVersion}), '') is not null
+          )
+        )
+        and (
+          ${table.sourceCoordinateCrs} = 'wgs84'
+          or ${table.conversionMethod} is not null
+        )
+        and (
+          ${table.sourceCoordinateCrs} not in ('wgs84', 'gcj02')
+          or (
+            ${table.sourceCoordinateX} between -180 and 180
+            and ${table.sourceCoordinateY} between -90 and 90
+          )
+        )
+      )`,
+    ),
+  ],
+);
+
+export const campusMapBuildings = pgTable(
+  "campus_map_buildings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    englishName: text("english_name"),
+    code: text("code"),
+    aliases: text("aliases")
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    anchorLongitude: doublePrecision("anchor_longitude"),
+    anchorLatitude: doublePrecision("anchor_latitude"),
+    anchorCrs: text("anchor_crs"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_buildings_name_idx").on(table.name),
+    index("campus_map_buildings_anchor_geo_idx")
+      .on(table.anchorLongitude, table.anchorLatitude)
+      .where(sql`${table.anchorCrs} = 'wgs84'`),
+    check(
+      "campus_map_buildings_anchor_check",
+      sql`(
+        ${table.anchorLongitude} is null
+        and ${table.anchorLatitude} is null
+        and ${table.anchorCrs} is null
+      ) or (
+        ${table.anchorLongitude} between -180 and 180
+        and ${table.anchorLatitude} between -90 and 90
+        and ${table.anchorCrs} = 'wgs84'
+      )`,
+    ),
+  ],
+);
+
+export const campusMapFloors = pgTable(
+  "campus_map_floors",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    buildingId: uuid("building_id")
+      .notNull()
+      .references(() => campusMapBuildings.id, { onDelete: "restrict" }),
+    displayLabel: text("display_label").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("campus_map_floors_building_id_id_uq").on(
+      table.buildingId,
+      table.id,
+    ),
+    index("campus_map_floors_building_sort_idx").on(
+      table.buildingId,
+      table.sortOrder,
+    ),
+  ],
+);
+
+export const campusMapBuildingProvenance = pgTable(
+  "campus_map_building_provenance",
+  {
+    buildingId: uuid("building_id")
+      .notNull()
+      .references(() => campusMapBuildings.id, { onDelete: "restrict" }),
+    provenanceId: uuid("provenance_id")
+      .notNull()
+      .references(() => campusMapProvenanceSources.id, {
+        onDelete: "restrict",
+      }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.buildingId, table.provenanceId] }),
+    index("campus_map_building_provenance_source_idx").on(table.provenanceId),
+  ],
+);
+
+export const campusMapFloorProvenance = pgTable(
+  "campus_map_floor_provenance",
+  {
+    floorId: uuid("floor_id")
+      .notNull()
+      .references(() => campusMapFloors.id, { onDelete: "restrict" }),
+    provenanceId: uuid("provenance_id")
+      .notNull()
+      .references(() => campusMapProvenanceSources.id, {
+        onDelete: "restrict",
+      }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.floorId, table.provenanceId] }),
+    index("campus_map_floor_provenance_source_idx").on(table.provenanceId),
+  ],
+);
+
+export const campusMapPlaces = pgTable("campus_map_places", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+});
+
+export const campusMapChangesets = pgTable(
+  "campus_map_changesets",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    actorNicknameSnapshot: text("actor_nickname_snapshot").notNull(),
+    comment: text("comment").notNull(),
+    sourceSummary: text("source_summary").notNull(),
+    reviewRequested: boolean("review_requested").notNull().default(false),
+    clientName: text("client_name").notNull(),
+    clientVersion: text("client_version").notNull(),
+    affectedCount: integer("affected_count").notNull(),
+    createdCount: integer("created_count").notNull().default(0),
+    updatedCount: integer("updated_count").notNull().default(0),
+    retiredCount: integer("retired_count").notNull().default(0),
+    restoredCount: integer("restored_count").notNull().default(0),
+    mergedCount: integer("merged_count").notNull().default(0),
+    bboxWest: doublePrecision("bbox_west"),
+    bboxSouth: doublePrecision("bbox_south"),
+    bboxEast: doublePrecision("bbox_east"),
+    bboxNorth: doublePrecision("bbox_north"),
+    warningSummary: jsonb("warning_summary")
+      .$type<Array<{ code: string; count: number }>>()
+      .notNull()
+      .default([]),
+    revertsChangesetId: uuid("reverts_changeset_id").references(
+      (): AnyPgColumn => campusMapChangesets.id,
+      { onDelete: "restrict" },
+    ),
+    publishedAt: timestamp("published_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_changesets_feed_idx").on(table.publishedAt, table.id),
+    index("campus_map_changesets_actor_user_idx").on(table.actorUserId),
+    index("campus_map_changesets_reverts_idx").on(table.revertsChangesetId),
+    index("campus_map_changesets_actor_feed_idx").on(
+      table.actorIdSnapshot,
+      table.publishedAt,
+    ),
+    index("campus_map_changesets_review_feed_idx")
+      .on(table.publishedAt, table.id)
+      .where(sql`${table.reviewRequested} = true`),
+    check(
+      "campus_map_changesets_counts_check",
+      sql`${table.affectedCount} > 0
+        and ${table.createdCount} >= 0
+        and ${table.updatedCount} >= 0
+        and ${table.retiredCount} >= 0
+        and ${table.restoredCount} >= 0
+        and ${table.mergedCount} >= 0
+        and ${table.affectedCount} = ${table.createdCount} + ${table.updatedCount} + ${table.retiredCount} + ${table.restoredCount} + ${table.mergedCount}`,
+    ),
+    check(
+      "campus_map_changesets_bbox_check",
+      sql`(
+        ${table.bboxWest} is null and ${table.bboxSouth} is null
+        and ${table.bboxEast} is null and ${table.bboxNorth} is null
+      ) or (
+        ${table.bboxWest} between -180 and 180
+        and ${table.bboxEast} between -180 and 180
+        and ${table.bboxSouth} between -90 and 90
+        and ${table.bboxNorth} between -90 and 90
+        and ${table.bboxWest} <= ${table.bboxEast}
+        and ${table.bboxSouth} <= ${table.bboxNorth}
+      )`,
+    ),
+  ],
+);
+
+export const campusMapPlaceChanges = pgTable(
+  "campus_map_place_changes",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    changesetId: uuid("changeset_id")
+      .notNull()
+      .references(() => campusMapChangesets.id, { onDelete: "restrict" }),
+    placeId: uuid("place_id")
+      .notNull()
+      .references(() => campusMapPlaces.id, { onDelete: "restrict" }),
+    operation: text("operation").$type<CampusMapPlaceOperation>().notNull(),
+    fieldDiff: jsonb("field_diff").$type<CampusMapFieldDiff>().notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_place_changes_changeset_place_uq").on(
+      table.changesetId,
+      table.placeId,
+    ),
+    unique("campus_map_place_changes_place_id_id_uq").on(
+      table.placeId,
+      table.id,
+    ),
+    unique("campus_map_place_changes_changeset_id_id_uq").on(
+      table.changesetId,
+      table.id,
+    ),
+    index("campus_map_place_changes_place_idx").on(table.placeId),
+    check(
+      "campus_map_place_changes_operation_check",
+      sql`${table.operation} in ('create', 'update', 'retire', 'restore', 'merge')`,
+    ),
+  ],
+);
+
+const campusMapRevisionFactColumns = campusMapPlaceFactColumns();
+
+export const campusMapFactRevisions = pgTable(
+  "campus_map_fact_revisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    placeId: uuid("place_id")
+      .notNull()
+      .references(() => campusMapPlaces.id, { onDelete: "restrict" }),
+    changesetId: uuid("changeset_id")
+      .notNull()
+      .references(() => campusMapChangesets.id, { onDelete: "restrict" }),
+    placeChangeId: uuid("place_change_id")
+      .notNull()
+      .references(() => campusMapPlaceChanges.id, { onDelete: "restrict" }),
+    previousRevisionId: uuid("previous_revision_id"),
+    factSchemaVersion: integer("fact_schema_version")
+      .notNull()
+      .references(() => campusMapFactSchemas.version, {
+        onDelete: "restrict",
+      }),
+    fieldMetadata: jsonb("field_metadata")
+      .$type<CampusMapFactDisplayMetadata>()
+      .notNull(),
+    status: text("status").$type<CampusMapRevisionStatus>().notNull(),
+    mergedIntoPlaceId: uuid("merged_into_place_id").references(
+      () => campusMapPlaces.id,
+      { onDelete: "restrict" },
+    ),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    actorNicknameSnapshot: text("actor_nickname_snapshot").notNull(),
+    ...campusMapRevisionFactColumns,
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("campus_map_fact_revisions_place_id_id_uq").on(
+      table.placeId,
+      table.id,
+    ),
+    unique("campus_map_fact_revisions_place_id_status_id_uq").on(
+      table.placeId,
+      table.status,
+      table.id,
+    ),
+    uniqueIndex("campus_map_fact_revisions_place_change_uq").on(
+      table.placeChangeId,
+    ),
+    index("campus_map_fact_revisions_place_created_idx").on(
+      table.placeId,
+      table.createdAt,
+      table.id,
+    ),
+    index("campus_map_fact_revisions_changeset_idx").on(table.changesetId),
+    index("campus_map_fact_revisions_previous_idx").on(
+      table.placeId,
+      table.previousRevisionId,
+    ),
+    index("campus_map_fact_revisions_schema_idx").on(table.factSchemaVersion),
+    index("campus_map_fact_revisions_building_floor_idx").on(
+      table.buildingId,
+      table.floorId,
+    ),
+    index("campus_map_fact_revisions_merge_target_idx").on(
+      table.mergedIntoPlaceId,
+    ),
+    foreignKey({
+      columns: [table.placeId, table.previousRevisionId],
+      foreignColumns: [table.placeId, table.id],
+      name: "campus_map_fact_revisions_previous_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.placeId, table.placeChangeId],
+      foreignColumns: [campusMapPlaceChanges.placeId, campusMapPlaceChanges.id],
+      name: "campus_map_fact_revisions_place_change_place_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.changesetId, table.placeChangeId],
+      foreignColumns: [
+        campusMapPlaceChanges.changesetId,
+        campusMapPlaceChanges.id,
+      ],
+      name: "campus_map_fact_revisions_place_change_changeset_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.buildingId, table.floorId],
+      foreignColumns: [campusMapFloors.buildingId, campusMapFloors.id],
+      name: "campus_map_fact_revisions_floor_building_fk",
+    }).onDelete("restrict"),
+    check(
+      "campus_map_fact_revisions_status_check",
+      sql`${table.status} in ('active', 'retired', 'merged')`,
+    ),
+    check(
+      "campus_map_fact_revisions_merge_target_check",
+      sql`(
+        ${table.status} = 'merged'
+        and ${table.mergedIntoPlaceId} is not null
+        and ${table.mergedIntoPlaceId} <> ${table.placeId}
+      ) or (
+        ${table.status} in ('active', 'retired')
+        and ${table.mergedIntoPlaceId} is null
+      )`,
+    ),
+    ...campusMapFactChecks(table, "campus_map_fact_revisions"),
+  ],
+);
+
+export const campusMapRevisionProvenance = pgTable(
+  "campus_map_revision_provenance",
+  {
+    revisionId: uuid("revision_id")
+      .notNull()
+      .references(() => campusMapFactRevisions.id, { onDelete: "restrict" }),
+    provenanceId: uuid("provenance_id")
+      .notNull()
+      .references(() => campusMapProvenanceSources.id, {
+        onDelete: "restrict",
+      }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.revisionId, table.provenanceId] }),
+    index("campus_map_revision_provenance_source_idx").on(table.provenanceId),
+  ],
+);
+
+export const campusMapRevisionVisibility = pgTable(
+  "campus_map_revision_visibility",
+  {
+    revisionId: uuid("revision_id")
+      .primaryKey()
+      .references(() => campusMapFactRevisions.id, { onDelete: "restrict" }),
+    visibility: text("visibility").notNull().default("public"),
+    redactionRef: text("redaction_ref"),
+    updatedBy: uuid("updated_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("campus_map_revision_visibility_updated_by_idx").on(table.updatedBy),
+    check(
+      "campus_map_revision_visibility_check",
+      sql`(
+        ${table.visibility} = 'public' and ${table.redactionRef} is null
+      ) or (
+        ${table.visibility} = 'redacted' and ${table.redactionRef} is not null
+      )`,
+    ),
+  ],
+);
+
+export const campusMapCurrentRevisions = pgTable(
+  "campus_map_current_revisions",
+  {
+    placeId: uuid("place_id")
+      .primaryKey()
+      .references(() => campusMapPlaces.id, { onDelete: "restrict" }),
+    revisionId: uuid("revision_id").notNull().unique(),
+    status: text("status").$type<CampusMapRevisionStatus>().notNull(),
+    advancedAt: timestamp("advanced_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("campus_map_current_revisions_place_status_revision_uq").on(
+      table.placeId,
+      table.status,
+      table.revisionId,
+    ),
+    foreignKey({
+      columns: [table.placeId, table.status, table.revisionId],
+      foreignColumns: [
+        campusMapFactRevisions.placeId,
+        campusMapFactRevisions.status,
+        campusMapFactRevisions.id,
+      ],
+      name: "campus_map_current_revisions_revision_fk",
+    }).onDelete("restrict"),
+    check(
+      "campus_map_current_revisions_status_check",
+      sql`${table.status} in ('active', 'retired', 'merged')`,
+    ),
+  ],
+);
+
+const campusMapCurrentFactColumns = campusMapPlaceFactColumns();
+
+export const campusMapCurrentFacts = pgTable(
+  "campus_map_current_facts",
+  {
+    placeId: uuid("place_id")
+      .primaryKey()
+      .references(() => campusMapPlaces.id, { onDelete: "restrict" }),
+    revisionId: uuid("revision_id").notNull().unique(),
+    status: text("status").notNull().default("active"),
+    factSchemaVersion: integer("fact_schema_version")
+      .notNull()
+      .references(() => campusMapFactSchemas.version, {
+        onDelete: "restrict",
+      }),
+    ...campusMapCurrentFactColumns,
+    publishedAt: timestamp("published_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.placeId, table.status, table.revisionId],
+      foreignColumns: [
+        campusMapCurrentRevisions.placeId,
+        campusMapCurrentRevisions.status,
+        campusMapCurrentRevisions.revisionId,
+      ],
+      name: "campus_map_current_facts_current_revision_fk",
+    }).onDelete("restrict"),
+    foreignKey({
+      columns: [table.buildingId, table.floorId],
+      foreignColumns: [campusMapFloors.buildingId, campusMapFloors.id],
+      name: "campus_map_current_facts_floor_building_fk",
+    }).onDelete("restrict"),
+    index("campus_map_current_facts_building_type_idx").on(
+      table.buildingId,
+      table.pinType,
+    ),
+    index("campus_map_current_facts_floor_type_idx").on(
+      table.buildingId,
+      table.floorId,
+      table.pinType,
+    ),
+    index("campus_map_current_facts_geo_idx")
+      .on(table.longitude, table.latitude)
+      .where(sql`${table.locationKind} = 'outdoor-point'`),
+    index("campus_map_current_facts_schema_idx").on(table.factSchemaVersion),
+    check(
+      "campus_map_current_facts_active_check",
+      sql`${table.status} = 'active'`,
+    ),
+    ...campusMapFactChecks(table, "campus_map_current_facts"),
+  ],
+);
+
+export const campusMapProviderMappings = pgTable(
+  "campus_map_provider_mappings",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    provider: text("provider").notNull(),
+    providerObjectId: text("provider_object_id").notNull(),
+    targetKind: text("target_kind").notNull(),
+    buildingId: uuid("building_id").references(() => campusMapBuildings.id, {
+      onDelete: "restrict",
+    }),
+    placeId: uuid("place_id").references(() => campusMapPlaces.id, {
+      onDelete: "restrict",
+    }),
+    provenanceId: uuid("provenance_id").references(
+      () => campusMapProvenanceSources.id,
+      { onDelete: "restrict" },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("campus_map_provider_mappings_identity_uq").on(
+      table.provider,
+      table.providerObjectId,
+    ),
+    index("campus_map_provider_mappings_building_idx").on(table.buildingId),
+    index("campus_map_provider_mappings_place_idx").on(table.placeId),
+    index("campus_map_provider_mappings_provenance_idx").on(table.provenanceId),
+    check(
+      "campus_map_provider_mappings_target_check",
+      sql`(
+        ${table.targetKind} = 'building'
+        and ${table.buildingId} is not null
+        and ${table.placeId} is null
+      ) or (
+        ${table.targetKind} = 'place'
+        and ${table.buildingId} is null
+        and ${table.placeId} is not null
+      )`,
+    ),
+  ],
+);
+
+export const campusMapPublishRequests = pgTable(
+  "campus_map_publish_requests",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    actorUserId: uuid("actor_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    actorIdSnapshot: uuid("actor_id_snapshot").notNull(),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    requestFingerprint: text("request_fingerprint").notNull(),
+    status: text("status").notNull().default("processing"),
+    changesetId: uuid("changeset_id")
+      .unique()
+      .references(() => campusMapChangesets.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("campus_map_publish_requests_actor_key_uq").on(
+      table.actorIdSnapshot,
+      table.idempotencyKey,
+    ),
+    index("campus_map_publish_requests_changeset_idx").on(table.changesetId),
+    index("campus_map_publish_requests_actor_user_idx").on(table.actorUserId),
+    check(
+      "campus_map_publish_requests_result_check",
+      sql`(
+        ${table.status} = 'processing'
+        and ${table.changesetId} is null
+        and ${table.completedAt} is null
+      ) or (
+        ${table.status} = 'published'
+        and ${table.changesetId} is not null
+        and ${table.completedAt} is not null
+      )`,
     ),
   ],
 );
