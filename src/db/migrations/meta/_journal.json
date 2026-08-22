@@ -456,6 +456,13 @@
       "when": 1785938690632,
       "tag": "0064_canonical_professor_ratings",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1787338575813,
+      "tag": "0065_canonical_campus_map_fact_store",
+      "breakpoints": true
     }
   ]
 }
