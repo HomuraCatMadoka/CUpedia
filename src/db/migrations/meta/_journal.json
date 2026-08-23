@@ -463,6 +463,20 @@
       "when": 1787338575813,
       "tag": "0065_canonical_campus_map_fact_store",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1787369229218,
+      "tag": "0066_campus_map_finite_source_coordinates",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1787369236551,
+      "tag": "0067_campus_map_fact_ledger_hardening",
+      "breakpoints": true
     }
   ]
 }

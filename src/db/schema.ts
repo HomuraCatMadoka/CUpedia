@@ -1778,6 +1778,16 @@ export const campusMapProvenanceSources = pgTable(
       ) or (
         ${table.sourceCoordinateX} is not null
         and ${table.sourceCoordinateY} is not null
+        and ${table.sourceCoordinateX} not in (
+          'NaN'::double precision,
+          'Infinity'::double precision,
+          '-Infinity'::double precision
+        )
+        and ${table.sourceCoordinateY} not in (
+          'NaN'::double precision,
+          'Infinity'::double precision,
+          '-Infinity'::double precision
+        )
         and ${table.sourceCoordinateCrs} in ('wgs84', 'gcj02', 'hk80', 'hkpd', 'other')
         and (
           (${table.conversionMethod} is null and ${table.conversionVersion} is null)

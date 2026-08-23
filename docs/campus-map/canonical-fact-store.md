@@ -33,9 +33,15 @@ around this storage command; it does not write fact tables directly.
 
 - Building, Floor, and Place use UUID primary keys. Provider mappings have a
   separate `(provider, provider_object_id)` identity.
-- Changesets, Place changes, and Fact revisions are immutable through the
-  module contract. Current revision is the only canonical pointer; Current fact
-  is a replaceable active-only projection.
+- Changesets, Place changes, Fact revisions, and revision provenance are
+  append-only in PostgreSQL: ordinary `UPDATE`, `DELETE`, and `TRUNCATE`
+  statements fail. The only allowed Changeset update is the referential
+  `actor_user_id` nulling caused by deletion of the linked User; actor snapshots
+  and every other historical field remain immutable.
+- Current revision is the only canonical pointer; Current fact is a replaceable
+  active-only projection. PostgreSQL validates every Current fact insert or
+  update against the complete Fact revision snapshot and its Changeset
+  publication timestamp, so the projection cannot become a second truth.
 - A revision stores its schema version, display metadata, full fact snapshot,
   previous revision, Changeset, actor snapshot, provenance links, and separate
   visibility state.
@@ -45,7 +51,8 @@ around this storage command; it does not write fact tables directly.
   coordinates and Building/Floor anchor containment on separate query paths.
 - Provenance optionally records a source coordinate pair, controlled source
   CRS, and minimal conversion method/version. Non-WGS84 source coordinates
-  cannot be stored without conversion lineage.
+  cannot be stored without conversion lineage, and no source CRS accepts
+  non-finite coordinates.
 - Retired and merged revisions remain Current-revision targets but have no
   Current fact. A merge locks both stable Place rows in ID order, keeps the
   survivor active, and points the loser at that survivor's stable Place ID.
@@ -60,6 +67,16 @@ around this storage command; it does not write fact tables directly.
   revision, then inserts a new fact only for an active revision. The immediate
   FK remains representable by `schema.ts`; transaction isolation hides all
   intermediate statements from readers.
+
+Operation/status transitions, active merge-survivor checks, required revision
+provenance/visibility, authentication, and command validation remain owned by
+the fact-store transaction seam. They are intentionally not duplicated as a
+second set of cross-table trigger rules.
+
+The projection-hardening migration validates every existing Current fact while
+installing the trigger. This takes a write lock and rewrites that projection;
+the table is new and expected to be empty or small before #718 enables public
+publishing, so the bounded rollout cost is intentional.
 
 ## Hot query catalogue
 

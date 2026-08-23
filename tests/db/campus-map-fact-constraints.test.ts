@@ -264,6 +264,26 @@ describe.skipIf(!hasDb)(
       });
     });
 
+    it.each(["NaN", "Infinity", "-Infinity"])(
+      "rejects non-finite source coordinate %s",
+      async (coordinate) => {
+        await inFixture(async (client) => {
+          await expect(
+            client.query(
+              `insert into campus_map_provenance_sources
+              (source_kind, source_ref, accessed_on, rights_status,
+               source_coordinate_x, source_coordinate_y, source_coordinate_crs,
+               conversion_method, conversion_version)
+             values ('official', $1, '2026-08-22', 'permission-granted',
+               $2::double precision, 819069.8, 'hk80', 'proj',
+               'EPSG:2326-to-4326')`,
+              [`diagnosis:non-finite:${coordinate}`, coordinate],
+            ),
+          ).rejects.toMatchObject({ code: "23514" });
+        });
+      },
+    );
+
     it("rejects transformed source coordinates without conversion lineage", async () => {
       await inFixture(async (client) => {
         await expect(
@@ -295,6 +315,75 @@ describe.skipIf(!hasDb)(
             [ids.place],
           ),
         ).rejects.toMatchObject({ code: "23505" });
+      });
+    });
+
+    it("rejects reuse of a stable Place ID", async () => {
+      await inFixture(async (client) => {
+        await expect(
+          client.query(`insert into campus_map_places (id) values ($1)`, [
+            ids.place,
+          ]),
+        ).rejects.toMatchObject({ code: "23505" });
+      });
+    });
+
+    it("rejects ordinary SQL mutations of the fact ledger", async () => {
+      await inFixture(async (client) => {
+        await client.query(
+          `insert into campus_map_provenance_sources
+           (id, source_kind, source_ref, accessed_on, rights_status)
+         values ($1, 'field-observation', 'test:immutable-ledger',
+           '2026-08-22', 'original-observation')`,
+          [ids.secondRevision],
+        );
+        await client.query(
+          insertRevisionSql(", building_id, floor_id", ", $6, $7"),
+          [
+            ids.revision,
+            ids.place,
+            ids.changeset,
+            ids.placeChange,
+            ids.actor,
+            ids.building,
+            ids.floor,
+          ],
+        );
+        await client.query(
+          `insert into campus_map_revision_provenance
+           (revision_id, provenance_id) values ($1, $2)`,
+          [ids.revision, ids.secondRevision],
+        );
+
+        const mutations = [
+          `update campus_map_changesets set comment = 'rewritten' where id = '${ids.changeset}'`,
+          `update campus_map_changesets set actor_user_id = null where id = '${ids.changeset}'`,
+          `delete from campus_map_changesets where id = '${ids.changeset}'`,
+          `truncate campus_map_changesets cascade`,
+          `update campus_map_place_changes set field_diff = '{"rewritten":true}' where id = '${ids.placeChange}'`,
+          `delete from campus_map_place_changes where id = '${ids.placeChange}'`,
+          `truncate campus_map_place_changes cascade`,
+          `update campus_map_fact_revisions set name = 'rewritten' where id = '${ids.revision}'`,
+          `delete from campus_map_fact_revisions where id = '${ids.revision}'`,
+          `truncate campus_map_fact_revisions cascade`,
+          `update campus_map_revision_provenance set provenance_id = '${ids.actor}' where revision_id = '${ids.revision}'`,
+          `delete from campus_map_revision_provenance where revision_id = '${ids.revision}'`,
+          `truncate campus_map_revision_provenance cascade`,
+        ];
+
+        for (const [index, mutation] of mutations.entries()) {
+          const savepoint = `ledger_mutation_${index}`;
+          await client.query(`savepoint ${savepoint}`);
+          try {
+            await expect(client.query(mutation)).rejects.toMatchObject({
+              code: "55000",
+              message: expect.stringContaining("append-only"),
+            });
+          } finally {
+            await client.query(`rollback to savepoint ${savepoint}`);
+            await client.query(`release savepoint ${savepoint}`);
+          }
+        }
       });
     });
 
@@ -408,6 +497,41 @@ describe.skipIf(!hasDb)(
             current_fact_revision_id: ids.secondRevision,
           },
         ]);
+      });
+    });
+
+    it("rejects a Current fact that differs from its active revision", async () => {
+      await inFixture(async (client) => {
+        await client.query(
+          insertRevisionSql(", building_id, floor_id", ", $6, $7"),
+          [
+            ids.revision,
+            ids.place,
+            ids.changeset,
+            ids.placeChange,
+            ids.actor,
+            ids.building,
+            ids.floor,
+          ],
+        );
+        await client.query(
+          `insert into campus_map_current_revisions
+           (place_id, revision_id, status) values ($1, $2, 'active')`,
+          [ids.place, ids.revision],
+        );
+
+        await expect(
+          client.query(
+            `insert into campus_map_current_facts
+             (place_id, revision_id, fact_schema_version, name, building_id,
+              floor_id, pin_type, location_kind, published_at)
+           values ($1, $2, 717, '伪造投影', $3, $4, 'water', 'floor', now())`,
+            [ids.place, ids.revision, ids.building, ids.floor],
+          ),
+        ).rejects.toMatchObject({
+          code: "23514",
+          message: expect.stringContaining("does not match Fact revision"),
+        });
       });
     });
 
