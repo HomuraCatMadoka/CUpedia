@@ -11,6 +11,7 @@ import {
   canteens,
 } from "@/db/schema";
 import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
+import { listMenuSourceScheduleCandidates } from "@/lib/canteen-menu-sync-scheduler";
 import type { MenuSyncTransaction } from "@/lib/canteen-menu-sync-store";
 import { menuSyncWindowAt } from "@/lib/canteen-menu-sync-window";
 import pinmeCurrent from "../lib/fixtures/canteen-providers/pinme-current.json";
@@ -413,6 +414,35 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     expect(closedRuns).toEqual([]);
   });
 
+  it("keeps Cafe Tolo out of the 2026-08-22 breakfast drain while leaving seven sources claimable", async () => {
+    const incidentBreakfast = new Date("2026-08-22T00:00:00.000Z");
+    const cafeTolo = await createEligibleSource("Cafe Tolo", {
+      closedWeekdays: [0],
+      externalStoreId: "4899",
+      syncMealPeriods: ["lunch", "dinner"],
+    });
+    const otherSources = await Promise.all(
+      Array.from({ length: 7 }, (_, index) =>
+        createEligibleSource(`其他来源 ${index + 1}`),
+      ),
+    );
+    const candidates = await db.transaction((tx) =>
+      listMenuSourceScheduleCandidates(
+        tx,
+        menuSyncWindowAt(incidentBreakfast),
+        incidentBreakfast,
+      ),
+    );
+
+    expect(candidates.map((candidate) => candidate.sourceId)).toEqual(
+      expect.arrayContaining(otherSources.map((source) => source.sourceId)),
+    );
+    expect(candidates).toHaveLength(7);
+    expect(candidates.map((candidate) => candidate.sourceId)).not.toContain(
+      cafeTolo.sourceId,
+    );
+  });
+
   it("does not claim Cafe Tolo on Sunday", async () => {
     const sundayLunch = new Date("2026-08-23T04:00:00.000Z");
     const closed = await createEligibleSource("Cafe Tolo", {
@@ -433,14 +463,17 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     expect(closedRuns).toEqual([]);
   });
 
-  it("claims Cafe Tolo during its Saturday lunch window", async () => {
-    const saturdayLunch = new Date("2099-08-22T04:00:00.000Z");
+  it.each([
+    ["lunch", "2099-08-22T04:00:00.000Z"],
+    ["dinner", "2099-08-22T10:00:00.000Z"],
+  ])("claims Cafe Tolo during its Saturday %s window", async (_, timestamp) => {
+    const saturdayServiceWindow = new Date(timestamp);
     const { sourceId } = await createEligibleSource("Cafe Tolo", {
       closedWeekdays: [0],
       externalStoreId: "4899",
       syncMealPeriods: ["lunch", "dinner"],
     });
-    readMenuSyncDatabaseNow.mockResolvedValue(saturdayLunch);
+    readMenuSyncDatabaseNow.mockResolvedValue(saturdayServiceWindow);
     fetchMenuFromProvider.mockResolvedValue(
       buildPinmeMenuSyncPayload(pinmeCurrent),
     );
