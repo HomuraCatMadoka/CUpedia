@@ -126,43 +126,56 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
   let pool: Pool;
 
   async function cleanupFacts() {
-    await pool.query(
-      `delete from campus_map_current_facts
+    const client = await pool.connect();
+    await client.query("begin");
+    try {
+      // Test fixtures exercise an append-only production ledger. Cleanup is a
+      // superuser-only maintenance operation scoped to this transaction.
+      await client.query("set local session_replication_role = replica");
+      await client.query(
+        `delete from campus_map_current_facts
        where place_id = any($1::uuid[])`,
-      [[ids.place, ids.targetPlace]],
-    );
-    await pool.query(
-      `delete from campus_map_current_revisions
+        [[ids.place, ids.targetPlace]],
+      );
+      await client.query(
+        `delete from campus_map_current_revisions
        where place_id = any($1::uuid[])`,
-      [[ids.place, ids.targetPlace]],
-    );
-    await pool.query(
-      `delete from campus_map_revision_visibility where revision_id in
+        [[ids.place, ids.targetPlace]],
+      );
+      await client.query(
+        `delete from campus_map_revision_visibility where revision_id in
          (select id from campus_map_fact_revisions where actor_id_snapshot = $1)`,
-      [ids.actor],
-    );
-    await pool.query(
-      `delete from campus_map_revision_provenance where revision_id in
+        [ids.actor],
+      );
+      await client.query(
+        `delete from campus_map_revision_provenance where revision_id in
          (select id from campus_map_fact_revisions where actor_id_snapshot = $1)`,
-      [ids.actor],
-    );
-    await pool.query(
-      `delete from campus_map_fact_revisions where actor_id_snapshot = $1`,
-      [ids.actor],
-    );
-    await pool.query(
-      `delete from campus_map_place_changes where changeset_id in
+        [ids.actor],
+      );
+      await client.query(
+        `delete from campus_map_fact_revisions where actor_id_snapshot = $1`,
+        [ids.actor],
+      );
+      await client.query(
+        `delete from campus_map_place_changes where changeset_id in
          (select id from campus_map_changesets where actor_id_snapshot = $1)`,
-      [ids.actor],
-    );
-    await pool.query(
-      `delete from campus_map_changesets where actor_id_snapshot = $1`,
-      [ids.actor],
-    );
-    await pool.query(
-      `delete from campus_map_places where id = any($1::uuid[])`,
-      [[ids.place, ids.targetPlace]],
-    );
+        [ids.actor],
+      );
+      await client.query(
+        `delete from campus_map_changesets where actor_id_snapshot = $1`,
+        [ids.actor],
+      );
+      await client.query(
+        `delete from campus_map_places where id = any($1::uuid[])`,
+        [[ids.place, ids.targetPlace]],
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   beforeAll(async () => {
@@ -442,5 +455,47 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
     await expect(
       getCampusMapChangeset(ids.candidateBChangeset),
     ).resolves.toBeNull();
+  });
+
+  it("restores a retired Place with a new active revision", async () => {
+    await appendCampusMapChangeset(initialCommand());
+    await appendCampusMapChangeset(
+      onePlaceCommand({
+        changesetId: ids.candidateAChangeset,
+        changeId: ids.candidateAChange,
+        revisionId: ids.candidateARevision,
+        baseRevisionId: ids.revision,
+        operation: "retire",
+        status: "retired",
+      }),
+    );
+    await expect(getCampusMapCurrentPlace(ids.place)).resolves.toBeNull();
+
+    await appendCampusMapChangeset(
+      onePlaceCommand({
+        changesetId: ids.candidateBChangeset,
+        changeId: ids.candidateBChange,
+        revisionId: ids.candidateBRevision,
+        baseRevisionId: ids.candidateARevision,
+        operation: "restore",
+        status: "active",
+        name: "恢复后的饮水点",
+      }),
+    );
+
+    await expect(getCampusMapCurrentPlace(ids.place)).resolves.toMatchObject({
+      revisionId: ids.candidateBRevision,
+      name: "恢复后的饮水点",
+    });
+    expect(
+      (await getCampusMapPlaceHistory(ids.place)).items.map((item) => [
+        item.id,
+        item.status,
+      ]),
+    ).toEqual([
+      [ids.candidateBRevision, "active"],
+      [ids.candidateARevision, "retired"],
+      [ids.revision, "active"],
+    ]);
   });
 });

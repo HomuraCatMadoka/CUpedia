@@ -44,9 +44,68 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
   let pool: Pool;
   let database: ReturnType<typeof drizzle>;
 
+  async function cleanupFixture() {
+    const client = await pool.connect();
+    await client.query("begin");
+    try {
+      // The ledger is append-only in production. Fixture cleanup is an
+      // explicit superuser maintenance operation scoped to this transaction.
+      await client.query("set local session_replication_role = replica");
+      await client.query(
+        `delete from campus_map_current_facts where place_id = $1`,
+        [ids.place],
+      );
+      await client.query(
+        `delete from campus_map_current_revisions where place_id = $1`,
+        [ids.place],
+      );
+      await client.query(
+        `delete from campus_map_revision_visibility where revision_id = $1`,
+        [ids.revision],
+      );
+      await client.query(
+        `delete from campus_map_revision_provenance where revision_id = $1`,
+        [ids.revision],
+      );
+      await client.query(
+        `delete from campus_map_fact_revisions where id = $1`,
+        [ids.revision],
+      );
+      await client.query(`delete from campus_map_place_changes where id = $1`, [
+        ids.placeChange,
+      ]);
+      await client.query(`delete from campus_map_changesets where id = $1`, [
+        ids.changeset,
+      ]);
+      await client.query(`delete from campus_map_places where id = $1`, [
+        ids.place,
+      ]);
+      await client.query(`delete from campus_map_floors where id = $1`, [
+        ids.floor,
+      ]);
+      await client.query(`delete from campus_map_buildings where id = $1`, [
+        ids.building,
+      ]);
+      await client.query(
+        `delete from campus_map_provenance_sources where id = $1`,
+        [ids.provenance],
+      );
+      await client.query(
+        `delete from campus_map_fact_schemas where version = 701`,
+      );
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.DATABASE_URL });
     database = drizzle(pool);
+    await cleanupFixture();
 
     await database.insert(campusMapFactSchemas).values({
       version: 701,
@@ -89,6 +148,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       clientVersion: "1",
       affectedCount: 1,
       createdCount: 1,
+      publishedAt: new Date("2026-08-22T01:00:00Z"),
     });
     await database.insert(campusMapPlaceChanges).values({
       id: ids.placeChange,
@@ -152,42 +212,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
 
   afterAll(async () => {
     if (!pool) return;
-    await database
-      .delete(campusMapCurrentFacts)
-      .where(eq(campusMapCurrentFacts.placeId, ids.place));
-    await database
-      .delete(campusMapCurrentRevisions)
-      .where(eq(campusMapCurrentRevisions.placeId, ids.place));
-    await database
-      .delete(campusMapRevisionVisibility)
-      .where(eq(campusMapRevisionVisibility.revisionId, ids.revision));
-    await database
-      .delete(campusMapRevisionProvenance)
-      .where(eq(campusMapRevisionProvenance.revisionId, ids.revision));
-    await database
-      .delete(campusMapFactRevisions)
-      .where(eq(campusMapFactRevisions.id, ids.revision));
-    await database
-      .delete(campusMapPlaceChanges)
-      .where(eq(campusMapPlaceChanges.id, ids.placeChange));
-    await database
-      .delete(campusMapChangesets)
-      .where(eq(campusMapChangesets.id, ids.changeset));
-    await database
-      .delete(campusMapPlaces)
-      .where(eq(campusMapPlaces.id, ids.place));
-    await database
-      .delete(campusMapFloors)
-      .where(eq(campusMapFloors.id, ids.floor));
-    await database
-      .delete(campusMapBuildings)
-      .where(eq(campusMapBuildings.id, ids.building));
-    await database
-      .delete(campusMapProvenanceSources)
-      .where(eq(campusMapProvenanceSources.id, ids.provenance));
-    await database
-      .delete(campusMapFactSchemas)
-      .where(eq(campusMapFactSchemas.version, 701));
+    await cleanupFixture();
     await pool.end();
   });
 
