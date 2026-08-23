@@ -1707,6 +1707,18 @@ export const canteenMenuSources = pgTable(
       .$type<CanteenMenuSourceConfig>()
       .notNull()
       .default({}),
+    /** HKT weekdays (Sunday=0) when recurring sync should skip this source. */
+    closedWeekdays: integer("closed_weekdays")
+      .array()
+      .$type<number[]>()
+      .notNull()
+      .default([]),
+    /** Meal windows in which recurring sync should claim this source. */
+    syncMealPeriods: text("sync_meal_periods")
+      .array()
+      .$type<MealPeriod[]>()
+      .notNull()
+      .default(["breakfast", "lunch", "dinner"]),
     enabled: boolean("enabled").notNull().default(true),
     /** Identifies the latest worker attempt; health writes are conditional on it. */
     lastAttemptId: uuid("last_attempt_id"),
@@ -1751,6 +1763,14 @@ export const canteenMenuSources = pgTable(
     check(
       "canteen_menu_sources_claim_chk",
       sql`(${table.syncClaimToken} is null) = (${table.syncClaimExpiresAt} is null)`,
+    ),
+    check(
+      "canteen_menu_sources_closed_weekdays_chk",
+      sql`${table.closedWeekdays} <@ array[0, 1, 2, 3, 4, 5, 6]::integer[] and cardinality(${table.closedWeekdays}) <= 7`,
+    ),
+    check(
+      "canteen_menu_sources_sync_meal_periods_chk",
+      sql`${table.syncMealPeriods} <@ array['breakfast', 'lunch', 'dinner']::text[] and cardinality(${table.syncMealPeriods}) between 1 and 3`,
     ),
   ],
 ).enableRLS();

@@ -22,6 +22,11 @@ rather than overlaps, production drains. `continue` advances immediately,
 `no-work` completes the run, and `retry-later` uses bounded 2/5-minute
 backoff. `stop-for-review`, HTTP/authentication/configuration errors, malformed
 responses, request timeouts, and exhausted budgets fail the workflow visibly.
+Sources outside a configured meal period or on a configured closed weekday are
+excluded using the database-time Asia/Hong_Kong calendar before any claim is
+created. Among otherwise claimable sources, an untouched source runs before one
+that already failed in the current window, so one transient provider does not
+starve the rest of the drain.
 
 ## Cutover and recovery
 
@@ -41,5 +46,7 @@ Admin canteen sync health view for 3–7 days. Confirm that every intentionally
 enabled source completes each expected window without overlapping active
 claims. Treat unresolved churn, suspicious drop, conflict, provider failure,
 timeout, stale claim, or freshness state as review-required. During a daytime
-window, confirm Cafe Tolo (`pinme:4899`) produces a non-empty ordinary result;
-`EMPTY_PINME_MENU` must remain fail-closed outside that provider window.
+window on an operating day, confirm Cafe Tolo (`pinme:4899`) produces a
+non-empty ordinary result. Its published hours are Monday-Saturday
+11:00-19:45, so it is skipped for breakfast and throughout Sunday;
+`EMPTY_PINME_MENU` remains fail-closed on every attempted fetch.

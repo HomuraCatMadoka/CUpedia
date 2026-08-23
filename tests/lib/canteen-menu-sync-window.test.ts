@@ -13,7 +13,7 @@ describe("canteen menu sync windows", () => {
   ] as const)("maps %s to the fixed %s window", (timestamp, period, key) => {
     const window = menuSyncWindowAt(new Date(timestamp));
 
-    expect(window).toMatchObject({ period, key });
+    expect(window).toMatchObject({ period, key, hktWeekday: 4 });
     expect(window?.startsAt.getTime()).toBeLessThanOrEqual(
       new Date(timestamp).getTime(),
     );

@@ -11,6 +11,7 @@ const WINDOW_START_HOURS = {
 export type MenuSyncWindow = {
   key: string;
   period: MealPeriod;
+  hktWeekday: number;
   startsAt: Date;
   endsAt: Date;
 };
@@ -52,6 +53,7 @@ export function menuSyncWindowAt(databaseNow: Date): MenuSyncWindow {
   return {
     key: `${date}/${period}`,
     period,
+    hktWeekday: hkt.getUTCDay(),
     startsAt: localBoundaryUtc(year, month, day, startHour),
     endsAt: localBoundaryUtc(year, month, day, endHour),
   };

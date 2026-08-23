@@ -134,6 +134,8 @@ async function readMenuSourceScheduleFacts(
       and run.started_at >= ${window.startsAt}
       and run.started_at < ${window.endsAt}
     where source.enabled = true
+      and not (${window.hktWeekday} = any(source.closed_weekdays))
+      and ${window.period} = any(source.sync_meal_periods)
       and ${sourceFilter}
     group by source.id
     having count(run.id) filter (
@@ -160,10 +162,12 @@ export async function listMenuSourceScheduleCandidates(
     .map((item) => ({
       candidate: classifyMenuSourceSchedule(item, databaseNow),
       createdAt: item.createdAt,
+      failureCount: item.failureCount,
     }))
     .sort(
       (left, right) =>
         candidateRank(left.candidate) - candidateRank(right.candidate) ||
+        left.failureCount - right.failureCount ||
         left.createdAt.getTime() - right.createdAt.getTime() ||
         left.candidate.sourceId.localeCompare(right.candidate.sourceId),
     )

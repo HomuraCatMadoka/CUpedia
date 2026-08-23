@@ -7,6 +7,7 @@ import {
   canteenMenuItems,
   canteenMenuSources,
   canteenMenuSyncRuns,
+  canteenMenuSyncSnapshots,
   canteens,
 } from "@/db/schema";
 import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
@@ -84,7 +85,14 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     return menuSyncWindowAt(databaseNow);
   }
 
-  async function createEligibleSource(name: string) {
+  async function createEligibleSource(
+    name: string,
+    options: {
+      closedWeekdays?: number[];
+      externalStoreId?: string;
+      syncMealPeriods?: ("breakfast" | "lunch" | "dinner")[];
+    } = {},
+  ) {
     const currentWindow = await currentDatabaseWindow();
     const canteenId = randomUUID();
     const sourceId = randomUUID();
@@ -94,7 +102,13 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
       id: sourceId,
       canteenId,
       provider: "pinme",
-      externalStoreId: `scheduler-${sourceId}`,
+      externalStoreId: options.externalStoreId ?? `scheduler-${sourceId}`,
+      closedWeekdays: options.closedWeekdays ?? [],
+      syncMealPeriods: options.syncMealPeriods ?? [
+        "breakfast",
+        "lunch",
+        "dinner",
+      ],
     });
     return { canteenId, sourceId, currentWindow };
   }
@@ -349,9 +363,129 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     expect(fetchMenuFromProvider).not.toHaveBeenCalled();
   });
 
+  it("syncs an untouched source before retrying an earlier failed source", async () => {
+    const databaseNow = new Date("2099-08-20T06:37:00.000Z");
+    const retrying = await createEligibleSource("等待重试的来源");
+    const untouched = await createEligibleSource("尚未尝试的来源");
+    await db
+      .update(canteenMenuSources)
+      .set({ createdAt: new Date(Date.now() - 60_000) })
+      .where(eq(canteenMenuSources.id, retrying.sourceId));
+    const completedAt = new Date(databaseNow.getTime() - 3 * 60_000);
+    await db.insert(canteenMenuSyncRuns).values({
+      id: randomUUID(),
+      menuSourceId: retrying.sourceId,
+      status: "failed",
+      errorCode: "EMPTY_PINME_MENU",
+      error: "EMPTY_PINME_MENU",
+      startedAt: completedAt,
+      completedAt,
+    });
+    readMenuSyncDatabaseNow.mockResolvedValue(databaseNow);
+    fetchMenuFromProvider.mockResolvedValue(
+      buildPinmeMenuSyncPayload(pinmeCurrent),
+    );
+
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "continue",
+      sourceId: untouched.sourceId,
+      result: { status: "applied" },
+    });
+  });
+
+  it("does not claim Cafe Tolo before its Monday opening window", async () => {
+    const mondayBreakfast = new Date("2026-08-24T00:00:00.000Z");
+    const closed = await createEligibleSource("Cafe Tolo", {
+      closedWeekdays: [0],
+      externalStoreId: "4899",
+      syncMealPeriods: ["lunch", "dinner"],
+    });
+    readMenuSyncDatabaseNow.mockResolvedValue(mondayBreakfast);
+
+    await expect(syncNextDueMenuSource()).resolves.toEqual({
+      disposition: "no-work",
+      window: "2026-08-24/breakfast",
+    });
+    const closedRuns = await db
+      .select({ id: canteenMenuSyncRuns.id })
+      .from(canteenMenuSyncRuns)
+      .where(eq(canteenMenuSyncRuns.menuSourceId, closed.sourceId));
+    expect(closedRuns).toEqual([]);
+  });
+
+  it("does not claim Cafe Tolo on Sunday", async () => {
+    const sundayLunch = new Date("2026-08-23T04:00:00.000Z");
+    const closed = await createEligibleSource("Cafe Tolo", {
+      closedWeekdays: [0],
+      externalStoreId: "4899",
+      syncMealPeriods: ["lunch", "dinner"],
+    });
+    readMenuSyncDatabaseNow.mockResolvedValue(sundayLunch);
+
+    await expect(syncNextDueMenuSource()).resolves.toEqual({
+      disposition: "no-work",
+      window: "2026-08-23/lunch",
+    });
+    const closedRuns = await db
+      .select({ id: canteenMenuSyncRuns.id })
+      .from(canteenMenuSyncRuns)
+      .where(eq(canteenMenuSyncRuns.menuSourceId, closed.sourceId));
+    expect(closedRuns).toEqual([]);
+  });
+
+  it("claims Cafe Tolo during its Saturday lunch window", async () => {
+    const saturdayLunch = new Date("2099-08-22T04:00:00.000Z");
+    const { sourceId } = await createEligibleSource("Cafe Tolo", {
+      closedWeekdays: [0],
+      externalStoreId: "4899",
+      syncMealPeriods: ["lunch", "dinner"],
+    });
+    readMenuSyncDatabaseNow.mockResolvedValue(saturdayLunch);
+    fetchMenuFromProvider.mockResolvedValue(
+      buildPinmeMenuSyncPayload(pinmeCurrent),
+    );
+
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "continue",
+      sourceId,
+      result: { status: "applied" },
+    });
+  });
+
+  it("records an unexpected empty PinMe menu as a failed run without a snapshot", async () => {
+    const databaseNow = new Date("2099-08-21T06:37:00.000Z");
+    const { sourceId } = await createEligibleSource("意外空菜单来源");
+    readMenuSyncDatabaseNow.mockResolvedValue(databaseNow);
+    fetchMenuFromProvider.mockRejectedValue(new Error("EMPTY_PINME_MENU"));
+
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "retry-later",
+      sourceId,
+      code: "EMPTY_PINME_MENU",
+      result: { status: "provider-failure", code: "EMPTY_PINME_MENU" },
+    });
+
+    const [runs, snapshots] = await Promise.all([
+      db
+        .select({
+          status: canteenMenuSyncRuns.status,
+          errorCode: canteenMenuSyncRuns.errorCode,
+        })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId)),
+      db
+        .select({ runId: canteenMenuSyncSnapshots.runId })
+        .from(canteenMenuSyncSnapshots)
+        .where(eq(canteenMenuSyncSnapshots.menuSourceId, sourceId)),
+    ]);
+    expect(runs).toEqual([{ status: "failed", errorCode: "EMPTY_PINME_MENU" }]);
+    expect(snapshots).toEqual([]);
+  });
+
   it("returns stop-for-review immediately when the third transient attempt fails", async () => {
+    const databaseNow = new Date("2099-08-20T06:37:00.000Z");
     const { sourceId } = await createEligibleSource("第三次失败的来源");
-    const completedAt = new Date(Date.now() - 6 * 60_000);
+    const completedAt = new Date(databaseNow.getTime() - 6 * 60_000);
     await db.insert(canteenMenuSyncRuns).values(
       Array.from({ length: 2 }, (_, index) => ({
         id: randomUUID(),
@@ -363,6 +497,7 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
         completedAt,
       })),
     );
+    readMenuSyncDatabaseNow.mockResolvedValue(databaseNow);
     fetchMenuFromProvider.mockRejectedValue(new Error("PROVIDER_UNAVAILABLE"));
 
     await expect(syncNextDueMenuSource()).resolves.toMatchObject({
