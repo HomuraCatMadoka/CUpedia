@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import type { HktWeekday } from "@/db/schema";
 import { menuSyncWindowAt } from "@/lib/canteen-menu-sync-window";
 
 describe("canteen menu sync windows", () => {
@@ -13,6 +14,7 @@ describe("canteen menu sync windows", () => {
   ] as const)("maps %s to the fixed %s window", (timestamp, period, key) => {
     const window = menuSyncWindowAt(new Date(timestamp));
 
+    expectTypeOf(window.hktWeekday).toEqualTypeOf<HktWeekday>();
     expect(window).toMatchObject({ period, key, hktWeekday: 4 });
     expect(window?.startsAt.getTime()).toBeLessThanOrEqual(
       new Date(timestamp).getTime(),

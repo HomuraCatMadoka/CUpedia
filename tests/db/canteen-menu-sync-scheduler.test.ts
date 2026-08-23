@@ -9,6 +9,7 @@ import {
   canteenMenuSyncRuns,
   canteenMenuSyncSnapshots,
   canteens,
+  type HktWeekday,
 } from "@/db/schema";
 import { buildPinmeMenuSyncPayload } from "@/lib/canteen-pinme-menu";
 import { listMenuSourceScheduleCandidates } from "@/lib/canteen-menu-sync-scheduler";
@@ -89,7 +90,7 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
   async function createEligibleSource(
     name: string,
     options: {
-      closedWeekdays?: number[];
+      closedWeekdays?: HktWeekday[];
       externalStoreId?: string;
       syncMealPeriods?: ("breakfast" | "lunch" | "dinner")[];
     } = {},

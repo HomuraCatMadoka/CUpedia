@@ -2,6 +2,7 @@ import { db } from "@/db";
 import {
   canteenMenuSyncSnapshotItems,
   canteenMenuSyncSnapshots,
+  type HktWeekday,
 } from "@/db/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { menuSnapshotComparisonContext } from "./canteen-menu-snapshot-completeness";
@@ -40,7 +41,8 @@ function observationWindowFacts(observedAt: Date) {
   return {
     syncWindowKey: window.key,
     mealPeriod: window.period,
-    hktWeekday: hkt.getUTCDay(),
+    // Date#getUTCDay is specified to return an integer in the 0-6 domain.
+    hktWeekday: hkt.getUTCDay() as HktWeekday,
     observedMinuteOfDay: hkt.getUTCHours() * 60 + hkt.getUTCMinutes(),
   };
 }

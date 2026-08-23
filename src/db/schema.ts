@@ -1663,6 +1663,9 @@ export const notifications = pgTable(
 export const MEAL_PERIODS = ["breakfast", "lunch", "dinner"] as const;
 export type MealPeriod = (typeof MEAL_PERIODS)[number];
 
+/** JavaScript weekday numbering interpreted in Asia/Hong_Kong (Sunday=0). */
+export type HktWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
 export const ALLDAY_MEAL_PERIOD = "allday" as const;
 /** Stored assignment values: specific periods and/or exclusive allday. */
 export const MEAL_PERIOD_VALUES = [
@@ -1710,7 +1713,7 @@ export const canteenMenuSources = pgTable(
     /** HKT weekdays (Sunday=0) when recurring sync should skip this source. */
     closedWeekdays: integer("closed_weekdays")
       .array()
-      .$type<number[]>()
+      .$type<HktWeekday[]>()
       .notNull()
       .default([]),
     /** Meal windows in which recurring sync should claim this source. */
@@ -1909,7 +1912,7 @@ export const canteenMenuSyncSnapshots = pgTable(
     itemCount: integer("item_count").notNull(),
     syncWindowKey: text("sync_window_key").notNull(),
     mealPeriod: text("meal_period").$type<MealPeriod>().notNull(),
-    hktWeekday: integer("hkt_weekday").notNull(),
+    hktWeekday: integer("hkt_weekday").$type<HktWeekday>().notNull(),
     observedMinuteOfDay: integer("observed_minute_of_day").notNull(),
     /** Bounded normalized provider scope evidence; never a raw response. */
     scopeEvidence: jsonb("scope_evidence")
