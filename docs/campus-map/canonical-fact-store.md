@@ -15,19 +15,26 @@ domain read models for:
 
 The read boundary never returns Drizzle rows, provider IDs, moderation
 references, user-account foreign keys, idempotency keys, or request
-fingerprints. Missing visibility metadata fails closed as redacted.
+fingerprints. Current reads join revision visibility and return only public
+facts; missing visibility metadata fails closed as redacted.
 
 The canonical V1 schema and display metadata are available from the read
 boundary on a fresh database. The first V1 append idempotently persists that
 active schema inside the same storage transaction before its revision FK is
 written; later schema lifecycle remains explicit and version-addressable.
 
-`src/lib/campus-map/fact-store-transaction.ts` is the internal publishing seam.
-One Changeset command locks stable Place rows in canonical ID order, validates
-every base revision, appends Changeset/change/revision/provenance/visibility,
-and advances Current revision and Current fact atomically. #718 owns
-authentication, command validation, rate limits, and idempotency orchestration
-around this storage command; it does not write fact tables directly.
+`src/lib/campus-map/publish.ts` owns the sole application publishing seam,
+`publishCampusMapChangeset`. Routes, server actions, importers, and admin tools
+must submit intent through that function rather than calling the storage writer
+or updating fact tables. Its private implementation modules own command
+validation and the persistent actor/IP rate policy.
+
+`src/lib/campus-map/fact-store-transaction.ts` is an internal storage mechanism
+behind that seam. One Changeset command locks stable Place rows in canonical ID
+order, validates every base revision, resolves immutable provenance identities,
+appends Changeset/change/revision/provenance/visibility, and advances Current
+revision and Current fact atomically. It does not authenticate a caller or
+expose a second application publish path.
 
 ## Persistence invariants
 
@@ -58,20 +65,61 @@ around this storage command; it does not write fact tables directly.
   survivor active, and points the loser at that survivor's stable Place ID.
 - User foreign keys use `ON DELETE SET NULL`; actor ID and nickname snapshots
   remain in public history.
-- The private publish-request table owns actor-scoped idempotency keys and
-  fingerprints. Public Changeset reads cannot join or expose them.
+- The private publish-request table owns actor-scoped idempotency keys,
+  fingerprints, and the completed typed result needed for exact replay. A
+  `processing` row and every fact write share one transaction, so rollback
+  cannot leave a stuck request. Public Changeset reads cannot join or expose
+  this state.
+- The private rate table stores only HMAC-derived actor/IP subjects and the
+  fixed burst/sustained windows. Exact completed replays are resolved before
+  quota is consumed; validation, warning, and conflict attempts remain subject
+  to abuse policy. Actor windows are checked before IP windows, so an actor that
+  is already limited cannot create unbounded IP subjects by rotating addresses.
+  Inactive subjects older than the longest window are reclaimed in bounded,
+  non-blocking batches.
 - Redacted revisions retain their chain and operation placeholder, while public
-  history and Changeset projections suppress both fact snapshots and field
-  diffs so before/after values cannot recover the hidden payload.
+  Current, history, Changeset, and duplicate-warning projections suppress fact
+  snapshots, provenance, field diffs, and Changeset bounding boxes so no read or
+  warning can recover the hidden payload.
 - Projection replacement deletes the old Current fact before advancing Current
   revision, then inserts a new fact only for an active revision. The immediate
   FK remains representable by `schema.ts`; transaction isolation hides all
   intermediate statements from readers.
 
-Operation/status transitions, active merge-survivor checks, required revision
-provenance/visibility, authentication, and command validation remain owned by
-the fact-store transaction seam. They are intentionally not duplicated as a
-second set of cross-table trigger rules.
+Operation/status transitions, active merge-survivor checks, and required
+revision provenance/visibility remain owned by the fact-store storage
+mechanism. Fresh authorization, command validation, warnings, rate policy, and
+idempotency remain owned by the sole publish seam. They are intentionally not
+duplicated as a second set of cross-table trigger rules.
+
+The publisher acquires locks in a stable order: actor-scoped idempotency
+advisory lock, fresh User and credential eligibility rows, actor/IP rate rows in
+fixed policy order, a non-blocking rate-cleanup advisory lock, existing Place
+and Current visibility rows in canonical Place UUID order, normalized warning
+domains in name/pin order, then provenance advisory locks in numeric key order.
+Exact completed replay returns before eligibility and quota because it does not
+create a new publication. No network request or slow external adapter runs
+inside the transaction.
+
+UUID command identities are normalized to their canonical lowercase form once,
+before request fingerprinting, deduplication, lock ordering, reference checks,
+and Current-revision CAS. PostgreSQL UUID rendering therefore cannot disagree
+with otherwise valid uppercase client input.
+
+Server-computed field diffs compare canonical display values: controlled
+multi-selects and weekly schedule days use schema order, weekly intervals and
+JSON object keys are stable, and `observedAt` has revision-local typed metadata.
+Representation-only reordering cannot create a Fact revision, while an
+`observedAt`-only correction remains a real change.
+
+Duplicate warnings compare both public Current facts and facts proposed earlier
+in the same bulk command. Their HMAC fingerprints bind the proposed fact to each
+candidate's warning-relevant location and, for Current candidates, revision ID,
+so acknowledgements cannot survive a relevant candidate change. Transaction
+locks serialize publishers in each warning domain before candidates are read,
+preventing concurrent creates from both observing an empty Current set. The
+persisted-name trim is normalized once by PostgreSQL and the result is reused by
+domain locks, Current queries, bulk comparisons, and fingerprints.
 
 The projection-hardening migration validates every existing Current fact while
 installing the trigger. This takes a write lock and rewrites that projection;

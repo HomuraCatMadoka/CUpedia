@@ -2263,6 +2263,9 @@ export const campusMapCurrentFacts = pgTable(
       table.floorId,
       table.pinType,
     ),
+    index("campus_map_current_facts_duplicate_warning_idx")
+      .on(sql`lower(btrim(${table.name}))`, table.pinType)
+      .where(sql`btrim(${table.name}) <> ''`),
     index("campus_map_current_facts_geo_idx")
       .on(table.longitude, table.latitude)
       .where(sql`${table.locationKind} = 'outdoor-point'`),
@@ -2319,6 +2322,21 @@ export const campusMapProviderMappings = pgTable(
   ],
 );
 
+export type CampusMapStoredPublishResult = {
+  status: "published";
+  changesetId: string;
+  changes: Array<{ placeId: string; revisionId: string }>;
+  warnings: Array<{
+    code: string;
+    anchor: { changeIndex?: number; placeId?: string; field?: string };
+    fingerprint: string;
+  }>;
+  suggestions: Array<{
+    code: string;
+    anchor: { changeIndex?: number; placeId?: string; field?: string };
+  }>;
+};
+
 export const campusMapPublishRequests = pgTable(
   "campus_map_publish_requests",
   {
@@ -2333,6 +2351,7 @@ export const campusMapPublishRequests = pgTable(
     changesetId: uuid("changeset_id")
       .unique()
       .references(() => campusMapChangesets.id, { onDelete: "restrict" }),
+    result: jsonb("result").$type<CampusMapStoredPublishResult>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -2350,12 +2369,52 @@ export const campusMapPublishRequests = pgTable(
       sql`(
         ${table.status} = 'processing'
         and ${table.changesetId} is null
+        and ${table.result} is null
         and ${table.completedAt} is null
       ) or (
         ${table.status} = 'published'
         and ${table.changesetId} is not null
+        and ${table.result} is not null
         and ${table.completedAt} is not null
       )`,
+    ),
+  ],
+);
+
+export const campusMapPublishRateLimits = pgTable(
+  "campus_map_publish_rate_limits",
+  {
+    scope: text("scope").notNull(),
+    subjectHash: text("subject_hash").notNull(),
+    windowKind: text("window_kind").notNull(),
+    windowStartedAt: timestamp("window_started_at", {
+      withTimezone: true,
+    }).notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.scope, table.subjectHash, table.windowKind],
+    }),
+    index("campus_map_publish_rate_limits_updated_idx").on(table.updatedAt),
+    check(
+      "campus_map_publish_rate_limits_scope_check",
+      sql`${table.scope} in ('actor', 'ip')`,
+    ),
+    check(
+      "campus_map_publish_rate_limits_window_check",
+      sql`${table.windowKind} in ('burst', 'sustained')`,
+    ),
+    check(
+      "campus_map_publish_rate_limits_subject_hash_check",
+      sql`char_length(${table.subjectHash}) = 64`,
+    ),
+    check(
+      "campus_map_publish_rate_limits_attempt_count_check",
+      sql`${table.attemptCount} >= 0`,
     ),
   ],
 );

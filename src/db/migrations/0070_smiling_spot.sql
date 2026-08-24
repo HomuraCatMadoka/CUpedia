@@ -1,0 +1,1 @@
+CREATE INDEX "campus_map_current_facts_duplicate_warning_idx" ON "campus_map_current_facts" USING btree (lower(btrim("name")),"pin_type") WHERE btrim("campus_map_current_facts"."name") <> '';

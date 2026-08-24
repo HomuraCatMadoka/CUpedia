@@ -1,4 +1,5 @@
-import { eq, inArray } from "drizzle-orm";
+import { createHash, randomUUID } from "node:crypto";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -10,6 +11,7 @@ import {
   campusMapFactSchemas,
   campusMapPlaceChanges,
   campusMapPlaces,
+  campusMapProvenanceSources,
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
   CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
@@ -25,8 +27,12 @@ import {
   type CampusMapPinType,
   type CampusMapPlaceOperation,
   type CampusMapPointPrecision,
+  type CampusMapProvenanceKind,
   type CampusMapReservationRequirement,
   type CampusMapRevisionStatus,
+  type CampusMapRightsStatus,
+  type CampusMapSourceCoordinateCrs,
+  type CampusMapCoordinateConversionMethod,
   type CampusMapTemporaryStatus,
   type CampusMapWheelchairAccess,
 } from "@/db/schema";
@@ -37,6 +43,14 @@ export type CampusMapCurrentRevisionState = {
   revisionId: string;
   status: "active" | "retired" | "merged";
 } | null;
+
+export interface CampusMapLockedRevisionSnapshot {
+  revisionId: string;
+  status: "active" | "retired" | "merged";
+  factSchemaVersion: number;
+  fact: CampusMapAppendFact;
+  visibility: "public" | "redacted";
+}
 
 export interface CampusMapAppendFact {
   name: string;
@@ -59,6 +73,25 @@ export interface CampusMapAppendFact {
   observedAt: Date | null;
   verifiedAt: Date | null;
   verifiedByActorIdSnapshot: string | null;
+}
+
+export interface CampusMapAppendProvenanceSource {
+  kind: CampusMapProvenanceKind;
+  ref: string;
+  url: string | null;
+  owner: string | null;
+  version: string | null;
+  snapshotHash: string | null;
+  accessedOn: string;
+  observedAt: Date | null;
+  rightsStatus: CampusMapRightsStatus;
+  limitations: string | null;
+  note: string | null;
+  sourceCoordinateX: number | null;
+  sourceCoordinateY: number | null;
+  sourceCoordinateCrs: CampusMapSourceCoordinateCrs | null;
+  conversionMethod: CampusMapCoordinateConversionMethod | null;
+  conversionVersion: string | null;
 }
 
 export interface CampusMapAppendPlaceChange {
@@ -106,9 +139,20 @@ export class CampusMapMergedPlaceError extends Error {
   }
 }
 
+export class CampusMapProvenanceIdentityConflictError extends Error {
+  constructor(
+    readonly kind: CampusMapProvenanceKind,
+    readonly ref: string,
+  ) {
+    super(`Campus Map provenance ${kind}:${ref} has different metadata`);
+    this.name = "CampusMapProvenanceIdentityConflictError";
+  }
+}
+
 /**
- * Internal storage transaction for #718. It does not authenticate or validate
- * a publish command; it only protects the canonical pointer/projection seam.
+ * Internal storage mechanism behind the application publish seam. It protects
+ * provenance identity, the immutable ledger, and canonical projections; it
+ * does not authenticate callers or validate a publish command.
  */
 export class CampusMapFactStoreTransaction {
   constructor(private readonly transaction: DatabaseTransaction) {}
@@ -116,6 +160,93 @@ export class CampusMapFactStoreTransaction {
   async lockCurrentRevision(
     placeId: string,
   ): Promise<CampusMapCurrentRevisionState> {
+    if (!(await this.lockPlace(placeId))) {
+      throw new Error("Campus Map Place does not exist");
+    }
+    return this.readLockedCurrentRevision(placeId);
+  }
+
+  async lockCurrentRevisionSnapshot(
+    placeId: string,
+  ): Promise<CampusMapLockedRevisionSnapshot | null> {
+    if (!(await this.lockPlace(placeId))) return null;
+    const current = await this.readLockedCurrentRevision(placeId);
+    if (!current) return null;
+
+    const [revision] = await this.transaction
+      .select({
+        factSchemaVersion: campusMapFactRevisions.factSchemaVersion,
+        name: campusMapFactRevisions.name,
+        buildingId: campusMapFactRevisions.buildingId,
+        floorId: campusMapFactRevisions.floorId,
+        pinType: campusMapFactRevisions.pinType,
+        capabilities: campusMapFactRevisions.capabilities,
+        gender: campusMapFactRevisions.gender,
+        wheelchairAccess: campusMapFactRevisions.wheelchairAccess,
+        audience: campusMapFactRevisions.audience,
+        credentialRequirement: campusMapFactRevisions.credentialRequirement,
+        accessSchedule: campusMapFactRevisions.accessSchedule,
+        reservationRequirement: campusMapFactRevisions.reservationRequirement,
+        temporaryStatus: campusMapFactRevisions.temporaryStatus,
+        locationKind: campusMapFactRevisions.locationKind,
+        pointPrecision: campusMapFactRevisions.pointPrecision,
+        longitude: campusMapFactRevisions.longitude,
+        latitude: campusMapFactRevisions.latitude,
+        coordinateCrs: campusMapFactRevisions.coordinateCrs,
+        observedAt: campusMapFactRevisions.observedAt,
+        verifiedAt: campusMapFactRevisions.verifiedAt,
+        verifiedByActorIdSnapshot:
+          campusMapFactRevisions.verifiedByActorIdSnapshot,
+        visibility: campusMapRevisionVisibility.visibility,
+      })
+      .from(campusMapFactRevisions)
+      .innerJoin(
+        campusMapRevisionVisibility,
+        eq(campusMapFactRevisions.id, campusMapRevisionVisibility.revisionId),
+      )
+      .where(eq(campusMapFactRevisions.id, current.revisionId))
+      .for("update", { of: campusMapRevisionVisibility })
+      .limit(1);
+    if (!revision) {
+      throw new Error("Campus Map Current revision snapshot does not exist");
+    }
+    if (
+      revision.visibility !== "public" &&
+      revision.visibility !== "redacted"
+    ) {
+      throw new Error("Campus Map Current revision visibility is invalid");
+    }
+    return {
+      revisionId: current.revisionId,
+      status: current.status,
+      factSchemaVersion: revision.factSchemaVersion,
+      fact: {
+        name: revision.name,
+        buildingId: revision.buildingId,
+        floorId: revision.floorId,
+        pinType: revision.pinType,
+        capabilities: revision.capabilities,
+        gender: revision.gender,
+        wheelchairAccess: revision.wheelchairAccess,
+        audience: revision.audience,
+        credentialRequirement: revision.credentialRequirement,
+        accessSchedule: revision.accessSchedule,
+        reservationRequirement: revision.reservationRequirement,
+        temporaryStatus: revision.temporaryStatus,
+        locationKind: revision.locationKind,
+        pointPrecision: revision.pointPrecision,
+        longitude: revision.longitude,
+        latitude: revision.latitude,
+        coordinateCrs: revision.coordinateCrs,
+        observedAt: revision.observedAt,
+        verifiedAt: revision.verifiedAt,
+        verifiedByActorIdSnapshot: revision.verifiedByActorIdSnapshot,
+      },
+      visibility: revision.visibility,
+    };
+  }
+
+  private async lockPlace(placeId: string): Promise<boolean> {
     // Lock the stable identity as well, so first publication is serialized even
     // before a Current revision row exists.
     const [place] = await this.transaction
@@ -124,8 +255,12 @@ export class CampusMapFactStoreTransaction {
       .where(eq(campusMapPlaces.id, placeId))
       .for("update")
       .limit(1);
-    if (!place) throw new Error("Campus Map Place does not exist");
+    return place !== undefined;
+  }
 
+  private async readLockedCurrentRevision(
+    placeId: string,
+  ): Promise<CampusMapCurrentRevisionState> {
     const [current] = await this.transaction
       .select({
         revisionId: campusMapCurrentRevisions.revisionId,
@@ -145,6 +280,145 @@ export class CampusMapFactStoreTransaction {
       throw new Error("Campus Map Current revision has an invalid status");
     }
     return { revisionId: current.revisionId, status: current.status };
+  }
+
+  async validateProvenanceSources(
+    sources: CampusMapAppendProvenanceSource[],
+  ): Promise<void> {
+    await this.lockAndValidateProvenanceSources(sources);
+  }
+
+  async resolveProvenanceSources(
+    sources: CampusMapAppendProvenanceSource[],
+  ): Promise<string[]> {
+    const { uniqueSources, existingByIdentity } =
+      await this.lockAndValidateProvenanceSources(sources);
+    const idByIdentity = new Map<string, string>();
+    for (const source of uniqueSources) {
+      const identity = provenanceIdentity(source);
+      const alreadyStored = existingByIdentity.get(identity);
+      if (alreadyStored) {
+        idByIdentity.set(identity, alreadyStored.id);
+        continue;
+      }
+      const [inserted] = await this.transaction
+        .insert(campusMapProvenanceSources)
+        .values({
+          id: randomUUID(),
+          sourceKind: source.kind,
+          sourceRef: source.ref,
+          sourceUrl: source.url,
+          sourceOwner: source.owner,
+          sourceVersion: source.version,
+          snapshotHash: source.snapshotHash,
+          accessedOn: source.accessedOn,
+          observedAt: source.observedAt,
+          rightsStatus: source.rightsStatus,
+          limitations: source.limitations,
+          note: source.note,
+          sourceCoordinateX: source.sourceCoordinateX,
+          sourceCoordinateY: source.sourceCoordinateY,
+          sourceCoordinateCrs: source.sourceCoordinateCrs,
+          conversionMethod: source.conversionMethod,
+          conversionVersion: source.conversionVersion,
+        })
+        .onConflictDoNothing({
+          target: [
+            campusMapProvenanceSources.sourceKind,
+            campusMapProvenanceSources.sourceRef,
+          ],
+        })
+        .returning({ id: campusMapProvenanceSources.id });
+      if (inserted) {
+        idByIdentity.set(identity, inserted.id);
+        continue;
+      }
+      const [raced] = await this.transaction
+        .select(provenanceSourceSelection)
+        .from(campusMapProvenanceSources)
+        .where(
+          and(
+            eq(campusMapProvenanceSources.sourceKind, source.kind),
+            eq(campusMapProvenanceSources.sourceRef, source.ref),
+          ),
+        )
+        .limit(1);
+      if (!raced) throw new Error("Campus Map provenance disappeared");
+      if (!sameProvenanceMetadata(source, raced)) {
+        throw new CampusMapProvenanceIdentityConflictError(
+          source.kind,
+          source.ref,
+        );
+      }
+      idByIdentity.set(identity, raced.id);
+    }
+    return sources.map((source) => {
+      const id = idByIdentity.get(provenanceIdentity(source));
+      if (!id) throw new Error("Campus Map provenance was not resolved");
+      return id;
+    });
+  }
+
+  private async lockAndValidateProvenanceSources(
+    sources: CampusMapAppendProvenanceSource[],
+  ): Promise<{
+    uniqueSources: CampusMapAppendProvenanceSource[];
+    existingByIdentity: Map<string, StoredProvenanceSource>;
+  }> {
+    if (sources.length === 0) {
+      throw new Error("Campus Map revision requires provenance");
+    }
+    const uniqueByIdentity = new Map<string, CampusMapAppendProvenanceSource>();
+    for (const source of sources) {
+      const identity = provenanceIdentity(source);
+      const existing = uniqueByIdentity.get(identity);
+      if (existing && !sameProvenanceMetadata(existing, source)) {
+        throw new CampusMapProvenanceIdentityConflictError(
+          source.kind,
+          source.ref,
+        );
+      }
+      uniqueByIdentity.set(identity, existing ?? source);
+    }
+    const uniqueSources = [...uniqueByIdentity.values()];
+    const locks = uniqueSources
+      .map((source) => provenanceLockKey(provenanceIdentity(source)))
+      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+    for (const lockKey of locks) {
+      await this.transaction.execute(
+        sql`select pg_advisory_xact_lock(${lockKey.toString()}::bigint)`,
+      );
+    }
+
+    const existingSources = await this.transaction
+      .select(provenanceSourceSelection)
+      .from(campusMapProvenanceSources)
+      .where(
+        or(
+          ...uniqueSources.map((source) =>
+            and(
+              eq(campusMapProvenanceSources.sourceKind, source.kind),
+              eq(campusMapProvenanceSources.sourceRef, source.ref),
+            ),
+          ),
+        ),
+      );
+    const existingByIdentity = new Map<string, StoredProvenanceSource>(
+      existingSources.map((source) => [
+        provenanceIdentity({ kind: source.sourceKind, ref: source.sourceRef }),
+        source,
+      ]),
+    );
+    for (const source of uniqueSources) {
+      const existing = existingByIdentity.get(provenanceIdentity(source));
+      if (existing && !sameProvenanceMetadata(source, existing)) {
+        throw new CampusMapProvenanceIdentityConflictError(
+          source.kind,
+          source.ref,
+        );
+      }
+    }
+    return { uniqueSources, existingByIdentity };
   }
 
   async appendChangeset(
@@ -422,6 +696,127 @@ export class CampusMapFactStoreTransaction {
 
     return { changesetId: command.id };
   }
+}
+
+const provenanceSourceSelection = {
+  id: campusMapProvenanceSources.id,
+  sourceKind: campusMapProvenanceSources.sourceKind,
+  sourceRef: campusMapProvenanceSources.sourceRef,
+  sourceUrl: campusMapProvenanceSources.sourceUrl,
+  sourceOwner: campusMapProvenanceSources.sourceOwner,
+  sourceVersion: campusMapProvenanceSources.sourceVersion,
+  snapshotHash: campusMapProvenanceSources.snapshotHash,
+  accessedOn: campusMapProvenanceSources.accessedOn,
+  observedAt: campusMapProvenanceSources.observedAt,
+  rightsStatus: campusMapProvenanceSources.rightsStatus,
+  limitations: campusMapProvenanceSources.limitations,
+  note: campusMapProvenanceSources.note,
+  sourceCoordinateX: campusMapProvenanceSources.sourceCoordinateX,
+  sourceCoordinateY: campusMapProvenanceSources.sourceCoordinateY,
+  sourceCoordinateCrs: campusMapProvenanceSources.sourceCoordinateCrs,
+  conversionMethod: campusMapProvenanceSources.conversionMethod,
+  conversionVersion: campusMapProvenanceSources.conversionVersion,
+};
+
+type StoredProvenanceSource = {
+  id: string;
+  sourceKind: CampusMapProvenanceKind;
+  sourceRef: string;
+  sourceUrl: string | null;
+  sourceOwner: string | null;
+  sourceVersion: string | null;
+  snapshotHash: string | null;
+  accessedOn: string;
+  observedAt: Date | null;
+  rightsStatus: CampusMapRightsStatus;
+  limitations: string | null;
+  note: string | null;
+  sourceCoordinateX: number | null;
+  sourceCoordinateY: number | null;
+  sourceCoordinateCrs: CampusMapSourceCoordinateCrs | null;
+  conversionMethod: CampusMapCoordinateConversionMethod | null;
+  conversionVersion: string | null;
+};
+
+function provenanceIdentity(source: {
+  kind: CampusMapProvenanceKind;
+  ref: string;
+}): string {
+  return `${source.kind}\u0000${source.ref}`;
+}
+
+function provenanceLockKey(identity: string): bigint {
+  return createHash("sha256")
+    .update(`provenance-source\u0000${identity}`, "utf8")
+    .digest()
+    .readBigInt64BE(0);
+}
+
+function sameProvenanceMetadata(
+  left: CampusMapAppendProvenanceSource,
+  right: CampusMapAppendProvenanceSource | StoredProvenanceSource,
+): boolean {
+  return (
+    JSON.stringify(normalizedProvenanceMetadata(left)) ===
+    JSON.stringify(normalizedProvenanceMetadata(right))
+  );
+}
+
+function normalizedProvenanceMetadata(
+  source:
+    | CampusMapAppendProvenanceSource
+    | Pick<
+        StoredProvenanceSource,
+        | "sourceUrl"
+        | "sourceOwner"
+        | "sourceVersion"
+        | "snapshotHash"
+        | "accessedOn"
+        | "observedAt"
+        | "rightsStatus"
+        | "limitations"
+        | "note"
+        | "sourceCoordinateX"
+        | "sourceCoordinateY"
+        | "sourceCoordinateCrs"
+        | "conversionMethod"
+        | "conversionVersion"
+      >,
+) {
+  if ("kind" in source) {
+    return {
+      url: source.url,
+      owner: source.owner,
+      version: source.version,
+      snapshotHash: source.snapshotHash,
+      accessedOn: source.accessedOn,
+      observedAt: source.observedAt?.toISOString() ?? null,
+      rightsStatus: source.rightsStatus,
+      limitations: source.limitations,
+      note: source.note,
+      sourceCoordinateX: source.sourceCoordinateX,
+      sourceCoordinateY: source.sourceCoordinateY,
+      sourceCoordinateCrs: source.sourceCoordinateCrs,
+      conversionMethod: source.conversionMethod,
+      conversionVersion: source.conversionVersion,
+    };
+  }
+  return {
+    url: source.sourceUrl,
+    owner: source.sourceOwner,
+    version: source.sourceVersion,
+    snapshotHash: source.snapshotHash,
+    accessedOn: source.accessedOn,
+    observedAt: source.observedAt?.toISOString() ?? null,
+    rightsStatus: source.rightsStatus,
+    limitations: source.limitations,
+    note: source.note,
+    sourceCoordinateX: source.sourceCoordinateX,
+    sourceCoordinateY: source.sourceCoordinateY,
+    sourceCoordinateCrs: source.sourceCoordinateCrs,
+    conversionMethod: source.conversionMethod,
+    conversionVersion: source.conversionVersion,
+  };
 }
 
 export function withCampusMapFactStoreTransaction<T>(

@@ -545,6 +545,13 @@ export async function getCampusMapCurrentPlace(
   const [row] = await db
     .select(currentFactSelection)
     .from(campusMapCurrentFacts)
+    .innerJoin(
+      campusMapRevisionVisibility,
+      eq(
+        campusMapCurrentFacts.revisionId,
+        campusMapRevisionVisibility.revisionId,
+      ),
+    )
     .leftJoin(
       campusMapBuildings,
       eq(campusMapCurrentFacts.buildingId, campusMapBuildings.id),
@@ -560,6 +567,7 @@ export async function getCampusMapCurrentPlace(
       and(
         eq(campusMapCurrentFacts.placeId, placeId),
         eq(campusMapCurrentFacts.status, "active"),
+        eq(campusMapRevisionVisibility.visibility, "public"),
       ),
     )
     .limit(1);
@@ -575,7 +583,10 @@ export async function listCampusMapCurrentPlaces(
   filters: CampusMapCurrentPlaceFilters = {},
 ): Promise<{ items: CampusMapCurrentPlace[]; nextCursor: string | null }> {
   const limit = Math.min(Math.max(filters.limit ?? 50, 1), 100);
-  const conditions = [eq(campusMapCurrentFacts.status, "active")];
+  const conditions = [
+    eq(campusMapCurrentFacts.status, "active"),
+    eq(campusMapRevisionVisibility.visibility, "public"),
+  ];
 
   if (filters.buildingId) {
     conditions.push(eq(campusMapCurrentFacts.buildingId, filters.buildingId));
@@ -601,6 +612,13 @@ export async function listCampusMapCurrentPlaces(
       db
         .select({ placeId: campusMapCurrentFacts.placeId })
         .from(campusMapCurrentFacts)
+        .innerJoin(
+          campusMapRevisionVisibility,
+          eq(
+            campusMapCurrentFacts.revisionId,
+            campusMapRevisionVisibility.revisionId,
+          ),
+        )
         .where(
           and(
             ...conditions,
@@ -619,6 +637,13 @@ export async function listCampusMapCurrentPlaces(
         .innerJoin(
           campusMapCurrentFacts,
           eq(campusMapBuildings.id, campusMapCurrentFacts.buildingId),
+        )
+        .innerJoin(
+          campusMapRevisionVisibility,
+          eq(
+            campusMapCurrentFacts.revisionId,
+            campusMapRevisionVisibility.revisionId,
+          ),
         )
         .where(
           and(
@@ -643,6 +668,13 @@ export async function listCampusMapCurrentPlaces(
     page = await db
       .select(currentFactSelection)
       .from(campusMapCurrentFacts)
+      .innerJoin(
+        campusMapRevisionVisibility,
+        eq(
+          campusMapCurrentFacts.revisionId,
+          campusMapRevisionVisibility.revisionId,
+        ),
+      )
       .leftJoin(
         campusMapBuildings,
         eq(campusMapCurrentFacts.buildingId, campusMapBuildings.id),
@@ -654,12 +686,25 @@ export async function listCampusMapCurrentPlaces(
           eq(campusMapCurrentFacts.floorId, campusMapFloors.id),
         ),
       )
-      .where(inArray(campusMapCurrentFacts.placeId, pageIds))
+      .where(
+        and(
+          inArray(campusMapCurrentFacts.placeId, pageIds),
+          eq(campusMapCurrentFacts.status, "active"),
+          eq(campusMapRevisionVisibility.visibility, "public"),
+        ),
+      )
       .orderBy(asc(campusMapCurrentFacts.placeId));
   } else {
     const rows = await db
       .select(currentFactSelection)
       .from(campusMapCurrentFacts)
+      .innerJoin(
+        campusMapRevisionVisibility,
+        eq(
+          campusMapCurrentFacts.revisionId,
+          campusMapRevisionVisibility.revisionId,
+        ),
+      )
       .leftJoin(
         campusMapBuildings,
         eq(campusMapCurrentFacts.buildingId, campusMapBuildings.id),
@@ -877,7 +922,11 @@ function projectChangeset(
   row: CampusMapChangesetRow,
   changes: CampusMapPublicChangeset["changes"],
 ): CampusMapPublicChangeset {
+  const hasOnlyPublicChanges =
+    changes.length === row.affectedCount &&
+    changes.every((change) => change.fieldDiff !== null);
   const hasBbox =
+    hasOnlyPublicChanges &&
     row.bboxWest !== null &&
     row.bboxSouth !== null &&
     row.bboxEast !== null &&
