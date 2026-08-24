@@ -204,6 +204,37 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
       ),
     ).toEqual(new Set([first.sourceId, second.sourceId]));
     expect(fetchMenuFromProvider).toHaveBeenCalledTimes(2);
+
+    const runs = await db
+      .select({
+        sourceId: canteenMenuSyncRuns.menuSourceId,
+        startedAt: canteenMenuSyncRuns.startedAt,
+      })
+      .from(canteenMenuSyncRuns)
+      .where(
+        inArray(canteenMenuSyncRuns.menuSourceId, [
+          first.sourceId,
+          second.sourceId,
+        ]),
+      );
+    expect(runs).toHaveLength(2);
+    const contextsBySource = new Map(
+      fetchMenuFromProvider.mock.calls.map(([source, context]) => [
+        source.id,
+        context,
+      ]),
+    );
+    expect(contextsBySource.size).toBe(2);
+    for (const run of runs) {
+      const context = contextsBySource.get(run.sourceId);
+      expect(context).toBeDefined();
+      const window = menuSyncWindowAt(context!.observedAt);
+      expect(context).toEqual({
+        observedAt: run.startedAt,
+        syncWindowKey: window.key,
+        mealPeriod: window.period,
+      });
+    }
   });
 
   it("continues past a candidate changed by a concurrent claim commit", async () => {
