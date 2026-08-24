@@ -35,6 +35,30 @@ const catalog: CampusMapSceneCatalog = {
 };
 
 describe("Campus Map canonical scene transition", () => {
+  it("starts one stable Place edit task through the canonical kernel", () => {
+    const facility: CampusMapSession = {
+      mode: "browse",
+      scene: { kind: "facility", facilityId: "fountain", snap: "peek" },
+    };
+
+    expect(
+      transitionCampusMapSession(
+        facility,
+        { type: "START_EDIT", placeId: "fountain" },
+        catalog,
+      ),
+    ).toEqual({
+      status: "accepted",
+      session: { mode: "task", task: { kind: "edit", placeId: "fountain" } },
+      commands: {
+        history: "push",
+        camera: { kind: "cancel" },
+        focus: { kind: "contribution-form" },
+        overlay: { kind: "close-external" },
+      },
+    });
+  });
+
   it("returns to the canonical map scene through OPEN_MAP", () => {
     const building = transitionCampusMapSession(
       EMPTY_CAMPUS_MAP_SCENE_SESSION,

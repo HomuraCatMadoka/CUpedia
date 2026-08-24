@@ -8,10 +8,12 @@
 ### Edit session
 
 Edit session 是单个浏览器任务的唯一草稿 owner，持有编辑模式、目标 Place、
-`baseRevisionId`、位置、preset 字段、来源、Changeset 说明、Review request、dirty 状态和
-Undo/Redo 历史。它是本地私有状态，不是服务器 Application，也不会出现在公共地图。
+`baseRevisionId`、位置、preset 字段、来源、dirty 状态、服务器 warning acknowledgement 和
+稳定幂等键。Changeset 说明与来源摘要由 typed draft/diff 自动生成，普通用户不填写自由文本
+comment；MVP 固定 `reviewRequested: false`，也不维护 Undo/Redo action journal。它是本地私有
+状态，不是服务器 Application，也不会出现在公共地图。
 
-登录往返、刷新和发布失败可以恢复同一个 session。恢复只返回复核页面，不得自动发布。
+登录往返、刷新和发布失败可以恢复同一个 session。恢复返回同一张编辑 Sheet，不得自动发布。
 
 ### Publish command
 
@@ -61,8 +63,8 @@ CAS 与 restore 始终引用它。Current fact 是 active Current revision 的�
 ```text
 Edit draft
   → Local validation
-  → Review publish
-  → Authenticate and return to review（如需要）
+  → Publish
+  → Authenticate and return to edit Sheet（如需要）
   → Publish command
       ├─ published → Changeset + Fact revisions + Current revisions + active projections
       ├─ conflict → 保留 draft，基于最新版重新确认
@@ -186,21 +188,36 @@ MVP 不接收证据照片或任意附件。现有 Wiki asset 上传后公开且�
 
 ## 8. 编辑交互契约
 
-Campus Map 采用 iD 的交互原则，而不暴露 OSM 数据模型：
+#562 验收的 Variant A 是正式交互：
+
+```text
+Browse
+ ├─ Add → center pin / 键盘确认位置 ─┐
+ └─ Place card → Edit ──────────────┤
+                                    ↓
+                         schema-driven 单页编辑 Sheet
+                                    ↓
+                                 Publish
+```
 
 - `Browse`、`Select Place` 与 `Add Point` 是互斥模式；MVP 不展示 Line、Area 或 Relation。
-- 桌面地图常驻、左侧显示 preset/fields；移动端使用同一 session 的 sheet 投影，不另建表单。
-- 选择现有 Place 不自动产生 dirty；只有事实或位置变化才启用 Save。
-- Add Point 点击地图产生位置 intent，然后选择 preset；category 不是 identity。
-- preset schema 同时驱动字段组件、默认值、校验、diff 和公开展示。
-- Undo/Redo 只改变未发布 session；公开纠错必须发布新 Changeset。
-- Review publish 显示地图位置、field-level diff、Errors/Warnings/Suggestions、comment、source 与
-  Review request；错误项可以返回对应 Place/字段。
-- 每个编辑任务只有一个 session owner。搜索结果、marker、地点卡和全局 Add 按钮只产生一次
-  用户 intent；browser history、camera、focus 和 sheet 的具体协调沿用 #645 canonical driver，
-  不属于本治理契约的业务状态。
-- Back 返回任务上一步；X/Escape 在 dirty 时允许继续编辑或丢弃；快速切换地点、地图手势与认证
-  回跳不能覆盖已锁定的 placement 或别的 Place draft。
+- Add 与 Edit 共用一张单页 Sheet。地点类型是 Sheet 内的受控字段，不存在独立 preset 或 Review
+  页面、常驻 Undo/Redo 或 action journal。
+- Add 的 center pin 与键盘路径都确认 WGS84 position、CRS 和诚实 precision；地图手势不能改写
+  已锁定的位置。
+- Edit 绑定不可变 `placeId + baseRevisionId`；初始载入不 dirty，只有事实或位置变化才启用发布。
+- preset schema 同时驱动适用字段、默认值、公开标签和本地基础校验；服务器结果仍是最终校验来源。
+- typed draft/diff 自动生成 Changeset comment 与安全 source summary；MVP 固定
+  `reviewRequested: false`。
+- warning 只消费服务器签发的 code/fingerprint；确认使用新 publish attempt，相关输入变化会清除
+  acknowledgement。认证返回不自动发布；transient retry 沿用幂等键；conflict 不自动合并。
+- 每个编辑任务只有一个 React session owner。搜索结果、marker、地点卡、类别空态、地图长按和
+  全局 Add 只产生一次 intent；browser history、camera、focus 和 sheet 仍只由 #645 canonical
+  driver 执行，发布仍只由 #718 `publishCampusMapChangeset` 执行。
+- Back 返回任务前 scene；X/Escape 在 dirty 时允许继续编辑或丢弃。刷新、快速 Place 切换、地图
+  手势与认证回跳不能覆盖已锁定 placement 或别的 Place draft。
+- 发布成功清除 draft；receipt 只进入 #719 的 Place、此次 Changeset 与 Place History。Back 不得
+  恢复可重复发布表单。
 
 ## 9. 必测场景
 

@@ -48,10 +48,12 @@ export type CampusMapBrowseScene =
       position: readonly [longitude: number, latitude: number];
     };
 
-export type CampusMapContributionTask = {
-  kind: "create";
-  anchor: { kind: "map" } | { kind: "building"; buildingId: string };
-};
+export type CampusMapContributionTask =
+  | {
+      kind: "create";
+      anchor: { kind: "map" } | { kind: "building"; buildingId: string };
+    }
+  | { kind: "edit"; placeId: string };
 
 export type CampusMapSession =
   | { mode: "browse"; scene: CampusMapBrowseScene }
@@ -110,6 +112,7 @@ export type CampusMapEvent =
   | { type: "SET_SNAP"; snap: Exclude<CampusMapSheetSnap, "hidden"> }
   | { type: "SET_BUILDING_FLOOR"; floorId: string | null }
   | { type: "START_CREATE" }
+  | { type: "START_EDIT"; placeId: string }
   | { type: "CANCEL_TASK" }
   | { type: "RESTORE"; session: CampusMapSession };
 
@@ -272,11 +275,33 @@ export function transitionCampusMapSession(
     };
   }
 
+  if (event.type === "START_EDIT") {
+    if (session.mode !== "browse") {
+      return reject(session, "event-not-allowed");
+    }
+    const candidate: CampusMapSession = {
+      mode: "task",
+      task: { kind: "edit", placeId: event.placeId },
+    };
+    const resolved = resolveCampusMapSessionSemantics(candidate, catalog);
+    if (resolved.status === "invalid") return reject(session, resolved.reason);
+    return {
+      status: "accepted",
+      session: candidate,
+      commands: {
+        history: historyCommandFor("enter"),
+        camera: { kind: "cancel" },
+        focus: { kind: "contribution-form" },
+        overlay: { kind: "close-external" },
+      },
+    };
+  }
+
   if (event.type === "CANCEL_TASK") {
     if (session.mode !== "task") {
       return reject(session, "event-not-allowed");
     }
-    const anchor = session.task.anchor;
+    const anchor = current.contributionAnchor;
     return {
       status: "accepted",
       session:

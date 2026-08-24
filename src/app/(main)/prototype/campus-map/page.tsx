@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import { getCampusMapFactSchema } from "@/lib/campus-map/fact-store";
 
 export const metadata: Metadata = {
   title: "Campus Map 高德交互原型",
@@ -21,5 +22,11 @@ export default async function CampusMapPrototypePage({
     if (Array.isArray(value)) value.forEach((item) => params.append(key, item));
     else if (value !== undefined) params.set(key, value);
   }
-  return <AmapCampusPrototype initialSearch={params.toString()} />;
+  const factSchema = await getCampusMapFactSchema().catch(() => null);
+  return (
+    <AmapCampusPrototype
+      initialSearch={params.toString()}
+      factSchema={factSchema}
+    />
+  );
 }

@@ -16,6 +16,7 @@ import { installAmapRuntime } from "../helpers/amap-runtime";
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
     "fetch",
@@ -290,14 +291,19 @@ describe("AmapCampusPrototype runtime effects", () => {
     await waitFor(() => {
       expect(
         runtime.clusters.some((cluster) =>
-          cluster.data.some((item) => item.facilityId === "library-gf-water"),
+          cluster.data.some(
+            (item) =>
+              item.facilityId === "71000000-0000-4000-8000-000000000005",
+          ),
         ),
       ).toBe(true);
     });
 
     const libraryWater = runtime.clusters
       .flatMap((cluster) => [...cluster.data])
-      .find((item) => item.facilityId === "library-gf-water");
+      .find(
+        (item) => item.facilityId === "71000000-0000-4000-8000-000000000005",
+      );
 
     expect(libraryWater?.lnglat).toEqual([
       expect.closeTo(114.21491129159927, 12),
@@ -312,12 +318,16 @@ describe("AmapCampusPrototype runtime effects", () => {
     await waitFor(() => {
       expect(
         runtime.markers.some(
-          (marker) => marker.getExtData()?.facilityId === "science-1f-water",
+          (marker) =>
+            marker.getExtData()?.facilityId ===
+            "71000000-0000-4000-8000-000000000002",
         ),
       ).toBe(true);
     });
     const marker = runtime.markers.findLast(
-      (candidate) => candidate.getExtData()?.facilityId === "science-1f-water",
+      (candidate) =>
+        candidate.getExtData()?.facilityId ===
+        "71000000-0000-4000-8000-000000000002",
     )!;
 
     await act(async () => {
@@ -335,7 +345,7 @@ describe("AmapCampusPrototype runtime effects", () => {
 
     expect(screen.getByRole("heading", { name: "饮水机" })).not.toBeNull();
     expect(window.location.search).toContain(
-      "scene=facility&id=science-1f-water",
+      "scene=facility&id=71000000-0000-4000-8000-000000000002",
     );
     expect(push).toHaveBeenCalledTimes(1);
   });

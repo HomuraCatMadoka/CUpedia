@@ -20,6 +20,7 @@ import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototy
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   vi.stubGlobal(
     "fetch",
@@ -63,11 +64,67 @@ async function selectScienceCentre() {
 }
 
 describe("AmapCampusPrototype", () => {
+  it("uses one Add session for center-pin, keyboard fields, and dirty close", async () => {
+    render(<AmapCampusPrototype />);
+
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    expect(
+      await screen.findByRole("heading", { name: "确认地点位置" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "使用地图中心位置" }));
+    expect(
+      await screen.findByRole("heading", { name: "添加地点" }),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("地点名称"), {
+      target: { value: "新饮水点" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
+    fireEvent.click(screen.getByRole("button", { name: "关闭地图编辑" }));
+    expect(
+      await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "继续编辑" }));
+    expect(
+      await screen.findByRole("heading", { name: "添加地点" }),
+    ).toBeTruthy();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(
+      await screen.findByRole("heading", { name: "放弃未发布的修改？" }),
+    ).toBeTruthy();
+  });
+
+  it("opens canonical Place Edit cleanly with stable task identity", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/prototype/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
+    );
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    expect(
+      await screen.findByRole("heading", { name: "建议修改" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
+    ).toBe(true);
+    expect(window.location.search).toBe(
+      "?v=1&task=edit&id=71000000-0000-4000-8000-000000000005",
+    );
+    fireEvent.change(screen.getByLabelText("地点名称"), {
+      target: { value: "更新后的饮水机" },
+    });
+    expect(
+      screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
+    ).toBe(false);
+  });
+
   it("hydrates a canonical facility deep link through the scene driver", async () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?v=1&scene=facility&id=library-gf-water&snap=peek",
+      "/prototype/campus-map?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
 
     render(<AmapCampusPrototype initialSearch={window.location.search} />);
@@ -75,7 +132,7 @@ describe("AmapCampusPrototype", () => {
     const heading = await screen.findByRole("heading", { name: "饮水机" });
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=library-gf-water&snap=peek",
+      "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
     expect(window.history.state).toEqual({
       campusMapScene: true,
@@ -175,7 +232,7 @@ describe("AmapCampusPrototype", () => {
     await screen.findByRole("heading", { name: "洗手间" });
     expect(push).toHaveBeenCalledTimes(2);
     expect(window.location.search).toContain(
-      "scene=facility&id=science-lg-toilet",
+      "scene=facility&id=71000000-0000-4000-8000-000000000001",
     );
     expect(window.location.search).toContain("snap=peek");
   });
@@ -195,7 +252,7 @@ describe("AmapCampusPrototype", () => {
     });
     await screen.findByRole("heading", { name: "洗手间" });
     expect(window.location.search).toContain(
-      "scene=facility&id=science-lg-toilet",
+      "scene=facility&id=71000000-0000-4000-8000-000000000001",
     );
   });
 
@@ -203,7 +260,7 @@ describe("AmapCampusPrototype", () => {
     window.history.replaceState(
       null,
       "",
-      "/prototype/campus-map?building=science-centre&facility=library-gf-water&panel=full",
+      "/prototype/campus-map?building=science-centre&facility=71000000-0000-4000-8000-000000000005&panel=full",
     );
     render(<AmapCampusPrototype initialSearch={window.location.search} />);
 
@@ -211,7 +268,7 @@ describe("AmapCampusPrototype", () => {
     expect(heading.parentElement?.textContent).toContain("大学图书馆 · G/F");
     await waitFor(() => {
       expect(window.location.search).toBe(
-        "?v=1&scene=facility&id=library-gf-water&snap=full",
+        "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=full",
       );
     });
   });
@@ -219,7 +276,7 @@ describe("AmapCampusPrototype", () => {
   it("returns a filtered facility deep link to its category in one action", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=wmy-5f-toilet&floor=5&amenity=toilet&panel=peek" />,
+      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&amenity=toilet&panel=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -270,7 +327,7 @@ describe("AmapCampusPrototype", () => {
   it("keeps a direct facility deep-link building fallback reversible", async () => {
     const push = vi.spyOn(window.history, "pushState");
     render(
-      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=wmy-5f-toilet&floor=5&amenity=toilet&panel=peek" />,
+      <AmapCampusPrototype initialSearch="?category=toilet&building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&amenity=toilet&panel=peek" />,
     );
     await screen.findByRole("heading", { name: "洗手间" });
     const before = push.mock.calls.length;
@@ -285,7 +342,7 @@ describe("AmapCampusPrototype", () => {
 
   it("labels building-level facility positions without claiming indoor precision", async () => {
     render(
-      <AmapCampusPrototype initialSearch="?building=wmy&facility=wmy-5f-toilet&floor=5&panel=peek" />,
+      <AmapCampusPrototype initialSearch="?building=wmy&facility=71000000-0000-4000-8000-000000000003&floor=5&panel=peek" />,
     );
 
     expect(
@@ -390,7 +447,7 @@ describe("AmapCampusPrototype", () => {
       await screen.findByRole("heading", { name: "饮水机" }),
     ).not.toBeNull();
     expect(window.location.search).toBe(
-      "?v=1&scene=facility&id=library-gf-water&snap=peek",
+      "?v=1&scene=facility&id=71000000-0000-4000-8000-000000000005&snap=peek",
     );
   });
 

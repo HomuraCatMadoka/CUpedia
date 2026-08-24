@@ -20,6 +20,8 @@ import {
   XIcon,
 } from "lucide-react";
 
+import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
+
 import {
   CameraRequestGate,
   cameraPolicyFor,
@@ -65,6 +67,20 @@ import {
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
+import { publishCampusMapEdit } from "@/lib/campus-map/edit-actions";
+import {
+  decodeCampusMapEditSnapshot,
+  encodeCampusMapEditSnapshot,
+  isCampusMapEditDirty,
+  transitionCampusMapEdit,
+  type CampusMapEditEvent,
+  type CampusMapEditSession,
+} from "@/lib/campus-map/edit-session";
+import type {
+  CampusMapPublishFactInput,
+  CampusMapPublishSourceInput,
+} from "@/lib/campus-map/publish-contract";
+import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 import { cn } from "@/lib/utils";
 
 type Amenity = CampusMapAmenity;
@@ -116,6 +132,7 @@ interface AMapMap {
   plugin(plugins: readonly string[], callback: () => void): void;
   getZoom(): number;
   getContainer(): HTMLElement;
+  getCenter(): AMapLngLat;
   lngLatToContainer(position: AMapLngLat): AMapPixel;
   containerToLngLat(position: AMapPixel): AMapLngLat;
   setZoomAndCenter(
@@ -389,10 +406,58 @@ function floorLabel(floorId: string) {
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
 
+const CAMPUS_MAP_EDIT_SNAPSHOT_KEY = "cupedia:campus-map:edit-session:v1";
+
+function sourceForFacility(facility: Facility): CampusMapPublishSourceInput {
+  return {
+    kind: "official",
+    ref: facility.source,
+    url: "https://www.cuhk.edu.hk/english/campus/cuhk-campus-map.html",
+    owner: "The Chinese University of Hong Kong",
+    version: null,
+    snapshotHash: null,
+    accessedOn: "2026-08-25",
+    observedAt: null,
+    rightsStatus: "unknown",
+    limitations:
+      "Prototype catalog source; canonical projection is connected by #647.",
+    note: null,
+    sourceCoordinate: null,
+  };
+}
+
+function factForFacility(facility: Facility): CampusMapPublishFactInput {
+  const building = BUILDINGS.find((item) => item.id === facility.buildingId)!;
+  return {
+    name: facility.name,
+    buildingId: null,
+    floorId: null,
+    pinType: facility.category,
+    capabilities: facility.category === "printer" ? ["print"] : [],
+    gender: "unknown",
+    wheelchairAccess: "unknown",
+    audience: facility.access.includes("CUHK") ? "cuhk-member" : "unknown",
+    credentialRequirement: "unknown",
+    accessSchedule: { kind: "unknown" },
+    reservationRequirement: "unknown",
+    temporaryStatus: "unknown",
+    location: {
+      kind: "outdoor-point",
+      longitude: building.position[0],
+      latitude: building.position[1],
+      crs: "wgs84",
+      precision: "approximate",
+    },
+    observedAt: null,
+  };
+}
+
 export function AmapCampusPrototype({
   initialSearch = "",
+  factSchema = null,
 }: {
   initialSearch?: string;
+  factSchema?: CampusMapFactSchema | null;
 }) {
   const driverInitialSearch = useMemo(
     () => canonicalInitialSearch(initialSearch),
@@ -405,6 +470,18 @@ export function AmapCampusPrototype({
         null,
       ).mapFilter.query,
   );
+  const [editSession, setEditSession] = useState<CampusMapEditSession | null>(
+    null,
+  );
+  const editSessionRef = useRef<CampusMapEditSession | null>(null);
+  const editEventDispatcherRef = useRef<(event: CampusMapEditEvent) => void>(
+    () => {},
+  );
+  const startAddRef = useRef<() => void>(() => {});
+  const [editAnnouncement, setEditAnnouncement] = useState("");
+  const [editRestoreNotice, setEditRestoreNotice] = useState("");
+  const [centerPosition, setCenterPosition] = useState<Position>(CAMPUS_CENTER);
+  const amapOffsetRef = useRef<Position>([0, 0]);
   const [config, setConfig] = useState<
     | { status: "loading" }
     | { status: "missing" }
@@ -661,7 +738,11 @@ export function AmapCampusPrototype({
         queueMicrotask(() => {
           window.requestAnimationFrame(() => {
             if (!context.isCurrent()) return;
-            if (focus.kind === "heading") {
+            if (focus.kind === "contribution-form") {
+              document
+                .querySelector<HTMLElement>("#campus-map-panel-title")
+                ?.focus({ preventScroll: true });
+            } else if (focus.kind === "heading") {
               panelTitleRef.current?.focus({ preventScroll: true });
             } else if (focus.kind === "results") {
               if (document.activeElement?.tagName !== "BUTTON") {
@@ -677,6 +758,12 @@ export function AmapCampusPrototype({
                 ?.focus({ preventScroll: true });
             } else if (focus.kind === "map") {
               mapElementRef.current?.focus({ preventScroll: true });
+            } else if (focus.kind === "edit-field") {
+              Array.from(
+                document.querySelectorAll<HTMLElement>("[data-edit-field]"),
+              )
+                .find((element) => element.dataset.editField === focus.field)
+                ?.focus({ preventScroll: true });
             }
           });
         });
@@ -763,6 +850,157 @@ export function AmapCampusPrototype({
     [driver],
   );
 
+  const dispatchEditEvent = useCallback(
+    (event: CampusMapEditEvent) => {
+      const transition = transitionCampusMapEdit(editSessionRef.current, event);
+      if (!transition.accepted) return;
+      editSessionRef.current = transition.session;
+      setEditSession(transition.session);
+
+      for (const command of transition.commands) {
+        if (command.kind === "persist-snapshot" && transition.session) {
+          window.sessionStorage.setItem(
+            CAMPUS_MAP_EDIT_SNAPSHOT_KEY,
+            encodeCampusMapEditSnapshot(transition.session),
+          );
+        } else if (command.kind === "clear-snapshot") {
+          window.sessionStorage.removeItem(CAMPUS_MAP_EDIT_SNAPSHOT_KEY);
+        } else if (command.kind === "scene") {
+          if (command.intent === "start-create") {
+            dispatch({ type: "START_CREATE" });
+          } else if (command.intent === "start-edit" && transition.session) {
+            dispatch({
+              type: "START_EDIT",
+              placeId: transition.session.draft.placeId!,
+            });
+          } else if (command.intent === "cancel-task") {
+            dispatch({ type: "CANCEL_TASK" });
+          }
+        } else if (command.kind === "focus") {
+          driver.focusEditField(command.target);
+        } else if (command.kind === "announce") {
+          setEditAnnouncement("");
+          window.requestAnimationFrame(() =>
+            setEditAnnouncement(command.message),
+          );
+        } else if (command.kind === "publish") {
+          const idempotencyKey = command.command.idempotencyKey;
+          void publishCampusMapEdit(command.command).then(
+            (result) =>
+              editEventDispatcherRef.current({
+                type: "PUBLISH_RESULT",
+                idempotencyKey,
+                result,
+              }),
+            () =>
+              editEventDispatcherRef.current({
+                type: "PUBLISH_RESULT",
+                idempotencyKey,
+                result: {
+                  status: "temporarily-unavailable",
+                  code: "publish-unavailable",
+                  retryable: true,
+                },
+              }),
+          );
+        } else if (command.kind === "schedule-rate-retry") {
+          window.setTimeout(
+            () =>
+              editEventDispatcherRef.current({ type: "RATE_LIMIT_ELAPSED" }),
+            Math.min(Math.max(command.afterSeconds, 0), 86_400) * 1000,
+          );
+        }
+      }
+    },
+    [dispatch, driver],
+  );
+  useEffect(() => {
+    editEventDispatcherRef.current = dispatchEditEvent;
+  }, [dispatchEditEvent]);
+
+  const startAdd = useCallback(() => {
+    dispatchEditEvent({
+      type: "START_ADD",
+      idempotencyKey: window.crypto.randomUUID(),
+    });
+  }, [dispatchEditEvent]);
+  useEffect(() => {
+    startAddRef.current = startAdd;
+  }, [startAdd]);
+
+  const startEdit = useCallback(
+    (facility: Facility) => {
+      dispatchEditEvent({
+        type: "START_EDIT",
+        placeId: facility.id,
+        baseRevisionId: facility.baseRevisionId,
+        fact: factForFacility(facility),
+        sources: [sourceForFacility(facility)],
+        idempotencyKey: window.crypto.randomUUID(),
+      });
+    },
+    [dispatchEditEvent],
+  );
+
+  useEffect(() => {
+    driver.start();
+    const encoded = window.sessionStorage.getItem(CAMPUS_MAP_EDIT_SNAPSHOT_KEY);
+    if (!encoded) {
+      if (driver.getSnapshot().session.mode === "task") {
+        dispatch({ type: "CANCEL_TASK" });
+        queueMicrotask(() =>
+          setEditRestoreNotice("这项地图编辑已结束，没有可恢复的草稿。"),
+        );
+      }
+      return;
+    }
+    const restored = decodeCampusMapEditSnapshot(encoded);
+    if (restored.status === "discarded") {
+      window.sessionStorage.removeItem(CAMPUS_MAP_EDIT_SNAPSHOT_KEY);
+      queueMicrotask(() =>
+        setEditRestoreNotice("已丢弃损坏或不兼容的地图编辑草稿。"),
+      );
+      if (driver.getSnapshot().session.mode === "task") {
+        dispatch({ type: "CANCEL_TASK" });
+      }
+      return;
+    }
+    const next =
+      restored.session.status === "authentication-required"
+        ? transitionCampusMapEdit(restored.session, { type: "AUTH_RETURNED" })
+            .session
+        : restored.session;
+    editSessionRef.current = next;
+    queueMicrotask(() => {
+      setEditSession(next);
+      window.requestAnimationFrame(() => driver.focusContributionForm());
+    });
+    if (next && driver.getSnapshot().session.mode !== "task") {
+      dispatch(
+        next.draft.mode === "add"
+          ? { type: "START_CREATE" }
+          : { type: "START_EDIT", placeId: next.draft.placeId! },
+      );
+    }
+    if (next?.status === "rate-limited" && (next.retryAfter ?? 0) > 0) {
+      window.setTimeout(
+        () => editEventDispatcherRef.current({ type: "RATE_LIMIT_ELAPSED" }),
+        Math.min(next.retryAfter ?? 0, 86_400) * 1000,
+      );
+    }
+    queueMicrotask(() => setEditAnnouncement("已恢复未发布的地图编辑草稿"));
+  }, [dispatch, driver]);
+
+  useEffect(() => {
+    if (!isCampusMapEditDirty(editSession)) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [editSession]);
+
   useEffect(() => {
     let cancelled = false;
     queueMicrotask(() => {
@@ -842,6 +1080,9 @@ export function AmapCampusPrototype({
 
     const handlePopState = (event: PopStateEvent) => {
       driver.restore(window.location.search, event.state);
+      if (editSessionRef.current) {
+        editEventDispatcherRef.current({ type: "REQUEST_CLOSE" });
+      }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -858,6 +1099,11 @@ export function AmapCampusPrototype({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
+      if (editSessionRef.current) {
+        event.preventDefault();
+        editEventDispatcherRef.current({ type: "REQUEST_CLOSE" });
+        return;
+      }
       const current = driver.getSnapshot().session;
       if (current.mode === "browse" && current.scene.kind !== "map") {
         dispatch({ type: "DISMISS" });
@@ -913,8 +1159,14 @@ export function AmapCampusPrototype({
           }),
         );
         const convertedCenter = locations[0];
-        if (convertedCenter)
+        if (convertedCenter) {
           converted.__campus = [convertedCenter.lng, convertedCenter.lat];
+          amapOffsetRef.current = [
+            convertedCenter.lng - CAMPUS_CENTER[0],
+            convertedCenter.lat - CAMPUS_CENTER[1],
+          ];
+          setCenterPosition(CAMPUS_CENTER);
+        }
         amapPositionsRef.current = converted;
         setCoordinateVersion((version) => version + 1);
         const pendingCamera = pendingDriverCameraRef.current;
@@ -963,6 +1215,13 @@ export function AmapCampusPrototype({
     map.on("dragstart", () => {
       driver.interruptCamera();
     });
+    map.on("moveend", () => {
+      const center = map.getCenter();
+      const offset = amapOffsetRef.current;
+      setCenterPosition([center.lng - offset[0], center.lat - offset[1]]);
+    });
+    map.on("longpress", () => startAddRef.current());
+    map.on("rightclick", () => startAddRef.current());
     const cancelForUserZoom = () => {
       driver.interruptCamera();
     };
@@ -1188,14 +1447,14 @@ export function AmapCampusPrototype({
   useEffect(() => {
     const mapElement = mapElementRef.current;
     const panel = panelRef.current;
-    if (!mapElement || !panel || !selectedBuilding) return;
+    if (!mapElement || !panel || (!selectedBuilding && !editSession)) return;
     const observer = new ResizeObserver(() => {
       driver.updateSheetGeometry(panel.hidden ? null : rect(panel));
     });
     observer.observe(mapElement);
     observer.observe(panel);
     return () => observer.disconnect();
-  }, [driver, selectedBuilding]);
+  }, [driver, editSession, selectedBuilding]);
 
   useEffect(
     () => () => {
@@ -1276,11 +1535,14 @@ export function AmapCampusPrototype({
   const activeCategoryStyle = activeAmenity
     ? amenityStyle(activeAmenity)
     : null;
-  const chromeHidden = state.sheet.snap === "full";
+  const chromeHidden = Boolean(editSession) || state.sheet.snap === "full";
 
   return (
     <main className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]">
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
+      <p className="sr-only" aria-live="polite">
+        {editAnnouncement || editRestoreNotice}
+      </p>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession ? "calc(78dvh + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
@@ -1289,6 +1551,16 @@ export function AmapCampusPrototype({
           className="h-full w-full"
         />
       </div>
+
+      {editSession?.status === "placing" ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-full"
+        >
+          <div className="h-12 w-9 rounded-t-full rounded-br-full border-4 border-white bg-[#176346] shadow-xl [transform:rotate(45deg)]" />
+          <div className="mx-auto mt-1 size-2 rounded-full bg-black/25" />
+        </div>
+      ) : null}
 
       {config.status === "missing" || mapLoadError ? (
         <div className="absolute inset-0 z-50 grid place-items-center bg-white/94 p-6">
@@ -1463,7 +1735,20 @@ export function AmapCampusPrototype({
         />
       </div>
 
-      <div className="absolute top-[124px] right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg md:top-auto md:right-auto md:bottom-6 md:left-4">
+      <div
+        className={cn(
+          "absolute top-[124px] right-3 z-20 flex flex-col overflow-hidden rounded-xl border border-black/10 bg-white shadow-lg md:top-auto md:right-auto md:bottom-6 md:left-4",
+          editSession && "pointer-events-none opacity-0",
+        )}
+      >
+        <button
+          type="button"
+          aria-label="添加地点"
+          className="flex min-h-11 items-center gap-2 border-b border-black/10 px-3 text-sm font-semibold hover:bg-neutral-50"
+          onClick={startAdd}
+        >
+          <PlusIcon className="size-5" /> 添加地点
+        </button>
         <button
           type="button"
           aria-label="回到中大校园"
@@ -1501,38 +1786,60 @@ export function AmapCampusPrototype({
       <section
         ref={panelRef}
         hidden={
-          state.selection.kind === "external" ||
-          (state.selection.kind === "none" && !state.mapFilter.category)
+          !editSession &&
+          (state.selection.kind === "external" ||
+            (state.selection.kind === "none" && !state.mapFilter.category))
         }
         aria-labelledby="campus-map-panel-title"
         className={cn(
           "absolute z-30 overflow-hidden border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "inset-x-0 bottom-0 rounded-t-2xl border-t md:inset-y-4 md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
-          state.sheet.snap === "full"
-            ? "h-[72dvh] md:h-auto"
-            : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
+          editSession
+            ? "h-[78dvh] md:h-auto"
+            : state.sheet.snap === "full"
+              ? "h-[72dvh] md:h-auto"
+              : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
         )}
       >
-        <button
-          type="button"
-          aria-label={
-            state.sheet.snap === "full" ? "收起地点卡片" : "展开地点卡片"
-          }
-          aria-expanded={state.sheet.snap === "full"}
-          aria-controls="campus-map-panel-content"
-          className="mx-auto grid h-11 w-20 place-items-center rounded-b-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] md:hidden"
-          onClick={() => {
-            dispatch({
-              type: "SET_SNAP",
-              snap: state.sheet.snap === "full" ? "peek" : "full",
-            });
-          }}
-        >
-          <span className="h-1 w-10 rounded-full bg-neutral-300" />
-        </button>
-        {state.selection.kind === "none" &&
-        state.mapFilter.category &&
-        activeCategoryStyle ? (
+        {!editSession ? (
+          <button
+            type="button"
+            aria-label={
+              state.sheet.snap === "full" ? "收起地点卡片" : "展开地点卡片"
+            }
+            aria-expanded={state.sheet.snap === "full"}
+            aria-controls="campus-map-panel-content"
+            className="mx-auto grid h-11 w-20 place-items-center rounded-b-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] md:hidden"
+            onClick={() => {
+              dispatch({
+                type: "SET_SNAP",
+                snap: state.sheet.snap === "full" ? "peek" : "full",
+              });
+            }}
+          >
+            <span className="h-1 w-10 rounded-full bg-neutral-300" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label="关闭地图编辑"
+            disabled={editSession.status === "publishing"}
+            className="absolute top-2 right-3 z-10 grid size-11 place-items-center rounded-full bg-white hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
+            onClick={() => dispatchEditEvent({ type: "REQUEST_CLOSE" })}
+          >
+            <XIcon className="size-5" />
+          </button>
+        )}
+        {editSession ? (
+          <CampusMapEditSheet
+            session={editSession}
+            centerPosition={centerPosition}
+            factSchema={factSchema}
+            onEvent={dispatchEditEvent}
+          />
+        ) : state.selection.kind === "none" &&
+          state.mapFilter.category &&
+          activeCategoryStyle ? (
           <div
             id="campus-map-panel-content"
             className="flex h-[calc(100%-44px)] flex-col"
@@ -1628,9 +1935,16 @@ export function AmapCampusPrototype({
                 </button>
               ) : null}
               {!categoryFacilities.length ? (
-                <p className="py-6 text-center text-sm text-neutral-500">
-                  当前没有已收录地点
-                </p>
+                <div className="py-6 text-center text-sm text-neutral-500">
+                  <p>当前没有已收录地点</p>
+                  <button
+                    type="button"
+                    className="mt-3 min-h-11 rounded-xl bg-[#174b38] px-4 font-semibold text-white"
+                    onClick={startAdd}
+                  >
+                    添加这个类别的地点
+                  </button>
+                </div>
               ) : null}
             </div>
           </div>
@@ -1706,6 +2020,13 @@ export function AmapCampusPrototype({
                   }
                 >
                   定位所属建筑
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 min-h-11 w-full rounded-xl border border-[#174b38] px-4 text-sm font-semibold text-[#174b38]"
+                  onClick={() => startEdit(selectedFacility)}
+                >
+                  建议修改
                 </button>
                 {state.sheet.snap === "full" ? (
                   <dl className="mt-5 grid gap-3 border-t border-black/8 pt-4 text-sm">

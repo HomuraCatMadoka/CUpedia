@@ -1,0 +1,638 @@
+"use client";
+
+import Link from "next/link";
+import { useId, useState } from "react";
+
+import { cn } from "@/lib/utils";
+import {
+  isCampusMapEditDirty,
+  type CampusMapEditEvent,
+  type CampusMapEditSession,
+} from "@/lib/campus-map/edit-session";
+import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
+import type {
+  CampusMapPublishFactInput,
+  CampusMapPublishSourceInput,
+} from "@/lib/campus-map/publish-contract";
+import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
+
+interface CampusMapEditSheetProps {
+  session: CampusMapEditSession;
+  centerPosition: readonly [number, number];
+  factSchema?: CampusMapFactSchema | null;
+  onEvent(event: CampusMapEditEvent): void;
+}
+
+const fieldClass =
+  "mt-1 min-h-11 w-full rounded-xl border border-black/15 bg-white px-3 text-base outline-none focus-visible:border-[#176346] focus-visible:ring-2 focus-visible:ring-[#176346]/25";
+const primaryClass =
+  "min-h-11 w-full rounded-xl bg-[#174b38] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2";
+const secondaryClass =
+  "min-h-11 rounded-xl border border-black/15 bg-white px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]";
+
+function today(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function observationSource(date: string): CampusMapPublishSourceInput {
+  return {
+    kind: "field-observation",
+    ref: `现场观察 ${date}`,
+    url: null,
+    owner: null,
+    version: null,
+    snapshotHash: null,
+    accessedOn: date,
+    observedAt: null,
+    rightsStatus: "original-observation",
+    limitations: null,
+    note: null,
+    sourceCoordinate: null,
+  };
+}
+
+function messageForError(code: string): string {
+  const messages: Record<string, string> = {
+    "fact-name-required": "请填写地点名称。",
+    "source-required": "请提供资料来源。",
+    "invalid-location": "位置资料不完整，请重新定位。",
+    "base-revision-conflict": "地点资料已被其他人更新。",
+    "invalid-place-id": "这个过渡地点尚未连接到正式 Place。",
+  };
+  return messages[code] ?? `服务器未接受这项资料（${code}）。`;
+}
+
+function SelectField<T extends string>({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+  field,
+}: {
+  id: string;
+  label: string;
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange(value: T): void;
+  field: string;
+}) {
+  return (
+    <label className="block text-sm font-medium" htmlFor={id}>
+      {label}
+      <select
+        id={id}
+        data-edit-field={field}
+        className={fieldClass}
+        value={value}
+        onChange={(event) => onChange(event.target.value as T)}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+export function CampusMapEditSheet({
+  session,
+  centerPosition,
+  factSchema,
+  onEvent,
+}: CampusMapEditSheetProps) {
+  const fieldPrefix = useId();
+  const [keyboardLongitude, setKeyboardLongitude] = useState(
+    String(centerPosition[0]),
+  );
+  const [keyboardLatitude, setKeyboardLatitude] = useState(
+    String(centerPosition[1]),
+  );
+  const [sourceDate, setSourceDate] = useState(today);
+  const draft = session.draft;
+  const fact = draft.fact;
+  const preset =
+    CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+      (item) => item.pinType === fact.pinType,
+    ) ?? CAMPUS_MAP_EDIT_SCHEMA.presets[0];
+  const serverApplicableFields =
+    factSchema?.definition.pinTypes[fact.pinType].applicableFields;
+  const visible = new Set(
+    serverApplicableFields
+      ? preset.fields.filter(
+          (field) =>
+            field === "sources" || serverApplicableFields.includes(field),
+        )
+      : preset.fields,
+  );
+  const updateFact = (next: CampusMapPublishFactInput) =>
+    onEvent({ type: "CHANGE_FACT", fact: next });
+  const fullFact = fact as CampusMapPublishFactInput;
+
+  if (session.status === "published" && session.receipt) {
+    const receipt = session.receipt;
+    return (
+      <div className="grid gap-3 p-5" aria-live="polite">
+        <p className="text-xs font-bold tracking-[0.14em] text-[#567166]">
+          PUBLISHED
+        </p>
+        <h2
+          id="campus-map-panel-title"
+          tabIndex={-1}
+          className="text-xl font-semibold outline-none"
+        >
+          地点资料已公开
+        </h2>
+        <p className="text-sm text-neutral-600">
+          此次发布已生成不可改写的公开记录。
+        </p>
+        <Link
+          className={secondaryClass}
+          href={`/campus-map/places/${receipt.placeId}`}
+        >
+          查看 Place
+        </Link>
+        <Link
+          className={secondaryClass}
+          href={`/campus-map/changesets/${receipt.changesetId}`}
+        >
+          查看此次 Changeset
+        </Link>
+        <Link
+          className={secondaryClass}
+          href={`/campus-map/places/${receipt.placeId}/history`}
+        >
+          查看 History
+        </Link>
+      </div>
+    );
+  }
+
+  if (session.status === "placing") {
+    const longitude = Number(keyboardLongitude);
+    const latitude = Number(keyboardLatitude);
+    const keyboardValid =
+      Number.isFinite(longitude) &&
+      longitude >= -180 &&
+      longitude <= 180 &&
+      Number.isFinite(latitude) &&
+      latitude >= -90 &&
+      latitude <= 90;
+    return (
+      <div className="grid gap-4 p-5">
+        <div>
+          <p className="text-xs font-bold tracking-[0.14em] text-[#567166]">
+            ADD POINT
+          </p>
+          <h2
+            id="campus-map-panel-title"
+            tabIndex={-1}
+            className="mt-1 text-xl font-semibold outline-none"
+          >
+            确认地点位置
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-neutral-600">
+            移动地图，让中心图钉对准地点；当前会保存为 WGS84 约略位置。
+          </p>
+        </div>
+        <button
+          type="button"
+          className={primaryClass}
+          onClick={() =>
+            onEvent({
+              type: "CONFIRM_POSITION",
+              position: {
+                longitude: centerPosition[0],
+                latitude: centerPosition[1],
+                crs: "wgs84",
+                precision: "approximate",
+                method: "pointer",
+              },
+            })
+          }
+        >
+          使用地图中心位置
+        </button>
+        <fieldset className="rounded-xl border p-3">
+          <legend className="px-1 text-sm font-semibold">键盘等价定位</legend>
+          <label
+            className="mt-2 block text-sm"
+            htmlFor={`${fieldPrefix}-longitude`}
+          >
+            经度（WGS84）
+            <input
+              id={`${fieldPrefix}-longitude`}
+              className={fieldClass}
+              inputMode="decimal"
+              value={keyboardLongitude}
+              onChange={(event) => setKeyboardLongitude(event.target.value)}
+            />
+          </label>
+          <label
+            className="mt-3 block text-sm"
+            htmlFor={`${fieldPrefix}-latitude`}
+          >
+            纬度（WGS84）
+            <input
+              id={`${fieldPrefix}-latitude`}
+              className={fieldClass}
+              inputMode="decimal"
+              value={keyboardLatitude}
+              onChange={(event) => setKeyboardLatitude(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={!keyboardValid}
+            className={cn(primaryClass, "mt-3")}
+            onClick={() =>
+              onEvent({
+                type: "CONFIRM_POSITION",
+                position: {
+                  longitude,
+                  latitude,
+                  crs: "wgs84",
+                  precision: "approximate",
+                  method: "keyboard",
+                },
+              })
+            }
+          >
+            使用输入坐标
+          </button>
+        </fieldset>
+      </div>
+    );
+  }
+
+  if (session.status === "confirm-discard") {
+    return (
+      <div
+        className="grid gap-4 p-5"
+        role="alertdialog"
+        aria-labelledby="campus-map-panel-title"
+      >
+        <h2 id="campus-map-panel-title" className="text-xl font-semibold">
+          放弃未发布的修改？
+        </h2>
+        <p className="text-sm text-neutral-600">
+          草稿只保存在这个浏览器。放弃后无法恢复。
+        </p>
+        <button
+          type="button"
+          data-edit-field="continue-editing"
+          autoFocus
+          className={primaryClass}
+          onClick={() => onEvent({ type: "CONTINUE_EDITING" })}
+        >
+          继续编辑
+        </button>
+        <button
+          type="button"
+          className={secondaryClass}
+          onClick={() => onEvent({ type: "DISCARD" })}
+        >
+          放弃草稿
+        </button>
+      </div>
+    );
+  }
+
+  const statusPanel = (() => {
+    if (session.status === "warning") {
+      return (
+        <div
+          className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
+          role="alert"
+        >
+          <p className="font-semibold">服务器发现需要确认的情况</p>
+          {session.warnings?.map((warning) => (
+            <p
+              key={`${warning.code}:${warning.fingerprint}`}
+              className="mt-1 break-all"
+            >
+              {warning.code} · {warning.fingerprint}
+            </p>
+          ))}
+          <button
+            type="button"
+            className={cn(primaryClass, "mt-3")}
+            onClick={() =>
+              onEvent({
+                type: "ACKNOWLEDGE_WARNINGS",
+                idempotencyKey: crypto.randomUUID(),
+              })
+            }
+          >
+            我已确认，重新发布
+          </button>
+        </div>
+      );
+    }
+    if (session.status === "authentication-required") {
+      const callbackUrl =
+        typeof window === "undefined"
+          ? "/prototype/campus-map"
+          : `${window.location.pathname}${window.location.search}`;
+      return (
+        <div
+          className="rounded-xl border bg-neutral-50 p-3 text-sm"
+          role="status"
+        >
+          <p>登录后会回到这份草稿，但不会自动发布。</p>
+          <Link
+            className={cn(
+              primaryClass,
+              "mt-3 inline-flex items-center justify-center",
+            )}
+            href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          >
+            前往登录
+          </Link>
+        </div>
+      );
+    }
+    if (session.status === "rate-limited") {
+      return (
+        <div
+          className="rounded-xl border bg-neutral-50 p-3 text-sm"
+          role="status"
+        >
+          发布太频繁，请在 {Math.ceil(session.retryAfter ?? 0)} 秒后重试。
+          <button
+            type="button"
+            disabled={(session.retryAfter ?? 0) > 0}
+            className={cn(primaryClass, "mt-3")}
+            onClick={() => onEvent({ type: "RETRY_PUBLISH" })}
+          >
+            再次发布
+          </button>
+        </div>
+      );
+    }
+    if (session.status === "temporarily-unavailable") {
+      return (
+        <div
+          className="rounded-xl border bg-neutral-50 p-3 text-sm"
+          role="status"
+        >
+          服务暂时不可用。重试会沿用同一个发布识别码，不会复制地点。
+          <button
+            type="button"
+            className={cn(primaryClass, "mt-3")}
+            onClick={() => onEvent({ type: "RETRY_PUBLISH" })}
+          >
+            安全重试
+          </button>
+        </div>
+      );
+    }
+    if (session.status === "conflict") {
+      return (
+        <div
+          className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
+          role="alert"
+        >
+          <p className="font-semibold">这处地点刚刚被其他人更新</p>
+          <p className="mt-1">
+            你的输入仍保留。最新版名称：
+            {session.conflict?.currentFact.name ?? "不可用"}
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              className={secondaryClass}
+              onClick={() =>
+                onEvent({
+                  type: "USE_CURRENT_FACT",
+                  idempotencyKey: crypto.randomUUID(),
+                })
+              }
+            >
+              采用最新资料
+            </button>
+            <button
+              type="button"
+              className={primaryClass}
+              onClick={() =>
+                onEvent({
+                  type: "CONTINUE_FROM_CONFLICT",
+                  idempotencyKey: crypto.randomUUID(),
+                })
+              }
+            >
+              保留我的输入
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  })();
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-b px-5 py-4">
+        <p className="text-xs font-bold tracking-[0.14em] text-[#567166]">
+          {draft.mode === "add" ? "ADD PLACE" : "EDIT PLACE"}
+        </p>
+        <h2
+          id="campus-map-panel-title"
+          tabIndex={-1}
+          className="mt-1 text-xl font-semibold outline-none"
+        >
+          {draft.mode === "add" ? "添加地点" : "建议修改"}
+        </h2>
+        <p className="mt-1 text-xs text-neutral-500">
+          单页表单 · schema v
+          {factSchema?.version ?? CAMPUS_MAP_EDIT_SCHEMA.version}
+        </p>
+      </div>
+      <div
+        className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 pb-28"
+        aria-busy={session.status === "publishing"}
+        inert={session.status === "publishing" ? true : undefined}
+      >
+        {statusPanel}
+        {session.serverErrors?.length ? (
+          <div
+            className="rounded-xl bg-red-50 p-3 text-sm text-red-900"
+            role="alert"
+          >
+            {session.serverErrors.map((error) => (
+              <p key={`${error.code}:${error.anchor.field}`}>
+                {messageForError(error.code)}
+              </p>
+            ))}
+          </div>
+        ) : null}
+        <label
+          className="block text-sm font-medium"
+          htmlFor={`${fieldPrefix}-name`}
+        >
+          地点名称
+          <input
+            id={`${fieldPrefix}-name`}
+            data-edit-field="name"
+            className={fieldClass}
+            value={fact.name}
+            aria-invalid={session.localError === "name"}
+            onChange={(event) =>
+              updateFact({ ...fullFact, name: event.target.value })
+            }
+          />
+        </label>
+        <SelectField
+          id={`${fieldPrefix}-type`}
+          field="pinType"
+          label="地点类型"
+          value={fact.pinType}
+          options={CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => ({
+            value: item.pinType,
+            label: item.label,
+          }))}
+          onChange={(pinType) => {
+            const nextPreset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+              (item) => item.pinType === pinType,
+            )!;
+            updateFact({
+              ...fullFact,
+              pinType,
+              name: fact.name.trim() ? fact.name : nextPreset.defaultName,
+              capabilities: pinType === "printer" ? fact.capabilities : [],
+              gender: pinType === "toilet" ? fact.gender : "unknown",
+            });
+          }}
+        />
+        {visible.has("gender") ? (
+          <SelectField
+            id={`${fieldPrefix}-gender`}
+            field="gender"
+            label="性别属性"
+            value={fact.gender}
+            options={CAMPUS_MAP_EDIT_SCHEMA.options.gender}
+            onChange={(gender) => updateFact({ ...fullFact, gender })}
+          />
+        ) : null}
+        {visible.has("capabilities") ? (
+          <fieldset className="rounded-xl border p-3">
+            <legend className="px-1 text-sm font-medium">服务能力</legend>
+            {CAMPUS_MAP_EDIT_SCHEMA.options.capabilities.map((option) => (
+              <label
+                key={option.value}
+                className="mr-4 inline-flex min-h-11 items-center gap-2 text-sm"
+              >
+                <input
+                  type="checkbox"
+                  checked={fact.capabilities.includes(option.value)}
+                  onChange={(event) =>
+                    updateFact({
+                      ...fullFact,
+                      capabilities: event.target.checked
+                        ? [...fact.capabilities, option.value]
+                        : fact.capabilities.filter(
+                            (item) => item !== option.value,
+                          ),
+                    })
+                  }
+                />
+                {option.label}
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
+        <SelectField
+          id={`${fieldPrefix}-wheelchair`}
+          field="wheelchairAccess"
+          label="无障碍通行"
+          value={fact.wheelchairAccess}
+          options={CAMPUS_MAP_EDIT_SCHEMA.options.wheelchairAccess}
+          onChange={(wheelchairAccess) =>
+            updateFact({ ...fullFact, wheelchairAccess })
+          }
+        />
+        <SelectField
+          id={`${fieldPrefix}-audience`}
+          field="audience"
+          label="开放对象"
+          value={fact.audience}
+          options={CAMPUS_MAP_EDIT_SCHEMA.options.audience}
+          onChange={(audience) => updateFact({ ...fullFact, audience })}
+        />
+        <SelectField
+          id={`${fieldPrefix}-credential`}
+          field="credentialRequirement"
+          label="凭证要求"
+          value={fact.credentialRequirement}
+          options={CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement}
+          onChange={(credentialRequirement) =>
+            updateFact({ ...fullFact, credentialRequirement })
+          }
+        />
+        <fieldset
+          data-edit-field="sources"
+          className="rounded-xl border p-3"
+          aria-invalid={session.localError === "sources"}
+        >
+          <legend className="px-1 text-sm font-medium">资料来源</legend>
+          <label
+            className="block text-sm"
+            htmlFor={`${fieldPrefix}-source-date`}
+          >
+            现场观察日期
+            <input
+              id={`${fieldPrefix}-source-date`}
+              className={fieldClass}
+              type="date"
+              value={sourceDate}
+              onChange={(event) => setSourceDate(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className={cn(secondaryClass, "mt-3 w-full")}
+            onClick={() =>
+              onEvent({
+                type: "CHANGE_SOURCES",
+                sources: [observationSource(sourceDate)],
+              })
+            }
+          >
+            {draft.sources.length ? "更新现场观察来源" : "使用现场观察来源"}
+          </button>
+          {draft.sources.length ? (
+            <p className="mt-2 text-xs text-[#176346]">
+              已记录：{draft.sources[0]?.ref}
+            </p>
+          ) : null}
+        </fieldset>
+        <p className="rounded-xl bg-neutral-50 p-3 text-xs leading-5 text-neutral-600">
+          Changeset 说明和来源摘要会由这些结构化修改自动生成；不会请求复核。
+        </p>
+      </div>
+      <div className="absolute inset-x-0 bottom-0 border-t bg-white p-4 md:rounded-b-2xl">
+        <button
+          type="button"
+          className={primaryClass}
+          disabled={
+            !isCampusMapEditDirty(session) || session.status === "publishing"
+          }
+          onClick={() => onEvent({ type: "REQUEST_PUBLISH" })}
+        >
+          {session.status === "publishing"
+            ? "正在发布…"
+            : draft.mode === "add"
+              ? "发布新地点"
+              : "发布修改"}
+        </button>
+      </div>
+    </div>
+  );
+}

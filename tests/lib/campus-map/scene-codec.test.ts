@@ -123,6 +123,14 @@ describe("Campus Map versioned scene codec", () => {
     ],
     [
       {
+        mode: "task",
+        task: { kind: "edit", placeId: "fountain" },
+      },
+      "v=1&task=edit&id=fountain",
+      null,
+    ],
+    [
+      {
         mode: "browse",
         scene: {
           kind: "provider-poi",

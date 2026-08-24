@@ -1,0 +1,777 @@
+import type {
+  CampusMapPublishCommand,
+  CampusMapPublishFactInput,
+  CampusMapPublishResult,
+  CampusMapPublishSourceInput,
+  CampusMapPublishValidationIssue,
+  CampusMapPublishWarning,
+} from "./publish-contract";
+
+export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 1 as const;
+
+type OutdoorPoint = Extract<
+  CampusMapPublishFactInput["location"],
+  { kind: "outdoor-point" }
+>;
+
+export interface CampusMapPlacement extends Omit<OutdoorPoint, "kind"> {
+  method: "pointer" | "keyboard";
+}
+
+export interface CampusMapEditDraft {
+  mode: "add" | "edit";
+  placeId: string | null;
+  baseRevisionId: string | null;
+  idempotencyKey: string;
+  fact: Omit<CampusMapPublishFactInput, "location"> & {
+    location: CampusMapPublishFactInput["location"] | null;
+  };
+  sources: CampusMapPublishSourceInput[];
+  baselineFact: CampusMapPublishFactInput | null;
+  baselineSources: CampusMapPublishSourceInput[];
+  placementMethod: CampusMapPlacement["method"] | null;
+  warningAcknowledgements: CampusMapPublishCommand["warningAcknowledgements"];
+}
+
+export type CampusMapEditStatus =
+  | "placing"
+  | "editing"
+  | "confirm-discard"
+  | "publishing"
+  | "warning"
+  | "authentication-required"
+  | "rate-limited"
+  | "temporarily-unavailable"
+  | "conflict"
+  | "published";
+
+export interface CampusMapEditReceipt {
+  placeId: string;
+  revisionId: string;
+  changesetId: string;
+}
+
+export interface CampusMapEditConflict {
+  currentRevisionId: string;
+  currentFact: CampusMapPublishFactInput;
+}
+
+export interface CampusMapEditSession {
+  status: CampusMapEditStatus;
+  draft: CampusMapEditDraft;
+  returnStatus?: Exclude<CampusMapEditStatus, "confirm-discard" | "published">;
+  localError?: string;
+  serverErrors?: CampusMapPublishValidationIssue[];
+  warnings?: CampusMapPublishWarning[];
+  retryAfter?: number;
+  rateScope?: "actor" | "ip";
+  conflict?: CampusMapEditConflict;
+  receipt?: CampusMapEditReceipt;
+}
+
+export type CampusMapEditCommand =
+  | { kind: "scene"; intent: "start-create" | "start-edit" | "cancel-task" }
+  | { kind: "persist-snapshot" }
+  | { kind: "clear-snapshot" }
+  | { kind: "focus"; target: string }
+  | { kind: "publish"; command: CampusMapPublishCommand }
+  | { kind: "schedule-rate-retry"; afterSeconds: number }
+  | { kind: "announce"; message: string };
+
+export type CampusMapEditEvent =
+  | { type: "START_ADD"; idempotencyKey: string }
+  | {
+      type: "START_EDIT";
+      placeId: string;
+      baseRevisionId: string;
+      fact: CampusMapPublishFactInput;
+      sources: CampusMapPublishSourceInput[];
+      idempotencyKey: string;
+    }
+  | { type: "CONFIRM_POSITION"; position: CampusMapPlacement }
+  | { type: "CHANGE_FACT"; fact: CampusMapPublishFactInput }
+  | { type: "CHANGE_SOURCES"; sources: CampusMapPublishSourceInput[] }
+  | { type: "REQUEST_CLOSE" }
+  | { type: "CONTINUE_EDITING" }
+  | { type: "DISCARD" }
+  | { type: "REQUEST_PUBLISH" }
+  | {
+      type: "PUBLISH_RESULT";
+      idempotencyKey: string;
+      result: CampusMapPublishResult;
+    }
+  | { type: "ACKNOWLEDGE_WARNINGS"; idempotencyKey: string }
+  | { type: "AUTH_RETURNED" }
+  | { type: "RETRY_PUBLISH" }
+  | { type: "RATE_LIMIT_ELAPSED" }
+  | { type: "CONTINUE_FROM_CONFLICT"; idempotencyKey: string }
+  | { type: "USE_CURRENT_FACT"; idempotencyKey: string };
+
+export interface CampusMapEditTransition {
+  accepted: boolean;
+  session: CampusMapEditSession | null;
+  commands: CampusMapEditCommand[];
+}
+
+const DEFAULT_FACT: CampusMapEditDraft["fact"] = {
+  name: "",
+  buildingId: null,
+  floorId: null,
+  pinType: "water",
+  capabilities: [],
+  gender: "unknown",
+  wheelchairAccess: "unknown",
+  audience: "unknown",
+  credentialRequirement: "unknown",
+  accessSchedule: { kind: "unknown" },
+  reservationRequirement: "unknown",
+  temporaryStatus: "unknown",
+  location: null,
+  observedAt: null,
+};
+
+function clone<T>(value: T): T {
+  return structuredClone(value);
+}
+
+export function createCampusMapEditDraft(input: {
+  mode: "add" | "edit";
+  idempotencyKey: string;
+  fact?: CampusMapPublishFactInput;
+  sources?: CampusMapPublishSourceInput[];
+  placeId?: string;
+  baseRevisionId?: string;
+}): CampusMapEditDraft {
+  const fact = input.fact ? clone(input.fact) : clone(DEFAULT_FACT);
+  const sources = clone(input.sources ?? []);
+  return {
+    mode: input.mode,
+    placeId: input.placeId ?? null,
+    baseRevisionId: input.baseRevisionId ?? null,
+    idempotencyKey: input.idempotencyKey,
+    fact,
+    sources,
+    baselineFact:
+      input.mode === "edit" && input.fact ? clone(input.fact) : null,
+    baselineSources: input.mode === "edit" ? clone(sources) : [],
+    placementMethod: null,
+    warningAcknowledgements: [],
+  };
+}
+
+function stable(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stable(item)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+export function isCampusMapEditDirty(
+  session: CampusMapEditSession | null,
+): boolean {
+  if (!session || session.status === "published") return false;
+  const { draft } = session;
+  if (draft.mode === "add") {
+    return (
+      draft.fact.location !== null ||
+      draft.fact.name.trim() !== "" ||
+      draft.sources.length > 0
+    );
+  }
+  return (
+    stable(draft.fact) !== stable(draft.baselineFact) ||
+    stable(draft.sources) !== stable(draft.baselineSources)
+  );
+}
+
+function rejected(
+  session: CampusMapEditSession | null,
+): CampusMapEditTransition {
+  return { accepted: false, session, commands: [] };
+}
+
+function persisted(session: CampusMapEditSession): CampusMapEditTransition {
+  return { accepted: true, session, commands: [{ kind: "persist-snapshot" }] };
+}
+
+function editable(session: CampusMapEditSession): CampusMapEditSession {
+  return {
+    status: "editing",
+    draft: {
+      ...session.draft,
+      warningAcknowledgements: [],
+    },
+  };
+}
+
+function firstLocalError(draft: CampusMapEditDraft): string | null {
+  if (!draft.fact.name.trim()) return "name";
+  if (!draft.fact.pinType) return "pinType";
+  if (!draft.fact.location) return "location";
+  if (draft.sources.length === 0) return "sources";
+  return null;
+}
+
+function publishTransition(
+  session: CampusMapEditSession,
+): CampusMapEditTransition {
+  if (session.status === "published" || session.status === "publishing") {
+    return rejected(session);
+  }
+  if (!isCampusMapEditDirty(session)) return rejected(session);
+  const error = firstLocalError(session.draft);
+  if (error) {
+    const next = { ...editable(session), localError: error };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: error },
+        { kind: "announce", message: "请先完成必填资料" },
+      ],
+    };
+  }
+  const next: CampusMapEditSession = {
+    status: "publishing",
+    draft: session.draft,
+  };
+  return {
+    accepted: true,
+    session: next,
+    commands: [
+      { kind: "persist-snapshot" },
+      { kind: "publish", command: deriveCampusMapPublishCommand(next.draft) },
+      { kind: "announce", message: "正在发布地点资料" },
+    ],
+  };
+}
+
+export function transitionCampusMapEdit(
+  session: CampusMapEditSession | null,
+  event: CampusMapEditEvent,
+): CampusMapEditTransition {
+  if (event.type === "START_ADD") {
+    if (session) return rejected(session);
+    const next: CampusMapEditSession = {
+      status: "placing",
+      draft: createCampusMapEditDraft({
+        mode: "add",
+        idempotencyKey: event.idempotencyKey,
+      }),
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "scene", intent: "start-create" },
+        { kind: "persist-snapshot" },
+      ],
+    };
+  }
+
+  if (event.type === "START_EDIT") {
+    if (session) return rejected(session);
+    const next: CampusMapEditSession = {
+      status: "editing",
+      draft: createCampusMapEditDraft({
+        mode: "edit",
+        placeId: event.placeId,
+        baseRevisionId: event.baseRevisionId,
+        fact: event.fact,
+        sources: event.sources,
+        idempotencyKey: event.idempotencyKey,
+      }),
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "scene", intent: "start-edit" },
+        { kind: "persist-snapshot" },
+      ],
+    };
+  }
+
+  if (!session) return rejected(session);
+  if (session.status === "published") {
+    if (event.type !== "REQUEST_CLOSE") return rejected(session);
+    return {
+      accepted: true,
+      session: null,
+      commands: [
+        { kind: "clear-snapshot" },
+        { kind: "scene", intent: "cancel-task" },
+      ],
+    };
+  }
+  if (session.status === "publishing" && event.type !== "PUBLISH_RESULT") {
+    return rejected(session);
+  }
+
+  if (event.type === "CONFIRM_POSITION") {
+    if (session.status !== "placing") return rejected(session);
+    const { method, ...point } = event.position;
+    const location: OutdoorPoint = { kind: "outdoor-point", ...point };
+    const next: CampusMapEditSession = {
+      status: "editing",
+      draft: {
+        ...session.draft,
+        fact: { ...session.draft.fact, location },
+        placementMethod: method,
+        warningAcknowledgements: [],
+      },
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: "name" },
+        { kind: "announce", message: "位置已锁定，请填写地点资料" },
+      ],
+    };
+  }
+
+  if (event.type === "CHANGE_FACT") {
+    return persisted({
+      ...editable(session),
+      draft: { ...editable(session).draft, fact: clone(event.fact) },
+    });
+  }
+  if (event.type === "CHANGE_SOURCES") {
+    return persisted({
+      ...editable(session),
+      draft: { ...editable(session).draft, sources: clone(event.sources) },
+    });
+  }
+
+  if (event.type === "REQUEST_CLOSE") {
+    if (!isCampusMapEditDirty(session)) {
+      return {
+        accepted: true,
+        session: null,
+        commands: [
+          { kind: "clear-snapshot" },
+          { kind: "scene", intent: "cancel-task" },
+        ],
+      };
+    }
+    const next: CampusMapEditSession = {
+      status: "confirm-discard",
+      draft: session.draft,
+      returnStatus:
+        session.status === "confirm-discard"
+          ? session.returnStatus
+          : session.status,
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: "continue-editing" },
+      ],
+    };
+  }
+  if (event.type === "CONTINUE_EDITING") {
+    if (session.status !== "confirm-discard") return rejected(session);
+    const next = {
+      status: session.returnStatus ?? "editing",
+      draft: session.draft,
+    } satisfies CampusMapEditSession;
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        {
+          kind: "scene",
+          intent: next.draft.mode === "add" ? "start-create" : "start-edit",
+        },
+      ],
+    };
+  }
+  if (event.type === "DISCARD") {
+    if (session.status !== "confirm-discard") return rejected(session);
+    return {
+      accepted: true,
+      session: null,
+      commands: [
+        { kind: "clear-snapshot" },
+        { kind: "scene", intent: "cancel-task" },
+      ],
+    };
+  }
+
+  if (event.type === "REQUEST_PUBLISH") return publishTransition(session);
+
+  if (event.type === "PUBLISH_RESULT") {
+    if (
+      session.status !== "publishing" ||
+      event.idempotencyKey !== session.draft.idempotencyKey
+    ) {
+      return rejected(session);
+    }
+    const result = event.result;
+    if (result.status === "published") {
+      const change = result.changes[0];
+      if (!change) return rejected(session);
+      const next: CampusMapEditSession = {
+        status: "published",
+        draft: session.draft,
+        receipt: {
+          placeId: change.placeId,
+          revisionId: change.revisionId,
+          changesetId: result.changesetId,
+        },
+      };
+      return {
+        accepted: true,
+        session: next,
+        commands: [
+          { kind: "clear-snapshot" },
+          { kind: "announce", message: "地点资料已发布" },
+        ],
+      };
+    }
+    if (result.status === "authentication-required") {
+      return persisted({
+        status: "authentication-required",
+        draft: session.draft,
+      });
+    }
+    if (result.status === "rate-limited") {
+      const next: CampusMapEditSession = {
+        status: "rate-limited",
+        draft: session.draft,
+        retryAfter: Math.max(0, result.retryAfter),
+        rateScope: result.scope,
+      };
+      return {
+        accepted: true,
+        session: next,
+        commands: [
+          { kind: "persist-snapshot" },
+          { kind: "schedule-rate-retry", afterSeconds: next.retryAfter ?? 0 },
+        ],
+      };
+    }
+    if (result.status === "temporarily-unavailable") {
+      return persisted({
+        status: "temporarily-unavailable",
+        draft: session.draft,
+      });
+    }
+    if (result.status === "conflict") {
+      const conflict = result.conflicts.find(
+        (item) => item.currentRevisionId && item.currentSnapshot,
+      );
+      if (!conflict?.currentRevisionId || !conflict.currentSnapshot) {
+        return persisted({ status: "conflict", draft: session.draft });
+      }
+      const currentFact = Object.fromEntries(
+        Object.entries(conflict.currentSnapshot).filter(
+          ([field]) => field !== "factSchemaVersion",
+        ),
+      ) as unknown as CampusMapPublishFactInput;
+      return persisted({
+        status: "conflict",
+        draft: session.draft,
+        conflict: {
+          currentRevisionId: conflict.currentRevisionId,
+          currentFact,
+        },
+      });
+    }
+    if (
+      result.status === "validation-failed" &&
+      result.errors.length === 0 &&
+      result.warnings.length > 0
+    ) {
+      return persisted({
+        status: "warning",
+        draft: session.draft,
+        warnings: result.warnings,
+      });
+    }
+    const errors = result.status === "validation-failed" ? result.errors : [];
+    const target = errors[0]?.anchor.field;
+    const next: CampusMapEditSession = {
+      status: "editing",
+      draft: session.draft,
+      serverErrors: errors,
+      ...(target ? { localError: target } : {}),
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        ...(target ? ([{ kind: "focus", target }] as const) : []),
+        { kind: "announce", message: "发布资料需要修改" },
+      ],
+    };
+  }
+
+  if (event.type === "ACKNOWLEDGE_WARNINGS") {
+    if (session.status !== "warning" || !session.warnings?.length)
+      return rejected(session);
+    const draft: CampusMapEditDraft = {
+      ...session.draft,
+      idempotencyKey: event.idempotencyKey,
+      warningAcknowledgements: session.warnings.map((warning) => ({
+        changeIndex: warning.anchor.changeIndex ?? 0,
+        code: warning.code,
+        fingerprint: warning.fingerprint,
+      })),
+    };
+    return publishTransition({ status: "editing", draft });
+  }
+
+  if (event.type === "AUTH_RETURNED") {
+    if (session.status !== "authentication-required") return rejected(session);
+    return persisted({ status: "editing", draft: session.draft });
+  }
+
+  if (event.type === "RETRY_PUBLISH") {
+    if (
+      session.status !== "temporarily-unavailable" &&
+      session.status !== "rate-limited"
+    ) {
+      return rejected(session);
+    }
+    if (session.status === "rate-limited" && (session.retryAfter ?? 0) > 0) {
+      return rejected(session);
+    }
+    return publishTransition({ status: "editing", draft: session.draft });
+  }
+
+  if (event.type === "RATE_LIMIT_ELAPSED") {
+    if (session.status !== "rate-limited") return rejected(session);
+    return persisted({ ...session, retryAfter: 0 });
+  }
+
+  if (event.type === "CONTINUE_FROM_CONFLICT") {
+    if (session.status !== "conflict" || !session.conflict)
+      return rejected(session);
+    return persisted({
+      status: "editing",
+      draft: {
+        ...session.draft,
+        baseRevisionId: session.conflict.currentRevisionId,
+        baselineFact: clone(session.conflict.currentFact),
+        idempotencyKey: event.idempotencyKey,
+        warningAcknowledgements: [],
+      },
+    });
+  }
+
+  if (event.type === "USE_CURRENT_FACT") {
+    if (session.status !== "conflict" || !session.conflict)
+      return rejected(session);
+    return persisted({
+      status: "editing",
+      draft: {
+        ...session.draft,
+        fact: clone(session.conflict.currentFact),
+        baselineFact: clone(session.conflict.currentFact),
+        baseRevisionId: session.conflict.currentRevisionId,
+        idempotencyKey: event.idempotencyKey,
+        warningAcknowledgements: [],
+      },
+    });
+  }
+
+  return rejected(session);
+}
+
+const FIELD_LABELS: Array<[keyof CampusMapPublishFactInput, string]> = [
+  ["name", "名称"],
+  ["pinType", "地点类型"],
+  ["buildingId", "建筑"],
+  ["floorId", "楼层"],
+  ["capabilities", "服务能力"],
+  ["gender", "性别属性"],
+  ["wheelchairAccess", "无障碍通行"],
+  ["audience", "开放对象"],
+  ["credentialRequirement", "凭证要求"],
+  ["accessSchedule", "开放时间"],
+  ["reservationRequirement", "预约要求"],
+  ["temporaryStatus", "临时状态"],
+  ["location", "位置"],
+  ["observedAt", "观察时间"],
+];
+
+const PIN_LABELS: Record<CampusMapPublishFactInput["pinType"], string> = {
+  toilet: "洗手间",
+  water: "饮水点",
+  printer: "打印服务",
+  "common-space": "公共空间",
+  classroom: "课室",
+};
+
+const SOURCE_LABELS: Record<CampusMapPublishSourceInput["kind"], string> = {
+  official: "官方资料",
+  "field-observation": "现场观察",
+  "open-data": "开放数据",
+  "provider-candidate": "地图供应商候选",
+  other: "其他资料",
+};
+
+export function deriveCampusMapPublishCommand(
+  draft: CampusMapEditDraft,
+): CampusMapPublishCommand {
+  if (!draft.fact.location)
+    throw new Error("Campus Map edit draft has no location");
+  const fact = draft.fact as CampusMapPublishFactInput;
+  const changedFields = FIELD_LABELS.filter(([field]) => {
+    if (!draft.baselineFact) return true;
+    return stable(fact[field]) !== stable(draft.baselineFact[field]);
+  }).map(([, label]) => label);
+  const comment =
+    draft.mode === "add"
+      ? `新增地点：${fact.name}（${PIN_LABELS[fact.pinType]}）`
+      : `更新地点：${changedFields.join("、") || "来源"}`;
+  const sourceLabels = Array.from(
+    new Set(draft.sources.map((item) => SOURCE_LABELS[item.kind])),
+  );
+  const sourceSummary = `来源：${sourceLabels.join("、") || "未提供"}`;
+  const change =
+    draft.mode === "add"
+      ? { operation: "create" as const, fact, sources: draft.sources }
+      : {
+          operation: "update" as const,
+          placeId: draft.placeId!,
+          baseRevisionId: draft.baseRevisionId!,
+          fact,
+          sources: draft.sources,
+        };
+  return {
+    kind: "single",
+    idempotencyKey: draft.idempotencyKey,
+    comment,
+    sourceSummary,
+    reviewRequested: false,
+    client: { name: "CUpedia Campus Map", version: "1" },
+    warningAcknowledgements: draft.warningAcknowledgements,
+    changes: [change],
+  };
+}
+
+export function encodeCampusMapEditSnapshot(
+  session: CampusMapEditSession,
+): string {
+  return JSON.stringify({ version: CAMPUS_MAP_EDIT_SNAPSHOT_VERSION, session });
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function looksLikeSession(value: unknown): value is CampusMapEditSession {
+  if (
+    !isRecord(value) ||
+    typeof value.status !== "string" ||
+    !isRecord(value.draft)
+  )
+    return false;
+  const draft = value.draft;
+  if (!isRecord(draft.fact)) return false;
+  const fact = draft.fact;
+  const location = isRecord(fact.location) ? fact.location : null;
+  const validLocation =
+    fact.location === null ||
+    (location !== null &&
+      (location.kind === "building" ||
+        location.kind === "floor" ||
+        (location.kind === "outdoor-point" &&
+          typeof location.longitude === "number" &&
+          Number.isFinite(location.longitude) &&
+          typeof location.latitude === "number" &&
+          Number.isFinite(location.latitude) &&
+          location.crs === "wgs84" &&
+          (location.precision === "approximate" ||
+            location.precision === "precise"))));
+  const validFact =
+    typeof fact.name === "string" &&
+    ["toilet", "water", "printer", "common-space", "classroom"].includes(
+      String(fact.pinType),
+    ) &&
+    Array.isArray(fact.capabilities) &&
+    typeof fact.gender === "string" &&
+    typeof fact.wheelchairAccess === "string" &&
+    typeof fact.audience === "string" &&
+    typeof fact.credentialRequirement === "string" &&
+    isRecord(fact.accessSchedule) &&
+    typeof fact.reservationRequirement === "string" &&
+    typeof fact.temporaryStatus === "string" &&
+    validLocation;
+  return (
+    [
+      "placing",
+      "editing",
+      "confirm-discard",
+      "publishing",
+      "warning",
+      "authentication-required",
+      "rate-limited",
+      "temporarily-unavailable",
+      "conflict",
+      "published",
+    ].includes(value.status) &&
+    (draft.mode === "add" || draft.mode === "edit") &&
+    typeof draft.idempotencyKey === "string" &&
+    validFact &&
+    Array.isArray(draft.sources) &&
+    draft.sources.every(
+      (source) =>
+        isRecord(source) &&
+        typeof source.kind === "string" &&
+        typeof source.ref === "string",
+    ) &&
+    Array.isArray(draft.baselineSources) &&
+    Array.isArray(draft.warningAcknowledgements) &&
+    (draft.mode === "add" ||
+      (typeof draft.placeId === "string" &&
+        typeof draft.baseRevisionId === "string" &&
+        isRecord(draft.baselineFact)))
+  );
+}
+
+export type CampusMapEditSnapshotDecodeResult =
+  | { status: "restored"; session: CampusMapEditSession }
+  | {
+      status: "discarded";
+      reason: "invalid-json" | "unsupported-version" | "invalid-snapshot";
+    };
+
+export function decodeCampusMapEditSnapshot(
+  encoded: string,
+): CampusMapEditSnapshotDecodeResult {
+  let value: unknown;
+  try {
+    value = JSON.parse(encoded);
+  } catch {
+    return { status: "discarded", reason: "invalid-json" };
+  }
+  if (!isRecord(value))
+    return { status: "discarded", reason: "invalid-snapshot" };
+  if (value.version !== CAMPUS_MAP_EDIT_SNAPSHOT_VERSION) {
+    return { status: "discarded", reason: "unsupported-version" };
+  }
+  if (
+    !looksLikeSession(value.session) ||
+    value.session.status === "published"
+  ) {
+    return { status: "discarded", reason: "invalid-snapshot" };
+  }
+  const session = clone(value.session);
+  if (session.status === "publishing")
+    session.status = "temporarily-unavailable";
+  return { status: "restored", session };
+}
