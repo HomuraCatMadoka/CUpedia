@@ -582,6 +582,7 @@ export async function publishCampusMapChangeset(
       const appendProvenanceSources = sourceIdentities.sources.map(
         ({ source }) => toAppendProvenanceSource(source),
       );
+      await acquirePublishWarningDomainLocks(transaction, command);
       try {
         await store.validateProvenanceSources(appendProvenanceSources);
       } catch (error) {
@@ -784,6 +785,35 @@ async function acquireTransactionAdvisoryLock(
   await transaction.execute(
     sql`select pg_advisory_xact_lock(${lockKey.toString()}::bigint)`,
   );
+}
+
+async function acquirePublishWarningDomainLocks(
+  transaction: DatabaseTransaction,
+  command: CampusMapPublishCommand,
+): Promise<void> {
+  const proposedDomains = command.changes.flatMap((change) =>
+    change.operation === "retire"
+      ? []
+      : [{ name: change.fact.name, pinType: change.fact.pinType }],
+  );
+  if (proposedDomains.length === 0) return;
+  const normalized = await transaction.execute<{
+    normalizedName: string;
+    pinType: string;
+  }>(sql`
+    select distinct
+      lower(btrim(domain.value->>'name')) as "normalizedName",
+      domain.value->>'pinType' as "pinType"
+    from jsonb_array_elements(${JSON.stringify(proposedDomains)}::jsonb)
+      as domain(value)
+    order by "normalizedName", "pinType"
+  `);
+  for (const domain of normalized.rows) {
+    await acquireTransactionAdvisoryLock(
+      transaction,
+      `publish-warning\u0000${domain.normalizedName}\u0000${domain.pinType}`,
+    );
+  }
 }
 
 async function evaluatePublishWarnings(

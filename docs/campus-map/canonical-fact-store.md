@@ -76,8 +76,8 @@ expose a second application publish path.
   to abuse policy.
 - Redacted revisions retain their chain and operation placeholder, while public
   Current, history, Changeset, and duplicate-warning projections suppress fact
-  snapshots, provenance, and field diffs so no read or warning can recover the
-  hidden payload.
+  snapshots, provenance, field diffs, and Changeset bounding boxes so no read or
+  warning can recover the hidden payload.
 - Projection replacement deletes the old Current fact before advancing Current
   revision, then inserts a new fact only for an active revision. The immediate
   FK remains representable by `schema.ts`; transaction isolation hides all
@@ -92,15 +92,18 @@ duplicated as a second set of cross-table trigger rules.
 The publisher acquires locks in a stable order: actor-scoped idempotency
 advisory lock, fresh User and credential eligibility rows, actor/IP rate rows in
 fixed policy order, existing Place and Current visibility rows in canonical
-Place UUID order, then provenance advisory locks in numeric key order. Exact
-completed replay returns before eligibility and quota because it does not
-create a new publication. No network request or slow external adapter runs
-inside the transaction.
+Place UUID order, normalized warning domains in name/pin order, then provenance
+advisory locks in numeric key order. Exact completed replay returns before
+eligibility and quota because it does not create a new publication. No network
+request or slow external adapter runs inside the transaction.
 
 Duplicate warnings compare both public Current facts and facts proposed earlier
 in the same bulk command. Their HMAC fingerprints bind the proposed fact to each
 candidate's warning-relevant location and, for Current candidates, revision ID,
-so acknowledgements cannot survive a relevant candidate change.
+so acknowledgements cannot survive a relevant candidate change. Transaction
+locks serialize publishers in each PostgreSQL-normalized name/pin warning domain
+before candidates are read, preventing concurrent creates from both observing
+an empty Current set.
 
 The projection-hardening migration validates every existing Current fact while
 installing the trigger. This takes a write lock and rewrites that projection;

@@ -10,6 +10,7 @@ import {
   getCampusMapChangeset,
   getCampusMapCurrentPlace,
   getCampusMapPlaceHistory,
+  listCampusMapChangesets,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
 
@@ -1620,6 +1621,54 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     expect(counts.rows.map((row) => row.revisions).sort()).toEqual([1, 2]);
   });
 
+  it("hides a redacted outdoor point from Changeset detail and feed bbox", async () => {
+    const actorId = await createActor();
+    const command = createCommand();
+    const change = command.changes[0];
+    if (change.operation !== "create") throw new Error("bad fixture");
+    change.fact.name = "需遮蔽坐标的室外点";
+    change.fact.buildingId = null;
+    change.fact.floorId = null;
+    change.fact.location = {
+      kind: "outdoor-point",
+      longitude: 114.209718,
+      latitude: 22.419941,
+      crs: "wgs84",
+      precision: "precise",
+    };
+    const published = await publishCampusMapChangeset(command, {
+      actorId,
+      clientIp: "203.0.113.21",
+    });
+    if (published.status !== "published") throw new Error("create failed");
+    await expect(
+      getCampusMapChangeset(published.changesetId),
+    ).resolves.toMatchObject({
+      bbox: {
+        west: 114.209718,
+        south: 22.419941,
+        east: 114.209718,
+        north: 22.419941,
+      },
+    });
+
+    await pool.query(
+      "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#718-bbox' where revision_id = $1",
+      [published.changes[0].revisionId],
+    );
+
+    await expect(
+      getCampusMapChangeset(published.changesetId),
+    ).resolves.toMatchObject({
+      bbox: null,
+      changes: [{ fieldDiff: null }],
+    });
+    const feed = await listCampusMapChangesets({ limit: 100 });
+    expect(
+      feed.items.find((item) => item.id === published.changesetId),
+    ).toMatchObject({ bbox: null, changes: [{ fieldDiff: null }] });
+  });
+
   it("serializes a concurrent redaction before reading Current visibility", async () => {
     const actorId = await createActor();
     const created = await publishCampusMapChangeset(createCommand(), {
@@ -2069,6 +2118,79 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       warnings: [{ code: "possible-duplicate" }],
     });
   });
+
+  it("serializes concurrent creates in the same duplicate warning domain", async () => {
+    const [actorA, actorB] = await Promise.all([createActor(), createActor()]);
+    const commandA = createCommand();
+    const commandB = createCommand();
+    const changeA = commandA.changes[0];
+    const changeB = commandB.changes[0];
+    if (changeA.operation !== "create" || changeB.operation !== "create") {
+      throw new Error("bad fixture");
+    }
+    changeA.fact.name = "并发重复域测试";
+    changeB.fact = structuredClone(changeA.fact);
+
+    const barrierKey = 718_002;
+    await pool.query(
+      `create function campus_map_publish_warning_barrier() returns trigger
+       language plpgsql as $$
+       begin
+         perform pg_advisory_xact_lock(${barrierKey});
+         return new;
+       end
+       $$`,
+    );
+    await pool.query(
+      `create trigger campus_map_publish_warning_barrier_trigger
+       before insert on campus_map_publish_requests
+       for each row execute function campus_map_publish_warning_barrier()`,
+    );
+    const locker = await pool.connect();
+    await locker.query("begin");
+    await locker.query("select pg_advisory_xact_lock($1)", [barrierKey]);
+    let lockerOpen = true;
+    let publishA: ReturnType<typeof publishCampusMapChangeset> | undefined;
+    let publishB: ReturnType<typeof publishCampusMapChangeset> | undefined;
+    let results: Awaited<ReturnType<typeof publishCampusMapChangeset>>[] = [];
+    try {
+      publishA = publishCampusMapChangeset(commandA, {
+        actorId: actorA,
+        clientIp: "203.0.113.28",
+      });
+      await waitForBlockedPublishQueries(1);
+      publishB = publishCampusMapChangeset(commandB, {
+        actorId: actorB,
+        clientIp: "203.0.113.29",
+      });
+      await waitForBlockedPublishQueries(2);
+      await locker.query("commit");
+      lockerOpen = false;
+      results = await Promise.all([publishA, publishB]);
+    } finally {
+      if (lockerOpen) await locker.query("rollback");
+      locker.release();
+      if (publishA && publishB && results.length === 0) {
+        await Promise.allSettled([publishA, publishB]);
+      }
+      await pool.query(
+        "drop trigger campus_map_publish_warning_barrier_trigger on campus_map_publish_requests",
+      );
+      await pool.query("drop function campus_map_publish_warning_barrier()");
+    }
+
+    expect(results.map((result) => result.status).sort()).toEqual([
+      "published",
+      "validation-failed",
+    ]);
+    expect(
+      results.find((result) => result.status === "validation-failed"),
+    ).toMatchObject({
+      status: "validation-failed",
+      errors: [],
+      warnings: [{ code: "possible-duplicate" }],
+    });
+  }, 10_000);
 
   it("requires the current server-issued duplicate warning fingerprint", async () => {
     const [existingActorId, candidateActorId] = await Promise.all([

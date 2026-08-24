@@ -922,7 +922,11 @@ function projectChangeset(
   row: CampusMapChangesetRow,
   changes: CampusMapPublicChangeset["changes"],
 ): CampusMapPublicChangeset {
+  const hasOnlyPublicChanges =
+    changes.length === row.affectedCount &&
+    changes.every((change) => change.fieldDiff !== null);
   const hasBbox =
+    hasOnlyPublicChanges &&
     row.bboxWest !== null &&
     row.bboxSouth !== null &&
     row.bboxEast !== null &&
