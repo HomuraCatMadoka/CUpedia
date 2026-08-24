@@ -8,6 +8,10 @@ export type CampusMapEditFieldKey =
   | "wheelchairAccess"
   | "audience"
   | "credentialRequirement"
+  | "accessSchedule"
+  | "reservationRequirement"
+  | "temporaryStatus"
+  | "location"
   | "sources";
 
 export interface CampusMapEditOption<T extends string = string> {
@@ -35,6 +39,10 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
         "wheelchairAccess",
         "audience",
         "credentialRequirement",
+        "accessSchedule",
+        "reservationRequirement",
+        "temporaryStatus",
+        "location",
         "sources",
       ],
     },
@@ -49,6 +57,10 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
         "wheelchairAccess",
         "audience",
         "credentialRequirement",
+        "accessSchedule",
+        "reservationRequirement",
+        "temporaryStatus",
+        "location",
         "sources",
       ],
     },
@@ -63,6 +75,10 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
         "wheelchairAccess",
         "audience",
         "credentialRequirement",
+        "accessSchedule",
+        "reservationRequirement",
+        "temporaryStatus",
+        "location",
         "sources",
       ],
     },
@@ -76,6 +92,10 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
         "wheelchairAccess",
         "audience",
         "credentialRequirement",
+        "accessSchedule",
+        "reservationRequirement",
+        "temporaryStatus",
+        "location",
         "sources",
       ],
     },
@@ -89,6 +109,10 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
         "wheelchairAccess",
         "audience",
         "credentialRequirement",
+        "accessSchedule",
+        "reservationRequirement",
+        "temporaryStatus",
+        "location",
         "sources",
       ],
     },
@@ -118,6 +142,20 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
       { value: "campus-card", label: "校园卡" },
       { value: "library-card", label: "图书证" },
       { value: "other", label: "其他凭证" },
+    ],
+    accessSchedule: [
+      { value: "unknown", label: "未知" },
+      { value: "always", label: "全天开放" },
+    ],
+    reservationRequirement: [
+      { value: "unknown", label: "未知" },
+      { value: "none", label: "无需预约" },
+      { value: "required", label: "需要预约" },
+    ],
+    temporaryStatus: [
+      { value: "unknown", label: "未知" },
+      { value: "normal", label: "正常" },
+      { value: "temporarily-closed", label: "暂时关闭" },
     ],
     capabilities: [
       { value: "print", label: "打印" },

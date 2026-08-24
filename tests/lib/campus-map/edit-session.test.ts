@@ -127,6 +127,57 @@ describe("Campus Map edit session transition", () => {
     expect(isCampusMapEditDirty(session)).toBe(false);
   });
 
+  it("repositions the same edit draft and invalidates warning acknowledgement", () => {
+    const warned = {
+      ...editSession(),
+      status: "warning" as const,
+      draft: {
+        ...editSession().draft,
+        warningAcknowledgements: [
+          {
+            changeIndex: 0,
+            code: "duplicate-candidate",
+            fingerprint: "a".repeat(64),
+          },
+        ],
+      },
+    };
+    const placing = transitionCampusMapEdit(warned, {
+      type: "START_REPOSITION",
+    });
+    const repositioned = transitionCampusMapEdit(placing.session, {
+      type: "CONFIRM_POSITION",
+      position: {
+        longitude: 114.21,
+        latitude: 22.42,
+        crs: "wgs84",
+        precision: "approximate",
+        method: "keyboard",
+      },
+    });
+
+    expect(placing.session).toMatchObject({
+      status: "placing",
+      draft: {
+        mode: "edit",
+        placeId,
+        baseRevisionId,
+        warningAcknowledgements: [],
+      },
+    });
+    expect(repositioned.session).toMatchObject({
+      status: "editing",
+      draft: {
+        placeId,
+        baseRevisionId,
+        fact: {
+          location: { longitude: 114.21, latitude: 22.42 },
+        },
+      },
+    });
+    expect(isCampusMapEditDirty(repositioned.session)).toBe(true);
+  });
+
   it("asks before closing a dirty draft and supports continue or discard", () => {
     const changed = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
@@ -355,6 +406,7 @@ describe("Campus Map edit session transition", () => {
     expect(limited.commands).toContainEqual({
       kind: "schedule-rate-retry",
       afterSeconds: 12,
+      idempotencyKey: firstKey,
     });
     expect(
       transitionCampusMapEdit(limited.session, { type: "RETRY_PUBLISH" })
@@ -362,6 +414,7 @@ describe("Campus Map edit session transition", () => {
     ).toBe(false);
     const ready = transitionCampusMapEdit(limited.session, {
       type: "RATE_LIMIT_ELAPSED",
+      idempotencyKey: firstKey,
     });
     expect(ready.session).toMatchObject({
       status: "rate-limited",
@@ -371,6 +424,12 @@ describe("Campus Map edit session transition", () => {
       transitionCampusMapEdit(ready.session, { type: "RETRY_PUBLISH" }).session
         ?.status,
     ).toBe("publishing");
+    expect(
+      transitionCampusMapEdit(limited.session, {
+        type: "RATE_LIMIT_ELAPSED",
+        idempotencyKey: secondKey,
+      }).accepted,
+    ).toBe(false);
   });
 
   it("ignores stale responses and keeps the same key for transient retry", () => {
@@ -449,6 +508,7 @@ describe("Campus Map edit session transition", () => {
     const continued = transitionCampusMapEdit(conflicted.session, {
       type: "CONTINUE_FROM_CONFLICT",
       idempotencyKey: secondKey,
+      fact: { ...current, name: mine.name },
     });
 
     expect(conflicted.session).toMatchObject({
@@ -458,7 +518,7 @@ describe("Campus Map edit session transition", () => {
     expect(continued.session).toMatchObject({
       status: "editing",
       draft: {
-        fact: mine,
+        fact: { ...current, name: mine.name },
         baseRevisionId: currentRevisionId,
         idempotencyKey: secondKey,
         warningAcknowledgements: [],
@@ -529,6 +589,21 @@ describe("Campus Map edit session transition", () => {
     };
     snapshot.session.draft.fact = { name: "missing controlled fields" };
 
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
+  it.each([
+    ["conflict", {}],
+    ["warning", {}],
+    ["rate-limited", {}],
+  ])("discards a %s snapshot without its required state", (status, extra) => {
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
+      session: CampusMapEditSession;
+    };
+    snapshot.session = { ...snapshot.session, ...extra, status } as never;
     expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
       status: "discarded",
       reason: "invalid-snapshot",

@@ -27,16 +27,16 @@ kernel and codecs.
 
 ## Canonical state matrix
 
-| Mode   | Discriminant       | Canonical fields                         | Derived from catalog            | URL policy                     |
-| ------ | ------------------ | ---------------------------------------- | ------------------------------- | ------------------------------ |
-| browse | `map`              | none                                     | none                            | base URL                       |
-| browse | `search-results`   | normalized query, snap                   | none                            | query + snap                   |
-| browse | `category-results` | category ID, snap                        | category validity               | category + snap                |
-| browse | `building`         | building ID, optional chosen floor, snap | floor validity                  | building + chosen floor + snap |
-| browse | `facility`         | facility ID, snap                        | building, floor, category       | facility + snap only           |
-| browse | `content`          | content ID, snap                         | building, floor, category       | content + snap only            |
-| browse | `provider-poi`     | provider ID, POI ID, name, position      | none                            | transient; normalizes to map   |
-| task   | `create`           | contribution anchor                      | building validity when anchored | task + anchor only             |
+| Mode   | Discriminant       | Canonical fields                         | Derived from catalog      | URL policy                     |
+| ------ | ------------------ | ---------------------------------------- | ------------------------- | ------------------------------ |
+| browse | `map`              | none                                     | none                      | base URL                       |
+| browse | `search-results`   | normalized query, snap                   | none                      | query + snap                   |
+| browse | `category-results` | category ID, snap                        | category validity         | category + snap                |
+| browse | `building`         | building ID, optional chosen floor, snap | floor validity            | building + chosen floor + snap |
+| browse | `facility`         | facility ID, snap                        | building, floor, category | facility + snap only           |
+| browse | `content`          | content ID, snap                         | building, floor, category | content + snap only            |
+| browse | `provider-poi`     | provider ID, POI ID, name, position      | none                      | transient; normalizes to map   |
+| task   | `create` / `edit`  | contribution anchor or stable Place ID   | anchor / Place identity   | task + anchor or Place ID      |
 
 The union is mutually exclusive. There are no optional selection fields that
 can combine two scenes, and facility/content scenes cannot carry duplicated
@@ -59,6 +59,7 @@ transition cannot emit more than one command of each kind.
 | `SET_SNAP`           | sheet-bearing browse scene | same identity, new snap                | replace                                           | none                                                         | panel heading when expanded                |
 | `SET_BUILDING_FLOOR` | building                   | same building, validated floor         | replace                                           | none                                                         | results                                    |
 | `START_CREATE`       | browse                     | create task                            | push                                              | cancel                                                       | contribution form / close external         |
+| `START_EDIT`         | browse                     | edit task with stable Place ID         | push                                              | cancel                                                       | contribution form / close external         |
 | `CANCEL_TASK`        | task                       | anchor projection or map               | back-or-push                                      | cancel                                                       | scene heading                              |
 | `RESTORE`            | any                        | normalized decoded session             | none                                              | derived entity focus or cancel                               | scene projection / close transient overlay |
 
@@ -97,7 +98,7 @@ returnable while switching result filters replaces the current entry.
    overlay lifecycle, browser-history, or MarkerCluster failure behavior.
 8. This ticket does not connect the existing UI to the new kernel and does not
    copy or synchronize the legacy session fields.
-9. The 8 × 12 scene-by-event-type baseline asserts the exact next session and
+9. The 8 × 13 scene-by-event-type baseline asserts the exact next session and
    all four command slots for every cell. Payload-sensitive branches such as
    entity `source` and semantic `RESTORE` targets have separate exact contract
    tables; a cell count alone does not claim complete event coverage.

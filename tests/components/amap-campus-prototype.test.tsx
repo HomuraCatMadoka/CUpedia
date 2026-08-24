@@ -15,6 +15,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("next/script", () => ({
   default: () => null,
 }));
+vi.mock("@/lib/campus-map/edit-actions", () => ({
+  publishCampusMapEdit: vi.fn(),
+  loadCampusMapEditablePlace: vi.fn(async (placeId: string) => ({
+    placeId,
+    baseRevisionId: "72000000-0000-4000-8000-000000000005",
+    fact: {
+      name: "饮水机",
+      buildingId: null,
+      floorId: null,
+      pinType: "water",
+      capabilities: [],
+      gender: "unknown",
+      wheelchairAccess: "unknown",
+      audience: "cuhk-member",
+      credentialRequirement: "unknown",
+      accessSchedule: { kind: "unknown" },
+      reservationRequirement: "unknown",
+      temporaryStatus: "unknown",
+      location: {
+        kind: "outdoor-point",
+        longitude: 114.2049,
+        latitude: 22.4195,
+        crs: "wgs84",
+        precision: "approximate",
+      },
+      observedAt: null,
+    },
+  })),
+}));
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
 

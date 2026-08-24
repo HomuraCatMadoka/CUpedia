@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { CampusMapEditSheet } from "@/components/campus-map/edit-sheet";
+import { useCampusMapEditSessionOwner } from "@/components/campus-map/use-campus-map-edit-session-owner";
 
 import {
   CameraRequestGate,
@@ -67,19 +68,6 @@ import {
   type CampusMapSceneCatalog,
   type CampusMapSession,
 } from "@/lib/campus-map/scene-kernel";
-import { publishCampusMapEdit } from "@/lib/campus-map/edit-actions";
-import {
-  decodeCampusMapEditSnapshot,
-  encodeCampusMapEditSnapshot,
-  isCampusMapEditDirty,
-  transitionCampusMapEdit,
-  type CampusMapEditEvent,
-  type CampusMapEditSession,
-} from "@/lib/campus-map/edit-session";
-import type {
-  CampusMapPublishFactInput,
-  CampusMapPublishSourceInput,
-} from "@/lib/campus-map/publish-contract";
 import type { CampusMapFactSchema } from "@/lib/campus-map/fact-store";
 import { cn } from "@/lib/utils";
 
@@ -406,52 +394,6 @@ function floorLabel(floorId: string) {
   return floorId.endsWith("/F") ? floorId : `${floorId}/F`;
 }
 
-const CAMPUS_MAP_EDIT_SNAPSHOT_KEY = "cupedia:campus-map:edit-session:v1";
-
-function sourceForFacility(facility: Facility): CampusMapPublishSourceInput {
-  return {
-    kind: "official",
-    ref: facility.source,
-    url: "https://www.cuhk.edu.hk/english/campus/cuhk-campus-map.html",
-    owner: "The Chinese University of Hong Kong",
-    version: null,
-    snapshotHash: null,
-    accessedOn: "2026-08-25",
-    observedAt: null,
-    rightsStatus: "unknown",
-    limitations:
-      "Prototype catalog source; canonical projection is connected by #647.",
-    note: null,
-    sourceCoordinate: null,
-  };
-}
-
-function factForFacility(facility: Facility): CampusMapPublishFactInput {
-  const building = BUILDINGS.find((item) => item.id === facility.buildingId)!;
-  return {
-    name: facility.name,
-    buildingId: null,
-    floorId: null,
-    pinType: facility.category,
-    capabilities: facility.category === "printer" ? ["print"] : [],
-    gender: "unknown",
-    wheelchairAccess: "unknown",
-    audience: facility.access.includes("CUHK") ? "cuhk-member" : "unknown",
-    credentialRequirement: "unknown",
-    accessSchedule: { kind: "unknown" },
-    reservationRequirement: "unknown",
-    temporaryStatus: "unknown",
-    location: {
-      kind: "outdoor-point",
-      longitude: building.position[0],
-      latitude: building.position[1],
-      crs: "wgs84",
-      precision: "approximate",
-    },
-    observedAt: null,
-  };
-}
-
 export function AmapCampusPrototype({
   initialSearch = "",
   factSchema = null,
@@ -470,16 +412,7 @@ export function AmapCampusPrototype({
         null,
       ).mapFilter.query,
   );
-  const [editSession, setEditSession] = useState<CampusMapEditSession | null>(
-    null,
-  );
-  const editSessionRef = useRef<CampusMapEditSession | null>(null);
-  const editEventDispatcherRef = useRef<(event: CampusMapEditEvent) => void>(
-    () => {},
-  );
   const startAddRef = useRef<() => void>(() => {});
-  const [editAnnouncement, setEditAnnouncement] = useState("");
-  const [editRestoreNotice, setEditRestoreNotice] = useState("");
   const [centerPosition, setCenterPosition] = useState<Position>(CAMPUS_CENTER);
   const amapOffsetRef = useRef<Position>([0, 0]);
   const [config, setConfig] = useState<
@@ -850,156 +783,22 @@ export function AmapCampusPrototype({
     [driver],
   );
 
-  const dispatchEditEvent = useCallback(
-    (event: CampusMapEditEvent) => {
-      const transition = transitionCampusMapEdit(editSessionRef.current, event);
-      if (!transition.accepted) return;
-      editSessionRef.current = transition.session;
-      setEditSession(transition.session);
-
-      for (const command of transition.commands) {
-        if (command.kind === "persist-snapshot" && transition.session) {
-          window.sessionStorage.setItem(
-            CAMPUS_MAP_EDIT_SNAPSHOT_KEY,
-            encodeCampusMapEditSnapshot(transition.session),
-          );
-        } else if (command.kind === "clear-snapshot") {
-          window.sessionStorage.removeItem(CAMPUS_MAP_EDIT_SNAPSHOT_KEY);
-        } else if (command.kind === "scene") {
-          if (command.intent === "start-create") {
-            dispatch({ type: "START_CREATE" });
-          } else if (command.intent === "start-edit" && transition.session) {
-            dispatch({
-              type: "START_EDIT",
-              placeId: transition.session.draft.placeId!,
-            });
-          } else if (command.intent === "cancel-task") {
-            dispatch({ type: "CANCEL_TASK" });
-          }
-        } else if (command.kind === "focus") {
-          driver.focusEditField(command.target);
-        } else if (command.kind === "announce") {
-          setEditAnnouncement("");
-          window.requestAnimationFrame(() =>
-            setEditAnnouncement(command.message),
-          );
-        } else if (command.kind === "publish") {
-          const idempotencyKey = command.command.idempotencyKey;
-          void publishCampusMapEdit(command.command).then(
-            (result) =>
-              editEventDispatcherRef.current({
-                type: "PUBLISH_RESULT",
-                idempotencyKey,
-                result,
-              }),
-            () =>
-              editEventDispatcherRef.current({
-                type: "PUBLISH_RESULT",
-                idempotencyKey,
-                result: {
-                  status: "temporarily-unavailable",
-                  code: "publish-unavailable",
-                  retryable: true,
-                },
-              }),
-          );
-        } else if (command.kind === "schedule-rate-retry") {
-          window.setTimeout(
-            () =>
-              editEventDispatcherRef.current({ type: "RATE_LIMIT_ELAPSED" }),
-            Math.min(Math.max(command.afterSeconds, 0), 86_400) * 1000,
-          );
-        }
-      }
-    },
-    [dispatch, driver],
-  );
-  useEffect(() => {
-    editEventDispatcherRef.current = dispatchEditEvent;
-  }, [dispatchEditEvent]);
-
-  const startAdd = useCallback(() => {
-    dispatchEditEvent({
-      type: "START_ADD",
-      idempotencyKey: window.crypto.randomUUID(),
-    });
-  }, [dispatchEditEvent]);
+  const {
+    session: editSession,
+    dispatchEvent: dispatchEditEvent,
+    startAdd,
+    startEdit: startCanonicalEdit,
+    announcement: editAnnouncement,
+    restoreNotice: editRestoreNotice,
+  } = useCampusMapEditSessionOwner({ driver, dispatch });
   useEffect(() => {
     startAddRef.current = startAdd;
   }, [startAdd]);
 
   const startEdit = useCallback(
-    (facility: Facility) => {
-      dispatchEditEvent({
-        type: "START_EDIT",
-        placeId: facility.id,
-        baseRevisionId: facility.baseRevisionId,
-        fact: factForFacility(facility),
-        sources: [sourceForFacility(facility)],
-        idempotencyKey: window.crypto.randomUUID(),
-      });
-    },
-    [dispatchEditEvent],
+    (facility: Facility) => void startCanonicalEdit(facility.id),
+    [startCanonicalEdit],
   );
-
-  useEffect(() => {
-    driver.start();
-    const encoded = window.sessionStorage.getItem(CAMPUS_MAP_EDIT_SNAPSHOT_KEY);
-    if (!encoded) {
-      if (driver.getSnapshot().session.mode === "task") {
-        dispatch({ type: "CANCEL_TASK" });
-        queueMicrotask(() =>
-          setEditRestoreNotice("这项地图编辑已结束，没有可恢复的草稿。"),
-        );
-      }
-      return;
-    }
-    const restored = decodeCampusMapEditSnapshot(encoded);
-    if (restored.status === "discarded") {
-      window.sessionStorage.removeItem(CAMPUS_MAP_EDIT_SNAPSHOT_KEY);
-      queueMicrotask(() =>
-        setEditRestoreNotice("已丢弃损坏或不兼容的地图编辑草稿。"),
-      );
-      if (driver.getSnapshot().session.mode === "task") {
-        dispatch({ type: "CANCEL_TASK" });
-      }
-      return;
-    }
-    const next =
-      restored.session.status === "authentication-required"
-        ? transitionCampusMapEdit(restored.session, { type: "AUTH_RETURNED" })
-            .session
-        : restored.session;
-    editSessionRef.current = next;
-    queueMicrotask(() => {
-      setEditSession(next);
-      window.requestAnimationFrame(() => driver.focusContributionForm());
-    });
-    if (next && driver.getSnapshot().session.mode !== "task") {
-      dispatch(
-        next.draft.mode === "add"
-          ? { type: "START_CREATE" }
-          : { type: "START_EDIT", placeId: next.draft.placeId! },
-      );
-    }
-    if (next?.status === "rate-limited" && (next.retryAfter ?? 0) > 0) {
-      window.setTimeout(
-        () => editEventDispatcherRef.current({ type: "RATE_LIMIT_ELAPSED" }),
-        Math.min(next.retryAfter ?? 0, 86_400) * 1000,
-      );
-    }
-    queueMicrotask(() => setEditAnnouncement("已恢复未发布的地图编辑草稿"));
-  }, [dispatch, driver]);
-
-  useEffect(() => {
-    if (!isCampusMapEditDirty(editSession)) return;
-    const warn = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [editSession]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1076,17 +875,15 @@ export function AmapCampusPrototype({
   }, []);
 
   useEffect(() => {
-    driver.start();
-
     const handlePopState = (event: PopStateEvent) => {
       driver.restore(window.location.search, event.state);
-      if (editSessionRef.current) {
-        editEventDispatcherRef.current({ type: "REQUEST_CLOSE" });
+      if (editSession) {
+        dispatchEditEvent({ type: "REQUEST_CLOSE" });
       }
     };
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [driver]);
+  }, [dispatchEditEvent, driver, editSession]);
 
   const closeSelection = useCallback(() => {
     dispatch({ type: "DISMISS" });
@@ -1099,9 +896,9 @@ export function AmapCampusPrototype({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      if (editSessionRef.current) {
+      if (editSession) {
         event.preventDefault();
-        editEventDispatcherRef.current({ type: "REQUEST_CLOSE" });
+        dispatchEditEvent({ type: "REQUEST_CLOSE" });
         return;
       }
       const current = driver.getSnapshot().session;
@@ -1111,7 +908,7 @@ export function AmapCampusPrototype({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [dispatch, driver]);
+  }, [dispatch, dispatchEditEvent, driver, editSession]);
 
   const initialiseMap = useCallback(() => {
     if (!window.AMap || mapRef.current) return;

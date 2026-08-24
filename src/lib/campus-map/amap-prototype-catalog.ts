@@ -27,7 +27,6 @@ export interface AmapPrototypeBuilding {
 
 export interface AmapPrototypeFacility {
   id: string;
-  baseRevisionId: string;
   buildingId: string;
   category: CampusMapAmenity;
   name: string;
@@ -111,7 +110,6 @@ export const AMAP_PROTOTYPE_BUILDINGS: readonly AmapPrototypeBuilding[] = [
 export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
   {
     id: "71000000-0000-4000-8000-000000000001",
-    baseRevisionId: "72000000-0000-4000-8000-000000000001",
     buildingId: "science-centre",
     category: "toilet",
     name: "洗手间",
@@ -122,7 +120,6 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
   },
   {
     id: "71000000-0000-4000-8000-000000000002",
-    baseRevisionId: "72000000-0000-4000-8000-000000000002",
     buildingId: "science-centre",
     category: "water",
     name: "饮水机",
@@ -133,7 +130,6 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
   },
   {
     id: "71000000-0000-4000-8000-000000000003",
-    baseRevisionId: "72000000-0000-4000-8000-000000000003",
     buildingId: "wmy",
     category: "toilet",
     name: "洗手间",
@@ -144,7 +140,6 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
   },
   {
     id: "71000000-0000-4000-8000-000000000004",
-    baseRevisionId: "72000000-0000-4000-8000-000000000004",
     buildingId: "wmy",
     category: "printer",
     name: "打印站",
@@ -155,7 +150,6 @@ export const AMAP_PROTOTYPE_FACILITIES: readonly AmapPrototypeFacility[] = [
   },
   {
     id: "71000000-0000-4000-8000-000000000005",
-    baseRevisionId: "72000000-0000-4000-8000-000000000005",
     buildingId: "university-library",
     category: "water",
     name: "饮水机",

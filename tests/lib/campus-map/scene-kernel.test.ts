@@ -850,7 +850,7 @@ describe("Campus Map canonical scene transition", () => {
       },
       task: {
         mode: "task",
-        task: { kind: "create", anchor: { kind: "map" } },
+        task: { kind: "edit", placeId: "fountain" },
       },
     } as const satisfies Record<string, CampusMapSession>;
     const browseSources = [
@@ -1167,6 +1167,19 @@ describe("Campus Map canonical scene transition", () => {
     }
     verify("task", startCreate, rejected(sources.task));
 
+    const startEdit = {
+      type: "START_EDIT",
+      placeId: "fountain",
+    } as const;
+    const editTask: CampusMapSession = {
+      mode: "task",
+      task: { kind: "edit", placeId: "fountain" },
+    };
+    for (const source of browseSources) {
+      verify(source, startEdit, accepted(editTask, createCommands));
+    }
+    verify("task", startEdit, rejected(sources.task));
+
     const cancelTask = { type: "CANCEL_TASK" } as const;
     for (const source of browseSources) {
       verify(source, cancelTask, rejected(sources[source]));
@@ -1174,10 +1187,10 @@ describe("Campus Map canonical scene transition", () => {
     verify(
       "task",
       cancelTask,
-      accepted(sources.map, {
+      accepted(sources.building, {
         history: "back-or-push",
         camera: { kind: "cancel" },
-        focus: { kind: "map" },
+        focus: { kind: "heading" },
         overlay: null,
       }),
     );
@@ -1199,7 +1212,7 @@ describe("Campus Map canonical scene transition", () => {
       );
     }
 
-    expect(cellCount).toBe(96);
+    expect(cellCount).toBe(104);
   });
 
   it.each([

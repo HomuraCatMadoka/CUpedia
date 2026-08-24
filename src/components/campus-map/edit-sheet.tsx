@@ -67,6 +67,44 @@ function messageForError(code: string): string {
   return messages[code] ?? `服务器未接受这项资料（${code}）。`;
 }
 
+function describeLocation(fact: CampusMapEditSession["draft"]["fact"]): string {
+  if (!fact.location) return "尚未定位";
+  if (fact.location.kind === "outdoor-point") {
+    return `${fact.location.longitude.toFixed(6)}, ${fact.location.latitude.toFixed(6)} · WGS84 · ${
+      fact.location.precision === "precise" ? "精确" : "约略"
+    }`;
+  }
+  if (fact.location.kind === "floor") {
+    return `建筑 ${fact.buildingId ?? "未知"} · 楼层 ${fact.floorId ?? "未知"}`;
+  }
+  return `建筑 ${fact.buildingId ?? "未知"}`;
+}
+
+function conflictFields(
+  session: CampusMapEditSession,
+): Array<[keyof CampusMapPublishFactInput, string]> {
+  const current = session.conflict?.currentFact;
+  if (!current) return [];
+  const labels: Array<[keyof CampusMapPublishFactInput, string]> = [
+    ["name", "名称"],
+    ["pinType", "类型"],
+    ["capabilities", "服务能力"],
+    ["gender", "性别属性"],
+    ["wheelchairAccess", "无障碍通行"],
+    ["audience", "开放对象"],
+    ["credentialRequirement", "凭证要求"],
+    ["accessSchedule", "开放时间"],
+    ["reservationRequirement", "预约要求"],
+    ["temporaryStatus", "临时状态"],
+    ["location", "位置"],
+  ];
+  return labels.filter(
+    ([field]) =>
+      JSON.stringify(session.draft.fact[field]) !==
+      JSON.stringify(current[field]),
+  );
+}
+
 function SelectField<T extends string>({
   id,
   label,
@@ -116,6 +154,9 @@ export function CampusMapEditSheet({
     String(centerPosition[1]),
   );
   const [sourceDate, setSourceDate] = useState(today);
+  const [conflictKeepFields, setConflictKeepFields] = useState<
+    Array<keyof CampusMapPublishFactInput>
+  >([]);
   const draft = session.draft;
   const fact = draft.fact;
   const preset =
@@ -135,6 +176,8 @@ export function CampusMapEditSheet({
   const updateFact = (next: CampusMapPublishFactInput) =>
     onEvent({ type: "CHANGE_FACT", fact: next });
   const fullFact = fact as CampusMapPublishFactInput;
+  const fieldLabel = (field: string, fallback: string) =>
+    factSchema?.displayMetadata[field]?.label ?? fallback;
 
   if (session.status === "published" && session.receipt) {
     const receipt = session.receipt;
@@ -395,6 +438,7 @@ export function CampusMapEditSheet({
       );
     }
     if (session.status === "conflict") {
+      const changedFields = conflictFields(session);
       return (
         <div
           className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm"
@@ -405,6 +449,29 @@ export function CampusMapEditSheet({
             你的输入仍保留。最新版名称：
             {session.conflict?.currentFact.name ?? "不可用"}
           </p>
+          {changedFields.length ? (
+            <fieldset className="mt-3 rounded-lg border border-amber-300 p-2">
+              <legend className="px-1 font-medium">
+                明确选择要保留的草稿字段
+              </legend>
+              {changedFields.map(([field, label]) => (
+                <label key={field} className="flex min-h-11 items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={conflictKeepFields.includes(field)}
+                    onChange={(event) =>
+                      setConflictKeepFields((current) =>
+                        event.target.checked
+                          ? [...current, field]
+                          : current.filter((item) => item !== field),
+                      )
+                    }
+                  />
+                  保留我的{label}
+                </label>
+              ))}
+            </fieldset>
+          ) : null}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <button
               type="button"
@@ -425,10 +492,24 @@ export function CampusMapEditSheet({
                 onEvent({
                   type: "CONTINUE_FROM_CONFLICT",
                   idempotencyKey: crypto.randomUUID(),
+                  fact: Object.fromEntries(
+                    Object.entries(session.conflict!.currentFact).map(
+                      ([field, value]) => [
+                        field,
+                        conflictKeepFields.includes(
+                          field as keyof CampusMapPublishFactInput,
+                        )
+                          ? session.draft.fact[
+                              field as keyof CampusMapPublishFactInput
+                            ]
+                          : value,
+                      ],
+                    ),
+                  ) as unknown as CampusMapPublishFactInput,
                 })
               }
             >
-              保留我的输入
+              按以上选择继续
             </button>
           </div>
         </div>
@@ -477,7 +558,7 @@ export function CampusMapEditSheet({
           className="block text-sm font-medium"
           htmlFor={`${fieldPrefix}-name`}
         >
-          地点名称
+          {fieldLabel("name", "地点名称")}
           <input
             id={`${fieldPrefix}-name`}
             data-edit-field="name"
@@ -492,7 +573,7 @@ export function CampusMapEditSheet({
         <SelectField
           id={`${fieldPrefix}-type`}
           field="pinType"
-          label="地点类型"
+          label={fieldLabel("pinType", "地点类型")}
           value={fact.pinType}
           options={CAMPUS_MAP_EDIT_SCHEMA.presets.map((item) => ({
             value: item.pinType,
@@ -515,7 +596,7 @@ export function CampusMapEditSheet({
           <SelectField
             id={`${fieldPrefix}-gender`}
             field="gender"
-            label="性别属性"
+            label={fieldLabel("gender", "性别属性")}
             value={fact.gender}
             options={CAMPUS_MAP_EDIT_SCHEMA.options.gender}
             onChange={(gender) => updateFact({ ...fullFact, gender })}
@@ -523,7 +604,9 @@ export function CampusMapEditSheet({
         ) : null}
         {visible.has("capabilities") ? (
           <fieldset className="rounded-xl border p-3">
-            <legend className="px-1 text-sm font-medium">服务能力</legend>
+            <legend className="px-1 text-sm font-medium">
+              {fieldLabel("capabilities", "服务能力")}
+            </legend>
             {CAMPUS_MAP_EDIT_SCHEMA.options.capabilities.map((option) => (
               <label
                 key={option.value}
@@ -548,34 +631,101 @@ export function CampusMapEditSheet({
             ))}
           </fieldset>
         ) : null}
-        <SelectField
-          id={`${fieldPrefix}-wheelchair`}
-          field="wheelchairAccess"
-          label="无障碍通行"
-          value={fact.wheelchairAccess}
-          options={CAMPUS_MAP_EDIT_SCHEMA.options.wheelchairAccess}
-          onChange={(wheelchairAccess) =>
-            updateFact({ ...fullFact, wheelchairAccess })
-          }
-        />
-        <SelectField
-          id={`${fieldPrefix}-audience`}
-          field="audience"
-          label="开放对象"
-          value={fact.audience}
-          options={CAMPUS_MAP_EDIT_SCHEMA.options.audience}
-          onChange={(audience) => updateFact({ ...fullFact, audience })}
-        />
-        <SelectField
-          id={`${fieldPrefix}-credential`}
-          field="credentialRequirement"
-          label="凭证要求"
-          value={fact.credentialRequirement}
-          options={CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement}
-          onChange={(credentialRequirement) =>
-            updateFact({ ...fullFact, credentialRequirement })
-          }
-        />
+        {visible.has("wheelchairAccess") ? (
+          <SelectField
+            id={`${fieldPrefix}-wheelchair`}
+            field="wheelchairAccess"
+            label={fieldLabel("wheelchairAccess", "无障碍通行")}
+            value={fact.wheelchairAccess}
+            options={CAMPUS_MAP_EDIT_SCHEMA.options.wheelchairAccess}
+            onChange={(wheelchairAccess) =>
+              updateFact({ ...fullFact, wheelchairAccess })
+            }
+          />
+        ) : null}
+        {visible.has("audience") ? (
+          <SelectField
+            id={`${fieldPrefix}-audience`}
+            field="audience"
+            label={fieldLabel("audience", "开放对象")}
+            value={fact.audience}
+            options={CAMPUS_MAP_EDIT_SCHEMA.options.audience}
+            onChange={(audience) => updateFact({ ...fullFact, audience })}
+          />
+        ) : null}
+        {visible.has("credentialRequirement") ? (
+          <SelectField
+            id={`${fieldPrefix}-credential`}
+            field="credentialRequirement"
+            label={fieldLabel("credentialRequirement", "凭证要求")}
+            value={fact.credentialRequirement}
+            options={CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement}
+            onChange={(credentialRequirement) =>
+              updateFact({ ...fullFact, credentialRequirement })
+            }
+          />
+        ) : null}
+        {visible.has("accessSchedule") ? (
+          <SelectField
+            id={`${fieldPrefix}-schedule`}
+            field="accessSchedule"
+            label={fieldLabel("accessSchedule", "开放时间")}
+            value={fact.accessSchedule.kind}
+            options={[
+              ...CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule,
+              ...(fact.accessSchedule.kind === "weekly"
+                ? [{ value: "weekly" as const, label: "每周时段（保留现值）" }]
+                : []),
+            ]}
+            onChange={(kind) => {
+              if (kind !== "weekly") {
+                updateFact({ ...fullFact, accessSchedule: { kind } });
+              }
+            }}
+          />
+        ) : null}
+        {visible.has("reservationRequirement") ? (
+          <SelectField
+            id={`${fieldPrefix}-reservation`}
+            field="reservationRequirement"
+            label={fieldLabel("reservationRequirement", "预约要求")}
+            value={fact.reservationRequirement}
+            options={CAMPUS_MAP_EDIT_SCHEMA.options.reservationRequirement}
+            onChange={(reservationRequirement) =>
+              updateFact({ ...fullFact, reservationRequirement })
+            }
+          />
+        ) : null}
+        {visible.has("temporaryStatus") ? (
+          <SelectField
+            id={`${fieldPrefix}-temporary-status`}
+            field="temporaryStatus"
+            label={fieldLabel("temporaryStatus", "临时状态")}
+            value={fact.temporaryStatus}
+            options={CAMPUS_MAP_EDIT_SCHEMA.options.temporaryStatus}
+            onChange={(temporaryStatus) =>
+              updateFact({ ...fullFact, temporaryStatus })
+            }
+          />
+        ) : null}
+        {visible.has("location") ? (
+          <div
+            data-edit-field="location"
+            className="rounded-xl border p-3 text-sm"
+          >
+            <p className="font-medium">{fieldLabel("location", "位置")}</p>
+            <p className="mt-1 break-all text-xs text-neutral-600">
+              {describeLocation(fact)}
+            </p>
+            <button
+              type="button"
+              className={cn(secondaryClass, "mt-3 w-full")}
+              onClick={() => onEvent({ type: "START_REPOSITION" })}
+            >
+              重新定位
+            </button>
+          </div>
+        ) : null}
         <fieldset
           data-edit-field="sources"
           className="rounded-xl border p-3"

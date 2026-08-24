@@ -75,7 +75,11 @@ export type CampusMapEditCommand =
   | { kind: "clear-snapshot" }
   | { kind: "focus"; target: string }
   | { kind: "publish"; command: CampusMapPublishCommand }
-  | { kind: "schedule-rate-retry"; afterSeconds: number }
+  | {
+      kind: "schedule-rate-retry";
+      afterSeconds: number;
+      idempotencyKey: string;
+    }
   | { kind: "announce"; message: string };
 
 export type CampusMapEditEvent =
@@ -89,6 +93,7 @@ export type CampusMapEditEvent =
       idempotencyKey: string;
     }
   | { type: "CONFIRM_POSITION"; position: CampusMapPlacement }
+  | { type: "START_REPOSITION" }
   | { type: "CHANGE_FACT"; fact: CampusMapPublishFactInput }
   | { type: "CHANGE_SOURCES"; sources: CampusMapPublishSourceInput[] }
   | { type: "REQUEST_CLOSE" }
@@ -103,8 +108,12 @@ export type CampusMapEditEvent =
   | { type: "ACKNOWLEDGE_WARNINGS"; idempotencyKey: string }
   | { type: "AUTH_RETURNED" }
   | { type: "RETRY_PUBLISH" }
-  | { type: "RATE_LIMIT_ELAPSED" }
-  | { type: "CONTINUE_FROM_CONFLICT"; idempotencyKey: string }
+  | { type: "RATE_LIMIT_ELAPSED"; idempotencyKey: string }
+  | {
+      type: "CONTINUE_FROM_CONFLICT";
+      idempotencyKey: string;
+      fact: CampusMapPublishFactInput;
+    }
   | { type: "USE_CURRENT_FACT"; idempotencyKey: string };
 
 export interface CampusMapEditTransition {
@@ -337,6 +346,27 @@ export function transitionCampusMapEdit(
     };
   }
 
+  if (event.type === "START_REPOSITION") {
+    if (session.status === "placing" || session.status === "confirm-discard") {
+      return rejected(session);
+    }
+    const next: CampusMapEditSession = {
+      status: "placing",
+      draft: {
+        ...session.draft,
+        warningAcknowledgements: [],
+      },
+    };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "announce", message: "移动地图或输入 WGS84 坐标以重新定位" },
+      ],
+    };
+  }
+
   if (event.type === "CHANGE_FACT") {
     return persisted({
       ...editable(session),
@@ -457,7 +487,11 @@ export function transitionCampusMapEdit(
         session: next,
         commands: [
           { kind: "persist-snapshot" },
-          { kind: "schedule-rate-retry", afterSeconds: next.retryAfter ?? 0 },
+          {
+            kind: "schedule-rate-retry",
+            afterSeconds: next.retryAfter ?? 0,
+            idempotencyKey: session.draft.idempotencyKey,
+          },
         ],
       };
     }
@@ -552,7 +586,11 @@ export function transitionCampusMapEdit(
   }
 
   if (event.type === "RATE_LIMIT_ELAPSED") {
-    if (session.status !== "rate-limited") return rejected(session);
+    if (
+      session.status !== "rate-limited" ||
+      event.idempotencyKey !== session.draft.idempotencyKey
+    )
+      return rejected(session);
     return persisted({ ...session, retryAfter: 0 });
   }
 
@@ -563,6 +601,7 @@ export function transitionCampusMapEdit(
       status: "editing",
       draft: {
         ...session.draft,
+        fact: clone(event.fact),
         baseRevisionId: session.conflict.currentRevisionId,
         baselineFact: clone(session.conflict.currentFact),
         idempotencyKey: event.idempotencyKey,
@@ -673,19 +712,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function looksLikeSession(value: unknown): value is CampusMapEditSession {
-  if (
-    !isRecord(value) ||
-    typeof value.status !== "string" ||
-    !isRecord(value.draft)
-  )
-    return false;
-  const draft = value.draft;
-  if (!isRecord(draft.fact)) return false;
-  const fact = draft.fact;
+function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
+  if (!isRecord(value)) return false;
+  const fact = value;
   const location = isRecord(fact.location) ? fact.location : null;
   const validLocation =
-    fact.location === null ||
+    (allowNullLocation && fact.location === null) ||
     (location !== null &&
       (location.kind === "building" ||
         location.kind === "floor" ||
@@ -697,49 +729,128 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
           location.crs === "wgs84" &&
           (location.precision === "approximate" ||
             location.precision === "precise"))));
-  const validFact =
+  const scheduleValid =
+    isRecord(fact.accessSchedule) &&
+    (fact.accessSchedule.kind === "unknown" ||
+      fact.accessSchedule.kind === "always" ||
+      (fact.accessSchedule.kind === "weekly" &&
+        fact.accessSchedule.timezone === "Asia/Hong_Kong" &&
+        Array.isArray(fact.accessSchedule.intervals) &&
+        fact.accessSchedule.intervals.length > 0 &&
+        fact.accessSchedule.intervals.every(
+          (interval) =>
+            isRecord(interval) &&
+            Array.isArray(interval.days) &&
+            interval.days.every((day) => typeof day === "string") &&
+            typeof interval.opensAt === "string" &&
+            typeof interval.closesAt === "string",
+        )));
+  return (
     typeof fact.name === "string" &&
+    (fact.buildingId === null || typeof fact.buildingId === "string") &&
+    (fact.floorId === null || typeof fact.floorId === "string") &&
     ["toilet", "water", "printer", "common-space", "classroom"].includes(
       String(fact.pinType),
     ) &&
     Array.isArray(fact.capabilities) &&
-    typeof fact.gender === "string" &&
-    typeof fact.wheelchairAccess === "string" &&
-    typeof fact.audience === "string" &&
+    fact.capabilities.every((item) => typeof item === "string") &&
+    ["unknown", "female", "male", "all-gender"].includes(String(fact.gender)) &&
+    ["unknown", "yes", "no", "limited"].includes(
+      String(fact.wheelchairAccess),
+    ) &&
+    ["unknown", "public", "cuhk-member", "staff", "student"].includes(
+      String(fact.audience),
+    ) &&
     typeof fact.credentialRequirement === "string" &&
-    isRecord(fact.accessSchedule) &&
+    scheduleValid &&
     typeof fact.reservationRequirement === "string" &&
     typeof fact.temporaryStatus === "string" &&
-    validLocation;
+    (fact.observedAt === null || typeof fact.observedAt === "string") &&
+    validLocation
+  );
+}
+
+function looksLikeSource(value: unknown): boolean {
   return (
-    [
-      "placing",
-      "editing",
-      "confirm-discard",
-      "publishing",
-      "warning",
-      "authentication-required",
-      "rate-limited",
-      "temporarily-unavailable",
-      "conflict",
-      "published",
-    ].includes(value.status) &&
+    isRecord(value) &&
+    typeof value.kind === "string" &&
+    typeof value.ref === "string" &&
+    (value.url === null || typeof value.url === "string") &&
+    (value.owner === null || typeof value.owner === "string") &&
+    (value.version === null || typeof value.version === "string") &&
+    (value.snapshotHash === null || typeof value.snapshotHash === "string") &&
+    typeof value.accessedOn === "string" &&
+    (value.observedAt === null || typeof value.observedAt === "string") &&
+    typeof value.rightsStatus === "string" &&
+    (value.limitations === null || typeof value.limitations === "string") &&
+    (value.note === null || typeof value.note === "string") &&
+    (value.sourceCoordinate === null || isRecord(value.sourceCoordinate))
+  );
+}
+
+function looksLikeWarning(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.code === "string" &&
+    typeof value.fingerprint === "string" &&
+    isRecord(value.anchor)
+  );
+}
+
+function looksLikeSession(value: unknown): value is CampusMapEditSession {
+  if (!isRecord(value) || !isRecord(value.draft)) return false;
+  const draft = value.draft;
+  const statuses: CampusMapEditStatus[] = [
+    "placing",
+    "editing",
+    "confirm-discard",
+    "publishing",
+    "warning",
+    "authentication-required",
+    "rate-limited",
+    "temporarily-unavailable",
+    "conflict",
+    "published",
+  ];
+  if (!statuses.includes(value.status as CampusMapEditStatus)) return false;
+  const statusStateValid =
+    (value.status !== "warning" ||
+      (Array.isArray(value.warnings) &&
+        value.warnings.length > 0 &&
+        value.warnings.every(looksLikeWarning))) &&
+    (value.status !== "conflict" ||
+      (isRecord(value.conflict) &&
+        typeof value.conflict.currentRevisionId === "string" &&
+        looksLikeFact(value.conflict.currentFact, false))) &&
+    (value.status !== "rate-limited" ||
+      (typeof value.retryAfter === "number" &&
+        Number.isFinite(value.retryAfter) &&
+        (value.rateScope === "actor" || value.rateScope === "ip"))) &&
+    (value.status !== "confirm-discard" ||
+      (typeof value.returnStatus === "string" &&
+        value.returnStatus !== "confirm-discard" &&
+        value.returnStatus !== "published"));
+  return (
+    statusStateValid &&
     (draft.mode === "add" || draft.mode === "edit") &&
     typeof draft.idempotencyKey === "string" &&
-    validFact &&
+    looksLikeFact(draft.fact, true) &&
     Array.isArray(draft.sources) &&
-    draft.sources.every(
-      (source) =>
-        isRecord(source) &&
-        typeof source.kind === "string" &&
-        typeof source.ref === "string",
-    ) &&
+    draft.sources.every(looksLikeSource) &&
     Array.isArray(draft.baselineSources) &&
+    draft.baselineSources.every(looksLikeSource) &&
     Array.isArray(draft.warningAcknowledgements) &&
+    draft.warningAcknowledgements.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.changeIndex === "number" &&
+        typeof item.code === "string" &&
+        typeof item.fingerprint === "string",
+    ) &&
     (draft.mode === "add" ||
       (typeof draft.placeId === "string" &&
         typeof draft.baseRevisionId === "string" &&
-        isRecord(draft.baselineFact)))
+        looksLikeFact(draft.baselineFact, false)))
   );
 }
 
