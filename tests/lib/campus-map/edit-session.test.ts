@@ -631,6 +631,56 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it.each([
+    [{ kind: "floor" }, null, null],
+    [{ kind: "building" }, placeId, baseRevisionId],
+    [
+      {
+        kind: "outdoor-point",
+        longitude: 999,
+        latitude: 22.4,
+        crs: "wgs84",
+        precision: "approximate",
+      },
+      null,
+      null,
+    ],
+  ])(
+    "rejects contradictory or impossible snapshot locations",
+    (location, buildingId, floorId) => {
+      const snapshot = JSON.parse(
+        encodeCampusMapEditSnapshot(editSession()),
+      ) as {
+        session: CampusMapEditSession;
+      };
+      snapshot.session.draft.fact = {
+        ...snapshot.session.draft.fact,
+        buildingId,
+        floorId,
+        location,
+      } as never;
+      expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+        status: "discarded",
+        reason: "invalid-snapshot",
+      });
+    },
+  );
+
+  it("rejects an editing Add snapshot before location is locked", () => {
+    const placing = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    }).session!;
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(placing)) as {
+      session: CampusMapEditSession;
+    };
+    snapshot.session.status = "editing";
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
   it("allows an overnight weekly schedule to reach server validation", () => {
     const overnight = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",

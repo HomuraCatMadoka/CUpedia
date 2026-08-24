@@ -182,8 +182,6 @@ export function CampusMapEditSheet({
     String(centerPosition[1]),
   );
   const [sourceObservedAt, setSourceObservedAt] = useState(nowLocal);
-  const [validationNow] = useState(Date.now);
-  const [maximumObservationTime] = useState(nowLocal);
   const [conflictSelection, setConflictSelection] = useState<{
     key: string;
     fields: Array<keyof CampusMapPublishFactInput>;
@@ -211,11 +209,6 @@ export function CampusMapEditSheet({
     fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
   const fieldLabel = (field: string, fallback: string) =>
     factSchema?.displayMetadata[field]?.label ?? fallback;
-  const observationTimestamp = Date.parse(`${sourceObservedAt}:00+08:00`);
-  const observationValid =
-    sourceObservedAt !== "" &&
-    Number.isFinite(observationTimestamp) &&
-    observationTimestamp <= validationNow;
   const conflictKey =
     session.status === "conflict" && session.conflict
       ? `${session.draft.idempotencyKey}:${session.conflict.currentRevisionId}`
@@ -923,7 +916,6 @@ export function CampusMapEditSheet({
               value={sourceObservedAt}
               required
               aria-invalid={session.localError === "sourceObservedAt"}
-              max={maximumObservationTime}
               onChange={(event) => setSourceObservedAt(event.target.value)}
             />
           </label>
@@ -931,6 +923,13 @@ export function CampusMapEditSheet({
             type="button"
             className={cn(secondaryClass, "mt-3 w-full")}
             onClick={() => {
+              const observationTimestamp = Date.parse(
+                `${sourceObservedAt}:00+08:00`,
+              );
+              const observationValid =
+                sourceObservedAt !== "" &&
+                Number.isFinite(observationTimestamp) &&
+                observationTimestamp <= Date.now();
               if (!observationValid) {
                 onEvent({
                   type: "REPORT_LOCAL_ERROR",

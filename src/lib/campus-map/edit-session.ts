@@ -753,13 +753,26 @@ function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
   const validLocation =
     (allowNullLocation && fact.location === null) ||
     (location !== null &&
-      (location.kind === "building" ||
-        location.kind === "floor" ||
+      ((location.kind === "building" &&
+        typeof fact.buildingId === "string" &&
+        fact.buildingId.length > 0 &&
+        fact.floorId === null) ||
+        (location.kind === "floor" &&
+          typeof fact.buildingId === "string" &&
+          fact.buildingId.length > 0 &&
+          typeof fact.floorId === "string" &&
+          fact.floorId.length > 0) ||
         (location.kind === "outdoor-point" &&
+          fact.buildingId === null &&
+          fact.floorId === null &&
           typeof location.longitude === "number" &&
           Number.isFinite(location.longitude) &&
+          location.longitude >= -180 &&
+          location.longitude <= 180 &&
           typeof location.latitude === "number" &&
           Number.isFinite(location.latitude) &&
+          location.latitude >= -90 &&
+          location.latitude <= 90 &&
           location.crs === "wgs84" &&
           (location.precision === "approximate" ||
             location.precision === "precise"))));
@@ -914,8 +927,13 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         "temporarily-unavailable",
         "conflict",
       ].includes(String(value.returnStatus)));
+  const locationStateValid =
+    value.status === "placing" ||
+    (value.status === "confirm-discard" && value.returnStatus === "placing") ||
+    (isRecord(draft.fact) && draft.fact.location !== null);
   return (
     statusStateValid &&
+    locationStateValid &&
     (draft.mode === "add" || draft.mode === "edit") &&
     typeof draft.idempotencyKey === "string" &&
     looksLikeFact(draft.fact, true) &&
