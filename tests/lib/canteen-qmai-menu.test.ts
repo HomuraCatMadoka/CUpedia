@@ -38,7 +38,15 @@ describe("Qmai menu adapter", () => {
       repeatedResponse.data.categoryItems[0].itemList[0],
     );
     dinnerItem.saleTime = {
-      weekTimeList: [{ startTime: "17:00", endTime: "20:00" }],
+      dateStart: "",
+      dateEnd: "",
+      weekTimeList: [
+        {
+          weekdayList: [1, 2, 3, 4, 5, 6, 7],
+          timeList: [{ timeStart: "17:00", timeEnd: "20:00" }],
+          weekDesc: "周一至周日",
+        },
+      ],
     };
     repeatedResponse.data.categoryItems[0].itemList.push(dinnerItem);
 
@@ -64,6 +72,78 @@ describe("Qmai menu adapter", () => {
         ],
       }),
     ]);
+  });
+
+  it("keeps an explicit lunch window out of the observed dinner period", () => {
+    expect(
+      buildQmaiMenuSyncPayload(menuResponse, "dinner").items[0],
+    ).toMatchObject({
+      externalProductId: "goods-1",
+      mealPeriods: ["lunch"],
+    });
+  });
+
+  it("retains direct sale-window aliases for compatibility", () => {
+    const response = structuredClone(menuResponse);
+    const item = response.data.categoryItems[0].itemList[0] as unknown as {
+      saleTime: unknown;
+    };
+    item.saleTime = {
+      weekTimeList: [{ startTime: "11:00", endTime: "14:30" }],
+    };
+
+    expect(buildQmaiMenuSyncPayload(response, "dinner").items[0]).toMatchObject(
+      {
+        externalProductId: "goods-1",
+        mealPeriods: ["lunch"],
+      },
+    );
+  });
+
+  it("fails closed when a declared sale schedule cannot be parsed", () => {
+    const malformed = structuredClone(menuResponse) as unknown as {
+      data: {
+        categoryItems: Array<{
+          itemList: Array<{ saleTime: { weekTimeList: unknown[] } }>;
+        }>;
+      };
+    };
+    malformed.data.categoryItems[0].itemList[0].saleTime.weekTimeList = [
+      { timeList: [{ opensAt: "11:00", closesAt: "14:30" }] },
+    ];
+
+    expect(() => buildQmaiMenuSyncPayload(malformed, "dinner")).toThrow(
+      "INVALID_QMAI_SALE_TIME",
+    );
+  });
+
+  it.each([
+    ["a scalar", "11:00-14:30"],
+    ["an array", [{ timeStart: "11:00", timeEnd: "14:30" }]],
+    ["an object with unknown schedule keys", { periods: ["11:00-14:30"] }],
+  ])("fails closed when saleTime is %s", (_description, saleTime) => {
+    const malformed = structuredClone(menuResponse);
+    const item = malformed.data.categoryItems[0].itemList[0] as unknown as {
+      saleTime: unknown;
+    };
+    item.saleTime = saleTime;
+
+    expect(() => buildQmaiMenuSyncPayload(malformed, "dinner")).toThrow(
+      "INVALID_QMAI_SALE_TIME",
+    );
+  });
+
+  it("fails closed when a declared sale interval is invalid", () => {
+    const malformed = structuredClone(menuResponse);
+    const interval = malformed.data.categoryItems[0]?.itemList[0]?.saleTime
+      ?.weekTimeList[0]?.timeList[0] as { timeStart: string } | undefined;
+    expect(interval).toBeDefined();
+    if (!interval) throw new Error("QMAI_FIXTURE_MISSING_SALE_INTERVAL");
+    interval.timeStart = "25:00";
+
+    expect(() => buildQmaiMenuSyncPayload(malformed, "dinner")).toThrow(
+      "INVALID_QMAI_SALE_TIME",
+    );
   });
 
   it("uses an ephemeral visitor token for the menu request", async () => {
@@ -108,7 +188,13 @@ describe("Qmai menu adapter", () => {
 
   it("scopes products without declared sale windows to the observed period", async () => {
     const pointInTimeResponse = structuredClone(menuResponse);
-    delete pointInTimeResponse.data.categoryItems[0].itemList[0].saleTime;
+    const pointInTimeItem = pointInTimeResponse.data.categoryItems[0]
+      .itemList[0] as unknown as { saleTime: unknown };
+    pointInTimeItem.saleTime = {
+      dateStart: "",
+      dateEnd: "",
+      weekTimeList: null,
+    };
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(
