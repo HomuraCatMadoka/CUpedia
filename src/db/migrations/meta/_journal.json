@@ -526,6 +526,13 @@
       "when": 1787588132530,
       "tag": "0074_campus-map-provenance-immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1787588998738,
+      "tag": "0075_campus-map-schema-function-hardening",
+      "breakpoints": true
     }
   ]
 }
