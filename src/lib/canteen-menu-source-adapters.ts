@@ -206,32 +206,6 @@ function validateIchefData(payload: unknown) {
   };
 }
 
-function validatePinmeMenu(payload: unknown): void {
-  const root = object(payload);
-  const data = object(root?.data);
-  if (Number(root?.code) !== 200 || !data || !Array.isArray(data.group)) {
-    throw new Error("INVALID_PINME_MENU");
-  }
-  for (const value of data.group) {
-    const group = object(value);
-    if (!group || !Array.isArray(group.products)) {
-      throw new Error("INVALID_PINME_MENU");
-    }
-    for (const productValue of group.products) {
-      const product = object(productValue);
-      if (
-        !product ||
-        (product.product_id !== undefined &&
-          typeof product.product_id !== "string" &&
-          typeof product.product_id !== "number") ||
-        (product.prices !== undefined && !Array.isArray(product.prices))
-      ) {
-        throw new Error("INVALID_PINME_MENU");
-      }
-    }
-  }
-}
-
 async function fetchJson(
   url: string,
   init: RequestInit,
@@ -458,7 +432,6 @@ export async function fetchPinmeMenu(
     },
     fetchImpl,
   );
-  validatePinmeMenu(payload);
   return buildPinmeMenuSyncPayload(payload);
 }
 

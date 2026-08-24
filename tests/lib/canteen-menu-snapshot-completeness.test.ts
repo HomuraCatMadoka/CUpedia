@@ -24,6 +24,9 @@ describe("menu snapshot completeness", () => {
     expect(() =>
       assertProviderSnapshotCompleteness("pinme", "partial", {
         provider: "pinme",
+        menuGroupCount: 1,
+        groupCount: 1,
+        referencedGroupIds: ["101"],
         serviceWindows: [{ startTime: "11:00", endTime: "14:00" }],
       }),
     ).not.toThrow();
@@ -117,6 +120,20 @@ describe("menu snapshot completeness", () => {
       menuName: "中文大學",
       providerPeriodCodes: ["L"],
       categoryPeriodCodes: ["L"],
+    });
+
+    expect(
+      menuSnapshotComparisonContext({
+        provider: "pinme",
+        menuGroupCount: 9,
+        groupCount: 24,
+        referencedGroupIds: ["101", "102"],
+        serviceWindows: [{ startTime: "07:00", endTime: "11:00" }],
+      }),
+    ).toEqual({
+      provider: "pinme",
+      referencedGroupIds: ["101", "102"],
+      serviceWindows: [{ startTime: "07:00", endTime: "11:00" }],
     });
   });
 });

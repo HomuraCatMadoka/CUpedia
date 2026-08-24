@@ -84,6 +84,7 @@ export function menuSnapshotComparisonContext(
   if (evidence.provider === "pinme") {
     return {
       provider: evidence.provider,
+      referencedGroupIds: evidence.referencedGroupIds,
       serviceWindows: evidence.serviceWindows,
     };
   }
