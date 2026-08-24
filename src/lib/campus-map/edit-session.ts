@@ -95,6 +95,7 @@ export type CampusMapEditEvent =
     }
   | { type: "CONFIRM_POSITION"; position: CampusMapPlacement }
   | { type: "START_REPOSITION" }
+  | { type: "REPORT_LOCAL_ERROR"; field: string }
   | { type: "CHANGE_FACT"; fact: CampusMapPublishFactInput }
   | { type: "CHANGE_SOURCES"; sources: CampusMapPublishSourceInput[] }
   | { type: "REQUEST_CLOSE" }
@@ -229,7 +230,7 @@ function firstLocalError(draft: CampusMapEditDraft): string | null {
         interval.days.length === 0 ||
         !interval.opensAt ||
         !interval.closesAt ||
-        interval.opensAt >= interval.closesAt,
+        interval.opensAt === interval.closesAt,
     )
   )
     return "accessSchedule";
@@ -375,6 +376,19 @@ export function transitionCampusMapEdit(
       commands: [
         { kind: "persist-snapshot" },
         { kind: "announce", message: "移动地图或输入 WGS84 坐标以重新定位" },
+      ],
+    };
+  }
+
+  if (event.type === "REPORT_LOCAL_ERROR") {
+    const next = { ...editable(session), localError: event.field };
+    return {
+      accepted: true,
+      session: next,
+      commands: [
+        { kind: "persist-snapshot" },
+        { kind: "focus", target: event.field },
+        { kind: "announce", message: "请检查这个字段" },
       ],
     };
   }
@@ -728,6 +742,10 @@ function controlled(values: readonly string[], value: unknown): boolean {
   return typeof value === "string" && values.includes(value);
 }
 
+function validTimestamp(value: unknown): boolean {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
 function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
   if (!isRecord(value)) return false;
   const fact = value;
@@ -757,9 +775,17 @@ function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
           (interval) =>
             isRecord(interval) &&
             Array.isArray(interval.days) &&
-            interval.days.every((day) => typeof day === "string") &&
+            interval.days.length > 0 &&
+            interval.days.every((day) =>
+              ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].includes(
+                String(day),
+              ),
+            ) &&
             typeof interval.opensAt === "string" &&
-            typeof interval.closesAt === "string",
+            typeof interval.closesAt === "string" &&
+            /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.opensAt) &&
+            /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(interval.closesAt) &&
+            interval.opensAt !== interval.closesAt,
         )));
   return (
     typeof fact.name === "string" &&
@@ -789,7 +815,7 @@ function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
       CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.temporaryStatus,
       fact.temporaryStatus,
     ) &&
-    (fact.observedAt === null || typeof fact.observedAt === "string") &&
+    (fact.observedAt === null || validTimestamp(fact.observedAt)) &&
     validLocation
   );
 }
@@ -827,7 +853,8 @@ function looksLikeSource(value: unknown): boolean {
     (value.version === null || typeof value.version === "string") &&
     (value.snapshotHash === null || typeof value.snapshotHash === "string") &&
     typeof value.accessedOn === "string" &&
-    (value.observedAt === null || typeof value.observedAt === "string") &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value.accessedOn) &&
+    (value.observedAt === null || validTimestamp(value.observedAt)) &&
     controlled(
       CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.rightsStatus,
       value.rightsStatus,

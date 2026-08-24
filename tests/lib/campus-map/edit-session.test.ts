@@ -615,6 +615,40 @@ describe("Campus Map edit session transition", () => {
     ).toMatchObject({ status: "restored", session });
   });
 
+  it("rejects malformed weekly schedules and source timestamps in snapshots", () => {
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
+      session: CampusMapEditSession;
+    };
+    snapshot.session.draft.fact.accessSchedule = {
+      kind: "weekly",
+      timezone: "Asia/Hong_Kong",
+      intervals: [{ days: [] as never[], opensAt: "25:00", closesAt: "25:00" }],
+    };
+    snapshot.session.draft.sources[0]!.observedAt = "not-a-timestamp";
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
+  it("allows an overnight weekly schedule to reach server validation", () => {
+    const overnight = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: {
+        ...fact,
+        accessSchedule: {
+          kind: "weekly",
+          timezone: "Asia/Hong_Kong",
+          intervals: [{ days: ["fri"], opensAt: "22:00", closesAt: "02:00" }],
+        },
+      },
+    }).session!;
+    expect(
+      transitionCampusMapEdit(overnight, { type: "REQUEST_PUBLISH" }).session
+        ?.localError,
+    ).not.toBe("accessSchedule");
+  });
+
   it.each([
     ["conflict", {}],
     ["warning", {}],

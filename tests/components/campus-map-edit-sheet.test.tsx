@@ -99,6 +99,15 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
+    fireEvent.change(screen.getByLabelText("现场观察时间（香港时间）"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
+    expect(onEvent.mock.calls.at(-1)?.[0]).toEqual({
+      type: "REPORT_LOCAL_ERROR",
+      field: "sourceObservedAt",
+    });
+
     fireEvent.change(screen.getByLabelText("开放时间"), {
       target: { value: "weekly" },
     });
@@ -114,7 +123,7 @@ describe("Campus Map single-page edit Sheet", () => {
     });
 
     fireEvent.change(screen.getByLabelText("现场观察时间（香港时间）"), {
-      target: { value: "2026-08-25T14:30" },
+      target: { value: "2026-08-24T14:30" },
     });
     fireEvent.click(screen.getByRole("button", { name: "使用现场观察来源" }));
     expect(onEvent.mock.calls.at(-1)?.[0]).toMatchObject({
@@ -122,9 +131,61 @@ describe("Campus Map single-page edit Sheet", () => {
       sources: [
         {
           accessedOn: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
-          observedAt: "2026-08-25T06:30:00.000Z",
+          observedAt: "2026-08-24T06:30:00.000Z",
         },
       ],
     });
+  });
+
+  it("starts every conflict attempt with a fresh explicit selection", () => {
+    const baseDraft = draft();
+    const currentFact = {
+      ...baseDraft.fact,
+      name: "最新版",
+      location: {
+        kind: "outdoor-point" as const,
+        longitude: 114.2,
+        latitude: 22.4,
+        crs: "wgs84" as const,
+        precision: "approximate" as const,
+      },
+    };
+    const first: CampusMapEditSession = {
+      status: "conflict",
+      draft: {
+        ...baseDraft,
+        fact: { ...currentFact, name: "我的版本" },
+      },
+      conflict: { currentRevisionId: revisionId, currentFact },
+    };
+    const view = render(
+      <CampusMapEditSheet
+        session={first}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+    const keepName = screen.getByLabelText("保留我的名称");
+    fireEvent.click(keepName);
+    expect(keepName).toHaveProperty("checked", true);
+
+    view.rerender(
+      <CampusMapEditSheet
+        session={{
+          ...first,
+          draft: { ...first.draft, idempotencyKey: changesetId },
+          conflict: {
+            ...first.conflict!,
+            currentRevisionId: changesetId,
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("保留我的名称")).toHaveProperty(
+      "checked",
+      false,
+    );
   });
 });

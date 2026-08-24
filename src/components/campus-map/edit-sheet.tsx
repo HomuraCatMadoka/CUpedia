@@ -54,7 +54,10 @@ function nowLocal(): string {
   return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
 }
 
-function observationSource(localTime: string): CampusMapPublishSourceInput {
+function observationSource(
+  localTime: string,
+  timestamp: number,
+): CampusMapPublishSourceInput {
   return {
     kind: "field-observation",
     ref: `现场观察 ${localTime.replace("T", " ")}`,
@@ -63,7 +66,7 @@ function observationSource(localTime: string): CampusMapPublishSourceInput {
     version: null,
     snapshotHash: null,
     accessedOn: today(),
-    observedAt: new Date(`${localTime}:00+08:00`).toISOString(),
+    observedAt: new Date(timestamp).toISOString(),
     rightsStatus: "original-observation",
     limitations: null,
     note: null,
@@ -179,9 +182,12 @@ export function CampusMapEditSheet({
     String(centerPosition[1]),
   );
   const [sourceObservedAt, setSourceObservedAt] = useState(nowLocal);
-  const [conflictKeepFields, setConflictKeepFields] = useState<
-    Array<keyof CampusMapPublishFactInput>
-  >([]);
+  const [validationNow] = useState(Date.now);
+  const [maximumObservationTime] = useState(nowLocal);
+  const [conflictSelection, setConflictSelection] = useState<{
+    key: string;
+    fields: Array<keyof CampusMapPublishFactInput>;
+  }>({ key: "", fields: [] });
   const draft = session.draft;
   const fact = draft.fact;
   const preset =
@@ -205,6 +211,17 @@ export function CampusMapEditSheet({
     fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
   const fieldLabel = (field: string, fallback: string) =>
     factSchema?.displayMetadata[field]?.label ?? fallback;
+  const observationTimestamp = Date.parse(`${sourceObservedAt}:00+08:00`);
+  const observationValid =
+    sourceObservedAt !== "" &&
+    Number.isFinite(observationTimestamp) &&
+    observationTimestamp <= validationNow;
+  const conflictKey =
+    session.status === "conflict" && session.conflict
+      ? `${session.draft.idempotencyKey}:${session.conflict.currentRevisionId}`
+      : "";
+  const conflictKeepFields =
+    conflictSelection.key === conflictKey ? conflictSelection.fields : [];
 
   if (session.status === "published" && session.receipt) {
     const receipt = session.receipt;
@@ -487,11 +504,16 @@ export function CampusMapEditSheet({
                     type="checkbox"
                     checked={conflictKeepFields.includes(field)}
                     onChange={(event) =>
-                      setConflictKeepFields((current) =>
-                        event.target.checked
-                          ? [...current, field]
-                          : current.filter((item) => item !== field),
-                      )
+                      setConflictSelection((current) => {
+                        const fields =
+                          current.key === conflictKey ? current.fields : [];
+                        return {
+                          key: conflictKey,
+                          fields: event.target.checked
+                            ? [...fields, field]
+                            : fields.filter((item) => item !== field),
+                        };
+                      })
                     }
                   />
                   保留我的{label}
@@ -895,21 +917,34 @@ export function CampusMapEditSheet({
             现场观察时间（香港时间）
             <input
               id={`${fieldPrefix}-source-date`}
+              data-edit-field="sourceObservedAt"
               className={fieldClass}
               type="datetime-local"
               value={sourceObservedAt}
+              required
+              aria-invalid={session.localError === "sourceObservedAt"}
+              max={maximumObservationTime}
               onChange={(event) => setSourceObservedAt(event.target.value)}
             />
           </label>
           <button
             type="button"
             className={cn(secondaryClass, "mt-3 w-full")}
-            onClick={() =>
+            onClick={() => {
+              if (!observationValid) {
+                onEvent({
+                  type: "REPORT_LOCAL_ERROR",
+                  field: "sourceObservedAt",
+                });
+                return;
+              }
               onEvent({
                 type: "CHANGE_SOURCES",
-                sources: [observationSource(sourceObservedAt)],
-              })
-            }
+                sources: [
+                  observationSource(sourceObservedAt, observationTimestamp),
+                ],
+              });
+            }}
           >
             {draft.sources.length ? "更新现场观察来源" : "使用现场观察来源"}
           </button>
