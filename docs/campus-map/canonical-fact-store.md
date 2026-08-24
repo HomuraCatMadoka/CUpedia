@@ -73,7 +73,10 @@ expose a second application publish path.
 - The private rate table stores only HMAC-derived actor/IP subjects and the
   fixed burst/sustained windows. Exact completed replays are resolved before
   quota is consumed; validation, warning, and conflict attempts remain subject
-  to abuse policy.
+  to abuse policy. Actor windows are checked before IP windows, so an actor that
+  is already limited cannot create unbounded IP subjects by rotating addresses.
+  Inactive subjects older than the longest window are reclaimed in bounded,
+  non-blocking batches.
 - Redacted revisions retain their chain and operation placeholder, while public
   Current, history, Changeset, and duplicate-warning projections suppress fact
   snapshots, provenance, field diffs, and Changeset bounding boxes so no read or
@@ -90,12 +93,18 @@ idempotency remain owned by the sole publish seam. They are intentionally not
 duplicated as a second set of cross-table trigger rules.
 
 The publisher acquires locks in a stable order: actor-scoped idempotency
-advisory lock, fresh User and credential eligibility rows, actor/IP rate rows in
-fixed policy order, existing Place and Current visibility rows in canonical
-Place UUID order, normalized warning domains in name/pin order, then provenance
-advisory locks in numeric key order. Exact completed replay returns before
-eligibility and quota because it does not create a new publication. No network
-request or slow external adapter runs inside the transaction.
+advisory lock, fresh User and credential eligibility rows, actor rate rows, a
+non-blocking rate-cleanup advisory lock, IP rate rows, existing Place and Current
+visibility rows in canonical Place UUID order, normalized warning domains in
+name/pin order, then provenance advisory locks in numeric key order. Exact
+completed replay returns before eligibility and quota because it does not create
+a new publication. No network request or slow external adapter runs inside the
+transaction.
+
+UUID command identities are normalized to their canonical lowercase form once,
+before request fingerprinting, deduplication, lock ordering, reference checks,
+and Current-revision CAS. PostgreSQL UUID rendering therefore cannot disagree
+with otherwise valid uppercase client input.
 
 Duplicate warnings compare both public Current facts and facts proposed earlier
 in the same bulk command. Their HMAC fingerprints bind the proposed fact to each

@@ -160,12 +160,16 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     await pool.query("delete from campus_map_floors where id = $1", [
       "00000000-0000-4000-8000-000000000803",
     ]);
+    await pool.query("delete from campus_map_floors where id = $1", [
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0803",
+    ]);
     await pool.query(
       "delete from campus_map_buildings where id = any($1::uuid[])",
       [
         [
           "00000000-0000-4000-8000-000000000802",
           "00000000-0000-4000-8000-000000000804",
+          "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0802",
         ],
       ],
     );
@@ -182,20 +186,26 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       `insert into campus_map_buildings (id, name, code)
        values
          ($1, '大学图书馆', 'UL'),
-         ($2, '科学馆', 'SC')
+         ($2, '科学馆', 'SC'),
+         ($3, '大小写测试楼', 'CASE')
        on conflict (id) do nothing`,
       [
         "00000000-0000-4000-8000-000000000802",
         "00000000-0000-4000-8000-000000000804",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0802",
       ],
     );
     await pool.query(
       `insert into campus_map_floors (id, building_id, display_label, sort_order)
-       values ($1, $2, 'G/F', 0)
+       values
+         ($1, $2, 'G/F', 0),
+         ($3, $4, '1/F', 1)
        on conflict (id) do nothing`,
       [
         "00000000-0000-4000-8000-000000000803",
         "00000000-0000-4000-8000-000000000802",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0803",
+        "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0802",
       ],
     );
   });
@@ -1109,6 +1119,101 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       ],
       warnings: [],
       suggestions: [],
+    });
+  });
+
+  it("canonicalizes UUID casing before references, CAS, and bulk deduplication", async () => {
+    const adminId = await createActor({ role: "admin" });
+    const initial = createCommand();
+    const initialResult = await publishCampusMapChangeset(initial, {
+      actorId: adminId,
+      clientIp: "203.0.113.17",
+    });
+    if (initialResult.status !== "published") throw new Error("setup failed");
+
+    const update = createCommand();
+    const updateCreate = update.changes[0];
+    if (updateCreate.operation !== "create") throw new Error("bad fixture");
+    updateCreate.fact.name = "大小写 CAS 更新";
+    update.changes = [
+      {
+        operation: "update",
+        placeId: initialResult.changes[0].placeId.toUpperCase(),
+        baseRevisionId: initialResult.changes[0].revisionId.toUpperCase(),
+        fact: updateCreate.fact,
+        sources: updateCreate.sources,
+      },
+    ];
+    const updateResult = await publishCampusMapChangeset(update, {
+      actorId: adminId.toUpperCase(),
+      clientIp: "203.0.113.17",
+    });
+
+    const floorCreate = createCommand();
+    const floorChange = floorCreate.changes[0];
+    if (floorChange.operation !== "create") throw new Error("bad fixture");
+    floorChange.fact.name = "大小写楼层地点";
+    floorChange.fact.buildingId =
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0802".toUpperCase();
+    floorChange.fact.floorId =
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa0803".toUpperCase();
+    floorChange.fact.location = { kind: "floor" };
+    const floorResult = await publishCampusMapChangeset(floorCreate, {
+      actorId: adminId,
+      clientIp: "203.0.113.17",
+    });
+
+    const currentRevisionId =
+      updateResult.status === "published"
+        ? updateResult.changes[0].revisionId
+        : initialResult.changes[0].revisionId;
+    const duplicate = createCommand();
+    const duplicateCreate = duplicate.changes[0];
+    if (duplicateCreate.operation !== "create") throw new Error("bad fixture");
+    duplicate.kind = "bulk";
+    duplicate.changes = [
+      {
+        operation: "update",
+        placeId: initialResult.changes[0].placeId,
+        baseRevisionId: currentRevisionId,
+        fact: { ...duplicateCreate.fact, name: "大小写批量目标" },
+        sources: duplicateCreate.sources,
+      },
+      {
+        operation: "update",
+        placeId: initialResult.changes[0].placeId.toUpperCase(),
+        baseRevisionId: currentRevisionId.toUpperCase(),
+        fact: { ...duplicateCreate.fact, name: "大小写批量目标" },
+        sources: duplicateCreate.sources,
+      },
+    ];
+    const duplicateResult = await publishCampusMapChangeset(duplicate, {
+      actorId: adminId,
+      clientIp: "203.0.113.17",
+    });
+
+    expect({
+      updateStatus: updateResult.status,
+      floorStatus: floorResult.status,
+      duplicateResult,
+    }).toEqual({
+      updateStatus: "published",
+      floorStatus: "published",
+      duplicateResult: {
+        status: "validation-failed",
+        errors: [
+          {
+            code: "duplicate-place-change",
+            anchor: {
+              changeIndex: 1,
+              placeId: initialResult.changes[0].placeId,
+              field: "placeId",
+            },
+          },
+        ],
+        warnings: [],
+        suggestions: [],
+      },
     });
   });
 
@@ -2993,6 +3098,105 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           previous.ipSustained;
       }
     }
+  });
+
+  it("does not materialize new IP subjects after the actor limit is exhausted", async () => {
+    const previous = {
+      actorBurst: process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT,
+      actorSustained: process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT,
+      ipBurst: process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT,
+      ipSustained: process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT,
+    };
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT = "1";
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT = "100";
+    try {
+      const actorId = await createActor();
+      await expect(
+        publishCampusMapChangeset(createCommand(), {
+          actorId,
+          clientIp: "203.0.113.70",
+        }),
+      ).resolves.toMatchObject({ status: "published" });
+
+      const limited = await Promise.all(
+        ["203.0.113.71", "203.0.113.72", "203.0.113.73"].map((clientIp) =>
+          publishCampusMapChangeset(createCommand(), { actorId, clientIp }),
+        ),
+      );
+      const rateRows = await pool.query<{ scope: string; count: string }>(
+        `select scope, count(*)::text as count
+           from campus_map_publish_rate_limits
+          group by scope
+          order by scope`,
+      );
+
+      expect({
+        limited: limited.map((result) => ({
+          status: result.status,
+          scope: result.status === "rate-limited" ? result.scope : null,
+        })),
+        rateRows: rateRows.rows,
+      }).toEqual({
+        limited: [
+          { status: "rate-limited", scope: "actor" },
+          { status: "rate-limited", scope: "actor" },
+          { status: "rate-limited", scope: "actor" },
+        ],
+        rateRows: [
+          { scope: "actor", count: "2" },
+          { scope: "ip", count: "2" },
+        ],
+      });
+    } finally {
+      for (const [name, value] of [
+        ["CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT", previous.actorBurst],
+        ["CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT", previous.actorSustained],
+        ["CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT", previous.ipBurst],
+        ["CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT", previous.ipSustained],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  });
+
+  it("reclaims rate subjects inactive beyond the longest policy window", async () => {
+    const firstActor = await createActor();
+    await expect(
+      publishCampusMapChangeset(createCommand(), {
+        actorId: firstActor,
+        clientIp: "203.0.113.74",
+      }),
+    ).resolves.toMatchObject({ status: "published" });
+    await pool.query(
+      `update campus_map_publish_rate_limits
+          set updated_at = now() - interval '2 hours'`,
+    );
+
+    const secondActor = await createActor();
+    const secondCommand = createCommand();
+    const secondChange = secondCommand.changes[0];
+    if (secondChange.operation !== "create") throw new Error("bad fixture");
+    secondChange.fact.name = "限流回收后的地点";
+    await expect(
+      publishCampusMapChangeset(secondCommand, {
+        actorId: secondActor,
+        clientIp: "203.0.113.75",
+      }),
+    ).resolves.toMatchObject({ status: "published" });
+    const rateRows = await pool.query<{ scope: string; count: string }>(
+      `select scope, count(*)::text as count
+         from campus_map_publish_rate_limits
+        group by scope
+        order by scope`,
+    );
+
+    expect(rateRows.rows).toEqual([
+      { scope: "actor", count: "2" },
+      { scope: "ip", count: "2" },
+    ]);
   });
 
   it("enforces sustained policy across actors sharing one trusted IP", async () => {

@@ -41,6 +41,54 @@ const MAX_SOURCE_TEXT_BYTES = 2_000;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function canonicalUuid<T>(value: T): T {
+  return typeof value === "string" && UUID_PATTERN.test(value)
+    ? (value.toLowerCase() as T)
+    : value;
+}
+
+/** Normalizes UUID identity once before fingerprinting or domain comparisons. */
+export function normalizePublishCommandIdentifiers(
+  command: CampusMapPublishCommand,
+): CampusMapPublishCommand {
+  return {
+    ...command,
+    idempotencyKey: canonicalUuid(command.idempotencyKey),
+    changes: command.changes.map((change) => {
+      if (change.operation === "create") {
+        return {
+          ...change,
+          fact: {
+            ...change.fact,
+            buildingId: canonicalUuid(change.fact.buildingId),
+            floorId: canonicalUuid(change.fact.floorId),
+          },
+        };
+      }
+      if (change.operation === "retire") {
+        return {
+          ...change,
+          placeId: canonicalUuid(change.placeId),
+          baseRevisionId: canonicalUuid(change.baseRevisionId),
+        };
+      }
+      if (change.operation === "update" || change.operation === "restore") {
+        return {
+          ...change,
+          placeId: canonicalUuid(change.placeId),
+          baseRevisionId: canonicalUuid(change.baseRevisionId),
+          fact: {
+            ...change.fact,
+            buildingId: canonicalUuid(change.fact.buildingId),
+            floorId: canonicalUuid(change.fact.floorId),
+          },
+        };
+      }
+      return change;
+    }),
+  };
+}
+
 function utf8Bytes(value: string): number {
   return Buffer.byteLength(value, "utf8");
 }

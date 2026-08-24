@@ -25,6 +25,7 @@ import {
   invalidCommandResult,
   isPublishCommandTooLarge,
   isValidPublishIdempotencyKey,
+  normalizePublishCommandIdentifiers,
   sourceIdentity,
   sourceRefMismatch,
   toAppendFact,
@@ -77,7 +78,7 @@ export async function publishCampusMapChangeset(
   command: CampusMapPublishCommand,
   context: CampusMapPublishContext,
 ): Promise<CampusMapPublishResult> {
-  const actorId = context.actorId;
+  const actorId = context.actorId?.toLowerCase() ?? null;
   if (actorId === null) {
     return {
       status: "authentication-required",
@@ -85,15 +86,19 @@ export async function publishCampusMapChangeset(
     };
   }
   const hasValidStructure = hasPublishCommandStructure(command);
+  const normalizedCommand = hasValidStructure
+    ? normalizePublishCommandIdentifiers(command)
+    : command;
   let serializedCommand: string | null = null;
   try {
-    serializedCommand = JSON.stringify(canonicalize(command));
+    serializedCommand = JSON.stringify(canonicalize(normalizedCommand));
     if (typeof serializedCommand !== "string") serializedCommand = null;
   } catch {
     serializedCommand = null;
   }
   try {
     return await db.transaction(async (transaction) => {
+      const command = normalizedCommand;
       let requestFingerprint: string | null = null;
       let reusedRequest: StoredPublishRequest | null = null;
       if (

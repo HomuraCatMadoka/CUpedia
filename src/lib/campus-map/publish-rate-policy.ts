@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { campusMapPublishRateLimits } from "@/db/schema";
@@ -10,6 +10,9 @@ type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type CampusMapRateScope = "actor" | "ip";
 type CampusMapRateWindow = "burst" | "sustained";
 
+const PUBLISH_RATE_SUBJECT_RETENTION_MS = 3_600_000;
+const PUBLISH_RATE_CLEANUP_BATCH = 100;
+
 interface CampusMapRateRule {
   scope: CampusMapRateScope;
   subjectHash: string;
@@ -17,6 +20,11 @@ interface CampusMapRateRule {
   limit: number;
   durationMs: number;
 }
+
+type LockedCampusMapRateRule = CampusMapRateRule & {
+  windowStartedAt: Date;
+  attemptCount: number;
+};
 
 export async function consumePublishRate(
   transaction: DatabaseTransaction,
@@ -27,7 +35,7 @@ export async function consumePublishRate(
   const normalizedIp = normalizeClientIp(clientIp);
   const actorHash = privateSubjectHash("actor", actorId);
   const ipHash = privateSubjectHash("ip", normalizedIp);
-  const rules: CampusMapRateRule[] = [
+  const actorRules: CampusMapRateRule[] = [
     {
       scope: "actor",
       subjectHash: actorHash,
@@ -42,6 +50,8 @@ export async function consumePublishRate(
       limit: rateLimitFromEnv("CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT", 100),
       durationMs: 3_600_000,
     },
+  ];
+  const ipRules: CampusMapRateRule[] = [
     {
       scope: "ip",
       subjectHash: ipHash,
@@ -57,9 +67,77 @@ export async function consumePublishRate(
       durationMs: 3_600_000,
     },
   ];
-  const locked: Array<
-    CampusMapRateRule & { windowStartedAt: Date; attemptCount: number }
-  > = [];
+
+  // Keep every publisher on the same actor -> IP lock order. An actor that is
+  // already limited must not materialize attacker-controlled IP subjects.
+  const actorWindows = await lockPublishRateRules(transaction, actorRules, now);
+  const actorLimit = findPublishRateLimit(actorWindows, now);
+  if (actorLimit) return actorLimit;
+
+  await reclaimExpiredPublishRateSubjects(transaction, now, actorHash);
+  const ipWindows = await lockPublishRateRules(transaction, ipRules, now);
+  const ipLimit = findPublishRateLimit(ipWindows, now);
+  if (ipLimit) return ipLimit;
+
+  for (const entry of [...actorWindows, ...ipWindows]) {
+    await transaction
+      .update(campusMapPublishRateLimits)
+      .set({
+        windowStartedAt: entry.windowStartedAt,
+        attemptCount: entry.attemptCount + 1,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(campusMapPublishRateLimits.scope, entry.scope),
+          eq(campusMapPublishRateLimits.subjectHash, entry.subjectHash),
+          eq(campusMapPublishRateLimits.windowKind, entry.policy),
+        ),
+      );
+  }
+  return null;
+}
+
+async function reclaimExpiredPublishRateSubjects(
+  transaction: DatabaseTransaction,
+  now: Date,
+  protectedActorHash: string,
+): Promise<void> {
+  const cleanupLock = await transaction.execute<{ acquired: boolean }>(sql`
+    select pg_try_advisory_xact_lock(
+      hashtextextended('campus-map-publish-rate-cleanup', 0)
+    ) as acquired
+  `);
+  if (cleanupLock.rows[0]?.acquired !== true) return;
+
+  const cutoff = new Date(now.getTime() - PUBLISH_RATE_SUBJECT_RETENTION_MS);
+  await transaction.execute(sql`
+    with expired as (
+      select scope, subject_hash, window_kind
+      from campus_map_publish_rate_limits
+      where updated_at < ${cutoff}
+        and not (
+          scope = 'actor'
+          and subject_hash = ${protectedActorHash}
+        )
+      order by updated_at, scope, subject_hash, window_kind
+      limit ${PUBLISH_RATE_CLEANUP_BATCH}
+      for update skip locked
+    )
+    delete from campus_map_publish_rate_limits as rate
+    using expired
+    where rate.scope = expired.scope
+      and rate.subject_hash = expired.subject_hash
+      and rate.window_kind = expired.window_kind
+  `);
+}
+
+async function lockPublishRateRules(
+  transaction: DatabaseTransaction,
+  rules: CampusMapRateRule[],
+  now: Date,
+): Promise<LockedCampusMapRateRule[]> {
+  const locked: LockedCampusMapRateRule[] = [];
   for (const rule of rules) {
     await transaction
       .insert(campusMapPublishRateLimits)
@@ -96,7 +174,13 @@ export async function consumePublishRate(
       attemptCount: expired ? 0 : stored.attemptCount,
     });
   }
+  return locked;
+}
 
+function findPublishRateLimit(
+  locked: LockedCampusMapRateRule[],
+  now: Date,
+): Extract<CampusMapPublishResult, { status: "rate-limited" }> | null {
   const limited = locked.find((entry) => entry.attemptCount >= entry.limit);
   if (limited) {
     return {
@@ -114,23 +198,6 @@ export async function consumePublishRate(
         ),
       ),
     };
-  }
-
-  for (const entry of locked) {
-    await transaction
-      .update(campusMapPublishRateLimits)
-      .set({
-        windowStartedAt: entry.windowStartedAt,
-        attemptCount: entry.attemptCount + 1,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(campusMapPublishRateLimits.scope, entry.scope),
-          eq(campusMapPublishRateLimits.subjectHash, entry.subjectHash),
-          eq(campusMapPublishRateLimits.windowKind, entry.policy),
-        ),
-      );
   }
   return null;
 }
