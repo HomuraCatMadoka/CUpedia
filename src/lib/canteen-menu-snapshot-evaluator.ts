@@ -152,6 +152,8 @@ function evaluateCanonicalMenuSnapshot(
     activeManagedCount,
     canonicalState.input.items.length,
     canonicalState.input.snapshotCompleteness,
+    canonicalState.input.activityProjectionAuthority ===
+      "all-configured-meal-periods",
   );
 
   return {
@@ -169,6 +171,7 @@ function collectMenuSnapshotBlockingReasons(
   activeManagedCount: number,
   incomingItemCount: number,
   snapshotCompleteness: MenuSyncInput["snapshotCompleteness"],
+  authoritativeActivityProjection: boolean,
 ): MenuSnapshotBlockingReason[] {
   const reasons: MenuSnapshotBlockingReason[] = [];
   if (plan.conflicts.length > 0) {
@@ -201,6 +204,7 @@ function collectMenuSnapshotBlockingReasons(
     (action) => action.action === "deactivate",
   ).length;
   if (
+    !authoritativeActivityProjection &&
     activeManagedCount > 0 &&
     deactivationCount > 0 &&
     incomingItemCount * 2 <= activeManagedCount

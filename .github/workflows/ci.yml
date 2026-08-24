@@ -135,6 +135,7 @@ jobs:
           tests/db/canteen-menu-sync.test.ts
           tests/db/canteen-menu-source-sync.test.ts
           tests/db/canteen-menu-sync-scheduler.test.ts
+          tests/db/canteen-menu-sync-snapshots.test.ts
 
   build:
     name: build

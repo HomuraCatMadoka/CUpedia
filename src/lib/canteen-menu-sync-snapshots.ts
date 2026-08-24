@@ -109,7 +109,9 @@ type ScopedProjectionSource = {
 /**
  * Materializes the current menu as the union of the newest accepted observation
  * for every configured meal-period scope. The current observation replaces its
- * prior scope; missing scopes keep global absence non-authoritative. The newest
+ * prior scope; missing scopes keep global absence non-authoritative. Once every
+ * scope is represented, the union is authoritative for current activity even
+ * when each raw observation remains partial catalog evidence. The newest
  * occurrence owns mutable facts while older occurrences contribute periods.
  */
 export async function materializeScopedMenuProjection(
@@ -211,11 +213,13 @@ export async function materializeScopedMenuProjection(
   );
   return {
     ...current,
-    snapshotCompleteness:
-      current.snapshotCompleteness === "complete" && allScopesObserved
-        ? "complete"
-        : "partial",
+    snapshotCompleteness: allScopesObserved ? "complete" : "partial",
     observationScope: { kind: "catalog" },
+    ...(allScopesObserved
+      ? {
+          activityProjectionAuthority: "all-configured-meal-periods" as const,
+        }
+      : {}),
     items: [...union.values()],
   };
 }

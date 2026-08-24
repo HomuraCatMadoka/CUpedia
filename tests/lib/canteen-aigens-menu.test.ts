@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildShhoMenuSyncPayload } from "@/lib/canteen-aigens-menu";
-import { fetchAigensMenu } from "@/lib/canteen-menu-source-adapters";
+import {
+  fetchAigensMenu,
+  fetchMenuFromProvider,
+} from "@/lib/canteen-menu-source-adapters";
 import aigensCurrent from "./fixtures/canteen-providers/aigens-current.json";
 
 describe("S.H. Ho Aigens menu adapter", () => {
@@ -295,6 +298,30 @@ describe("S.H. Ho Aigens menu adapter", () => {
           mealPeriods: ["lunch", "dinner"],
         },
       ],
+    });
+  });
+
+  it("scopes recurring observations to the scheduler meal period", async () => {
+    const observedAt = new Date("2026-08-24T04:17:00Z");
+    await expect(
+      fetchMenuFromProvider(
+        {
+          provider: "aigens",
+          externalStoreId: "102830",
+        },
+        {
+          observedAt,
+          syncWindowKey: "2026-08-24/lunch",
+          mealPeriod: "lunch",
+        },
+        {
+          fetchImpl: async () =>
+            new Response(JSON.stringify(aigensCurrent), { status: 200 }),
+        },
+      ),
+    ).resolves.toMatchObject({
+      snapshotCompleteness: "partial",
+      observationScope: { kind: "meal-period", mealPeriod: "lunch" },
     });
   });
 

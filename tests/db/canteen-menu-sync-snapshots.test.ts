@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
   canteenMenuItemPrices,
@@ -238,6 +238,141 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
       .from(canteenMenuItems)
       .where(eq(canteenMenuItems.id, existing.id));
     expect(preserved.isAvailable).toBe(true);
+  });
+
+  it("removes stale partial-provider activity after every configured scope is observed (#743)", async () => {
+    await db
+      .update(canteenMenuSources)
+      .set({ syncMealPeriods: ["breakfast", "lunch", "dinner"] })
+      .where(eq(canteenMenuSources.id, sourceId));
+    const [active, stale] = await db
+      .insert(canteenMenuItems)
+      .values([
+        {
+          canteenId,
+          menuSourceId: sourceId,
+          externalProductId: "still-published",
+          name: "仍在發布菜單",
+          mealPeriods: ["breakfast", "lunch", "dinner"],
+          isAvailable: true,
+        },
+        {
+          canteenId,
+          menuSourceId: sourceId,
+          externalProductId: "historical-only",
+          name: "只應保留身份",
+          mealPeriods: ["breakfast", "lunch", "dinner"],
+          isAvailable: true,
+        },
+      ])
+      .returning({
+        id: canteenMenuItems.id,
+        externalProductId: canteenMenuItems.externalProductId,
+      });
+
+    fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
+      const retainedPeriods = (
+        ["breakfast", "lunch", "dinner"] as const
+      ).filter((period) => period !== context.mealPeriod);
+      for (const [index, period] of retainedPeriods.entries()) {
+        const runId = randomUUID();
+        await db.insert(canteenMenuSyncRuns).values({
+          id: runId,
+          menuSourceId: sourceId,
+          status: "unchanged",
+        });
+        await db.insert(canteenMenuSyncSnapshots).values({
+          runId,
+          menuSourceId: sourceId,
+          snapshotHash: String(index + 4).repeat(64),
+          snapshotCompleteness: "partial",
+          observationScope: "meal-period",
+          itemCount: 1,
+          syncWindowKey: `retained/${period}`,
+          mealPeriod: period,
+          hktWeekday: 1,
+          observedMinuteOfDay: 60 + index,
+          scopeEvidence: {},
+          observedAt: new Date(Date.now() - (index + 1) * 60_000),
+        });
+        await db.insert(canteenMenuSyncSnapshotItems).values({
+          runId,
+          ...item("still-published", { mealPeriods: [period] }),
+        });
+      }
+      return {
+        snapshotCompleteness: "partial",
+        observationScope: {
+          kind: "meal-period",
+          mealPeriod: context.mealPeriod,
+        },
+        takeOverLegacyItems: false,
+        items: [item("still-published", { mealPeriods: [context.mealPeriod] })],
+      };
+    });
+
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+    });
+    const rows = await db
+      .select({
+        id: canteenMenuItems.id,
+        externalProductId: canteenMenuItems.externalProductId,
+        isAvailable: canteenMenuItems.isAvailable,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.menuSourceId, sourceId));
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        {
+          id: active.id,
+          externalProductId: "still-published",
+          isAvailable: true,
+        },
+        {
+          id: stale.id,
+          externalProductId: "historical-only",
+          isAvailable: false,
+        },
+      ]),
+    );
+    const [rawSnapshot] = await db
+      .select({
+        snapshotCompleteness: canteenMenuSyncSnapshots.snapshotCompleteness,
+        observationScope: canteenMenuSyncSnapshots.observationScope,
+      })
+      .from(canteenMenuSyncSnapshots)
+      .where(eq(canteenMenuSyncSnapshots.menuSourceId, sourceId))
+      .orderBy(desc(canteenMenuSyncSnapshots.observedAt))
+      .limit(1);
+    expect(rawSnapshot).toEqual({
+      snapshotCompleteness: "partial",
+      observationScope: "meal-period",
+    });
+
+    fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => ({
+      snapshotCompleteness: "partial",
+      observationScope: {
+        kind: "meal-period",
+        mealPeriod: context.mealPeriod,
+      },
+      takeOverLegacyItems: false,
+      items: [
+        item("still-published", { mealPeriods: [context.mealPeriod] }),
+        item("historical-only", { mealPeriods: [context.mealPeriod] }),
+      ],
+    }));
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+    });
+    const [restored] = await db
+      .select({
+        id: canteenMenuItems.id,
+        isAvailable: canteenMenuItems.isAvailable,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.externalProductId, "historical-only"));
+    expect(restored).toEqual({ id: stale.id, isAvailable: true });
   });
 
   it("materializes the latest configured meal scopes without replacing other periods", async () => {

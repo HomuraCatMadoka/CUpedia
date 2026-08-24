@@ -188,6 +188,8 @@ export type MenuSyncInput = {
   items: MenuSyncItemInput[];
   scopeEvidence?: MenuSnapshotScopeEvidence;
   observationScope?: MenuObservationScope;
+  /** Internal authority produced only after every configured scope is present. */
+  activityProjectionAuthority?: "all-configured-meal-periods";
 };
 
 function parseMenuObservationScope(

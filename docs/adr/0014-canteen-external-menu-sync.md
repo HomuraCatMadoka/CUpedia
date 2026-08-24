@@ -123,9 +123,13 @@ same Aigens group.
     newest observation, while meal periods are unioned across scopes. Conflicts
     inside one provider response remain adapter errors, but ordinary changes
     between observations must converge. Until every configured period has an
-    accepted scoped snapshot, the union is globally partial. Manual preview and
-    transition flows downgrade a meal-period observation to non-authoritative
-    absence unless they use the recurring scoped projection.
+    accepted scoped snapshot, the union is globally partial. Once all periods
+    are represented, the union is authoritative only for reversible current
+    activity, even when each immutable raw observation remains partial catalog
+    evidence. This activity authority bypasses the catalog suspicious-drop
+    threshold but not identity conflicts or product-ID churn protection. Manual
+    preview and transition flows downgrade a meal-period observation to
+    non-authoritative absence unless they use the recurring scoped projection.
 
 ## Consequences
 
@@ -142,10 +146,11 @@ same Aigens group.
 - An approved identity transition becomes stale whenever the source or either
   audited menu projection changes. Operators must regenerate and review it;
   they cannot silently carry approval forward to a later provider snapshot.
-- A partial provider response cannot make a dish globally inactive merely
-  because it is outside the current service or availability window. This can
-  retain stale offerings until a source with authoritative catalog semantics
-  supplies absence evidence.
+- One partial provider response cannot make a dish globally inactive merely
+  because it is outside that service or availability window. After every
+  configured period has a latest accepted observation, their union may
+  reversibly deactivate identities absent from the current published
+  projection without claiming permanent catalog deletion.
 - A complete meal-period observation can retire an occurrence from that period
   without retiring the same dish from periods retained by the scoped union.
 - Identity backfill and audited canteen provisioning use versioned Drizzle

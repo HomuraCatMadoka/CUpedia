@@ -541,7 +541,21 @@ export function fetchMenuFromProvider(
       break;
   }
   return payload.then((result) => {
-    assertProviderMenuIdentitySnapshot(source.provider, source, result.items);
-    return result;
+    const scopedResult =
+      source.provider === "aigens" || source.provider === "pinme"
+        ? {
+            ...result,
+            observationScope: {
+              kind: "meal-period" as const,
+              mealPeriod: observationContext.mealPeriod,
+            },
+          }
+        : result;
+    assertProviderMenuIdentitySnapshot(
+      source.provider,
+      source,
+      scopedResult.items,
+    );
+    return scopedResult;
   });
 }
