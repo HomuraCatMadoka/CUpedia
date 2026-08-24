@@ -30,15 +30,15 @@ const vercel = JSON.parse(
   readFileSync(resolve(process.cwd(), "vercel.json"), "utf8"),
 );
 
-describe("production canteen menu sync workflow (#635)", () => {
+describe("production canteen menu sync workflow (#635, #746)", () => {
   it("runs at the documented non-peak breakfast, lunch, and dinner times", () => {
     expect(workflow.on.schedule).toEqual([
-      { cron: "17 23 * * *" },
+      { cron: "17 0 * * *" },
       { cron: "17 3 * * *" },
       { cron: "17 9 * * *" },
     ]);
     expect(workflowText).toContain(
-      "23:17 UTC = 07:17 Asia/Hong_Kong on the following day (breakfast)",
+      "00:17 UTC = 08:17 Asia/Hong_Kong (breakfast, after CU CAFE opens)",
     );
     expect(workflowText).toContain("03:17 UTC = 11:17 Asia/Hong_Kong (lunch)");
     expect(workflowText).toContain("09:17 UTC = 17:17 Asia/Hong_Kong (dinner)");
