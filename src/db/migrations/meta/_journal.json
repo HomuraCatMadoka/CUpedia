@@ -498,6 +498,13 @@
       "when": 1787540210855,
       "tag": "0070_smiling_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1787563360772,
+      "tag": "0071_stiff_firebird",
+      "breakpoints": true
     }
   ]
 }

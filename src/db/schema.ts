@@ -1967,6 +1967,7 @@ export const campusMapChangesets = pgTable(
     index("campus_map_changesets_actor_feed_idx").on(
       table.actorIdSnapshot,
       table.publishedAt,
+      table.id,
     ),
     index("campus_map_changesets_review_feed_idx")
       .on(table.publishedAt, table.id)

@@ -1382,11 +1382,13 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         {
           placeId,
           operation: "update",
-          fieldDiff: {
-            name: {
-              before: "大学图书馆饮水点",
-              after: "大学图书馆补水站",
-              label: "名称",
+          diff: {
+            fields: {
+              name: {
+                before: "大学图书馆饮水点",
+                after: "大学图书馆补水站",
+                label: "名称",
+              },
             },
           },
         },
@@ -1439,11 +1441,13 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         {
           placeId,
           operation: "update",
-          fieldDiff: {
-            observedAt: {
-              before: null,
-              after: observedAt,
-              label: "观察时间",
+          diff: {
+            fields: {
+              observedAt: {
+                before: null,
+                after: observedAt,
+                label: "观察时间",
+              },
             },
           },
         },
@@ -1637,7 +1641,10 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
     const changeset = await getCampusMapChangeset(corrected.changesetId);
     expect(changeset?.changes[0]).toMatchObject({ operation: "update" });
-    expect(changeset?.changes[0].fieldDiff?.location).toEqual({
+    const change = changeset?.changes[0];
+    expect(change?.visibility).toBe("public");
+    if (change?.visibility !== "public") throw new Error("change is hidden");
+    expect(change.diff.position).toEqual({
       before: {
         kind: "building",
         buildingId: "00000000-0000-4000-8000-000000000802",
@@ -1953,12 +1960,25 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       getCampusMapChangeset(published.changesetId),
     ).resolves.toMatchObject({
       bbox: null,
-      changes: [{ fieldDiff: null }],
+      changes: [{ visibility: "redacted" }],
     });
-    const feed = await listCampusMapChangesets({ limit: 100 });
+    const feed = await listCampusMapChangesets({
+      scope: { kind: "recent" },
+      limit: 100,
+    });
     expect(
       feed.items.find((item) => item.id === published.changesetId),
-    ).toMatchObject({ bbox: null, changes: [{ fieldDiff: null }] });
+    ).toMatchObject({ bbox: null });
+    const bboxFeed = await listCampusMapChangesets({
+      scope: {
+        kind: "bbox",
+        bounds: { west: 114.2, south: 22.4, east: 114.22, north: 22.43 },
+      },
+      limit: 100,
+    });
+    expect(
+      bboxFeed.items.some((item) => item.id === published.changesetId),
+    ).toBe(false);
   });
 
   it("serializes a concurrent redaction before reading Current visibility", async () => {

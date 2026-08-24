@@ -1,4 +1,17 @@
-import { and, asc, desc, eq, gt, gte, inArray, lt, lte, or } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -9,6 +22,7 @@ import {
   campusMapFactSchemas,
   campusMapFloors,
   campusMapPlaceChanges,
+  campusMapPlaces,
   campusMapProvenanceSources,
   campusMapRevisionProvenance,
   campusMapRevisionVisibility,
@@ -18,7 +32,6 @@ import {
   type CampusMapAudience,
   type CampusMapCapability,
   type CampusMapCredentialRequirement,
-  type CampusMapCoordinateConversionMethod,
   type CampusMapFactDisplayMetadata,
   type CampusMapFactSchemaDefinition,
   type CampusMapFieldDiff,
@@ -31,7 +44,6 @@ import {
   type CampusMapReservationRequirement,
   type CampusMapRevisionStatus,
   type CampusMapRightsStatus,
-  type CampusMapSourceCoordinateCrs,
   type CampusMapTemporaryStatus,
   type CampusMapWheelchairAccess,
 } from "@/db/schema";
@@ -96,22 +108,10 @@ export interface CampusMapCurrentPlace {
 
 export interface CampusMapPublicProvenance {
   kind: CampusMapProvenanceKind;
-  ref: string;
-  url: string | null;
-  version: string | null;
   accessedOn: string;
   observedAt: Date | null;
   rightsStatus: CampusMapRightsStatus;
-  limitations: string | null;
-  sourceCoordinate: {
-    x: number;
-    y: number;
-    crs: CampusMapSourceCoordinateCrs;
-    conversion: {
-      method: CampusMapCoordinateConversionMethod;
-      version: string;
-    } | null;
-  } | null;
+  hasLocationEvidence: boolean;
 }
 
 export interface CampusMapCurrentPlaceFilters {
@@ -154,7 +154,6 @@ export interface CampusMapHistoricalFact {
   coordinateCrs: "wgs84" | null;
   observedAt: Date | null;
   verifiedAt: Date | null;
-  verifiedByActorIdSnapshot: string | null;
   provenance: CampusMapPublicProvenance[];
 }
 
@@ -183,7 +182,6 @@ export interface CampusMapPublicChangeset {
   comment: string;
   sourceSummary: string;
   reviewRequested: boolean;
-  client: { name: string; version: string };
   counts: {
     affected: number;
     created: number;
@@ -198,20 +196,71 @@ export interface CampusMapPublicChangeset {
     east: number;
     north: number;
   } | null;
-  warnings: Array<{ code: string; count: number }>;
   revertsChangesetId: string | null;
   publishedAt: Date;
-  changes: Array<{
-    id: string;
-    placeId: string;
-    operation: CampusMapPlaceOperation;
-    fieldDiff: CampusMapFieldDiff | null;
-  }>;
+  changes: CampusMapPublicChange[];
 }
+
+type CampusMapTypedDiffValue = CampusMapFieldDiff[string];
+
+export type CampusMapPublicChange =
+  | {
+      visibility: "public";
+      id: string;
+      placeId: string;
+      revisionId: string;
+      previousRevisionId: string | null;
+      status: CampusMapRevisionStatus;
+      mergedIntoPlaceId: string | null;
+      operation: CampusMapPlaceOperation;
+      schema: CampusMapFactSchema;
+      diff: {
+        fields: CampusMapFieldDiff;
+        position: CampusMapTypedDiffValue | null;
+        provenance: {
+          before: CampusMapPublicProvenance[];
+          after: CampusMapPublicProvenance[];
+        };
+      };
+    }
+  | {
+      visibility: "redacted";
+      id: string;
+      placeId: string;
+      revisionId: string;
+    };
 
 export interface CampusMapChangesetFeedCursor {
   publishedAt: Date;
   changesetId: string;
+}
+
+export interface CampusMapChangesetSummary {
+  id: string;
+  actor: { id: string; nickname: string };
+  comment: string;
+  sourceSummary: string;
+  reviewRequested: boolean;
+  counts: CampusMapPublicChangeset["counts"];
+  bbox: CampusMapPublicChangeset["bbox"];
+  revertsChangesetId: string | null;
+  publishedAt: Date;
+}
+
+export type CampusMapChangesetFeedScope =
+  | { kind: "recent" }
+  | { kind: "actor"; actorId: string }
+  | {
+      kind: "bbox";
+      bounds: { west: number; south: number; east: number; north: number };
+    }
+  | { kind: "reviewRequested" };
+
+export class CampusMapReadInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "CampusMapReadInputError";
+  }
 }
 
 interface CampusMapCurrentFactRow {
@@ -252,8 +301,6 @@ interface CampusMapChangesetRow {
   comment: string;
   sourceSummary: string;
   reviewRequested: boolean;
-  clientName: string;
-  clientVersion: string;
   affectedCount: number;
   createdCount: number;
   updatedCount: number;
@@ -264,9 +311,9 @@ interface CampusMapChangesetRow {
   bboxSouth: number | null;
   bboxEast: number | null;
   bboxNorth: number | null;
-  warningSummary: Array<{ code: string; count: number }>;
   revertsChangesetId: string | null;
   publishedAt: Date;
+  hasOnlyPublicChanges: boolean;
 }
 
 const currentFactSelection = {
@@ -300,6 +347,18 @@ const currentFactSelection = {
   floorSortOrder: campusMapFloors.sortOrder,
 };
 
+const hasOnlyPublicChanges = sql<boolean>`not exists (
+  select 1
+  from campus_map_place_changes public_change
+  inner join campus_map_fact_revisions public_revision
+    on public_revision.place_change_id = public_change.id
+  left join campus_map_revision_visibility public_visibility
+    on public_visibility.revision_id = public_revision.id
+  where public_change.changeset_id =
+    ${sql.identifier("campus_map_changesets")}.${sql.identifier("id")}
+    and coalesce(public_visibility.visibility, 'redacted') <> 'public'
+)`;
+
 const changesetSelection = {
   id: campusMapChangesets.id,
   actorIdSnapshot: campusMapChangesets.actorIdSnapshot,
@@ -307,8 +366,6 @@ const changesetSelection = {
   comment: campusMapChangesets.comment,
   sourceSummary: campusMapChangesets.sourceSummary,
   reviewRequested: campusMapChangesets.reviewRequested,
-  clientName: campusMapChangesets.clientName,
-  clientVersion: campusMapChangesets.clientVersion,
   affectedCount: campusMapChangesets.affectedCount,
   createdCount: campusMapChangesets.createdCount,
   updatedCount: campusMapChangesets.updatedCount,
@@ -319,14 +376,21 @@ const changesetSelection = {
   bboxSouth: campusMapChangesets.bboxSouth,
   bboxEast: campusMapChangesets.bboxEast,
   bboxNorth: campusMapChangesets.bboxNorth,
-  warningSummary: campusMapChangesets.warningSummary,
   revertsChangesetId: campusMapChangesets.revertsChangesetId,
   publishedAt: campusMapChangesets.publishedAt,
+  hasOnlyPublicChanges,
 };
 
 function invariant(condition: unknown, message: string): asserts condition {
   if (!condition)
     throw new Error(`Campus Map fact invariant failed: ${message}`);
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function isPublicId(value: string) {
+  return UUID_PATTERN.test(value);
 }
 
 function buildingSummary(row: {
@@ -406,18 +470,11 @@ async function loadProvenanceByRevision(
     .select({
       revisionId: campusMapRevisionProvenance.revisionId,
       kind: campusMapProvenanceSources.sourceKind,
-      ref: campusMapProvenanceSources.sourceRef,
-      url: campusMapProvenanceSources.sourceUrl,
-      version: campusMapProvenanceSources.sourceVersion,
       accessedOn: campusMapProvenanceSources.accessedOn,
       observedAt: campusMapProvenanceSources.observedAt,
       rightsStatus: campusMapProvenanceSources.rightsStatus,
-      limitations: campusMapProvenanceSources.limitations,
       sourceCoordinateX: campusMapProvenanceSources.sourceCoordinateX,
       sourceCoordinateY: campusMapProvenanceSources.sourceCoordinateY,
-      sourceCoordinateCrs: campusMapProvenanceSources.sourceCoordinateCrs,
-      conversionMethod: campusMapProvenanceSources.conversionMethod,
-      conversionVersion: campusMapProvenanceSources.conversionVersion,
     })
     .from(campusMapRevisionProvenance)
     .innerJoin(
@@ -427,7 +484,19 @@ async function loadProvenanceByRevision(
         campusMapProvenanceSources.id,
       ),
     )
-    .where(inArray(campusMapRevisionProvenance.revisionId, revisionIds))
+    .innerJoin(
+      campusMapRevisionVisibility,
+      eq(
+        campusMapRevisionProvenance.revisionId,
+        campusMapRevisionVisibility.revisionId,
+      ),
+    )
+    .where(
+      and(
+        inArray(campusMapRevisionProvenance.revisionId, revisionIds),
+        eq(campusMapRevisionVisibility.visibility, "public"),
+      ),
+    )
     .orderBy(
       asc(campusMapRevisionProvenance.revisionId),
       asc(campusMapProvenanceSources.id),
@@ -436,34 +505,13 @@ async function loadProvenanceByRevision(
   const byRevision = new Map<string, CampusMapPublicProvenance[]>();
   for (const { revisionId, ...source } of rows) {
     const sources = byRevision.get(revisionId) ?? [];
-    const hasSourceCoordinate =
-      source.sourceCoordinateX !== null &&
-      source.sourceCoordinateY !== null &&
-      source.sourceCoordinateCrs !== null;
     sources.push({
       kind: source.kind,
-      ref: source.ref,
-      url: source.url,
-      version: source.version,
       accessedOn: source.accessedOn,
       observedAt: source.observedAt,
       rightsStatus: source.rightsStatus,
-      limitations: source.limitations,
-      sourceCoordinate: hasSourceCoordinate
-        ? {
-            x: source.sourceCoordinateX!,
-            y: source.sourceCoordinateY!,
-            crs: source.sourceCoordinateCrs!,
-            conversion:
-              source.conversionMethod !== null &&
-              source.conversionVersion !== null
-                ? {
-                    method: source.conversionMethod,
-                    version: source.conversionVersion,
-                  }
-                : null,
-          }
-        : null,
+      hasLocationEvidence:
+        source.sourceCoordinateX !== null && source.sourceCoordinateY !== null,
     });
     byRevision.set(revisionId, sources);
   }
@@ -542,6 +590,7 @@ export async function getCampusMapFactSchema(
 export async function getCampusMapCurrentPlace(
   placeId: string,
 ): Promise<CampusMapCurrentPlace | null> {
+  if (!isPublicId(placeId)) return null;
   const [row] = await db
     .select(currentFactSelection)
     .from(campusMapCurrentFacts)
@@ -741,9 +790,18 @@ export async function getCampusMapPlaceHistory(
   placeId: string,
   options: { before?: CampusMapPlaceHistoryCursor; limit?: number } = {},
 ): Promise<{
+  placeExists: boolean;
   items: CampusMapPlaceHistoryItem[];
   nextCursor: CampusMapPlaceHistoryCursor | null;
 }> {
+  if (!isPublicId(placeId)) {
+    return { placeExists: false, items: [], nextCursor: null };
+  }
+  const placePromise = db
+    .select({ id: campusMapPlaces.id })
+    .from(campusMapPlaces)
+    .where(eq(campusMapPlaces.id, placeId))
+    .limit(1);
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
   const conditions = [eq(campusMapFactRevisions.placeId, placeId)];
   if (options.before) {
@@ -786,8 +844,6 @@ export async function getCampusMapPlaceHistory(
       coordinateCrs: campusMapFactRevisions.coordinateCrs,
       observedAt: campusMapFactRevisions.observedAt,
       verifiedAt: campusMapFactRevisions.verifiedAt,
-      verifiedByActorIdSnapshot:
-        campusMapFactRevisions.verifiedByActorIdSnapshot,
       createdAt: campusMapFactRevisions.createdAt,
       changesetId: campusMapChangesets.id,
       actorId: campusMapChangesets.actorIdSnapshot,
@@ -860,7 +916,6 @@ export async function getCampusMapPlaceHistory(
                 coordinateCrs: row.coordinateCrs,
                 observedAt: row.observedAt,
                 verifiedAt: row.verifiedAt,
-                verifiedByActorIdSnapshot: row.verifiedByActorIdSnapshot,
                 provenance: provenance.get(row.id) ?? [],
               },
             }
@@ -869,12 +924,143 @@ export async function getCampusMapPlaceHistory(
   );
 
   const last = page.at(-1);
+  const place = await placePromise;
   return {
+    placeExists: place.length === 1,
     items,
     nextCursor:
       rows.length > limit && last
         ? { createdAt: last.createdAt, revisionId: last.id }
         : null,
+  };
+}
+
+/** Reads one immutable revision by both permanent Place and revision IDs. */
+export async function getCampusMapPlaceRevision(
+  placeId: string,
+  revisionId: string,
+): Promise<
+  (CampusMapPlaceHistoryItem & { schema: CampusMapFactSchema }) | null
+> {
+  if (!isPublicId(placeId) || !isPublicId(revisionId)) return null;
+  const [row] = await db
+    .select({
+      id: campusMapFactRevisions.id,
+      placeId: campusMapFactRevisions.placeId,
+      previousRevisionId: campusMapFactRevisions.previousRevisionId,
+      status: campusMapFactRevisions.status,
+      mergedIntoPlaceId: campusMapFactRevisions.mergedIntoPlaceId,
+      factSchemaVersion: campusMapFactRevisions.factSchemaVersion,
+      fieldMetadata: campusMapFactRevisions.fieldMetadata,
+      name: campusMapFactRevisions.name,
+      pinType: campusMapFactRevisions.pinType,
+      capabilities: campusMapFactRevisions.capabilities,
+      gender: campusMapFactRevisions.gender,
+      wheelchairAccess: campusMapFactRevisions.wheelchairAccess,
+      audience: campusMapFactRevisions.audience,
+      credentialRequirement: campusMapFactRevisions.credentialRequirement,
+      accessSchedule: campusMapFactRevisions.accessSchedule,
+      reservationRequirement: campusMapFactRevisions.reservationRequirement,
+      temporaryStatus: campusMapFactRevisions.temporaryStatus,
+      buildingId: campusMapFactRevisions.buildingId,
+      floorId: campusMapFactRevisions.floorId,
+      locationKind: campusMapFactRevisions.locationKind,
+      pointPrecision: campusMapFactRevisions.pointPrecision,
+      longitude: campusMapFactRevisions.longitude,
+      latitude: campusMapFactRevisions.latitude,
+      coordinateCrs: campusMapFactRevisions.coordinateCrs,
+      observedAt: campusMapFactRevisions.observedAt,
+      verifiedAt: campusMapFactRevisions.verifiedAt,
+      createdAt: campusMapFactRevisions.createdAt,
+      changesetId: campusMapChangesets.id,
+      actorId: campusMapChangesets.actorIdSnapshot,
+      actorNickname: campusMapChangesets.actorNicknameSnapshot,
+      publishedAt: campusMapChangesets.publishedAt,
+      operation: campusMapPlaceChanges.operation,
+      fieldDiff: campusMapPlaceChanges.fieldDiff,
+      visibility: campusMapRevisionVisibility.visibility,
+      schemaDefinition: campusMapFactSchemas.definition,
+    })
+    .from(campusMapFactRevisions)
+    .innerJoin(
+      campusMapPlaceChanges,
+      eq(campusMapFactRevisions.placeChangeId, campusMapPlaceChanges.id),
+    )
+    .innerJoin(
+      campusMapChangesets,
+      eq(campusMapFactRevisions.changesetId, campusMapChangesets.id),
+    )
+    .innerJoin(
+      campusMapFactSchemas,
+      eq(
+        campusMapFactRevisions.factSchemaVersion,
+        campusMapFactSchemas.version,
+      ),
+    )
+    .leftJoin(
+      campusMapRevisionVisibility,
+      eq(campusMapFactRevisions.id, campusMapRevisionVisibility.revisionId),
+    )
+    .where(
+      and(
+        eq(campusMapFactRevisions.placeId, placeId),
+        eq(campusMapFactRevisions.id, revisionId),
+      ),
+    )
+    .limit(1);
+  if (!row) return null;
+
+  const provenance =
+    row.visibility === "public"
+      ? await loadProvenanceByRevision([row.id])
+      : new Map<string, CampusMapPublicProvenance[]>();
+  return {
+    id: row.id,
+    placeId: row.placeId,
+    previousRevisionId: row.previousRevisionId,
+    status: row.status,
+    mergedIntoPlaceId: row.mergedIntoPlaceId,
+    factSchemaVersion: row.factSchemaVersion,
+    fieldMetadata: row.fieldMetadata,
+    schema: {
+      version: row.factSchemaVersion,
+      definition: row.schemaDefinition,
+      displayMetadata: row.fieldMetadata,
+    },
+    operation: row.operation,
+    fieldDiff: row.visibility === "public" ? row.fieldDiff : null,
+    actor: { id: row.actorId, nickname: row.actorNickname },
+    changesetId: row.changesetId,
+    publishedAt: row.publishedAt,
+    createdAt: row.createdAt,
+    content:
+      row.visibility === "public"
+        ? {
+            visibility: "public",
+            fact: {
+              name: row.name,
+              pinType: row.pinType,
+              capabilities: row.capabilities,
+              gender: row.gender,
+              wheelchairAccess: row.wheelchairAccess,
+              audience: row.audience,
+              credentialRequirement: row.credentialRequirement,
+              accessSchedule: row.accessSchedule,
+              reservationRequirement: row.reservationRequirement,
+              temporaryStatus: row.temporaryStatus,
+              buildingId: row.buildingId,
+              floorId: row.floorId,
+              locationKind: row.locationKind,
+              pointPrecision: row.pointPrecision,
+              longitude: row.longitude,
+              latitude: row.latitude,
+              coordinateCrs: row.coordinateCrs,
+              observedAt: row.observedAt,
+              verifiedAt: row.verifiedAt,
+              provenance: provenance.get(row.id) ?? [],
+            },
+          }
+        : { visibility: "redacted" },
   };
 }
 
@@ -889,12 +1075,26 @@ async function loadChangesByChangeset(
       placeId: campusMapPlaceChanges.placeId,
       operation: campusMapPlaceChanges.operation,
       fieldDiff: campusMapPlaceChanges.fieldDiff,
+      revisionId: campusMapFactRevisions.id,
+      previousRevisionId: campusMapFactRevisions.previousRevisionId,
+      status: campusMapFactRevisions.status,
+      mergedIntoPlaceId: campusMapFactRevisions.mergedIntoPlaceId,
+      factSchemaVersion: campusMapFactRevisions.factSchemaVersion,
+      fieldMetadata: campusMapFactRevisions.fieldMetadata,
+      schemaDefinition: campusMapFactSchemas.definition,
       visibility: campusMapRevisionVisibility.visibility,
     })
     .from(campusMapPlaceChanges)
     .innerJoin(
       campusMapFactRevisions,
       eq(campusMapPlaceChanges.id, campusMapFactRevisions.placeChangeId),
+    )
+    .innerJoin(
+      campusMapFactSchemas,
+      eq(
+        campusMapFactRevisions.factSchemaVersion,
+        campusMapFactSchemas.version,
+      ),
     )
     .leftJoin(
       campusMapRevisionVisibility,
@@ -906,13 +1106,50 @@ async function loadChangesByChangeset(
       asc(campusMapPlaceChanges.id),
     );
 
+  const provenance = await loadProvenanceByRevision(
+    rows.flatMap((row) =>
+      row.visibility === "public"
+        ? [row.revisionId, row.previousRevisionId].filter(
+            (id): id is string => id !== null,
+          )
+        : [],
+    ),
+  );
+
   const byChangeset = new Map<string, CampusMapPublicChangeset["changes"]>();
-  for (const { changesetId, visibility, ...change } of rows) {
+  for (const { changesetId, visibility, fieldDiff, ...change } of rows) {
     const changes = byChangeset.get(changesetId) ?? [];
-    changes.push({
-      ...change,
-      fieldDiff: visibility === "public" ? change.fieldDiff : null,
-    });
+    changes.push(
+      visibility === "public"
+        ? {
+            visibility: "public",
+            ...change,
+            schema: {
+              version: change.factSchemaVersion,
+              definition: change.schemaDefinition,
+              displayMetadata: change.fieldMetadata,
+            },
+            diff: {
+              fields: Object.fromEntries(
+                Object.entries(fieldDiff).filter(([key]) => key !== "location"),
+              ),
+              position: fieldDiff.location ?? null,
+              provenance: {
+                before:
+                  change.previousRevisionId === null
+                    ? []
+                    : (provenance.get(change.previousRevisionId) ?? []),
+                after: provenance.get(change.revisionId) ?? [],
+              },
+            },
+          }
+        : {
+            visibility: "redacted",
+            id: change.id,
+            placeId: change.placeId,
+            revisionId: change.revisionId,
+          },
+    );
     byChangeset.set(changesetId, changes);
   }
   return byChangeset;
@@ -924,7 +1161,7 @@ function projectChangeset(
 ): CampusMapPublicChangeset {
   const hasOnlyPublicChanges =
     changes.length === row.affectedCount &&
-    changes.every((change) => change.fieldDiff !== null);
+    changes.every((change) => change.visibility === "public");
   const hasBbox =
     hasOnlyPublicChanges &&
     row.bboxWest !== null &&
@@ -937,7 +1174,6 @@ function projectChangeset(
     comment: row.comment,
     sourceSummary: row.sourceSummary,
     reviewRequested: row.reviewRequested,
-    client: { name: row.clientName, version: row.clientVersion },
     counts: {
       affected: row.affectedCount,
       created: row.createdCount,
@@ -954,7 +1190,6 @@ function projectChangeset(
           north: row.bboxNorth!,
         }
       : null,
-    warnings: row.warningSummary,
     revertsChangesetId: row.revertsChangesetId,
     publishedAt: row.publishedAt,
     changes,
@@ -965,6 +1200,7 @@ function projectChangeset(
 export async function getCampusMapChangeset(
   changesetId: string,
 ): Promise<CampusMapPublicChangeset | null> {
+  if (!isPublicId(changesetId)) return null;
   const [row] = await db
     .select(changesetSelection)
     .from(campusMapChangesets)
@@ -976,30 +1212,53 @@ export async function getCampusMapChangeset(
   return projectChangeset(row, changes.get(changesetId) ?? []);
 }
 
-export async function listCampusMapChangesets(
-  options: {
-    before?: CampusMapChangesetFeedCursor;
-    reviewRequested?: boolean;
-    limit?: number;
-  } = {},
-): Promise<{
-  items: CampusMapPublicChangeset[];
-  nextCursor: CampusMapChangesetFeedCursor | null;
+export async function listCampusMapChangesets(options: {
+  scope: CampusMapChangesetFeedScope;
+  cursor?: string;
+  limit?: number;
+}): Promise<{
+  items: CampusMapChangesetSummary[];
+  nextCursor: string | null;
 }> {
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
   const conditions = [];
-  if (options.reviewRequested !== undefined) {
+  const { scope } = options;
+  if (scope.kind === "actor") {
+    if (!isPublicId(scope.actorId)) {
+      throw new CampusMapReadInputError("Invalid Campus Map actor ID");
+    }
+    conditions.push(eq(campusMapChangesets.actorIdSnapshot, scope.actorId));
+  } else if (scope.kind === "reviewRequested") {
+    conditions.push(eq(campusMapChangesets.reviewRequested, true));
+  } else if (scope.kind === "bbox") {
+    const { west, south, east, north } = scope.bounds;
+    if (
+      west < -180 ||
+      east > 180 ||
+      south < -90 ||
+      north > 90 ||
+      west > east ||
+      south > north
+    ) {
+      throw new CampusMapReadInputError("Invalid Campus Map bounds");
+    }
     conditions.push(
-      eq(campusMapChangesets.reviewRequested, options.reviewRequested),
+      hasOnlyPublicChanges,
+      isNotNull(campusMapChangesets.bboxWest),
+      lte(campusMapChangesets.bboxWest, east),
+      gte(campusMapChangesets.bboxEast, west),
+      lte(campusMapChangesets.bboxSouth, north),
+      gte(campusMapChangesets.bboxNorth, south),
     );
   }
-  if (options.before) {
+  const before = options.cursor ? decodeChangesetCursor(options.cursor) : null;
+  if (before) {
     conditions.push(
       or(
-        lt(campusMapChangesets.publishedAt, options.before.publishedAt),
+        lt(campusMapChangesets.publishedAt, before.publishedAt),
         and(
-          eq(campusMapChangesets.publishedAt, options.before.publishedAt),
-          lt(campusMapChangesets.id, options.before.changesetId),
+          eq(campusMapChangesets.publishedAt, before.publishedAt),
+          lt(campusMapChangesets.id, before.changesetId),
         ),
       )!,
     );
@@ -1015,16 +1274,82 @@ export async function listCampusMapChangesets(
     )
     .limit(limit + 1);
   const page = rows.slice(0, limit);
-  const changes = await loadChangesByChangeset(page.map((row) => row.id));
-  const items = page.map((row) =>
-    projectChangeset(row, changes.get(row.id) ?? []),
-  );
+  const items = page.map(projectChangesetSummary);
   const last = page.at(-1);
   return {
     items,
     nextCursor:
       rows.length > limit && last
-        ? { publishedAt: last.publishedAt, changesetId: last.id }
+        ? encodeChangesetCursor({
+            publishedAt: last.publishedAt,
+            changesetId: last.id,
+          })
         : null,
   };
+}
+
+function projectChangesetSummary(
+  row: CampusMapChangesetRow,
+): CampusMapChangesetSummary {
+  return {
+    id: row.id,
+    actor: { id: row.actorIdSnapshot, nickname: row.actorNicknameSnapshot },
+    comment: row.comment,
+    sourceSummary: row.sourceSummary,
+    reviewRequested: row.reviewRequested,
+    counts: {
+      affected: row.affectedCount,
+      created: row.createdCount,
+      updated: row.updatedCount,
+      retired: row.retiredCount,
+      restored: row.restoredCount,
+      merged: row.mergedCount,
+    },
+    bbox:
+      row.hasOnlyPublicChanges &&
+      row.bboxWest !== null &&
+      row.bboxSouth !== null &&
+      row.bboxEast !== null &&
+      row.bboxNorth !== null
+        ? {
+            west: row.bboxWest,
+            south: row.bboxSouth,
+            east: row.bboxEast,
+            north: row.bboxNorth,
+          }
+        : null,
+    revertsChangesetId: row.revertsChangesetId,
+    publishedAt: row.publishedAt,
+  };
+}
+
+function encodeChangesetCursor(cursor: CampusMapChangesetFeedCursor): string {
+  return Buffer.from(
+    JSON.stringify([1, cursor.publishedAt.toISOString(), cursor.changesetId]),
+  ).toString("base64url");
+}
+
+function decodeChangesetCursor(value: string): CampusMapChangesetFeedCursor {
+  try {
+    const decoded: unknown = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    );
+    if (
+      !Array.isArray(decoded) ||
+      decoded.length !== 3 ||
+      decoded[0] !== 1 ||
+      typeof decoded[1] !== "string" ||
+      typeof decoded[2] !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        decoded[2],
+      )
+    ) {
+      throw new Error("invalid shape");
+    }
+    const publishedAt = new Date(decoded[1]);
+    if (Number.isNaN(publishedAt.getTime())) throw new Error("invalid date");
+    return { publishedAt, changesetId: decoded[2] };
+  } catch {
+    throw new CampusMapReadInputError("Invalid Campus Map Changeset cursor");
+  }
 }

@@ -543,6 +543,8 @@ describe.skipIf(!hasDb)(
         "campus_map_buildings_anchor_geo_idx",
         "campus_map_fact_revisions_place_created_idx",
         "campus_map_changesets_feed_idx",
+        "campus_map_changesets_actor_feed_idx",
+        "campus_map_changesets_review_feed_idx",
         "campus_map_provider_mappings_identity_uq",
         "campus_map_publish_requests_actor_key_uq",
       ];
@@ -553,6 +555,15 @@ describe.skipIf(!hasDb)(
       );
       expect(indexes.rows.map((row) => row.indexname).sort()).toEqual(
         requiredIndexes.sort(),
+      );
+
+      const actorIndex = await pool.query<{ indexdef: string }>(
+        `select indexdef from pg_indexes
+         where schemaname = 'public'
+           and indexname = 'campus_map_changesets_actor_feed_idx'`,
+      );
+      expect(actorIndex.rows[0]?.indexdef).toContain(
+        "(actor_id_snapshot, published_at, id)",
       );
 
       const constraint = await pool.query<{ condeferrable: boolean }>(
@@ -620,6 +631,41 @@ describe.skipIf(!hasDb)(
           {
             name: "Changeset feed",
             sql: `select id from campus_map_changesets
+            order by published_at desc, id desc limit 51`,
+            params: [],
+            indexes: ["campus_map_changesets_feed_idx"],
+          },
+          {
+            name: "actor Changeset feed",
+            sql: `select id from campus_map_changesets
+            where actor_id_snapshot = $1
+            order by published_at desc, id desc limit 51`,
+            params: [ids.actor],
+            indexes: ["campus_map_changesets_actor_feed_idx"],
+          },
+          {
+            name: "review-requested Changeset feed",
+            sql: `select id from campus_map_changesets
+            where review_requested = true
+            order by published_at desc, id desc limit 51`,
+            params: [],
+            indexes: ["campus_map_changesets_review_feed_idx"],
+          },
+          {
+            name: "bbox Changeset feed",
+            sql: `select id from campus_map_changesets
+            where bbox_west is not null and bbox_west <= 114.3
+              and bbox_east >= 114.1 and bbox_south <= 22.5
+              and bbox_north >= 22.3
+              and not exists (
+                select 1 from campus_map_place_changes public_change
+                inner join campus_map_fact_revisions public_revision
+                  on public_revision.place_change_id = public_change.id
+                left join campus_map_revision_visibility public_visibility
+                  on public_visibility.revision_id = public_revision.id
+                where public_change.changeset_id = campus_map_changesets.id
+                  and coalesce(public_visibility.visibility, 'redacted') <> 'public'
+              )
             order by published_at desc, id desc limit 51`,
             params: [],
             indexes: ["campus_map_changesets_feed_idx"],

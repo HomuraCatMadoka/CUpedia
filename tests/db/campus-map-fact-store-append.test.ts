@@ -7,6 +7,7 @@ import {
   getCampusMapCurrentPlace,
   getCampusMapFactSchema,
   getCampusMapPlaceHistory,
+  getCampusMapPlaceRevision,
 } from "@/lib/campus-map/fact-store";
 import {
   CampusMapMergedPlaceError,
@@ -375,6 +376,13 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
       ),
     ).toEqual(["merged", "active"]);
     await expect(
+      getCampusMapPlaceRevision(ids.place, ids.mergeRevision),
+    ).resolves.toMatchObject({
+      status: "merged",
+      mergedIntoPlaceId: ids.targetPlace,
+      content: { visibility: "public" },
+    });
+    await expect(
       getCampusMapChangeset(ids.reviveChangeset),
     ).resolves.toBeNull();
   });
@@ -451,6 +459,9 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
       ),
     ).rejects.toThrow("Campus Map operation and revision status do not match");
     await expect(getCampusMapCurrentPlace(ids.place)).resolves.toBeNull();
+    await expect(
+      getCampusMapPlaceRevision(ids.place, ids.candidateARevision),
+    ).resolves.toMatchObject({ status: "retired" });
     expect(
       (await getCampusMapPlaceHistory(ids.place)).items.map((item) => item.id),
     ).toEqual([ids.candidateARevision, ids.revision]);

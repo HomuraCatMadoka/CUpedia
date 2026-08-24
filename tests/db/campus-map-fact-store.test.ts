@@ -23,9 +23,23 @@ import {
   getCampusMapCurrentPlace,
   getCampusMapFactSchema,
   getCampusMapPlaceHistory,
+  getCampusMapPlaceRevision,
+  CampusMapReadInputError,
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
+
+function collectKeys(value: unknown, keys = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectKeys(item, keys));
+  } else if (value && typeof value === "object") {
+    Object.entries(value).forEach(([key, child]) => {
+      keys.add(key);
+      collectKeys(child, keys);
+    });
+  }
+  return keys;
+}
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -38,6 +52,11 @@ const ids = {
   placeChange: "00000000-0000-4000-8000-000000000706",
   revision: "00000000-0000-4000-8000-000000000707",
   provenance: "00000000-0000-4000-8000-000000000708",
+  feedActor: "00000000-0000-4000-8000-000000000709",
+  feedOtherActor: "00000000-0000-4000-8000-000000000710",
+  feedA: "00000000-0000-4000-8000-000000000711",
+  feedB: "00000000-0000-4000-8000-000000000712",
+  feedC: "00000000-0000-4000-8000-000000000713",
 } as const;
 
 describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
@@ -77,6 +96,10 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       await client.query(`delete from campus_map_changesets where id = $1`, [
         ids.changeset,
       ]);
+      await client.query(
+        `delete from campus_map_changesets where id = any($1::uuid[])`,
+        [[ids.feedA, ids.feedB, ids.feedC]],
+      );
       await client.query(`delete from campus_map_places where id = $1`, [
         ids.place,
       ]);
@@ -157,6 +180,15 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       operation: "create",
       fieldDiff: {
         name: { before: null, after: "大学图书馆饮水点", label: "名称" },
+        location: {
+          before: null,
+          after: {
+            kind: "floor",
+            buildingId: ids.building,
+            floorId: ids.floor,
+          },
+          label: "位置",
+        },
       },
     });
     await database.insert(campusMapFactRevisions).values({
@@ -208,6 +240,57 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       observedAt: new Date("2026-08-21T03:00:00Z"),
       publishedAt: new Date("2026-08-22T01:00:00Z"),
     });
+    await database.insert(campusMapChangesets).values([
+      {
+        id: ids.feedA,
+        actorIdSnapshot: ids.feedActor,
+        actorNicknameSnapshot: "同一作者",
+        comment: "范围内且请求检查",
+        sourceSummary: "公开摘要 A",
+        reviewRequested: true,
+        clientName: "private-client-a",
+        clientVersion: "fingerprint-a",
+        affectedCount: 1,
+        updatedCount: 1,
+        bboxWest: 114.19,
+        bboxSouth: 22.39,
+        bboxEast: 114.21,
+        bboxNorth: 22.41,
+        publishedAt: new Date("2026-08-23T01:00:00Z"),
+      },
+      {
+        id: ids.feedB,
+        actorIdSnapshot: ids.feedActor,
+        actorNicknameSnapshot: "同一作者",
+        comment: "同时间戳的第二笔",
+        sourceSummary: "公开摘要 B",
+        clientName: "private-client-b",
+        clientVersion: "fingerprint-b",
+        affectedCount: 1,
+        updatedCount: 1,
+        bboxWest: 114.2,
+        bboxSouth: 22.4,
+        bboxEast: 114.22,
+        bboxNorth: 22.42,
+        publishedAt: new Date("2026-08-23T01:00:00Z"),
+      },
+      {
+        id: ids.feedC,
+        actorIdSnapshot: ids.feedOtherActor,
+        actorNicknameSnapshot: "其他作者",
+        comment: "范围外",
+        sourceSummary: "公开摘要 C",
+        clientName: "private-client-c",
+        clientVersion: "fingerprint-c",
+        affectedCount: 1,
+        updatedCount: 1,
+        bboxWest: 113,
+        bboxSouth: 21,
+        bboxEast: 113.1,
+        bboxNorth: 21.1,
+        publishedAt: new Date("2026-08-23T00:00:00Z"),
+      },
+    ]);
   });
 
   afterAll(async () => {
@@ -248,14 +331,10 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       provenance: [
         {
           kind: "field-observation",
-          ref: "test:library-gf-water",
-          url: null,
-          version: null,
           accessedOn: "2026-08-22",
           observedAt: new Date("2026-08-21T03:00:00Z"),
           rightsStatus: "original-observation",
-          limitations: "Test fixture only",
-          sourceCoordinate: null,
+          hasLocationEvidence: false,
         },
       ],
     });
@@ -375,22 +454,64 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
         coordinateCrs: null,
         observedAt: new Date("2026-08-21T03:00:00Z"),
         verifiedAt: null,
-        verifiedByActorIdSnapshot: null,
         provenance: [
           {
             kind: "field-observation",
-            ref: "test:library-gf-water",
-            url: null,
-            version: null,
             accessedOn: "2026-08-22",
             observedAt: new Date("2026-08-21T03:00:00Z"),
             rightsStatus: "original-observation",
-            limitations: "Test fixture only",
-            sourceCoordinate: null,
+            hasLocationEvidence: false,
           },
         ],
       },
     });
+  });
+
+  it("reads one stable revision through a public-safe projection", async () => {
+    const revision = await getCampusMapPlaceRevision(ids.place, ids.revision);
+
+    expect(revision).toMatchObject({
+      id: ids.revision,
+      placeId: ids.place,
+      changesetId: ids.changeset,
+      schema: {
+        version: 701,
+        displayMetadata: { name: { label: "名称" } },
+      },
+      content: {
+        visibility: "public",
+        fact: {
+          name: "大学图书馆饮水点",
+          provenance: [
+            {
+              kind: "field-observation",
+              accessedOn: "2026-08-22",
+              rightsStatus: "original-observation",
+              hasLocationEvidence: false,
+            },
+          ],
+        },
+      },
+    });
+
+    const keys = collectKeys(revision);
+    [
+      "actorUserId",
+      "client",
+      "conversion",
+      "credential",
+      "idempotencyKey",
+      "limitations",
+      "note",
+      "provenanceId",
+      "redactionRef",
+      "ref",
+      "requestFingerprint",
+      "sourceCoordinate",
+      "updatedBy",
+      "url",
+      "verifiedByActorIdSnapshot",
+    ].forEach((key) => expect(keys).not.toContain(key));
   });
 
   it("fails closed when a revision payload is redacted", async () => {
@@ -406,9 +527,18 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       expect(history.items[0]).not.toHaveProperty("content.fact");
       await expect(getCampusMapChangeset(ids.changeset)).resolves.toMatchObject(
         {
-          changes: [{ id: ids.placeChange, fieldDiff: null }],
+          changes: [
+            {
+              visibility: "redacted",
+              id: ids.placeChange,
+              revisionId: ids.revision,
+            },
+          ],
         },
       );
+      expect(
+        (await getCampusMapChangeset(ids.changeset))?.changes[0],
+      ).not.toHaveProperty("diff");
     } finally {
       await database
         .update(campusMapRevisionVisibility)
@@ -427,27 +557,130 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       counts: { affected: 1, created: 1 },
       changes: [
         {
+          visibility: "public",
           id: ids.placeChange,
           placeId: ids.place,
+          revisionId: ids.revision,
           operation: "create",
+          schema: {
+            version: 701,
+            displayMetadata: { name: { label: "名称" } },
+          },
+          diff: {
+            fields: {
+              name: {
+                before: null,
+                after: "大学图书馆饮水点",
+                label: "名称",
+              },
+            },
+            position: {
+              before: null,
+              after: {
+                kind: "floor",
+                buildingId: ids.building,
+                floorId: ids.floor,
+              },
+              label: "位置",
+            },
+            provenance: {
+              before: [],
+              after: [
+                {
+                  kind: "field-observation",
+                  accessedOn: "2026-08-22",
+                  observedAt: new Date("2026-08-21T03:00:00Z"),
+                  rightsStatus: "original-observation",
+                  hasLocationEvidence: false,
+                },
+              ],
+            },
+          },
         },
       ],
     });
     expect(changeset).not.toHaveProperty("idempotencyKey");
     expect(changeset).not.toHaveProperty("requestFingerprint");
+    const keys = collectKeys(changeset);
+    [
+      "actorUserId",
+      "clientName",
+      "clientVersion",
+      "warningSummary",
+      "redactionRef",
+      "sourceRef",
+      "sourceUrl",
+    ].forEach((key) => expect(keys).not.toContain(key));
   });
 
-  it("pages the public Changeset feed with a typed cursor", async () => {
-    const feed = await listCampusMapChangesets({ limit: 10 });
+  it("pages four explicit summary scopes with one opaque stable cursor", async () => {
+    const first = await listCampusMapChangesets({
+      scope: { kind: "recent" },
+      limit: 1,
+    });
+    expect(first.items).toEqual([
+      expect.objectContaining({ id: ids.feedB, publishedAt: expect.any(Date) }),
+    ]);
+    expect(typeof first.nextCursor).toBe("string");
+    expect(first.nextCursor).not.toContain(ids.feedB);
+    expect(first.items[0]).not.toHaveProperty("changes");
+    expect(first.items[0]).not.toHaveProperty("client");
+    expect(first.items[0]).not.toHaveProperty("warnings");
 
-    expect(feed.items).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: ids.changeset,
-          publishedAt: expect.any(Date),
-        }),
-      ]),
+    const second = await listCampusMapChangesets({
+      scope: { kind: "recent" },
+      cursor: first.nextCursor!,
+      limit: 1,
+    });
+    expect(second.items.map((item) => item.id)).toEqual([ids.feedA]);
+
+    const actor = await listCampusMapChangesets({
+      scope: { kind: "actor", actorId: ids.feedActor },
+      limit: 10,
+    });
+    expect(actor.items.map((item) => item.id)).toEqual([ids.feedB, ids.feedA]);
+
+    const bbox = await listCampusMapChangesets({
+      scope: {
+        kind: "bbox",
+        bounds: { west: 114.18, south: 22.38, east: 114.23, north: 22.43 },
+      },
+      limit: 10,
+    });
+    expect(bbox.items.map((item) => item.id)).toEqual(
+      expect.arrayContaining([ids.feedB, ids.feedA]),
     );
-    expect(feed.nextCursor).toBeNull();
+    expect(bbox.items.map((item) => item.id)).not.toContain(ids.feedC);
+
+    const reviewRequested = await listCampusMapChangesets({
+      scope: { kind: "reviewRequested" },
+      limit: 10,
+    });
+    expect(reviewRequested.items.map((item) => item.id)).toEqual([ids.feedA]);
+  });
+
+  it("fails malformed public IDs and bounds without exposing PostgreSQL errors", async () => {
+    await expect(getCampusMapPlaceHistory("not-a-place")).resolves.toEqual({
+      placeExists: false,
+      items: [],
+      nextCursor: null,
+    });
+    await expect(
+      getCampusMapPlaceRevision("not-a-place", "not-a-revision"),
+    ).resolves.toBeNull();
+    await expect(getCampusMapChangeset("not-a-changeset")).resolves.toBeNull();
+    await expect(
+      listCampusMapChangesets({
+        scope: { kind: "actor", actorId: "private@example.com" },
+      }),
+    ).rejects.toBeInstanceOf(CampusMapReadInputError);
+    await expect(
+      listCampusMapChangesets({
+        scope: {
+          kind: "bbox",
+          bounds: { west: -181, south: 22, east: 114, north: 23 },
+        },
+      }),
+    ).rejects.toBeInstanceOf(CampusMapReadInputError);
   });
 });
