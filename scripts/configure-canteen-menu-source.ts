@@ -10,6 +10,8 @@ import {
 import { parseOrderingHandoffUrl } from "../src/lib/canteen-ordering-handoff";
 import { fetchMenuFromProvider } from "../src/lib/canteen-menu-source-adapters";
 import { previewMenuSync } from "../src/lib/canteen-menu-sync-store";
+import { readMenuSyncDatabaseNow } from "../src/lib/canteen-menu-sync-clock";
+import { menuObservationContextAt } from "../src/lib/canteen-menu-sync-window";
 import { eq } from "drizzle-orm";
 import { isDeepStrictEqual } from "node:util";
 
@@ -65,12 +67,10 @@ async function main() {
   const canteenId = canteen.id;
 
   if (dryRun) {
-    const fetched = await fetchMenuFromProvider({
-      provider,
-      externalOwnerId,
-      externalStoreId,
-      config,
-    });
+    const fetched = await fetchMenuFromProvider(
+      { provider, externalOwnerId, externalStoreId, config },
+      menuObservationContextAt(await readMenuSyncDatabaseNow(db)),
+    );
     const menu = allowLegacyTakeover
       ? { ...fetched, takeOverLegacyItems: true }
       : fetched;

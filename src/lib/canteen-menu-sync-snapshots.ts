@@ -4,11 +4,17 @@ import {
   canteenMenuSyncSnapshots,
   type HktWeekday,
 } from "@/db/schema";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { normalizeMealPeriods } from "./canteen-meal-periods";
 import { menuSnapshotComparisonContext } from "./canteen-menu-snapshot-completeness";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
 import { menuSyncWindowAt } from "./canteen-menu-sync-window";
-import type { MenuSyncInput } from "./canteen-types";
+import type {
+  MealPeriod,
+  MenuObservationContext,
+  MenuSyncInput,
+  MenuSyncItemInput,
+} from "./canteen-types";
 
 const HKT_OFFSET_MS = 8 * 60 * 60 * 1_000;
 
@@ -35,12 +41,18 @@ export type MenuSyncSnapshotComparison = {
   }>;
 };
 
-function observationWindowFacts(observedAt: Date) {
-  const window = menuSyncWindowAt(observedAt);
-  const hkt = new Date(observedAt.getTime() + HKT_OFFSET_MS);
+function observationWindowFacts(context: MenuObservationContext) {
+  const window = menuSyncWindowAt(context.observedAt);
+  if (
+    window.key !== context.syncWindowKey ||
+    window.period !== context.mealPeriod
+  ) {
+    throw new Error("MENU_OBSERVATION_CONTEXT_MISMATCH");
+  }
+  const hkt = new Date(context.observedAt.getTime() + HKT_OFFSET_MS);
   return {
-    syncWindowKey: window.key,
-    mealPeriod: window.period,
+    syncWindowKey: context.syncWindowKey,
+    mealPeriod: context.mealPeriod,
     // Date#getUTCDay is specified to return an integer in the 0-6 domain.
     hktWeekday: hkt.getUTCDay() as HktWeekday,
     observedMinuteOfDay: hkt.getUTCHours() * 60 + hkt.getUTCMinutes(),
@@ -54,19 +66,26 @@ export async function insertMenuSyncSnapshot(
     runId: string;
     sourceId: string;
     snapshotHash: string;
-    observedAt: Date;
+    context: MenuObservationContext;
     input: MenuSyncInput;
   },
 ): Promise<void> {
+  if (
+    values.input.observationScope?.kind === "meal-period" &&
+    values.input.observationScope.mealPeriod !== values.context.mealPeriod
+  ) {
+    throw new Error("MENU_OBSERVATION_SCOPE_MISMATCH");
+  }
   await tx.insert(canteenMenuSyncSnapshots).values({
     runId: values.runId,
     menuSourceId: values.sourceId,
     snapshotHash: values.snapshotHash,
     snapshotCompleteness: values.input.snapshotCompleteness,
+    observationScope: values.input.observationScope?.kind ?? "catalog",
     itemCount: values.input.items.length,
-    ...observationWindowFacts(values.observedAt),
+    ...observationWindowFacts(values.context),
     scopeEvidence: values.input.scopeEvidence ?? {},
-    observedAt: values.observedAt,
+    observedAt: values.context.observedAt,
   });
   if (values.input.items.length === 0) return;
   await tx.insert(canteenMenuSyncSnapshotItems).values(
@@ -80,6 +99,125 @@ export async function insertMenuSyncSnapshot(
       svgKey: item.svgKey,
     })),
   );
+}
+
+type ScopedProjectionSource = {
+  id: string;
+  syncMealPeriods: MealPeriod[];
+};
+
+/**
+ * Materializes the current menu as the union of the newest accepted observation
+ * for every configured meal-period scope. The current observation replaces its
+ * prior scope; missing scopes keep global absence non-authoritative. The newest
+ * occurrence owns mutable facts while older occurrences contribute periods.
+ */
+export async function materializeScopedMenuProjection(
+  tx: MenuSyncTransaction,
+  source: ScopedProjectionSource,
+  context: MenuObservationContext,
+  current: MenuSyncInput,
+): Promise<MenuSyncInput> {
+  if (current.observationScope?.kind !== "meal-period") return current;
+  if (current.observationScope.mealPeriod !== context.mealPeriod) {
+    throw new Error("MENU_OBSERVATION_SCOPE_MISMATCH");
+  }
+  const configuredPeriods = [...new Set(source.syncMealPeriods)];
+  if (!configuredPeriods.includes(context.mealPeriod)) {
+    throw new Error("MENU_OBSERVATION_SCOPE_NOT_CONFIGURED");
+  }
+
+  const candidates = await tx
+    .select({
+      runId: canteenMenuSyncSnapshots.runId,
+      mealPeriod: canteenMenuSyncSnapshots.mealPeriod,
+      observedAt: canteenMenuSyncSnapshots.observedAt,
+    })
+    .from(canteenMenuSyncSnapshots)
+    .where(
+      and(
+        eq(canteenMenuSyncSnapshots.menuSourceId, source.id),
+        eq(canteenMenuSyncSnapshots.observationScope, "meal-period"),
+        inArray(canteenMenuSyncSnapshots.mealPeriod, configuredPeriods),
+      ),
+    )
+    .orderBy(
+      desc(canteenMenuSyncSnapshots.observedAt),
+      desc(canteenMenuSyncSnapshots.runId),
+    );
+  const latestByPeriod = new Map<MealPeriod, (typeof candidates)[number]>();
+  for (const candidate of candidates) {
+    if (
+      candidate.mealPeriod !== context.mealPeriod &&
+      !latestByPeriod.has(candidate.mealPeriod)
+    ) {
+      latestByPeriod.set(candidate.mealPeriod, candidate);
+    }
+  }
+  const retained = [...latestByPeriod.values()];
+  const retainedItems =
+    retained.length === 0
+      ? []
+      : await tx
+          .select()
+          .from(canteenMenuSyncSnapshotItems)
+          .where(
+            inArray(
+              canteenMenuSyncSnapshotItems.runId,
+              retained.map((snapshot) => snapshot.runId),
+            ),
+          );
+  const itemsByRun = new Map<string, MenuSyncItemInput[]>();
+  for (const item of retainedItems) {
+    itemsByRun.set(item.runId, [
+      ...(itemsByRun.get(item.runId) ?? []),
+      {
+        externalProductId: item.externalProductId,
+        name: item.name,
+        priceOptions: item.priceOptions,
+        mealPeriods: item.mealPeriods,
+        sortOrder: item.sortOrder,
+        svgKey: item.svgKey,
+      },
+    ]);
+  }
+  const observations = [
+    { observedAt: context.observedAt, items: current.items },
+    ...retained.map((snapshot) => ({
+      observedAt: snapshot.observedAt,
+      items: itemsByRun.get(snapshot.runId) ?? [],
+    })),
+  ].toSorted(
+    (left, right) => right.observedAt.getTime() - left.observedAt.getTime(),
+  );
+  const union = new Map<string, MenuSyncItemInput>();
+  for (const observation of observations) {
+    for (const item of observation.items) {
+      const existing = union.get(item.externalProductId);
+      if (!existing) {
+        union.set(item.externalProductId, structuredClone(item));
+        continue;
+      }
+      const mergedPeriods = normalizeMealPeriods([
+        ...existing.mealPeriods,
+        ...item.mealPeriods,
+      ]);
+      if (!mergedPeriods) throw new Error("INVALID_MEAL_PERIOD");
+      existing.mealPeriods = mergedPeriods;
+    }
+  }
+  const allScopesObserved = configuredPeriods.every(
+    (period) => period === context.mealPeriod || latestByPeriod.has(period),
+  );
+  return {
+    ...current,
+    snapshotCompleteness:
+      current.snapshotCompleteness === "complete" && allScopesObserved
+        ? "complete"
+        : "partial",
+    observationScope: { kind: "catalog" },
+    items: [...union.values()],
+  };
 }
 
 function sameJson(left: unknown, right: unknown): boolean {
@@ -118,6 +256,7 @@ export async function compareMenuSyncSnapshots(
         .select({
           runId: canteenMenuSyncSnapshots.runId,
           sourceId: canteenMenuSyncSnapshots.menuSourceId,
+          observationScope: canteenMenuSyncSnapshots.observationScope,
           mealPeriod: canteenMenuSyncSnapshots.mealPeriod,
           hktWeekday: canteenMenuSyncSnapshots.hktWeekday,
           scopeEvidence: canteenMenuSyncSnapshots.scopeEvidence,
@@ -134,6 +273,7 @@ export async function compareMenuSyncSnapshots(
       }
       const [first, second] = snapshots;
       if (
+        first.observationScope !== second.observationScope ||
         first.mealPeriod !== second.mealPeriod ||
         first.hktWeekday !== second.hktWeekday ||
         !sameJson(

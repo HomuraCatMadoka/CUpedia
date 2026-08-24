@@ -4,6 +4,8 @@ import { canteenMenuSources } from "../src/db/schema";
 import { parseMenuIdentityTransitionArtifact } from "../src/lib/canteen-menu-identity-transition";
 import { fetchMenuFromProvider } from "../src/lib/canteen-menu-source-adapters";
 import { applyApprovedMenuIdentityTransition } from "../src/lib/canteen-menu-sync-store";
+import { readMenuSyncDatabaseNow } from "../src/lib/canteen-menu-sync-clock";
+import { menuObservationContextAt } from "../src/lib/canteen-menu-sync-window";
 import { eq } from "drizzle-orm";
 
 function requiredArgument(name: string): string {
@@ -28,7 +30,10 @@ async function main() {
   });
   if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
 
-  const fetched = await fetchMenuFromProvider(source);
+  const fetched = await fetchMenuFromProvider(
+    source,
+    menuObservationContextAt(await readMenuSyncDatabaseNow(db)),
+  );
   const evaluation = await applyApprovedMenuIdentityTransition(
     source.id,
     { ...fetched, takeOverLegacyItems: false },

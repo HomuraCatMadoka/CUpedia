@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
 
 export async function readMenuSyncDatabaseNow(
-  tx: MenuSyncTransaction,
+  tx: Pick<MenuSyncTransaction, "execute">,
 ): Promise<Date> {
   const result = await tx.execute<{ database_now: string | Date }>(
     sql`select now() as database_now`,

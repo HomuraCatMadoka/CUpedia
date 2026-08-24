@@ -1,0 +1,1 @@
+CREATE INDEX "canteen_menu_sync_snapshots_scoped_latest_idx" ON "canteen_menu_sync_snapshots" USING btree ("menu_source_id","meal_period","observed_at","run_id") WHERE "canteen_menu_sync_snapshots"."observation_scope" = 'meal-period';

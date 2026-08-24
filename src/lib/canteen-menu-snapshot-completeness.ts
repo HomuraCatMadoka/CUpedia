@@ -1,5 +1,8 @@
 import type { CanteenMenuSourceProvider } from "@/db/schema";
-import type { MenuSnapshotScopeEvidence } from "./canteen-types";
+import type {
+  MenuObservationScope,
+  MenuSnapshotScopeEvidence,
+} from "./canteen-types";
 
 export const MENU_SNAPSHOT_COMPLETENESS = ["complete", "partial"] as const;
 export type MenuSnapshotCompleteness =
@@ -26,12 +29,20 @@ export function assertProviderSnapshotCompleteness(
   actual: MenuSnapshotCompleteness,
   scopeEvidence?: MenuSnapshotScopeEvidence,
   externalStoreId?: string,
+  observationScope?: MenuObservationScope,
 ): void {
   if (actual !== expectedMenuSnapshotCompleteness(provider)) {
     throw new Error("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
   }
   if (scopeEvidence) {
     assertProviderSnapshotScope(provider, scopeEvidence, externalStoreId);
+  }
+  if (
+    provider === "qmai" &&
+    (observationScope?.kind !== "meal-period" ||
+      observationScope.mealPeriod === undefined)
+  ) {
+    throw new Error("MENU_OBSERVATION_SCOPE_REQUIRED");
   }
 }
 

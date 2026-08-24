@@ -27,7 +27,7 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 
 **JSON 菜单输入**: 菜品输入字段含 name、pricing.options、mealPeriods（或旧 mealPeriod）、sortOrder、svgKey。`svgKey` 存分区键：爬虫来源有店家分类时写入原文分类名；无分类时才按菜名推断为旧版 `rice`/`noodle`/…。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。旧 append-only action 仅为兼容保留，不用于周期性来源同步。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
 
-**外部商品身份（External product identity）**: 一道供应商菜品在某个菜单来源内的稳定标识。CUpedia 的托管菜品身份是菜单来源 + provider-scoped product ID；PinMe 使用 product ID，Aigens 使用 backend ID。餐段、名称、价格、分类和排序都是菜品事实或出现语境，不进入身份。同一商品跨餐段共享一个 CUpedia UUID；同一身份若出现不兼容名称或无法表达的价格事实则中止。
+**外部商品身份（External product identity）**: 一道供应商菜品在某个菜单来源内的稳定标识。CUpedia 的托管菜品身份是菜单来源 + provider-scoped product ID；PinMe 使用 product ID，Aigens 使用 backend ID。餐段、名称、价格、分类和排序都是菜品事实或出现语境，不进入身份。同一商品跨餐段共享一个 CUpedia UUID；同一次供应商响应内，同一身份若出现不兼容名称或无法表达的价格事实则中止。不同时间的已接受观察之间允许正常改名和调价，由最新观察提供可变事实。
 _Avoid_: 用菜名或供应商数组顺序作为长期身份；对所有供应商套用同一种 product ID 粒度；把 5198 的 product ID 放进 5203 的菜单来源。
 
 **供应商菜单 occurrence（Provider menu occurrence）**: 供应商原始分类树在某个餐段或分类中对一道菜品的一次引用，不等于新的菜品身份。同一 PinMe product 可同时出现在推荐区和常规分类；同一 Aigens backend product 可同时出现在午餐、晚餐和多个分类。兼容 occurrence 合并餐段与价格语境；不兼容名称或同一语境的冲突价格必须中止。适配器先在供应商边界聚合 occurrence，再对最终商品身份执行唯一性校验；分类选择和价格排序采用固定规则，等价 occurrence 的排列不改变快照。
@@ -62,10 +62,16 @@ _Avoid_: 把每次抓取都称为完整快照；从条目数量、时钟或 chur
 **菜单观察（Menu observation）**: 顾客在某一营业时刻可以从点餐入口看到的菜单事实。观察不到某道菜可能源于餐段切换、闭店、售罄或当天不供应，不表示食堂永久停供该菜。
 _Avoid_: 把当前可见菜单当成食堂主目录；把一次或多次缺席直接解释为全局不活跃。
 
+**菜单观察上下文（Menu observation context）**: 一个同步 claim 从数据库时间固化的 `observedAt`、同步窗口 key 与餐段。适配器、同一次 HTTP 重试、快照记录和投影必须共享同一上下文；Qmai 等接受点餐时间的供应商不得在适配器内重新读取墙钟。
+_Avoid_: claim 后重新调用 `new Date()`；让重试跨餐段改变请求语义；由响应条数猜测餐段。
+
+**餐段作用域观察（Meal-period-scoped observation）**: 上游只返回某个观察餐段顾客可见菜单时，`complete` 只证明该餐段内的缺席。当前菜单由每个已配置餐段最近一次成功作用域观察的并集投影；同一外部商品跨餐段合并餐段并保留同一 UUID，名称、价格、分类和排序采用时间最新的观察。尚未取得全部配置餐段的首轮观察时，合并投影按全局 `partial` 处理。供应商明确声明的售卖时段优先于观察餐段。
+_Avoid_: 把无 `saleTime` 的点时响应标成 `allday`；让晚餐快照停用只在午餐出现的菜；在 reconciliation 内按 provider 名称分支。
+
 **菜品活跃性（Menu item activity）**: 菜品是否作为食堂菜单中的活跃条目展示；不活跃是可逆状态，同一外部身份再次出现时恢复原 UUID 及其历史。点餐观察中的缺席本身不改变全局活跃性。
 _Avoid_: 把不活跃称为删除或永久退役；为重新上架创建新 UUID；把某一餐段不可见等同于全局不活跃。
 
-**快照完整性（Snapshot completeness）**: `complete` 表示本次未出现可作为转为不活跃的证据；`partial` 表示未出现不改变活跃性，只能更新、增加或恢复本次出现的身份。完整性由来源本身的业务语义决定，不从条目数量、分类、餐段、时钟、重复读取或 safety threshold 猜测。面向当前点餐场景的菜单观察属于 `partial`。
+**快照完整性（Snapshot completeness）**: `complete` 表示本次未出现可作为其声明作用域内缺席的证据；`partial` 表示未出现不改变活跃性，只能更新、增加或恢复本次出现的身份。完整性与 `catalog` / `meal-period` 观察作用域共同解释，由来源本身的业务语义决定，不从条目数量、分类、餐段、时钟、重复读取或 safety threshold 猜测。未声明可验证作用域的当前点餐观察属于 `partial`。
 _Avoid_: 用 `isFull` 布尔值；把 safety threshold 的结果反推为完整性；让 reconciliation 按 provider 名称分支。
 
 **点餐交接（Ordering handoff）**: 将用户交给供应商官方页面继续选择规格、使用本人优惠、创建订单并付款的稳定入口。交接保存人工确认的完整 URL 及 provider；其 mode、table、multi/location 等参数是入口身份的一部分。它与菜单来源相互独立：同一食堂可从公开 API 同步菜单，却通过品牌域名或扫码 URL 点餐。

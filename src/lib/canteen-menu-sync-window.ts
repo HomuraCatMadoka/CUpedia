@@ -1,4 +1,5 @@
 import type { HktWeekday, MealPeriod } from "@/db/schema";
+import type { MenuObservationContext } from "./canteen-types";
 
 const HKT_OFFSET_MS = 8 * 60 * 60 * 1_000;
 
@@ -57,5 +58,16 @@ export function menuSyncWindowAt(databaseNow: Date): MenuSyncWindow {
     hktWeekday: hkt.getUTCDay() as HktWeekday,
     startsAt: localBoundaryUtc(year, month, day, startHour),
     endsAt: localBoundaryUtc(year, month, day, endHour),
+  };
+}
+
+export function menuObservationContextAt(
+  databaseNow: Date,
+): MenuObservationContext {
+  const window = menuSyncWindowAt(databaseNow);
+  return {
+    observedAt: new Date(databaseNow),
+    syncWindowKey: window.key,
+    mealPeriod: window.period,
   };
 }

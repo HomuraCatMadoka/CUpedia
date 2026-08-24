@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   findFirst: vi.fn(),
+  execute: vi.fn(),
   fetchMenu: vi.fn(),
   applyTransition: vi.fn(),
   syncSource: vi.fn(),
@@ -11,6 +12,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/db", () => ({
   db: {
     query: { canteenMenuSources: { findFirst: mocks.findFirst } },
+    execute: mocks.execute,
   },
 }));
 vi.mock("@/lib/canteen-menu-source-adapters", () => ({
@@ -45,6 +47,9 @@ describe("reviewed identity transition executor", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.findFirst.mockResolvedValue(SOURCE);
+    mocks.execute.mockResolvedValue({
+      rows: [{ database_now: "2026-08-24T04:00:00.000Z" }],
+    });
     mocks.fetchMenu.mockResolvedValue({
       snapshotCompleteness: "partial",
       scopeEvidence: {},
@@ -115,7 +120,11 @@ describe("reviewed identity transition executor", () => {
       },
     });
 
-    expect(mocks.fetchMenu).toHaveBeenCalledWith(SOURCE);
+    expect(mocks.fetchMenu).toHaveBeenCalledWith(SOURCE, {
+      observedAt: new Date("2026-08-24T04:00:00.000Z"),
+      syncWindowKey: "2026-08-24/lunch",
+      mealPeriod: "lunch",
+    });
     expect(mocks.applyTransition).toHaveBeenCalledWith(
       SOURCE.id,
       expect.objectContaining({ takeOverLegacyItems: false }),

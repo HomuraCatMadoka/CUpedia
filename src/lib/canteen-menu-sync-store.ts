@@ -302,6 +302,12 @@ export type MenuSyncPreview = MenuSnapshotEvaluation & {
   previewToken: string;
 };
 
+function manualMenuProjection(input: MenuSyncInput): MenuSyncInput {
+  return input.observationScope?.kind === "meal-period"
+    ? { ...input, snapshotCompleteness: "partial" }
+    : input;
+}
+
 function createMenuSyncPreviewToken(
   source: MenuSourceRow,
   input: MenuSyncInput,
@@ -372,10 +378,12 @@ export async function previewMenuSync(
     input.snapshotCompleteness,
     input.scopeEvidence,
     source.externalStoreId,
+    input.observationScope,
   );
   if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
     throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
   }
+  const projectionInput = manualMenuProjection(input);
   const existing = collectExistingSyncItems(
     await selectExistingItems(db, source.canteenId),
   );
@@ -385,7 +393,7 @@ export async function previewMenuSync(
       provider: source.provider,
       legacyAdoptionOpen: source.legacyTakeoverAt === null,
     },
-    input,
+    projectionInput,
     existing,
   );
   return {
@@ -408,7 +416,9 @@ export async function auditMenuIdentityTransition(
     input.snapshotCompleteness,
     input.scopeEvidence,
     source.externalStoreId,
+    input.observationScope,
   );
+  const projectionInput = manualMenuProjection(input);
   const existing = collectExistingSyncItems(
     await selectExistingItems(db, source.canteenId),
   );
@@ -418,7 +428,7 @@ export async function auditMenuIdentityTransition(
       provider: source.provider,
       legacyAdoptionOpen: source.legacyTakeoverAt === null,
     },
-    input,
+    projectionInput,
     existing,
   );
   const audit = buildMenuIdentityTransitionAudit(
@@ -490,12 +500,13 @@ async function applyLockedMenuSync(
 ): Promise<MenuSnapshotEvaluation | RecurringMenuProjection> {
   if (mode.kind === "identity-transition") {
     assertLegacyIdentityTransitionSnapshot(source, input);
-  } else {
+  } else if (mode.kind === "legacy") {
     assertProviderSnapshotCompleteness(
       source.provider,
       input.snapshotCompleteness,
       input.scopeEvidence,
       source.externalStoreId,
+      input.observationScope,
     );
   }
   const now = source.databaseNow;
@@ -505,6 +516,8 @@ async function applyLockedMenuSync(
   if (mode.kind === "identity-transition" && input.takeOverLegacyItems) {
     throw new Error("IDENTITY_TRANSITION_LEGACY_TAKEOVER_FORBIDDEN");
   }
+  const projectionInput =
+    mode.kind === "recurring" ? input : manualMenuProjection(input);
 
   await lockExistingMenuItems(tx, source.canteenId);
   const rows = await selectExistingItems(tx, source.canteenId);
@@ -517,7 +530,7 @@ async function applyLockedMenuSync(
             provider: source.provider,
             legacyAdoptionOpen: source.legacyTakeoverAt === null,
           },
-          input,
+          projectionInput,
           existing,
         )
       : evaluateMenuSnapshot(
@@ -526,7 +539,7 @@ async function applyLockedMenuSync(
             provider: source.provider,
             legacyAdoptionOpen: source.legacyTakeoverAt === null,
           },
-          input,
+          projectionInput,
           existing,
           [],
           { adapterAcceptedEmpty: mode.kind === "recurring" },

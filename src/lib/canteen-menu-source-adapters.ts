@@ -10,7 +10,11 @@ import {
 } from "@/lib/canteen-pinme-menu";
 import { buildQmaiMenuSyncPayload } from "@/lib/canteen-qmai-menu";
 import { assertProviderMenuIdentitySnapshot } from "./canteen-provider-menu-identity";
-import type { MenuSnapshotScopeEvidence, MenuSyncInput } from "./canteen-types";
+import type {
+  MenuObservationContext,
+  MenuSnapshotScopeEvidence,
+  MenuSyncInput,
+} from "./canteen-types";
 
 const ICHEF_ENDPOINT =
   "https://shop.ichefpos.com/api/graphql/online_restaurant";
@@ -51,7 +55,10 @@ query storeMenuItemCategoriesQuery(
   }
 }`;
 
-type FetchMenuOptions = { fetchImpl?: typeof fetch };
+type FetchMenuOptions = {
+  fetchImpl?: typeof fetch;
+  observationContext?: MenuObservationContext;
+};
 
 export type MenuSource = {
   provider: CanteenMenuSourceProvider;
@@ -449,6 +456,8 @@ export async function fetchQmaiMenu(
   );
   const orderType = configPositiveInteger(config, "orderType", 1);
   const locale = configString(config, "locale", "zh-HK");
+  const observationContext = options.observationContext;
+  if (!observationContext) throw new Error("MENU_OBSERVATION_CONTEXT_REQUIRED");
   const fetchImpl = options.fetchImpl ?? fetch;
   const commonHeaders = {
     Accept: "application/json",
@@ -496,18 +505,19 @@ export async function fetchQmaiMenu(
       body: JSON.stringify({
         orderType,
         storeId: Number(multiStoreId),
-        buyTime: hongKongDateTime(),
+        buyTime: hongKongDateTime(observationContext.observedAt),
         version: 3,
       }),
       cache: "no-store",
     },
     fetchImpl,
   );
-  return buildQmaiMenuSyncPayload(payload);
+  return buildQmaiMenuSyncPayload(payload, observationContext.mealPeriod);
 }
 
 export function fetchMenuFromProvider(
   source: MenuSource,
+  observationContext: MenuObservationContext,
   options: FetchMenuOptions = {},
 ): Promise<MenuSyncInput> {
   let payload: Promise<MenuSyncInput>;
@@ -524,7 +534,7 @@ export function fetchMenuFromProvider(
     case "qmai":
       payload = fetchQmaiMenu(
         source.externalStoreId,
-        options,
+        { ...options, observationContext },
         source.config,
         source.externalOwnerId,
       );

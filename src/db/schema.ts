@@ -1887,6 +1887,7 @@ export const canteenMenuSyncRuns = pgTable(
 ).enableRLS();
 
 export type CanteenMenuSyncSnapshotCompleteness = "complete" | "partial";
+export type CanteenMenuSyncObservationScope = "catalog" | "meal-period";
 
 export type CanteenMenuSyncSnapshotPriceOption = {
   label: string | null;
@@ -1909,6 +1910,10 @@ export const canteenMenuSyncSnapshots = pgTable(
     snapshotCompleteness: text("snapshot_completeness")
       .$type<CanteenMenuSyncSnapshotCompleteness>()
       .notNull(),
+    observationScope: text("observation_scope")
+      .$type<CanteenMenuSyncObservationScope>()
+      .notNull()
+      .default("catalog"),
     itemCount: integer("item_count").notNull(),
     syncWindowKey: text("sync_window_key").notNull(),
     mealPeriod: text("meal_period").$type<MealPeriod>().notNull(),
@@ -1936,6 +1941,9 @@ export const canteenMenuSyncSnapshots = pgTable(
       table.mealPeriod,
       table.observedMinuteOfDay,
     ),
+    index("canteen_menu_sync_snapshots_scoped_latest_idx")
+      .on(table.menuSourceId, table.mealPeriod, table.observedAt, table.runId)
+      .where(sql`${table.observationScope} = 'meal-period'`),
     check(
       "canteen_menu_sync_snapshots_hash_chk",
       sql`length(${table.snapshotHash}) = 64`,
@@ -1943,6 +1951,10 @@ export const canteenMenuSyncSnapshots = pgTable(
     check(
       "canteen_menu_sync_snapshots_completeness_chk",
       sql`${table.snapshotCompleteness} in ('complete', 'partial')`,
+    ),
+    check(
+      "canteen_menu_sync_snapshots_observation_scope_chk",
+      sql`${table.observationScope} in ('catalog', 'meal-period')`,
     ),
     check(
       "canteen_menu_sync_snapshots_item_count_chk",
