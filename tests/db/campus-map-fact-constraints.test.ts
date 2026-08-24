@@ -385,6 +385,32 @@ describe.skipIf(!hasDb)(
             await client.query(`release savepoint ${savepoint}`);
           }
         }
+
+        await client.query("savepoint provenance_delete");
+        try {
+          await expect(
+            client.query(
+              `delete from campus_map_provenance_sources where id = $1`,
+              [ids.secondRevision],
+            ),
+          ).rejects.toMatchObject({ code: "23503" });
+        } finally {
+          await client.query("rollback to savepoint provenance_delete");
+          await client.query("release savepoint provenance_delete");
+        }
+
+        await client.query("savepoint provenance_truncate");
+        try {
+          await expect(
+            client.query("truncate campus_map_provenance_sources cascade"),
+          ).rejects.toMatchObject({
+            code: "55000",
+            message: expect.stringContaining("append-only"),
+          });
+        } finally {
+          await client.query("rollback to savepoint provenance_truncate");
+          await client.query("release savepoint provenance_truncate");
+        }
       });
     });
 

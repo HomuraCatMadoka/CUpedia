@@ -93,8 +93,11 @@ duplicate work. Once accepted, reference the discussion in your PR.
 - Server Components by default; `"use client"` only when necessary.
 - All wiki mutations go through `src/lib/wiki-actions.ts`.
 - DB schema changes must commit both `src/db/schema.ts` and the generated
-  migration (`pnpm drizzle-kit generate`). Never edit migration files by hand,
-  and never use `drizzle-kit push`.
+  migration (`pnpm drizzle-kit generate`). Never edit ordinary generated
+  migrations by hand. For triggers or functions Drizzle cannot express, use
+  `pnpm drizzle-kit generate --custom --name <name>` and fill the generated
+  blank custom migration before it is first applied or committed. Never rewrite
+  a published migration, and never use `drizzle-kit push`.
 - Don't commit `.env` files or secrets.
 
 ## Reporting Bugs & Security Issues
