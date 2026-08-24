@@ -582,7 +582,10 @@ export async function publishCampusMapChangeset(
       const appendProvenanceSources = sourceIdentities.sources.map(
         ({ source }) => toAppendProvenanceSource(source),
       );
-      await acquirePublishWarningDomainLocks(transaction, command);
+      const warningNamesByChange = await normalizeAndLockPublishWarningDomains(
+        transaction,
+        command,
+      );
       try {
         await store.validateProvenanceSources(appendProvenanceSources);
       } catch (error) {
@@ -603,7 +606,11 @@ export async function publishCampusMapChangeset(
       }
 
       const { warnings, invalidAcknowledgements, hasUnacknowledgedWarning } =
-        await evaluatePublishWarnings(transaction, command);
+        await evaluatePublishWarnings(
+          transaction,
+          command,
+          warningNamesByChange,
+        );
       if (invalidAcknowledgements.length > 0) {
         return {
           status: "validation-failed",
@@ -787,38 +794,57 @@ async function acquireTransactionAdvisoryLock(
   );
 }
 
-async function acquirePublishWarningDomainLocks(
+async function normalizeAndLockPublishWarningDomains(
   transaction: DatabaseTransaction,
   command: CampusMapPublishCommand,
-): Promise<void> {
-  const proposedDomains = command.changes.flatMap((change) =>
+): Promise<ReadonlyMap<number, string>> {
+  const proposedDomains = command.changes.flatMap((change, changeIndex) =>
     change.operation === "retire"
       ? []
-      : [{ name: change.fact.name, pinType: change.fact.pinType }],
+      : [
+          {
+            changeIndex,
+            name: change.fact.name.trim(),
+            pinType: change.fact.pinType,
+          },
+        ],
   );
-  if (proposedDomains.length === 0) return;
+  if (proposedDomains.length === 0) return new Map();
   const normalized = await transaction.execute<{
+    changeIndex: number;
     normalizedName: string;
     pinType: string;
   }>(sql`
-    select distinct
+    select
+      (domain.value->>'changeIndex')::integer as "changeIndex",
       lower(btrim(domain.value->>'name')) as "normalizedName",
       domain.value->>'pinType' as "pinType"
     from jsonb_array_elements(${JSON.stringify(proposedDomains)}::jsonb)
       as domain(value)
-    order by "normalizedName", "pinType"
+    order by
+      lower(btrim(domain.value->>'name')) collate "C",
+      (domain.value->>'pinType') collate "C",
+      (domain.value->>'changeIndex')::integer
   `);
+  const normalizedByChange = new Map<number, string>();
+  const lockedDomains = new Set<string>();
   for (const domain of normalized.rows) {
+    normalizedByChange.set(domain.changeIndex, domain.normalizedName);
+    const identity = `${domain.normalizedName}\u0000${domain.pinType}`;
+    if (lockedDomains.has(identity)) continue;
+    lockedDomains.add(identity);
     await acquireTransactionAdvisoryLock(
       transaction,
-      `publish-warning\u0000${domain.normalizedName}\u0000${domain.pinType}`,
+      `publish-warning\u0000${identity}`,
     );
   }
+  return normalizedByChange;
 }
 
 async function evaluatePublishWarnings(
   transaction: DatabaseTransaction,
   command: CampusMapPublishCommand,
+  normalizedNames: ReadonlyMap<number, string>,
 ): Promise<{
   warnings: CampusMapPublishWarning[];
   invalidAcknowledgements: CampusMapPublishValidationIssue[];
@@ -832,11 +858,14 @@ async function evaluatePublishWarnings(
   );
   for (const [changeIndex, change] of command.changes.entries()) {
     if (change.operation === "retire") continue;
+    const normalizedName = normalizedNames.get(changeIndex);
+    if (normalizedName === undefined) {
+      throw new Error("Campus Map warning name was not normalized");
+    }
     const currentCandidates = await transaction
       .select({
         placeId: campusMapCurrentFacts.placeId,
         revisionId: campusMapCurrentFacts.revisionId,
-        name: campusMapCurrentFacts.name,
         pinType: campusMapCurrentFacts.pinType,
         locationKind: campusMapCurrentFacts.locationKind,
         buildingId: campusMapCurrentFacts.buildingId,
@@ -859,7 +888,7 @@ async function evaluatePublishWarnings(
           eq(campusMapCurrentFacts.pinType, change.fact.pinType),
           eq(campusMapRevisionVisibility.visibility, "public"),
           sql`btrim(${campusMapCurrentFacts.name}) <> ''`,
-          sql`lower(btrim(${campusMapCurrentFacts.name})) = lower(btrim(${change.fact.name}))`,
+          sql`lower(btrim(${campusMapCurrentFacts.name})) = ${normalizedName}`,
         ),
       )
       .orderBy(asc(campusMapCurrentFacts.placeId));
@@ -873,16 +902,17 @@ async function evaluatePublishWarnings(
         kind: "current",
         placeId: candidate.placeId,
         revisionId: candidate.revisionId,
-        fact: currentFactWarningInputs(candidate),
+        fact: currentFactWarningInputs(candidate, normalizedName),
       }),
     );
     const commandCandidates = command.changes
       .slice(0, changeIndex)
       .flatMap((candidate, candidateIndex) => {
+        const candidateNormalizedName = normalizedNames.get(candidateIndex);
         if (
           candidate.operation === "retire" ||
-          factWarningInputs(candidate.fact).name !==
-            factWarningInputs(change.fact).name ||
+          candidateNormalizedName === undefined ||
+          candidateNormalizedName !== normalizedName ||
           candidate.fact.pinType !== change.fact.pinType ||
           !duplicateLocation(toDuplicateLocation(candidate.fact), change.fact)
         ) {
@@ -895,7 +925,7 @@ async function evaluatePublishWarnings(
             operation: candidate.operation,
             placeId:
               candidate.operation === "create" ? null : candidate.placeId,
-            fact: factWarningInputs(candidate.fact),
+            fact: factWarningInputs(candidate.fact, candidateNormalizedName),
           },
         ];
       });
@@ -918,7 +948,7 @@ async function evaluatePublishWarnings(
         changeIndex,
         operation: change.operation,
         placeId: change.operation === "create" ? null : change.placeId,
-        fact: factWarningInputs(change.fact),
+        fact: factWarningInputs(change.fact, normalizedName),
         candidates: duplicateCandidates,
       }),
     });
@@ -999,9 +1029,12 @@ function duplicateLocation(
   );
 }
 
-function factWarningInputs(fact: CampusMapPublishFactInput) {
+function factWarningInputs(
+  fact: CampusMapPublishFactInput,
+  normalizedName: string,
+) {
   return {
-    name: fact.name.trim().toLocaleLowerCase("zh-HK"),
+    name: normalizedName,
     pinType: fact.pinType,
     location:
       fact.location.kind === "building"
@@ -1022,19 +1055,21 @@ function factWarningInputs(fact: CampusMapPublishFactInput) {
   };
 }
 
-function currentFactWarningInputs(candidate: {
-  name: string;
-  pinType: string;
-  locationKind: string;
-  buildingId: string | null;
-  floorId: string | null;
-  longitude: number | null;
-  latitude: number | null;
-  coordinateCrs: string | null;
-  pointPrecision: string | null;
-}) {
+function currentFactWarningInputs(
+  candidate: {
+    pinType: string;
+    locationKind: string;
+    buildingId: string | null;
+    floorId: string | null;
+    longitude: number | null;
+    latitude: number | null;
+    coordinateCrs: string | null;
+    pointPrecision: string | null;
+  },
+  normalizedName: string,
+) {
   return {
-    name: candidate.name.trim().toLocaleLowerCase("zh-HK"),
+    name: normalizedName,
     pinType: candidate.pinType,
     location:
       candidate.locationKind === "building"

@@ -921,6 +921,29 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       ],
     });
 
+    const badSurrogate = createCommand();
+    const badSurrogateChange = badSurrogate.changes[0];
+    if (badSurrogateChange.operation !== "create") {
+      throw new Error("bad fixture");
+    }
+    badSurrogateChange.fact.name = "bad\ud800name";
+    await expect(
+      publishCampusMapChangeset(badSurrogate, {
+        actorId,
+        clientIp: "203.0.113.16",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "fact-name-invalid",
+          anchor: { changeIndex: 0, field: "name" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+
     const badSource = createCommand();
     const badSourceChange = badSource.changes[0];
     if (badSourceChange.operation !== "create") throw new Error("bad fixture");
@@ -2119,6 +2142,35 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
+  it("uses PostgreSQL name normalization for bulk duplicate warnings", async () => {
+    const actorId = await createActor({ role: "admin" });
+    const command = createCommand();
+    const first = command.changes[0];
+    if (first.operation !== "create") throw new Error("bad fixture");
+    const second = structuredClone(first);
+    first.fact.name = "I";
+    second.fact.name = "İ";
+    second.sources[0].ref = `test:campus-map-publish:${randomUUID()}`;
+    command.kind = "bulk";
+    command.changes = [first, second];
+
+    await expect(
+      publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.28",
+      }),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [],
+      warnings: [
+        {
+          code: "possible-duplicate",
+          anchor: { changeIndex: 1, field: "name" },
+        },
+      ],
+    });
+  });
+
   it("serializes concurrent creates in the same duplicate warning domain", async () => {
     const [actorA, actorB] = await Promise.all([createActor(), createActor()]);
     const commandA = createCommand();
@@ -2130,6 +2182,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     }
     changeA.fact.name = "并发重复域测试";
     changeB.fact = structuredClone(changeA.fact);
+    changeB.fact.name = `${changeA.fact.name}\t`;
 
     const barrierKey = 718_002;
     await pool.query(

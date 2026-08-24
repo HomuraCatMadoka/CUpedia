@@ -45,8 +45,22 @@ function utf8Bytes(value: string): number {
   return Buffer.byteLength(value, "utf8");
 }
 
-function containsNul(value: string): boolean {
-  return value.includes("\u0000");
+function containsUnpairedSurrogate(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (next < 0xdc00 || next > 0xdfff) return true;
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function containsInvalidPostgresText(value: string): boolean {
+  return value.includes("\u0000") || containsUnpairedSurrogate(value);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -102,7 +116,7 @@ export function validateComment(
   if (typeof comment !== "string" || comment.trim() === "") {
     return [{ code: "comment-required", anchor: { field: "comment" } }];
   }
-  if (containsNul(comment)) {
+  if (containsInvalidPostgresText(comment)) {
     return [{ code: "comment-invalid", anchor: { field: "comment" } }];
   }
   return utf8Bytes(comment) > MAX_COMMENT_BYTES
@@ -125,7 +139,7 @@ export function validateChangesetMetadata(
       code: "source-summary-required",
       anchor: { field: "sourceSummary" },
     });
-  } else if (containsNul(command.sourceSummary)) {
+  } else if (containsInvalidPostgresText(command.sourceSummary)) {
     errors.push({
       code: "source-summary-invalid",
       anchor: { field: "sourceSummary" },
@@ -205,7 +219,7 @@ function validateRequiredMetadataText(
 ): void {
   if (typeof value !== "string" || value.trim() === "") {
     errors.push({ code: requiredCode, anchor: { field } });
-  } else if (containsNul(value)) {
+  } else if (containsInvalidPostgresText(value)) {
     errors.push({ code: invalidCode, anchor: { field } });
   } else if (utf8Bytes(value) > maxBytes) {
     errors.push({ code: tooLongCode, anchor: { field } });
@@ -271,7 +285,7 @@ export function validateFact(
   });
   if (typeof fact.name !== "string" || fact.name.trim() === "") {
     errors.push({ code: "fact-name-required", anchor: anchor("name") });
-  } else if (containsNul(fact.name)) {
+  } else if (containsInvalidPostgresText(fact.name)) {
     errors.push({ code: "fact-name-invalid", anchor: anchor("name") });
   } else if (utf8Bytes(fact.name) > MAX_FACT_NAME_BYTES) {
     errors.push({ code: "fact-name-too-long", anchor: anchor("name") });
@@ -464,7 +478,7 @@ export function validateSource(
   });
   if (typeof source.ref !== "string" || source.ref.trim() === "") {
     errors.push({ code: "source-ref-required", anchor: anchor("ref") });
-  } else if (containsNul(source.ref)) {
+  } else if (containsInvalidPostgresText(source.ref)) {
     errors.push({ code: "source-ref-invalid", anchor: anchor("ref") });
   } else if (utf8Bytes(source.ref) > MAX_SOURCE_REF_BYTES) {
     errors.push({ code: "source-ref-too-long", anchor: anchor("ref") });
@@ -564,7 +578,10 @@ function validateOptionalSourceText(
   code: string,
   anchor: CampusMapPublishIssueAnchor,
 ): void {
-  if (value !== null && (typeof value !== "string" || containsNul(value))) {
+  if (
+    value !== null &&
+    (typeof value !== "string" || containsInvalidPostgresText(value))
+  ) {
     errors.push({ code: "source-text-invalid", anchor });
   } else if (typeof value === "string" && utf8Bytes(value) > maxBytes) {
     errors.push({ code, anchor });
@@ -762,7 +779,7 @@ function validSourceCoordinate(coordinate: unknown): boolean {
     ) &&
     typeof conversion.version === "string" &&
     conversion.version.trim() !== "" &&
-    !containsNul(conversion.version) &&
+    !containsInvalidPostgresText(conversion.version) &&
     utf8Bytes(conversion.version) <= MAX_SOURCE_VERSION_BYTES
   );
 }

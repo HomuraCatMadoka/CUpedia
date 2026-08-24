@@ -101,9 +101,10 @@ Duplicate warnings compare both public Current facts and facts proposed earlier
 in the same bulk command. Their HMAC fingerprints bind the proposed fact to each
 candidate's warning-relevant location and, for Current candidates, revision ID,
 so acknowledgements cannot survive a relevant candidate change. Transaction
-locks serialize publishers in each PostgreSQL-normalized name/pin warning domain
-before candidates are read, preventing concurrent creates from both observing
-an empty Current set.
+locks serialize publishers in each warning domain before candidates are read,
+preventing concurrent creates from both observing an empty Current set. The
+persisted-name trim is normalized once by PostgreSQL and the result is reused by
+domain locks, Current queries, bulk comparisons, and fingerprints.
 
 The projection-hardening migration validates every existing Current fact while
 installing the trigger. This takes a write lock and rewrites that projection;
