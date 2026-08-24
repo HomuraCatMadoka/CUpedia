@@ -161,6 +161,9 @@ export type MenuSnapshotScopeEvidence =
     }
   | {
       provider: "pinme";
+      menuGroupCount: number;
+      groupCount: number;
+      referencedGroupIds: string[];
       serviceWindows: Array<{
         startTime: string;
         endTime: string;

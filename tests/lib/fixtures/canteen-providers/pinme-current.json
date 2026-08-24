@@ -1,8 +1,10 @@
 {
   "code": 200,
   "data": {
+    "menu_group": [{ "groups": ["101"] }],
     "group": [
       {
+        "group_id": "101",
         "local_name": "粉麵",
         "start_time": "11:00",
         "end_time": "20:00",

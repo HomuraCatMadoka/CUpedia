@@ -13,6 +13,8 @@ import {
 } from "./canteen-types";
 
 const PINME_SIGNING_KEY = "a91f9568fbd23881c2b2c7fa9af5b12a";
+const MAX_PINME_GROUPS = 500;
+const MAX_PINME_GROUP_REFERENCES = 500;
 
 type JsonObject = Record<string, unknown>;
 type PinmeServiceWindow = Extract<
@@ -34,6 +36,88 @@ function text(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
   const normalized = String(value).trim().replace(/\s+/g, " ");
   return normalized || null;
+}
+
+function pinmeGroupId(value: unknown): string | null {
+  const normalized = text(value);
+  return normalized && /^\d{1,32}$/.test(normalized) ? normalized : null;
+}
+
+function referencedPinmeGroups(data: JsonObject): {
+  menuGroupCount: number;
+  referencedGroupIds: string[];
+  groups: JsonObject[];
+  groupCount: number;
+} {
+  if (!Array.isArray(data.menu_group) || !Array.isArray(data.group)) {
+    throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+  }
+  if (
+    data.menu_group.length > MAX_PINME_GROUPS ||
+    data.group.length > MAX_PINME_GROUPS
+  ) {
+    throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+  }
+
+  const referencedGroupIds = new Set<string>();
+  let referenceCount = 0;
+  for (const menuGroupValue of data.menu_group) {
+    const menuGroup = object(menuGroupValue);
+    if (!menuGroup || !Array.isArray(menuGroup.groups)) {
+      throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+    }
+    referenceCount += menuGroup.groups.length;
+    if (referenceCount > MAX_PINME_GROUP_REFERENCES) {
+      throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+    }
+    for (const groupIdValue of menuGroup.groups) {
+      const groupId = pinmeGroupId(groupIdValue);
+      if (!groupId) throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+      referencedGroupIds.add(groupId);
+    }
+  }
+  if (referencedGroupIds.size === 0) throw new Error("EMPTY_PINME_MENU");
+
+  const groupsById = new Map<string, JsonObject>();
+  for (const groupValue of data.group) {
+    const group = object(groupValue);
+    const groupId = pinmeGroupId(group?.group_id);
+    if (!group || !groupId || groupsById.has(groupId)) {
+      throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+    }
+    groupsById.set(groupId, group);
+  }
+
+  const sortedReferencedGroupIds = [...referencedGroupIds].sort((left, right) =>
+    left.localeCompare(right),
+  );
+  const groups = sortedReferencedGroupIds.map((groupId) => {
+    const group = groupsById.get(groupId);
+    if (!group) throw new Error("INVALID_PINME_MENU_TOPOLOGY");
+    return group;
+  });
+  return {
+    menuGroupCount: data.menu_group.length,
+    referencedGroupIds: sortedReferencedGroupIds,
+    groups,
+    groupCount: data.group.length,
+  };
+}
+
+function assertValidPinmeProducts(group: JsonObject): void {
+  if (!Array.isArray(group.products)) throw new Error("INVALID_PINME_MENU");
+  for (const productValue of group.products) {
+    const product = object(productValue);
+    if (
+      !product ||
+      (product.product_id !== undefined &&
+        typeof product.product_id !== "string" &&
+        typeof product.product_id !== "number") ||
+      (product.prices !== undefined && !Array.isArray(product.prices))
+    ) {
+      throw new Error("INVALID_PINME_MENU");
+    }
+  }
 }
 
 function serviceWindow(group: JsonObject): PinmeServiceWindow | null {
@@ -136,15 +220,15 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
   const root = object(input);
   const data = object(root?.data);
   if (Number(root?.code) !== 200 || !data) throw new Error("PINME_MENU_ERROR");
+  const topology = referencedPinmeGroups(data);
 
   const byProductId = new Map<
     string,
     Omit<MenuSyncInput["items"][number], "sortOrder">
   >();
   const serviceWindows = new Map<string, PinmeServiceWindow>();
-  for (const groupValue of array(data.group)) {
-    const group = object(groupValue);
-    if (!group) continue;
+  for (const group of topology.groups) {
+    assertValidPinmeProducts(group);
     const window = serviceWindow(group);
     if (window) {
       serviceWindows.set(`${window.startTime}/${window.endTime}`, window);
@@ -222,6 +306,9 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
     scopeEvidence: {
       provider: "pinme",
+      menuGroupCount: topology.menuGroupCount,
+      groupCount: topology.groupCount,
+      referencedGroupIds: topology.referencedGroupIds,
       serviceWindows: [...serviceWindows.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([, window]) => window),

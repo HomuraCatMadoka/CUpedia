@@ -7,7 +7,183 @@ import { fetchPinmeMenu } from "@/lib/canteen-menu-source-adapters";
 import { vi } from "vitest";
 import pinmeCurrent from "./fixtures/canteen-providers/pinme-current.json";
 
+function pinmePayload(groups: Array<Record<string, unknown>>) {
+  const identifiedGroups = groups.map((group, index) => ({
+    ...group,
+    group_id: String(index + 1),
+  }));
+  return {
+    code: 200,
+    data: {
+      menu_group: [{ groups: identifiedGroups.map((group) => group.group_id) }],
+      group: identifiedGroups,
+    },
+  };
+}
+
 describe("PINME menu adapter", () => {
+  it("normalizes only groups referenced by the published menu topology", () => {
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [{ groups: ["101"] }],
+        group: [
+          {
+            group_id: "101",
+            local_name: "目前供應",
+            products: [
+              {
+                product_id: "visible",
+                status: "1",
+                local_name: "目前菜品",
+                price: 10,
+              },
+            ],
+          },
+          {
+            group_id: "999",
+            local_name: "未發布目錄",
+            products: [
+              {
+                product_id: "hidden",
+                status: "1",
+                local_name: "不應同步",
+                price: 20,
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(result.items.map((item) => item.externalProductId)).toEqual([
+      "visible",
+    ]);
+  });
+
+  it("handles repeated group references idempotently", () => {
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [{ groups: ["101", "101"] }, { groups: [101] }],
+        group: [
+          {
+            group_id: 101,
+            start_time: "07:00",
+            end_time: "11:00",
+            products: [
+              { product_id: "42", local_name: "早餐", status: "1", price: 10 },
+            ],
+          },
+          { group_id: "999", products: null },
+        ],
+      },
+    });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.scopeEvidence).toEqual({
+      provider: "pinme",
+      menuGroupCount: 2,
+      groupCount: 2,
+      referencedGroupIds: ["101"],
+      serviceWindows: [{ startTime: "07:00", endTime: "11:00" }],
+    });
+  });
+
+  it("fails closed when a published group reference is missing", () => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          menu_group: [{ groups: ["404"] }],
+          group: [{ group_id: "101", products: [] }],
+        },
+      }),
+    ).toThrow("INVALID_PINME_MENU_TOPOLOGY");
+  });
+
+  it("bounds provider group references", () => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          menu_group: [{ groups: Array.from({ length: 501 }, () => "101") }],
+          group: [{ group_id: "101", products: [] }],
+        },
+      }),
+    ).toThrow("INVALID_PINME_MENU_TOPOLOGY");
+  });
+
+  it("fails closed when the broad group pool has duplicate identities", () => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          menu_group: [{ groups: ["101"] }],
+          group: [
+            { group_id: "101", products: [] },
+            { group_id: 101, products: [] },
+          ],
+        },
+      }),
+    ).toThrow("INVALID_PINME_MENU_TOPOLOGY");
+  });
+
+  it.each([
+    { label: "missing menu_group", menuGroup: undefined },
+    { label: "non-array menu_group", menuGroup: {} },
+    { label: "malformed menu group", menuGroup: [{}] },
+    { label: "malformed group reference", menuGroup: [{ groups: ["bad"] }] },
+  ])("fails closed for $label", ({ menuGroup }) => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          menu_group: menuGroup,
+          group: [{ group_id: "101", products: [] }],
+        },
+      }),
+    ).toThrow("INVALID_PINME_MENU_TOPOLOGY");
+  });
+
+  it.each([
+    { label: "no menu groups", menuGroup: [] },
+    { label: "no selected groups", menuGroup: [{ groups: [] }] },
+  ])("reports a valid empty menu for $label", ({ menuGroup }) => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: { menu_group: menuGroup, group: [] },
+      }),
+    ).toThrow("EMPTY_PINME_MENU");
+  });
+
+  it("keeps upstream-authored duplicates with distinct product IDs", () => {
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [{ groups: ["101", "102"] }],
+        group: [
+          {
+            group_id: "101",
+            local_name: "早餐 A",
+            products: [{ product_id: "5001", local_name: "奶茶", price: 12 }],
+          },
+          {
+            group_id: "102",
+            local_name: "早餐 B",
+            products: [{ product_id: "5002", local_name: "奶茶", price: 12 }],
+          },
+        ],
+      },
+    });
+
+    expect(result.items.map((item) => item.externalProductId).sort()).toEqual([
+      "5001",
+      "5002",
+    ]);
+  });
+
   it("fails closed when the same product repeats in one meal-period group", () => {
     const product = {
       product_id: "42",
@@ -16,12 +192,9 @@ describe("PINME menu adapter", () => {
       price: 10,
     };
     expect(() =>
-      buildPinmeMenuSyncPayload({
-        code: 200,
-        data: {
-          group: [{ local_name: "A", products: [product, product] }],
-        },
-      }),
+      buildPinmeMenuSyncPayload(
+        pinmePayload([{ local_name: "A", products: [product, product] }]),
+      ),
     ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
   });
 
@@ -69,14 +242,10 @@ describe("PINME menu adapter", () => {
         products: [product],
       },
     ];
-    const result = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: { group: groups },
-    });
-    const reversed = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: { group: groups.toReversed() },
-    });
+    const result = buildPinmeMenuSyncPayload(pinmePayload(groups));
+    const reversed = buildPinmeMenuSyncPayload(
+      pinmePayload(groups.toReversed()),
+    );
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toMatchObject({
@@ -114,18 +283,15 @@ describe("PINME menu adapter", () => {
       status: "1",
       local_name: "菜品 A",
     };
-    const result = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: {
-        group: [
-          { local_name: "B", products: [{ ...product, prices }] },
-          {
-            local_name: "A",
-            products: [{ ...product, prices: prices.toReversed() }],
-          },
-        ],
-      },
-    });
+    const result = buildPinmeMenuSyncPayload(
+      pinmePayload([
+        { local_name: "B", products: [{ ...product, prices }] },
+        {
+          local_name: "A",
+          products: [{ ...product, prices: prices.toReversed() }],
+        },
+      ]),
+    );
 
     expect(result.items).toMatchObject([
       {
@@ -146,20 +312,17 @@ describe("PINME menu adapter", () => {
       local_name: "菜品 A",
       price: 10,
     };
-    const result = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: {
-        group: [
-          { local_name: "全天", products: [product] },
-          {
-            local_name: "午餐",
-            start_time: "11:00",
-            end_time: "14:00",
-            products: [product],
-          },
-        ],
-      },
-    });
+    const result = buildPinmeMenuSyncPayload(
+      pinmePayload([
+        { local_name: "全天", products: [product] },
+        {
+          local_name: "午餐",
+          start_time: "11:00",
+          end_time: "14:00",
+          products: [product],
+        },
+      ]),
+    );
 
     expect(result.items[0].mealPeriods).toEqual(["allday"]);
   });
@@ -186,13 +349,13 @@ describe("PINME menu adapter", () => {
       },
     ];
 
-    const result = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: { group: groups.toReversed() },
-    });
+    const result = buildPinmeMenuSyncPayload(pinmePayload(groups.toReversed()));
 
     expect(result.scopeEvidence).toEqual({
       provider: "pinme",
+      menuGroupCount: 1,
+      groupCount: 2,
+      referencedGroupIds: ["1", "2"],
       serviceWindows: [
         { startTime: "11:00", endTime: "14:00" },
         { startTime: "17:00", endTime: "21:00" },
@@ -201,21 +364,16 @@ describe("PINME menu adapter", () => {
   });
 
   it("fails closed when two rows publish the same product identity", () => {
-    const duplicate = {
-      code: 200,
-      data: {
-        group: [
-          {
-            local_name: "A",
-            products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
-          },
-          {
-            local_name: "B",
-            products: [{ product_id: "42", local_name: "菜品 B", price: 20 }],
-          },
-        ],
+    const duplicate = pinmePayload([
+      {
+        local_name: "A",
+        products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
       },
-    };
+      {
+        local_name: "B",
+        products: [{ product_id: "42", local_name: "菜品 B", price: 20 }],
+      },
+    ]);
     expect(() => buildPinmeMenuSyncPayload(duplicate)).toThrowError(
       expect.objectContaining({ code: "COLLIDING_IDENTITY" }),
     );
@@ -223,21 +381,18 @@ describe("PINME menu adapter", () => {
 
   it("fails closed when repeated product categories disagree on price", () => {
     expect(() =>
-      buildPinmeMenuSyncPayload({
-        code: 200,
-        data: {
-          group: [
-            {
-              local_name: "A",
-              products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
-            },
-            {
-              local_name: "B",
-              products: [{ product_id: "42", local_name: "菜品 A", price: 20 }],
-            },
-          ],
-        },
-      }),
+      buildPinmeMenuSyncPayload(
+        pinmePayload([
+          {
+            local_name: "A",
+            products: [{ product_id: "42", local_name: "菜品 A", price: 10 }],
+          },
+          {
+            local_name: "B",
+            products: [{ product_id: "42", local_name: "菜品 A", price: 20 }],
+          },
+        ]),
+      ),
     ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
   });
   it("creates deterministic signed anonymous token params", () => {
@@ -250,14 +405,11 @@ describe("PINME menu adapter", () => {
 
   it("fails closed instead of using a product name when ID is missing", () => {
     expect(() =>
-      buildPinmeMenuSyncPayload({
-        code: 200,
-        data: {
-          group: [
-            { products: [{ local_name: "不能當 ID", status: "1", price: 10 }] },
-          ],
-        },
-      }),
+      buildPinmeMenuSyncPayload(
+        pinmePayload([
+          { products: [{ local_name: "不能當 ID", status: "1", price: 10 }] },
+        ]),
+      ),
     ).toThrowError(expect.objectContaining({ code: "EMPTY_IDENTITY" }));
   });
 
@@ -282,25 +434,22 @@ describe("PINME menu adapter", () => {
       local_name: "小種鮮奶茶",
       price: "18.0000",
     };
-    const result = buildPinmeMenuSyncPayload({
-      code: 200,
-      data: {
-        group: [
-          {
-            local_name: "飲品",
-            start_time: "07:00",
-            end_time: "11:00",
-            products: [product],
-          },
-          {
-            local_name: "飲品",
-            start_time: "14:00",
-            end_time: "18:00",
-            products: [product],
-          },
-        ],
-      },
-    });
+    const result = buildPinmeMenuSyncPayload(
+      pinmePayload([
+        {
+          local_name: "飲品",
+          start_time: "07:00",
+          end_time: "11:00",
+          products: [product],
+        },
+        {
+          local_name: "飲品",
+          start_time: "14:00",
+          end_time: "18:00",
+          products: [product],
+        },
+      ]),
+    );
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0]).toEqual(
@@ -344,7 +493,10 @@ describe("PINME menu adapter", () => {
         new Response(
           JSON.stringify({
             code: 200,
-            data: { group: [{ local_name: "飯類", products: null }] },
+            data: {
+              menu_group: [{ groups: ["1"] }],
+              group: [{ group_id: "1", local_name: "飯類", products: null }],
+            },
           }),
         ),
       );

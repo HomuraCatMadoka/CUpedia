@@ -33,6 +33,9 @@ _Avoid_: 用菜名或供应商数组顺序作为长期身份；对所有供应�
 **供应商菜单 occurrence（Provider menu occurrence）**: 供应商原始分类树在某个餐段或分类中对一道菜品的一次引用，不等于新的菜品身份。同一 PinMe product 可同时出现在推荐区和常规分类；同一 Aigens backend product 可同时出现在午餐、晚餐和多个分类。兼容 occurrence 合并餐段与价格语境；不兼容名称或同一语境的冲突价格必须中止。适配器先在供应商边界聚合 occurrence，再对最终商品身份执行唯一性校验；分类选择和价格排序采用固定规则，等价 occurrence 的排列不改变快照。
 _Avoid_: 在读取分类树时立即把每个 occurrence 当成独立菜品；为消除重复而把分类加入长期身份；无条件保留第一个 occurrence 并丢弃其余价格或餐段事实。
 
+**PINME 发布菜单拓扑（Published menu topology）**: `data.group` 是供应商返回的 broad group pool，只有被 `data.menu_group[].groups` 引用的 `group_id` 才属于本次顾客可见菜单。适配器对引用做有界去重，拒绝坏 ID、重复 group identity 与悬空引用；空引用集合是明确的空菜单观察，不得退回遍历整个 group pool。快照 scope evidence 保存菜单组数、group pool 数、排序后的被引用 group ID 与服务时段，不保存原始响应。不同 `product_id` 即使名称和价格相同也仍是不同菜品。
+_Avoid_: 把 `data.group` 当成当前完整菜单；按名称和价格合并不同 `product_id`；遇到空或坏 `menu_group` 时回退到 broad catalog。
+
 **外部菜单同步**: Admin 对已经配置的菜单来源提交含 `items[].externalProductId` 与快照完整性的来源快照，必须先 dry-run 再应用。首次接管只接受完整快照；完整快照中消失的托管菜改为 `isAvailable = false`，部分快照则保留未出现的托管菜不变；两者都对本次出现的稳定身份原地更新或恢复同一 UUID。周期任务只接受菜单来源 ID，并强制禁止接管。
 
 **商品身份漂移（Product identity churn）**: 同一菜单来源在相邻快照中出现一批新 product ID，同时旧 ID 消失。观察期内只记录新增、消失与疑似一换一，不自动把新 ID 继承到旧菜品；疑似换 ID 或成批漂移必须保留最近成功菜单并等待审核。

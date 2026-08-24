@@ -818,6 +818,9 @@ describe("menu identity transition audit", () => {
       snapshotCompleteness: "partial",
       scopeEvidence: {
         provider: "pinme",
+        menuGroupCount: 2,
+        groupCount: 2,
+        referencedGroupIds: ["101", "102"],
         serviceWindows: [
           { startTime: "11:30", endTime: "14:30" },
           { startTime: "17:30", endTime: "21:00" },
@@ -829,6 +832,9 @@ describe("menu identity transition audit", () => {
       snapshotCompleteness: "partial",
       scopeEvidence: {
         provider: "pinme",
+        referencedGroupIds: ["101", "102"],
+        groupCount: 2,
+        menuGroupCount: 2,
         serviceWindows: [
           { startTime: "17:30", endTime: "21:00" },
           { startTime: "11:30", endTime: "14:30" },
