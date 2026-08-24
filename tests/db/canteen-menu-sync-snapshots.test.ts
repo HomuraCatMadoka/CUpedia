@@ -78,7 +78,7 @@ async function insertSnapshotPair(
     snapshotCompleteness: "partial" as const,
     itemCount: 0,
     mealPeriod: "lunch" as const,
-    hktWeekday: 1,
+    hktWeekday: 1 as const,
     observedMinuteOfDay: 720,
     scopeEvidence: {},
   };
@@ -468,7 +468,7 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
         itemCount: 0,
         syncWindowKey: "2026-07-01/lunch",
         mealPeriod: "lunch" as const,
-        hktWeekday: 3,
+        hktWeekday: 3 as const,
         observedMinuteOfDay: 720,
         observedAt: old,
       })),

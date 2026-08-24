@@ -1,4 +1,4 @@
-import type { MealPeriod } from "@/db/schema";
+import type { HktWeekday, MealPeriod } from "@/db/schema";
 
 const HKT_OFFSET_MS = 8 * 60 * 60 * 1_000;
 
@@ -11,6 +11,7 @@ const WINDOW_START_HOURS = {
 export type MenuSyncWindow = {
   key: string;
   period: MealPeriod;
+  hktWeekday: HktWeekday;
   startsAt: Date;
   endsAt: Date;
 };
@@ -52,6 +53,8 @@ export function menuSyncWindowAt(databaseNow: Date): MenuSyncWindow {
   return {
     key: `${date}/${period}`,
     period,
+    // Date#getUTCDay is specified to return an integer in the 0-6 domain.
+    hktWeekday: hkt.getUTCDay() as HktWeekday,
     startsAt: localBoundaryUtc(year, month, day, startHour),
     endsAt: localBoundaryUtc(year, month, day, endHour),
   };

@@ -1663,6 +1663,9 @@ export const notifications = pgTable(
 export const MEAL_PERIODS = ["breakfast", "lunch", "dinner"] as const;
 export type MealPeriod = (typeof MEAL_PERIODS)[number];
 
+/** JavaScript weekday numbering interpreted in Asia/Hong_Kong (Sunday=0). */
+export type HktWeekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
 export const ALLDAY_MEAL_PERIOD = "allday" as const;
 /** Stored assignment values: specific periods and/or exclusive allday. */
 export const MEAL_PERIOD_VALUES = [
@@ -1707,6 +1710,18 @@ export const canteenMenuSources = pgTable(
       .$type<CanteenMenuSourceConfig>()
       .notNull()
       .default({}),
+    /** HKT weekdays (Sunday=0) when recurring sync should skip this source. */
+    closedWeekdays: integer("closed_weekdays")
+      .array()
+      .$type<HktWeekday[]>()
+      .notNull()
+      .default([]),
+    /** Meal windows in which recurring sync should claim this source. */
+    syncMealPeriods: text("sync_meal_periods")
+      .array()
+      .$type<MealPeriod[]>()
+      .notNull()
+      .default(["breakfast", "lunch", "dinner"]),
     enabled: boolean("enabled").notNull().default(true),
     /** Identifies the latest worker attempt; health writes are conditional on it. */
     lastAttemptId: uuid("last_attempt_id"),
@@ -1751,6 +1766,14 @@ export const canteenMenuSources = pgTable(
     check(
       "canteen_menu_sources_claim_chk",
       sql`(${table.syncClaimToken} is null) = (${table.syncClaimExpiresAt} is null)`,
+    ),
+    check(
+      "canteen_menu_sources_closed_weekdays_chk",
+      sql`${table.closedWeekdays} <@ array[0, 1, 2, 3, 4, 5, 6]::integer[] and cardinality(${table.closedWeekdays}) <= 7`,
+    ),
+    check(
+      "canteen_menu_sources_sync_meal_periods_chk",
+      sql`${table.syncMealPeriods} <@ array['breakfast', 'lunch', 'dinner']::text[] and cardinality(${table.syncMealPeriods}) between 1 and 3`,
     ),
   ],
 ).enableRLS();
@@ -1889,7 +1912,7 @@ export const canteenMenuSyncSnapshots = pgTable(
     itemCount: integer("item_count").notNull(),
     syncWindowKey: text("sync_window_key").notNull(),
     mealPeriod: text("meal_period").$type<MealPeriod>().notNull(),
-    hktWeekday: integer("hkt_weekday").notNull(),
+    hktWeekday: integer("hkt_weekday").$type<HktWeekday>().notNull(),
     observedMinuteOfDay: integer("observed_minute_of_day").notNull(),
     /** Bounded normalized provider scope evidence; never a raw response. */
     scopeEvidence: jsonb("scope_evidence")

@@ -1,0 +1,4 @@
+ALTER TABLE "canteen_menu_sources" ADD COLUMN "closed_weekdays" integer[] DEFAULT '{}' NOT NULL;--> statement-breakpoint
+ALTER TABLE "canteen_menu_sources" ADD COLUMN "sync_meal_periods" text[] DEFAULT '{"breakfast","lunch","dinner"}' NOT NULL;--> statement-breakpoint
+ALTER TABLE "canteen_menu_sources" ADD CONSTRAINT "canteen_menu_sources_closed_weekdays_chk" CHECK ("canteen_menu_sources"."closed_weekdays" <@ array[0, 1, 2, 3, 4, 5, 6]::integer[] and cardinality("canteen_menu_sources"."closed_weekdays") <= 7);--> statement-breakpoint
+ALTER TABLE "canteen_menu_sources" ADD CONSTRAINT "canteen_menu_sources_sync_meal_periods_chk" CHECK ("canteen_menu_sources"."sync_meal_periods" <@ array['breakfast', 'lunch', 'dinner']::text[] and cardinality("canteen_menu_sources"."sync_meal_periods") between 1 and 3);

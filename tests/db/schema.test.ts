@@ -137,11 +137,14 @@ describe("schema", () => {
 
   it("canteenMenuSources stores provider configuration and sync state", () => {
     const cols = getTableColumns(canteenMenuSources);
+    const config = getTableConfig(canteenMenuSources);
     expect(cols.canteenId).toBeDefined();
     expect(cols.provider).toBeDefined();
     expect(cols.externalOwnerId).toBeDefined();
     expect(cols.externalStoreId).toBeDefined();
     expect(cols.config).toBeDefined();
+    expect(cols.closedWeekdays).toBeDefined();
+    expect(cols.syncMealPeriods).toBeDefined();
     expect(cols.enabled).toBeDefined();
     expect(cols.lastAttemptId).toBeDefined();
     expect(cols.lastAttemptAt).toBeDefined();
@@ -151,6 +154,12 @@ describe("schema", () => {
     expect(cols.lastSnapshotHash).toBeDefined();
     expect(cols.lastError).toBeDefined();
     expect(cols.legacyTakeoverAt).toBeDefined();
+    expect(config.checks.map((constraint) => constraint.name)).toContain(
+      "canteen_menu_sources_closed_weekdays_chk",
+    );
+    expect(config.checks.map((constraint) => constraint.name)).toContain(
+      "canteen_menu_sources_sync_meal_periods_chk",
+    );
   });
 
   it("canteenMenuSyncRuns stores bounded sync observations", () => {

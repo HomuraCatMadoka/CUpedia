@@ -8,6 +8,12 @@ import { vi } from "vitest";
 import pinmeCurrent from "./fixtures/canteen-providers/pinme-current.json";
 
 describe("PINME menu adapter", () => {
+  it("fails closed when the provider returns an empty menu", () => {
+    expect(() =>
+      buildPinmeMenuSyncPayload({ code: 200, data: { group: [] } }),
+    ).toThrow("EMPTY_PINME_MENU");
+  });
+
   it("fails closed when the same product repeats in one meal-period group", () => {
     const product = {
       product_id: "42",

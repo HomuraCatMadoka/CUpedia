@@ -624,6 +624,20 @@
       "when": 1787305743128,
       "tag": "0088_lowly_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1787501919934,
+      "tag": "0089_canteen-menu-source-sync-schedule",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1787501920567,
+      "tag": "0090_configure-cafe-tolo-sync-schedule",
+      "breakpoints": true
     }
   ]
 }
