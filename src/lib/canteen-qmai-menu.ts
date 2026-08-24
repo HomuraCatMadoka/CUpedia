@@ -67,26 +67,46 @@ function priceOptions(item: JsonObject): MenuItemPriceOptionInput[] {
   return options;
 }
 
-function operatingWindows(value: unknown): Array<[string, string]> {
+function operatingWindows(value: unknown): Array<[string, string]> | null {
   const saleTime = object(value);
+  if (!saleTime) return null;
+  if (
+    (saleTime.weekTimeList !== null &&
+      saleTime.weekTimeList !== undefined &&
+      !Array.isArray(saleTime.weekTimeList)) ||
+    (saleTime.timeList !== null &&
+      saleTime.timeList !== undefined &&
+      !Array.isArray(saleTime.timeList))
+  ) {
+    throw new Error("INVALID_QMAI_SALE_TIME");
+  }
   const candidates = [
     ...array(saleTime?.weekTimeList),
     ...array(saleTime?.timeList),
   ];
+  if (candidates.length === 0) return null;
   const windows: Array<[string, string]> = [];
   for (const candidate of candidates) {
     const row = object(candidate);
-    if (!row) continue;
+    if (!row) throw new Error("INVALID_QMAI_SALE_TIME");
     const nested = array(row.timeList).length > 0 ? array(row.timeList) : [row];
     for (const nestedValue of nested) {
       const interval = object(nestedValue);
+      if (!interval) throw new Error("INVALID_QMAI_SALE_TIME");
       const start = text(
-        interval?.startTime ?? interval?.start ?? interval?.beginTime,
+        interval.timeStart ??
+          interval.startTime ??
+          interval.start ??
+          interval.beginTime,
       );
       const end = text(
-        interval?.endTime ?? interval?.end ?? interval?.finishTime,
+        interval.timeEnd ??
+          interval.endTime ??
+          interval.end ??
+          interval.finishTime,
       );
-      if (start && end) windows.push([start.slice(0, 5), end.slice(0, 5)]);
+      if (!start || !end) throw new Error("INVALID_QMAI_SALE_TIME");
+      windows.push([start.slice(0, 5), end.slice(0, 5)]);
     }
   }
   return windows;
@@ -96,13 +116,17 @@ function mealPeriods(
   item: JsonObject,
   observedMealPeriod: MealPeriod,
 ): MealPeriodAssignment[] {
+  const windows = operatingWindows(item.saleTime);
+  if (!windows) return [observedMealPeriod];
   const periods = new Set<MealPeriodAssignment>();
-  for (const [start, end] of operatingWindows(item.saleTime)) {
-    mealPeriodsForOperatingWindow(start, end).forEach((period) =>
-      periods.add(period),
-    );
+  for (const [start, end] of windows) {
+    const inferredPeriods = mealPeriodsForOperatingWindow(start, end);
+    if (inferredPeriods.includes("allday")) {
+      throw new Error("INVALID_QMAI_SALE_TIME");
+    }
+    inferredPeriods.forEach((period) => periods.add(period));
   }
-  return periods.size > 0 ? [...periods] : [observedMealPeriod];
+  return [...periods];
 }
 
 function isAvailable(item: JsonObject): boolean {
