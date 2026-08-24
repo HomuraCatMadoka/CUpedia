@@ -117,6 +117,22 @@ describe("Qmai menu adapter", () => {
     );
   });
 
+  it.each([
+    ["a scalar", "11:00-14:30"],
+    ["an array", [{ timeStart: "11:00", timeEnd: "14:30" }]],
+    ["an object with unknown schedule keys", { periods: ["11:00-14:30"] }],
+  ])("fails closed when saleTime is %s", (_description, saleTime) => {
+    const malformed = structuredClone(menuResponse);
+    const item = malformed.data.categoryItems[0].itemList[0] as unknown as {
+      saleTime: unknown;
+    };
+    item.saleTime = saleTime;
+
+    expect(() => buildQmaiMenuSyncPayload(malformed, "dinner")).toThrow(
+      "INVALID_QMAI_SALE_TIME",
+    );
+  });
+
   it("fails closed when a declared sale interval is invalid", () => {
     const malformed = structuredClone(menuResponse);
     const interval = malformed.data.categoryItems[0]?.itemList[0]?.saleTime

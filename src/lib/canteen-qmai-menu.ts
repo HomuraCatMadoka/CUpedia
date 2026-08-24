@@ -68,23 +68,29 @@ function priceOptions(item: JsonObject): MenuItemPriceOptionInput[] {
 }
 
 function operatingWindows(value: unknown): Array<[string, string]> | null {
+  if (value === null || value === undefined) return null;
   const saleTime = object(value);
-  if (!saleTime) return null;
-  if (
-    (saleTime.weekTimeList !== null &&
-      saleTime.weekTimeList !== undefined &&
-      !Array.isArray(saleTime.weekTimeList)) ||
-    (saleTime.timeList !== null &&
-      saleTime.timeList !== undefined &&
-      !Array.isArray(saleTime.timeList))
-  ) {
+  if (!saleTime) throw new Error("INVALID_QMAI_SALE_TIME");
+  const scheduleValues: unknown[] = [];
+  if (Object.hasOwn(saleTime, "weekTimeList")) {
+    scheduleValues.push(saleTime.weekTimeList);
+  }
+  if (Object.hasOwn(saleTime, "timeList")) {
+    scheduleValues.push(saleTime.timeList);
+  }
+  if (scheduleValues.length === 0) {
     throw new Error("INVALID_QMAI_SALE_TIME");
   }
-  const candidates = [
-    ...array(saleTime?.weekTimeList),
-    ...array(saleTime?.timeList),
-  ];
-  if (candidates.length === 0) return null;
+  for (const scheduleValue of scheduleValues) {
+    if (scheduleValue !== null && !Array.isArray(scheduleValue)) {
+      throw new Error("INVALID_QMAI_SALE_TIME");
+    }
+  }
+  if (scheduleValues.every((scheduleValue) => scheduleValue === null)) {
+    return null;
+  }
+  const candidates = scheduleValues.flatMap(array);
+  if (candidates.length === 0) throw new Error("INVALID_QMAI_SALE_TIME");
   const windows: Array<[string, string]> = [];
   for (const candidate of candidates) {
     const row = object(candidate);
