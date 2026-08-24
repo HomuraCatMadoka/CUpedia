@@ -3,6 +3,7 @@ import {
   CAMPUS_MAP_CAPABILITIES,
   CAMPUS_MAP_COORDINATE_CONVERSION_METHODS,
   CAMPUS_MAP_CREDENTIAL_REQUIREMENTS,
+  CAMPUS_MAP_FACT_SCHEMA_V1,
   CAMPUS_MAP_GENDERS,
   CAMPUS_MAP_PIN_TYPES,
   CAMPUS_MAP_SOURCE_COORDINATE_CRS,
@@ -292,6 +293,28 @@ export function validateFact(
   }
   if (!CAMPUS_MAP_GENDERS.includes(fact.gender)) {
     errors.push({ code: "invalid-gender", anchor: anchor("gender") });
+  }
+  if (CAMPUS_MAP_PIN_TYPES.includes(fact.pinType)) {
+    const applicableFields = new Set(
+      CAMPUS_MAP_FACT_SCHEMA_V1.pinTypes[fact.pinType].applicableFields,
+    );
+    if (
+      Array.isArray(fact.capabilities) &&
+      fact.capabilities.length > 0 &&
+      !applicableFields.has("capabilities")
+    ) {
+      errors.push({
+        code: "field-not-applicable",
+        anchor: anchor("capabilities"),
+      });
+    }
+    if (
+      CAMPUS_MAP_GENDERS.includes(fact.gender) &&
+      fact.gender !== "unknown" &&
+      !applicableFields.has("gender")
+    ) {
+      errors.push({ code: "field-not-applicable", anchor: anchor("gender") });
+    }
   }
   if (!CAMPUS_MAP_WHEELCHAIR_ACCESS.includes(fact.wheelchairAccess)) {
     errors.push({

@@ -256,6 +256,24 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     throw new Error(`Timed out waiting for ${minimum} blocked publish queries`);
   }
 
+  async function waitForBlockedQuery(queryFragment: string): Promise<void> {
+    const deadline = Date.now() + 5_000;
+    while (Date.now() < deadline) {
+      const result = await pool.query<{ count: string }>(
+        `select count(*)::text as count
+           from pg_stat_activity
+          where datname = current_database()
+            and pid <> pg_backend_pid()
+            and wait_event_type = 'Lock'
+            and query like $1`,
+        [`%${queryFragment}%`],
+      );
+      if (Number(result.rows[0]?.count ?? 0) >= 1) return;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+    throw new Error(`Timed out waiting for blocked query: ${queryFragment}`);
+  }
+
   it("installs the query-shaped duplicate warning index", async () => {
     const index = await pool.query<{ indexdef: string }>(
       `select indexdef
@@ -337,6 +355,41 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     expect(retried).toEqual(published);
   });
 
+  it("replays a completed admin bulk result after the actor role changes", async () => {
+    const actorId = await createActor({ role: "admin" });
+    const command = createCommand();
+    const second = createCommand();
+    const secondChange = second.changes[0];
+    if (secondChange.operation !== "create") throw new Error("bad fixture");
+    secondChange.fact.name = "科学馆饮水点";
+    secondChange.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+    command.kind = "bulk";
+    command.changes.push(secondChange);
+
+    const published = await publishCampusMapChangeset(command, {
+      actorId,
+      clientIp: "203.0.113.3",
+    });
+    expect(published).toMatchObject({ status: "published" });
+    await pool.query("update users set role = 'user' where id = $1", [actorId]);
+
+    await expect(
+      publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.3",
+      }),
+    ).resolves.toEqual(published);
+
+    const newRequest = structuredClone(command);
+    newRequest.idempotencyKey = randomUUID();
+    await expect(
+      publishCampusMapChangeset(newRequest, {
+        actorId,
+        clientIp: "203.0.113.3",
+      }),
+    ).resolves.toEqual({ status: "forbidden", code: "admin-required" });
+  });
+
   it("forbids a freshly banned contributor", async () => {
     const actorId = await createActor();
     const created = await publishCampusMapChangeset(createCommand(), {
@@ -377,6 +430,88 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       ],
     });
   });
+
+  it("linearizes concurrent eligibility mutations after locked fresh authorization", async () => {
+    const actorId = await createActor();
+    const created = await publishCampusMapChangeset(createCommand(), {
+      actorId,
+      clientIp: "203.0.113.4",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: baseRevisionId }] = created.changes;
+    const command = createCommand();
+    const create = command.changes[0];
+    if (create.operation !== "create") throw new Error("bad fixture");
+    command.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId,
+        fact: { ...create.fact, name: "授权锁内发布" },
+        sources: create.sources,
+      },
+    ];
+
+    const placeLocker = await pool.connect();
+    const banClient = await pool.connect();
+    const credentialClient = await pool.connect();
+    await placeLocker.query("begin");
+    await banClient.query("begin");
+    await credentialClient.query("begin");
+    await placeLocker.query(
+      "select id from campus_map_places where id = $1 for update",
+      [placeId],
+    );
+    let placeLockerOpen = true;
+    let banClientOpen = true;
+    let credentialClientOpen = true;
+    let publishPromise:
+      | ReturnType<typeof publishCampusMapChangeset>
+      | undefined;
+    try {
+      publishPromise = publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.4",
+      });
+      await waitForBlockedPublishQueries(1);
+      const banPromise = banClient.query(
+        "update users set banned = true where id = $1 /* issue-718-ban-race */",
+        [actorId],
+      );
+      await waitForBlockedQuery("issue-718-ban-race");
+      const credentialPromise = credentialClient.query(
+        "update accounts set password = null where user_id = $1 and provider_id = 'credential' /* issue-718-credential-race */",
+        [actorId],
+      );
+      await waitForBlockedQuery("issue-718-credential-race");
+
+      await placeLocker.query("commit");
+      placeLockerOpen = false;
+      const published = await publishPromise;
+      expect(published).toMatchObject({ status: "published" });
+      await Promise.all([banPromise, credentialPromise]);
+      await banClient.query("commit");
+      banClientOpen = false;
+      await credentialClient.query("commit");
+      credentialClientOpen = false;
+
+      const next = createCommand();
+      await expect(
+        publishCampusMapChangeset(next, {
+          actorId,
+          clientIp: "203.0.113.4",
+        }),
+      ).resolves.toEqual({ status: "forbidden", code: "actor-banned" });
+    } finally {
+      if (placeLockerOpen) await placeLocker.query("rollback");
+      if (banClientOpen) await banClient.query("rollback");
+      if (credentialClientOpen) await credentialClient.query("rollback");
+      if (publishPromise) await publishPromise.catch(() => undefined);
+      placeLocker.release();
+      banClient.release();
+      credentialClient.release();
+    }
+  }, 10_000);
 
   it("freshly requires a verified CUHK email", async () => {
     const [unverifiedId, externalId] = await Promise.all([
@@ -693,6 +828,61 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         },
       ],
     });
+  });
+
+  it("charges validation attempts while exempting only exact completed replays", async () => {
+    const actorId = await createActor();
+    const context = { actorId, clientIp: "203.0.113.17" };
+    const actorBurstAttempts = async () => {
+      const result = await pool.query<{ attempt_count: number }>(
+        `select attempt_count
+           from campus_map_publish_rate_limits
+          where scope = 'actor' and window_kind = 'burst'`,
+      );
+      return result.rows[0]?.attempt_count ?? 0;
+    };
+
+    const malformed = {
+      ...createCommand(),
+      changes: null,
+    } as unknown as CampusMapPublishCommand;
+    await expect(
+      publishCampusMapChangeset(malformed, context),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [{ code: "invalid-command" }],
+    });
+    await expect(actorBurstAttempts()).resolves.toBe(1);
+
+    const invalidKey = createCommand();
+    invalidKey.idempotencyKey = "not-a-uuid";
+    await expect(
+      publishCampusMapChangeset(invalidKey, context),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [{ code: "invalid-idempotency-key" }],
+    });
+    await expect(actorBurstAttempts()).resolves.toBe(2);
+
+    const command = createCommand();
+    const published = await publishCampusMapChangeset(command, context);
+    expect(published).toMatchObject({ status: "published" });
+    await expect(actorBurstAttempts()).resolves.toBe(3);
+
+    await expect(publishCampusMapChangeset(command, context)).resolves.toEqual(
+      published,
+    );
+    await expect(actorBurstAttempts()).resolves.toBe(3);
+
+    const reused = structuredClone(command);
+    reused.comment = "同一幂等键的不同请求";
+    await expect(
+      publishCampusMapChangeset(reused, context),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [{ code: "idempotency-key-reused" }],
+    });
+    await expect(actorBurstAttempts()).resolves.toBe(4);
   });
 
   it("rejects PostgreSQL-invalid NUL text before storage", async () => {
@@ -1289,6 +1479,183 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
+  it("never republishes a redacted Current revision through the public seam", async () => {
+    const actorId = await createActor();
+    const active = await publishCampusMapChangeset(createCommand(), {
+      actorId,
+      clientIp: "203.0.113.21",
+    });
+    if (active.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId }] = active.changes;
+    await pool.query(
+      "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#718' where revision_id = $1",
+      [revisionId],
+    );
+
+    for (const operation of ["update", "retire"] as const) {
+      const command = createCommand();
+      const create = command.changes[0];
+      if (create.operation !== "create") throw new Error("bad fixture");
+      command.changes = [
+        operation === "update"
+          ? {
+              operation,
+              placeId,
+              baseRevisionId: revisionId,
+              fact: { ...create.fact, name: "不得重新公开" },
+              sources: create.sources,
+            }
+          : {
+              operation,
+              placeId,
+              baseRevisionId: revisionId,
+              sources: create.sources,
+            },
+      ];
+      await expect(
+        publishCampusMapChangeset(command, {
+          actorId,
+          clientIp: "203.0.113.21",
+        }),
+      ).resolves.toEqual({
+        status: "validation-failed",
+        errors: [
+          {
+            code: "redacted-revision-not-editable",
+            anchor: { changeIndex: 0, placeId, field: "baseRevisionId" },
+          },
+        ],
+        warnings: [],
+        suggestions: [],
+      });
+    }
+
+    const restoreFixture = createCommand();
+    const restoreCreate = restoreFixture.changes[0];
+    if (restoreCreate.operation !== "create") throw new Error("bad fixture");
+    restoreCreate.fact.name = "待恢复的 redacted 地点";
+    restoreCreate.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+    const restoreCreated = await publishCampusMapChangeset(restoreFixture, {
+      actorId,
+      clientIp: "203.0.113.21",
+    });
+    if (restoreCreated.status !== "published") throw new Error("create failed");
+    const restorePlace = restoreCreated.changes[0];
+    const retire = createCommand();
+    retire.changes = [
+      {
+        operation: "retire",
+        placeId: restorePlace.placeId,
+        baseRevisionId: restorePlace.revisionId,
+        sources: retire.changes[0].sources,
+      },
+    ];
+    const retired = await publishCampusMapChangeset(retire, {
+      actorId,
+      clientIp: "203.0.113.21",
+    });
+    if (retired.status !== "published") throw new Error("retire failed");
+    await pool.query(
+      "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#718' where revision_id = $1",
+      [retired.changes[0].revisionId],
+    );
+
+    const restore = createCommand();
+    const restoreFact = restore.changes[0];
+    if (restoreFact.operation !== "create") throw new Error("bad fixture");
+    restore.changes = [
+      {
+        operation: "restore",
+        placeId: restorePlace.placeId,
+        baseRevisionId: retired.changes[0].revisionId,
+        fact: restoreCreate.fact,
+        sources: restoreFact.sources,
+      },
+    ];
+    await expect(
+      publishCampusMapChangeset(restore, {
+        actorId,
+        clientIp: "203.0.113.21",
+      }),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "redacted-revision-not-editable",
+          anchor: {
+            changeIndex: 0,
+            placeId: restorePlace.placeId,
+            field: "baseRevisionId",
+          },
+        },
+      ],
+    });
+
+    const counts = await pool.query<{ place_id: string; revisions: number }>(
+      `select place_id, count(*)::int as revisions
+         from campus_map_fact_revisions
+        where place_id = any($1::uuid[])
+        group by place_id
+        order by place_id`,
+      [[placeId, restorePlace.placeId]],
+    );
+    expect(counts.rows.map((row) => row.revisions).sort()).toEqual([1, 2]);
+  });
+
+  it("serializes a concurrent redaction before reading Current visibility", async () => {
+    const actorId = await createActor();
+    const created = await publishCampusMapChangeset(createCommand(), {
+      actorId,
+      clientIp: "203.0.113.21",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId }] = created.changes;
+    const command = createCommand();
+    const create = command.changes[0];
+    if (create.operation !== "create") throw new Error("bad fixture");
+    command.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId: revisionId,
+        fact: { ...create.fact, name: "并发 redaction 不得重新公开" },
+        sources: create.sources,
+      },
+    ];
+
+    const redactor = await pool.connect();
+    await redactor.query("begin");
+    let redactorOpen = true;
+    let publishPromise:
+      | ReturnType<typeof publishCampusMapChangeset>
+      | undefined;
+    try {
+      await redactor.query(
+        "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#718-race' where revision_id = $1",
+        [revisionId],
+      );
+      publishPromise = publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.21",
+      });
+      await waitForBlockedQuery("campus_map_revision_visibility");
+      await redactor.query("commit");
+      redactorOpen = false;
+
+      await expect(publishPromise).resolves.toMatchObject({
+        status: "validation-failed",
+        errors: [{ code: "redacted-revision-not-editable" }],
+      });
+      await expect(getCampusMapPlaceHistory(placeId)).resolves.toMatchObject({
+        items: [{ id: revisionId }],
+      });
+    } finally {
+      if (redactorOpen) await redactor.query("rollback");
+      if (publishPromise) await publishPromise.catch(() => undefined);
+      redactor.release();
+    }
+  }, 10_000);
+
   it("returns a safe Current snapshot for a stale base without partial writes", async () => {
     const [firstActorId, staleActorId] = await Promise.all([
       createActor(),
@@ -1338,8 +1705,11 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
 
     expect(conflict).toEqual({
       status: "conflict",
+      code: "base-revision-conflict",
       conflicts: [
         {
+          code: "base-revision-conflict",
+          anchor: { changeIndex: 0, placeId, field: "baseRevisionId" },
           placeId,
           expectedRevisionId: baseRevisionId,
           currentRevisionId: first.changes[0].revisionId,
@@ -1392,8 +1762,11 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       }),
     ).resolves.toEqual({
       status: "conflict",
+      code: "base-revision-conflict",
       conflicts: [
         {
+          code: "base-revision-conflict",
+          anchor: { changeIndex: 0, placeId, field: "baseRevisionId" },
           placeId,
           expectedRevisionId: baseRevisionId,
           currentRevisionId: null,
@@ -1442,6 +1815,36 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         {
           code: "invalid-location",
           anchor: { changeIndex: 0, field: "location" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+  });
+
+  it("enforces pin-type applicable fields from the active fact schema", async () => {
+    const actorId = await createActor();
+    const command = createCommand();
+    const change = command.changes[0];
+    if (change.operation !== "create") throw new Error("bad fixture");
+    change.fact.capabilities = ["print"];
+    change.fact.gender = "female";
+
+    await expect(
+      publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.24",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "field-not-applicable",
+          anchor: { changeIndex: 0, field: "capabilities" },
+        },
+        {
+          code: "field-not-applicable",
+          anchor: { changeIndex: 0, field: "gender" },
         },
       ],
       warnings: [],
@@ -1684,6 +2087,38 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     await expect(
       getCampusMapCurrentPlace(acknowledged.changes[0].placeId),
     ).resolves.toMatchObject({ name: "大学图书馆饮水点" });
+  });
+
+  it("returns source Errors before an otherwise unconfirmed duplicate Warning", async () => {
+    const [existingActorId, candidateActorId] = await Promise.all([
+      createActor(),
+      createActor(),
+    ]);
+    const existing = await publishCampusMapChangeset(createCommand(), {
+      actorId: existingActorId,
+      clientIp: "203.0.113.29",
+    });
+    if (existing.status !== "published") throw new Error("create failed");
+
+    const candidate = createCommand();
+    const change = candidate.changes[0];
+    change.sources.push(structuredClone(change.sources[0]));
+
+    await expect(
+      publishCampusMapChangeset(candidate, {
+        actorId: candidateActorId,
+        clientIp: "203.0.113.30",
+      }),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "duplicate-source-reference",
+          anchor: { changeIndex: 0, field: "sources.1.ref" },
+        },
+      ],
+      warnings: [],
+    });
   });
 
   it("returns Suggestions without blocking publication", async () => {
@@ -2070,8 +2505,15 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
 
     expect(result).toMatchObject({
       status: "conflict",
+      code: "base-revision-conflict",
       conflicts: [
         {
+          code: "base-revision-conflict",
+          anchor: {
+            changeIndex: 1,
+            placeId: placeB.placeId,
+            field: "baseRevisionId",
+          },
           placeId: placeB.placeId,
           expectedRevisionId: placeB.revisionId,
           currentRevisionId: advancedB.changes[0].revisionId,
@@ -2253,6 +2695,58 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       if (limited.status !== "rate-limited") throw new Error("not limited");
       expect(limited.retryAfter).toBeGreaterThan(0);
       expect(limited.retryAfter).toBeLessThanOrEqual(3_600);
+    } finally {
+      for (const [name, value] of [
+        ["CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT", previous.actorBurst],
+        ["CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT", previous.actorSustained],
+        ["CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT", previous.ipBurst],
+        ["CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT", previous.ipSustained],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  });
+
+  it("shares IP quota across equivalent IPv6 text representations", async () => {
+    const previous = {
+      actorBurst: process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT,
+      actorSustained: process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT,
+      ipBurst: process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT,
+      ipSustained: process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT,
+    };
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT = "1";
+    process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT = "100";
+    try {
+      const [firstActor, secondActor] = await Promise.all([
+        createActor(),
+        createActor(),
+      ]);
+      const first = createCommand();
+      const second = createCommand();
+      const secondChange = second.changes[0];
+      if (secondChange.operation !== "create") throw new Error("bad fixture");
+      secondChange.fact.name = "IPv6 配额地点 B";
+      secondChange.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+
+      await expect(
+        publishCampusMapChangeset(first, {
+          actorId: firstActor,
+          clientIp: "2001:db8::1",
+        }),
+      ).resolves.toMatchObject({ status: "published" });
+      await expect(
+        publishCampusMapChangeset(second, {
+          actorId: secondActor,
+          clientIp: "2001:0db8:0:0:0:0:0:1",
+        }),
+      ).resolves.toMatchObject({
+        status: "rate-limited",
+        scope: "ip",
+        policy: "burst",
+      });
     } finally {
       for (const [name, value] of [
         ["CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT", previous.actorBurst],

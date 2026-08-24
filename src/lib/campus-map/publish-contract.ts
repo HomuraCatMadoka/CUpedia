@@ -133,7 +133,10 @@ export type CampusMapPublishResult =
     }
   | {
       status: "conflict";
+      code: "base-revision-conflict";
       conflicts: Array<{
+        code: "base-revision-conflict";
+        anchor: CampusMapPublishIssueAnchor;
         placeId: string;
         expectedRevisionId: string;
         currentRevisionId: string | null;

@@ -205,6 +205,7 @@ export class CampusMapFactStoreTransaction {
         eq(campusMapFactRevisions.id, campusMapRevisionVisibility.revisionId),
       )
       .where(eq(campusMapFactRevisions.id, current.revisionId))
+      .for("update", { of: campusMapRevisionVisibility })
       .limit(1);
     if (!revision) {
       throw new Error("Campus Map Current revision snapshot does not exist");
@@ -281,63 +282,17 @@ export class CampusMapFactStoreTransaction {
     return { revisionId: current.revisionId, status: current.status };
   }
 
+  async validateProvenanceSources(
+    sources: CampusMapAppendProvenanceSource[],
+  ): Promise<void> {
+    await this.lockAndValidateProvenanceSources(sources);
+  }
+
   async resolveProvenanceSources(
     sources: CampusMapAppendProvenanceSource[],
   ): Promise<string[]> {
-    if (sources.length === 0) {
-      throw new Error("Campus Map revision requires provenance");
-    }
-    const uniqueByIdentity = new Map<string, CampusMapAppendProvenanceSource>();
-    for (const source of sources) {
-      const identity = provenanceIdentity(source);
-      const existing = uniqueByIdentity.get(identity);
-      if (existing && !sameProvenanceMetadata(existing, source)) {
-        throw new CampusMapProvenanceIdentityConflictError(
-          source.kind,
-          source.ref,
-        );
-      }
-      uniqueByIdentity.set(identity, existing ?? source);
-    }
-    const uniqueSources = [...uniqueByIdentity.values()];
-    const locks = uniqueSources
-      .map((source) => provenanceLockKey(provenanceIdentity(source)))
-      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
-    for (const lockKey of locks) {
-      await this.transaction.execute(
-        sql`select pg_advisory_xact_lock(${lockKey.toString()}::bigint)`,
-      );
-    }
-
-    const existingSources = await this.transaction
-      .select(provenanceSourceSelection)
-      .from(campusMapProvenanceSources)
-      .where(
-        or(
-          ...uniqueSources.map((source) =>
-            and(
-              eq(campusMapProvenanceSources.sourceKind, source.kind),
-              eq(campusMapProvenanceSources.sourceRef, source.ref),
-            ),
-          ),
-        ),
-      );
-    const existingByIdentity = new Map(
-      existingSources.map((source) => [
-        provenanceIdentity({ kind: source.sourceKind, ref: source.sourceRef }),
-        source,
-      ]),
-    );
-    for (const source of uniqueSources) {
-      const existing = existingByIdentity.get(provenanceIdentity(source));
-      if (existing && !sameProvenanceMetadata(source, existing)) {
-        throw new CampusMapProvenanceIdentityConflictError(
-          source.kind,
-          source.ref,
-        );
-      }
-    }
-
+    const { uniqueSources, existingByIdentity } =
+      await this.lockAndValidateProvenanceSources(sources);
     const idByIdentity = new Map<string, string>();
     for (const source of uniqueSources) {
       const identity = provenanceIdentity(source);
@@ -402,6 +357,68 @@ export class CampusMapFactStoreTransaction {
       if (!id) throw new Error("Campus Map provenance was not resolved");
       return id;
     });
+  }
+
+  private async lockAndValidateProvenanceSources(
+    sources: CampusMapAppendProvenanceSource[],
+  ): Promise<{
+    uniqueSources: CampusMapAppendProvenanceSource[];
+    existingByIdentity: Map<string, StoredProvenanceSource>;
+  }> {
+    if (sources.length === 0) {
+      throw new Error("Campus Map revision requires provenance");
+    }
+    const uniqueByIdentity = new Map<string, CampusMapAppendProvenanceSource>();
+    for (const source of sources) {
+      const identity = provenanceIdentity(source);
+      const existing = uniqueByIdentity.get(identity);
+      if (existing && !sameProvenanceMetadata(existing, source)) {
+        throw new CampusMapProvenanceIdentityConflictError(
+          source.kind,
+          source.ref,
+        );
+      }
+      uniqueByIdentity.set(identity, existing ?? source);
+    }
+    const uniqueSources = [...uniqueByIdentity.values()];
+    const locks = uniqueSources
+      .map((source) => provenanceLockKey(provenanceIdentity(source)))
+      .sort((left, right) => (left < right ? -1 : left > right ? 1 : 0));
+    for (const lockKey of locks) {
+      await this.transaction.execute(
+        sql`select pg_advisory_xact_lock(${lockKey.toString()}::bigint)`,
+      );
+    }
+
+    const existingSources = await this.transaction
+      .select(provenanceSourceSelection)
+      .from(campusMapProvenanceSources)
+      .where(
+        or(
+          ...uniqueSources.map((source) =>
+            and(
+              eq(campusMapProvenanceSources.sourceKind, source.kind),
+              eq(campusMapProvenanceSources.sourceRef, source.ref),
+            ),
+          ),
+        ),
+      );
+    const existingByIdentity = new Map<string, StoredProvenanceSource>(
+      existingSources.map((source) => [
+        provenanceIdentity({ kind: source.sourceKind, ref: source.sourceRef }),
+        source,
+      ]),
+    );
+    for (const source of uniqueSources) {
+      const existing = existingByIdentity.get(provenanceIdentity(source));
+      if (existing && !sameProvenanceMetadata(source, existing)) {
+        throw new CampusMapProvenanceIdentityConflictError(
+          source.kind,
+          source.ref,
+        );
+      }
+    }
+    return { uniqueSources, existingByIdentity };
   }
 
   async appendChangeset(

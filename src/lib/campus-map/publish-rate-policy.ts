@@ -24,10 +24,7 @@ export async function consumePublishRate(
   clientIp: string,
   now: Date,
 ): Promise<Extract<CampusMapPublishResult, { status: "rate-limited" }> | null> {
-  const normalizedIp = clientIp.trim().toLowerCase();
-  if (isIP(normalizedIp) === 0) {
-    throw new Error("Campus Map publish context has an invalid client IP");
-  }
+  const normalizedIp = normalizeClientIp(clientIp);
   const actorHash = privateSubjectHash("actor", actorId);
   const ipHash = privateSubjectHash("ip", normalizedIp);
   const rules: CampusMapRateRule[] = [
@@ -136,6 +133,17 @@ export async function consumePublishRate(
       );
   }
   return null;
+}
+
+function normalizeClientIp(clientIp: string): string {
+  const normalized = clientIp.trim().toLowerCase();
+  const version = isIP(normalized);
+  if (version === 0) {
+    throw new Error("Campus Map publish context has an invalid client IP");
+  }
+  if (version === 4) return normalized;
+  const hostname = new URL(`http://[${normalized}]/`).hostname;
+  return hostname.slice(1, -1);
 }
 
 function privateSubjectHash(

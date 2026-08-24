@@ -88,9 +88,12 @@ idempotency remain owned by the sole publish seam. They are intentionally not
 duplicated as a second set of cross-table trigger rules.
 
 The publisher acquires locks in a stable order: actor-scoped idempotency
-advisory lock, actor/IP rate rows in fixed policy order, existing Place rows in
-canonical UUID order, then provenance advisory locks in numeric key order. No
-network request or slow external adapter runs inside the transaction.
+advisory lock, fresh User and credential eligibility rows, actor/IP rate rows in
+fixed policy order, existing Place and Current visibility rows in canonical
+Place UUID order, then provenance advisory locks in numeric key order. Exact
+completed replay returns before eligibility and quota because it does not
+create a new publication. No network request or slow external adapter runs
+inside the transaction.
 
 The projection-hardening migration validates every existing Current fact while
 installing the trigger. This takes a write lock and rewrites that projection;

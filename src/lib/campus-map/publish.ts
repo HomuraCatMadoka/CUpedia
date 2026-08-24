@@ -76,24 +76,59 @@ export async function publishCampusMapChangeset(
   command: CampusMapPublishCommand,
   context: CampusMapPublishContext,
 ): Promise<CampusMapPublishResult> {
-  if (context.actorId === null) {
+  const actorId = context.actorId;
+  if (actorId === null) {
     return {
       status: "authentication-required",
       code: "authentication-required",
     };
   }
-  if (!hasPublishCommandStructure(command)) {
-    return invalidCommandResult();
-  }
-  let serializedCommand: string;
+  const hasValidStructure = hasPublishCommandStructure(command);
+  let serializedCommand: string | null = null;
   try {
     serializedCommand = JSON.stringify(canonicalize(command));
-    if (typeof serializedCommand !== "string") return invalidCommandResult();
+    if (typeof serializedCommand !== "string") serializedCommand = null;
   } catch {
-    return invalidCommandResult();
+    serializedCommand = null;
   }
   try {
     return await db.transaction(async (transaction) => {
+      let requestFingerprint: string | null = null;
+      let reusedRequest: StoredPublishRequest | null = null;
+      if (
+        hasValidStructure &&
+        serializedCommand !== null &&
+        isValidPublishIdempotencyKey(command.idempotencyKey)
+      ) {
+        requestFingerprint = fingerprintRequest(serializedCommand);
+        const existingRequest = await findPublishRequest(
+          transaction,
+          actorId,
+          command.idempotencyKey,
+        );
+        if (existingRequest?.requestFingerprint === requestFingerprint) {
+          return replayPublishRequest(existingRequest, requestFingerprint);
+        }
+        await acquireTransactionAdvisoryLock(
+          transaction,
+          `publish-request\u0000${actorId}\u0000${command.idempotencyKey}`,
+        );
+        const requestPublishedWhileWaiting = await findPublishRequest(
+          transaction,
+          actorId,
+          command.idempotencyKey,
+        );
+        if (
+          requestPublishedWhileWaiting?.requestFingerprint ===
+          requestFingerprint
+        ) {
+          return replayPublishRequest(
+            requestPublishedWhileWaiting,
+            requestFingerprint,
+          );
+        }
+        reusedRequest = requestPublishedWhileWaiting;
+      }
       const [actor] = await transaction
         .select({
           id: users.id,
@@ -102,18 +137,10 @@ export async function publishCampusMapChangeset(
           emailVerified: users.emailVerified,
           nickname: users.nickname,
           role: users.role,
-          credentialId: accounts.id,
         })
         .from(users)
-        .leftJoin(
-          accounts,
-          and(
-            eq(accounts.userId, users.id),
-            eq(accounts.providerId, "credential"),
-            isNotNull(accounts.password),
-          ),
-        )
-        .where(eq(users.id, context.actorId!))
+        .where(eq(users.id, actorId))
+        .for("update")
         .limit(1);
       if (!actor) {
         return { status: "forbidden", code: "actor-not-eligible" } as const;
@@ -124,14 +151,40 @@ export async function publishCampusMapChangeset(
       if (actor.banned) {
         return { status: "forbidden", code: "actor-banned" } as const;
       }
-      if (actor.nickname.trim() === "" || actor.credentialId === null) {
-        return { status: "forbidden", code: "profile-incomplete" } as const;
-      }
       if (actor.role !== "user" && actor.role !== "admin") {
         return { status: "forbidden", code: "role-not-eligible" } as const;
       }
-      if (command.kind === "bulk" && actor.role !== "admin") {
+      const [credential] = await transaction
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(
+          and(
+            eq(accounts.userId, actor.id),
+            eq(accounts.providerId, "credential"),
+            isNotNull(accounts.password),
+          ),
+        )
+        .for("update")
+        .limit(1);
+      if (actor.nickname.trim() === "" || !credential) {
+        return { status: "forbidden", code: "profile-incomplete" } as const;
+      }
+      if (
+        hasValidStructure &&
+        command.kind === "bulk" &&
+        actor.role !== "admin"
+      ) {
         return { status: "forbidden", code: "admin-required" } as const;
+      }
+      const rateLimit = await consumePublishRate(
+        transaction,
+        actor.id,
+        context.clientIp,
+        new Date(),
+      );
+      if (rateLimit) return rateLimit;
+      if (!hasValidStructure || serializedCommand === null) {
+        return invalidCommandResult();
       }
       if (isPublishCommandTooLarge(serializedCommand, command.kind)) {
         return {
@@ -154,37 +207,12 @@ export async function publishCampusMapChangeset(
           suggestions: [],
         } as const;
       }
-      const requestFingerprint = fingerprintRequest(serializedCommand);
-      const existingRequest = await findPublishRequest(
-        transaction,
-        actor.id,
-        command.idempotencyKey,
-      );
-      if (existingRequest) {
-        return replayPublishRequest(existingRequest, requestFingerprint);
+      if (requestFingerprint === null) {
+        throw new Error("Campus Map request fingerprint was not prepared");
       }
-      await acquireTransactionAdvisoryLock(
-        transaction,
-        `publish-request\u0000${actor.id}\u0000${command.idempotencyKey}`,
-      );
-      const requestPublishedWhileWaiting = await findPublishRequest(
-        transaction,
-        actor.id,
-        command.idempotencyKey,
-      );
-      if (requestPublishedWhileWaiting) {
-        return replayPublishRequest(
-          requestPublishedWhileWaiting,
-          requestFingerprint,
-        );
+      if (reusedRequest) {
+        return replayPublishRequest(reusedRequest, requestFingerprint);
       }
-      const rateLimit = await consumePublishRate(
-        transaction,
-        actor.id,
-        context.clientIp,
-        new Date(),
-      );
-      if (rateLimit) return rateLimit;
       if (command.kind === "single" && command.changes.length !== 1) {
         return {
           status: "validation-failed",
@@ -310,6 +338,15 @@ export async function publishCampusMapChangeset(
           suggestions: [],
         } as const;
       }
+      const sourceIdentities = analyzeSourceIdentities(command);
+      if (sourceIdentities.errors.length > 0) {
+        return {
+          status: "validation-failed",
+          errors: sourceIdentities.errors,
+          warnings: [],
+          suggestions: [],
+        } as const;
+      }
       const referenceErrors: CampusMapPublishValidationIssue[] = [];
       for (const [changeIndex, change] of command.changes.entries()) {
         if (change.operation === "retire") continue;
@@ -401,108 +438,6 @@ export async function publishCampusMapChangeset(
               ]
             : [],
         );
-      const warnings: CampusMapPublishWarning[] = [];
-      for (const [changeIndex, change] of command.changes.entries()) {
-        if (change.operation === "retire") continue;
-        const candidates = await transaction
-          .select({
-            placeId: campusMapCurrentFacts.placeId,
-            locationKind: campusMapCurrentFacts.locationKind,
-            buildingId: campusMapCurrentFacts.buildingId,
-            floorId: campusMapCurrentFacts.floorId,
-            longitude: campusMapCurrentFacts.longitude,
-            latitude: campusMapCurrentFacts.latitude,
-          })
-          .from(campusMapCurrentFacts)
-          .where(
-            and(
-              eq(campusMapCurrentFacts.pinType, change.fact.pinType),
-              sql`btrim(${campusMapCurrentFacts.name}) <> ''`,
-              sql`lower(btrim(${campusMapCurrentFacts.name})) = lower(btrim(${change.fact.name}))`,
-            ),
-          )
-          .orderBy(asc(campusMapCurrentFacts.placeId));
-        const duplicatePlaceIds = candidates
-          .filter(
-            (candidate) =>
-              (change.operation === "create" ||
-                candidate.placeId !== change.placeId) &&
-              duplicateLocation(candidate, change.fact),
-          )
-          .map((candidate) => candidate.placeId);
-        if (duplicatePlaceIds.length === 0) continue;
-        warnings.push({
-          code: "possible-duplicate",
-          anchor: {
-            changeIndex,
-            placeId: duplicatePlaceIds[0],
-            field: "name",
-          },
-          fingerprint: warningFingerprint({
-            code: "possible-duplicate",
-            changeIndex,
-            operation: change.operation,
-            placeId: change.operation === "create" ? null : change.placeId,
-            fact: factWarningInputs(change.fact),
-            candidates: duplicatePlaceIds,
-          }),
-        });
-      }
-      const acknowledgedWarnings = new Set<string>();
-      const invalidAcknowledgements: CampusMapPublishValidationIssue[] = [];
-      for (const acknowledgement of command.warningAcknowledgements) {
-        const warning = warnings.find(
-          (candidate) =>
-            candidate.code === acknowledgement.code &&
-            candidate.anchor.changeIndex === acknowledgement.changeIndex &&
-            candidate.fingerprint === acknowledgement.fingerprint,
-        );
-        const key = `${acknowledgement.changeIndex}:${acknowledgement.code}`;
-        if (!warning || acknowledgedWarnings.has(key)) {
-          invalidAcknowledgements.push({
-            code: "warning-acknowledgement-invalid",
-            anchor: {
-              changeIndex: acknowledgement.changeIndex,
-              field: "warningAcknowledgements",
-            },
-          });
-        } else {
-          acknowledgedWarnings.add(key);
-        }
-      }
-      if (invalidAcknowledgements.length > 0) {
-        return {
-          status: "validation-failed",
-          errors: invalidAcknowledgements,
-          warnings,
-          suggestions,
-        } as const;
-      }
-      const hasUnacknowledgedWarning = warnings.some(
-        (warning) =>
-          !acknowledgedWarnings.has(
-            `${warning.anchor.changeIndex}:${warning.code}`,
-          ),
-      );
-      if (hasUnacknowledgedWarning) {
-        return {
-          status: "validation-failed",
-          errors: [],
-          warnings,
-          suggestions,
-        } as const;
-      }
-
-      const sourceIdentities = analyzeSourceIdentities(command);
-      if (sourceIdentities.errors.length > 0) {
-        return {
-          status: "validation-failed",
-          errors: sourceIdentities.errors,
-          warnings,
-          suggestions,
-        } as const;
-      }
-
       const publishedAt = new Date();
       const changes: CampusMapAppendPlaceChange[] = [];
       const store = new CampusMapFactStoreTransaction(transaction);
@@ -531,8 +466,15 @@ export async function publishCampusMapChangeset(
       const conflicts = existingChanges.flatMap((change) => {
         const current = lockedByPlace.get(change.placeId) ?? null;
         if (current?.revisionId === change.baseRevisionId) return [];
+        const changeIndex = command.changes.indexOf(change);
         return [
           {
+            code: "base-revision-conflict" as const,
+            anchor: {
+              changeIndex,
+              placeId: change.placeId,
+              field: "baseRevisionId",
+            },
             placeId: change.placeId,
             expectedRevisionId: change.baseRevisionId,
             currentRevisionId: current?.revisionId ?? null,
@@ -551,7 +493,33 @@ export async function publishCampusMapChangeset(
         if (racedRequest) {
           return replayPublishRequest(racedRequest, requestFingerprint);
         }
-        return { status: "conflict", conflicts } as const;
+        return {
+          status: "conflict",
+          code: "base-revision-conflict",
+          conflicts,
+        } as const;
+      }
+      const redactedErrors = existingChanges.flatMap((change) => {
+        const current = lockedByPlace.get(change.placeId);
+        if (current?.visibility !== "redacted") return [];
+        return [
+          {
+            code: "redacted-revision-not-editable",
+            anchor: {
+              changeIndex: command.changes.indexOf(change),
+              placeId: change.placeId,
+              field: "baseRevisionId",
+            },
+          },
+        ];
+      });
+      if (redactedErrors.length > 0) {
+        return {
+          status: "validation-failed",
+          errors: redactedErrors,
+          warnings: [],
+          suggestions: [],
+        } as const;
       }
       const transitionErrors = existingChanges.flatMap((change) => {
         const current = lockedByPlace.get(change.placeId);
@@ -610,12 +578,51 @@ export async function publishCampusMapChangeset(
         } as const;
       }
 
+      const appendProvenanceSources = sourceIdentities.sources.map(
+        ({ source }) => toAppendProvenanceSource(source),
+      );
+      try {
+        await store.validateProvenanceSources(appendProvenanceSources);
+      } catch (error) {
+        if (error instanceof CampusMapProvenanceIdentityConflictError) {
+          const conflictingSource = sourceIdentities.sources.find(
+            ({ source }) =>
+              source.kind === error.kind && source.ref === error.ref,
+          );
+          if (!conflictingSource) throw error;
+          return {
+            status: "validation-failed",
+            errors: [sourceRefMismatch(conflictingSource)],
+            warnings: [],
+            suggestions: [],
+          } as const;
+        }
+        throw error;
+      }
+
+      const { warnings, invalidAcknowledgements, hasUnacknowledgedWarning } =
+        await evaluatePublishWarnings(transaction, command);
+      if (invalidAcknowledgements.length > 0) {
+        return {
+          status: "validation-failed",
+          errors: invalidAcknowledgements,
+          warnings,
+          suggestions,
+        } as const;
+      }
+      if (hasUnacknowledgedWarning) {
+        return {
+          status: "validation-failed",
+          errors: [],
+          warnings,
+          suggestions,
+        } as const;
+      }
+
       let resolvedProvenanceIds: string[];
       try {
         resolvedProvenanceIds = await store.resolveProvenanceSources(
-          sourceIdentities.sources.map(({ source }) =>
-            toAppendProvenanceSource(source),
-          ),
+          appendProvenanceSources,
         );
       } catch (error) {
         if (error instanceof CampusMapProvenanceIdentityConflictError) {
@@ -776,6 +783,93 @@ async function acquireTransactionAdvisoryLock(
   await transaction.execute(
     sql`select pg_advisory_xact_lock(${lockKey.toString()}::bigint)`,
   );
+}
+
+async function evaluatePublishWarnings(
+  transaction: DatabaseTransaction,
+  command: CampusMapPublishCommand,
+): Promise<{
+  warnings: CampusMapPublishWarning[];
+  invalidAcknowledgements: CampusMapPublishValidationIssue[];
+  hasUnacknowledgedWarning: boolean;
+}> {
+  const warnings: CampusMapPublishWarning[] = [];
+  for (const [changeIndex, change] of command.changes.entries()) {
+    if (change.operation === "retire") continue;
+    const candidates = await transaction
+      .select({
+        placeId: campusMapCurrentFacts.placeId,
+        locationKind: campusMapCurrentFacts.locationKind,
+        buildingId: campusMapCurrentFacts.buildingId,
+        floorId: campusMapCurrentFacts.floorId,
+        longitude: campusMapCurrentFacts.longitude,
+        latitude: campusMapCurrentFacts.latitude,
+      })
+      .from(campusMapCurrentFacts)
+      .where(
+        and(
+          eq(campusMapCurrentFacts.pinType, change.fact.pinType),
+          sql`btrim(${campusMapCurrentFacts.name}) <> ''`,
+          sql`lower(btrim(${campusMapCurrentFacts.name})) = lower(btrim(${change.fact.name}))`,
+        ),
+      )
+      .orderBy(asc(campusMapCurrentFacts.placeId));
+    const duplicatePlaceIds = candidates
+      .filter(
+        (candidate) =>
+          (change.operation === "create" ||
+            candidate.placeId !== change.placeId) &&
+          duplicateLocation(candidate, change.fact),
+      )
+      .map((candidate) => candidate.placeId);
+    if (duplicatePlaceIds.length === 0) continue;
+    warnings.push({
+      code: "possible-duplicate",
+      anchor: {
+        changeIndex,
+        placeId: duplicatePlaceIds[0],
+        field: "name",
+      },
+      fingerprint: warningFingerprint({
+        code: "possible-duplicate",
+        changeIndex,
+        operation: change.operation,
+        placeId: change.operation === "create" ? null : change.placeId,
+        fact: factWarningInputs(change.fact),
+        candidates: duplicatePlaceIds,
+      }),
+    });
+  }
+
+  const acknowledgedWarnings = new Set<string>();
+  const invalidAcknowledgements: CampusMapPublishValidationIssue[] = [];
+  for (const acknowledgement of command.warningAcknowledgements) {
+    const warning = warnings.find(
+      (candidate) =>
+        candidate.code === acknowledgement.code &&
+        candidate.anchor.changeIndex === acknowledgement.changeIndex &&
+        candidate.fingerprint === acknowledgement.fingerprint,
+    );
+    const key = `${acknowledgement.changeIndex}:${acknowledgement.code}`;
+    if (!warning || acknowledgedWarnings.has(key)) {
+      invalidAcknowledgements.push({
+        code: "warning-acknowledgement-invalid",
+        anchor: {
+          changeIndex: acknowledgement.changeIndex,
+          field: "warningAcknowledgements",
+        },
+      });
+    } else {
+      acknowledgedWarnings.add(key);
+    }
+  }
+  const hasUnacknowledgedWarning = warnings.some(
+    (warning) =>
+      !acknowledgedWarnings.has(
+        `${warning.anchor.changeIndex}:${warning.code}`,
+      ),
+  );
+  return { warnings, invalidAcknowledgements, hasUnacknowledgedWarning };
 }
 
 function duplicateLocation(
