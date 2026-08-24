@@ -13,7 +13,7 @@ import { assertProviderMenuIdentitySnapshot } from "./canteen-provider-menu-iden
 import type {
   MenuObservationContext,
   MenuSnapshotScopeEvidence,
-  MenuSyncInput,
+  ProviderMenuObservation,
 } from "./canteen-types";
 
 const ICHEF_ENDPOINT =
@@ -260,7 +260,7 @@ export async function fetchIchefMenu(
   externalStoreId: string,
   options: FetchMenuOptions = {},
   config?: CanteenMenuSourceConfig,
-): Promise<MenuSyncInput> {
+): Promise<ProviderMenuObservation> {
   const fetchImpl = options.fetchImpl ?? fetch;
   assertOnlyConfigKeys(config, ["platformType"]);
   const common = {
@@ -294,7 +294,7 @@ export async function fetchAigensMenu(
   externalStoreId: string,
   options: FetchMenuOptions = {},
   config?: CanteenMenuSourceConfig,
-): Promise<MenuSyncInput> {
+): Promise<ProviderMenuObservation> {
   if (!/^\d+$/.test(externalStoreId))
     throw new Error("INVALID_AIGENS_STORE_ID");
   assertOnlyConfigKeys(config, [
@@ -409,7 +409,7 @@ export async function fetchPinmeMenu(
   externalStoreId: string,
   options: FetchMenuOptions = {},
   config?: CanteenMenuSourceConfig,
-): Promise<MenuSyncInput> {
+): Promise<ProviderMenuObservation> {
   if (!/^\d+$/.test(externalStoreId)) throw new Error("INVALID_PINME_STORE_ID");
   assertOnlyConfigKeys(config, ["langcode", "takeout", "orderSubType"]);
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -447,7 +447,7 @@ export async function fetchQmaiMenu(
   options: FetchMenuOptions = {},
   config?: CanteenMenuSourceConfig,
   externalOwnerId?: string | null,
-): Promise<MenuSyncInput> {
+): Promise<ProviderMenuObservation> {
   if (!/^\d+$/.test(externalStoreId)) throw new Error("INVALID_QMAI_STORE_ID");
   assertOnlyConfigKeys(config, ["orderType", "locale"]);
   const multiStoreId = externalStoreId;
@@ -519,8 +519,8 @@ export function fetchMenuFromProvider(
   source: MenuSource,
   observationContext: MenuObservationContext,
   options: FetchMenuOptions = {},
-): Promise<MenuSyncInput> {
-  let payload: Promise<MenuSyncInput>;
+): Promise<ProviderMenuObservation> {
+  let payload: Promise<ProviderMenuObservation>;
   switch (source.provider) {
     case "aigens":
       payload = fetchAigensMenu(source.externalStoreId, options, source.config);
@@ -541,7 +541,21 @@ export function fetchMenuFromProvider(
       break;
   }
   return payload.then((result) => {
-    assertProviderMenuIdentitySnapshot(source.provider, source, result.items);
-    return result;
+    const scopedResult =
+      source.provider === "aigens" || source.provider === "pinme"
+        ? {
+            ...result,
+            observationScope: {
+              kind: "meal-period" as const,
+              mealPeriod: observationContext.mealPeriod,
+            },
+          }
+        : result;
+    assertProviderMenuIdentitySnapshot(
+      source.provider,
+      source,
+      scopedResult.items,
+    );
+    return scopedResult;
   });
 }

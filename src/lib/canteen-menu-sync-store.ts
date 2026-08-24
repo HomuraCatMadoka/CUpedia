@@ -11,6 +11,7 @@ import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { lockCanteenMenuMutationForSource } from "./canteen-menu-mutation-lock";
 import {
+  evaluateCurrentMenuProjection,
   evaluateMenuIdentityTransitionSnapshot,
   evaluateMenuSnapshot,
   resolveApprovedIdentityTransitionBlocking,
@@ -28,6 +29,7 @@ import {
 } from "./canteen-menu-identity-transition";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import type {
+  CurrentMenuProjection,
   MealPeriodAssignment,
   MenuItemPriceOptionInput,
   MenuSyncInput,
@@ -45,7 +47,7 @@ export type LockedMenuSource = MenuSourceRow & {
 };
 export type RecurringMenuProjection = {
   status: "applied" | "unchanged" | "blocked";
-  evaluation: MenuSnapshotEvaluation;
+  evaluation: MenuSnapshotEvaluation<CurrentMenuProjection>;
   createdCount: number;
   updatedCount: number;
   deactivatedCount: number;
@@ -467,87 +469,88 @@ export async function auditMenuIdentityTransition(
   };
 }
 
-type MenuSyncApplyMode =
-  | { kind: "legacy" }
-  | { kind: "recurring" }
-  | { kind: "identity-transition"; artifact: unknown };
+type MenuSyncApplyRequest =
+  | {
+      kind: "legacy";
+      input: MenuSyncInput;
+      expectedPreviewToken: unknown;
+    }
+  | { kind: "recurring"; projection: CurrentMenuProjection }
+  | { kind: "identity-transition"; input: MenuSyncInput; artifact: unknown };
 
 async function applyLockedMenuSync(
   tx: MenuSyncTransaction,
   source: LockedMenuSource,
-  mode: { kind: "legacy" },
-  input: MenuSyncInput,
-  expectedPreviewToken: unknown,
+  request: Extract<MenuSyncApplyRequest, { kind: "legacy" }>,
 ): Promise<MenuSnapshotEvaluation>;
 async function applyLockedMenuSync(
   tx: MenuSyncTransaction,
   source: LockedMenuSource,
-  mode: { kind: "recurring" },
-  input: MenuSyncInput,
+  request: Extract<MenuSyncApplyRequest, { kind: "recurring" }>,
 ): Promise<RecurringMenuProjection>;
 async function applyLockedMenuSync(
   tx: MenuSyncTransaction,
   source: LockedMenuSource,
-  mode: { kind: "identity-transition"; artifact: unknown },
-  input: MenuSyncInput,
+  request: Extract<MenuSyncApplyRequest, { kind: "identity-transition" }>,
 ): Promise<MenuSnapshotEvaluation>;
 async function applyLockedMenuSync(
   tx: MenuSyncTransaction,
   source: LockedMenuSource,
-  mode: MenuSyncApplyMode,
-  input: MenuSyncInput,
-  expectedPreviewToken?: unknown,
+  request: MenuSyncApplyRequest,
 ): Promise<MenuSnapshotEvaluation | RecurringMenuProjection> {
-  if (mode.kind === "identity-transition") {
-    assertLegacyIdentityTransitionSnapshot(source, input);
-  } else if (mode.kind === "legacy") {
+  const observationInput = request.kind === "recurring" ? null : request.input;
+  if (request.kind === "identity-transition") {
+    assertLegacyIdentityTransitionSnapshot(source, request.input);
+  } else if (request.kind === "legacy") {
     assertProviderSnapshotCompleteness(
       source.provider,
-      input.snapshotCompleteness,
-      input.scopeEvidence,
+      request.input.snapshotCompleteness,
+      request.input.scopeEvidence,
       source.externalStoreId,
-      input.observationScope,
+      request.input.observationScope,
     );
   }
   const now = source.databaseNow;
-  if (input.takeOverLegacyItems && source.legacyTakeoverAt !== null) {
+  if (
+    observationInput?.takeOverLegacyItems &&
+    source.legacyTakeoverAt !== null
+  ) {
     throw new Error("LEGACY_TAKEOVER_ALREADY_COMPLETED");
   }
-  if (mode.kind === "identity-transition" && input.takeOverLegacyItems) {
+  if (
+    request.kind === "identity-transition" &&
+    request.input.takeOverLegacyItems
+  ) {
     throw new Error("IDENTITY_TRANSITION_LEGACY_TAKEOVER_FORBIDDEN");
   }
-  const projectionInput =
-    mode.kind === "recurring" ? input : manualMenuProjection(input);
 
   await lockExistingMenuItems(tx, source.canteenId);
   const rows = await selectExistingItems(tx, source.canteenId);
   const existing = collectExistingSyncItems(rows);
-  const baselineEvaluation =
-    mode.kind === "identity-transition"
-      ? evaluateMenuIdentityTransitionSnapshot(
-          {
-            id: source.id,
-            provider: source.provider,
-            legacyAdoptionOpen: source.legacyTakeoverAt === null,
-          },
-          projectionInput,
-          existing,
-        )
-      : evaluateMenuSnapshot(
-          {
-            id: source.id,
-            provider: source.provider,
-            legacyAdoptionOpen: source.legacyTakeoverAt === null,
-          },
-          projectionInput,
-          existing,
-          [],
-          { adapterAcceptedEmpty: mode.kind === "recurring" },
-        );
-  let evaluation = baselineEvaluation;
+  const evaluationSource = {
+    id: source.id,
+    provider: source.provider,
+    legacyAdoptionOpen: source.legacyTakeoverAt === null,
+  };
+  let evaluation:
+    | MenuSnapshotEvaluation
+    | MenuSnapshotEvaluation<CurrentMenuProjection>;
   let approvedCanonicalizations: ApprovedMenuIdentityCanonicalization[] = [];
   let approvedMerges: ApprovedMenuIdentityMerge[] = [];
-  if (mode.kind === "identity-transition") {
+  if (request.kind === "recurring") {
+    evaluation = evaluateCurrentMenuProjection(
+      evaluationSource,
+      request.projection,
+      existing,
+      { adapterAcceptedEmpty: true },
+    );
+  } else if (request.kind === "identity-transition") {
+    const projectionInput = manualMenuProjection(request.input);
+    const identityEvaluation = evaluateMenuIdentityTransitionSnapshot(
+      evaluationSource,
+      projectionInput,
+      existing,
+    );
     const approval = verifyMenuIdentityTransitionApproval(
       {
         provider: source.provider,
@@ -556,14 +559,14 @@ async function applyLockedMenuSync(
         configurationFingerprint:
           fingerprintMenuIdentityTransitionSource(source),
       },
-      baselineEvaluation.canonicalState.existingItems.filter(
+      identityEvaluation.canonicalState.existingItems.filter(
         (item) => item.menuSourceId === source.id,
       ),
-      baselineEvaluation.canonicalState.input,
-      mode.artifact,
+      identityEvaluation.canonicalState.input,
+      request.artifact,
     );
     if (
-      !baselineEvaluation.blockingReasons.some(
+      !identityEvaluation.blockingReasons.some(
         (reason) => reason.code === "MENU_SYNC_IDENTITY_CHURN",
       ) &&
       approval.canonicalizations.length === 0 &&
@@ -573,34 +576,40 @@ async function applyLockedMenuSync(
     }
     approvedCanonicalizations = approval.canonicalizations;
     approvedMerges = approval.merges;
-    evaluation = evaluateMenuIdentityTransitionSnapshot(
-      {
-        id: source.id,
-        provider: source.provider,
-        legacyAdoptionOpen: source.legacyTakeoverAt === null,
-      },
-      baselineEvaluation.canonicalState.input,
-      projectApprovedIdentityChanges(
-        baselineEvaluation.canonicalState.existingItems,
-        approvedCanonicalizations,
-        approvedMerges,
+    evaluation = resolveApprovedIdentityTransitionBlocking(
+      evaluateMenuIdentityTransitionSnapshot(
+        evaluationSource,
+        identityEvaluation.canonicalState.input,
+        projectApprovedIdentityChanges(
+          identityEvaluation.canonicalState.existingItems,
+          approvedCanonicalizations,
+          approvedMerges,
+        ),
+        approval.replacements,
       ),
-      approval.replacements,
     );
-    evaluation = resolveApprovedIdentityTransitionBlocking(evaluation);
-  } else if (mode.kind === "legacy") {
+  } else {
+    const projectionInput = manualMenuProjection(request.input);
+    const legacyEvaluation = evaluateMenuSnapshot(
+      evaluationSource,
+      projectionInput,
+      existing,
+      [],
+      { adapterAcceptedEmpty: false },
+    );
     if (
-      typeof expectedPreviewToken !== "string" ||
-      !expectedPreviewToken ||
-      expectedPreviewToken !==
+      typeof request.expectedPreviewToken !== "string" ||
+      !request.expectedPreviewToken ||
+      request.expectedPreviewToken !==
         createMenuSyncPreviewToken(
           source,
-          evaluation.canonicalState.input,
-          evaluation.canonicalState.existingItems,
+          legacyEvaluation.canonicalState.input,
+          legacyEvaluation.canonicalState.existingItems,
         )
     ) {
       throw new Error("MENU_SYNC_STALE");
     }
+    evaluation = legacyEvaluation;
   }
 
   const currentPlan = evaluation.plan;
@@ -616,8 +625,12 @@ async function applyLockedMenuSync(
     ).length,
   };
   if (evaluation.blockingDecision.blocked) {
-    if (mode.kind === "recurring") {
-      return { status: "blocked", evaluation, ...counts };
+    if (request.kind === "recurring") {
+      return {
+        status: "blocked",
+        evaluation: evaluation as MenuSnapshotEvaluation<CurrentMenuProjection>,
+        ...counts,
+      };
     }
     throw Object.assign(new Error(evaluation.blockingDecision.code), {
       evaluation,
@@ -729,20 +742,20 @@ async function applyLockedMenuSync(
         ),
       );
   }
-  if (input.takeOverLegacyItems) {
+  if (observationInput?.takeOverLegacyItems) {
     await tx
       .update(canteenMenuSources)
       .set({ legacyTakeoverAt: now, enabled: true, updatedAt: now })
       .where(eq(canteenMenuSources.id, source.id));
   }
-  if (mode.kind === "recurring") {
+  if (request.kind === "recurring") {
     return {
       status: currentPlan.actions.length === 0 ? "unchanged" : "applied",
-      evaluation,
+      evaluation: evaluation as MenuSnapshotEvaluation<CurrentMenuProjection>,
       ...counts,
     };
   }
-  return evaluation;
+  return evaluation as MenuSnapshotEvaluation;
 }
 
 async function selectLockedMenuSource(
@@ -791,19 +804,16 @@ async function applyMenuSync(
       throw new Error("MENU_SYNC_STALE");
     }
     return mode.kind === "legacy"
-      ? applyLockedMenuSync(
-          tx,
-          source,
-          { kind: "legacy" },
+      ? applyLockedMenuSync(tx, source, {
+          kind: "legacy",
           input,
           expectedPreviewToken,
-        )
-      : applyLockedMenuSync(
-          tx,
-          source,
-          { kind: "identity-transition", artifact: mode.artifact },
+        })
+      : applyLockedMenuSync(tx, source, {
+          kind: "identity-transition",
           input,
-        );
+          artifact: mode.artifact,
+        });
   });
 
   const source = await db.query.canteenMenuSources.findFirst({
@@ -822,12 +832,12 @@ async function applyMenuSync(
 export function applyRecurringMenuProjection(
   tx: MenuSyncTransaction,
   source: LockedMenuSource,
-  input: MenuSyncInput,
+  input: CurrentMenuProjection,
 ): Promise<RecurringMenuProjection> {
-  if (input.takeOverLegacyItems) {
-    return Promise.reject(new Error("AUTOMATED_LEGACY_TAKEOVER_FORBIDDEN"));
-  }
-  return applyLockedMenuSync(tx, source, { kind: "recurring" }, input);
+  return applyLockedMenuSync(tx, source, {
+    kind: "recurring",
+    projection: input,
+  });
 }
 
 export function applyPreviewedMenuSync(

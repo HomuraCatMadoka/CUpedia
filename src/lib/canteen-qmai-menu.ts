@@ -10,7 +10,7 @@ import type {
   MealPeriodAssignment,
   MealPeriod,
   MenuItemPriceOptionInput,
-  MenuSyncInput,
+  ProviderMenuObservation,
 } from "@/lib/canteen-types";
 
 type JsonObject = Record<string, unknown>;
@@ -145,7 +145,7 @@ function isAvailable(item: JsonObject): boolean {
 export function buildQmaiMenuSyncPayload(
   input: unknown,
   observedMealPeriod: MealPeriod,
-): MenuSyncInput {
+): ProviderMenuObservation {
   const root = object(input);
   const data = object(root?.data);
   if (
@@ -157,7 +157,10 @@ export function buildQmaiMenuSyncPayload(
     throw new Error("QMAI_MENU_ERROR");
   }
 
-  const candidates = new Map<string, MenuSyncInput["items"][number]>();
+  const candidates = new Map<
+    string,
+    ProviderMenuObservation["items"][number]
+  >();
   for (const categoryValue of data.categoryItems) {
     const category = object(categoryValue);
     if (!category || Number(category.available ?? 1) === 0) continue;
@@ -206,7 +209,6 @@ export function buildQmaiMenuSyncPayload(
   assertProviderMenuIdentityItems("qmai", items);
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("qmai"),
-    takeOverLegacyItems: false,
     observationScope: { kind: "meal-period", mealPeriod: observedMealPeriod },
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
   };

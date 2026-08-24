@@ -17,7 +17,12 @@ import {
   type ExistingSyncMenuItem,
   type MenuSyncPlan,
 } from "./canteen-menu-sync";
-import type { MenuSyncInput } from "./canteen-types";
+import { projectSingleMenuObservation } from "./canteen-menu-projection";
+import type {
+  CurrentMenuProjection,
+  MenuAbsenceAuthority,
+  MenuSyncInput,
+} from "./canteen-types";
 
 export type ResolvedMenuSnapshotSource = {
   id: string;
@@ -43,9 +48,13 @@ export type MenuSnapshotBlockingReason = {
   samples: RedactedMenuSample[];
 };
 
-export type MenuSnapshotEvaluation = {
+type MenuEvaluationInput = MenuSyncInput | CurrentMenuProjection;
+
+export type MenuSnapshotEvaluation<
+  TInput extends MenuEvaluationInput = MenuSyncInput,
+> = {
   canonicalState: {
-    input: MenuSyncInput;
+    input: TInput;
     existingItems: ExistingSyncMenuItem[];
   };
   plan: MenuSyncPlan;
@@ -68,7 +77,7 @@ export function evaluateMenuSnapshot(
   approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[] = [],
   options: MenuSnapshotEvaluationOptions = {},
 ): MenuSnapshotEvaluation {
-  const canonicalState = canonicalizeSourceProjection(
+  const canonicalState = canonicalizeSourceState(
     source.id,
     source.provider,
     input,
@@ -78,7 +87,32 @@ export function evaluateMenuSnapshot(
   return evaluateCanonicalMenuSnapshot(
     source,
     canonicalState,
+    projectSingleMenuObservation(canonicalState.input),
+    input.takeOverLegacyItems,
     approvedIdentityReplacements,
+  );
+}
+
+/** Evaluate one already-materialized current-menu projection. */
+export function evaluateCurrentMenuProjection(
+  source: ResolvedMenuSnapshotSource,
+  projection: CurrentMenuProjection,
+  existingItems: ExistingSyncMenuItem[],
+  options: MenuSnapshotEvaluationOptions = {},
+): MenuSnapshotEvaluation<CurrentMenuProjection> {
+  const canonicalState = canonicalizeSourceState(
+    source.id,
+    source.provider,
+    projection,
+    existingItems,
+    options,
+  );
+  return evaluateCanonicalMenuSnapshot(
+    source,
+    canonicalState,
+    canonicalState.input,
+    false,
+    [],
   );
 }
 
@@ -111,21 +145,28 @@ export function evaluateMenuIdentityTransitionSnapshot(
         (item) => managedById.get(item.id) ?? item,
       ),
     },
+    projectSingleMenuObservation(canonicalManaged.input),
+    input.takeOverLegacyItems,
     approvedIdentityReplacements,
   );
 }
 
-function evaluateCanonicalMenuSnapshot(
+function evaluateCanonicalMenuSnapshot<TInput extends MenuEvaluationInput>(
   source: ResolvedMenuSnapshotSource,
-  canonicalState: MenuSnapshotEvaluation["canonicalState"],
+  canonicalState: MenuSnapshotEvaluation<TInput>["canonicalState"],
+  projection: CurrentMenuProjection,
+  takeOverLegacyItems: boolean,
   approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[],
-): MenuSnapshotEvaluation {
+): MenuSnapshotEvaluation<TInput> {
   const plan = planMenuSync(
     source.id,
-    canonicalState.input,
+    projection,
     canonicalState.existingItems,
-    source.legacyAdoptionOpen,
-    approvedIdentityReplacements,
+    {
+      legacyAdoptionOpen: source.legacyAdoptionOpen,
+      takeOverLegacyItems,
+      approvedIdentityReplacements,
+    },
   );
   const managedIdentityProjection = canonicalState.existingItems.flatMap(
     (item) =>
@@ -144,14 +185,14 @@ function evaluateCanonicalMenuSnapshot(
   ).length;
   const identityObservation = observeMenuIdentityChurn(
     managedIdentityProjection,
-    canonicalState.input.items,
+    projection.items,
   );
   const blockingReasons = collectMenuSnapshotBlockingReasons(
     plan,
     identityObservation,
     activeManagedCount,
-    canonicalState.input.items.length,
-    canonicalState.input.snapshotCompleteness,
+    projection.items.length,
+    projection.absenceAuthority,
   );
 
   return {
@@ -168,7 +209,7 @@ function collectMenuSnapshotBlockingReasons(
   observation: MenuIdentityObservation,
   activeManagedCount: number,
   incomingItemCount: number,
-  snapshotCompleteness: MenuSyncInput["snapshotCompleteness"],
+  absenceAuthority: MenuAbsenceAuthority,
 ): MenuSnapshotBlockingReason[] {
   const reasons: MenuSnapshotBlockingReason[] = [];
   if (plan.conflicts.length > 0) {
@@ -183,7 +224,7 @@ function collectMenuSnapshotBlockingReasons(
     isSuspiciousMenuIdentityChurn(
       observation,
       activeManagedCount,
-      snapshotCompleteness,
+      absenceAuthority,
     )
   ) {
     reasons.push(
@@ -201,6 +242,7 @@ function collectMenuSnapshotBlockingReasons(
     (action) => action.action === "deactivate",
   ).length;
   if (
+    absenceAuthority.kind !== "current-activity" &&
     activeManagedCount > 0 &&
     deactivationCount > 0 &&
     incomingItemCount * 2 <= activeManagedCount
@@ -253,13 +295,13 @@ export function resolveApprovedIdentityTransitionBlocking(
   };
 }
 
-function canonicalizeSourceProjection(
+function canonicalizeSourceState<TInput extends MenuEvaluationInput>(
   sourceId: string,
   provider: MenuProvider,
-  input: MenuSyncInput,
+  input: TInput,
   existingItems: ExistingSyncMenuItem[],
   options: MenuSnapshotEvaluationOptions,
-): MenuSnapshotEvaluation["canonicalState"] {
+): MenuSnapshotEvaluation<TInput>["canonicalState"] {
   const orderedExistingItems = [...existingItems].sort((a, b) =>
     a.id.localeCompare(b.id),
   );

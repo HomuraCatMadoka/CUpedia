@@ -3,7 +3,10 @@ import {
   buildPinmeMenuSyncPayload,
   createPinmeSignedParams,
 } from "@/lib/canteen-pinme-menu";
-import { fetchPinmeMenu } from "@/lib/canteen-menu-source-adapters";
+import {
+  fetchMenuFromProvider,
+  fetchPinmeMenu,
+} from "@/lib/canteen-menu-source-adapters";
 import { vi } from "vitest";
 import pinmeCurrent from "./fixtures/canteen-providers/pinme-current.json";
 
@@ -481,6 +484,32 @@ describe("PINME menu adapter", () => {
     expect(
       new Headers(fetchImpl.mock.calls[1][1]?.headers).get("Authorization"),
     ).toBe("Bearer temporary");
+  });
+
+  it("scopes recurring observations to the scheduler meal period", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ code: 200, data: { token: "temporary" } }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(pinmeCurrent)));
+
+    await expect(
+      fetchMenuFromProvider(
+        { provider: "pinme", externalStoreId: "5500" },
+        {
+          observedAt: new Date("2026-08-24T09:17:00Z"),
+          syncWindowKey: "2026-08-24/dinner",
+          mealPeriod: "dinner",
+        },
+        { fetchImpl },
+      ),
+    ).resolves.toMatchObject({
+      snapshotCompleteness: "partial",
+      observationScope: { kind: "meal-period", mealPeriod: "dinner" },
+    });
   });
 
   it("rejects malformed product collections before normalization", async () => {

@@ -25,10 +25,14 @@ describe("menu identity churn observation", () => {
     expect(JSON.stringify(observation)).not.toContain("old-id");
     expect(JSON.stringify(observation)).not.toContain("new-id");
     expect(JSON.stringify(observation)).not.toContain("凍奶茶");
-    expect(isSuspiciousMenuIdentityChurn(observation, 1, "complete")).toBe(
-      true,
-    );
-    expect(isSuspiciousMenuIdentityChurn(observation, 1, "partial")).toBe(true);
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 1, {
+        kind: "provider-catalog",
+      }),
+    ).toBe(true);
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 1, { kind: "none" }),
+    ).toBe(true);
   });
 
   it("allows ordinary low-volume additions without guessing identity", () => {
@@ -51,9 +55,11 @@ describe("menu identity churn observation", () => {
     expect(observation.newProductCount).toBe(1);
     expect(observation.suspectedReplacementCount).toBe(0);
     expect(observation.suspectedReplacementSamples).toEqual([]);
-    expect(isSuspiciousMenuIdentityChurn(observation, 4, "complete")).toBe(
-      false,
-    );
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 4, {
+        kind: "provider-catalog",
+      }),
+    ).toBe(false);
   });
 
   it("uses full counts even when retained ID samples are bounded", () => {
@@ -71,10 +77,60 @@ describe("menu identity churn observation", () => {
     expect(observation.missingProductCount).toBe(30);
     expect(observation.newProductSamples).toHaveLength(25);
     expect(observation.truncated).toBe(true);
-    expect(isSuspiciousMenuIdentityChurn(observation, 100, "complete")).toBe(
-      true,
-    );
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 100, {
+        kind: "provider-catalog",
+      }),
+    ).toBe(true);
   });
+
+  it.each([
+    {
+      change: "pure additions",
+      incoming: (
+        existing: Array<{ externalProductId: string; name: string }>,
+      ) => [
+        ...existing,
+        ...Array.from({ length: 25 }, (_, index) => ({
+          externalProductId: `new-${index}`,
+          name: `New ${index}`,
+        })),
+      ],
+      expectedNew: 25,
+      expectedMissing: 0,
+    },
+    {
+      change: "missing-only contraction",
+      incoming: (
+        existing: Array<{ externalProductId: string; name: string }>,
+      ) => existing.slice(0, 75),
+      expectedNew: 0,
+      expectedMissing: 25,
+    },
+  ])(
+    "does not classify provider-catalog $change as bulk identity replacement",
+    ({ incoming, expectedNew, expectedMissing }) => {
+      const existing = Array.from({ length: 100 }, (_, index) => ({
+        externalProductId: `existing-${index}`,
+        name: `Existing ${index}`,
+      }));
+      const observation = observeMenuIdentityChurn(
+        existing,
+        incoming(existing),
+      );
+
+      expect(observation).toMatchObject({
+        newProductCount: expectedNew,
+        missingProductCount: expectedMissing,
+        suspectedReplacementCount: 0,
+      });
+      expect(
+        isSuspiciousMenuIdentityChurn(observation, 100, {
+          kind: "provider-catalog",
+        }),
+      ).toBe(false);
+    },
+  );
 
   it("does not treat absences from a partial snapshot as bulk churn", () => {
     const existing = Array.from({ length: 117 }, (_, index) => ({
@@ -89,9 +145,9 @@ describe("menu identity churn observation", () => {
       missingProductCount: 97,
       suspectedReplacementCount: 0,
     });
-    expect(isSuspiciousMenuIdentityChurn(observation, 117, "partial")).toBe(
-      false,
-    );
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 117, { kind: "none" }),
+    ).toBe(false);
   });
 
   it("allows bulk additions from a partial snapshot", () => {
@@ -109,8 +165,55 @@ describe("menu identity churn observation", () => {
     const observation = observeMenuIdentityChurn(existing, incoming);
 
     expect(observation.newProductCount).toBe(3);
-    expect(isSuspiciousMenuIdentityChurn(observation, 12, "partial")).toBe(
-      false,
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 12, { kind: "none" }),
+    ).toBe(false);
+  });
+
+  it("allows missing-only contraction under current-activity authority", () => {
+    const existing = Array.from({ length: 249 }, (_, index) => ({
+      externalProductId: `existing-${index}`,
+      name: `Existing ${index}`,
+    }));
+    const observation = observeMenuIdentityChurn(
+      existing,
+      existing.slice(0, 150),
     );
+
+    expect(observation).toMatchObject({
+      newProductCount: 0,
+      missingProductCount: 99,
+      suspectedReplacementCount: 0,
+    });
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 249, {
+        kind: "current-activity",
+        coveredMealPeriods: ["breakfast", "lunch", "dinner"],
+      }),
+    ).toBe(false);
+  });
+
+  it("still blocks production-shaped simultaneous bulk identity replacement", () => {
+    const existing = Array.from({ length: 249 }, (_, index) => ({
+      externalProductId: `old-${index}`,
+      name: `Old ${index}`,
+    }));
+    const incoming = Array.from({ length: 150 }, (_, index) => ({
+      externalProductId: `new-${index}`,
+      name: `New ${index}`,
+    }));
+    const observation = observeMenuIdentityChurn(existing, incoming);
+
+    expect(observation).toMatchObject({
+      newProductCount: 150,
+      missingProductCount: 249,
+      suspectedReplacementCount: 0,
+    });
+    expect(
+      isSuspiciousMenuIdentityChurn(observation, 249, {
+        kind: "current-activity",
+        coveredMealPeriods: ["breakfast", "lunch", "dinner"],
+      }),
+    ).toBe(true);
   });
 });

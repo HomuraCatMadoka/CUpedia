@@ -8,7 +8,7 @@ import { resolveMenuSectionKey } from "./canteen-svg-keys";
 import {
   normalizeMealPeriods,
   type MenuSnapshotScopeEvidence,
-  type MenuSyncInput,
+  type ProviderMenuObservation,
   type MenuItemPriceOptionInput,
 } from "./canteen-types";
 
@@ -216,7 +216,9 @@ function priceOptions(product: JsonObject): MenuItemPriceOptionInput[] {
     : [{ label: null, amountMinor: amount, currency: "HKD", sortOrder: 0 }];
 }
 
-export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
+export function buildPinmeMenuSyncPayload(
+  input: unknown,
+): ProviderMenuObservation {
   const root = object(input);
   const data = object(root?.data);
   if (Number(root?.code) !== 200 || !data) throw new Error("PINME_MENU_ERROR");
@@ -224,7 +226,7 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
 
   const byProductId = new Map<
     string,
-    Omit<MenuSyncInput["items"][number], "sortOrder">
+    Omit<ProviderMenuObservation["items"][number], "sortOrder">
   >();
   const serviceWindows = new Map<string, PinmeServiceWindow>();
   for (const group of topology.groups) {
@@ -240,7 +242,7 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
     );
     const occurrencesInGroup = new Map<
       string,
-      Omit<MenuSyncInput["items"][number], "sortOrder">
+      Omit<ProviderMenuObservation["items"][number], "sortOrder">
     >();
     for (const productValue of array(group.products)) {
       const product = object(productValue);
@@ -302,7 +304,6 @@ export function buildPinmeMenuSyncPayload(input: unknown): MenuSyncInput {
   assertProviderMenuIdentityItems("pinme", items);
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("pinme"),
-    takeOverLegacyItems: false,
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
     scopeEvidence: {
       provider: "pinme",

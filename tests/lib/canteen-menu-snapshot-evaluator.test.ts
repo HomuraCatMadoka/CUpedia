@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  evaluateCurrentMenuProjection,
   evaluateMenuSnapshot,
   resolveApprovedIdentityTransitionBlocking,
 } from "@/lib/canteen-menu-snapshot-evaluator";
@@ -196,6 +197,99 @@ describe("menu snapshot evaluator", () => {
     });
   });
 
+  it("allows one-sided provider-catalog changes that are not ID replacement", () => {
+    const source = { ...SOURCE, provider: "ichef" as const };
+    const persisted = Array.from({ length: 100 }, (_, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId: `existing-${index}`,
+        name: `Existing ${index}`,
+      }),
+    );
+    const retained = persisted.slice(0, 75).map((item) => ({
+      externalProductId: item.externalProductId!,
+      name: item.name,
+    }));
+    const existingObservation = persisted.map((item) => ({
+      externalProductId: item.externalProductId!,
+      name: item.name,
+    }));
+    const additions = Array.from({ length: 25 }, (_, index) => ({
+      externalProductId: `new-${index}`,
+      name: `New ${index}`,
+    }));
+
+    const addition = evaluateMenuSnapshot(
+      source,
+      snapshot([...existingObservation, ...additions]),
+      persisted,
+    );
+    const contraction = evaluateMenuSnapshot(
+      source,
+      snapshot(retained),
+      persisted,
+    );
+
+    expect(addition.identityObservation).toMatchObject({
+      newProductCount: 25,
+      missingProductCount: 0,
+    });
+    expect(addition.blockingReasons).toEqual([]);
+    expect(contraction.identityObservation).toMatchObject({
+      newProductCount: 0,
+      missingProductCount: 25,
+    });
+    expect(
+      contraction.plan.actions.filter(
+        (action) => action.action === "deactivate",
+      ),
+    ).toHaveLength(25);
+    expect(contraction.blockingReasons).toEqual([]);
+  });
+
+  it("allows a production-sized missing-only current-activity contraction (#743)", () => {
+    const persisted = Array.from({ length: 249 }, (_, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId: `product-${index}`,
+        name: `菜品 ${index}`,
+      }),
+    );
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["breakfast", "lunch", "dinner"],
+        },
+        items: persisted.slice(0, 150).map((item) => ({
+          externalProductId: item.externalProductId!,
+          name: item.name,
+          priceOptions: item.priceOptions,
+          mealPeriods: item.mealPeriods,
+          sortOrder: item.sortOrder,
+          svgKey: item.svgKey,
+        })),
+      },
+      persisted,
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 0,
+      missingProductCount: 99,
+      suspectedReplacementCount: 0,
+    });
+    expect(
+      result.plan.actions.filter((action) => action.action === "deactivate"),
+    ).toHaveLength(99);
+    expect(result.blockingReasons).toEqual([]);
+    expect(result.blockingDecision).toEqual({
+      blocked: false,
+      code: null,
+      samples: [],
+    });
+  });
+
   it("observes absences without blocking or deactivating a partial snapshot", () => {
     const persisted = ["a", "b", "c", "d"].map((externalProductId, index) =>
       existing({
@@ -287,17 +381,21 @@ describe("menu snapshot evaluator", () => {
   });
 
   it("retains every independently applicable blocking reason", () => {
-    const persisted = ["old-a", "old-b", "old-c", "old-d"].map(
-      (externalProductId, index) =>
-        existing({
-          id: `item-${index}`,
-          externalProductId,
-          name: `旧菜品 ${index}`,
-        }),
+    const persisted = Array.from({ length: 8 }, (_, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId: `old-${index}`,
+        name: `旧菜品 ${index}`,
+      }),
     );
     const result = evaluateMenuSnapshot(
       SOURCE,
-      snapshot([{ externalProductId: "new-a", name: "新菜品" }]),
+      snapshot([
+        { externalProductId: "old-0", name: "旧菜品 0" },
+        { externalProductId: "new-a", name: "新菜品 A" },
+        { externalProductId: "new-b", name: "新菜品 B" },
+        { externalProductId: "new-c", name: "新菜品 C" },
+      ]),
       persisted,
     );
 
@@ -309,17 +407,21 @@ describe("menu snapshot evaluator", () => {
   });
 
   it("resolves reviewed identity-transition reasons as one evaluation", () => {
-    const persisted = ["old-a", "old-b", "old-c", "old-d"].map(
-      (externalProductId, index) =>
-        existing({
-          id: `item-${index}`,
-          externalProductId,
-          name: `旧菜品 ${index}`,
-        }),
+    const persisted = Array.from({ length: 8 }, (_, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId: `old-${index}`,
+        name: `旧菜品 ${index}`,
+      }),
     );
     const evaluation = evaluateMenuSnapshot(
       SOURCE,
-      snapshot([{ externalProductId: "new-a", name: "新菜品" }]),
+      snapshot([
+        { externalProductId: "old-0", name: "旧菜品 0" },
+        { externalProductId: "new-a", name: "新菜品 A" },
+        { externalProductId: "new-b", name: "新菜品 B" },
+        { externalProductId: "new-c", name: "新菜品 C" },
+      ]),
       persisted,
     );
 

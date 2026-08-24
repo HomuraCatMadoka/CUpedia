@@ -54,9 +54,12 @@ same Aigens group.
    Repeated reads, `open` parameter parity, item counts and period/category/group
    presence do not turn that observation into global inactivity evidence. The
    bounded store/menu/period evidence remains diagnostic and participates in
-   transition audit and fingerprinting. Only a complete snapshot may deactivate
-   managed identities that are absent. A partial snapshot may update, create or
-   reactivate identities that are present, but preserves absent rows unchanged.
+   transition audit and fingerprinting. A raw observation may deactivate absent
+   managed identities only when it is an authoritative complete catalog. A
+   partial observation may update, create or reactivate identities that are
+   present, but preserves absent rows unchanged. The derived current-activity
+   projection in decision 11 is a separate deactivation authority; it is not a
+   provider snapshot and does not claim catalog deletion.
    Completeness participates in preview and snapshot fingerprints; it is never
    inferred from counts, time, thresholds or provider branching inside
    reconciliation. PinMe `product-menus` is partial until the upstream supplies
@@ -67,8 +70,8 @@ same Aigens group.
 4. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.
-5. Existing source-bound rows are updated in place. In a complete snapshot,
-   missing rows become
+5. Existing source-bound rows are updated in place. Under authoritative catalog
+   or fully covered current-activity absence, missing rows become
    `isAvailable = false`; they are not deleted. A later snapshot can reactivate
    the same row and recover its public vote/comment history.
 6. A first migration may explicitly set `takeOverLegacyItems: true`. This makes
@@ -84,11 +87,13 @@ same Aigens group.
    scan. Historical rows remain available to server-side admin workflows.
 8. Product-ID churn is observed before aliasing is introduced. Each scheduled
    run stores bounded new/missing ID samples, counts and one-to-one same-name
-   candidates. Suspected replacement always fails closed. Bulk churn based on
-   new/missing volume fails closed only for complete snapshots, where absence
-   is evidence that an old identity disappeared. In a partial observation,
-   absence has no identity meaning and a pure addition surge is ordinary menu
-   growth; it may create new identities but cannot deactivate absent ones.
+   candidates. Suspected replacement always fails closed. Under any absence
+   authority, only paired material new-and-missing volume is bulk replacement
+   evidence: a one-sided addition or contraction is not product-ID churn.
+   Provider-catalog authority separately retains the suspicious-drop guard for
+   unexpectedly large contractions. In a partial observation, absence has no
+   identity meaning and a pure addition surge is ordinary menu growth; it may
+   create new identities but cannot deactivate absent ones.
 9. Resolving a blocked identity transition requires a versioned artifact that
    separates deterministic audit facts from reviewer decisions. Current
    decisions authorize only UUID-preserving replacements, historical alias
@@ -123,9 +128,16 @@ same Aigens group.
     newest observation, while meal periods are unioned across scopes. Conflicts
     inside one provider response remain adapter errors, but ordinary changes
     between observations must converge. Until every configured period has an
-    accepted scoped snapshot, the union is globally partial. Manual preview and
-    transition flows downgrade a meal-period observation to non-authoritative
-    absence unless they use the recurring scoped projection.
+    accepted scoped snapshot, the union has no absence authority. Once all
+    periods are represented, reconciliation receives a distinct current-menu
+    projection with `current-activity` absence authority. It is authoritative
+    only for reversible current activity: immutable raw observations retain
+    their truthful completeness and scope, and the union is never relabeled as
+    a complete catalog snapshot. This authority bypasses the catalog
+    suspicious-drop rule and allows missing-only contraction, while identity
+    conflicts, same-name replacement and paired bulk ID churn still fail closed.
+    Manual preview and transition flows cannot construct recurring activity
+    authority.
 
 ## Consequences
 
@@ -142,10 +154,11 @@ same Aigens group.
 - An approved identity transition becomes stale whenever the source or either
   audited menu projection changes. Operators must regenerate and review it;
   they cannot silently carry approval forward to a later provider snapshot.
-- A partial provider response cannot make a dish globally inactive merely
-  because it is outside the current service or availability window. This can
-  retain stale offerings until a source with authoritative catalog semantics
-  supplies absence evidence.
+- One partial provider response cannot make a dish globally inactive merely
+  because it is outside that service or availability window. After every
+  configured period has a latest accepted observation, their union may
+  reversibly deactivate identities absent from the current published
+  projection without claiming permanent catalog deletion.
 - A complete meal-period observation can retire an occurrence from that period
   without retiring the same dish from periods retained by the scoped union.
 - Identity backfill and audited canteen provisioning use versioned Drizzle

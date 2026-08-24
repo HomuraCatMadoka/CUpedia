@@ -4,14 +4,18 @@ import {
 } from "@/lib/canteen-aigens-parse";
 import { assertProviderMenuIdentityItems } from "./canteen-provider-menu-identity";
 import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
-import type { MenuSnapshotScopeEvidence, MenuSyncInput } from "./canteen-types";
+import type {
+  MenuSnapshotScopeEvidence,
+  MenuSyncInput,
+  ProviderMenuObservation,
+} from "./canteen-types";
 
 const EXCLUDED_CATEGORIES = new Set(["飲品", "零食", "外賣包裝"]);
 
 export function buildAigensMenuSyncPayload(
   input: unknown,
   scopeEvidence?: MenuSnapshotScopeEvidence,
-): MenuSyncInput {
+): ProviderMenuObservation {
   const products = parseAigensMenuProducts(input, {
     excludedCategories: EXCLUDED_CATEGORIES,
   });
@@ -32,12 +36,14 @@ export function buildAigensMenuSyncPayload(
 
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("aigens"),
-    takeOverLegacyItems: false,
     items,
     ...(scopeEvidence ? { scopeEvidence } : {}),
   };
 }
 
 export function buildShhoMenuSyncPayload(input: unknown): MenuSyncInput {
-  return buildAigensMenuSyncPayload(input);
+  return {
+    ...buildAigensMenuSyncPayload(input),
+    takeOverLegacyItems: false,
+  };
 }
