@@ -356,6 +356,7 @@ describe.skipIf(!hasDb)(
         );
 
         const mutations = [
+          `update campus_map_provenance_sources set accessed_on = '2026-08-23' where id = '${ids.secondRevision}'`,
           `update campus_map_changesets set comment = 'rewritten' where id = '${ids.changeset}'`,
           `update campus_map_changesets set actor_user_id = null where id = '${ids.changeset}'`,
           `delete from campus_map_changesets where id = '${ids.changeset}'`,
@@ -383,6 +384,32 @@ describe.skipIf(!hasDb)(
             await client.query(`rollback to savepoint ${savepoint}`);
             await client.query(`release savepoint ${savepoint}`);
           }
+        }
+
+        await client.query("savepoint provenance_delete");
+        try {
+          await expect(
+            client.query(
+              `delete from campus_map_provenance_sources where id = $1`,
+              [ids.secondRevision],
+            ),
+          ).rejects.toMatchObject({ code: "23503" });
+        } finally {
+          await client.query("rollback to savepoint provenance_delete");
+          await client.query("release savepoint provenance_delete");
+        }
+
+        await client.query("savepoint provenance_truncate");
+        try {
+          await expect(
+            client.query("truncate campus_map_provenance_sources cascade"),
+          ).rejects.toMatchObject({
+            code: "55000",
+            message: expect.stringContaining("append-only"),
+          });
+        } finally {
+          await client.query("rollback to savepoint provenance_truncate");
+          await client.query("release savepoint provenance_truncate");
         }
       });
     });
@@ -543,6 +570,9 @@ describe.skipIf(!hasDb)(
         "campus_map_buildings_anchor_geo_idx",
         "campus_map_fact_revisions_place_created_idx",
         "campus_map_changesets_feed_idx",
+        "campus_map_changesets_actor_feed_idx",
+        "campus_map_changesets_review_feed_idx",
+        "campus_map_changesets_bbox_gist_idx",
         "campus_map_provider_mappings_identity_uq",
         "campus_map_publish_requests_actor_key_uq",
       ];
@@ -553,6 +583,15 @@ describe.skipIf(!hasDb)(
       );
       expect(indexes.rows.map((row) => row.indexname).sort()).toEqual(
         requiredIndexes.sort(),
+      );
+
+      const actorIndex = await pool.query<{ indexdef: string }>(
+        `select indexdef from pg_indexes
+         where schemaname = 'public'
+           and indexname = 'campus_map_changesets_actor_feed_idx'`,
+      );
+      expect(actorIndex.rows[0]?.indexdef).toContain(
+        "(actor_id_snapshot, published_at, id)",
       );
 
       const constraint = await pool.query<{ condeferrable: boolean }>(
@@ -566,6 +605,24 @@ describe.skipIf(!hasDb)(
       const client = await pool.connect();
       await client.query("begin");
       try {
+        await client.query(
+          `insert into campus_map_changesets
+            (id, actor_id_snapshot, actor_nickname_snapshot, comment,
+             source_summary, client_name, client_version, affected_count,
+             updated_count, bbox_west, bbox_south, bbox_east, bbox_north,
+             published_at)
+           select md5('bbox-plan-' || value::text)::uuid,
+             md5('bbox-plan-actor-' || (value % 100)::text)::uuid, '计划测试',
+             '查询计划样本', '公开摘要', 'test', '1', 1, 1,
+             113 + (value % 200)::double precision / 100,
+             21 + (value % 100)::double precision / 100,
+             113.01 + (value % 200)::double precision / 100,
+             21.01 + (value % 100)::double precision / 100,
+             now() - make_interval(secs => value)
+           from generate_series(1, 2000) value
+           on conflict do nothing`,
+        );
+        await client.query("analyze campus_map_changesets");
         await client.query("set local enable_seqscan = off");
         const plans = [
           {
@@ -623,6 +680,60 @@ describe.skipIf(!hasDb)(
             order by published_at desc, id desc limit 51`,
             params: [],
             indexes: ["campus_map_changesets_feed_idx"],
+          },
+          {
+            name: "actor Changeset feed",
+            sql: `select id from campus_map_changesets
+            where actor_id_snapshot = $1
+            order by published_at desc, id desc limit 51`,
+            params: [ids.actor],
+            indexes: ["campus_map_changesets_actor_feed_idx"],
+          },
+          {
+            name: "review-requested Changeset feed",
+            sql: `select id from campus_map_changesets
+            where review_requested = true
+            order by published_at desc, id desc limit 51`,
+            params: [],
+            indexes: ["campus_map_changesets_review_feed_idx"],
+          },
+          {
+            name: "bbox Changeset feed",
+            sql: `select id from campus_map_changesets
+            where bbox_west is not null and bbox_south is not null
+              and bbox_east is not null and bbox_north is not null
+              and box(point(bbox_west, bbox_south), point(bbox_east, bbox_north))
+                && box(point(114.1, 22.3), point(114.3, 22.5))
+              and not exists (
+                select 1 from campus_map_place_changes public_change
+                left join campus_map_fact_revisions public_revision
+                  on public_revision.place_change_id = public_change.id
+                left join campus_map_revision_visibility public_visibility
+                  on public_visibility.revision_id = public_revision.id
+                where public_change.changeset_id = campus_map_changesets.id
+                  and (
+                    public_revision.id is null
+                    or coalesce(public_visibility.visibility, 'redacted') <> 'public'
+                    or (
+                      public_revision.previous_revision_id is not null
+                      and not exists (
+                        select 1
+                        from campus_map_revision_visibility predecessor_visibility
+                        where predecessor_visibility.revision_id =
+                          public_revision.previous_revision_id
+                          and predecessor_visibility.visibility = 'public'
+                      )
+                    )
+                  )
+              )
+              and (
+                select count(*)::integer
+                from campus_map_place_changes counted_change
+                where counted_change.changeset_id = campus_map_changesets.id
+              ) = campus_map_changesets.affected_count
+            order by published_at desc, id desc limit 51`,
+            params: [],
+            indexes: ["campus_map_changesets_bbox_gist_idx"],
           },
           {
             name: "provider identity",

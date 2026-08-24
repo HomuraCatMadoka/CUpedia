@@ -157,7 +157,10 @@ ORM: Drizzle with PostgreSQL dialect. Schema in `src/db/schema.ts`.
 ### Schema Change Workflow
 
 1. Edit `src/db/schema.ts`
-2. Run `pnpm drizzle-kit generate` to create migration
+2. Run `pnpm drizzle-kit generate` to create migration. For triggers or other
+   SQL that Drizzle schema cannot express, create a blank migration with
+   `pnpm drizzle-kit generate --custom --name <name>` and fill that generated
+   custom file before it is first applied or committed.
 3. Run `pnpm drizzle-kit migrate` to apply
 4. Run `pnpm test` to verify
 5. Commit both schema.ts and generated migration
@@ -288,7 +291,10 @@ still map to issues; only the spec _filename_ is feature-based. Unit tests in
 ## Development Anti-Patterns
 
 - **Don't use `console.log` for auth debugging** — check `AUTH_SECRET` and `AUTH_URL` env vars first
-- **Don't modify migration files** — they are generated; edit `schema.ts` instead
+- **Don't modify ordinary generated migration files** — edit `schema.ts` and
+  regenerate instead. Trigger/function SQL that Drizzle cannot express must use
+  `drizzle-kit generate --custom`; fill the blank custom migration only before
+  its first application or commit, and never rewrite a published migration.
 - **Don't skip conflict detection** — always compare `updatedAt` when updating wiki pages
 - **Don't hardcode email domains** — use the whitelist in `email.ts`
 - **Don't serve files directly from MinIO** — use the `/api/wiki-assets/` route (path validation + immutable cache headers; assets are public, #139)

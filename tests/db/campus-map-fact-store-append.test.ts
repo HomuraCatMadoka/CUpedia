@@ -7,6 +7,7 @@ import {
   getCampusMapCurrentPlace,
   getCampusMapFactSchema,
   getCampusMapPlaceHistory,
+  getCampusMapPlaceRevision,
 } from "@/lib/campus-map/fact-store";
 import {
   CampusMapMergedPlaceError,
@@ -248,6 +249,33 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
     });
   });
 
+  it("pages Place history with an opaque same-timestamp cursor", async () => {
+    await appendCampusMapChangeset(initialCommand());
+    await appendCampusMapChangeset(
+      onePlaceCommand({
+        changesetId: ids.candidateAChangeset,
+        changeId: ids.candidateAChange,
+        revisionId: ids.candidateARevision,
+        baseRevisionId: ids.revision,
+        operation: "update",
+        status: "active",
+        name: "分页后的名称",
+      }),
+    );
+
+    const first = await getCampusMapPlaceHistory(ids.place, { limit: 1 });
+    expect(first.items.map((item) => item.id)).toEqual([
+      ids.candidateARevision,
+    ]);
+    expect(typeof first.nextCursor).toBe("string");
+    expect(first.nextCursor).not.toContain(ids.candidateARevision);
+    const second = await getCampusMapPlaceHistory(ids.place, {
+      cursor: first.nextCursor!,
+      limit: 1,
+    });
+    expect(second.items.map((item) => item.id)).toEqual([ids.revision]);
+  });
+
   it("persists the canonical schema on first publication", async () => {
     await appendCampusMapChangeset(
       onePlaceCommand({
@@ -369,11 +397,36 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
       ),
     ).rejects.toBeInstanceOf(CampusMapMergedPlaceError);
     await expect(getCampusMapCurrentPlace(ids.place)).resolves.toBeNull();
-    expect(
-      (await getCampusMapPlaceHistory(ids.place)).items.map(
-        (item) => item.status,
-      ),
-    ).toEqual(["merged", "active"]);
+    const firstHistoryPage = await getCampusMapPlaceHistory(ids.place, {
+      limit: 1,
+    });
+    expect(firstHistoryPage).toMatchObject({
+      head: {
+        revisionId: ids.mergeRevision,
+        status: "merged",
+        mergedIntoPlaceId: ids.targetPlace,
+      },
+      items: [{ status: "merged" }],
+    });
+    const secondHistoryPage = await getCampusMapPlaceHistory(ids.place, {
+      cursor: firstHistoryPage.nextCursor!,
+      limit: 1,
+    });
+    expect(secondHistoryPage).toMatchObject({
+      head: {
+        revisionId: ids.mergeRevision,
+        status: "merged",
+        mergedIntoPlaceId: ids.targetPlace,
+      },
+      items: [{ status: "active" }],
+    });
+    await expect(
+      getCampusMapPlaceRevision(ids.place, ids.mergeRevision),
+    ).resolves.toMatchObject({
+      status: "merged",
+      mergedIntoPlaceId: ids.targetPlace,
+      content: { visibility: "public" },
+    });
     await expect(
       getCampusMapChangeset(ids.reviveChangeset),
     ).resolves.toBeNull();
@@ -451,6 +504,9 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
       ),
     ).rejects.toThrow("Campus Map operation and revision status do not match");
     await expect(getCampusMapCurrentPlace(ids.place)).resolves.toBeNull();
+    await expect(
+      getCampusMapPlaceRevision(ids.place, ids.candidateARevision),
+    ).resolves.toMatchObject({ status: "retired" });
     expect(
       (await getCampusMapPlaceHistory(ids.place)).items.map((item) => item.id),
     ).toEqual([ids.candidateARevision, ids.revision]);

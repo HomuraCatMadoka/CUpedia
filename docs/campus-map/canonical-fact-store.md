@@ -42,7 +42,10 @@ expose a second application publish path.
   separate `(provider, provider_object_id)` identity.
 - Changesets, Place changes, Fact revisions, and revision provenance are
   append-only in PostgreSQL: ordinary `UPDATE`, `DELETE`, and `TRUNCATE`
-  statements fail. The only allowed Changeset update is the referential
+  statements fail. Provenance source metadata cannot be updated, and referenced
+  sources cannot be deleted because their immutable revision links retain them;
+  this keeps the safe provenance projection of an old revision stable. The only
+  allowed Changeset update is the referential
   `actor_user_id` nulling caused by deletion of the linked User; actor snapshots
   and every other historical field remain immutable.
 - Current revision is the only canonical pointer; Current fact is a replaceable

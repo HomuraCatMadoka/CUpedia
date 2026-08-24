@@ -1,0 +1,2 @@
+CREATE INDEX "campus_map_changesets_bbox_gist_idx" ON "campus_map_changesets" USING gist (box(point("bbox_west", "bbox_south"), point("bbox_east", "bbox_north"))) WHERE "campus_map_changesets"."bbox_west" is not null and "campus_map_changesets"."bbox_south" is not null
+          and "campus_map_changesets"."bbox_east" is not null and "campus_map_changesets"."bbox_north" is not null;
