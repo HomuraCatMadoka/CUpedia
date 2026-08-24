@@ -10,11 +10,16 @@ one due source using database time.
 GitHub cron expressions use UTC. Runs use minute 17 to avoid common top-of-hour
 load and start shortly after each application window opens:
 
-| Meal      | GitHub UTC cron | Asia/Hong_Kong                   |
-| --------- | --------------- | -------------------------------- |
-| Breakfast | `17 23 * * *`   | 07:17 the following calendar day |
-| Lunch     | `17 3 * * *`    | 11:17                            |
-| Dinner    | `17 9 * * *`    | 17:17                            |
+| Meal      | GitHub UTC cron | Asia/Hong_Kong |
+| --------- | --------------- | -------------- |
+| Breakfast | `17 0 * * *`    | 08:17          |
+| Lunch     | `17 3 * * *`    | 11:17          |
+| Dinner    | `17 9 * * *`    | 17:17          |
+
+Breakfast runs at 08:17 because CU CAFE's published Aigens breakfast periods
+start at 07:28. Scheduling the observation at 07:17 would make correctness
+depend on GitHub queue delay: an on-time run sees a valid published menu
+envelope with an empty current category topology and correctly fails closed.
 
 The workflow makes at most 16 endpoint calls within a 12-minute runner budget;
 the GitHub job has a 15-minute hard timeout. A static concurrency group queues,
