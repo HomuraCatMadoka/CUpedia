@@ -13,12 +13,9 @@ export default async function CampusMapPlacePage({
 }) {
   const { placeId } = await params;
   const history = await getCampusMapPlaceHistory(placeId, { limit: 1 });
-  const latest = history.items[0];
-  if (!latest) notFound();
-  const name =
-    latest.content.visibility === "public"
-      ? latest.content.fact.name
-      : `地点 ${placeId.slice(0, 8)}`;
+  const head = history.head;
+  if (!head) notFound();
+  const name = head.name ?? `地点 ${placeId.slice(0, 8)}`;
 
   return (
     <CampusMapReadShell
@@ -30,17 +27,17 @@ export default async function CampusMapPlacePage({
         <p className="break-all font-mono text-xs text-muted-foreground">
           Place：{placeId}
         </p>
-        {latest.status === "retired" ? (
+        {head.status === "retired" ? (
           <p className="mt-3 text-sm font-semibold text-amber-700">
             此地点已停用
           </p>
         ) : null}
-        {latest.status === "merged" && latest.mergedIntoPlaceId ? (
+        {head.status === "merged" && head.mergedIntoPlaceId ? (
           <p className="mt-3 text-sm font-semibold text-amber-700">
             此地点已合并至
             <Link
               className="ml-1 underline"
-              href={`/campus-map/places/${latest.mergedIntoPlaceId}`}
+              href={`/campus-map/places/${head.mergedIntoPlaceId}`}
             >
               保留地点
             </Link>

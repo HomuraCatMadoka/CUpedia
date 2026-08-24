@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import type {
   CampusMapChangesetSummary,
+  CampusMapPlaceHistoryHead,
   CampusMapPlaceHistoryItem,
   CampusMapPublicChange,
   CampusMapPublicChangeset,
@@ -24,18 +25,16 @@ const statusLabels = {
 
 export function CampusMapHistoryPage({
   placeId,
+  head,
   items,
   nextHref,
 }: {
   placeId: string;
+  head: CampusMapPlaceHistoryHead | null;
   items: CampusMapPlaceHistoryItem[];
   nextHref: string | null;
 }) {
-  const latest = items[0];
-  const name =
-    latest?.content.visibility === "public"
-      ? latest.content.fact.name
-      : `地点 ${shortId(placeId)}`;
+  const name = head?.name ?? `地点 ${shortId(placeId)}`;
 
   return (
     <CampusMapReadShell
@@ -44,15 +43,15 @@ export function CampusMapHistoryPage({
       description="每次公开修改都会保留为不可变修订。旧链接不会随名称或状态变化。"
       actions={<CopyDeepLinkButton />}
     >
-      {latest?.status === "retired" ? (
+      {head?.status === "retired" ? (
         <Notice>这个地点已停用；过去的公开修订仍可读取。</Notice>
       ) : null}
-      {latest?.status === "merged" && latest.mergedIntoPlaceId ? (
+      {head?.status === "merged" && head.mergedIntoPlaceId ? (
         <Notice>
           这个地点已合并。继续查看
           <Link
             className="ml-1 font-semibold underline underline-offset-4"
-            href={`/campus-map/places/${latest.mergedIntoPlaceId}`}
+            href={`/campus-map/places/${head.mergedIntoPlaceId}`}
           >
             保留地点
           </Link>
@@ -152,9 +151,13 @@ export function CampusMapRevisionPage({
           <EmptyState>
             此修订内容已隐藏；稳定编号与公开时间线仍保留。
           </EmptyState>
+        ) : revision.fieldDiff === null ? (
+          <EmptyState>
+            此修订仍公开，但较早修订已隐藏，因此不显示前后差异。
+          </EmptyState>
         ) : (
           <dl className="mt-5 grid gap-3 sm:grid-cols-2">
-            {Object.entries(revision.fieldDiff ?? {}).map(([key, value]) => (
+            {Object.entries(revision.fieldDiff).map(([key, value]) => (
               <DiffRow
                 key={key}
                 label={value.label}

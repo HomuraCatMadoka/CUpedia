@@ -153,6 +153,12 @@ async function ensureFixture() {
       [ids.survivorRevision],
     );
     await client.query(
+      `insert into campus_map_current_revisions (place_id, revision_id, status)
+       values ($1, $2, 'retired'), ($3, $4, 'active')
+       on conflict do nothing`,
+      [ids.place, ids.retireRevision, ids.survivorPlace, ids.survivorRevision],
+    );
+    await client.query(
       `insert into campus_map_changesets
          (id, actor_id_snapshot, actor_nickname_snapshot, comment, source_summary,
           client_name, client_version, affected_count, updated_count, published_at)
@@ -305,6 +311,12 @@ test("renders redacted and partially visible changes as placeholders", async ({
     await expect(page.getByText("历史测试饮水点")).toHaveCount(0);
     await page.goto(`/campus-map/changesets/${ids.retireChangeset}`);
     await expect(page.getByText("内容已隐藏")).toBeVisible();
+    await page.goto(
+      `/campus-map/places/${ids.place}/history/${ids.retireRevision}`,
+    );
+    await expect(
+      page.getByText("此修订仍公开，但较早修订已隐藏，因此不显示前后差异。"),
+    ).toBeVisible();
   } finally {
     await client.query(
       `update campus_map_revision_visibility

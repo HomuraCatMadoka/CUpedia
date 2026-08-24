@@ -814,6 +814,7 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
   it("fails malformed public IDs and bounds without exposing PostgreSQL errors", async () => {
     await expect(getCampusMapPlaceHistory("not-a-place")).resolves.toEqual({
       placeExists: false,
+      head: null,
       items: [],
       nextCursor: null,
     });
@@ -827,6 +828,27 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     await expect(
       listCampusMapChangesets({
         scope: { kind: "actor", actorId: "private@example.com" },
+      }),
+    ).rejects.toBeInstanceOf(CampusMapReadInputError);
+    await expect(
+      listCampusMapChangesets({
+        scope: {
+          kind: "bbox",
+          bounds: { west: Number.NaN, south: 22, east: 114, north: 23 },
+        },
+      }),
+    ).rejects.toBeInstanceOf(CampusMapReadInputError);
+    await expect(
+      listCampusMapChangesets({
+        scope: {
+          kind: "bbox",
+          bounds: {
+            west: 113,
+            south: 22,
+            east: Number.POSITIVE_INFINITY,
+            north: 23,
+          },
+        },
       }),
     ).rejects.toBeInstanceOf(CampusMapReadInputError);
     await expect(

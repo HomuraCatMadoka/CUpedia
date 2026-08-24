@@ -18,6 +18,7 @@ import {
   campusMapBuildings,
   campusMapChangesets,
   campusMapCurrentFacts,
+  campusMapCurrentRevisions,
   campusMapFactRevisions,
   campusMapFactSchemas,
   campusMapFloors,
@@ -174,6 +175,13 @@ export interface CampusMapPlaceHistoryItem {
   content:
     | { visibility: "public"; fact: CampusMapHistoricalFact }
     | { visibility: "redacted" };
+}
+
+export interface CampusMapPlaceHistoryHead {
+  revisionId: string;
+  status: CampusMapRevisionStatus;
+  mergedIntoPlaceId: string | null;
+  name: string | null;
 }
 
 export interface CampusMapPublicChangeset {
@@ -809,16 +817,39 @@ export async function getCampusMapPlaceHistory(
   options: { cursor?: string; limit?: number } = {},
 ): Promise<{
   placeExists: boolean;
+  head: CampusMapPlaceHistoryHead | null;
   items: CampusMapPlaceHistoryItem[];
   nextCursor: string | null;
 }> {
   if (!isPublicId(placeId)) {
-    return { placeExists: false, items: [], nextCursor: null };
+    return { placeExists: false, head: null, items: [], nextCursor: null };
   }
   const placePromise = db
     .select({ id: campusMapPlaces.id })
     .from(campusMapPlaces)
     .where(eq(campusMapPlaces.id, placeId))
+    .limit(1);
+  const headPromise = db
+    .select({
+      revisionId: campusMapFactRevisions.id,
+      status: campusMapFactRevisions.status,
+      mergedIntoPlaceId: campusMapFactRevisions.mergedIntoPlaceId,
+      name: campusMapFactRevisions.name,
+      visibility: campusMapRevisionVisibility.visibility,
+    })
+    .from(campusMapCurrentRevisions)
+    .innerJoin(
+      campusMapFactRevisions,
+      and(
+        eq(campusMapCurrentRevisions.placeId, campusMapFactRevisions.placeId),
+        eq(campusMapCurrentRevisions.revisionId, campusMapFactRevisions.id),
+      ),
+    )
+    .leftJoin(
+      campusMapRevisionVisibility,
+      eq(campusMapFactRevisions.id, campusMapRevisionVisibility.revisionId),
+    )
+    .where(eq(campusMapCurrentRevisions.placeId, placeId))
     .limit(1);
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
   const conditions = [eq(campusMapFactRevisions.placeId, placeId)];
@@ -955,9 +986,18 @@ export async function getCampusMapPlaceHistory(
   );
 
   const last = page.at(-1);
-  const place = await placePromise;
+  const [place, headRows] = await Promise.all([placePromise, headPromise]);
+  const headRow = headRows[0];
   return {
     placeExists: place.length === 1,
+    head: headRow
+      ? {
+          revisionId: headRow.revisionId,
+          status: headRow.status,
+          mergedIntoPlaceId: headRow.mergedIntoPlaceId,
+          name: headRow.visibility === "public" ? headRow.name : null,
+        }
+      : null,
     items,
     nextCursor:
       rows.length > limit && last
@@ -1320,6 +1360,7 @@ export async function listCampusMapChangesets(options: {
   } else if (scope.kind === "bbox") {
     const { west, south, east, north } = scope.bounds;
     if (
+      [west, south, east, north].some((value) => !Number.isFinite(value)) ||
       west < -180 ||
       east > 180 ||
       south < -90 ||

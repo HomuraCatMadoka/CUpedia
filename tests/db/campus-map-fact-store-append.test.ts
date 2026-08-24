@@ -397,11 +397,29 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
       ),
     ).rejects.toBeInstanceOf(CampusMapMergedPlaceError);
     await expect(getCampusMapCurrentPlace(ids.place)).resolves.toBeNull();
-    expect(
-      (await getCampusMapPlaceHistory(ids.place)).items.map(
-        (item) => item.status,
-      ),
-    ).toEqual(["merged", "active"]);
+    const firstHistoryPage = await getCampusMapPlaceHistory(ids.place, {
+      limit: 1,
+    });
+    expect(firstHistoryPage).toMatchObject({
+      head: {
+        revisionId: ids.mergeRevision,
+        status: "merged",
+        mergedIntoPlaceId: ids.targetPlace,
+      },
+      items: [{ status: "merged" }],
+    });
+    const secondHistoryPage = await getCampusMapPlaceHistory(ids.place, {
+      cursor: firstHistoryPage.nextCursor!,
+      limit: 1,
+    });
+    expect(secondHistoryPage).toMatchObject({
+      head: {
+        revisionId: ids.mergeRevision,
+        status: "merged",
+        mergedIntoPlaceId: ids.targetPlace,
+      },
+      items: [{ status: "active" }],
+    });
     await expect(
       getCampusMapPlaceRevision(ids.place, ids.mergeRevision),
     ).resolves.toMatchObject({

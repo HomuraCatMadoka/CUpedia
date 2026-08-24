@@ -37,6 +37,7 @@ export default async function CampusMapPlaceHistoryRoute({
   return (
     <CampusMapHistoryPage
       placeId={placeId}
+      head={history.head}
       items={history.items}
       nextHref={
         history.nextCursor

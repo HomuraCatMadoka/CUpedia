@@ -4,6 +4,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import CampusMapReadError from "@/app/(main)/campus-map/error";
+import { CampusMapHistoryPage } from "@/components/campus-map/history-shell";
 
 describe("Campus Map history unavailable state (#719)", () => {
   it("shows a safe retry state without exposing database details", () => {
@@ -15,5 +16,31 @@ describe("Campus Map history unavailable state (#719)", () => {
     expect(
       screen.getByRole("button", { name: "重试" }).hasAttribute("disabled"),
     ).toBe(false);
+  });
+});
+
+describe("Campus Map paginated history lifecycle (#719)", () => {
+  it("keeps the canonical merged head when an older page has no head item", () => {
+    const survivorId = "00000000-0000-4000-8000-000000007200";
+    render(
+      <CampusMapHistoryPage
+        placeId="00000000-0000-4000-8000-000000007192"
+        head={{
+          revisionId: "00000000-0000-4000-8000-000000007198",
+          status: "merged",
+          mergedIntoPlaceId: survivorId,
+          name: "已合并地点",
+        }}
+        items={[]}
+        nextHref={null}
+      />,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "已合并地点的修订历史" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "保留地点" }).getAttribute("href"),
+    ).toBe(`/campus-map/places/${survivorId}`);
   });
 });
