@@ -46,6 +46,7 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
 }));
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
+import { loadCampusMapEditablePlace } from "@/lib/campus-map/edit-actions";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -147,6 +148,29 @@ describe("AmapCampusPrototype", () => {
     expect(
       screen.getByRole("button", { name: "发布修改" }).hasAttribute("disabled"),
     ).toBe(false);
+  });
+
+  it("drops a delayed Edit read after Escape changes the scene", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const canonical = await vi.mocked(loadCampusMapEditablePlace)(placeId);
+    let resolveRead!: (value: typeof canonical) => void;
+    vi.mocked(loadCampusMapEditablePlace).mockImplementationOnce(
+      () => new Promise((resolve) => (resolveRead = resolve)),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&scene=facility&id=${placeId}&snap=peek`,
+    );
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+
+    await screen.findByRole("heading", { name: "饮水机" });
+    fireEvent.click(screen.getByRole("button", { name: "建议修改" }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    resolveRead(canonical);
+
+    await waitFor(() => expect(window.location.search).toBe("?v=1"));
+    expect(screen.queryByRole("heading", { name: "建议修改" })).toBeNull();
   });
 
   it("hydrates a canonical facility deep link through the scene driver", async () => {

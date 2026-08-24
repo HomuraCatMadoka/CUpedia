@@ -595,6 +595,26 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("restores every canonical controlled value including library access", () => {
+    const session = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_FACT",
+      fact: {
+        ...fact,
+        audience: "library-member",
+        accessSchedule: {
+          kind: "weekly",
+          timezone: "Asia/Hong_Kong",
+          intervals: [
+            { days: ["mon", "wed"], opensAt: "09:00", closesAt: "18:00" },
+          ],
+        },
+      },
+    }).session!;
+    expect(
+      decodeCampusMapEditSnapshot(encodeCampusMapEditSnapshot(session)),
+    ).toMatchObject({ status: "restored", session });
+  });
+
   it.each([
     ["conflict", {}],
     ["warning", {}],

@@ -39,22 +39,47 @@ function today(): string {
   }).format(new Date());
 }
 
-function observationSource(date: string): CampusMapPublishSourceInput {
+function nowLocal(): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Hong_Kong",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
+function observationSource(localTime: string): CampusMapPublishSourceInput {
   return {
     kind: "field-observation",
-    ref: `现场观察 ${date}`,
+    ref: `现场观察 ${localTime.replace("T", " ")}`,
     url: null,
     owner: null,
     version: null,
     snapshotHash: null,
-    accessedOn: date,
-    observedAt: null,
+    accessedOn: today(),
+    observedAt: new Date(`${localTime}:00+08:00`).toISOString(),
     rightsStatus: "original-observation",
     limitations: null,
     note: null,
     sourceCoordinate: null,
   };
 }
+
+const WEEKDAYS = [
+  ["mon", "一"],
+  ["tue", "二"],
+  ["wed", "三"],
+  ["thu", "四"],
+  ["fri", "五"],
+  ["sat", "六"],
+  ["sun", "日"],
+] as const;
 
 function messageForError(code: string): string {
   const messages: Record<string, string> = {
@@ -153,7 +178,7 @@ export function CampusMapEditSheet({
   const [keyboardLatitude, setKeyboardLatitude] = useState(
     String(centerPosition[1]),
   );
-  const [sourceDate, setSourceDate] = useState(today);
+  const [sourceObservedAt, setSourceObservedAt] = useState(nowLocal);
   const [conflictKeepFields, setConflictKeepFields] = useState<
     Array<keyof CampusMapPublishFactInput>
   >([]);
@@ -176,6 +201,8 @@ export function CampusMapEditSheet({
   const updateFact = (next: CampusMapPublishFactInput) =>
     onEvent({ type: "CHANGE_FACT", fact: next });
   const fullFact = fact as CampusMapPublishFactInput;
+  const weeklySchedule =
+    fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
   const fieldLabel = (field: string, fallback: string) =>
     factSchema?.displayMetadata[field]?.label ?? fallback;
 
@@ -666,23 +693,152 @@ export function CampusMapEditSheet({
           />
         ) : null}
         {visible.has("accessSchedule") ? (
-          <SelectField
-            id={`${fieldPrefix}-schedule`}
-            field="accessSchedule"
-            label={fieldLabel("accessSchedule", "开放时间")}
-            value={fact.accessSchedule.kind}
-            options={[
-              ...CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule,
-              ...(fact.accessSchedule.kind === "weekly"
-                ? [{ value: "weekly" as const, label: "每周时段（保留现值）" }]
-                : []),
-            ]}
-            onChange={(kind) => {
-              if (kind !== "weekly") {
-                updateFact({ ...fullFact, accessSchedule: { kind } });
+          <div className="space-y-3">
+            <SelectField
+              id={`${fieldPrefix}-schedule`}
+              field="accessSchedule"
+              label={fieldLabel("accessSchedule", "开放时间")}
+              value={fact.accessSchedule.kind}
+              options={CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule}
+              onChange={(kind) =>
+                updateFact({
+                  ...fullFact,
+                  accessSchedule:
+                    kind === "weekly"
+                      ? {
+                          kind: "weekly",
+                          timezone: "Asia/Hong_Kong",
+                          intervals: [
+                            {
+                              days: ["mon", "tue", "wed", "thu", "fri"],
+                              opensAt: "09:00",
+                              closesAt: "17:00",
+                            },
+                          ],
+                        }
+                      : { kind },
+                })
               }
-            }}
-          />
+            />
+            {weeklySchedule ? (
+              <fieldset className="rounded-xl border p-3">
+                <legend className="px-1 text-sm font-medium">
+                  每周开放时段（香港时间）
+                </legend>
+                {weeklySchedule.intervals.map((interval, index) => (
+                  <div
+                    key={index}
+                    className="mt-2 rounded-lg bg-neutral-50 p-2"
+                  >
+                    <div className="flex flex-wrap gap-2">
+                      {WEEKDAYS.map(([day, label]) => (
+                        <label
+                          key={day}
+                          className="flex min-h-11 items-center gap-1"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={interval.days.includes(day)}
+                            onChange={(event) => {
+                              const intervals = weeklySchedule.intervals.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        days: event.target.checked
+                                          ? [...item.days, day]
+                                          : item.days.filter(
+                                              (value) => value !== day,
+                                            ),
+                                      }
+                                    : item,
+                              );
+                              updateFact({
+                                ...fullFact,
+                                accessSchedule: {
+                                  ...weeklySchedule,
+                                  intervals,
+                                },
+                              });
+                            }}
+                          />
+                          周{label}
+                        </label>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["opensAt", "closesAt"] as const).map((field) => (
+                        <label key={field} className="text-xs">
+                          {field === "opensAt" ? "开始" : "结束"}
+                          <input
+                            type="time"
+                            className={fieldClass}
+                            value={interval[field]}
+                            onChange={(event) => {
+                              const intervals = weeklySchedule.intervals.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, [field]: event.target.value }
+                                    : item,
+                              );
+                              updateFact({
+                                ...fullFact,
+                                accessSchedule: {
+                                  ...weeklySchedule,
+                                  intervals,
+                                },
+                              });
+                            }}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    {weeklySchedule.intervals.length > 1 ? (
+                      <button
+                        type="button"
+                        className={cn(secondaryClass, "mt-2 w-full")}
+                        onClick={() =>
+                          updateFact({
+                            ...fullFact,
+                            accessSchedule: {
+                              ...weeklySchedule,
+                              intervals: weeklySchedule.intervals.filter(
+                                (_, itemIndex) => itemIndex !== index,
+                              ),
+                            },
+                          })
+                        }
+                      >
+                        删除此时段
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className={cn(secondaryClass, "mt-2 w-full")}
+                  onClick={() =>
+                    updateFact({
+                      ...fullFact,
+                      accessSchedule: {
+                        ...weeklySchedule,
+                        intervals: [
+                          ...weeklySchedule.intervals,
+                          {
+                            days: ["mon"],
+                            opensAt: "09:00",
+                            closesAt: "17:00",
+                          },
+                        ],
+                      },
+                    })
+                  }
+                >
+                  添加时段
+                </button>
+              </fieldset>
+            ) : null}
+          </div>
         ) : null}
         {visible.has("reservationRequirement") ? (
           <SelectField
@@ -736,13 +892,13 @@ export function CampusMapEditSheet({
             className="block text-sm"
             htmlFor={`${fieldPrefix}-source-date`}
           >
-            现场观察日期
+            现场观察时间（香港时间）
             <input
               id={`${fieldPrefix}-source-date`}
               className={fieldClass}
-              type="date"
-              value={sourceDate}
-              onChange={(event) => setSourceDate(event.target.value)}
+              type="datetime-local"
+              value={sourceObservedAt}
+              onChange={(event) => setSourceObservedAt(event.target.value)}
             />
           </label>
           <button
@@ -751,7 +907,7 @@ export function CampusMapEditSheet({
             onClick={() =>
               onEvent({
                 type: "CHANGE_SOURCES",
-                sources: [observationSource(sourceDate)],
+                sources: [observationSource(sourceObservedAt)],
               })
             }
           >

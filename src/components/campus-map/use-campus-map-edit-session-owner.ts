@@ -110,6 +110,14 @@ export function useCampusMapEditSessionOwner({
     dispatcherRef.current = dispatchEvent;
   }, [dispatchEvent]);
 
+  useEffect(
+    () =>
+      driver.subscribe(() => {
+        editLoadTokenRef.current += 1;
+      }),
+    [driver],
+  );
+
   const startAdd = useCallback(() => {
     editLoadTokenRef.current += 1;
     dispatchEvent({

@@ -6,6 +6,7 @@ import type {
   CampusMapPublishValidationIssue,
   CampusMapPublishWarning,
 } from "./publish-contract";
+import { CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES } from "./publish-contract";
 
 export const CAMPUS_MAP_EDIT_SNAPSHOT_VERSION = 1 as const;
 
@@ -221,6 +222,17 @@ function firstLocalError(draft: CampusMapEditDraft): string | null {
   if (!draft.fact.name.trim()) return "name";
   if (!draft.fact.pinType) return "pinType";
   if (!draft.fact.location) return "location";
+  if (
+    draft.fact.accessSchedule.kind === "weekly" &&
+    draft.fact.accessSchedule.intervals.some(
+      (interval) =>
+        interval.days.length === 0 ||
+        !interval.opensAt ||
+        !interval.closesAt ||
+        interval.opensAt >= interval.closesAt,
+    )
+  )
+    return "accessSchedule";
   if (draft.sources.length === 0) return "sources";
   return null;
 }
@@ -712,6 +724,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function controlled(values: readonly string[], value: unknown): boolean {
+  return typeof value === "string" && values.includes(value);
+}
+
 function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
   if (!isRecord(value)) return false;
   const fact = value;
@@ -749,31 +765,62 @@ function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
     typeof fact.name === "string" &&
     (fact.buildingId === null || typeof fact.buildingId === "string") &&
     (fact.floorId === null || typeof fact.floorId === "string") &&
-    ["toilet", "water", "printer", "common-space", "classroom"].includes(
-      String(fact.pinType),
-    ) &&
+    controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.pinType, fact.pinType) &&
     Array.isArray(fact.capabilities) &&
-    fact.capabilities.every((item) => typeof item === "string") &&
-    ["unknown", "female", "male", "all-gender"].includes(String(fact.gender)) &&
-    ["unknown", "yes", "no", "limited"].includes(
-      String(fact.wheelchairAccess),
+    fact.capabilities.every((item) =>
+      controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.capability, item),
     ) &&
-    ["unknown", "public", "cuhk-member", "staff", "student"].includes(
-      String(fact.audience),
+    controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.gender, fact.gender) &&
+    controlled(
+      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.wheelchairAccess,
+      fact.wheelchairAccess,
     ) &&
-    typeof fact.credentialRequirement === "string" &&
+    controlled(CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.audience, fact.audience) &&
+    controlled(
+      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.credentialRequirement,
+      fact.credentialRequirement,
+    ) &&
     scheduleValid &&
-    typeof fact.reservationRequirement === "string" &&
-    typeof fact.temporaryStatus === "string" &&
+    controlled(
+      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.reservationRequirement,
+      fact.reservationRequirement,
+    ) &&
+    controlled(
+      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.temporaryStatus,
+      fact.temporaryStatus,
+    ) &&
     (fact.observedAt === null || typeof fact.observedAt === "string") &&
     validLocation
   );
 }
 
 function looksLikeSource(value: unknown): boolean {
+  const coordinateValid =
+    value !== null &&
+    isRecord(value) &&
+    (value.sourceCoordinate === null ||
+      (isRecord(value.sourceCoordinate) &&
+        typeof value.sourceCoordinate.x === "number" &&
+        Number.isFinite(value.sourceCoordinate.x) &&
+        typeof value.sourceCoordinate.y === "number" &&
+        Number.isFinite(value.sourceCoordinate.y) &&
+        controlled(
+          CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.sourceCoordinateCrs,
+          value.sourceCoordinate.crs,
+        ) &&
+        (value.sourceCoordinate.conversion === null ||
+          (isRecord(value.sourceCoordinate.conversion) &&
+            controlled(
+              CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.coordinateConversionMethod,
+              value.sourceCoordinate.conversion.method,
+            ) &&
+            typeof value.sourceCoordinate.conversion.version === "string"))));
   return (
     isRecord(value) &&
-    typeof value.kind === "string" &&
+    controlled(
+      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.provenanceKind,
+      value.kind,
+    ) &&
     typeof value.ref === "string" &&
     (value.url === null || typeof value.url === "string") &&
     (value.owner === null || typeof value.owner === "string") &&
@@ -781,10 +828,13 @@ function looksLikeSource(value: unknown): boolean {
     (value.snapshotHash === null || typeof value.snapshotHash === "string") &&
     typeof value.accessedOn === "string" &&
     (value.observedAt === null || typeof value.observedAt === "string") &&
-    typeof value.rightsStatus === "string" &&
+    controlled(
+      CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES.rightsStatus,
+      value.rightsStatus,
+    ) &&
     (value.limitations === null || typeof value.limitations === "string") &&
     (value.note === null || typeof value.note === "string") &&
-    (value.sourceCoordinate === null || isRecord(value.sourceCoordinate))
+    coordinateValid
   );
 }
 
@@ -827,9 +877,16 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         Number.isFinite(value.retryAfter) &&
         (value.rateScope === "actor" || value.rateScope === "ip"))) &&
     (value.status !== "confirm-discard" ||
-      (typeof value.returnStatus === "string" &&
-        value.returnStatus !== "confirm-discard" &&
-        value.returnStatus !== "published"));
+      [
+        "placing",
+        "editing",
+        "publishing",
+        "warning",
+        "authentication-required",
+        "rate-limited",
+        "temporarily-unavailable",
+        "conflict",
+      ].includes(String(value.returnStatus)));
   return (
     statusStateValid &&
     (draft.mode === "add" || draft.mode === "edit") &&

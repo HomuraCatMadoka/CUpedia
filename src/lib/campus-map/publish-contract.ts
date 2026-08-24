@@ -15,6 +15,53 @@ import type {
   CampusMapWheelchairAccess,
 } from "@/db/schema";
 
+/** Runtime values shared by publish clients and versioned snapshot codecs. */
+export const CAMPUS_MAP_PUBLISH_CONTROLLED_VALUES = {
+  pinType: ["toilet", "water", "printer", "common-space", "classroom"],
+  capability: ["print", "scan", "copy"],
+  gender: ["female", "male", "all-gender", "unknown"],
+  wheelchairAccess: ["yes", "no", "limited", "unknown"],
+  audience: ["public", "cuhk-member", "library-member", "unknown"],
+  credentialRequirement: [
+    "none",
+    "campus-card",
+    "library-card",
+    "other",
+    "unknown",
+  ],
+  reservationRequirement: ["none", "required", "unknown"],
+  temporaryStatus: ["normal", "temporarily-closed", "unknown"],
+  provenanceKind: [
+    "official",
+    "field-observation",
+    "open-data",
+    "provider-candidate",
+    "other",
+  ],
+  rightsStatus: [
+    "public-domain",
+    "permission-granted",
+    "original-observation",
+    "restricted",
+    "unknown",
+  ],
+  sourceCoordinateCrs: ["wgs84", "gcj02", "hk80", "hkpd", "other"],
+  coordinateConversionMethod: ["proj", "manual", "provider-adapter", "other"],
+} as const satisfies {
+  pinType: readonly CampusMapPinType[];
+  capability: readonly CampusMapCapability[];
+  gender: readonly CampusMapGender[];
+  wheelchairAccess: readonly CampusMapWheelchairAccess[];
+  audience: readonly CampusMapAudience[];
+  credentialRequirement: readonly CampusMapCredentialRequirement[];
+  reservationRequirement: readonly CampusMapReservationRequirement[];
+  temporaryStatus: readonly CampusMapTemporaryStatus[];
+  provenanceKind: readonly CampusMapProvenanceKind[];
+  rightsStatus: readonly CampusMapRightsStatus[];
+  sourceCoordinateCrs: readonly CampusMapSourceCoordinateCrs[];
+  coordinateConversionMethod: readonly CampusMapCoordinateConversionMethod[];
+};
+
 export interface CampusMapPublishFactInput {
   name: string;
   buildingId: string | null;

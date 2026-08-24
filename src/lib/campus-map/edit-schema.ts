@@ -146,6 +146,7 @@ export const CAMPUS_MAP_EDIT_SCHEMA = {
     accessSchedule: [
       { value: "unknown", label: "未知" },
       { value: "always", label: "全天开放" },
+      { value: "weekly", label: "每周时段" },
     ],
     reservationRequirement: [
       { value: "unknown", label: "未知" },
