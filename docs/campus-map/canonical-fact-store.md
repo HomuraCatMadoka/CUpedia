@@ -22,12 +22,18 @@ boundary on a fresh database. The first V1 append idempotently persists that
 active schema inside the same storage transaction before its revision FK is
 written; later schema lifecycle remains explicit and version-addressable.
 
-`src/lib/campus-map/fact-store-transaction.ts` is the internal publishing seam.
-One Changeset command locks stable Place rows in canonical ID order, validates
-every base revision, appends Changeset/change/revision/provenance/visibility,
-and advances Current revision and Current fact atomically. #718 owns
-authentication, command validation, rate limits, and idempotency orchestration
-around this storage command; it does not write fact tables directly.
+`src/lib/campus-map/publish.ts` owns the sole application publishing seam,
+`publishCampusMapChangeset`. Routes, server actions, importers, and admin tools
+must submit intent through that function rather than calling the storage writer
+or updating fact tables. Its private implementation modules own command
+validation and the persistent actor/IP rate policy.
+
+`src/lib/campus-map/fact-store-transaction.ts` is an internal storage mechanism
+behind that seam. One Changeset command locks stable Place rows in canonical ID
+order, validates every base revision, resolves immutable provenance identities,
+appends Changeset/change/revision/provenance/visibility, and advances Current
+revision and Current fact atomically. It does not authenticate a caller or
+expose a second application publish path.
 
 ## Persistence invariants
 
@@ -58,8 +64,15 @@ around this storage command; it does not write fact tables directly.
   survivor active, and points the loser at that survivor's stable Place ID.
 - User foreign keys use `ON DELETE SET NULL`; actor ID and nickname snapshots
   remain in public history.
-- The private publish-request table owns actor-scoped idempotency keys and
-  fingerprints. Public Changeset reads cannot join or expose them.
+- The private publish-request table owns actor-scoped idempotency keys,
+  fingerprints, and the completed typed result needed for exact replay. A
+  `processing` row and every fact write share one transaction, so rollback
+  cannot leave a stuck request. Public Changeset reads cannot join or expose
+  this state.
+- The private rate table stores only HMAC-derived actor/IP subjects and the
+  fixed burst/sustained windows. Exact completed replays are resolved before
+  quota is consumed; validation, warning, and conflict attempts remain subject
+  to abuse policy.
 - Redacted revisions retain their chain and operation placeholder, while public
   history and Changeset projections suppress both fact snapshots and field
   diffs so before/after values cannot recover the hidden payload.
@@ -68,10 +81,16 @@ around this storage command; it does not write fact tables directly.
   FK remains representable by `schema.ts`; transaction isolation hides all
   intermediate statements from readers.
 
-Operation/status transitions, active merge-survivor checks, required revision
-provenance/visibility, authentication, and command validation remain owned by
-the fact-store transaction seam. They are intentionally not duplicated as a
-second set of cross-table trigger rules.
+Operation/status transitions, active merge-survivor checks, and required
+revision provenance/visibility remain owned by the fact-store storage
+mechanism. Fresh authorization, command validation, warnings, rate policy, and
+idempotency remain owned by the sole publish seam. They are intentionally not
+duplicated as a second set of cross-table trigger rules.
+
+The publisher acquires locks in a stable order: actor-scoped idempotency
+advisory lock, actor/IP rate rows in fixed policy order, existing Place rows in
+canonical UUID order, then provenance advisory locks in numeric key order. No
+network request or slow external adapter runs inside the transaction.
 
 The projection-hardening migration validates every existing Current fact while
 installing the trigger. This takes a write lock and rewrites that projection;

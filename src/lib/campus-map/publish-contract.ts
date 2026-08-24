@@ -1,0 +1,174 @@
+import type {
+  CampusMapAccessSchedule,
+  CampusMapAudience,
+  CampusMapCapability,
+  CampusMapCoordinateConversionMethod,
+  CampusMapCredentialRequirement,
+  CampusMapGender,
+  CampusMapPinType,
+  CampusMapPointPrecision,
+  CampusMapProvenanceKind,
+  CampusMapReservationRequirement,
+  CampusMapRightsStatus,
+  CampusMapSourceCoordinateCrs,
+  CampusMapTemporaryStatus,
+  CampusMapWheelchairAccess,
+} from "@/db/schema";
+
+export interface CampusMapPublishFactInput {
+  name: string;
+  buildingId: string | null;
+  floorId: string | null;
+  pinType: CampusMapPinType;
+  capabilities: CampusMapCapability[];
+  gender: CampusMapGender;
+  wheelchairAccess: CampusMapWheelchairAccess;
+  audience: CampusMapAudience;
+  credentialRequirement: CampusMapCredentialRequirement;
+  accessSchedule: CampusMapAccessSchedule;
+  reservationRequirement: CampusMapReservationRequirement;
+  temporaryStatus: CampusMapTemporaryStatus;
+  location:
+    | { kind: "building" }
+    | { kind: "floor" }
+    | {
+        kind: "outdoor-point";
+        longitude: number;
+        latitude: number;
+        crs: "wgs84";
+        precision: CampusMapPointPrecision;
+      };
+  observedAt: string | null;
+}
+
+export interface CampusMapPublishSourceInput {
+  kind: CampusMapProvenanceKind;
+  ref: string;
+  url: string | null;
+  owner: string | null;
+  version: string | null;
+  snapshotHash: string | null;
+  accessedOn: string;
+  observedAt: string | null;
+  rightsStatus: CampusMapRightsStatus;
+  limitations: string | null;
+  note: string | null;
+  sourceCoordinate: {
+    x: number;
+    y: number;
+    crs: CampusMapSourceCoordinateCrs;
+    conversion: {
+      method: CampusMapCoordinateConversionMethod;
+      version: string;
+    } | null;
+  } | null;
+}
+
+export type CampusMapPublishChange =
+  | {
+      operation: "create";
+      fact: CampusMapPublishFactInput;
+      sources: CampusMapPublishSourceInput[];
+    }
+  | {
+      operation: "update" | "restore";
+      placeId: string;
+      baseRevisionId: string;
+      fact: CampusMapPublishFactInput;
+      sources: CampusMapPublishSourceInput[];
+    }
+  | {
+      operation: "retire";
+      placeId: string;
+      baseRevisionId: string;
+      sources: CampusMapPublishSourceInput[];
+    };
+
+export interface CampusMapPublishCommand {
+  kind: "single" | "bulk";
+  idempotencyKey: string;
+  comment: string;
+  sourceSummary: string;
+  reviewRequested: boolean;
+  client: { name: string; version: string };
+  warningAcknowledgements: Array<{
+    changeIndex: number;
+    code: string;
+    fingerprint: string;
+  }>;
+  changes: CampusMapPublishChange[];
+}
+
+export interface CampusMapPublishContext {
+  actorId: string | null;
+  clientIp: string;
+}
+
+export interface CampusMapPublishIssueAnchor {
+  changeIndex?: number;
+  placeId?: string;
+  field?: string;
+}
+
+export interface CampusMapPublishValidationIssue {
+  code: string;
+  anchor: CampusMapPublishIssueAnchor;
+}
+
+export interface CampusMapPublishWarning extends CampusMapPublishValidationIssue {
+  fingerprint: string;
+}
+
+export interface CampusMapPublishSafeSnapshot extends CampusMapPublishFactInput {
+  factSchemaVersion: number;
+}
+
+export type CampusMapPublishResult =
+  | {
+      status: "published";
+      changesetId: string;
+      changes: Array<{ placeId: string; revisionId: string }>;
+      warnings: CampusMapPublishWarning[];
+      suggestions: CampusMapPublishValidationIssue[];
+    }
+  | {
+      status: "conflict";
+      conflicts: Array<{
+        placeId: string;
+        expectedRevisionId: string;
+        currentRevisionId: string | null;
+        currentStatus: "active" | "retired" | "merged" | null;
+        currentSnapshot: CampusMapPublishSafeSnapshot | null;
+      }>;
+    }
+  | {
+      status: "rate-limited";
+      code: "publish-rate-limit";
+      scope: "actor" | "ip";
+      policy: "burst" | "sustained";
+      retryAfter: number;
+    }
+  | {
+      status: "authentication-required";
+      code: "authentication-required";
+    }
+  | {
+      status: "forbidden";
+      code:
+        | "actor-not-eligible"
+        | "actor-banned"
+        | "profile-incomplete"
+        | "role-not-eligible"
+        | "admin-required";
+    }
+  | {
+      status: "temporarily-unavailable";
+      code: "publish-unavailable";
+      retryable: true;
+    }
+  | {
+      status: "validation-failed";
+      errors: CampusMapPublishValidationIssue[];
+      warnings: CampusMapPublishWarning[];
+      suggestions: CampusMapPublishValidationIssue[];
+    };
