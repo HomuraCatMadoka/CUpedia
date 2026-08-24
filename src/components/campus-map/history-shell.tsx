@@ -228,7 +228,7 @@ export function CampusMapChangesetPage({
       </div>
       <div className="grid gap-4" aria-label="Changeset 修改">
         {changeset.changes.map((change) => (
-          <CampusMapChangeCard key={change.id} change={change} />
+          <CampusMapChangeCard key={change.revisionId} change={change} />
         ))}
       </div>
     </CampusMapReadShell>
@@ -243,7 +243,6 @@ function CampusMapChangeCard({ change }: { change: CampusMapPublicChange }) {
         <p className="mt-3 text-sm text-muted-foreground">
           此项修改保留稳定占位，不公开原始内容。
         </p>
-        <StableId label="Change" value={change.id} />
         <StableId label="Revision" value={change.revisionId} />
       </article>
     );

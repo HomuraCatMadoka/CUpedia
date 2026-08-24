@@ -652,12 +652,19 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
           changes: [
             {
               visibility: "redacted",
-              id: ids.placeChange,
               revisionId: ids.revision,
             },
           ],
         },
       );
+      expect((await getCampusMapChangeset(ids.changeset))?.changes[0]).toEqual({
+        visibility: "redacted",
+        placeId: ids.place,
+        revisionId: ids.revision,
+      });
+      expect(
+        (await getCampusMapChangeset(ids.changeset))?.changes[0],
+      ).not.toHaveProperty("id");
       expect(
         (await getCampusMapChangeset(ids.changeset))?.changes[0],
       ).not.toHaveProperty("diff");
@@ -680,7 +687,6 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       changes: [
         {
           visibility: "public",
-          id: ids.placeChange,
           placeId: ids.place,
           revisionId: ids.revision,
           operation: "create",
@@ -723,6 +729,20 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     });
     expect(changeset).not.toHaveProperty("idempotencyKey");
     expect(changeset).not.toHaveProperty("requestFingerprint");
+    expect(changeset?.changes[0]).not.toHaveProperty("id");
+    expect(Object.keys(changeset?.changes[0] ?? {}).sort()).toEqual(
+      [
+        "diff",
+        "mergedIntoPlaceId",
+        "operation",
+        "placeId",
+        "previousRevisionId",
+        "revisionId",
+        "schema",
+        "status",
+        "visibility",
+      ].sort(),
+    );
     const keys = collectKeys(changeset);
     [
       "actorUserId",

@@ -316,6 +316,7 @@ test("renders redacted and partially visible changes as placeholders", async ({
     await page.goto(`/campus-map/changesets/${ids.createChangeset}`);
     await expect(page.getByText("内容已隐藏")).toBeVisible();
     await expect(page.getByText("历史测试饮水点")).toHaveCount(0);
+    await expect(page.getByText(ids.createChange)).toHaveCount(0);
     await page.goto(`/campus-map/changesets/${ids.retireChangeset}`);
     await expect(page.getByText("内容已隐藏")).toBeVisible();
     await page.goto(

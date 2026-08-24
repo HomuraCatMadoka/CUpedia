@@ -216,7 +216,6 @@ type CampusMapTypedDiffValue = CampusMapFieldDiff[string];
 export type CampusMapPublicChange =
   | {
       visibility: "public";
-      id: string;
       placeId: string;
       revisionId: string;
       previousRevisionId: string | null;
@@ -235,7 +234,6 @@ export type CampusMapPublicChange =
     }
   | {
       visibility: "redacted";
-      id: string;
       placeId: string;
       revisionId: string;
     };
@@ -1246,48 +1244,48 @@ async function loadChangesByChangeset(
   );
 
   const byChangeset = new Map<string, CampusMapPublicChangeset["changes"]>();
-  for (const {
-    changesetId,
-    visibility,
-    previousVisibility,
-    fieldDiff,
-    ...change
-  } of rows) {
-    const changes = byChangeset.get(changesetId) ?? [];
+  for (const row of rows) {
+    const changes = byChangeset.get(row.changesetId) ?? [];
     const hasPublicPredecessor =
-      change.previousRevisionId === null || previousVisibility === "public";
+      row.previousRevisionId === null || row.previousVisibility === "public";
     changes.push(
-      visibility === "public" && hasPublicPredecessor
+      row.visibility === "public" && hasPublicPredecessor
         ? {
             visibility: "public",
-            ...change,
+            placeId: row.placeId,
+            revisionId: row.revisionId,
+            previousRevisionId: row.previousRevisionId,
+            status: row.status,
+            mergedIntoPlaceId: row.mergedIntoPlaceId,
+            operation: row.operation,
             schema: {
-              version: change.factSchemaVersion,
-              definition: change.schemaDefinition,
-              displayMetadata: change.fieldMetadata,
+              version: row.factSchemaVersion,
+              definition: row.schemaDefinition,
+              displayMetadata: row.fieldMetadata,
             },
             diff: {
               fields: Object.fromEntries(
-                Object.entries(fieldDiff).filter(([key]) => key !== "location"),
+                Object.entries(row.fieldDiff).filter(
+                  ([key]) => key !== "location",
+                ),
               ),
-              position: fieldDiff.location ?? null,
+              position: row.fieldDiff.location ?? null,
               provenance: {
                 before:
-                  change.previousRevisionId === null
+                  row.previousRevisionId === null
                     ? []
-                    : (provenance.get(change.previousRevisionId) ?? []),
-                after: provenance.get(change.revisionId) ?? [],
+                    : (provenance.get(row.previousRevisionId) ?? []),
+                after: provenance.get(row.revisionId) ?? [],
               },
             },
           }
         : {
             visibility: "redacted",
-            id: change.id,
-            placeId: change.placeId,
-            revisionId: change.revisionId,
+            placeId: row.placeId,
+            revisionId: row.revisionId,
           },
     );
-    byChangeset.set(changesetId, changes);
+    byChangeset.set(row.changesetId, changes);
   }
   return byChangeset;
 }
