@@ -9,12 +9,14 @@ import {
   getCampusMapPlaceHistory,
 } from "@/lib/campus-map/fact-store";
 import {
-  appendCampusMapChangeset,
   CampusMapMergedPlaceError,
   CampusMapPublishConflictError,
   type CampusMapAppendChangesetCommand,
   type CampusMapAppendFact,
 } from "@/lib/campus-map/fact-store-transaction";
+import { appendCampusMapChangesetForStorageTest } from "../helpers/campus-map-fact-store";
+
+const appendCampusMapChangeset = appendCampusMapChangesetForStorageTest;
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
