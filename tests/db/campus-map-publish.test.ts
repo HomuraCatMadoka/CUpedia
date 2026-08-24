@@ -1506,8 +1506,13 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       timezone: "Asia/Hong_Kong",
       intervals: [
         {
-          days: ["mon"],
+          days: ["mon", "wed"],
           opensAt: "09:00",
+          closesAt: "12:00",
+        },
+        {
+          days: ["tue"],
+          opensAt: "13:00",
           closesAt: "17:00",
         },
       ],
@@ -1535,8 +1540,13 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
             intervals: [
               {
                 closesAt: "17:00",
+                opensAt: "13:00",
+                days: ["tue"],
+              },
+              {
+                closesAt: "12:00",
                 opensAt: "09:00",
-                days: ["mon"],
+                days: ["wed", "mon"],
               },
             ],
             timezone: "Asia/Hong_Kong",
@@ -2240,14 +2250,14 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
-  it("rejects PostgreSQL-unrepresentable source dates as charged validation", async () => {
+  it("rejects PostgreSQL-unrepresentable dates as charged validation", async () => {
     const previous = {
       actorBurst: process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT,
       actorSustained: process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT,
       ipBurst: process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT,
       ipSustained: process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT,
     };
-    process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT = "1";
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT = "3";
     process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT = "100";
     process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT = "100";
     process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT = "100";
@@ -2267,6 +2277,49 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
           {
             code: "invalid-source-accessed-on",
             anchor: { changeIndex: 0, field: "sources.0.accessedOn" },
+          },
+        ],
+        warnings: [],
+        suggestions: [],
+      });
+
+      const invalidFactObservedAt = createCommand();
+      const invalidFactChange = invalidFactObservedAt.changes[0];
+      if (invalidFactChange.operation !== "create") {
+        throw new Error("bad fixture");
+      }
+      invalidFactChange.fact.observedAt = "-010000-01-01T00:00:00.000Z";
+      await expect(
+        publishCampusMapChangeset(invalidFactObservedAt, {
+          actorId,
+          clientIp: "203.0.113.251",
+        }),
+      ).resolves.toEqual({
+        status: "validation-failed",
+        errors: [
+          {
+            code: "invalid-observed-at",
+            anchor: { changeIndex: 0, field: "observedAt" },
+          },
+        ],
+        warnings: [],
+        suggestions: [],
+      });
+
+      const invalidSourceObservedAt = createCommand();
+      invalidSourceObservedAt.changes[0].sources[0].observedAt =
+        "-010000-01-01T00:00:00.000Z";
+      await expect(
+        publishCampusMapChangeset(invalidSourceObservedAt, {
+          actorId,
+          clientIp: "203.0.113.251",
+        }),
+      ).resolves.toEqual({
+        status: "validation-failed",
+        errors: [
+          {
+            code: "invalid-source-observed-at",
+            anchor: { changeIndex: 0, field: "sources.0.observedAt" },
           },
         ],
         warnings: [],

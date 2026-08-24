@@ -107,9 +107,10 @@ and Current-revision CAS. PostgreSQL UUID rendering therefore cannot disagree
 with otherwise valid uppercase client input.
 
 Server-computed field diffs compare canonical display values: controlled
-multi-selects use schema order, JSON object keys are stable, and `observedAt`
-has revision-local typed metadata. Representation-only reordering cannot create
-a Fact revision, while an `observedAt`-only correction remains a real change.
+multi-selects and weekly schedule days use schema order, weekly intervals and
+JSON object keys are stable, and `observedAt` has revision-local typed metadata.
+Representation-only reordering cannot create a Fact revision, while an
+`observedAt`-only correction remains a real change.
 
 Duplicate warnings compare both public Current facts and facts proposed earlier
 in the same bulk command. Their HMAC fingerprints bind the proposed fact to each

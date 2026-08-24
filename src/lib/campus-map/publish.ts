@@ -10,6 +10,7 @@ import {
   campusMapRevisionVisibility,
   CAMPUS_MAP_CAPABILITIES,
   CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+  CAMPUS_MAP_WEEKDAYS,
   type CampusMapFactDisplayMetadata,
   type CampusMapFactFieldKey,
   type CampusMapFieldDiff,
@@ -1228,11 +1229,32 @@ function factDiffValues(
     wheelchairAccess: fact.wheelchairAccess,
     audience: fact.audience,
     credentialRequirement: fact.credentialRequirement,
-    accessSchedule: canonicalize(fact.accessSchedule),
+    accessSchedule: accessScheduleDiffValue(fact),
     reservationRequirement: fact.reservationRequirement,
     temporaryStatus: fact.temporaryStatus,
     location: locationDiffValue(fact),
     observedAt: fact.observedAt?.toISOString() ?? null,
+  };
+}
+
+function accessScheduleDiffValue(fact: CampusMapAppendFact): unknown {
+  const schedule = fact.accessSchedule;
+  if (schedule.kind !== "weekly") return schedule;
+  const intervals = schedule.intervals.map((interval) => ({
+    days: [...interval.days].sort(
+      (left, right) =>
+        CAMPUS_MAP_WEEKDAYS.indexOf(left) - CAMPUS_MAP_WEEKDAYS.indexOf(right),
+    ),
+    opensAt: interval.opensAt,
+    closesAt: interval.closesAt,
+  }));
+  intervals.sort((left, right) =>
+    JSON.stringify(left).localeCompare(JSON.stringify(right)),
+  );
+  return {
+    kind: schedule.kind,
+    timezone: schedule.timezone,
+    intervals,
   };
 }
 

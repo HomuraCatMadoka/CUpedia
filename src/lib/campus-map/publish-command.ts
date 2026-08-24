@@ -40,6 +40,11 @@ const MAX_SOURCE_HASH_BYTES = 256;
 const MAX_SOURCE_TEXT_BYTES = 2_000;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+// PostgreSQL timestamps start at 4713 BC (astronomical year -4712). The
+// JavaScript Date upper bound is already below PostgreSQL's upper bound.
+const POSTGRES_TIMESTAMP_MIN_MILLISECONDS = Date.parse(
+  "-004712-01-01T00:00:00.000Z",
+);
 
 function canonicalUuid<T>(value: T): T {
   return typeof value === "string" && UUID_PATTERN.test(value)
@@ -425,11 +430,7 @@ export function validateFact(
   if (!validLocation(fact)) {
     errors.push({ code: "invalid-location", anchor: anchor("location") });
   }
-  if (
-    fact.observedAt !== null &&
-    (typeof fact.observedAt !== "string" ||
-      !Number.isFinite(Date.parse(fact.observedAt)))
-  ) {
+  if (fact.observedAt !== null && !validPostgresTimestamp(fact.observedAt)) {
     errors.push({ code: "invalid-observed-at", anchor: anchor("observedAt") });
   }
   return errors;
@@ -591,8 +592,7 @@ export function validateSource(
   }
   if (
     source.observedAt !== null &&
-    (typeof source.observedAt !== "string" ||
-      !Number.isFinite(Date.parse(source.observedAt)))
+    !validPostgresTimestamp(source.observedAt)
   ) {
     errors.push({
       code: "invalid-source-observed-at",
@@ -798,6 +798,15 @@ function validDateOnly(value: unknown): boolean {
   return (
     Number.isFinite(parsed.getTime()) &&
     parsed.toISOString().slice(0, 10) === value
+  );
+}
+
+function validPostgresTimestamp(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const milliseconds = Date.parse(value);
+  return (
+    Number.isFinite(milliseconds) &&
+    milliseconds >= POSTGRES_TIMESTAMP_MIN_MILLISECONDS
   );
 }
 
