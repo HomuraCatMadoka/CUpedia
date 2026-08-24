@@ -87,13 +87,13 @@ same Aigens group.
    scan. Historical rows remain available to server-side admin workflows.
 8. Product-ID churn is observed before aliasing is introduced. Each scheduled
    run stores bounded new/missing ID samples, counts and one-to-one same-name
-   candidates. Suspected replacement always fails closed. Provider-catalog
-   authority retains the conservative bulk churn rule. A current-activity
-   projection treats only paired material new-and-missing volume as bulk
-   replacement evidence: missing-only contraction changes reversible activity,
-   not provider identity. In a partial observation, absence has no identity
-   meaning and a pure addition surge is ordinary menu growth; it may create new
-   identities but cannot deactivate absent ones.
+   candidates. Suspected replacement always fails closed. Under any absence
+   authority, only paired material new-and-missing volume is bulk replacement
+   evidence: a one-sided addition or contraction is not product-ID churn.
+   Provider-catalog authority separately retains the suspicious-drop guard for
+   unexpectedly large contractions. In a partial observation, absence has no
+   identity meaning and a pure addition surge is ordinary menu growth; it may
+   create new identities but cannot deactivate absent ones.
 9. Resolving a blocked identity transition requires a versioned artifact that
    separates deterministic audit facts from reviewer decisions. Current
    decisions authorize only UUID-preserving replacements, historical alias

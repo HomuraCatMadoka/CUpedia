@@ -84,6 +84,54 @@ describe("menu identity churn observation", () => {
     ).toBe(true);
   });
 
+  it.each([
+    {
+      change: "pure additions",
+      incoming: (
+        existing: Array<{ externalProductId: string; name: string }>,
+      ) => [
+        ...existing,
+        ...Array.from({ length: 25 }, (_, index) => ({
+          externalProductId: `new-${index}`,
+          name: `New ${index}`,
+        })),
+      ],
+      expectedNew: 25,
+      expectedMissing: 0,
+    },
+    {
+      change: "missing-only contraction",
+      incoming: (
+        existing: Array<{ externalProductId: string; name: string }>,
+      ) => existing.slice(0, 75),
+      expectedNew: 0,
+      expectedMissing: 25,
+    },
+  ])(
+    "does not classify provider-catalog $change as bulk identity replacement",
+    ({ incoming, expectedNew, expectedMissing }) => {
+      const existing = Array.from({ length: 100 }, (_, index) => ({
+        externalProductId: `existing-${index}`,
+        name: `Existing ${index}`,
+      }));
+      const observation = observeMenuIdentityChurn(
+        existing,
+        incoming(existing),
+      );
+
+      expect(observation).toMatchObject({
+        newProductCount: expectedNew,
+        missingProductCount: expectedMissing,
+        suspectedReplacementCount: 0,
+      });
+      expect(
+        isSuspiciousMenuIdentityChurn(observation, 100, {
+          kind: "provider-catalog",
+        }),
+      ).toBe(false);
+    },
+  );
+
   it("does not treat absences from a partial snapshot as bulk churn", () => {
     const existing = Array.from({ length: 117 }, (_, index) => ({
       externalProductId: `existing-${index}`,

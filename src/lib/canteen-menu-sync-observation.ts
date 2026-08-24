@@ -107,10 +107,10 @@ export function isSuspiciousMenuIdentityChurn(
   if (observation.suspectedReplacementCount > 0) return true;
   if (absenceAuthority.kind === "none") return false;
 
-  const changed =
-    absenceAuthority.kind === "current-activity"
-      ? Math.min(observation.newProductCount, observation.missingProductCount)
-      : Math.max(observation.newProductCount, observation.missingProductCount);
+  const changed = Math.min(
+    observation.newProductCount,
+    observation.missingProductCount,
+  );
   return (
     changed >= MIN_CHURN_COUNT &&
     changed * 100 >= existingCount * CHURN_RATIO_PERCENT
