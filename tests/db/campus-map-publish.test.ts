@@ -944,6 +944,29 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       suggestions: [],
     });
 
+    const trailingHighSurrogate = createCommand();
+    const trailingHighSurrogateChange = trailingHighSurrogate.changes[0];
+    if (trailingHighSurrogateChange.operation !== "create") {
+      throw new Error("bad fixture");
+    }
+    trailingHighSurrogateChange.fact.name = "bad\ud800";
+    await expect(
+      publishCampusMapChangeset(trailingHighSurrogate, {
+        actorId,
+        clientIp: "203.0.113.16",
+      }),
+    ).resolves.toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "fact-name-invalid",
+          anchor: { changeIndex: 0, field: "name" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+
     const badSource = createCommand();
     const badSourceChange = badSource.changes[0];
     if (badSourceChange.operation !== "create") throw new Error("bad fixture");
