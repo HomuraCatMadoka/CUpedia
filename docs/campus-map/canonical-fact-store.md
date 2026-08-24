@@ -93,13 +93,13 @@ idempotency remain owned by the sole publish seam. They are intentionally not
 duplicated as a second set of cross-table trigger rules.
 
 The publisher acquires locks in a stable order: actor-scoped idempotency
-advisory lock, fresh User and credential eligibility rows, actor rate rows, a
-non-blocking rate-cleanup advisory lock, IP rate rows, existing Place and Current
-visibility rows in canonical Place UUID order, normalized warning domains in
-name/pin order, then provenance advisory locks in numeric key order. Exact
-completed replay returns before eligibility and quota because it does not create
-a new publication. No network request or slow external adapter runs inside the
-transaction.
+advisory lock, fresh User and credential eligibility rows, actor/IP rate rows in
+fixed policy order, a non-blocking rate-cleanup advisory lock, existing Place
+and Current visibility rows in canonical Place UUID order, normalized warning
+domains in name/pin order, then provenance advisory locks in numeric key order.
+Exact completed replay returns before eligibility and quota because it does not
+create a new publication. No network request or slow external adapter runs
+inside the transaction.
 
 UUID command identities are normalized to their canonical lowercase form once,
 before request fingerprinting, deduplication, lock ordering, reference checks,

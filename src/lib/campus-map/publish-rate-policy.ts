@@ -74,11 +74,11 @@ export async function consumePublishRate(
   const actorLimit = findPublishRateLimit(actorWindows, now);
   if (actorLimit) return actorLimit;
 
-  await reclaimExpiredPublishRateSubjects(transaction, now, actorHash);
   const ipWindows = await lockPublishRateRules(transaction, ipRules, now);
   const ipLimit = findPublishRateLimit(ipWindows, now);
   if (ipLimit) return ipLimit;
 
+  await reclaimExpiredPublishRateSubjects(transaction, now, actorHash, ipHash);
   for (const entry of [...actorWindows, ...ipWindows]) {
     await transaction
       .update(campusMapPublishRateLimits)
@@ -102,6 +102,7 @@ async function reclaimExpiredPublishRateSubjects(
   transaction: DatabaseTransaction,
   now: Date,
   protectedActorHash: string,
+  protectedIpHash: string,
 ): Promise<void> {
   const cleanupLock = await transaction.execute<{ acquired: boolean }>(sql`
     select pg_try_advisory_xact_lock(
@@ -117,8 +118,8 @@ async function reclaimExpiredPublishRateSubjects(
       from campus_map_publish_rate_limits
       where updated_at < ${cutoff}
         and not (
-          scope = 'actor'
-          and subject_hash = ${protectedActorHash}
+          (scope = 'actor' and subject_hash = ${protectedActorHash})
+          or (scope = 'ip' and subject_hash = ${protectedIpHash})
         )
       order by updated_at, scope, subject_hash, window_kind
       limit ${PUBLISH_RATE_CLEANUP_BATCH}
