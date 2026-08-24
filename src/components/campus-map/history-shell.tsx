@@ -25,9 +25,11 @@ const statusLabels = {
 export function CampusMapHistoryPage({
   placeId,
   items,
+  nextHref,
 }: {
   placeId: string;
   items: CampusMapPlaceHistoryItem[];
+  nextHref: string | null;
 }) {
   const latest = items[0];
   const name =
@@ -94,6 +96,11 @@ export function CampusMapHistoryPage({
           ))}
         </ol>
       )}
+      {nextHref ? (
+        <div>
+          <ReadLink href={nextHref}>下一页修订</ReadLink>
+        </div>
+      ) : null}
     </CampusMapReadShell>
   );
 }

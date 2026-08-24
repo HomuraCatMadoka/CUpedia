@@ -350,14 +350,32 @@ const currentFactSelection = {
 const hasOnlyPublicChanges = sql<boolean>`not exists (
   select 1
   from campus_map_place_changes public_change
-  inner join campus_map_fact_revisions public_revision
+  left join campus_map_fact_revisions public_revision
     on public_revision.place_change_id = public_change.id
   left join campus_map_revision_visibility public_visibility
     on public_visibility.revision_id = public_revision.id
   where public_change.changeset_id =
     ${sql.identifier("campus_map_changesets")}.${sql.identifier("id")}
-    and coalesce(public_visibility.visibility, 'redacted') <> 'public'
-)`;
+    and (
+      public_revision.id is null
+      or coalesce(public_visibility.visibility, 'redacted') <> 'public'
+      or (
+        public_revision.previous_revision_id is not null
+        and not exists (
+          select 1
+          from campus_map_revision_visibility predecessor_visibility
+          where predecessor_visibility.revision_id =
+            public_revision.previous_revision_id
+            and predecessor_visibility.visibility = 'public'
+        )
+      )
+    )
+) and (
+  select count(*)::integer
+  from campus_map_place_changes counted_change
+  where counted_change.changeset_id =
+    ${sql.identifier("campus_map_changesets")}.${sql.identifier("id")}
+) = ${sql.identifier("campus_map_changesets")}.${sql.identifier("affected_count")}`;
 
 const changesetSelection = {
   id: campusMapChangesets.id,
@@ -788,11 +806,11 @@ export async function listCampusMapCurrentPlaces(
 /** Reads immutable history and hides fact payloads unless explicitly public. */
 export async function getCampusMapPlaceHistory(
   placeId: string,
-  options: { before?: CampusMapPlaceHistoryCursor; limit?: number } = {},
+  options: { cursor?: string; limit?: number } = {},
 ): Promise<{
   placeExists: boolean;
   items: CampusMapPlaceHistoryItem[];
-  nextCursor: CampusMapPlaceHistoryCursor | null;
+  nextCursor: string | null;
 }> {
   if (!isPublicId(placeId)) {
     return { placeExists: false, items: [], nextCursor: null };
@@ -804,13 +822,16 @@ export async function getCampusMapPlaceHistory(
     .limit(1);
   const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
   const conditions = [eq(campusMapFactRevisions.placeId, placeId)];
-  if (options.before) {
+  const before = options.cursor
+    ? decodePlaceHistoryCursor(options.cursor)
+    : null;
+  if (before) {
     conditions.push(
       or(
-        lt(campusMapFactRevisions.createdAt, options.before.createdAt),
+        lt(campusMapFactRevisions.createdAt, before.createdAt),
         and(
-          eq(campusMapFactRevisions.createdAt, options.before.createdAt),
-          lt(campusMapFactRevisions.id, options.before.revisionId),
+          eq(campusMapFactRevisions.createdAt, before.createdAt),
+          lt(campusMapFactRevisions.id, before.revisionId),
         ),
       )!,
     );
@@ -852,6 +873,12 @@ export async function getCampusMapPlaceHistory(
       operation: campusMapPlaceChanges.operation,
       fieldDiff: campusMapPlaceChanges.fieldDiff,
       visibility: campusMapRevisionVisibility.visibility,
+      previousVisibility: sql<"public" | "redacted" | null>`(
+        select predecessor_visibility.visibility
+        from campus_map_revision_visibility predecessor_visibility
+        where predecessor_visibility.revision_id =
+          ${campusMapFactRevisions.previousRevisionId}
+      )`,
     })
     .from(campusMapFactRevisions)
     .innerJoin(
@@ -887,7 +914,11 @@ export async function getCampusMapPlaceHistory(
       factSchemaVersion: row.factSchemaVersion,
       fieldMetadata: row.fieldMetadata,
       operation: row.operation,
-      fieldDiff: row.visibility === "public" ? row.fieldDiff : null,
+      fieldDiff:
+        row.visibility === "public" &&
+        (row.previousRevisionId === null || row.previousVisibility === "public")
+          ? row.fieldDiff
+          : null,
       actor: { id: row.actorId, nickname: row.actorNickname },
       changesetId: row.changesetId,
       publishedAt: row.publishedAt,
@@ -930,9 +961,41 @@ export async function getCampusMapPlaceHistory(
     items,
     nextCursor:
       rows.length > limit && last
-        ? { createdAt: last.createdAt, revisionId: last.id }
+        ? encodePlaceHistoryCursor({
+            createdAt: last.createdAt,
+            revisionId: last.id,
+          })
         : null,
   };
+}
+
+function encodePlaceHistoryCursor(cursor: CampusMapPlaceHistoryCursor): string {
+  return Buffer.from(
+    JSON.stringify([1, cursor.createdAt.toISOString(), cursor.revisionId]),
+  ).toString("base64url");
+}
+
+function decodePlaceHistoryCursor(value: string): CampusMapPlaceHistoryCursor {
+  try {
+    const decoded: unknown = JSON.parse(
+      Buffer.from(value, "base64url").toString("utf8"),
+    );
+    if (
+      !Array.isArray(decoded) ||
+      decoded.length !== 3 ||
+      decoded[0] !== 1 ||
+      typeof decoded[1] !== "string" ||
+      typeof decoded[2] !== "string" ||
+      !UUID_PATTERN.test(decoded[2])
+    ) {
+      throw new Error("invalid shape");
+    }
+    const createdAt = new Date(decoded[1]);
+    if (Number.isNaN(createdAt.getTime())) throw new Error("invalid date");
+    return { createdAt, revisionId: decoded[2] };
+  } catch {
+    throw new CampusMapReadInputError("Invalid Campus Map history cursor");
+  }
 }
 
 /** Reads one immutable revision by both permanent Place and revision IDs. */
@@ -980,6 +1043,12 @@ export async function getCampusMapPlaceRevision(
       fieldDiff: campusMapPlaceChanges.fieldDiff,
       visibility: campusMapRevisionVisibility.visibility,
       schemaDefinition: campusMapFactSchemas.definition,
+      previousVisibility: sql<"public" | "redacted" | null>`(
+        select predecessor_visibility.visibility
+        from campus_map_revision_visibility predecessor_visibility
+        where predecessor_visibility.revision_id =
+          ${campusMapFactRevisions.previousRevisionId}
+      )`,
     })
     .from(campusMapFactRevisions)
     .innerJoin(
@@ -1028,7 +1097,11 @@ export async function getCampusMapPlaceRevision(
       displayMetadata: row.fieldMetadata,
     },
     operation: row.operation,
-    fieldDiff: row.visibility === "public" ? row.fieldDiff : null,
+    fieldDiff:
+      row.visibility === "public" &&
+      (row.previousRevisionId === null || row.previousVisibility === "public")
+        ? row.fieldDiff
+        : null,
     actor: { id: row.actorId, nickname: row.actorNickname },
     changesetId: row.changesetId,
     publishedAt: row.publishedAt,
@@ -1083,6 +1156,12 @@ async function loadChangesByChangeset(
       fieldMetadata: campusMapFactRevisions.fieldMetadata,
       schemaDefinition: campusMapFactSchemas.definition,
       visibility: campusMapRevisionVisibility.visibility,
+      previousVisibility: sql<"public" | "redacted" | null>`(
+        select predecessor_visibility.visibility
+        from campus_map_revision_visibility predecessor_visibility
+        where predecessor_visibility.revision_id =
+          ${campusMapFactRevisions.previousRevisionId}
+      )`,
     })
     .from(campusMapPlaceChanges)
     .innerJoin(
@@ -1117,10 +1196,18 @@ async function loadChangesByChangeset(
   );
 
   const byChangeset = new Map<string, CampusMapPublicChangeset["changes"]>();
-  for (const { changesetId, visibility, fieldDiff, ...change } of rows) {
+  for (const {
+    changesetId,
+    visibility,
+    previousVisibility,
+    fieldDiff,
+    ...change
+  } of rows) {
     const changes = byChangeset.get(changesetId) ?? [];
+    const hasPublicPredecessor =
+      change.previousRevisionId === null || previousVisibility === "public";
     changes.push(
-      visibility === "public"
+      visibility === "public" && hasPublicPredecessor
         ? {
             visibility: "public",
             ...change,
@@ -1245,10 +1332,13 @@ export async function listCampusMapChangesets(options: {
     conditions.push(
       hasOnlyPublicChanges,
       isNotNull(campusMapChangesets.bboxWest),
-      lte(campusMapChangesets.bboxWest, east),
-      gte(campusMapChangesets.bboxEast, west),
-      lte(campusMapChangesets.bboxSouth, north),
-      gte(campusMapChangesets.bboxNorth, south),
+      isNotNull(campusMapChangesets.bboxSouth),
+      isNotNull(campusMapChangesets.bboxEast),
+      isNotNull(campusMapChangesets.bboxNorth),
+      sql`box(
+        point(${campusMapChangesets.bboxWest}, ${campusMapChangesets.bboxSouth}),
+        point(${campusMapChangesets.bboxEast}, ${campusMapChangesets.bboxNorth})
+      ) && box(point(${west}, ${south}), point(${east}, ${north}))`,
     );
   }
   const before = options.cursor ? decodeChangesetCursor(options.cursor) : null;

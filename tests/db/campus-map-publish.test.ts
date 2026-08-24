@@ -10,6 +10,7 @@ import {
   getCampusMapChangeset,
   getCampusMapCurrentPlace,
   getCampusMapPlaceHistory,
+  getCampusMapPlaceRevision,
   listCampusMapChangesets,
   listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
@@ -1979,6 +1980,85 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     expect(
       bboxFeed.items.some((item) => item.id === published.changesetId),
     ).toBe(false);
+  });
+
+  it("hides a public correction whose predecessor was later redacted", async () => {
+    const actorId = await createActor();
+    const create = createCommand();
+    const createChange = create.changes[0];
+    if (createChange.operation !== "create") throw new Error("bad fixture");
+    createChange.fact.name = "后来需要遮蔽的旧名称";
+    createChange.fact.buildingId = null;
+    createChange.fact.floorId = null;
+    createChange.fact.location = {
+      kind: "outdoor-point",
+      longitude: 114.209,
+      latitude: 22.419,
+      crs: "wgs84",
+      precision: "approximate",
+    };
+    const created = await publishCampusMapChangeset(create, {
+      actorId,
+      clientIp: "203.0.113.193",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: baseRevisionId }] = created.changes;
+
+    const update = createCommand();
+    const updateFixture = update.changes[0];
+    if (updateFixture.operation !== "create") throw new Error("bad fixture");
+    update.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId,
+        fact: {
+          ...structuredClone(createChange.fact),
+          name: "公开的新名称",
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.21,
+            latitude: 22.42,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+        sources: updateFixture.sources,
+      },
+    ];
+    const updated = await publishCampusMapChangeset(update, {
+      actorId,
+      clientIp: "203.0.113.193",
+    });
+    if (updated.status !== "published") throw new Error("update failed");
+
+    await pool.query(
+      "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#719-predecessor' where revision_id = $1",
+      [baseRevisionId],
+    );
+
+    const detail = await getCampusMapChangeset(updated.changesetId);
+    expect(detail).toMatchObject({
+      bbox: null,
+      changes: [{ visibility: "redacted" }],
+    });
+    expect(JSON.stringify(detail)).not.toContain("后来需要遮蔽的旧名称");
+    const revision = await getCampusMapPlaceRevision(
+      placeId,
+      updated.changes[0].revisionId,
+    );
+    expect(revision?.fieldDiff).toBeNull();
+    expect(JSON.stringify(revision)).not.toContain("后来需要遮蔽的旧名称");
+    const bbox = await listCampusMapChangesets({
+      scope: {
+        kind: "bbox",
+        bounds: { west: 114.2, south: 22.4, east: 114.22, north: 22.43 },
+      },
+      limit: 100,
+    });
+    expect(bbox.items.map((item) => item.id)).not.toContain(
+      updated.changesetId,
+    );
   });
 
   it("serializes a concurrent redaction before reading Current visibility", async () => {

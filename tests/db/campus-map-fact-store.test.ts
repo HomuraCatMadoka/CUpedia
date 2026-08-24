@@ -57,6 +57,15 @@ const ids = {
   feedA: "00000000-0000-4000-8000-000000000711",
   feedB: "00000000-0000-4000-8000-000000000712",
   feedC: "00000000-0000-4000-8000-000000000713",
+  feedChangeA: "00000000-0000-4000-8000-000000000714",
+  feedChangeB: "00000000-0000-4000-8000-000000000715",
+  feedChangeC: "00000000-0000-4000-8000-000000000716",
+  feedRevisionA: "00000000-0000-4000-8000-000000000717",
+  feedRevisionB: "00000000-0000-4000-8000-000000000718",
+  feedRevisionC: "00000000-0000-4000-8000-000000000719",
+  feedPlaceA: "00000000-0000-4000-8000-000000000720",
+  feedPlaceB: "00000000-0000-4000-8000-000000000721",
+  feedPlaceC: "00000000-0000-4000-8000-000000000722",
 } as const;
 
 describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
@@ -83,6 +92,10 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
         [ids.revision],
       );
       await client.query(
+        `delete from campus_map_revision_visibility where revision_id = any($1::uuid[])`,
+        [[ids.feedRevisionA, ids.feedRevisionB, ids.feedRevisionC]],
+      );
+      await client.query(
         `delete from campus_map_revision_provenance where revision_id = $1`,
         [ids.revision],
       );
@@ -90,9 +103,17 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
         `delete from campus_map_fact_revisions where id = $1`,
         [ids.revision],
       );
+      await client.query(
+        `delete from campus_map_fact_revisions where id = any($1::uuid[])`,
+        [[ids.feedRevisionA, ids.feedRevisionB, ids.feedRevisionC]],
+      );
       await client.query(`delete from campus_map_place_changes where id = $1`, [
         ids.placeChange,
       ]);
+      await client.query(
+        `delete from campus_map_place_changes where id = any($1::uuid[])`,
+        [[ids.feedChangeA, ids.feedChangeB, ids.feedChangeC]],
+      );
       await client.query(`delete from campus_map_changesets where id = $1`, [
         ids.changeset,
       ]);
@@ -103,6 +124,10 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       await client.query(`delete from campus_map_places where id = $1`, [
         ids.place,
       ]);
+      await client.query(
+        `delete from campus_map_places where id = any($1::uuid[])`,
+        [[ids.feedPlaceA, ids.feedPlaceB, ids.feedPlaceC]],
+      );
       await client.query(`delete from campus_map_floors where id = $1`, [
         ids.floor,
       ]);
@@ -161,6 +186,13 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       sortOrder: 0,
     });
     await database.insert(campusMapPlaces).values({ id: ids.place });
+    await database
+      .insert(campusMapPlaces)
+      .values([
+        { id: ids.feedPlaceA },
+        { id: ids.feedPlaceB },
+        { id: ids.feedPlaceC },
+      ]);
     await database.insert(campusMapChangesets).values({
       id: ids.changeset,
       actorIdSnapshot: ids.actor,
@@ -291,6 +323,67 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
         publishedAt: new Date("2026-08-23T00:00:00Z"),
       },
     ]);
+    await database.insert(campusMapPlaceChanges).values([
+      {
+        id: ids.feedChangeA,
+        changesetId: ids.feedA,
+        placeId: ids.feedPlaceA,
+        operation: "update",
+        fieldDiff: {},
+      },
+      {
+        id: ids.feedChangeB,
+        changesetId: ids.feedB,
+        placeId: ids.feedPlaceB,
+        operation: "update",
+        fieldDiff: {},
+      },
+      {
+        id: ids.feedChangeC,
+        changesetId: ids.feedC,
+        placeId: ids.feedPlaceC,
+        operation: "update",
+        fieldDiff: {},
+      },
+    ]);
+    await database.insert(campusMapFactRevisions).values(
+      [
+        [ids.feedRevisionA, ids.feedChangeA, ids.feedA, ids.feedActor],
+        [ids.feedRevisionB, ids.feedChangeB, ids.feedB, ids.feedActor],
+        [ids.feedRevisionC, ids.feedChangeC, ids.feedC, ids.feedOtherActor],
+      ].map(([id, placeChangeId, changesetId, actorIdSnapshot]) => ({
+        id,
+        placeId:
+          changesetId === ids.feedA
+            ? ids.feedPlaceA
+            : changesetId === ids.feedB
+              ? ids.feedPlaceB
+              : ids.feedPlaceC,
+        changesetId,
+        placeChangeId,
+        factSchemaVersion: 701,
+        fieldMetadata: { name: { label: "名称" } },
+        status: "active" as const,
+        actorIdSnapshot,
+        actorNicknameSnapshot: "Feed 测试贡献者",
+        name: "Feed 测试地点",
+        buildingId: ids.building,
+        floorId: ids.floor,
+        pinType: "water" as const,
+        audience: "cuhk-member" as const,
+        credentialRequirement: "library-card" as const,
+        reservationRequirement: "none" as const,
+        temporaryStatus: "normal" as const,
+        locationKind: "floor" as const,
+      })),
+    );
+    await database
+      .insert(campusMapRevisionVisibility)
+      .values([
+        { revisionId: ids.feedRevisionA },
+        { revisionId: ids.feedRevisionB },
+        { revisionId: ids.feedRevisionC },
+      ]);
   });
 
   afterAll(async () => {
@@ -463,6 +556,30 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
             hasLocationEvidence: false,
           },
         ],
+      },
+    });
+  });
+
+  it("prevents referenced historical schema metadata from being rewritten", async () => {
+    await expect(
+      pool.query(
+        `update campus_map_fact_schemas
+         set definition = '{"fields":{},"pinTypes":{}}'::jsonb,
+             display_metadata = '{"name":{"label":"后来改名"}}'::jsonb
+         where version = 701`,
+      ),
+    ).rejects.toMatchObject({
+      code: "23514",
+      message: expect.stringContaining("schema metadata is immutable"),
+    });
+
+    await expect(
+      getCampusMapPlaceRevision(ids.place, ids.revision),
+    ).resolves.toMatchObject({
+      schema: {
+        version: 701,
+        definition: CAMPUS_MAP_FACT_SCHEMA_V1,
+        displayMetadata: { name: { label: "名称" } },
       },
     });
   });
@@ -659,6 +776,41 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
     expect(reviewRequested.items.map((item) => item.id)).toEqual([ids.feedA]);
   });
 
+  it("fails bbox projection closed when visibility evidence is missing", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("set local session_replication_role = replica");
+      await client.query(
+        "delete from campus_map_revision_visibility where revision_id = $1",
+        [ids.feedRevisionA],
+      );
+      await client.query("commit");
+
+      const recent = await listCampusMapChangesets({
+        scope: { kind: "recent" },
+        limit: 10,
+      });
+      expect(recent.items.find((item) => item.id === ids.feedA)).toMatchObject({
+        bbox: null,
+      });
+      const bbox = await listCampusMapChangesets({
+        scope: {
+          kind: "bbox",
+          bounds: { west: 114.18, south: 22.38, east: 114.23, north: 22.43 },
+        },
+        limit: 10,
+      });
+      expect(bbox.items.map((item) => item.id)).not.toContain(ids.feedA);
+    } finally {
+      client.release();
+      await database
+        .insert(campusMapRevisionVisibility)
+        .values({ revisionId: ids.feedRevisionA })
+        .onConflictDoNothing();
+    }
+  });
+
   it("fails malformed public IDs and bounds without exposing PostgreSQL errors", async () => {
     await expect(getCampusMapPlaceHistory("not-a-place")).resolves.toEqual({
       placeExists: false,
@@ -669,6 +821,9 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       getCampusMapPlaceRevision("not-a-place", "not-a-revision"),
     ).resolves.toBeNull();
     await expect(getCampusMapChangeset("not-a-changeset")).resolves.toBeNull();
+    await expect(
+      getCampusMapPlaceHistory(ids.place, { cursor: "not-a-cursor" }),
+    ).rejects.toBeInstanceOf(CampusMapReadInputError);
     await expect(
       listCampusMapChangesets({
         scope: { kind: "actor", actorId: "private@example.com" },

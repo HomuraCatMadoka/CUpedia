@@ -1972,6 +1972,15 @@ export const campusMapChangesets = pgTable(
     index("campus_map_changesets_review_feed_idx")
       .on(table.publishedAt, table.id)
       .where(sql`${table.reviewRequested} = true`),
+    index("campus_map_changesets_bbox_gist_idx")
+      .using(
+        "gist",
+        sql`box(point(${table.bboxWest}, ${table.bboxSouth}), point(${table.bboxEast}, ${table.bboxNorth}))`,
+      )
+      .where(
+        sql`${table.bboxWest} is not null and ${table.bboxSouth} is not null
+          and ${table.bboxEast} is not null and ${table.bboxNorth} is not null`,
+      ),
     check(
       "campus_map_changesets_counts_check",
       sql`${table.affectedCount} > 0

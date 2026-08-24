@@ -505,6 +505,20 @@
       "when": 1787563360772,
       "tag": "0071_stiff_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1787567017249,
+      "tag": "0072_faulty_pride",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1787567029962,
+      "tag": "0073_campus_map_schema_immutability",
+      "breakpoints": true
     }
   ]
 }

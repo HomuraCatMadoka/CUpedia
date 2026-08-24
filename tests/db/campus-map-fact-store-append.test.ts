@@ -249,6 +249,33 @@ describe.skipIf(!hasDb)("Campus Map fact-store append seam (#717)", () => {
     });
   });
 
+  it("pages Place history with an opaque same-timestamp cursor", async () => {
+    await appendCampusMapChangeset(initialCommand());
+    await appendCampusMapChangeset(
+      onePlaceCommand({
+        changesetId: ids.candidateAChangeset,
+        changeId: ids.candidateAChange,
+        revisionId: ids.candidateARevision,
+        baseRevisionId: ids.revision,
+        operation: "update",
+        status: "active",
+        name: "分页后的名称",
+      }),
+    );
+
+    const first = await getCampusMapPlaceHistory(ids.place, { limit: 1 });
+    expect(first.items.map((item) => item.id)).toEqual([
+      ids.candidateARevision,
+    ]);
+    expect(typeof first.nextCursor).toBe("string");
+    expect(first.nextCursor).not.toContain(ids.candidateARevision);
+    const second = await getCampusMapPlaceHistory(ids.place, {
+      cursor: first.nextCursor!,
+      limit: 1,
+    });
+    expect(second.items.map((item) => item.id)).toEqual([ids.revision]);
+  });
+
   it("persists the canonical schema on first publication", async () => {
     await appendCampusMapChangeset(
       onePlaceCommand({

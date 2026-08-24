@@ -545,6 +545,7 @@ describe.skipIf(!hasDb)(
         "campus_map_changesets_feed_idx",
         "campus_map_changesets_actor_feed_idx",
         "campus_map_changesets_review_feed_idx",
+        "campus_map_changesets_bbox_gist_idx",
         "campus_map_provider_mappings_identity_uq",
         "campus_map_publish_requests_actor_key_uq",
       ];
@@ -577,6 +578,24 @@ describe.skipIf(!hasDb)(
       const client = await pool.connect();
       await client.query("begin");
       try {
+        await client.query(
+          `insert into campus_map_changesets
+            (id, actor_id_snapshot, actor_nickname_snapshot, comment,
+             source_summary, client_name, client_version, affected_count,
+             updated_count, bbox_west, bbox_south, bbox_east, bbox_north,
+             published_at)
+           select md5('bbox-plan-' || value::text)::uuid,
+             md5('bbox-plan-actor-' || (value % 100)::text)::uuid, '计划测试',
+             '查询计划样本', '公开摘要', 'test', '1', 1, 1,
+             113 + (value % 200)::double precision / 100,
+             21 + (value % 100)::double precision / 100,
+             113.01 + (value % 200)::double precision / 100,
+             21.01 + (value % 100)::double precision / 100,
+             now() - make_interval(secs => value)
+           from generate_series(1, 2000) value
+           on conflict do nothing`,
+        );
+        await client.query("analyze campus_map_changesets");
         await client.query("set local enable_seqscan = off");
         const plans = [
           {
@@ -654,21 +673,40 @@ describe.skipIf(!hasDb)(
           {
             name: "bbox Changeset feed",
             sql: `select id from campus_map_changesets
-            where bbox_west is not null and bbox_west <= 114.3
-              and bbox_east >= 114.1 and bbox_south <= 22.5
-              and bbox_north >= 22.3
+            where bbox_west is not null and bbox_south is not null
+              and bbox_east is not null and bbox_north is not null
+              and box(point(bbox_west, bbox_south), point(bbox_east, bbox_north))
+                && box(point(114.1, 22.3), point(114.3, 22.5))
               and not exists (
                 select 1 from campus_map_place_changes public_change
-                inner join campus_map_fact_revisions public_revision
+                left join campus_map_fact_revisions public_revision
                   on public_revision.place_change_id = public_change.id
                 left join campus_map_revision_visibility public_visibility
                   on public_visibility.revision_id = public_revision.id
                 where public_change.changeset_id = campus_map_changesets.id
-                  and coalesce(public_visibility.visibility, 'redacted') <> 'public'
+                  and (
+                    public_revision.id is null
+                    or coalesce(public_visibility.visibility, 'redacted') <> 'public'
+                    or (
+                      public_revision.previous_revision_id is not null
+                      and not exists (
+                        select 1
+                        from campus_map_revision_visibility predecessor_visibility
+                        where predecessor_visibility.revision_id =
+                          public_revision.previous_revision_id
+                          and predecessor_visibility.visibility = 'public'
+                      )
+                    )
+                  )
               )
+              and (
+                select count(*)::integer
+                from campus_map_place_changes counted_change
+                where counted_change.changeset_id = campus_map_changesets.id
+              ) = campus_map_changesets.affected_count
             order by published_at desc, id desc limit 51`,
             params: [],
-            indexes: ["campus_map_changesets_feed_idx"],
+            indexes: ["campus_map_changesets_bbox_gist_idx"],
           },
           {
             name: "provider identity",
