@@ -49,7 +49,7 @@ describe("iCHEF menu adapter", () => {
         .categoriesSnapshot;
     const payload = buildIchefMenuSyncPayload(menuHours, categories);
 
-    expect(payload.takeOverLegacyItems).toBe(false);
+    expect(payload).not.toHaveProperty("takeOverLegacyItems");
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0]).toMatchObject({
       externalProductId: "item-1",

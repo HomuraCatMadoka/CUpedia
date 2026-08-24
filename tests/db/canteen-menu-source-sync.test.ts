@@ -510,10 +510,14 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
       previewMenuSync(sourceId, {
         ...partialInput,
         snapshotCompleteness: "complete",
+        takeOverLegacyItems: false,
       }),
     ).rejects.toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
     await expect(
-      previewMenuSync(sourceId, partialInput),
+      previewMenuSync(sourceId, {
+        ...partialInput,
+        takeOverLegacyItems: false,
+      }),
     ).resolves.toMatchObject({
       plan: expect.any(Object),
       previewToken: expect.any(String),
@@ -619,7 +623,6 @@ describe.skipIf(!hasDb)("scheduled canteen menu source sync", () => {
 
       const partialInput = {
         snapshotCompleteness: "partial" as const,
-        takeOverLegacyItems: false,
         items: [
           ...existingRows.slice(0, overlapCount).map((row, index) => ({
             externalProductId: row.externalProductId,

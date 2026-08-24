@@ -376,8 +376,24 @@ export function canonicalizeProviderMenuState(
   provider: MenuProvider,
   input: MenuSyncInput,
   existingItems: ExistingSyncMenuItem[],
+  options?: { allowEmptySnapshot?: boolean },
+): { input: MenuSyncInput; existingItems: ExistingSyncMenuItem[] };
+export function canonicalizeProviderMenuState<
+  TInput extends Pick<MenuSyncInput, "items">,
+>(
+  provider: MenuProvider,
+  input: TInput,
+  existingItems: ExistingSyncMenuItem[],
+  options?: { allowEmptySnapshot?: boolean },
+): { input: TInput; existingItems: ExistingSyncMenuItem[] };
+export function canonicalizeProviderMenuState<
+  TInput extends Pick<MenuSyncInput, "items">,
+>(
+  provider: MenuProvider,
+  input: TInput,
+  existingItems: ExistingSyncMenuItem[],
   options: { allowEmptySnapshot?: boolean } = {},
-): { input: MenuSyncInput; existingItems: ExistingSyncMenuItem[] } {
+): { input: TInput; existingItems: ExistingSyncMenuItem[] } {
   const canonicalInput = {
     ...input,
     items: input.items.map((item) => ({
@@ -408,7 +424,7 @@ export function canonicalizeProviderMenuState(
     assertProviderMenuIdentityItems(provider, managedIdentities);
   }
   return {
-    input: canonicalInput,
+    input: canonicalInput as TInput,
     existingItems: canonicalExistingItems,
   };
 }

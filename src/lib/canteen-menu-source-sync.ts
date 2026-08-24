@@ -34,7 +34,10 @@ import {
   type LockedMenuSource,
   type MenuSyncTransaction,
 } from "./canteen-menu-sync-store";
-import type { MenuObservationContext, MenuSyncInput } from "./canteen-types";
+import type {
+  MenuObservationContext,
+  ProviderMenuObservation,
+} from "./canteen-types";
 import {
   menuObservationContextAt,
   menuSyncWindowAt,
@@ -591,7 +594,7 @@ async function finalizeFailureResult(
 
 async function commitClaimedRecurringMenuSync(
   claim: MenuSourceClaim,
-  input: MenuSyncInput,
+  input: ProviderMenuObservation,
   snapshot: { hash: string; itemCount: number },
 ) {
   return db.transaction(async (tx) => {
@@ -678,13 +681,9 @@ async function executeClaimedMenuSourceSync(
   claim: MenuSourceClaim,
 ): Promise<MenuSourceSyncResult> {
   const { source, runId } = claim;
-  let input: MenuSyncInput;
+  let input: ProviderMenuObservation;
   try {
-    const fetched = await fetchMenuFromProvider(
-      source,
-      claim.observationContext,
-    );
-    input = { ...fetched, takeOverLegacyItems: false };
+    input = await fetchMenuFromProvider(source, claim.observationContext);
   } catch (error) {
     return finalizeFailureResult(claim, error, "provider-failure");
   }

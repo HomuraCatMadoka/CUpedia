@@ -1,10 +1,9 @@
 import type {
+  CurrentMenuProjection,
   MealPeriodAssignment,
   MenuItemPriceOptionInput,
-  MenuSyncInput,
   MenuSyncItemInput,
 } from "./canteen-types";
-import { snapshotAbsenceIsEvidence } from "./canteen-menu-snapshot-completeness";
 
 export type ApprovedMenuIdentityReplacement = {
   itemId: string;
@@ -49,6 +48,12 @@ export type MenuSyncPlan = {
   unchanged: number;
 };
 
+type MenuSyncPlanOptions = {
+  legacyAdoptionOpen?: boolean;
+  takeOverLegacyItems?: boolean;
+  approvedIdentityReplacements?: readonly ApprovedMenuIdentityReplacement[];
+};
+
 /**
  * Reconcile one already-resolved menu source. Product identity is deliberately
  * independent from name, pricing and meal periods so those attributes can
@@ -56,15 +61,19 @@ export type MenuSyncPlan = {
  */
 export function planMenuSync(
   sourceId: string,
-  input: MenuSyncInput,
+  projection: CurrentMenuProjection,
   existingItems: ExistingSyncMenuItem[],
-  legacyAdoptionOpen = true,
-  approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[] = [],
+  options: MenuSyncPlanOptions = {},
 ): MenuSyncPlan {
-  const absenceIsEvidence = snapshotAbsenceIsEvidence(
-    input.snapshotCompleteness,
-  );
-  if (!absenceIsEvidence && input.takeOverLegacyItems) {
+  const legacyAdoptionOpen = options.legacyAdoptionOpen ?? true;
+  const takeOverLegacyItems = options.takeOverLegacyItems ?? false;
+  const approvedIdentityReplacements =
+    options.approvedIdentityReplacements ?? [];
+  const absenceIsEvidence = projection.absenceAuthority.kind !== "none";
+  if (
+    projection.absenceAuthority.kind !== "provider-catalog" &&
+    takeOverLegacyItems
+  ) {
     throw new Error("PARTIAL_SNAPSHOT_LEGACY_TAKEOVER_FORBIDDEN");
   }
   const managedByProduct = new Map(
@@ -98,7 +107,7 @@ export function planMenuSync(
   const seenItemIds = new Set<string>();
   let unchanged = 0;
 
-  for (const incoming of input.items) {
+  for (const incoming of projection.items) {
     const approvedReplacement = approvedByNextId.get(
       incoming.externalProductId,
     );
@@ -135,7 +144,7 @@ export function planMenuSync(
       legacyByNamePeriod.get(
         legacyMatchKey(incoming.name, incoming.mealPeriods),
       ) ?? [];
-    if (!input.takeOverLegacyItems && legacyMatches.length > 0) {
+    if (!takeOverLegacyItems && legacyMatches.length > 0) {
       conflicts.push({
         externalProductId: incoming.externalProductId,
         name: incoming.name,
@@ -190,8 +199,7 @@ export function planMenuSync(
   if (absenceIsEvidence) {
     for (const item of existingItems) {
       const belongsToSource = item.menuSourceId === sourceId;
-      const adoptableLegacy =
-        input.takeOverLegacyItems && item.menuSourceId === null;
+      const adoptableLegacy = takeOverLegacyItems && item.menuSourceId === null;
       if (
         item.isAvailable &&
         (belongsToSource || adoptableLegacy) &&

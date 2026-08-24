@@ -6,7 +6,10 @@ import {
 } from "./canteen-provider-menu-identity";
 import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
-import type { MealPeriodAssignment, MenuSyncInput } from "@/lib/canteen-types";
+import type {
+  MealPeriodAssignment,
+  ProviderMenuObservation,
+} from "@/lib/canteen-types";
 
 type IchefMenuHour = {
   startTime?: string;
@@ -38,7 +41,7 @@ function parseAmountMinor(price: unknown): number {
 export function buildIchefMenuSyncPayload(
   menuHours: IchefMenuHour[],
   categories: IchefCategory[],
-): MenuSyncInput {
+): ProviderMenuObservation {
   const periodsByCategory = new Map<string, Set<MealPeriodAssignment>>();
   for (const hour of menuHours) {
     const periods = mealPeriodsForOperatingWindow(hour.startTime, hour.endTime);
@@ -51,7 +54,7 @@ export function buildIchefMenuSyncPayload(
 
   const byItemUuid = new Map<
     string,
-    Omit<MenuSyncInput["items"][number], "sortOrder">
+    Omit<ProviderMenuObservation["items"][number], "sortOrder">
   >();
   for (const category of categories) {
     if (!category.uuid || !category.name) continue;
@@ -120,7 +123,6 @@ export function buildIchefMenuSyncPayload(
   assertProviderMenuIdentityItems("ichef", items);
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("ichef"),
-    takeOverLegacyItems: false,
     items,
   };
 }

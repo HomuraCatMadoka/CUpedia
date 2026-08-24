@@ -3,6 +3,7 @@ import {
   planMenuSync,
   type ExistingSyncMenuItem,
 } from "@/lib/canteen-menu-sync";
+import { projectSingleMenuObservation } from "@/lib/canteen-menu-projection";
 import { parseMenuSyncJson } from "@/lib/canteen-types";
 
 const SOURCE_ID = "11111111-1111-4111-a111-111111111111";
@@ -40,7 +41,11 @@ function input(name = "凍奶茶") {
 
 describe("menu sync planner", () => {
   it("requires explicit takeover before claiming a matching manual row", () => {
-    const plan = planMenuSync(SOURCE_ID, input(), [existing()]);
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(input()),
+      [existing()],
+    );
     expect(plan.actions).toEqual([]);
     expect(plan.conflicts[0]).toMatchObject({
       reason: "LEGACY_MATCH_REQUIRES_TAKEOVER",
@@ -51,8 +56,9 @@ describe("menu sync planner", () => {
   it("claims the same UUID during explicit takeover", () => {
     const plan = planMenuSync(
       SOURCE_ID,
-      { ...input(), takeOverLegacyItems: true },
+      projectSingleMenuObservation(input()),
       [existing()],
+      { takeOverLegacyItems: true },
     );
     expect(plan.conflicts).toEqual([]);
     expect(plan.actions[0]).toMatchObject({
@@ -73,9 +79,16 @@ describe("menu sync planner", () => {
         },
       ],
     });
-    const plan = planMenuSync(SOURCE_ID, changed, [
-      existing({ menuSourceId: SOURCE_ID, externalProductId: "product-42" }),
-    ]);
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(changed),
+      [
+        existing({
+          menuSourceId: SOURCE_ID,
+          externalProductId: "product-42",
+        }),
+      ],
+    );
     expect(plan.actions[0]).toMatchObject({
       action: "update",
       itemId: "item-1",
@@ -85,22 +98,33 @@ describe("menu sync planner", () => {
   });
 
   it("does not match the same product ID from another source", () => {
-    const plan = planMenuSync(SOURCE_ID, input("新菜"), [
-      existing({
-        menuSourceId: "22222222-2222-4222-a222-222222222222",
-        externalProductId: "product-42",
-      }),
-    ]);
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(input("新菜")),
+      [
+        existing({
+          menuSourceId: "22222222-2222-4222-a222-222222222222",
+          externalProductId: "product-42",
+        }),
+      ],
+    );
     expect(plan.actions).toEqual([
       expect.objectContaining({ action: "create", name: "新菜" }),
     ]);
   });
 
   it("deactivates missing managed rows but leaves manual rows alone", () => {
-    const plan = planMenuSync(SOURCE_ID, input("新菜"), [
-      existing({ menuSourceId: SOURCE_ID, externalProductId: "old-product" }),
-      existing({ id: "manual-item", name: "手工菜" }),
-    ]);
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(input("新菜")),
+      [
+        existing({
+          menuSourceId: SOURCE_ID,
+          externalProductId: "old-product",
+        }),
+        existing({ id: "manual-item", name: "手工菜" }),
+      ],
+    );
     expect(plan.actions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ action: "create", name: "新菜" }),
@@ -115,7 +139,10 @@ describe("menu sync planner", () => {
   it("preserves managed rows absent from a partial provider snapshot", () => {
     const plan = planMenuSync(
       SOURCE_ID,
-      { ...input("时段新品"), snapshotCompleteness: "partial" },
+      projectSingleMenuObservation({
+        ...input("时段新品"),
+        snapshotCompleteness: "partial",
+      }),
       [
         existing({
           menuSourceId: SOURCE_ID,
@@ -158,7 +185,11 @@ describe("menu sync planner", () => {
       })),
     });
 
-    const plan = planMenuSync(SOURCE_ID, partialInput, existingItems);
+    const plan = planMenuSync(
+      SOURCE_ID,
+      projectSingleMenuObservation(partialInput),
+      existingItems,
+    );
 
     expect(plan.actions.some((action) => action.action === "deactivate")).toBe(
       false,
@@ -169,12 +200,12 @@ describe("menu sync planner", () => {
     expect(() =>
       planMenuSync(
         SOURCE_ID,
-        {
+        projectSingleMenuObservation({
           ...input(),
           snapshotCompleteness: "partial",
-          takeOverLegacyItems: true,
-        },
+        }),
         [existing()],
+        { takeOverLegacyItems: true },
       ),
     ).toThrow("PARTIAL_SNAPSHOT_LEGACY_TAKEOVER_FORBIDDEN");
   });
@@ -194,9 +225,9 @@ describe("menu sync planner", () => {
   it("ignores retired manual rows after the one-time adoption closes", () => {
     const plan = planMenuSync(
       SOURCE_ID,
-      input(),
+      projectSingleMenuObservation(input()),
       [existing({ isAvailable: false })],
-      false,
+      { legacyAdoptionOpen: false },
     );
     expect(plan.conflicts).toEqual([]);
     expect(plan.actions).toEqual([

@@ -6,14 +6,16 @@ import {
 } from "@/db/schema";
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { normalizeMealPeriods } from "./canteen-meal-periods";
+import { projectSingleMenuObservation } from "./canteen-menu-projection";
 import { menuSnapshotComparisonContext } from "./canteen-menu-snapshot-completeness";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
 import { menuSyncWindowAt } from "./canteen-menu-sync-window";
 import type {
+  CurrentMenuProjection,
   MealPeriod,
   MenuObservationContext,
-  MenuSyncInput,
   MenuSyncItemInput,
+  ProviderMenuObservation,
 } from "./canteen-types";
 
 const HKT_OFFSET_MS = 8 * 60 * 60 * 1_000;
@@ -67,7 +69,7 @@ export async function insertMenuSyncSnapshot(
     sourceId: string;
     snapshotHash: string;
     context: MenuObservationContext;
-    input: MenuSyncInput;
+    input: ProviderMenuObservation;
   },
 ): Promise<void> {
   if (
@@ -118,9 +120,11 @@ export async function materializeScopedMenuProjection(
   tx: MenuSyncTransaction,
   source: ScopedProjectionSource,
   context: MenuObservationContext,
-  current: MenuSyncInput,
-): Promise<MenuSyncInput> {
-  if (current.observationScope?.kind !== "meal-period") return current;
+  current: ProviderMenuObservation,
+): Promise<CurrentMenuProjection> {
+  if (current.observationScope?.kind !== "meal-period") {
+    return projectSingleMenuObservation(current);
+  }
   if (current.observationScope.mealPeriod !== context.mealPeriod) {
     throw new Error("MENU_OBSERVATION_SCOPE_MISMATCH");
   }
@@ -212,15 +216,13 @@ export async function materializeScopedMenuProjection(
     (period) => period === context.mealPeriod || latestByPeriod.has(period),
   );
   return {
-    ...current,
-    snapshotCompleteness: allScopesObserved ? "complete" : "partial",
-    observationScope: { kind: "catalog" },
-    ...(allScopesObserved
-      ? {
-          activityProjectionAuthority: "all-configured-meal-periods" as const,
-        }
-      : {}),
     items: [...union.values()],
+    absenceAuthority: allScopesObserved
+      ? {
+          kind: "current-activity",
+          coveredMealPeriods: configuredPeriods,
+        }
+      : { kind: "none" },
   };
 }
 

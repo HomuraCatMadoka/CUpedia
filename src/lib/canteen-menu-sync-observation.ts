@@ -1,8 +1,5 @@
 import { createHash } from "node:crypto";
-import {
-  snapshotAbsenceIsEvidence,
-  type MenuSnapshotCompleteness,
-} from "./canteen-menu-snapshot-completeness";
+import type { MenuAbsenceAuthority } from "./canteen-types";
 
 declare const redactedMenuSampleBrand: unique symbol;
 export type RedactedMenuSample = string & {
@@ -105,15 +102,15 @@ export function redactMenuDiagnosticSample(value: string): RedactedMenuSample {
 export function isSuspiciousMenuIdentityChurn(
   observation: MenuIdentityObservation,
   existingCount: number,
-  snapshotCompleteness: MenuSnapshotCompleteness,
+  absenceAuthority: MenuAbsenceAuthority,
 ): boolean {
   if (observation.suspectedReplacementCount > 0) return true;
-  if (!snapshotAbsenceIsEvidence(snapshotCompleteness)) return false;
+  if (absenceAuthority.kind === "none") return false;
 
-  const changed = Math.max(
-    observation.newProductCount,
-    observation.missingProductCount,
-  );
+  const changed =
+    absenceAuthority.kind === "current-activity"
+      ? Math.min(observation.newProductCount, observation.missingProductCount)
+      : Math.max(observation.newProductCount, observation.missingProductCount);
   return (
     changed >= MIN_CHURN_COUNT &&
     changed * 100 >= existingCount * CHURN_RATIO_PERCENT

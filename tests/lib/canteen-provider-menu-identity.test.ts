@@ -16,6 +16,7 @@ import {
   planMenuSync,
   type ExistingSyncMenuItem,
 } from "@/lib/canteen-menu-sync";
+import { projectSingleMenuObservation } from "@/lib/canteen-menu-projection";
 import { parseMenuSyncJson } from "@/lib/canteen-types";
 
 type Fixture = {
@@ -259,7 +260,11 @@ describe("provider menu identity contract (#636)", () => {
         }),
         [persistedItem(historical[0])],
       );
-      const plan = planMenuSync(SOURCE_ID, state.input, state.existingItems);
+      const plan = planMenuSync(
+        SOURCE_ID,
+        projectSingleMenuObservation(state.input),
+        state.existingItems,
+      );
       expect(plan.actions).toEqual([
         expect.objectContaining({
           itemId: "uuid-with-votes-and-comments",
@@ -296,9 +301,11 @@ describe("provider menu identity contract (#636)", () => {
           },
         ],
       });
-      const plan = planMenuSync(SOURCE_ID, input, [
-        persistedItem(externalProductId),
-      ]);
+      const plan = planMenuSync(
+        SOURCE_ID,
+        projectSingleMenuObservation(input),
+        [persistedItem(externalProductId)],
+      );
       expect(plan.conflicts).toEqual([]);
       expect(plan.actions).toEqual([
         expect.objectContaining({
@@ -335,7 +342,11 @@ describe("provider menu identity contract (#636)", () => {
         }),
         [persistedItem(current)],
       );
-      const plan = planMenuSync(SOURCE_ID, state.input, state.existingItems);
+      const plan = planMenuSync(
+        SOURCE_ID,
+        projectSingleMenuObservation(state.input),
+        state.existingItems,
+      );
       expect(plan.actions).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
@@ -363,7 +374,11 @@ describe("provider menu identity contract (#636)", () => {
         }),
         [{ ...persistedItem(current), isAvailable: false }],
       );
-      const plan = planMenuSync(SOURCE_ID, state.input, state.existingItems);
+      const plan = planMenuSync(
+        SOURCE_ID,
+        projectSingleMenuObservation(state.input),
+        state.existingItems,
+      );
       expect(plan.actions).toEqual([
         expect.objectContaining({
           action: "reactivate",

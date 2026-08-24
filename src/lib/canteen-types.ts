@@ -182,14 +182,31 @@ export type MenuSnapshotScopeEvidence =
       }>;
     };
 
-export type MenuSyncInput = {
+/** One normalized provider response before any cross-observation projection. */
+export type ProviderMenuObservation = {
   snapshotCompleteness: MenuSnapshotCompleteness;
-  takeOverLegacyItems: boolean;
   items: MenuSyncItemInput[];
   scopeEvidence?: MenuSnapshotScopeEvidence;
   observationScope?: MenuObservationScope;
-  /** Internal authority produced only after every configured scope is present. */
-  activityProjectionAuthority?: "all-configured-meal-periods";
+};
+
+/** Legacy/Admin command envelope around one provider observation. */
+export type MenuSyncInput = ProviderMenuObservation & {
+  takeOverLegacyItems: boolean;
+};
+
+export type MenuAbsenceAuthority =
+  | { kind: "none" }
+  | { kind: "provider-catalog" }
+  | {
+      kind: "current-activity";
+      coveredMealPeriods: MealPeriod[];
+    };
+
+/** Derived current-menu state; deliberately not a provider observation. */
+export type CurrentMenuProjection = {
+  items: MenuSyncItemInput[];
+  absenceAuthority: MenuAbsenceAuthority;
 };
 
 function parseMenuObservationScope(

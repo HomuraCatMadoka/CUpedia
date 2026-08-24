@@ -71,9 +71,10 @@ async function main() {
       { provider, externalOwnerId, externalStoreId, config },
       menuObservationContextAt(await readMenuSyncDatabaseNow(db)),
     );
-    const menu = allowLegacyTakeover
-      ? { ...fetched, takeOverLegacyItems: true }
-      : fetched;
+    const menu = {
+      ...fetched,
+      takeOverLegacyItems: allowLegacyTakeover,
+    };
     const existingSource = await db.query.canteenMenuSources.findFirst({
       where: eq(canteenMenuSources.canteenId, canteenId),
     });

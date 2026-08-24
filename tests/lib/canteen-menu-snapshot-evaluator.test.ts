@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  evaluateCurrentMenuProjection,
   evaluateMenuSnapshot,
   resolveApprovedIdentityTransitionBlocking,
 } from "@/lib/canteen-menu-snapshot-evaluator";
@@ -193,6 +194,49 @@ describe("menu snapshot evaluator", () => {
     expect(result.blockingDecision).toMatchObject({
       blocked: true,
       code: "MENU_SYNC_SUSPICIOUS_DROP",
+    });
+  });
+
+  it("allows a production-sized missing-only current-activity contraction (#743)", () => {
+    const persisted = Array.from({ length: 249 }, (_, index) =>
+      existing({
+        id: `item-${index}`,
+        externalProductId: `product-${index}`,
+        name: `菜品 ${index}`,
+      }),
+    );
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["breakfast", "lunch", "dinner"],
+        },
+        items: persisted.slice(0, 150).map((item) => ({
+          externalProductId: item.externalProductId!,
+          name: item.name,
+          priceOptions: item.priceOptions,
+          mealPeriods: item.mealPeriods,
+          sortOrder: item.sortOrder,
+          svgKey: item.svgKey,
+        })),
+      },
+      persisted,
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 0,
+      missingProductCount: 99,
+      suspectedReplacementCount: 0,
+    });
+    expect(
+      result.plan.actions.filter((action) => action.action === "deactivate"),
+    ).toHaveLength(99);
+    expect(result.blockingReasons).toEqual([]);
+    expect(result.blockingDecision).toEqual({
+      blocked: false,
+      code: null,
+      samples: [],
     });
   });
 
