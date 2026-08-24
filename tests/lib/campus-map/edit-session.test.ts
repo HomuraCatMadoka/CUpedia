@@ -681,6 +681,21 @@ describe("Campus Map edit session transition", () => {
     });
   });
 
+  it("rejects impossible Edit reposition and damaged stable identity", () => {
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
+      session: CampusMapEditSession;
+    };
+    snapshot.session.status = "placing";
+    snapshot.session.draft.fact.location = null;
+    snapshot.session.draft.placeId = "";
+    snapshot.session.draft.baseRevisionId = "not-a-uuid";
+    snapshot.session.draft.idempotencyKey = "broken";
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
   it("allows an overnight weekly schedule to reach server validation", () => {
     const overnight = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",

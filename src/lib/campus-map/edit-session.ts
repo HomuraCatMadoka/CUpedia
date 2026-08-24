@@ -746,6 +746,15 @@ function validTimestamp(value: unknown): boolean {
   return typeof value === "string" && Number.isFinite(Date.parse(value));
 }
 
+function validUuid(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    )
+  );
+}
+
 function looksLikeFact(value: unknown, allowNullLocation: boolean): boolean {
   if (!isRecord(value)) return false;
   const fact = value;
@@ -928,14 +937,17 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         "conflict",
       ].includes(String(value.returnStatus)));
   const locationStateValid =
-    value.status === "placing" ||
-    (value.status === "confirm-discard" && value.returnStatus === "placing") ||
+    ((value.status === "placing" ||
+      (value.status === "confirm-discard" &&
+        value.returnStatus === "placing")) &&
+      (draft.mode === "add" ||
+        (isRecord(draft.fact) && draft.fact.location !== null))) ||
     (isRecord(draft.fact) && draft.fact.location !== null);
   return (
     statusStateValid &&
     locationStateValid &&
     (draft.mode === "add" || draft.mode === "edit") &&
-    typeof draft.idempotencyKey === "string" &&
+    validUuid(draft.idempotencyKey) &&
     looksLikeFact(draft.fact, true) &&
     Array.isArray(draft.sources) &&
     draft.sources.every(looksLikeSource) &&
@@ -950,8 +962,8 @@ function looksLikeSession(value: unknown): value is CampusMapEditSession {
         typeof item.fingerprint === "string",
     ) &&
     (draft.mode === "add" ||
-      (typeof draft.placeId === "string" &&
-        typeof draft.baseRevisionId === "string" &&
+      (validUuid(draft.placeId) &&
+        validUuid(draft.baseRevisionId) &&
         looksLikeFact(draft.baselineFact, false)))
   );
 }
