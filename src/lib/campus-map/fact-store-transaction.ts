@@ -826,11 +826,3 @@ export function withCampusMapFactStoreTransaction<T>(
     work(new CampusMapFactStoreTransaction(transaction)),
   );
 }
-
-export function appendCampusMapChangeset(
-  command: CampusMapAppendChangesetCommand,
-): Promise<{ changesetId: string }> {
-  return withCampusMapFactStoreTransaction((store) =>
-    store.appendChangeset(command),
-  );
-}
