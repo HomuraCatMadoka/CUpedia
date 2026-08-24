@@ -118,11 +118,14 @@ same Aigens group.
     projection. For meal-period-scoped sources, reconciliation receives the
     union of the newest accepted snapshot for every configured period, not the
     current point-in-time response. Replacing one scope can remove only that
-    period's occurrence; compatible occurrences share one product identity and
-    UUID. Until every configured period has an accepted scoped snapshot, the
-    union is globally partial. Manual preview and transition flows downgrade a
-    meal-period observation to non-authoritative absence unless they use the
-    recurring scoped projection.
+    period's occurrence. Occurrences share one product identity and UUID;
+    mutable facts such as name, price, classification and ordering come from the
+    newest observation, while meal periods are unioned across scopes. Conflicts
+    inside one provider response remain adapter errors, but ordinary changes
+    between observations must converge. Until every configured period has an
+    accepted scoped snapshot, the union is globally partial. Manual preview and
+    transition flows downgrade a meal-period observation to non-authoritative
+    absence unless they use the recurring scoped projection.
 
 ## Consequences
 

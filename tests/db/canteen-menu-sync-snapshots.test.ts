@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  canteenMenuItemPrices,
   canteenMenuItems,
   canteenMenuSources,
   canteenMenuSyncRuns,
@@ -391,6 +392,126 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
       expect.objectContaining({ isAvailable: true }),
       expect.objectContaining({ isAvailable: true }),
     ]);
+  });
+
+  it("uses the newest facts when a shared product changes across scoped observations", async () => {
+    await db
+      .update(canteenMenuSources)
+      .set({
+        provider: "qmai",
+        externalOwnerId: `owner-${sourceId}`,
+        externalStoreId: `store-${sourceId}`,
+        syncMealPeriods: ["breakfast", "lunch", "dinner"],
+      })
+      .where(eq(canteenMenuSources.id, sourceId));
+    const [existing] = await db
+      .insert(canteenMenuItems)
+      .values({
+        canteenId,
+        menuSourceId: sourceId,
+        externalProductId: "shared-changing-facts",
+        name: "舊菜名",
+        mealPeriods: ["breakfast", "lunch", "dinner"],
+        isAvailable: true,
+      })
+      .returning({ id: canteenMenuItems.id });
+    await db.insert(canteenMenuItemPrices).values({
+      menuItemId: existing.id,
+      amountMinor: 2_000,
+    });
+
+    fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
+      const retainedPeriods = (
+        ["breakfast", "lunch", "dinner"] as const
+      ).filter((period) => period !== context.mealPeriod);
+      for (const [index, period] of retainedPeriods.entries()) {
+        const runId = randomUUID();
+        await db.insert(canteenMenuSyncRuns).values({
+          id: runId,
+          menuSourceId: sourceId,
+          status: "unchanged",
+        });
+        await db.insert(canteenMenuSyncSnapshots).values({
+          runId,
+          menuSourceId: sourceId,
+          snapshotHash: String(index + 7).repeat(64),
+          snapshotCompleteness: "complete",
+          observationScope: "meal-period",
+          itemCount: 1,
+          syncWindowKey: `retained/${period}`,
+          mealPeriod: period,
+          hktWeekday: 1,
+          observedMinuteOfDay: 60 + index,
+          scopeEvidence: {},
+          observedAt: new Date(Date.now() - (index + 1) * 60_000),
+        });
+        await db.insert(canteenMenuSyncSnapshotItems).values({
+          runId,
+          ...item("shared-changing-facts", {
+            name: "舊菜名",
+            priceOptions: [
+              {
+                label: null,
+                amountMinor: 2_000,
+                currency: "HKD",
+                sortOrder: 0,
+              },
+            ],
+            mealPeriods: [period],
+          }),
+        });
+      }
+      return {
+        snapshotCompleteness: "complete",
+        observationScope: {
+          kind: "meal-period",
+          mealPeriod: context.mealPeriod,
+        },
+        takeOverLegacyItems: false,
+        items: [
+          item("shared-changing-facts", {
+            name: "新菜名",
+            priceOptions: [
+              {
+                label: null,
+                amountMinor: 2_500,
+                currency: "HKD",
+                sortOrder: 0,
+              },
+            ],
+            mealPeriods: [context.mealPeriod],
+          }),
+        ],
+      };
+    });
+
+    const result = await syncCanteenMenuSource(sourceId);
+    expect(result).toMatchObject({ status: "applied" });
+    const [[updated], [updatedPrice], [acceptedSnapshot]] = await Promise.all([
+      db
+        .select({
+          id: canteenMenuItems.id,
+          name: canteenMenuItems.name,
+          mealPeriods: canteenMenuItems.mealPeriods,
+        })
+        .from(canteenMenuItems)
+        .where(eq(canteenMenuItems.id, existing.id)),
+      db
+        .select({ amountMinor: canteenMenuItemPrices.amountMinor })
+        .from(canteenMenuItemPrices)
+        .where(eq(canteenMenuItemPrices.menuItemId, existing.id)),
+      db
+        .select({ observationScope: canteenMenuSyncSnapshots.observationScope })
+        .from(canteenMenuSyncSnapshots)
+        .where(eq(canteenMenuSyncSnapshots.runId, result.runId!)),
+    ]);
+    expect(updated).toEqual({
+      id: existing.id,
+      name: "新菜名",
+      mealPeriods: ["breakfast", "lunch", "dinner"],
+    });
+    expect(updatedPrice).toEqual({ amountMinor: 2_500 });
+    expect(acceptedSnapshot).toEqual({ observationScope: "meal-period" });
   });
 
   it("does not record failed or review-blocked attempts", async () => {

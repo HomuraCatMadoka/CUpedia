@@ -106,32 +106,11 @@ type ScopedProjectionSource = {
   syncMealPeriods: MealPeriod[];
 };
 
-function samePriceOptions(
-  left: MenuSyncItemInput["priceOptions"],
-  right: MenuSyncItemInput["priceOptions"],
-): boolean {
-  const canonical = (options: MenuSyncItemInput["priceOptions"]) =>
-    options
-      .map((option) => ({
-        label: option.label,
-        amountMinor: option.amountMinor,
-        currency: option.currency,
-        sortOrder: option.sortOrder,
-      }))
-      .toSorted(
-        (a, b) =>
-          a.sortOrder - b.sortOrder ||
-          (a.label ?? "").localeCompare(b.label ?? "") ||
-          a.currency.localeCompare(b.currency) ||
-          a.amountMinor - b.amountMinor,
-      );
-  return JSON.stringify(canonical(left)) === JSON.stringify(canonical(right));
-}
-
 /**
  * Materializes the current menu as the union of the newest accepted observation
  * for every configured meal-period scope. The current observation replaces its
- * prior scope; missing scopes keep global absence non-authoritative.
+ * prior scope; missing scopes keep global absence non-authoritative. The newest
+ * occurrence owns mutable facts while older occurrences contribute periods.
  */
 export async function materializeScopedMenuProjection(
   tx: MenuSyncTransaction,
@@ -218,12 +197,6 @@ export async function materializeScopedMenuProjection(
       if (!existing) {
         union.set(item.externalProductId, structuredClone(item));
         continue;
-      }
-      if (
-        existing.name !== item.name ||
-        !samePriceOptions(existing.priceOptions, item.priceOptions)
-      ) {
-        throw new Error("MENU_SCOPED_FACTS_CONFLICT");
       }
       const mergedPeriods = normalizeMealPeriods([
         ...existing.mealPeriods,
