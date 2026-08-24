@@ -10,6 +10,7 @@ import {
   getCampusMapChangeset,
   getCampusMapCurrentPlace,
   getCampusMapPlaceHistory,
+  listCampusMapCurrentPlaces,
 } from "@/lib/campus-map/fact-store";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
@@ -1491,6 +1492,23 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       "update campus_map_revision_visibility set visibility = 'redacted', redaction_ref = 'test:#718' where revision_id = $1",
       [revisionId],
     );
+    await expect(getCampusMapCurrentPlace(placeId)).resolves.toBeNull();
+    await expect(
+      listCampusMapCurrentPlaces({
+        buildingId: "00000000-0000-4000-8000-000000000802",
+      }),
+    ).resolves.not.toMatchObject({
+      items: expect.arrayContaining([expect.objectContaining({ id: placeId })]),
+    });
+
+    const hiddenDuplicate = await publishCampusMapChangeset(createCommand(), {
+      actorId,
+      clientIp: "203.0.113.21",
+    });
+    expect(hiddenDuplicate).toMatchObject({
+      status: "published",
+      warnings: [],
+    });
 
     for (const operation of ["update", "retire"] as const) {
       const command = createCommand();
@@ -2001,6 +2019,57 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
+  it("warns on duplicates proposed inside one admin bulk command", async () => {
+    const actorId = await createActor({ role: "admin" });
+    const command = createCommand();
+    const first = command.changes[0];
+    if (first.operation !== "create") throw new Error("bad fixture");
+    const second = structuredClone(first);
+    second.sources[0].ref = `test:campus-map-publish:${randomUUID()}`;
+    command.kind = "bulk";
+    command.changes = [first, second];
+
+    const unacknowledged = await publishCampusMapChangeset(command, {
+      actorId,
+      clientIp: "203.0.113.28",
+    });
+    expect(unacknowledged).toMatchObject({
+      status: "validation-failed",
+      errors: [],
+      warnings: [
+        {
+          code: "possible-duplicate",
+          anchor: { changeIndex: 1, field: "name" },
+          fingerprint: expect.stringMatching(/^[0-9a-f]{64}$/),
+        },
+      ],
+    });
+    if (unacknowledged.status !== "validation-failed") {
+      throw new Error("warning was not returned");
+    }
+    command.warningAcknowledgements = [
+      {
+        changeIndex: 1,
+        code: "possible-duplicate",
+        fingerprint: unacknowledged.warnings[0].fingerprint,
+      },
+    ];
+
+    await expect(
+      publishCampusMapChangeset(command, {
+        actorId,
+        clientIp: "203.0.113.28",
+      }),
+    ).resolves.toMatchObject({
+      status: "published",
+      changes: [
+        { placeId: expect.any(String) },
+        { placeId: expect.any(String) },
+      ],
+      warnings: [{ code: "possible-duplicate" }],
+    });
+  });
+
   it("requires the current server-issued duplicate warning fingerprint", async () => {
     const [existingActorId, candidateActorId] = await Promise.all([
       createActor(),
@@ -2087,6 +2156,91 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     await expect(
       getCampusMapCurrentPlace(acknowledged.changes[0].placeId),
     ).resolves.toMatchObject({ name: "大学图书馆饮水点" });
+  });
+
+  it("invalidates a warning acknowledgement when candidate location changes", async () => {
+    const [existingActorId, candidateActorId] = await Promise.all([
+      createActor(),
+      createActor(),
+    ]);
+    const existingCommand = createCommand();
+    const existingChange = existingCommand.changes[0];
+    if (existingChange.operation !== "create") throw new Error("bad fixture");
+    existingChange.fact.name = "位置候选重复测试";
+    existingChange.fact.buildingId = null;
+    existingChange.fact.floorId = null;
+    existingChange.fact.location = {
+      kind: "outdoor-point",
+      longitude: 114.2,
+      latitude: 22.4,
+      crs: "wgs84",
+      precision: "precise",
+    };
+    const existing = await publishCampusMapChangeset(existingCommand, {
+      actorId: existingActorId,
+      clientIp: "203.0.113.29",
+    });
+    if (existing.status !== "published") throw new Error("create failed");
+
+    const candidate = createCommand();
+    const candidateChange = candidate.changes[0];
+    if (candidateChange.operation !== "create") throw new Error("bad fixture");
+    candidateChange.fact = structuredClone(existingChange.fact);
+    const warning = await publishCampusMapChangeset(candidate, {
+      actorId: candidateActorId,
+      clientIp: "203.0.113.30",
+    });
+    if (
+      warning.status !== "validation-failed" ||
+      warning.warnings.length !== 1
+    ) {
+      throw new Error("warning was not returned");
+    }
+    candidate.warningAcknowledgements = [
+      {
+        changeIndex: 0,
+        code: "possible-duplicate",
+        fingerprint: warning.warnings[0].fingerprint,
+      },
+    ];
+
+    const moved = createCommand();
+    const movedCreate = moved.changes[0];
+    if (movedCreate.operation !== "create") throw new Error("bad fixture");
+    moved.changes = [
+      {
+        operation: "update",
+        placeId: existing.changes[0].placeId,
+        baseRevisionId: existing.changes[0].revisionId,
+        fact: {
+          ...structuredClone(existingChange.fact),
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2001,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "precise",
+          },
+        },
+        sources: movedCreate.sources,
+      },
+    ];
+    await expect(
+      publishCampusMapChangeset(moved, {
+        actorId: existingActorId,
+        clientIp: "203.0.113.29",
+      }),
+    ).resolves.toMatchObject({ status: "published" });
+
+    await expect(
+      publishCampusMapChangeset(candidate, {
+        actorId: candidateActorId,
+        clientIp: "203.0.113.30",
+      }),
+    ).resolves.toMatchObject({
+      status: "validation-failed",
+      errors: [{ code: "warning-acknowledgement-invalid" }],
+    });
   });
 
   it("returns source Errors before an otherwise unconfirmed duplicate Warning", async () => {
@@ -2708,7 +2862,7 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     }
   });
 
-  it("shares IP quota across equivalent IPv6 text representations", async () => {
+  it("shares IP quota across canonical IPv6 and IPv4-mapped representations", async () => {
     const previous = {
       actorBurst: process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT,
       actorSustained: process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT,
@@ -2720,16 +2874,33 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT = "1";
     process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT = "100";
     try {
-      const [firstActor, secondActor] = await Promise.all([
-        createActor(),
-        createActor(),
-      ]);
+      const [firstActor, secondActor, ipv4Actor, mappedActor] =
+        await Promise.all([
+          createActor(),
+          createActor(),
+          createActor(),
+          createActor(),
+        ]);
       const first = createCommand();
       const second = createCommand();
+      const ipv4 = createCommand();
+      const mapped = createCommand();
+      const firstChange = first.changes[0];
       const secondChange = second.changes[0];
-      if (secondChange.operation !== "create") throw new Error("bad fixture");
+      const ipv4Change = ipv4.changes[0];
+      const mappedChange = mapped.changes[0];
+      if (
+        firstChange.operation !== "create" ||
+        secondChange.operation !== "create" ||
+        ipv4Change.operation !== "create" ||
+        mappedChange.operation !== "create"
+      ) {
+        throw new Error("bad fixture");
+      }
+      firstChange.fact.name = "IPv6 配额地点 A";
       secondChange.fact.name = "IPv6 配额地点 B";
-      secondChange.fact.buildingId = "00000000-0000-4000-8000-000000000804";
+      ipv4Change.fact.name = "IPv4 配额地点 A";
+      mappedChange.fact.name = "IPv4 配额地点 B";
 
       await expect(
         publishCampusMapChangeset(first, {
@@ -2741,6 +2912,23 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
         publishCampusMapChangeset(second, {
           actorId: secondActor,
           clientIp: "2001:0db8:0:0:0:0:0:1",
+        }),
+      ).resolves.toMatchObject({
+        status: "rate-limited",
+        scope: "ip",
+        policy: "burst",
+      });
+
+      await expect(
+        publishCampusMapChangeset(ipv4, {
+          actorId: ipv4Actor,
+          clientIp: "192.0.2.1",
+        }),
+      ).resolves.toMatchObject({ status: "published" });
+      await expect(
+        publishCampusMapChangeset(mapped, {
+          actorId: mappedActor,
+          clientIp: "::ffff:192.0.2.1",
         }),
       ).resolves.toMatchObject({
         status: "rate-limited",

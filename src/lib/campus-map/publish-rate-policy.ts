@@ -143,7 +143,12 @@ function normalizeClientIp(clientIp: string): string {
   }
   if (version === 4) return normalized;
   const hostname = new URL(`http://[${normalized}]/`).hostname;
-  return hostname.slice(1, -1);
+  const canonical = hostname.slice(1, -1);
+  const mappedIpv4 = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(canonical);
+  if (!mappedIpv4) return canonical;
+  const high = Number.parseInt(mappedIpv4[1], 16);
+  const low = Number.parseInt(mappedIpv4[2], 16);
+  return `${high >>> 8}.${high & 0xff}.${low >>> 8}.${low & 0xff}`;
 }
 
 function privateSubjectHash(

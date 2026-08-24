@@ -7,6 +7,7 @@ import {
   campusMapCurrentFacts,
   campusMapFloors,
   campusMapPublishRequests,
+  campusMapRevisionVisibility,
   CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
   type CampusMapFieldDiff,
 } from "@/db/schema";
@@ -794,40 +795,92 @@ async function evaluatePublishWarnings(
   hasUnacknowledgedWarning: boolean;
 }> {
   const warnings: CampusMapPublishWarning[] = [];
+  const commandPlaceIds = new Set(
+    command.changes.flatMap((change) =>
+      change.operation === "create" ? [] : [change.placeId],
+    ),
+  );
   for (const [changeIndex, change] of command.changes.entries()) {
     if (change.operation === "retire") continue;
-    const candidates = await transaction
+    const currentCandidates = await transaction
       .select({
         placeId: campusMapCurrentFacts.placeId,
+        revisionId: campusMapCurrentFacts.revisionId,
+        name: campusMapCurrentFacts.name,
+        pinType: campusMapCurrentFacts.pinType,
         locationKind: campusMapCurrentFacts.locationKind,
         buildingId: campusMapCurrentFacts.buildingId,
         floorId: campusMapCurrentFacts.floorId,
         longitude: campusMapCurrentFacts.longitude,
         latitude: campusMapCurrentFacts.latitude,
+        coordinateCrs: campusMapCurrentFacts.coordinateCrs,
+        pointPrecision: campusMapCurrentFacts.pointPrecision,
       })
       .from(campusMapCurrentFacts)
+      .innerJoin(
+        campusMapRevisionVisibility,
+        eq(
+          campusMapCurrentFacts.revisionId,
+          campusMapRevisionVisibility.revisionId,
+        ),
+      )
       .where(
         and(
           eq(campusMapCurrentFacts.pinType, change.fact.pinType),
+          eq(campusMapRevisionVisibility.visibility, "public"),
           sql`btrim(${campusMapCurrentFacts.name}) <> ''`,
           sql`lower(btrim(${campusMapCurrentFacts.name})) = lower(btrim(${change.fact.name}))`,
         ),
       )
       .orderBy(asc(campusMapCurrentFacts.placeId));
-    const duplicatePlaceIds = candidates
-      .filter(
-        (candidate) =>
-          (change.operation === "create" ||
-            candidate.placeId !== change.placeId) &&
-          duplicateLocation(candidate, change.fact),
-      )
-      .map((candidate) => candidate.placeId);
-    if (duplicatePlaceIds.length === 0) continue;
+    const currentDuplicates = currentCandidates.filter(
+      (candidate) =>
+        !commandPlaceIds.has(candidate.placeId) &&
+        duplicateLocation(candidate, change.fact),
+    );
+    const duplicateCandidates: unknown[] = currentDuplicates.map(
+      (candidate) => ({
+        kind: "current",
+        placeId: candidate.placeId,
+        revisionId: candidate.revisionId,
+        fact: currentFactWarningInputs(candidate),
+      }),
+    );
+    const commandCandidates = command.changes
+      .slice(0, changeIndex)
+      .flatMap((candidate, candidateIndex) => {
+        if (
+          candidate.operation === "retire" ||
+          factWarningInputs(candidate.fact).name !==
+            factWarningInputs(change.fact).name ||
+          candidate.fact.pinType !== change.fact.pinType ||
+          !duplicateLocation(toDuplicateLocation(candidate.fact), change.fact)
+        ) {
+          return [];
+        }
+        return [
+          {
+            kind: "command",
+            changeIndex: candidateIndex,
+            operation: candidate.operation,
+            placeId:
+              candidate.operation === "create" ? null : candidate.placeId,
+            fact: factWarningInputs(candidate.fact),
+          },
+        ];
+      });
+    duplicateCandidates.push(...commandCandidates);
+    if (duplicateCandidates.length === 0) continue;
+    const anchorPlaceId =
+      currentDuplicates.at(0)?.placeId ??
+      commandCandidates
+        .map((candidate) => candidate.placeId)
+        .find((placeId): placeId is string => placeId !== null);
     warnings.push({
       code: "possible-duplicate",
       anchor: {
         changeIndex,
-        placeId: duplicatePlaceIds[0],
+        ...(anchorPlaceId === undefined ? {} : { placeId: anchorPlaceId }),
         field: "name",
       },
       fingerprint: warningFingerprint({
@@ -836,7 +889,7 @@ async function evaluatePublishWarnings(
         operation: change.operation,
         placeId: change.operation === "create" ? null : change.placeId,
         fact: factWarningInputs(change.fact),
-        candidates: duplicatePlaceIds,
+        candidates: duplicateCandidates,
       }),
     });
   }
@@ -870,6 +923,18 @@ async function evaluatePublishWarnings(
       ),
   );
   return { warnings, invalidAcknowledgements, hasUnacknowledgedWarning };
+}
+
+function toDuplicateLocation(fact: CampusMapPublishFactInput) {
+  return {
+    locationKind: fact.location.kind,
+    buildingId: fact.buildingId,
+    floorId: fact.floorId,
+    longitude:
+      fact.location.kind === "outdoor-point" ? fact.location.longitude : null,
+    latitude:
+      fact.location.kind === "outdoor-point" ? fact.location.latitude : null,
+  };
 }
 
 function duplicateLocation(
@@ -923,6 +988,39 @@ function factWarningInputs(fact: CampusMapPublishFactInput) {
               latitude: fact.location.latitude,
               crs: fact.location.crs,
               precision: fact.location.precision,
+            },
+  };
+}
+
+function currentFactWarningInputs(candidate: {
+  name: string;
+  pinType: string;
+  locationKind: string;
+  buildingId: string | null;
+  floorId: string | null;
+  longitude: number | null;
+  latitude: number | null;
+  coordinateCrs: string | null;
+  pointPrecision: string | null;
+}) {
+  return {
+    name: candidate.name.trim().toLocaleLowerCase("zh-HK"),
+    pinType: candidate.pinType,
+    location:
+      candidate.locationKind === "building"
+        ? { kind: "building", buildingId: candidate.buildingId }
+        : candidate.locationKind === "floor"
+          ? {
+              kind: "floor",
+              buildingId: candidate.buildingId,
+              floorId: candidate.floorId,
+            }
+          : {
+              kind: "outdoor-point",
+              longitude: candidate.longitude,
+              latitude: candidate.latitude,
+              crs: candidate.coordinateCrs,
+              precision: candidate.pointPrecision,
             },
   };
 }
