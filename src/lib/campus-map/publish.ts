@@ -8,7 +8,10 @@ import {
   campusMapFloors,
   campusMapPublishRequests,
   campusMapRevisionVisibility,
+  CAMPUS_MAP_CAPABILITIES,
   CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+  type CampusMapFactDisplayMetadata,
+  type CampusMapFactFieldKey,
   type CampusMapFieldDiff,
 } from "@/db/schema";
 import { accounts, users } from "@/db/schema";
@@ -68,6 +71,12 @@ type StoredPublishRequest = {
   status: string;
   result: Extract<CampusMapPublishResult, { status: "published" }> | null;
 };
+type CampusMapPublishDiffField = CampusMapFactFieldKey | "observedAt";
+
+const CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1: CampusMapFactDisplayMetadata = {
+  ...CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+  observedAt: { label: "观察时间" },
+} satisfies CampusMapFactDisplayMetadata;
 
 /**
  * Sole application seam for publishing Campus Map facts. The command contains
@@ -718,7 +727,7 @@ export async function publishCampusMapChangeset(
             change.operation === "create" ? null : change.baseRevisionId,
           operation: change.operation,
           factSchemaVersion: current?.factSchemaVersion ?? 1,
-          fieldMetadata: CAMPUS_MAP_FACT_DISPLAY_METADATA_V1,
+          fieldMetadata: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1,
           fieldDiff: createFieldDiff(current?.fact ?? null, fact),
           status: change.operation === "retire" ? "retired" : "active",
           mergedIntoPlaceId: null,
@@ -1187,7 +1196,7 @@ function createFieldDiff(
   const beforeValues = before === null ? null : factDiffValues(before);
   const afterValues = factDiffValues(after);
   return Object.fromEntries(
-    Object.entries(afterValues)
+    (Object.entries(afterValues) as [CampusMapPublishDiffField, unknown][])
       .filter(
         ([field, value]) =>
           beforeValues === null ||
@@ -1198,25 +1207,32 @@ function createFieldDiff(
         {
           before: beforeValues?.[field] ?? null,
           after: value,
-          label: CAMPUS_MAP_FACT_DISPLAY_METADATA_V1[field]?.label ?? field,
+          label: CAMPUS_MAP_PUBLISH_FIELD_METADATA_V1[field]?.label ?? field,
         },
       ]),
   );
 }
 
-function factDiffValues(fact: CampusMapAppendFact): Record<string, unknown> {
+function factDiffValues(
+  fact: CampusMapAppendFact,
+): Record<CampusMapPublishDiffField, unknown> {
   return {
     name: fact.name,
     pinType: fact.pinType,
-    capabilities: fact.capabilities,
+    capabilities: [...fact.capabilities].sort(
+      (left, right) =>
+        CAMPUS_MAP_CAPABILITIES.indexOf(left) -
+        CAMPUS_MAP_CAPABILITIES.indexOf(right),
+    ),
     gender: fact.gender,
     wheelchairAccess: fact.wheelchairAccess,
     audience: fact.audience,
     credentialRequirement: fact.credentialRequirement,
-    accessSchedule: fact.accessSchedule,
+    accessSchedule: canonicalize(fact.accessSchedule),
     reservationRequirement: fact.reservationRequirement,
     temporaryStatus: fact.temporaryStatus,
     location: locationDiffValue(fact),
+    observedAt: fact.observedAt?.toISOString() ?? null,
   };
 }
 

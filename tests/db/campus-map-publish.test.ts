@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Pool } from "pg";
+import { Pool, type PoolClient } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 
 import {
@@ -1394,6 +1394,63 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
   });
 
+  it("publishes an observed-at-only correction with a typed field diff", async () => {
+    const actorId = await createActor();
+    const create = createCommand();
+    const createChange = create.changes[0];
+    if (createChange.operation !== "create") throw new Error("bad fixture");
+    createChange.fact.observedAt = null;
+    const created = await publishCampusMapChangeset(create, {
+      actorId,
+      clientIp: "203.0.113.192",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: baseRevisionId }] = created.changes;
+
+    const observedAt = "2026-08-25T03:00:00.000Z";
+    const update = createCommand();
+    const updateFixture = update.changes[0];
+    if (updateFixture.operation !== "create") throw new Error("bad fixture");
+    update.comment = "补充现场观察时间";
+    update.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId,
+        fact: { ...structuredClone(createChange.fact), observedAt },
+        sources: updateFixture.sources,
+      },
+    ];
+
+    const updated = await publishCampusMapChangeset(update, {
+      actorId,
+      clientIp: "203.0.113.192",
+    });
+    expect(updated).toMatchObject({ status: "published" });
+    if (updated.status !== "published") throw new Error("update failed");
+    await expect(getCampusMapCurrentPlace(placeId)).resolves.toMatchObject({
+      revisionId: updated.changes[0].revisionId,
+      observedAt: new Date(observedAt),
+    });
+    await expect(
+      getCampusMapChangeset(updated.changesetId),
+    ).resolves.toMatchObject({
+      changes: [
+        {
+          placeId,
+          operation: "update",
+          fieldDiff: {
+            observedAt: {
+              before: null,
+              after: observedAt,
+              label: "观察时间",
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it("rejects an update whose server-computed fact diff is empty", async () => {
     const actorId = await createActor();
     const created = await publishCampusMapChangeset(createCommand(), {
@@ -1422,6 +1479,80 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
     });
 
     expect(result).toEqual({
+      status: "validation-failed",
+      errors: [
+        {
+          code: "no-fact-changes",
+          anchor: { changeIndex: 0, placeId, field: "fact" },
+        },
+      ],
+      warnings: [],
+      suggestions: [],
+    });
+    await expect(getCampusMapPlaceHistory(placeId)).resolves.toMatchObject({
+      items: [{ id: baseRevisionId }],
+    });
+  });
+
+  it("treats equivalent multi-select and schedule representations as no fact change", async () => {
+    const actorId = await createActor();
+    const create = createCommand();
+    const createChange = create.changes[0];
+    if (createChange.operation !== "create") throw new Error("bad fixture");
+    createChange.fact.pinType = "printer";
+    createChange.fact.capabilities = ["print", "scan"];
+    createChange.fact.accessSchedule = {
+      kind: "weekly",
+      timezone: "Asia/Hong_Kong",
+      intervals: [
+        {
+          days: ["mon"],
+          opensAt: "09:00",
+          closesAt: "17:00",
+        },
+      ],
+    };
+    const created = await publishCampusMapChangeset(create, {
+      actorId,
+      clientIp: "203.0.113.191",
+    });
+    if (created.status !== "published") throw new Error("create failed");
+    const [{ placeId, revisionId: baseRevisionId }] = created.changes;
+
+    const update = createCommand();
+    const updateFixture = update.changes[0];
+    if (updateFixture.operation !== "create") throw new Error("bad fixture");
+    update.comment = "确认同一事实的不同 JSON 表示";
+    update.changes = [
+      {
+        operation: "update",
+        placeId,
+        baseRevisionId,
+        fact: {
+          ...structuredClone(createChange.fact),
+          capabilities: ["scan", "print"],
+          accessSchedule: {
+            intervals: [
+              {
+                closesAt: "17:00",
+                opensAt: "09:00",
+                days: ["mon"],
+              },
+            ],
+            timezone: "Asia/Hong_Kong",
+            kind: "weekly",
+          },
+        },
+        sources: updateFixture.sources,
+      },
+    ];
+
+    await expect(
+      publishCampusMapChangeset(update, {
+        actorId,
+        clientIp: "203.0.113.191",
+      }),
+    ).resolves.toEqual({
       status: "validation-failed",
       errors: [
         {
@@ -2107,6 +2238,62 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       warnings: [],
       suggestions: [],
     });
+  });
+
+  it("rejects PostgreSQL-unrepresentable source dates as charged validation", async () => {
+    const previous = {
+      actorBurst: process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT,
+      actorSustained: process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT,
+      ipBurst: process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT,
+      ipSustained: process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT,
+    };
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT = "1";
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT = "100";
+    try {
+      const actorId = await createActor();
+      const invalidDate = createCommand();
+      invalidDate.changes[0].sources[0].accessedOn = "0000-01-01";
+
+      await expect(
+        publishCampusMapChangeset(invalidDate, {
+          actorId,
+          clientIp: "203.0.113.251",
+        }),
+      ).resolves.toEqual({
+        status: "validation-failed",
+        errors: [
+          {
+            code: "invalid-source-accessed-on",
+            anchor: { changeIndex: 0, field: "sources.0.accessedOn" },
+          },
+        ],
+        warnings: [],
+        suggestions: [],
+      });
+
+      await expect(
+        publishCampusMapChangeset(createCommand(), {
+          actorId,
+          clientIp: "203.0.113.251",
+        }),
+      ).resolves.toMatchObject({
+        status: "rate-limited",
+        scope: "actor",
+        policy: "burst",
+      });
+    } finally {
+      for (const [name, value] of [
+        ["CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT", previous.actorBurst],
+        ["CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT", previous.actorSustained],
+        ["CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT", previous.ipBurst],
+        ["CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT", previous.ipSustained],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
   });
 
   it("rejects changed metadata for an existing structured source identity", async () => {
@@ -3198,6 +3385,162 @@ describe.skipIf(!hasDb)("Campus Map atomic publish seam", () => {
       { scope: "ip", count: "2" },
     ]);
   });
+
+  it("avoids inverse cleanup locks for concurrent actors sharing an expired IP", async () => {
+    const previous = {
+      actorBurst: process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT,
+      actorSustained: process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT,
+      ipBurst: process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT,
+      ipSustained: process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT,
+    };
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT = "100";
+    process.env.CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT = "100";
+    const sharedIp = "203.0.113.76";
+    const barrierKey = 718_003;
+    let cleanupLocker: PoolClient | undefined;
+    let barrierLocker: PoolClient | undefined;
+    let cleanupLockerOpen = false;
+    let barrierLockerOpen = false;
+    let publishA: ReturnType<typeof publishCampusMapChangeset> | undefined;
+    let publishB: ReturnType<typeof publishCampusMapChangeset> | undefined;
+    let results: Awaited<ReturnType<typeof publishCampusMapChangeset>>[] = [];
+    try {
+      const rateActor = await createActor();
+      const initializeRateState = createCommand();
+      initializeRateState.comment = "";
+      await expect(
+        publishCampusMapChangeset(initializeRateState, {
+          actorId: rateActor,
+          clientIp: sharedIp,
+        }),
+      ).resolves.toMatchObject({ status: "validation-failed" });
+      await pool.query(
+        `update campus_map_publish_rate_limits
+            set updated_at = now() - interval '2 hours'`,
+      );
+
+      await pool.query(
+        `create function campus_map_publish_rate_sustained_barrier()
+         returns trigger language plpgsql as $$
+         begin
+           if new.scope = 'ip' and new.window_kind = 'sustained' then
+             perform pg_advisory_xact_lock(${barrierKey});
+           end if;
+           return new;
+         end
+         $$`,
+      );
+      await pool.query(
+        `create trigger campus_map_publish_rate_sustained_barrier_trigger
+         before insert on campus_map_publish_rate_limits
+         for each row execute function campus_map_publish_rate_sustained_barrier()`,
+      );
+
+      cleanupLocker = await pool.connect();
+      await cleanupLocker.query("begin");
+      await cleanupLocker.query(
+        `select pg_advisory_xact_lock(
+           hashtextextended('campus-map-publish-rate-cleanup', 0)
+         )`,
+      );
+      cleanupLockerOpen = true;
+
+      barrierLocker = await pool.connect();
+      await barrierLocker.query("begin");
+      await barrierLocker.query("select pg_advisory_xact_lock($1)", [
+        barrierKey,
+      ]);
+      barrierLockerOpen = true;
+
+      const [actorA, actorB] = await Promise.all([
+        createActor(),
+        createActor(),
+      ]);
+      const commandA = createCommand();
+      const commandB = createCommand();
+      const changeA = commandA.changes[0];
+      const changeB = commandB.changes[0];
+      if (changeA.operation !== "create" || changeB.operation !== "create") {
+        throw new Error("bad fixture");
+      }
+      changeA.fact.name = "共享 IP 锁序地点 A";
+      changeB.fact.name = "共享 IP 锁序地点 B";
+
+      publishB = publishCampusMapChangeset(commandB, {
+        actorId: actorB,
+        clientIp: sharedIp,
+      });
+      await waitForBlockedQuery("campus_map_publish_rate_limits");
+
+      await cleanupLocker.query("commit");
+      cleanupLockerOpen = false;
+
+      publishA = publishCampusMapChangeset(commandA, {
+        actorId: actorA,
+        clientIp: sharedIp,
+      });
+      await waitForBlockedPublishQueries(2);
+
+      await barrierLocker.query("commit");
+      barrierLockerOpen = false;
+      results = await Promise.all([publishA, publishB]);
+
+      expect(results.map((result) => result.status).sort()).toEqual([
+        "published",
+        "published",
+      ]);
+      for (const result of results) {
+        if (result.status !== "published") throw new Error("publish failed");
+        await expect(
+          getCampusMapCurrentPlace(result.changes[0].placeId),
+        ).resolves.toMatchObject({
+          revisionId: result.changes[0].revisionId,
+        });
+      }
+      const rateRows = await pool.query<{
+        scope: string;
+        window_kind: string;
+        attempt_count: number;
+      }>(
+        `select scope, window_kind, attempt_count
+           from campus_map_publish_rate_limits
+          order by scope, window_kind, subject_hash`,
+      );
+      expect(rateRows.rows).toEqual([
+        { scope: "actor", window_kind: "burst", attempt_count: 1 },
+        { scope: "actor", window_kind: "burst", attempt_count: 1 },
+        { scope: "actor", window_kind: "sustained", attempt_count: 1 },
+        { scope: "actor", window_kind: "sustained", attempt_count: 1 },
+        { scope: "ip", window_kind: "burst", attempt_count: 3 },
+        { scope: "ip", window_kind: "sustained", attempt_count: 3 },
+      ]);
+    } finally {
+      if (cleanupLockerOpen) await cleanupLocker?.query("rollback");
+      if (barrierLockerOpen) await barrierLocker?.query("rollback");
+      if (publishA && publishB && results.length === 0) {
+        await Promise.allSettled([publishA, publishB]);
+      }
+      cleanupLocker?.release();
+      barrierLocker?.release();
+      await pool.query(
+        "drop trigger if exists campus_map_publish_rate_sustained_barrier_trigger on campus_map_publish_rate_limits",
+      );
+      await pool.query(
+        "drop function if exists campus_map_publish_rate_sustained_barrier()",
+      );
+      for (const [name, value] of [
+        ["CAMPUS_MAP_PUBLISH_ACTOR_BURST_LIMIT", previous.actorBurst],
+        ["CAMPUS_MAP_PUBLISH_ACTOR_SUSTAINED_LIMIT", previous.actorSustained],
+        ["CAMPUS_MAP_PUBLISH_IP_BURST_LIMIT", previous.ipBurst],
+        ["CAMPUS_MAP_PUBLISH_IP_SUSTAINED_LIMIT", previous.ipSustained],
+      ] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  }, 15_000);
 
   it("enforces sustained policy across actors sharing one trusted IP", async () => {
     const previous = {
