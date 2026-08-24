@@ -8,6 +8,7 @@ import { expectedMenuSnapshotCompleteness } from "./canteen-menu-snapshot-comple
 import { resolveMenuSectionKey } from "@/lib/canteen-svg-keys";
 import type {
   MealPeriodAssignment,
+  MealPeriod,
   MenuItemPriceOptionInput,
   MenuSyncInput,
 } from "@/lib/canteen-types";
@@ -91,14 +92,17 @@ function operatingWindows(value: unknown): Array<[string, string]> {
   return windows;
 }
 
-function mealPeriods(item: JsonObject): MealPeriodAssignment[] {
+function mealPeriods(
+  item: JsonObject,
+  observedMealPeriod: MealPeriod,
+): MealPeriodAssignment[] {
   const periods = new Set<MealPeriodAssignment>();
   for (const [start, end] of operatingWindows(item.saleTime)) {
     mealPeriodsForOperatingWindow(start, end).forEach((period) =>
       periods.add(period),
     );
   }
-  return periods.size > 0 ? [...periods] : ["allday"];
+  return periods.size > 0 ? [...periods] : [observedMealPeriod];
 }
 
 function isAvailable(item: JsonObject): boolean {
@@ -108,7 +112,10 @@ function isAvailable(item: JsonObject): boolean {
   return !Number.isFinite(inventory) || inventory > 0;
 }
 
-export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
+export function buildQmaiMenuSyncPayload(
+  input: unknown,
+  observedMealPeriod: MealPeriod,
+): MenuSyncInput {
   const root = object(input);
   const data = object(root?.data);
   if (
@@ -138,7 +145,7 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
       if (!externalProductId || !name) continue;
       const options = priceOptions(item);
       if (options.length === 0) continue;
-      const periods = mealPeriods(item);
+      const periods = mealPeriods(item, observedMealPeriod);
       const existing = candidates.get(externalProductId);
       if (existing) {
         const svgKey = resolveMenuSectionKey({ categoryName, dishName: name });
@@ -170,6 +177,7 @@ export function buildQmaiMenuSyncPayload(input: unknown): MenuSyncInput {
   return {
     snapshotCompleteness: expectedMenuSnapshotCompleteness("qmai"),
     takeOverLegacyItems: false,
+    observationScope: { kind: "meal-period", mealPeriod: observedMealPeriod },
     items: assignMealPeriodSortOrder(items, (item) => item.mealPeriods),
   };
 }

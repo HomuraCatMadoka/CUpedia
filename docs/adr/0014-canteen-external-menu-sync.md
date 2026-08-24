@@ -44,7 +44,8 @@ same Aigens group.
    ambiguous and fails closed. Category never becomes part of the stable
    identity. Canonical category selection and price ordering make the normalized
    result independent of raw occurrence order.
-3. Every adapter labels its normalized response `complete` or `partial` from
+3. Every adapter labels its normalized response `complete` or `partial` and
+   declares whether absence applies to the catalog or one meal period, using
    verified provider semantics. Aigens exposes the menu visible to an ordering
    customer in the current service context, not an authoritative master
    catalog. Its responses are therefore partial even when store, menu and all
@@ -59,7 +60,10 @@ same Aigens group.
    Completeness participates in preview and snapshot fingerprints; it is never
    inferred from counts, time, thresholds or provider branching inside
    reconciliation. PinMe `product-menus` is partial until the upstream supplies
-   a verified full-catalog response or completeness signal.
+   a verified full-catalog response or completeness signal. A Qmai point-in-time
+   response is complete only within the claimed meal-period scope; a product
+   without a provider-declared sale window inherits that observed period rather
+   than `allday`.
 4. Sync is a two-stage admin operation: preview a deterministic plan, then apply
    the same snapshot in one transaction. A conflicting legacy-name match blocks
    the entire apply.
@@ -109,6 +113,16 @@ same Aigens group.
     backend product ID. The same reviewed transition canonicalizes aliases for
     currently absent products, leaving one unavailable source-bound survivor
     that an ordinary future snapshot can reactivate.
+11. A claimed recurring read carries one immutable database-time observation
+    context through adapter requests, bounded retries, snapshot persistence and
+    projection. For meal-period-scoped sources, reconciliation receives the
+    union of the newest accepted snapshot for every configured period, not the
+    current point-in-time response. Replacing one scope can remove only that
+    period's occurrence; compatible occurrences share one product identity and
+    UUID. Until every configured period has an accepted scoped snapshot, the
+    union is globally partial. Manual preview and transition flows downgrade a
+    meal-period observation to non-authoritative absence unless they use the
+    recurring scoped projection.
 
 ## Consequences
 
@@ -129,6 +143,8 @@ same Aigens group.
   because it is outside the current service or availability window. This can
   retain stale offerings until a source with authoritative catalog semantics
   supplies absence evidence.
+- A complete meal-period observation can retire an occurrence from that period
+  without retiring the same dish from periods retained by the scoped union.
 - Identity backfill and audited canteen provisioning use versioned Drizzle
   custom migrations because they must update existing UUID-addressed rows in
   place; generated schema DDL alone cannot express those data decisions.

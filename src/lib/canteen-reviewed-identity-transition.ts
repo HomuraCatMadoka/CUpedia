@@ -14,6 +14,8 @@ import {
 } from "./canteen-menu-source-sync";
 import { applyApprovedMenuIdentityTransition } from "./canteen-menu-sync-store";
 import { normalizeSyncErrorCode } from "./sync-error-code";
+import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
+import { menuObservationContextAt } from "./canteen-menu-sync-window";
 
 const REVIEWED_TRANSITIONS = {
   "aigens-102830": parseMenuIdentityTransitionArtifact(transition102830Json),
@@ -99,7 +101,10 @@ export async function executeReviewedIdentityTransition(
   });
   if (!source) throw new Error("MENU_SOURCE_NOT_FOUND");
 
-  const fetched = await fetchMenuFromProvider(source);
+  const fetched = await fetchMenuFromProvider(
+    source,
+    menuObservationContextAt(await readMenuSyncDatabaseNow(db)),
+  );
   const evaluation = await applyApprovedMenuIdentityTransition(
     source.id,
     { ...fetched, takeOverLegacyItems: false },

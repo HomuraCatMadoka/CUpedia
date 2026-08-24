@@ -178,16 +178,21 @@ describe("schema", () => {
     expect(snapshots.menuSourceId).toBeDefined();
     expect(snapshots.snapshotHash).toBeDefined();
     expect(snapshots.snapshotCompleteness).toBeDefined();
+    expect(snapshots.observationScope).toBeDefined();
     expect(snapshots.syncWindowKey).toBeDefined();
     expect(snapshots.hktWeekday).toBeDefined();
     expect(snapshots.observedMinuteOfDay).toBeDefined();
     expect(snapshots.scopeEvidence).toBeDefined();
     expect(snapshots.observedAt).toBeDefined();
-    expect(
-      getTableConfig(canteenMenuSyncSnapshots).indexes.map(
-        (index) => index.config.name,
-      ),
-    ).toContain("canteen_menu_sync_snapshots_retention_idx");
+    const snapshotIndexes = getTableConfig(
+      canteenMenuSyncSnapshots,
+    ).indexes.map((index) => index.config.name);
+    expect(snapshotIndexes).toContain(
+      "canteen_menu_sync_snapshots_retention_idx",
+    );
+    expect(snapshotIndexes).toContain(
+      "canteen_menu_sync_snapshots_scoped_latest_idx",
+    );
     expect(
       getTableConfig(canteenMenuSyncRuns).indexes.map(
         (index) => index.config.name,

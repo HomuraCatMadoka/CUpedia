@@ -148,6 +148,18 @@ export type MenuSyncItemInput = MenuItemJsonImportRow & {
   externalProductId: string;
 };
 
+/** Immutable database-time context shared by one claimed provider read. */
+export type MenuObservationContext = {
+  observedAt: Date;
+  syncWindowKey: string;
+  mealPeriod: MealPeriod;
+};
+
+/** The absence boundary asserted by one normalized provider observation. */
+export type MenuObservationScope =
+  | { kind: "catalog" }
+  | { kind: "meal-period"; mealPeriod: MealPeriod };
+
 export type MenuSnapshotScopeEvidence =
   | {
       provider: "aigens";
@@ -175,7 +187,29 @@ export type MenuSyncInput = {
   takeOverLegacyItems: boolean;
   items: MenuSyncItemInput[];
   scopeEvidence?: MenuSnapshotScopeEvidence;
+  observationScope?: MenuObservationScope;
 };
+
+function parseMenuObservationScope(
+  input: unknown,
+): MenuObservationScope | undefined {
+  if (input === undefined) return undefined;
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("INVALID_MENU_OBSERVATION_SCOPE");
+  }
+  const scope = input as Record<string, unknown>;
+  if (scope.kind === "catalog" && Object.keys(scope).length === 1) {
+    return { kind: "catalog" };
+  }
+  if (scope.kind === "meal-period" && Object.keys(scope).length === 2) {
+    const mealPeriod =
+      typeof scope.mealPeriod === "string"
+        ? parseMealPeriod(scope.mealPeriod)
+        : null;
+    if (mealPeriod) return { kind: "meal-period", mealPeriod };
+  }
+  throw new Error("INVALID_MENU_OBSERVATION_SCOPE");
+}
 
 /** Parse admin JSON bulk import: array or `{ items: [...] }`. */
 export function parseMenuItemsJson(input: unknown): MenuItemJsonImportRow[] {
@@ -243,6 +277,7 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
   const snapshotCompleteness = parseMenuSnapshotCompleteness(
     record.snapshotCompleteness,
   );
+  const observationScope = parseMenuObservationScope(record.observationScope);
   if (!Array.isArray(record.items)) throw new Error("INVALID_MENU_SYNC");
   const rows = parseMenuItemsJson(record.items);
   const rawItems = record.items as Array<Record<string, unknown>>;
@@ -258,7 +293,12 @@ export function parseMenuSyncJson(input: unknown): MenuSyncInput {
     seen.add(externalProductId);
     return { ...row, externalProductId };
   });
-  return { snapshotCompleteness, takeOverLegacyItems, items };
+  return {
+    snapshotCompleteness,
+    takeOverLegacyItems,
+    items,
+    ...(observationScope ? { observationScope } : {}),
+  };
 }
 
 function validateExternalIdentity(input: unknown, code: string): string {

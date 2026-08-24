@@ -35,6 +35,31 @@ describe("menu snapshot completeness", () => {
     ).not.toThrow();
   });
 
+  it("requires Qmai completeness to name its observed meal-period scope", () => {
+    expect(() =>
+      assertProviderSnapshotCompleteness("qmai", "complete"),
+    ).toThrow("MENU_OBSERVATION_SCOPE_REQUIRED");
+    expect(() =>
+      assertProviderSnapshotCompleteness(
+        "qmai",
+        "complete",
+        undefined,
+        "331725",
+        { kind: "meal-period", mealPeriod: "lunch" },
+      ),
+    ).not.toThrow();
+
+    const parsed = parseMenuSyncJson({
+      snapshotCompleteness: "complete",
+      observationScope: { kind: "meal-period", mealPeriod: "dinner" },
+      items: [{ externalProductId: "goods-1", name: "晚餐菜品" }],
+    });
+    expect(parsed.observationScope).toEqual({
+      kind: "meal-period",
+      mealPeriod: "dinner",
+    });
+  });
+
   it("does not promote an Aigens ordering observation with diagnostic scope", () => {
     expect(() =>
       assertProviderSnapshotCompleteness("aigens", "complete"),

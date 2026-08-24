@@ -5,6 +5,21 @@ import qmaiCurrent from "./fixtures/canteen-providers/qmai-current.json";
 
 const menuResponse = qmaiCurrent;
 
+function pointInTimeMenu(itemCount: number) {
+  const response = structuredClone(menuResponse);
+  const template = response.data.categoryItems[0].itemList[0];
+  response.data.categoryItems[0].itemList = Array.from(
+    { length: itemCount },
+    (_, index) => ({
+      ...structuredClone(template),
+      goodsId: `goods-${index + 1}`,
+      name: `菜品 ${index + 1}`,
+      saleTime: undefined,
+    }),
+  );
+  return response;
+}
+
 describe("Qmai menu adapter", () => {
   it("fails closed when the same goods ID repeats in one sale period", () => {
     const duplicateResponse = structuredClone(menuResponse);
@@ -12,9 +27,9 @@ describe("Qmai menu adapter", () => {
     duplicateResponse.data.categoryItems[0].itemList.unshift(
       structuredClone(item),
     );
-    expect(() => buildQmaiMenuSyncPayload(duplicateResponse)).toThrowError(
-      expect.objectContaining({ code: "DUPLICATE_IDENTITY" }),
-    );
+    expect(() =>
+      buildQmaiMenuSyncPayload(duplicateResponse, "lunch"),
+    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
   });
 
   it("merges the same goods ID across disjoint sale periods", () => {
@@ -27,14 +42,16 @@ describe("Qmai menu adapter", () => {
     };
     repeatedResponse.data.categoryItems[0].itemList.push(dinnerItem);
 
-    expect(buildQmaiMenuSyncPayload(repeatedResponse).items[0]).toMatchObject({
+    expect(
+      buildQmaiMenuSyncPayload(repeatedResponse, "lunch").items[0],
+    ).toMatchObject({
       externalProductId: "goods-1",
       mealPeriods: ["lunch", "dinner"],
     });
   });
 
   it("normalizes available products, variants, and sale windows", () => {
-    const result = buildQmaiMenuSyncPayload(menuResponse);
+    const result = buildQmaiMenuSyncPayload(menuResponse, "lunch");
 
     expect(result.items).toEqual([
       expect.objectContaining({
@@ -61,7 +78,14 @@ describe("Qmai menu adapter", () => {
 
     const result = await fetchQmaiMenu(
       "331725",
-      { fetchImpl },
+      {
+        fetchImpl,
+        observationContext: {
+          observedAt: new Date("2026-08-24T04:00:00.000Z"),
+          syncWindowKey: "2026-08-24/lunch",
+          mealPeriod: "lunch",
+        },
+      },
       { orderType: 1, locale: "zh-HK" },
       "221033",
     );
@@ -77,9 +101,100 @@ describe("Qmai menu adapter", () => {
       storeId: 331725,
       version: 3,
     });
-    expect(JSON.parse(String(menuInit?.body)).buyTime).toMatch(
-      /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+    expect(JSON.parse(String(menuInit?.body)).buyTime).toBe(
+      "2026-08-24 12:00:00",
     );
+  });
+
+  it("scopes products without declared sale windows to the observed period", async () => {
+    const pointInTimeResponse = structuredClone(menuResponse);
+    delete pointInTimeResponse.data.categoryItems[0].itemList[0].saleTime;
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ code: 0, status: true, data: { token: "visitor" } }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(pointInTimeResponse)));
+
+    const result = await fetchQmaiMenu(
+      "331725",
+      {
+        fetchImpl,
+        observationContext: {
+          observedAt: new Date("2026-08-24T10:00:00.000Z"),
+          syncWindowKey: "2026-08-24/dinner",
+          mealPeriod: "dinner",
+        },
+      },
+      { orderType: 1, locale: "zh-HK" },
+      "221033",
+    );
+
+    expect(result).toMatchObject({
+      observationScope: { kind: "meal-period", mealPeriod: "dinner" },
+      items: [expect.objectContaining({ mealPeriods: ["dinner"] })],
+    });
+  });
+
+  it.each([
+    ["breakfast", 5],
+    ["lunch", 28],
+    ["dinner", 5],
+  ] as const)(
+    "retains a %s point-in-time response as that period's complete scope",
+    (mealPeriod, itemCount) => {
+      const result = buildQmaiMenuSyncPayload(
+        pointInTimeMenu(itemCount),
+        mealPeriod,
+      );
+
+      expect(result.items).toHaveLength(itemCount);
+      expect(result.observationScope).toEqual({
+        kind: "meal-period",
+        mealPeriod,
+      });
+      expect(
+        result.items.every(
+          (item) =>
+            item.mealPeriods.length === 1 && item.mealPeriods[0] === mealPeriod,
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it("reuses the claimed observation timestamp when the menu request retries", async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ code: 0, status: true, data: { token: "visitor" } }),
+        ),
+      )
+      .mockResolvedValueOnce(new Response("unavailable", { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(menuResponse)));
+
+    await fetchQmaiMenu(
+      "331725",
+      {
+        fetchImpl,
+        observationContext: {
+          observedAt: new Date("2026-08-24T09:17:00.000Z"),
+          syncWindowKey: "2026-08-24/dinner",
+          mealPeriod: "dinner",
+        },
+      },
+      { orderType: 1, locale: "zh-HK" },
+      "221033",
+    );
+
+    const requestBodies = fetchImpl.mock.calls
+      .slice(1)
+      .map(([, init]) => JSON.parse(String(init?.body)));
+    expect(requestBodies).toHaveLength(2);
+    expect(requestBodies[0].buyTime).toBe("2026-08-24 17:17:00");
+    expect(requestBodies[1]).toEqual(requestBodies[0]);
   });
 
   it("requires the actual multi-store id", async () => {
@@ -105,7 +220,7 @@ describe("Qmai menu adapter", () => {
       ],
     });
 
-    expect(buildQmaiMenuSyncPayload(duplicateResponse).items).toEqual([
+    expect(buildQmaiMenuSyncPayload(duplicateResponse, "lunch").items).toEqual([
       expect.objectContaining({
         externalProductId: "goods-1",
         name: "牛肉麵",
@@ -131,15 +246,15 @@ describe("Qmai menu adapter", () => {
       categoryName: "另一分類",
       itemList: [collidingItem],
     });
-    expect(() => buildQmaiMenuSyncPayload(duplicateResponse)).toThrowError(
-      expect.objectContaining({ code: "COLLIDING_IDENTITY" }),
-    );
+    expect(() =>
+      buildQmaiMenuSyncPayload(duplicateResponse, "lunch"),
+    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
   });
 
   it("fails closed when an available item ID is empty", () => {
     const malformed = structuredClone(menuResponse);
     malformed.data.categoryItems[0].itemList[0].goodsId = "";
-    expect(() => buildQmaiMenuSyncPayload(malformed)).toThrowError(
+    expect(() => buildQmaiMenuSyncPayload(malformed, "lunch")).toThrowError(
       expect.objectContaining({ code: "EMPTY_IDENTITY" }),
     );
   });
@@ -153,14 +268,17 @@ describe("Qmai menu adapter", () => {
     delete item.goodsId;
     item.id = "tempting-fallback";
 
-    expect(() => buildQmaiMenuSyncPayload(malformed)).toThrowError(
+    expect(() => buildQmaiMenuSyncPayload(malformed, "lunch")).toThrowError(
       expect.objectContaining({ code: "EMPTY_IDENTITY" }),
     );
   });
 
   it("rejects malformed business responses", () => {
     expect(() =>
-      buildQmaiMenuSyncPayload({ code: 10008, status: false, data: null }),
+      buildQmaiMenuSyncPayload(
+        { code: 10008, status: false, data: null },
+        "lunch",
+      ),
     ).toThrow("QMAI_MENU_ERROR");
   });
 });

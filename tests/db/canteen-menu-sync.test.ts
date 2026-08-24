@@ -201,6 +201,45 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
     ).rejects.toThrow("MENU_SNAPSHOT_COMPLETENESS_MISMATCH");
   });
 
+  it("treats a manually previewed meal-period observation as non-authoritative outside that scope", async () => {
+    await db
+      .update(canteenMenuSources)
+      .set({
+        provider: "qmai",
+        externalOwnerId: `owner-${sourceId}`,
+        externalStoreId: `store-${sourceId}`,
+      })
+      .where(eq(canteenMenuSources.id, sourceId));
+    await db
+      .update(canteenMenuItems)
+      .set({
+        menuSourceId: sourceId,
+        externalProductId: "breakfast-only",
+      })
+      .where(eq(canteenMenuItems.id, itemId));
+
+    const preview = await previewMenuSync(sourceId, {
+      snapshotCompleteness: "complete",
+      observationScope: { kind: "meal-period", mealPeriod: "lunch" },
+      takeOverLegacyItems: false,
+      items: [
+        {
+          externalProductId: "lunch-only",
+          name: "午餐菜品",
+          priceOptions: [],
+          mealPeriods: ["lunch"],
+          sortOrder: 0,
+          svgKey: "lunch",
+        },
+      ],
+    });
+
+    expect(preview.canonicalState.input.snapshotCompleteness).toBe("partial");
+    expect(
+      preview.plan.actions.some((action) => action.action === "deactivate"),
+    ).toBe(false);
+  });
+
   it("claims a legacy item and later deactivates it without losing history", async () => {
     await db
       .update(canteenMenuSources)
@@ -404,6 +443,14 @@ describe.skipIf(!hasDb)("canteen menu sync database", () => {
       const snapshot = {
         snapshotCompleteness:
           provider === "pinme" ? ("partial" as const) : ("complete" as const),
+        ...(provider === "qmai"
+          ? {
+              observationScope: {
+                kind: "meal-period" as const,
+                mealPeriod: mealPeriods[0],
+              },
+            }
+          : {}),
         items: [
           {
             externalProductId: currentId,

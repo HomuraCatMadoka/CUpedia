@@ -24,14 +24,21 @@ import {
 } from "./canteen-menu-sync-scheduler";
 import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
-import { insertMenuSyncSnapshot } from "./canteen-menu-sync-snapshots";
+import {
+  insertMenuSyncSnapshot,
+  materializeScopedMenuProjection,
+} from "./canteen-menu-sync-snapshots";
+import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import {
   applyRecurringMenuProjection,
   type LockedMenuSource,
   type MenuSyncTransaction,
 } from "./canteen-menu-sync-store";
-import type { MenuSyncInput } from "./canteen-types";
-import { menuSyncWindowAt } from "./canteen-menu-sync-window";
+import type { MenuObservationContext, MenuSyncInput } from "./canteen-types";
+import {
+  menuObservationContextAt,
+  menuSyncWindowAt,
+} from "./canteen-menu-sync-window";
 import { normalizeSyncErrorCode } from "./sync-error-code";
 
 const MAX_CONCURRENCY = 2;
@@ -106,6 +113,7 @@ type MenuSourceClaim = {
   readonly source: Readonly<MenuSourceRow>;
   readonly runId: string;
   readonly sourceFingerprint: string;
+  readonly observationContext: Readonly<MenuObservationContext>;
   readonly [menuSourceClaimBrand]: true;
 };
 
@@ -162,14 +170,17 @@ function freezeJson(value: unknown): void {
 function issueMenuSourceClaim(
   source: MenuSourceRow,
   runId: string,
+  observedAt: Date,
 ): MenuSourceClaim {
   const config = structuredClone(source.config);
   freezeJson(config);
   const sourceSnapshot = Object.freeze({ ...source, config });
+  const observationContext = menuObservationContextAt(observedAt);
   const claim = Object.freeze({
     source: sourceSnapshot,
     runId,
     sourceFingerprint: menuSourceFingerprint(sourceSnapshot),
+    observationContext: Object.freeze(observationContext),
   }) as MenuSourceClaim;
   issuedClaims.add(claim);
   return claim;
@@ -349,7 +360,7 @@ async function claimLockedMenuSource(
   });
   return {
     status: "claimed",
-    claim: issueMenuSourceClaim(claimedSource, runId),
+    claim: issueMenuSourceClaim(claimedSource, runId, now),
   };
 }
 
@@ -598,7 +609,24 @@ async function commitClaimedRecurringMenuSync(
       throw new Error("MENU_SYNC_SUPERSEDED");
     }
 
-    const projection = await applyRecurringMenuProjection(tx, source, input);
+    assertProviderSnapshotCompleteness(
+      source.provider,
+      input.snapshotCompleteness,
+      input.scopeEvidence,
+      source.externalStoreId,
+      input.observationScope,
+    );
+    const projectionInput = await materializeScopedMenuProjection(
+      tx,
+      source,
+      claim.observationContext,
+      input,
+    );
+    const projection = await applyRecurringMenuProjection(
+      tx,
+      source,
+      projectionInput,
+    );
     const databaseNow = await readMenuSyncDatabaseNow(tx);
     if (projection.status === "blocked") {
       const code = projection.evaluation.blockingDecision.code;
@@ -623,7 +651,7 @@ async function commitClaimedRecurringMenuSync(
       runId: claim.runId,
       sourceId: source.id,
       snapshotHash: snapshot.hash,
-      observedAt: databaseNow,
+      context: claim.observationContext,
       input,
     });
     await finalizeLockedClaimedRun(
@@ -652,7 +680,10 @@ async function executeClaimedMenuSourceSync(
   const { source, runId } = claim;
   let input: MenuSyncInput;
   try {
-    const fetched = await fetchMenuFromProvider(source);
+    const fetched = await fetchMenuFromProvider(
+      source,
+      claim.observationContext,
+    );
     input = { ...fetched, takeOverLegacyItems: false };
   } catch (error) {
     return finalizeFailureResult(claim, error, "provider-failure");

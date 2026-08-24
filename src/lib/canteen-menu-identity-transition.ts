@@ -239,7 +239,7 @@ export function buildMenuIdentityTransitionAudit(
   existingItems: readonly ExistingSyncMenuItem[],
   input: Pick<
     MenuSyncInput,
-    "snapshotCompleteness" | "scopeEvidence" | "items"
+    "snapshotCompleteness" | "scopeEvidence" | "observationScope" | "items"
   >,
   provider?: CanteenMenuSourceProvider,
 ): MenuIdentityTransitionAudit {
@@ -441,7 +441,7 @@ export function verifyMenuIdentityTransitionArtifact(
   existingItems: readonly ExistingSyncMenuItem[],
   input: Pick<
     MenuSyncInput,
-    "snapshotCompleteness" | "scopeEvidence" | "items"
+    "snapshotCompleteness" | "scopeEvidence" | "observationScope" | "items"
   >,
   artifactInput: unknown,
 ): ApprovedMenuIdentityReplacement[] {
@@ -458,19 +458,23 @@ export function verifyMenuIdentityTransitionApproval(
   existingItems: readonly ExistingSyncMenuItem[],
   input: Pick<
     MenuSyncInput,
-    "snapshotCompleteness" | "scopeEvidence" | "items"
+    "snapshotCompleteness" | "scopeEvidence" | "observationScope" | "items"
   >,
   artifactInput: unknown,
 ): ApprovedMenuIdentityTransition {
   const artifact = parseMenuIdentityTransitionArtifact(artifactInput);
   if (artifact.schemaVersion === 4) {
     assertLegacyIdentityTransitionSnapshot(source, input);
-  } else {
+  } else if (
+    input.snapshotCompleteness !== "partial" ||
+    input.observationScope?.kind !== "meal-period"
+  ) {
     assertProviderSnapshotCompleteness(
       source.provider,
       input.snapshotCompleteness,
       input.scopeEvidence,
       source.externalStoreId,
+      input.observationScope,
     );
   }
   if (
@@ -877,7 +881,10 @@ export function assertLegacyIdentityTransitionSnapshot(
     MenuIdentityTransitionArtifact["source"],
     "provider" | "externalStoreId"
   >,
-  input: Pick<MenuSyncInput, "snapshotCompleteness" | "scopeEvidence">,
+  input: Pick<
+    MenuSyncInput,
+    "snapshotCompleteness" | "scopeEvidence" | "observationScope"
+  >,
 ): void {
   if (
     source.provider !== "aigens" ||
@@ -888,6 +895,7 @@ export function assertLegacyIdentityTransitionSnapshot(
       input.snapshotCompleteness,
       input.scopeEvidence,
       source.externalStoreId,
+      input.observationScope,
     );
     return;
   }

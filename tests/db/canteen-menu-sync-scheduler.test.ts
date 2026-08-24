@@ -572,6 +572,11 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
         sourceId,
         result: { status: "applied" },
       });
+      expect(fetchMenuFromProvider).toHaveBeenCalledWith(expect.any(Object), {
+        observedAt: databaseNow,
+        syncWindowKey: window.key,
+        mealPeriod: window.period,
+      });
       const [run] = await db
         .select({
           status: canteenMenuSyncRuns.status,

@@ -1,0 +1,2 @@
+ALTER TABLE "canteen_menu_sync_snapshots" ADD COLUMN "observation_scope" text DEFAULT 'catalog' NOT NULL;--> statement-breakpoint
+ALTER TABLE "canteen_menu_sync_snapshots" ADD CONSTRAINT "canteen_menu_sync_snapshots_observation_scope_chk" CHECK ("canteen_menu_sync_snapshots"."observation_scope" in ('catalog', 'meal-period'));
