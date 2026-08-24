@@ -198,6 +198,8 @@ for (const viewport of [
     await expect(
       page.getByRole("heading", { name: "历史测试饮水点的修订历史" }),
     ).toBeVisible();
+    await expect(page.getByText("地点已停用", { exact: true })).toBeVisible();
+    await expect(page.getByText("来源摘要：现场复核")).toBeVisible();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
@@ -211,6 +213,11 @@ for (const viewport of [
     await expect(revisionLink).toBeFocused();
     await revisionLink.press("Enter");
     await expect(page).toHaveURL(new RegExp(`/history/${ids.retireRevision}$`));
+    await expect(page.getByText("地点已停用", { exact: true })).toBeVisible();
+    await expect(page.getByText("来源摘要：现场复核")).toBeVisible();
+    await expect(
+      page.getByText(`Changeset：${ids.retireChangeset}`),
+    ).toBeVisible();
 
     await page.getByRole("link", { name: "查看 Changeset" }).click();
     await expect(page).toHaveURL(

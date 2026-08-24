@@ -79,6 +79,10 @@ export function CampusMapHistoryPage({
               <p className="mt-3 text-sm text-muted-foreground">
                 {item.actor.nickname} · {formatDate(item.publishedAt)}
               </p>
+              <p className="mt-3 font-semibold">{item.comment}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                来源摘要：{item.sourceSummary}
+              </p>
               <StableId label="Revision" value={item.id} />
               <StableId label="Changeset" value={item.changesetId} />
               <div className="mt-4 flex flex-wrap gap-2">
@@ -133,7 +137,12 @@ export function CampusMapRevisionPage({
         <p className="mt-4 text-sm text-muted-foreground">
           作者：{revision.actor.nickname}
         </p>
+        <p className="mt-3 font-semibold">{revision.comment}</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          来源摘要：{revision.sourceSummary}
+        </p>
         <StableId label="Revision" value={revision.id} />
+        <StableId label="Changeset" value={revision.changesetId} />
         <StableId label="Place" value={revision.placeId} />
         {revision.status === "merged" && revision.mergedIntoPlaceId ? (
           <Notice>

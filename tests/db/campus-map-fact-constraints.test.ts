@@ -356,6 +356,7 @@ describe.skipIf(!hasDb)(
         );
 
         const mutations = [
+          `update campus_map_provenance_sources set accessed_on = '2026-08-23' where id = '${ids.secondRevision}'`,
           `update campus_map_changesets set comment = 'rewritten' where id = '${ids.changeset}'`,
           `update campus_map_changesets set actor_user_id = null where id = '${ids.changeset}'`,
           `delete from campus_map_changesets where id = '${ids.changeset}'`,

@@ -509,6 +509,9 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
           factSchemaVersion: 701,
           operation: "create",
           actor: { id: ids.actor, nickname: "测试贡献者" },
+          changesetId: ids.changeset,
+          comment: "添加已现场核对的饮水点",
+          sourceSummary: "现场观察",
           fieldMetadata: { name: { label: "名称" } },
           fieldDiff: {
             name: {
@@ -591,6 +594,8 @@ describe.skipIf(!hasDb)("Campus Map fact-store read interface (#717)", () => {
       id: ids.revision,
       placeId: ids.place,
       changesetId: ids.changeset,
+      comment: "添加已现场核对的饮水点",
+      sourceSummary: "现场观察",
       schema: {
         version: 701,
         displayMetadata: { name: { label: "名称" } },

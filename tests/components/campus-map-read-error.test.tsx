@@ -43,4 +43,50 @@ describe("Campus Map paginated history lifecycle (#719)", () => {
       screen.getByRole("link", { name: "保留地点" }).getAttribute("href"),
     ).toBe(`/campus-map/places/${survivorId}`);
   });
+
+  it("shows the Changeset explanation and safe source summary on revisions", () => {
+    render(
+      <CampusMapHistoryPage
+        placeId="00000000-0000-4000-8000-000000007192"
+        head={null}
+        items={[
+          {
+            id: "00000000-0000-4000-8000-000000007198",
+            placeId: "00000000-0000-4000-8000-000000007192",
+            previousRevisionId: null,
+            status: "active",
+            mergedIntoPlaceId: null,
+            factSchemaVersion: 1,
+            fieldMetadata: {},
+            operation: "create",
+            fieldDiff: {},
+            actor: {
+              id: "00000000-0000-4000-8000-000000007191",
+              nickname: "地图贡献者",
+            },
+            changesetId: "00000000-0000-4000-8000-000000007193",
+            comment: "建立饮水点",
+            sourceSummary: "现场观察",
+            publishedAt: new Date("2026-08-20T01:00:00Z"),
+            createdAt: new Date("2026-08-20T01:00:00Z"),
+            content: {
+              visibility: "redacted",
+            },
+          },
+        ]}
+        nextHref={null}
+      />,
+    );
+
+    expect(screen.getByText("建立饮水点")).toBeTruthy();
+    expect(screen.getByText("来源摘要：现场观察")).toBeTruthy();
+    expect(
+      screen.getByText(
+        (_content, element) =>
+          element?.tagName === "P" &&
+          element.textContent ===
+            "Changeset：00000000-0000-4000-8000-000000007193",
+      ),
+    ).toBeTruthy();
+  });
 });

@@ -170,6 +170,8 @@ export interface CampusMapPlaceHistoryItem {
   fieldDiff: CampusMapFieldDiff | null;
   actor: { id: string; nickname: string };
   changesetId: string;
+  comment: string;
+  sourceSummary: string;
   publishedAt: Date;
   createdAt: Date;
   content:
@@ -898,6 +900,8 @@ export async function getCampusMapPlaceHistory(
       verifiedAt: campusMapFactRevisions.verifiedAt,
       createdAt: campusMapFactRevisions.createdAt,
       changesetId: campusMapChangesets.id,
+      comment: campusMapChangesets.comment,
+      sourceSummary: campusMapChangesets.sourceSummary,
       actorId: campusMapChangesets.actorIdSnapshot,
       actorNickname: campusMapChangesets.actorNicknameSnapshot,
       publishedAt: campusMapChangesets.publishedAt,
@@ -952,6 +956,8 @@ export async function getCampusMapPlaceHistory(
           : null,
       actor: { id: row.actorId, nickname: row.actorNickname },
       changesetId: row.changesetId,
+      comment: row.comment,
+      sourceSummary: row.sourceSummary,
       publishedAt: row.publishedAt,
       createdAt: row.createdAt,
       content:
@@ -1076,6 +1082,8 @@ export async function getCampusMapPlaceRevision(
       verifiedAt: campusMapFactRevisions.verifiedAt,
       createdAt: campusMapFactRevisions.createdAt,
       changesetId: campusMapChangesets.id,
+      comment: campusMapChangesets.comment,
+      sourceSummary: campusMapChangesets.sourceSummary,
       actorId: campusMapChangesets.actorIdSnapshot,
       actorNickname: campusMapChangesets.actorNicknameSnapshot,
       publishedAt: campusMapChangesets.publishedAt,
@@ -1144,6 +1152,8 @@ export async function getCampusMapPlaceRevision(
         : null,
     actor: { id: row.actorId, nickname: row.actorNickname },
     changesetId: row.changesetId,
+    comment: row.comment,
+    sourceSummary: row.sourceSummary,
     publishedAt: row.publishedAt,
     createdAt: row.createdAt,
     content:
