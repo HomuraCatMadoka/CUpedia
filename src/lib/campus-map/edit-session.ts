@@ -104,10 +104,18 @@ export type CampusMapEditEvent =
     }
   | { type: "CONFIRM_POSITION"; position: CampusMapPlacement }
   | { type: "UPDATE_PLACEMENT_CANDIDATE"; position: CampusMapPlacement }
-  | { type: "START_REPOSITION" }
+  | { type: "START_REPOSITION"; idempotencyKey?: string }
   | { type: "REPORT_LOCAL_ERROR"; field: string }
-  | { type: "CHANGE_FACT"; fact: CampusMapEditDraft["fact"] }
-  | { type: "CHANGE_SOURCES"; sources: CampusMapPublishSourceInput[] }
+  | {
+      type: "CHANGE_FACT";
+      fact: CampusMapEditDraft["fact"];
+      idempotencyKey?: string;
+    }
+  | {
+      type: "CHANGE_SOURCES";
+      sources: CampusMapPublishSourceInput[];
+      idempotencyKey?: string;
+    }
   | { type: "REQUEST_CLOSE" }
   | { type: "CONTINUE_EDITING" }
   | { type: "DISCARD" }
@@ -223,6 +231,17 @@ function editable(session: CampusMapEditSession): CampusMapEditSession {
       warningAcknowledgements: [],
     },
   };
+}
+
+function draftForPayloadChange(
+  session: CampusMapEditSession,
+  idempotencyKey: string | undefined,
+): CampusMapEditDraft | null {
+  if (session.status !== "temporarily-unavailable") return session.draft;
+  if (!idempotencyKey || idempotencyKey === session.draft.idempotencyKey) {
+    return null;
+  }
+  return { ...session.draft, idempotencyKey };
 }
 
 function firstLocalError(draft: CampusMapEditDraft): string | null {
@@ -428,18 +447,20 @@ export function transitionCampusMapEdit(
     if (session.status === "placing" || session.status === "confirm-discard") {
       return rejected(session);
     }
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
     const next: CampusMapEditSession = {
       status: "placing",
       draft: {
-        ...session.draft,
+        ...attemptDraft,
         placementCandidate:
-          session.draft.fact.location?.kind === "outdoor-point"
+          attemptDraft.fact.location?.kind === "outdoor-point"
             ? {
-                longitude: session.draft.fact.location.longitude,
-                latitude: session.draft.fact.location.latitude,
+                longitude: attemptDraft.fact.location.longitude,
+                latitude: attemptDraft.fact.location.latitude,
                 crs: "wgs84",
-                precision: session.draft.fact.location.precision,
-                method: session.draft.placementMethod ?? "pointer",
+                precision: attemptDraft.fact.location.precision,
+                method: attemptDraft.placementMethod ?? "pointer",
               }
             : null,
         warningAcknowledgements: [],
@@ -469,15 +490,21 @@ export function transitionCampusMapEdit(
   }
 
   if (event.type === "CHANGE_FACT") {
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    const next = editable({ ...session, draft: attemptDraft });
     return persisted({
-      ...editable(session),
-      draft: { ...editable(session).draft, fact: clone(event.fact) },
+      ...next,
+      draft: { ...next.draft, fact: clone(event.fact) },
     });
   }
   if (event.type === "CHANGE_SOURCES") {
+    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
+    if (!attemptDraft) return rejected(session);
+    const next = editable({ ...session, draft: attemptDraft });
     return persisted({
-      ...editable(session),
-      draft: { ...editable(session).draft, sources: clone(event.sources) },
+      ...next,
+      draft: { ...next.draft, sources: clone(event.sources) },
     });
   }
 

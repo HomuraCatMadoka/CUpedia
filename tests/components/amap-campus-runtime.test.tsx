@@ -503,6 +503,34 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(push).toHaveBeenCalledTimes(1);
   });
 
+  it("does not dismiss an active edit task when the map background is clicked", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+      target: { value: "不会被地图关闭的地点" },
+    });
+    await waitFor(() =>
+      expect(
+        (screen.getByRole("button", { name: "继续填写" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(false),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "继续填写" }));
+    expect(window.location.search).toContain("task=create");
+
+    await act(async () => {
+      map
+        .getContainer()
+        .dispatchEvent(new Event("pointerdown", { bubbles: true }));
+      map.emit("click", { lnglat: { lng: 114.20801, lat: 22.41966 } });
+      await Promise.resolve();
+    });
+    await runtime.flushAnimationFrames();
+
+    expect(window.location.search).toContain("task=create");
+    expect(screen.getByRole("heading", { name: "添加地点" })).not.toBeNull();
+  });
+
   it("keeps only the latest camera request during rapid hotspot selection", async () => {
     const { runtime, map } = await renderWithRuntime({
       projectedPoint: { x: 360, y: 700 },

@@ -107,10 +107,15 @@ function describeLocation(fact: CampusMapEditSession["draft"]["fact"]): string {
       fact.location.precision === "precise" ? "精确" : "约略"
     }`;
   }
+  const buildingName =
+    AMAP_PROTOTYPE_BUILDINGS.find((building) => building.id === fact.buildingId)
+      ?.name ??
+    fact.buildingId ??
+    "未知建筑";
   if (fact.location.kind === "floor") {
-    return `建筑 ${fact.buildingId ?? "未知"} · 楼层 ${fact.floorId ?? "未知"}`;
+    return `${buildingName} · 楼层 ${fact.floorId ?? "未知"}`;
   }
-  return `建筑 ${fact.buildingId ?? "未知"}`;
+  return buildingName;
 }
 
 function friendlyLocationLabel(
@@ -208,6 +213,114 @@ function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
   );
 }
 
+function optionLabel(
+  options: readonly { value: string; label: string }[],
+  value: string,
+): string {
+  return options.find((option) => option.value === value)?.label ?? value;
+}
+
+function presetConflictValue(
+  fact: CampusMapEditSession["draft"]["fact"],
+): string {
+  const label =
+    CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+      (preset) => preset.pinType === fact.pinType,
+    )?.label ?? fact.pinType;
+  if (fact.pinType === "printer") {
+    const capabilities = fact.capabilities.map((capability) =>
+      optionLabel(CAMPUS_MAP_EDIT_SCHEMA.options.capabilities, capability),
+    );
+    return `${label} · 服务：${capabilities.join("、") || "未填写"}`;
+  }
+  if (fact.pinType === "toilet") {
+    return `${label} · 性别：${optionLabel(
+      CAMPUS_MAP_EDIT_SCHEMA.options.gender,
+      fact.gender,
+    )}`;
+  }
+  return label;
+}
+
+function scheduleConflictValue(
+  fact: CampusMapEditSession["draft"]["fact"],
+): string {
+  if (fact.accessSchedule.kind !== "weekly") {
+    return optionLabel(
+      CAMPUS_MAP_EDIT_SCHEMA.options.accessSchedule,
+      fact.accessSchedule.kind,
+    );
+  }
+  if (!fact.accessSchedule.intervals.length) return "每周时段（未填写）";
+  return fact.accessSchedule.intervals
+    .map((interval) => {
+      const days = interval.days
+        .map(
+          (day) => `周${WEEKDAYS.find(([value]) => value === day)?.[1] ?? day}`,
+        )
+        .join("、");
+      return `${days} ${interval.opensAt}–${interval.closesAt}`;
+    })
+    .join("；");
+}
+
+function conflictValue(
+  choice: ConflictChoice,
+  fact: CampusMapEditSession["draft"]["fact"],
+): string {
+  switch (choice.key) {
+    case "name":
+      return fact.name.trim() || "未填写";
+    case "pinType":
+    case "preset":
+      return presetConflictValue(fact);
+    case "capabilities":
+      return (
+        fact.capabilities
+          .map((capability) =>
+            optionLabel(
+              CAMPUS_MAP_EDIT_SCHEMA.options.capabilities,
+              capability,
+            ),
+          )
+          .join("、") || "未填写"
+      );
+    case "gender":
+      return optionLabel(CAMPUS_MAP_EDIT_SCHEMA.options.gender, fact.gender);
+    case "wheelchairAccess":
+      return optionLabel(
+        CAMPUS_MAP_EDIT_SCHEMA.options.wheelchairAccess,
+        fact.wheelchairAccess,
+      );
+    case "audience":
+      return optionLabel(
+        CAMPUS_MAP_EDIT_SCHEMA.options.audience,
+        fact.audience,
+      );
+    case "credentialRequirement":
+      return optionLabel(
+        CAMPUS_MAP_EDIT_SCHEMA.options.credentialRequirement,
+        fact.credentialRequirement,
+      );
+    case "accessSchedule":
+      return scheduleConflictValue(fact);
+    case "reservationRequirement":
+      return optionLabel(
+        CAMPUS_MAP_EDIT_SCHEMA.options.reservationRequirement,
+        fact.reservationRequirement,
+      );
+    case "temporaryStatus":
+      return optionLabel(
+        CAMPUS_MAP_EDIT_SCHEMA.options.temporaryStatus,
+        fact.temporaryStatus,
+      );
+    case "placement":
+      return describeLocation(fact);
+    case "observedAt":
+      return fact.observedAt ?? "未记录";
+  }
+}
+
 function SelectField<T extends string>({
   id,
   label,
@@ -284,8 +397,14 @@ export function CampusMapEditSheet({
         )
       : preset.fields,
   );
+  const freshAttempt = () =>
+    session.status === "temporarily-unavailable"
+      ? { idempotencyKey: crypto.randomUUID() }
+      : {};
   const updateFact = (next: CampusMapEditSession["draft"]["fact"]) =>
-    onEvent({ type: "CHANGE_FACT", fact: next });
+    onEvent({ type: "CHANGE_FACT", fact: next, ...freshAttempt() });
+  const updateSources = (sources: CampusMapPublishSourceInput[]) =>
+    onEvent({ type: "CHANGE_SOURCES", sources, ...freshAttempt() });
   const fullFact = fact;
   const weeklySchedule =
     fact.accessSchedule.kind === "weekly" ? fact.accessSchedule : null;
@@ -637,21 +756,23 @@ export function CampusMapEditSheet({
           role="alert"
         >
           <p className="font-semibold">这处地点刚刚被其他人更新</p>
-          <p className="mt-1">
-            你的输入仍保留。最新版名称：
-            {conflict.currentFact.name}
-          </p>
+          <p className="mt-1">你的输入仍保留。请逐项比较后选择要保留的内容。</p>
           {changedFields.length ? (
             <fieldset className="mt-3 rounded-lg border border-amber-300 p-2">
               <legend className="px-1 font-medium">
                 明确选择要保留的草稿字段
               </legend>
-              {changedFields.map(({ key, label }) => (
-                <label key={key} className="flex min-h-11 items-center gap-2">
+              {changedFields.map((choice) => (
+                <label
+                  key={choice.key}
+                  className="grid min-h-11 grid-cols-[auto_1fr] items-start gap-2 py-1"
+                >
                   <input
                     type="checkbox"
-                    name={`conflict-${String(key)}`}
-                    checked={conflictKeepFields.includes(key)}
+                    name={`conflict-${String(choice.key)}`}
+                    aria-label={`保留我的${choice.label}`}
+                    className="mt-1"
+                    checked={conflictKeepFields.includes(choice.key)}
                     onChange={(event) =>
                       setConflictSelection((current) => {
                         const fields =
@@ -659,13 +780,23 @@ export function CampusMapEditSheet({
                         return {
                           key: conflictKey,
                           fields: event.target.checked
-                            ? [...fields, key]
-                            : fields.filter((item) => item !== key),
+                            ? [...fields, choice.key]
+                            : fields.filter((item) => item !== choice.key),
                         };
                       })
                     }
                   />
-                  保留我的{label}
+                  <span className="min-w-0">
+                    <span className="block font-medium">
+                      保留我的{choice.label}
+                    </span>
+                    <span className="mt-0.5 block break-words text-xs">
+                      我的：{conflictValue(choice, session.draft.fact)}
+                    </span>
+                    <span className="block break-words text-xs text-amber-900">
+                      最新：{conflictValue(choice, conflict.currentFact)}
+                    </span>
+                  </span>
                 </label>
               ))}
             </fieldset>
@@ -793,7 +924,9 @@ export function CampusMapEditSheet({
                 <button
                   type="button"
                   className="min-h-10 shrink-0 rounded-lg px-2 text-sm font-semibold text-[#176346] hover:bg-white/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
-                  onClick={() => onEvent({ type: "START_REPOSITION" })}
+                  onClick={() =>
+                    onEvent({ type: "START_REPOSITION", ...freshAttempt() })
+                  }
                 >
                   重新定位
                 </button>
@@ -1226,12 +1359,9 @@ export function CampusMapEditSheet({
                     });
                     return;
                   }
-                  onEvent({
-                    type: "CHANGE_SOURCES",
-                    sources: [
-                      observationSource(sourceObservedAt, observationTimestamp),
-                    ],
-                  });
+                  updateSources([
+                    observationSource(sourceObservedAt, observationTimestamp),
+                  ]);
                 }}
               >
                 {draft.sources.length ? "更新现场观察来源" : "使用现场观察来源"}

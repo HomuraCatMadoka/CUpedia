@@ -426,6 +426,7 @@ export function AmapCampusPrototype({
       ).mapFilter.query,
   );
   const startAddRef = useRef<() => void>(() => {});
+  const editSessionActiveRef = useRef(false);
   const [centerPosition, setCenterPosition] = useState<Position>(CAMPUS_CENTER);
   const [providerCenterPosition, setProviderCenterPosition] =
     useState<Position | null>(null);
@@ -856,6 +857,9 @@ export function AmapCampusPrototype({
   useEffect(() => {
     startAddRef.current = startAdd;
   }, [startAdd]);
+  useEffect(() => {
+    editSessionActiveRef.current = Boolean(editSession);
+  }, [editSession]);
 
   useEffect(() => {
     if (editSession?.status !== "placing") {
@@ -1154,6 +1158,7 @@ export function AmapCampusPrototype({
       interactionAdapterRef.current.dispatchMapClick(() => {
         if (event.originEvent?.target?.closest?.("[data-cupedia-marker]"))
           return;
+        if (editSessionActiveRef.current) return;
         dispatch({ type: "DISMISS" });
       });
     });

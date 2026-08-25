@@ -120,6 +120,46 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
   });
 
+  it("starts a fresh publish attempt when editing a transient failure", () => {
+    const onEvent = vi.fn();
+    const session: CampusMapEditSession = {
+      status: "temporarily-unavailable",
+      draft: {
+        ...draft(),
+        fact: {
+          ...draft().fact,
+          location: {
+            kind: "outdoor-point",
+            longitude: 114.2,
+            latitude: 22.4,
+            crs: "wgs84",
+            precision: "approximate",
+          },
+        },
+      },
+    };
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole("textbox", { name: "地点名称" }), {
+      target: { value: "修改后重新发布" },
+    });
+
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_FACT",
+      fact: expect.objectContaining({ name: "修改后重新发布" }),
+      idempotencyKey: expect.any(String),
+    });
+    expect(onEvent.mock.calls.at(-1)?.[0].idempotencyKey).not.toBe(
+      session.draft.idempotencyKey,
+    );
+  });
+
   it("shows only #719 Place, Changeset, and History links on the receipt", () => {
     const session: CampusMapEditSession = {
       status: "published",
@@ -596,6 +636,10 @@ describe("Campus Map single-page edit Sheet", () => {
         location: mine.location,
       }),
     });
+    expect(
+      screen.getByText("我的：114.210000, 22.420000 · WGS84 · 约略"),
+    ).toBeTruthy();
+    expect(screen.getByText("最新：科学馆 · 楼层 1")).toBeTruthy();
   });
 
   it("keeps a changed place type and its dependent fields atomic", () => {
@@ -652,6 +696,8 @@ describe("Campus Map single-page edit Sheet", () => {
         gender: "unknown",
       }),
     });
+    expect(screen.getByText("我的：打印服务 · 服务：打印")).toBeTruthy();
+    expect(screen.getByText("最新：洗手间 · 性别：女")).toBeTruthy();
   });
 
   it("keeps an unavailable conflict non-publishable without rendering rebase actions", () => {

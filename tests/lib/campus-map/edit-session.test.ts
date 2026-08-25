@@ -683,7 +683,7 @@ describe("Campus Map edit session transition", () => {
     ).toBe(false);
   });
 
-  it("ignores stale responses and keeps the same key for transient retry", () => {
+  it("keeps the same key for transient retry but requires a fresh key after edits", () => {
     const dirty = transitionCampusMapEdit(editSession(), {
       type: "CHANGE_FACT",
       fact: { ...fact, name: "准备重试" },
@@ -712,6 +712,19 @@ describe("Campus Map edit session transition", () => {
     const retry = transitionCampusMapEdit(unavailable.session, {
       type: "RETRY_PUBLISH",
     });
+    const unsafeFactEdit = transitionCampusMapEdit(unavailable.session, {
+      type: "CHANGE_FACT",
+      fact: { ...fact, name: "不能复用旧发布识别码" },
+    });
+    const unsafeSourceEdit = transitionCampusMapEdit(unavailable.session, {
+      type: "CHANGE_SOURCES",
+      sources: [],
+    });
+    const freshEdit = transitionCampusMapEdit(unavailable.session, {
+      type: "CHANGE_FACT",
+      fact: { ...fact, name: "使用新发布识别码" },
+      idempotencyKey: secondKey,
+    });
 
     expect(stale.accepted).toBe(false);
     expect(stale.session).toBe(publishing);
@@ -725,6 +738,21 @@ describe("Campus Map edit session transition", () => {
         command: expect.objectContaining({ idempotencyKey: firstKey }),
       }),
     );
+    expect(unsafeFactEdit).toMatchObject({
+      accepted: false,
+      session: unavailable.session,
+    });
+    expect(unsafeSourceEdit).toMatchObject({
+      accepted: false,
+      session: unavailable.session,
+    });
+    expect(freshEdit.session).toMatchObject({
+      status: "editing",
+      draft: {
+        idempotencyKey: secondKey,
+        fact: { name: "使用新发布识别码" },
+      },
+    });
   });
 
   it("keeps user input on conflict and rebases only through an explicit new attempt", () => {
