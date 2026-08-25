@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { getOptionalUser } from "@/lib/auth-guard";
 import { getCampusMapCurrentPlace } from "./fact-store";
 import { publishCampusMapChangeset } from "./publish";
+import type { CampusMapIndoorLocationDisplay } from "./edit-session";
 import type {
   CampusMapPublishFactInput,
   CampusMapPublishCommand,
@@ -15,6 +16,7 @@ export interface CampusMapEditablePlace {
   placeId: string;
   baseRevisionId: string;
   fact: CampusMapPublishFactInput;
+  locationDisplay: CampusMapIndoorLocationDisplay | null;
 }
 
 /** Reads #717's canonical current fact; it never derives facts from map shapes. */
@@ -35,9 +37,23 @@ export async function loadCampusMapEditablePlace(
       : place.location.kind === "floor"
         ? { kind: "floor" }
         : { kind: "building" };
+  const locationDisplay: CampusMapIndoorLocationDisplay | null =
+    place.location.kind === "outdoor-point"
+      ? null
+      : {
+          buildingId: place.location.building.id,
+          buildingName: place.location.building.name,
+          floorId:
+            place.location.kind === "floor" ? place.location.floor.id : null,
+          floorLabel:
+            place.location.kind === "floor"
+              ? place.location.floor.displayLabel
+              : null,
+        };
   return {
     placeId: place.id,
     baseRevisionId: place.revisionId,
+    locationDisplay,
     fact: {
       name: place.name,
       buildingId,

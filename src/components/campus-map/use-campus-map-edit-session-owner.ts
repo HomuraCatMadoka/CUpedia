@@ -12,6 +12,7 @@ import {
   isCampusMapEditDirty,
   transitionCampusMapEdit,
   type CampusMapEditEvent,
+  type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
 import type {
@@ -75,12 +76,35 @@ export function useCampusMapEditSessionOwner({
         } else if (command.kind === "publish") {
           const idempotencyKey = command.command.idempotencyKey;
           void publishCampusMapEdit(command.command).then(
-            (result) =>
+            async (result) => {
+              let conflictLocationDisplay: CampusMapIndoorLocationDisplay | null =
+                null;
+              if (result.status === "conflict") {
+                const conflict = result.conflicts.find(
+                  (item) => item.currentRevisionId && item.currentSnapshot,
+                );
+                if (conflict?.currentRevisionId) {
+                  try {
+                    const current = await loadCampusMapEditablePlace(
+                      conflict.placeId,
+                    );
+                    if (
+                      current?.baseRevisionId === conflict.currentRevisionId
+                    ) {
+                      conflictLocationDisplay = current.locationDisplay;
+                    }
+                  } catch {
+                    // The conflict remains recoverable with generic indoor labels.
+                  }
+                }
+              }
               dispatcherRef.current({
                 type: "PUBLISH_RESULT",
                 idempotencyKey,
                 result,
-              }),
+                conflictLocationDisplay,
+              });
+            },
             () =>
               dispatcherRef.current({
                 type: "PUBLISH_RESULT",
@@ -156,6 +180,7 @@ export function useCampusMapEditSessionOwner({
           fact: current.fact,
           sources: [],
           idempotencyKey: window.crypto.randomUUID(),
+          locationDisplay: current.locationDisplay,
         });
       } catch {
         if (token !== editLoadTokenRef.current) return;

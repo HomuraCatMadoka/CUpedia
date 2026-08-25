@@ -20,6 +20,7 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
   loadCampusMapEditablePlace: vi.fn(async (placeId: string) => ({
     placeId,
     baseRevisionId: "72000000-0000-4000-8000-000000000005",
+    locationDisplay: null,
     fact: {
       name: "饮水机",
       buildingId: null,
@@ -46,11 +47,18 @@ vi.mock("@/lib/campus-map/edit-actions", () => ({
 }));
 
 import { AmapCampusPrototype } from "@/components/campus-map/amap-campus-prototype";
-import { loadCampusMapEditablePlace } from "@/lib/campus-map/edit-actions";
+import {
+  loadCampusMapEditablePlace,
+  publishCampusMapEdit,
+} from "@/lib/campus-map/edit-actions";
 import {
   encodeCampusMapEditSnapshot,
   transitionCampusMapEdit,
 } from "@/lib/campus-map/edit-session";
+import type {
+  CampusMapPublishFactInput,
+  CampusMapPublishSourceInput,
+} from "@/lib/campus-map/publish-contract";
 
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -222,6 +230,114 @@ describe("AmapCampusPrototype", () => {
     ).toBeNull();
     await waitFor(() => expect(window.location.search).not.toContain("task="));
     expect(screen.queryByRole("heading", { name: "建议修改" })).toBeNull();
+  });
+
+  it("hydrates canonical indoor labels before showing a publish conflict", async () => {
+    const placeId = "71000000-0000-4000-8000-000000000005";
+    const baseRevisionId = "72000000-0000-4000-8000-000000000005";
+    const currentRevisionId = "72000000-0000-4000-8000-000000000006";
+    const buildingId = "73000000-0000-4000-8000-000000000001";
+    const floorId = "74000000-0000-4000-8000-000000000001";
+    const initialFact: CampusMapPublishFactInput = {
+      name: "饮水机",
+      buildingId: null,
+      floorId: null,
+      pinType: "water",
+      capabilities: [],
+      gender: "unknown",
+      wheelchairAccess: "unknown",
+      audience: "cuhk-member",
+      credentialRequirement: "unknown",
+      accessSchedule: { kind: "unknown" },
+      reservationRequirement: "unknown",
+      temporaryStatus: "unknown",
+      location: {
+        kind: "outdoor-point",
+        longitude: 114.2049,
+        latitude: 22.4195,
+        crs: "wgs84",
+        precision: "approximate",
+      },
+      observedAt: null,
+    };
+    const source: CampusMapPublishSourceInput = {
+      kind: "field-observation",
+      ref: "现场观察 2026-08-25 12:00",
+      url: null,
+      owner: null,
+      version: null,
+      snapshotHash: null,
+      accessedOn: "2026-08-25",
+      observedAt: "2026-08-25T04:00:00.000Z",
+      rightsStatus: "original-observation",
+      limitations: null,
+      note: null,
+      sourceCoordinate: null,
+    };
+    const currentFact: CampusMapPublishFactInput = {
+      ...initialFact,
+      name: "科学馆饮水机",
+      buildingId,
+      floorId,
+      location: { kind: "floor" },
+    };
+    const started = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId,
+      baseRevisionId,
+      fact: initialFact,
+      sources: [source],
+      idempotencyKey: "10000000-0000-4000-8000-000000000008",
+    }).session!;
+    const changed = transitionCampusMapEdit(started, {
+      type: "CHANGE_FACT",
+      fact: { ...initialFact, name: "我的饮水机" },
+    }).session!;
+    const publishing = transitionCampusMapEdit(changed, {
+      type: "REQUEST_PUBLISH",
+    }).session!;
+    window.sessionStorage.setItem(
+      "cupedia:campus-map:edit-session:v1",
+      encodeCampusMapEditSnapshot(publishing),
+    );
+    window.history.replaceState(
+      null,
+      "",
+      `/prototype/campus-map?v=1&task=edit&id=${placeId}`,
+    );
+    vi.mocked(publishCampusMapEdit).mockResolvedValueOnce({
+      status: "conflict",
+      code: "base-revision-conflict",
+      conflicts: [
+        {
+          code: "base-revision-conflict",
+          anchor: { changeIndex: 0, placeId },
+          placeId,
+          expectedRevisionId: baseRevisionId,
+          currentRevisionId,
+          currentStatus: "active",
+          currentSnapshot: { ...currentFact, factSchemaVersion: 1 },
+        },
+      ],
+    });
+    vi.mocked(loadCampusMapEditablePlace).mockResolvedValueOnce({
+      placeId,
+      baseRevisionId: currentRevisionId,
+      fact: currentFact,
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId,
+        floorLabel: "1/F",
+      },
+    });
+
+    render(<AmapCampusPrototype initialSearch={window.location.search} />);
+    fireEvent.click(await screen.findByRole("button", { name: "安全重试" }));
+
+    expect(await screen.findByText("最新：科学馆 · 1/F")).toBeTruthy();
+    expect(document.body.textContent).not.toContain(buildingId);
+    expect(document.body.textContent).not.toContain(floorId);
   });
 
   it("removes hidden map chrome from keyboard and screen-reader navigation during editing", async () => {

@@ -10,6 +10,7 @@ import type { AmapPlaceContextResult } from "@/lib/campus-map/amap-place-context
 import {
   isCampusMapEditDirty,
   type CampusMapEditEvent,
+  type CampusMapIndoorLocationDisplay,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
 import { CAMPUS_MAP_EDIT_SCHEMA } from "@/lib/campus-map/edit-schema";
@@ -100,38 +101,83 @@ function messageForError(code: string): string {
   return messages[code] ?? `服务器未接受这项资料（${code}）。`;
 }
 
-function describeLocation(fact: CampusMapEditSession["draft"]["fact"]): string {
+function matchingDisplay(
+  fact: CampusMapEditSession["draft"]["fact"],
+  display: CampusMapIndoorLocationDisplay | null | undefined,
+): CampusMapIndoorLocationDisplay | null {
+  if (
+    !display ||
+    (fact.location?.kind !== "building" && fact.location?.kind !== "floor") ||
+    display.buildingId !== fact.buildingId ||
+    display.floorId !== fact.floorId
+  ) {
+    return null;
+  }
+  return display;
+}
+
+function describeLocation(
+  fact: CampusMapEditSession["draft"]["fact"],
+  display?: CampusMapIndoorLocationDisplay | null,
+): string {
   if (!fact.location) return "尚未定位";
   if (fact.location.kind === "outdoor-point") {
     return `${fact.location.longitude.toFixed(6)}, ${fact.location.latitude.toFixed(6)} · WGS84 · ${
       fact.location.precision === "precise" ? "精确" : "约略"
     }`;
   }
+  const canonicalDisplay = matchingDisplay(fact, display);
+  const prototypeBuilding = AMAP_PROTOTYPE_BUILDINGS.find(
+    (building) => building.id === fact.buildingId,
+  );
   const buildingName =
-    AMAP_PROTOTYPE_BUILDINGS.find((building) => building.id === fact.buildingId)
-      ?.name ??
-    fact.buildingId ??
-    "未知建筑";
+    canonicalDisplay?.buildingName ?? prototypeBuilding?.name;
   if (fact.location.kind === "floor") {
-    return `${buildingName} · 楼层 ${fact.floorId ?? "未知"}`;
+    if (buildingName && canonicalDisplay?.floorLabel) {
+      return `${buildingName} · ${canonicalDisplay.floorLabel}`;
+    }
+    if (buildingName && prototypeBuilding) {
+      return `${buildingName} · 楼层 ${fact.floorId ?? "未知"}`;
+    }
+    return "建筑内楼层";
   }
-  return buildingName;
+  return buildingName ?? "建筑位置";
 }
 
 function friendlyLocationLabel(
   fact: CampusMapEditSession["draft"]["fact"],
+  display?: CampusMapIndoorLocationDisplay | null,
 ): string {
   if (fact.location?.kind === "outdoor-point") {
     return "地图上的地点";
   }
   if (fact.buildingId) {
     return (
+      matchingDisplay(fact, display)?.buildingName ??
       AMAP_PROTOTYPE_BUILDINGS.find(
         (building) => building.id === fact.buildingId,
-      )?.name ?? "建筑内位置"
+      )?.name ??
+      "建筑内位置"
     );
   }
   return "尚未定位";
+}
+
+const observationTimeFormatter = new Intl.DateTimeFormat("zh-HK", {
+  timeZone: "Asia/Hong_Kong",
+  year: "numeric",
+  month: "long",
+  day: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function formatObservationTime(value: string | null): string {
+  if (!value) return "未记录";
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return "未记录";
+  return `${observationTimeFormatter.format(parsed)}（香港时间）`;
 }
 
 type ConflictChoiceKey =
@@ -267,6 +313,7 @@ function scheduleConflictValue(
 function conflictValue(
   choice: ConflictChoice,
   fact: CampusMapEditSession["draft"]["fact"],
+  display?: CampusMapIndoorLocationDisplay | null,
 ): string {
   switch (choice.key) {
     case "name":
@@ -315,9 +362,9 @@ function conflictValue(
         fact.temporaryStatus,
       );
     case "placement":
-      return describeLocation(fact);
+      return describeLocation(fact, display);
     case "observedAt":
-      return fact.observedAt ?? "未记录";
+      return formatObservationTime(fact.observedAt);
   }
 }
 
@@ -762,43 +809,62 @@ export function CampusMapEditSheet({
               <legend className="px-1 font-medium">
                 明确选择要保留的草稿字段
               </legend>
-              {changedFields.map((choice) => (
-                <label
-                  key={choice.key}
-                  className="grid min-h-11 grid-cols-[auto_1fr] items-start gap-2 py-1"
-                >
-                  <input
-                    type="checkbox"
-                    name={`conflict-${String(choice.key)}`}
-                    aria-label={`保留我的${choice.label}`}
-                    className="mt-1"
-                    checked={conflictKeepFields.includes(choice.key)}
-                    onChange={(event) =>
-                      setConflictSelection((current) => {
-                        const fields =
-                          current.key === conflictKey ? current.fields : [];
-                        return {
-                          key: conflictKey,
-                          fields: event.target.checked
-                            ? [...fields, choice.key]
-                            : fields.filter((item) => item !== choice.key),
-                        };
-                      })
-                    }
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-medium">
-                      保留我的{choice.label}
+              {changedFields.map((choice) => {
+                const controlId = `${fieldPrefix}-conflict-${String(choice.key)}`;
+                const labelId = `${controlId}-label`;
+                const descriptionId = `${controlId}-description`;
+                return (
+                  <label
+                    key={choice.key}
+                    className="grid min-h-11 grid-cols-[auto_1fr] items-start gap-2 py-1"
+                  >
+                    <input
+                      id={controlId}
+                      type="checkbox"
+                      name={`conflict-${String(choice.key)}`}
+                      aria-labelledby={labelId}
+                      aria-describedby={descriptionId}
+                      className="mt-1"
+                      checked={conflictKeepFields.includes(choice.key)}
+                      onChange={(event) =>
+                        setConflictSelection((current) => {
+                          const fields =
+                            current.key === conflictKey ? current.fields : [];
+                          return {
+                            key: conflictKey,
+                            fields: event.target.checked
+                              ? [...fields, choice.key]
+                              : fields.filter((item) => item !== choice.key),
+                          };
+                        })
+                      }
+                    />
+                    <span className="min-w-0">
+                      <span id={labelId} className="block font-medium">
+                        保留我的{choice.label}
+                      </span>
+                      <span id={descriptionId}>
+                        <span className="mt-0.5 block break-words text-xs">
+                          我的：
+                          {conflictValue(
+                            choice,
+                            session.draft.fact,
+                            session.draft.locationDisplay,
+                          )}
+                        </span>
+                        <span className="block break-words text-xs text-amber-900">
+                          最新：
+                          {conflictValue(
+                            choice,
+                            conflict.currentFact,
+                            conflict.currentLocationDisplay,
+                          )}
+                        </span>
+                      </span>
                     </span>
-                    <span className="mt-0.5 block break-words text-xs">
-                      我的：{conflictValue(choice, session.draft.fact)}
-                    </span>
-                    <span className="block break-words text-xs text-amber-900">
-                      最新：{conflictValue(choice, conflict.currentFact)}
-                    </span>
-                  </span>
-                </label>
-              ))}
+                  </label>
+                );
+              })}
             </fieldset>
           ) : null}
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -905,7 +971,7 @@ export function CampusMapEditSheet({
                 <p className="font-semibold" aria-live="polite">
                   {isPlacing || resolvedContext
                     ? placementLabel
-                    : friendlyLocationLabel(fact)}
+                    : friendlyLocationLabel(fact, draft.locationDisplay)}
                 </p>
                 <p
                   className="mt-0.5 text-xs text-neutral-600"
@@ -917,7 +983,7 @@ export function CampusMapEditSheet({
                       ? fact.location.precision === "precise"
                         ? "精确位置"
                         : "约略位置"
-                      : describeLocation(fact)}
+                      : describeLocation(fact, draft.locationDisplay)}
                 </p>
               </div>
               {!isPlacing ? (

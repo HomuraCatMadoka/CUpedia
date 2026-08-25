@@ -404,6 +404,7 @@ describe("Campus Map edit session transition", () => {
     }).session;
     const encoded = encodeCampusMapEditSnapshot(changed!);
 
+    expect(CAMPUS_MAP_EDIT_SNAPSHOT_VERSION).toBe(3);
     expect(JSON.parse(encoded)).toMatchObject({
       version: CAMPUS_MAP_EDIT_SNAPSHOT_VERSION,
       session: { draft: { placeId, baseRevisionId } },
@@ -423,17 +424,36 @@ describe("Campus Map edit session transition", () => {
     ).toEqual({ status: "discarded", reason: "unsupported-version" });
   });
 
-  it("migrates a version 1 draft by adding an empty placement candidate", () => {
+  it("migrates version 1 and 2 drafts with empty placement display metadata", () => {
     const legacy = JSON.parse(encodeCampusMapEditSnapshot(editSession())) as {
       version: number;
-      session: { draft: Record<string, unknown> };
+      session: {
+        draft: Record<string, unknown>;
+        conflict?: Record<string, unknown>;
+      };
     };
     legacy.version = 1;
     delete legacy.session.draft.placementCandidate;
+    delete legacy.session.draft.locationDisplay;
 
     expect(decodeCampusMapEditSnapshot(JSON.stringify(legacy))).toMatchObject({
       status: "restored",
-      session: { draft: { placementCandidate: null } },
+      session: {
+        draft: { placementCandidate: null, locationDisplay: null },
+      },
+    });
+
+    const versionTwo = JSON.parse(
+      encodeCampusMapEditSnapshot(editSession()),
+    ) as typeof legacy;
+    versionTwo.version = 2;
+    delete versionTwo.session.draft.locationDisplay;
+
+    expect(
+      decodeCampusMapEditSnapshot(JSON.stringify(versionTwo)),
+    ).toMatchObject({
+      status: "restored",
+      session: { draft: { locationDisplay: null } },
     });
   });
 
@@ -712,6 +732,10 @@ describe("Campus Map edit session transition", () => {
     const retry = transitionCampusMapEdit(unavailable.session, {
       type: "RETRY_PUBLISH",
     });
+    const reported = transitionCampusMapEdit(unavailable.session, {
+      type: "REPORT_LOCAL_ERROR",
+      field: "sourceObservedAt",
+    });
     const unsafeFactEdit = transitionCampusMapEdit(unavailable.session, {
       type: "CHANGE_FACT",
       fact: { ...fact, name: "不能复用旧发布识别码" },
@@ -738,6 +762,21 @@ describe("Campus Map edit session transition", () => {
         command: expect.objectContaining({ idempotencyKey: firstKey }),
       }),
     );
+    expect(reported.session).toMatchObject({
+      status: "temporarily-unavailable",
+      localError: "sourceObservedAt",
+      draft: { idempotencyKey: firstKey },
+    });
+    expect(
+      transitionCampusMapEdit(reported.session, {
+        type: "CHANGE_SOURCES",
+        sources: [source],
+        idempotencyKey: secondKey,
+      }).session,
+    ).toMatchObject({
+      status: "editing",
+      draft: { idempotencyKey: secondKey },
+    });
     expect(unsafeFactEdit).toMatchObject({
       accepted: false,
       session: unavailable.session,
@@ -816,6 +855,107 @@ describe("Campus Map edit session transition", () => {
         baseRevisionId: currentRevisionId,
         idempotencyKey: secondKey,
         warningAcknowledgements: [],
+      },
+    });
+  });
+
+  it("carries canonical indoor labels through Edit and conflict rebasing", () => {
+    const buildingId = "50000000-0000-4000-8000-000000000001";
+    const floorId = "60000000-0000-4000-8000-000000000001";
+    const latestFloorId = "60000000-0000-4000-8000-000000000002";
+    const indoorFact: CampusMapPublishFactInput = {
+      ...fact,
+      name: "科学馆饮水机",
+      buildingId,
+      floorId,
+      location: { kind: "floor" },
+    };
+    const started = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId,
+      baseRevisionId,
+      fact: indoorFact,
+      sources: [source],
+      idempotencyKey: firstKey,
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId,
+        floorLabel: "G/F",
+      },
+    });
+    const changed = transitionCampusMapEdit(started.session, {
+      type: "CHANGE_FACT",
+      fact: { ...indoorFact, name: "我的名称" },
+    });
+    const publishing = transitionCampusMapEdit(changed.session, {
+      type: "REQUEST_PUBLISH",
+    });
+    const currentFact = {
+      ...indoorFact,
+      name: "最新名称",
+      floorId: latestFloorId,
+    };
+    const conflicted = transitionCampusMapEdit(publishing.session, {
+      type: "PUBLISH_RESULT",
+      idempotencyKey: firstKey,
+      conflictLocationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId: latestFloorId,
+        floorLabel: "1/F",
+      },
+      result: {
+        status: "conflict",
+        code: "base-revision-conflict",
+        conflicts: [
+          {
+            code: "base-revision-conflict",
+            anchor: { changeIndex: 0, placeId },
+            placeId,
+            expectedRevisionId: baseRevisionId,
+            currentRevisionId,
+            currentStatus: "active",
+            currentSnapshot: { ...currentFact, factSchemaVersion: 1 },
+          },
+        ],
+      },
+    });
+    const latest = transitionCampusMapEdit(conflicted.session, {
+      type: "CONTINUE_FROM_CONFLICT",
+      idempotencyKey: secondKey,
+      fact: currentFact,
+    });
+
+    expect(started.session).toMatchObject({
+      draft: {
+        locationDisplay: {
+          buildingId,
+          buildingName: "科学馆",
+          floorId,
+          floorLabel: "G/F",
+        },
+      },
+    });
+    expect(conflicted.session).toMatchObject({
+      conflict: {
+        kind: "current",
+        currentLocationDisplay: {
+          buildingId,
+          buildingName: "科学馆",
+          floorId: latestFloorId,
+          floorLabel: "1/F",
+        },
+      },
+    });
+    expect(latest.session).toMatchObject({
+      draft: {
+        locationDisplay: {
+          buildingId,
+          buildingName: "科学馆",
+          floorId: latestFloorId,
+          floorLabel: "1/F",
+        },
       },
     });
   });
@@ -1163,6 +1303,42 @@ describe("Campus Map edit session transition", () => {
       precision: "approximate",
       method: "pointer",
     };
+
+    expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
+      status: "discarded",
+      reason: "invalid-snapshot",
+    });
+  });
+
+  it("discards indoor display metadata that does not match the stable IDs", () => {
+    const buildingId = "50000000-0000-4000-8000-000000000001";
+    const floorId = "60000000-0000-4000-8000-000000000001";
+    const indoor = transitionCampusMapEdit(null, {
+      type: "START_EDIT",
+      placeId,
+      baseRevisionId,
+      fact: {
+        ...fact,
+        buildingId,
+        floorId,
+        location: { kind: "floor" },
+      },
+      sources: [source],
+      idempotencyKey: firstKey,
+      locationDisplay: {
+        buildingId,
+        buildingName: "科学馆",
+        floorId,
+        floorLabel: "1/F",
+      },
+    }).session!;
+    const snapshot = JSON.parse(encodeCampusMapEditSnapshot(indoor)) as {
+      session: CampusMapEditSession;
+    };
+    if (!snapshot.session.draft.locationDisplay) {
+      throw new Error("missing indoor display fixture");
+    }
+    snapshot.session.draft.locationDisplay.floorId = currentRevisionId;
 
     expect(decodeCampusMapEditSnapshot(JSON.stringify(snapshot))).toEqual({
       status: "discarded",

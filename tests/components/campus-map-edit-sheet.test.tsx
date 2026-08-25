@@ -604,16 +604,28 @@ describe("Campus Map single-page edit Sheet", () => {
         precision: "approximate" as const,
       },
     };
+    const buildingId = "50000000-0000-4000-8000-000000000001";
+    const floorId = "60000000-0000-4000-8000-000000000001";
     const currentFact = {
       ...baseDraft.fact,
-      buildingId: "science-centre",
-      floorId: "1",
+      buildingId,
+      floorId,
       location: { kind: "floor" as const },
     };
     const session: CampusMapEditSession = {
       status: "conflict",
       draft: { ...baseDraft, fact: mine },
-      conflict: { kind: "current", currentRevisionId: revisionId, currentFact },
+      conflict: {
+        kind: "current",
+        currentRevisionId: revisionId,
+        currentFact,
+        currentLocationDisplay: {
+          buildingId,
+          buildingName: "科学馆",
+          floorId,
+          floorLabel: "1/F",
+        },
+      },
     };
     render(
       <CampusMapEditSheet
@@ -639,7 +651,57 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(
       screen.getByText("我的：114.210000, 22.420000 · WGS84 · 约略"),
     ).toBeTruthy();
-    expect(screen.getByText("最新：科学馆 · 楼层 1")).toBeTruthy();
+    expect(screen.getByText("最新：科学馆 · 1/F")).toBeTruthy();
+    expect(document.body.textContent).not.toContain(buildingId);
+    expect(document.body.textContent).not.toContain(floorId);
+  });
+
+  it("describes conflict values to screen readers and formats observation time", () => {
+    const baseDraft = draft();
+    const location: CampusMapPublishFactInput["location"] = {
+      kind: "outdoor-point",
+      longitude: 114.2,
+      latitude: 22.4,
+      crs: "wgs84",
+      precision: "approximate",
+    };
+    const mine = {
+      ...baseDraft.fact,
+      location,
+      observedAt: "2026-08-25T04:00:00.000Z",
+    };
+    const currentFact = {
+      ...mine,
+      observedAt: "2026-08-25T05:30:00.000Z",
+    };
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "conflict",
+          draft: { ...baseDraft, fact: mine },
+          conflict: {
+            kind: "current",
+            currentRevisionId: revisionId,
+            currentFact,
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={vi.fn()}
+      />,
+    );
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: "保留我的观察时间",
+    });
+    const describedBy = checkbox.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    const description = describedBy
+      ?.split(/\s+/)
+      .map((id) => document.getElementById(id)?.textContent)
+      .join(" ");
+    expect(description).toContain("我的：2026年8月25日 12:00（香港时间）");
+    expect(description).toContain("最新：2026年8月25日 13:30（香港时间）");
+    expect(description).not.toContain("2026-08-25T04:00:00.000Z");
   });
 
   it("keeps a changed place type and its dependent fields atomic", () => {
