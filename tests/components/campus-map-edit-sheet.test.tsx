@@ -162,6 +162,39 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
   });
 
+  it("delegates place-type changes to the edit-session transition", () => {
+    const onEvent = vi.fn();
+    render(
+      <CampusMapEditSheet
+        session={{
+          status: "editing",
+          draft: {
+            ...draft(),
+            fact: {
+              ...draft().fact,
+              location: {
+                kind: "outdoor-point",
+                longitude: 114.2,
+                latitude: 22.4,
+                crs: "wgs84",
+                precision: "approximate",
+              },
+            },
+          },
+        }}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("radio", { name: "洗手间" }));
+
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CHANGE_PIN_TYPE",
+      pinType: "toilet",
+    });
+  });
+
   it("attributes a POI-only Geocoder result to 高德", () => {
     render(
       <CampusMapEditSheet

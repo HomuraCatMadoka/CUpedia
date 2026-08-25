@@ -127,6 +127,11 @@ export type CampusMapEditEvent =
       idempotencyKey?: string;
     }
   | {
+      type: "CHANGE_PIN_TYPE";
+      pinType: CampusMapPublishFactInput["pinType"];
+      idempotencyKey?: string;
+    }
+  | {
       type: "CHANGE_SOURCES";
       sources: CampusMapPublishSourceInput[];
       idempotencyKey?: string;
@@ -325,6 +330,26 @@ function draftForPayloadChange(
     return null;
   }
   return { ...session.draft, idempotencyKey };
+}
+
+function transitionFactChange(
+  session: CampusMapEditSession,
+  fact: CampusMapEditDraft["fact"],
+  idempotencyKey: string | undefined,
+): CampusMapEditTransition {
+  const attemptDraft = draftForPayloadChange(session, idempotencyKey);
+  if (!attemptDraft) return rejected(session);
+  const next = editable({ ...session, draft: attemptDraft });
+  return persisted({
+    ...next,
+    draft: {
+      ...next.draft,
+      fact: clone(fact),
+      locationDisplay: samePlacement(next.draft.fact, fact)
+        ? next.draft.locationDisplay
+        : null,
+    },
+  });
 }
 
 function firstLocalError(draft: CampusMapEditDraft): string | null {
@@ -580,19 +605,33 @@ export function transitionCampusMapEdit(
   }
 
   if (event.type === "CHANGE_FACT") {
-    const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);
-    if (!attemptDraft) return rejected(session);
-    const next = editable({ ...session, draft: attemptDraft });
-    return persisted({
-      ...next,
-      draft: {
-        ...next.draft,
-        fact: clone(event.fact),
-        locationDisplay: samePlacement(next.draft.fact, event.fact)
-          ? next.draft.locationDisplay
-          : null,
-      },
-    });
+    return transitionFactChange(session, event.fact, event.idempotencyKey);
+  }
+  if (event.type === "CHANGE_PIN_TYPE") {
+    const currentPreset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+      (preset) => preset.pinType === session.draft.fact.pinType,
+    );
+    const nextPreset = CAMPUS_MAP_EDIT_SCHEMA.presets.find(
+      (preset) => preset.pinType === event.pinType,
+    );
+    if (!nextPreset) return rejected(session);
+
+    const currentName = session.draft.fact.name;
+    const shouldApplyDefault =
+      !currentName.trim() ||
+      (session.draft.mode === "add" &&
+        currentPreset !== undefined &&
+        currentName.trim() === currentPreset.defaultName);
+    const fact: CampusMapEditDraft["fact"] = {
+      ...session.draft.fact,
+      name: shouldApplyDefault ? nextPreset.defaultName : currentName,
+      pinType: event.pinType,
+      capabilities:
+        event.pinType === "printer" ? session.draft.fact.capabilities : [],
+      gender:
+        event.pinType === "toilet" ? session.draft.fact.gender : "unknown",
+    };
+    return transitionFactChange(session, fact, event.idempotencyKey);
   }
   if (event.type === "CHANGE_SOURCES") {
     const attemptDraft = draftForPayloadChange(session, event.idempotencyKey);

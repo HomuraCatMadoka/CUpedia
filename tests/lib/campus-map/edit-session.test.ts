@@ -238,6 +238,63 @@ describe("Campus Map edit session transition", () => {
     expect(isCampusMapEditDirty(changed)).toBe(true);
   });
 
+  it("keeps schema defaults in sync when an untouched Add preset changes", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    }).session!;
+    const changed = transitionCampusMapEdit(started, {
+      type: "CHANGE_PIN_TYPE",
+      pinType: "toilet",
+    });
+
+    expect(changed).toMatchObject({
+      accepted: true,
+      session: {
+        draft: {
+          fact: {
+            name: "洗手间",
+            pinType: "toilet",
+            capabilities: [],
+            gender: "unknown",
+          },
+        },
+      },
+    });
+  });
+
+  it("preserves a real place name when its preset changes", () => {
+    const started = transitionCampusMapEdit(null, {
+      type: "START_ADD",
+      idempotencyKey: firstKey,
+    }).session!;
+    const named = transitionCampusMapEdit(started, {
+      type: "CHANGE_FACT",
+      fact: { ...started.draft.fact, name: "科学馆 G/F 饮水机" },
+    }).session!;
+    const changed = transitionCampusMapEdit(named, {
+      type: "CHANGE_PIN_TYPE",
+      pinType: "toilet",
+    });
+
+    expect(changed.session?.draft.fact).toMatchObject({
+      name: "科学馆 G/F 饮水机",
+      pinType: "toilet",
+    });
+  });
+
+  it("preserves a canonical Edit name when its preset changes", () => {
+    const changed = transitionCampusMapEdit(editSession(), {
+      type: "CHANGE_PIN_TYPE",
+      pinType: "toilet",
+    });
+
+    expect(changed.session?.draft.fact).toMatchObject({
+      name: fact.name,
+      pinType: "toilet",
+    });
+  });
+
   it("starts Edit with stable identity and a clean baseline", () => {
     const session = editSession();
 

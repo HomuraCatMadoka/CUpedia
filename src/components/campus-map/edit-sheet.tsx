@@ -1168,17 +1168,13 @@ export function CampusMapEditSheet({
                     data-edit-field={
                       fact.pinType === item.pinType ? "pinType" : undefined
                     }
-                    onChange={() => {
-                      const pinType = item.pinType;
-                      updateFact({
-                        ...fullFact,
-                        pinType,
-                        name: fact.name.trim() ? fact.name : item.defaultName,
-                        capabilities:
-                          pinType === "printer" ? fact.capabilities : [],
-                        gender: pinType === "toilet" ? fact.gender : "unknown",
-                      });
-                    }}
+                    onChange={() =>
+                      onEvent({
+                        type: "CHANGE_PIN_TYPE",
+                        pinType: item.pinType,
+                        ...freshAttempt(),
+                      })
+                    }
                   />
                   {item.label}
                 </label>
