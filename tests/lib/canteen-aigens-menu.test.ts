@@ -1,12 +1,69 @@
 import { describe, expect, it } from "vitest";
-import { buildShhoMenuSyncPayload } from "@/lib/canteen-aigens-menu";
+import {
+  buildAigensMenuSyncPayload,
+  buildShhoMenuSyncPayload,
+} from "@/lib/canteen-aigens-menu";
 import {
   fetchAigensMenu,
   fetchMenuFromProvider,
 } from "@/lib/canteen-menu-source-adapters";
 import aigensCurrent from "./fixtures/canteen-providers/aigens-current.json";
 
-describe("S.H. Ho Aigens menu adapter", () => {
+describe("Aigens menu adapter", () => {
+  it("keeps valid products when another resolved group is empty", () => {
+    const payload = buildAigensMenuSyncPayload({
+      data: {
+        menu: {
+          categories: [
+            { name: "早餐", periods: ["B"], groupIds: ["breakfast"] },
+            { name: "清真食品", periods: ["L", "D"], groupIds: ["halal"] },
+          ],
+          groups: [
+            {
+              id: "breakfast",
+              items: [
+                {
+                  backendId: "breakfast-42",
+                  name: "早餐菜品",
+                  price: 32,
+                  published: true,
+                },
+              ],
+            },
+            { id: "halal", items: [] },
+          ],
+        },
+      },
+    });
+
+    expect(payload.items).toEqual([
+      expect.objectContaining({
+        externalProductId: "breakfast-42",
+        name: "早餐菜品",
+        mealPeriods: ["breakfast"],
+      }),
+    ]);
+  });
+
+  it("fails closed when every resolved group is empty", () => {
+    expect(() =>
+      buildAigensMenuSyncPayload({
+        data: {
+          menu: {
+            categories: [
+              {
+                name: "清真食品",
+                periods: ["L", "D"],
+                groupIds: ["halal"],
+              },
+            ],
+            groups: [{ id: "halal", items: [] }],
+          },
+        },
+      }),
+    ).toThrowError(expect.objectContaining({ code: "EMPTY_SNAPSHOT" }));
+  });
+
   it("fails closed when the same offering repeats in one period", () => {
     const item = {
       backendId: "42",
