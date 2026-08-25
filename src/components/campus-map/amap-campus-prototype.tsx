@@ -745,7 +745,7 @@ export function AmapCampusPrototype({
                 document.querySelectorAll<HTMLElement>("[data-edit-field]"),
               ).find((element) => element.dataset.editField === focus.field);
               target?.focus({ preventScroll: true });
-              target?.scrollIntoView({ block: "center", inline: "nearest" });
+              target?.scrollIntoView?.({ block: "center", inline: "nearest" });
             }
           });
         });
