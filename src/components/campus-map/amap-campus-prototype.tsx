@@ -12,6 +12,7 @@ import {
   ArrowLeftIcon,
   DropletsIcon,
   LocateFixedIcon,
+  MapPinIcon,
   MinusIcon,
   PlusIcon,
   PrinterIcon,
@@ -1339,7 +1340,7 @@ export function AmapCampusPrototype({
       <p className="sr-only" aria-live="polite">
         {editAnnouncement || editRestoreNotice}
       </p>
-      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession ? "calc(78dvh + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
+      <style>{`@media(max-width:767px){.amap-controls,.amap-controlbar{display:none!important}.amap-logo,.amap-copyright{bottom:${editSession?.status === "placing" ? "320px" : editSession ? "calc(78dvh + 4px)" : state.selection.kind === "none" && !activeAmenity ? "4px" : state.sheet.snap === "full" ? "calc(72dvh + 4px)" : "252px"}!important}}`}</style>
       <div className="absolute inset-0">
         <div
           id="amap-campus-canvas"
@@ -1354,8 +1355,11 @@ export function AmapCampusPrototype({
           aria-hidden="true"
           className="pointer-events-none absolute top-1/2 left-1/2 z-20 -translate-x-1/2 -translate-y-full"
         >
-          <div className="h-12 w-9 rounded-t-full rounded-br-full border-4 border-white bg-[#176346] shadow-xl [transform:rotate(45deg)]" />
-          <div className="mx-auto mt-1 size-2 rounded-full bg-black/25" />
+          <MapPinIcon
+            className="size-12 fill-[#176346] text-white drop-shadow-[0_4px_7px_rgba(23,33,28,.35)]"
+            strokeWidth={1.8}
+          />
+          <div className="mx-auto -mt-1 size-2 rounded-full bg-black/25" />
         </div>
       ) : null}
 
@@ -1591,11 +1595,13 @@ export function AmapCampusPrototype({
         className={cn(
           "absolute z-30 overflow-hidden border-black/10 bg-white shadow-[0_12px_40px_rgba(23,33,28,.24)]",
           "inset-x-0 bottom-0 rounded-t-2xl border-t md:inset-y-4 md:right-4 md:left-auto md:w-[390px] md:rounded-2xl md:border",
-          editSession
-            ? "h-[78dvh] md:h-auto"
-            : state.sheet.snap === "full"
-              ? "h-[72dvh] md:h-auto"
-              : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
+          editSession?.status === "placing"
+            ? "h-auto max-h-[calc(100dvh-24px)] md:top-auto md:bottom-4 md:max-h-[calc(100dvh-32px)]"
+            : editSession
+              ? "h-[78dvh] md:h-auto"
+              : state.sheet.snap === "full"
+                ? "h-[72dvh] md:h-auto"
+                : "h-[min(248px,36dvh)] md:h-auto md:max-h-[calc(100%-32px)]",
         )}
       >
         {!editSession ? (

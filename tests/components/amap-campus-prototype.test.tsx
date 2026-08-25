@@ -94,17 +94,30 @@ async function selectScienceCentre() {
 }
 
 describe("AmapCampusPrototype", () => {
-  it("uses one Add session for center-pin, keyboard fields, and dirty close", async () => {
+  it("uses one Add session for natural center-pin placement and dirty close", async () => {
     render(<AmapCampusPrototype />);
 
     fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
     expect(
-      await screen.findByRole("heading", { name: "确认地点位置" }),
+      await screen.findByRole("heading", { name: "把图钉放在地点上" }),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "使用地图中心位置" }));
+    expect(screen.getByText("科学馆附近")).toBeTruthy();
+    expect(screen.queryByRole("textbox", { name: "经度（WGS84）" })).toBeNull();
+
+    fireEvent.click(screen.getByText("其他定位方式"));
+    expect(screen.getByRole("textbox", { name: "经度（WGS84）" })).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: "纬度（WGS84）" })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "位置放好了" }));
     expect(
       await screen.findByRole("heading", { name: "添加地点" }),
     ).toBeTruthy();
+    expect(screen.getByText("科学馆附近")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "重新定位" })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: "饮水点" })).toBeTruthy();
+    expect(screen.queryByRole("combobox", { name: "无障碍通行" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "更多资料" }));
+    expect(screen.getByRole("combobox", { name: "无障碍通行" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("地点名称"), {
       target: { value: "新饮水点" },
     });
