@@ -134,6 +134,7 @@ type ConflictChoiceKey =
       keyof CampusMapPublishFactInput,
       "buildingId" | "floorId" | "location"
     >
+  | "preset"
   | "placement";
 
 interface ConflictChoice {
@@ -145,15 +146,26 @@ interface ConflictChoice {
 function conflictFields(session: CampusMapEditSession): ConflictChoice[] {
   if (session.conflict?.kind !== "current") return [];
   const current = session.conflict.currentFact;
+  const presetChoices: ConflictChoice[] =
+    session.draft.fact.pinType === current.pinType
+      ? [
+          {
+            key: "capabilities",
+            label: "服务能力",
+            fields: ["capabilities"],
+          },
+          { key: "gender", label: "性别属性", fields: ["gender"] },
+        ]
+      : [
+          {
+            key: "preset",
+            label: "地点类型及相关资料",
+            fields: ["pinType", "capabilities", "gender"],
+          },
+        ];
   const choices: ConflictChoice[] = [
     { key: "name", label: "名称", fields: ["name"] },
-    { key: "pinType", label: "类型", fields: ["pinType"] },
-    {
-      key: "capabilities",
-      label: "服务能力",
-      fields: ["capabilities"],
-    },
-    { key: "gender", label: "性别属性", fields: ["gender"] },
+    ...presetChoices,
     {
       key: "wheelchairAccess",
       label: "无障碍通行",
@@ -751,7 +763,7 @@ export function CampusMapEditSheet({
           <div
             data-edit-field="location"
             tabIndex={-1}
-            className="rounded-xl bg-[#edf5f1] p-3 text-sm"
+            className="rounded-xl bg-[#edf5f1] p-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346]"
           >
             <div className="flex items-start gap-3">
               <MapPinIcon
@@ -808,7 +820,11 @@ export function CampusMapEditSheet({
             }
           />
         </label>
-        <fieldset data-edit-field="pinType" tabIndex={-1}>
+        <fieldset
+          data-edit-field="pinType"
+          tabIndex={-1}
+          className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#176346] focus-visible:ring-offset-2"
+        >
           <legend className="mb-2 text-sm font-medium">
             {fieldLabel("pinType", "地点类型")}
           </legend>

@@ -23,6 +23,7 @@ const mutableFacilityFixtures = AMAP_PROTOTYPE_FACILITIES as unknown as Array<
   (typeof AMAP_PROTOTYPE_FACILITIES)[number]
 >;
 const originalFacilityFixtures = [...AMAP_PROTOTYPE_FACILITIES];
+const scrollIntoView = vi.fn();
 
 function restoreFacilityFixtures() {
   mutableFacilityFixtures.splice(
@@ -34,6 +35,11 @@ function restoreFacilityFixtures() {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  scrollIntoView.mockReset();
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoView,
+  });
   window.sessionStorage.clear();
   window.history.replaceState(null, "", "/prototype/campus-map");
   restoreFacilityFixtures();
@@ -52,6 +58,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  delete (Element.prototype as { scrollIntoView?: () => void }).scrollIntoView;
   document
     .querySelectorAll("script[data-amap-campus]")
     .forEach((script) => script.remove());
@@ -354,6 +361,10 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(document.activeElement?.getAttribute("data-edit-field")).toBe(
       "sources",
     );
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      block: "center",
+      inline: "nearest",
+    });
     expect(screen.getByLabelText("现场观察时间（香港时间）")).not.toBeNull();
   });
 

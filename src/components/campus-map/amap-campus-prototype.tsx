@@ -741,11 +741,11 @@ export function AmapCampusPrototype({
             } else if (focus.kind === "map") {
               mapElementRef.current?.focus({ preventScroll: true });
             } else if (focus.kind === "edit-field") {
-              Array.from(
+              const target = Array.from(
                 document.querySelectorAll<HTMLElement>("[data-edit-field]"),
-              )
-                .find((element) => element.dataset.editField === focus.field)
-                ?.focus({ preventScroll: true });
+              ).find((element) => element.dataset.editField === focus.field);
+              target?.focus({ preventScroll: true });
+              target?.scrollIntoView({ block: "center", inline: "nearest" });
             }
           });
         });

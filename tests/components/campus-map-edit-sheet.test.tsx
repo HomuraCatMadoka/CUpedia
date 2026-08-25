@@ -8,6 +8,7 @@ import {
   createCampusMapEditDraft,
   type CampusMapEditSession,
 } from "@/lib/campus-map/edit-session";
+import type { CampusMapPublishFactInput } from "@/lib/campus-map/publish-contract";
 
 const placeId = "20000000-0000-4000-8000-000000000001";
 const revisionId = "30000000-0000-4000-8000-000000000001";
@@ -115,6 +116,7 @@ describe("Campus Map single-page edit Sheet", () => {
     expect(choices?.className).not.toContain("overflow-x-auto");
     expect(screen.getByRole("radio", { name: "课室" })).toBeTruthy();
     expect(typeGroup.getAttribute("tabindex")).toBe("-1");
+    expect(typeGroup.className).toContain("focus-visible:ring-2");
     expect(screen.queryByText(/Changeset 说明/)).toBeNull();
   });
 
@@ -363,11 +365,11 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(
-      document
-        .querySelector('[data-edit-field="location"]')
-        ?.getAttribute("tabindex"),
-    ).toBe("-1");
+    const locationTarget = document.querySelector<HTMLElement>(
+      '[data-edit-field="location"]',
+    );
+    expect(locationTarget?.getAttribute("tabindex")).toBe("-1");
+    expect(locationTarget?.className).toContain("focus-visible:ring-2");
   });
 
   it("shows forbidden results as a permission state, not field validation", () => {
@@ -592,6 +594,62 @@ describe("Campus Map single-page edit Sheet", () => {
         buildingId: null,
         floorId: null,
         location: mine.location,
+      }),
+    });
+  });
+
+  it("keeps a changed place type and its dependent fields atomic", () => {
+    const onEvent = vi.fn();
+    const baseDraft = draft();
+    const location: CampusMapPublishFactInput["location"] = {
+      kind: "outdoor-point",
+      longitude: 114.2,
+      latitude: 22.4,
+      crs: "wgs84",
+      precision: "approximate",
+    };
+    const mine: CampusMapPublishFactInput = {
+      ...baseDraft.fact,
+      pinType: "printer",
+      capabilities: ["print"],
+      gender: "unknown",
+      location,
+    };
+    const currentFact: CampusMapPublishFactInput = {
+      ...baseDraft.fact,
+      pinType: "toilet",
+      capabilities: [],
+      gender: "female",
+      location,
+    };
+    const session: CampusMapEditSession = {
+      status: "conflict",
+      draft: { ...baseDraft, fact: mine },
+      conflict: { kind: "current", currentRevisionId: revisionId, currentFact },
+    };
+    render(
+      <CampusMapEditSheet
+        session={session}
+        centerPosition={[114.2, 22.4]}
+        onEvent={onEvent}
+      />,
+    );
+
+    expect(screen.getAllByLabelText("保留我的地点类型及相关资料")).toHaveLength(
+      1,
+    );
+    expect(screen.queryByLabelText("保留我的服务能力")).toBeNull();
+    expect(screen.queryByLabelText("保留我的性别属性")).toBeNull();
+    fireEvent.click(screen.getByLabelText("保留我的地点类型及相关资料"));
+    fireEvent.click(screen.getByRole("button", { name: "按以上选择继续" }));
+
+    expect(onEvent).toHaveBeenLastCalledWith({
+      type: "CONTINUE_FROM_CONFLICT",
+      idempotencyKey: expect.any(String),
+      fact: expect.objectContaining({
+        pinType: "printer",
+        capabilities: ["print"],
+        gender: "unknown",
       }),
     });
   });
