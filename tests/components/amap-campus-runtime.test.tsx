@@ -159,6 +159,92 @@ describe("AmapCampusPrototype runtime effects", () => {
     expect(JSON.stringify(restored)).not.toContain("new-poi");
   });
 
+  it("lets Add select an exact AMap label without publishing provider identity", async () => {
+    const { runtime, map } = await renderWithRuntime({
+      convertFromOffset: { longitude: 0.01, latitude: 0.01 },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole("button", {
+            name: "使用此位置",
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false),
+    );
+    map.setZoomAndCenter.mockClear();
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "provider-shaw-hall",
+        name: "邵逸夫堂",
+        lnglat: { lng: 114.217113, lat: 22.430126 },
+      });
+    });
+    await runtime.flushAnimationFrames();
+
+    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
+    expect(
+      screen.getByText("已选中高德地图地点，名称下一步确认"),
+    ).not.toBeNull();
+    expect(runtime.infoWindows).toHaveLength(0);
+    expect(map.setZoomAndCenter).toHaveBeenCalledWith(
+      map.getZoom(),
+      expect.objectContaining({
+        lng: expect.closeTo(114.217113, 10),
+        lat: expect.closeTo(22.430126, 10),
+      }),
+      true,
+      0,
+    );
+
+    await act(async () => map.emit("moveend", {}));
+    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "使用此位置" }));
+
+    const restored = JSON.parse(
+      window.sessionStorage.getItem("cupedia:campus-map:edit-session:v1")!,
+    );
+    expect(restored.session.draft.fact.location).toMatchObject({
+      longitude: expect.closeTo(114.207113, 10),
+      latitude: expect.closeTo(22.420126, 10),
+      crs: "wgs84",
+    });
+    expect(JSON.stringify(restored)).not.toContain("provider-shaw-hall");
+    expect(JSON.stringify(restored)).not.toContain("邵逸夫堂");
+  });
+
+  it("invalidates an exact AMap label when a map drag starts", async () => {
+    const { runtime, map } = await renderWithRuntime();
+    fireEvent.click(screen.getByRole("button", { name: "添加地点" }));
+    await waitFor(() => expect(runtime.geocodeRequests).toHaveLength(1));
+
+    await act(async () => {
+      map.emit("hotspotclick", {
+        id: "provider-shaw-hall",
+        name: "邵逸夫堂",
+        lnglat: { lng: map.center.lng, lat: map.center.lat },
+      });
+    });
+    expect(screen.getByText("邵逸夫堂")).not.toBeNull();
+
+    await act(async () => {
+      map.emit("dragstart", {});
+      map.emit("movestart", {});
+      map.emit("moveend", {});
+    });
+    await runtime.resolveGeocode(0, "complete", {
+      regeocode: {
+        formattedAddress: "香港中文大学中央道",
+        pois: [{ id: "far-museum", name: "文物馆", distance: "147" }],
+      },
+    });
+
+    expect(await screen.findByText("地图中心位置")).not.toBeNull();
+    expect(screen.queryByText("邵逸夫堂")).toBeNull();
+  });
+
   it("routes keyboard placement through the existing camera and focus owner", async () => {
     const { runtime, map } = await renderWithRuntime({
       convertFromOffset: { longitude: 0.01, latitude: 0.01 },
@@ -280,7 +366,7 @@ describe("AmapCampusPrototype runtime effects", () => {
     const pending = screen.getByRole("button", { name: "正在确定位置…" });
     expect((pending as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(pending);
-    expect(screen.getByText(/拖动地图对准地点/)).not.toBeNull();
+    expect(screen.getByText(/拖动地图，或轻点地图上的地点名称/)).not.toBeNull();
 
     await act(async () => {
       map.center = { lng: 114.211, lat: 22.421 };

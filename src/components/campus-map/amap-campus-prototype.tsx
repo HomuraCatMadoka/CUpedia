@@ -42,6 +42,7 @@ import {
   type AmapGeocoderService,
   type AmapPlaceContextResolver,
   type AmapPlaceContextResult,
+  type AmapResolvedPlaceContext,
 } from "@/lib/campus-map/amap-place-context";
 import {
   parseCampusMapState,
@@ -427,6 +428,8 @@ export function AmapCampusPrototype({
   );
   const startAddRef = useRef<() => void>(() => {});
   const editSessionActiveRef = useRef(false);
+  const editSessionPlacingRef = useRef(false);
+  const exactProviderPlaceRef = useRef<AmapResolvedPlaceContext | null>(null);
   const [centerPosition, setCenterPosition] = useState<Position>(CAMPUS_CENTER);
   const [providerCenterPosition, setProviderCenterPosition] =
     useState<Position | null>(null);
@@ -644,6 +647,9 @@ export function AmapCampusPrototype({
       pendingDriverCameraRef.current = null;
       if (!context.isCurrent()) return;
       if (camera.kind === "edit-position") {
+        if (camera.reason !== "provider-placement") {
+          exactProviderPlaceRef.current = null;
+        }
         const offset = amapOffsetRef.current;
         const providerPosition: Position = [
           camera.position[0] + offset[0],
@@ -859,6 +865,10 @@ export function AmapCampusPrototype({
   }, [startAdd]);
   useEffect(() => {
     editSessionActiveRef.current = Boolean(editSession);
+    editSessionPlacingRef.current = editSession?.status === "placing";
+    if (editSession?.status !== "placing") {
+      exactProviderPlaceRef.current = null;
+    }
   }, [editSession]);
 
   useEffect(() => {
@@ -895,6 +905,26 @@ export function AmapCampusPrototype({
       queueMicrotask(() => setPlaceContext(null));
       return;
     }
+    const exactProviderPlace = exactProviderPlaceRef.current;
+    if (
+      exactProviderPlace &&
+      providerCenterPosition &&
+      Math.abs(
+        exactProviderPlace.providerPosition.longitude -
+          providerCenterPosition[0],
+      ) <= 0.00001 &&
+      Math.abs(
+        exactProviderPlace.providerPosition.latitude -
+          providerCenterPosition[1],
+      ) <= 0.00001
+    ) {
+      placeContextResolverRef.current?.invalidate();
+      queueMicrotask(() =>
+        setPlaceContext({ status: "resolved", context: exactProviderPlace }),
+      );
+      return;
+    }
+    exactProviderPlaceRef.current = null;
     const resolver = placeContextResolverRef.current;
     if (!resolver || !providerCenterPosition) return;
     let current = true;
@@ -1130,6 +1160,29 @@ export function AmapCampusPrototype({
 
     map.on("hotspotclick", (event) => {
       interactionAdapterRef.current.dispatchProviderTarget(() => {
+        if (editSessionPlacingRef.current) {
+          const providerPoiId =
+            event.id ?? `${event.lnglat.lng},${event.lnglat.lat}`;
+          const context: AmapResolvedPlaceContext = {
+            providerPosition: {
+              longitude: event.lnglat.lng,
+              latitude: event.lnglat.lat,
+              crs: "gcj02",
+            },
+            label: event.name?.trim() || "高德地图地点",
+            address: null,
+            providerPoiId,
+            distanceMeters: 0,
+          };
+          exactProviderPlaceRef.current = context;
+          setPlaceContext({ status: "resolved", context });
+          const offset = amapOffsetRef.current;
+          driver.recenterEditPosition(
+            [event.lnglat.lng - offset[0], event.lnglat.lat - offset[1]],
+            "provider-placement",
+          );
+          return;
+        }
         const target = resolveAmapHotspotTarget(
           event,
           BUILDINGS.map((building) => ({
@@ -1163,6 +1216,7 @@ export function AmapCampusPrototype({
       });
     });
     map.on("dragstart", () => {
+      exactProviderPlaceRef.current = null;
       driver.interruptCamera();
     });
     map.on("movestart", () => setMapMoving(true));
@@ -1492,7 +1546,7 @@ export function AmapCampusPrototype({
   const chromeHidden = Boolean(editSession) || state.sheet.snap === "full";
 
   return (
-    <main className="relative h-dvh min-h-[520px] w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]">
+    <main className="relative h-dvh min-h-0 w-full min-w-0 flex-1 overflow-hidden bg-[#dce7e9] text-[#17211c]">
       <p className="sr-only" aria-live="polite">
         {editAnnouncement || editRestoreNotice}
       </p>

@@ -585,7 +585,9 @@ export function CampusMapEditSheet({
     placeContext?.status === "resolved" ? placeContext.context : null;
   const placementLabel = resolvedContext?.label ?? "地图中心位置";
   const placementDescription = resolvedContext
-    ? `高德参考 · ${resolvedContext.address ?? "附近地点"}`
+    ? resolvedContext.distanceMeters === 0 && !resolvedContext.address
+      ? "已选中高德地图地点，名称下一步确认"
+      : `高德参考 · ${resolvedContext.address ?? "附近地点"}`
     : placeContext?.status === "loading"
       ? "正在确定位置…"
       : placeContext?.status === "rate-limited"
@@ -989,8 +991,8 @@ export function CampusMapEditSheet({
         <p className="mt-1 text-sm text-neutral-600">
           {isPlacing
             ? draft.mode === "add"
-              ? "拖动地图对准地点，名称和类型下一步填写。"
-              : "移动地图，让图钉对准地点的新位置。"
+              ? "拖动地图，或轻点地图上的地点名称；资料下一步填写。"
+              : "移动地图，或轻点地图上的地点名称来重新定位。"
             : draft.mode === "add"
               ? "补充这个位置的资料。"
               : "更新地点资料，未修改的内容会保持不变。"}

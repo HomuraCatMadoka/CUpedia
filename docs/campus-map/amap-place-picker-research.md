@@ -19,8 +19,10 @@
 1. 在现有 AMap 加载列表中加入 `AMap.Geocoder`，只在选点状态下响应地图移动。
 2. `movestart` 时把 pin 抬起、位置文案变成“正在确定位置…”；`moveend` 时对最新中心调用一次 `getAddress()`。
 3. 只用 `Geocoder({ radius: 100~200, extensions: "all" })` 返回的 `formattedAddress`、`addressComponent` 和最近 POI；首版不调用 `PlaceSearch` 或 `AutoComplete`。
-4. 高德结果只作为**辅助识别**：不能自动成为 CUpedia Place 身份、名称或可发布来源；确认位置仍只生成现有 transition 接受的 typed intent。
-5. 每类异步请求使用独立递增 token；旧回调只丢弃，不允许覆盖新中心。发布/确认仍走现有 transition module 的单次 intent 与幂等契约。
+4. `placing` 时允许用户轻点高德底图已有的 POI 名称；这是明确选择 hotspot，不是从中心位置猜测。
+   现有 #645 driver 把 center pin 移到该点，Sheet 只把 provider 名称当成瞬时确认反馈。
+5. 高德结果只作为**辅助识别**：不能自动成为 CUpedia Place 身份、名称或可发布来源；确认位置仍只生成现有 transition 接受的 typed intent。
+6. 每类异步请求使用独立递增 token；旧回调只丢弃，不允许覆盖新中心。发布/确认仍走现有 transition module 的单次 intent 与幂等契约。
 
 ### 原型验收修订
 
@@ -37,6 +39,11 @@ session 或地图 owner，只是把一个大任务拆成两个清楚的小步骤
 64 米外的“润昌堂”，却没有返回底图上可见的邵逸夫堂。首版因此只信任带数值距离、距图钉不超过
 30 米且最近的具体 POI；否则主文案显示“地图中心位置”，地址仍明确标作“高德参考”。这个阈值只
 约束瞬时显示，不产生 provider mapping 或 canonical fact。
+
+后续真实验收又确认了一个不同问题：即使图钉压在底图可见的“科学馆”文字上，Geocoder 仍可能只
+返回通用地址。拖动图钉因此继续保持“地图中心位置”的诚实反馈；需要精确选择现有高德地点时，用户
+直接轻点底图名称。hotspot click 由现有地图 owner 仲裁并通过 #645 camera 移动 center pin，provider
+名称和 ID 仍不进入可发布 draft。继续拖图或输入坐标会清除该瞬时选择。
 
 ## 一、高德官方能力
 
@@ -252,7 +259,7 @@ NocoBase 是大型 React/TypeScript 项目，但相关文件使用 AGPL-3.0 或�
 选择地点位置                                  ×
 
 📍 正在确定位置…
-   （地图仍可拖动）
+   （可拖动地图，也可轻点地图上的地点名称）
 
 输入坐标
 
@@ -274,6 +281,8 @@ NocoBase 是大型 React/TypeScript 项目，但相关文件使用 AGPL-3.0 或�
 交互规则：
 
 - `placing` 的主按钮统一为“使用此位置”；名称和类别保持挂载但隐藏且不可交互，确认后再显示。
+- 轻点高德地点名称会把 center pin 对准该 hotspot，并显示“名称下一步确认”；它不自动填写名称。
+- 用户继续拖图或改用坐标输入时，旧 hotspot 选择立即失效，回到 Geocoder 的中心位置反馈。
 - 地址识别完成不自动展开 Sheet、不写 history、不抢 focus。
 - “重新定位”回到同一 Sheet 的 `placing` presentation；同一 Sheet 不换 owner。
 - 识别失败保留坐标：“暂时无法识别地址，仍可使用此位置”。

@@ -631,7 +631,9 @@ describe("Campus Map single-page edit Sheet", () => {
       />,
     );
 
-    expect(screen.getByText("移动地图，让图钉对准地点的新位置。")).toBeTruthy();
+    expect(
+      screen.getByText("移动地图，或轻点地图上的地点名称来重新定位。"),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "使用此位置" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "确认新位置" })).toBeNull();
     expect(screen.queryByText(/要添加的地点/)).toBeNull();

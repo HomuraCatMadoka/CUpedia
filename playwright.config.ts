@@ -115,6 +115,8 @@ export default defineConfig({
       // production build more than doubles this editor-heavy E2E startup.
       NEXT_BUILD_SKIP_TYPECHECK: "1",
       BREVO_API_KEY: "",
+      AMAP_WEB_KEY: "e2e-placeholder-key",
+      AMAP_SECURITY_JS_CODE: "e2e-placeholder-security-code",
       SKIP_EMAIL_WHITELIST: "false",
       CANTEEN_MOCK_DATA: "false",
       DANMAKU_RATE_LIMIT_PER_HOUR: "100",

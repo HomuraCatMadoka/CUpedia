@@ -114,7 +114,7 @@ describe("AmapCampusPrototype", () => {
       await screen.findByRole("heading", { name: "选择地点位置" }),
     ).toBeTruthy();
     expect(
-      screen.getByText("拖动地图对准地点，名称和类型下一步填写。"),
+      screen.getByText("拖动地图，或轻点地图上的地点名称；资料下一步填写。"),
     ).toBeTruthy();
     expect(screen.getByText("地图中心位置")).toBeTruthy();
     expect(screen.queryByRole("textbox", { name: "地点名称" })).toBeNull();

@@ -192,7 +192,7 @@ MVP 不接收证据照片或任意附件。现有 Wiki asset 上传后公开且�
 
 ```text
 Browse
- ├─ Add → 同一张 Sheet 的 focused placing：center pin / 键盘候选位置
+ ├─ Add → 同一张 Sheet 的 focused placing：center pin / 高德标签 / 键盘候选位置
  │                                      ↓ “使用此位置”
  │                            显示已挂载的 schema-driven 字段 ─┐
  └─ Place card → Edit ────────────────────────────────────────┤
@@ -209,13 +209,17 @@ Browse
   candidate。candidate 本身不是 Current fact，也不单独产生 dirty；两条路径都经同一
   `CONFIRM_POSITION` transition 锁定 position、CRS 和诚实 precision。锁定后地图手势不能改写
   位置，除非用户明确选择重新定位。
+- `placing` 时轻点高德底图上可交互的地点名称，表示用户明确选择该 provider hotspot。现有 #645
+  driver 把 center pin 移到 hotspot，Sheet 可瞬时显示该高德名称；用户继续拖图或输入坐标时选择立即
+  失效。hotspot 的名称和 ID 不自动写进 draft、来源、`placeId` 或其他 canonical fact。
 - 移动地图时 center pin 提起，`moveend` 后由小型 AMap Geocoder boundary 提供带归属
   的瞬时地址/附近 POI 参考。高德同时返回校园容器与多个具体 POI 时，只显示带可用距离、距图钉
   不超过 30 米且最近的具体 POI；更远的“附近”结果不能冒充图钉位置。没有可信具体 POI 或查询
   失败时，候选位置仍可使用，用户在确认后的表单中命名。provider 结果不得自动填名称、来源、
   `placeId` 或其他 canonical fact；过期回调在新候选、关闭、Back、Escape、刷新或新任务后失效。
 - 移动端 `placing` 只显示定位所需内容，保留约一半地图；`editing` 在 390px 与 720px 高度下至少
-  保留 35% 地图。地点类型使用自适应网格，不能把最后一个选项单独挤到窄行。
+  保留 35% 地图。地图根容器不得用大于视口的最小高度制造整页滚动，Sheet 主操作始终留在视口
+  内；字段内容可在 Sheet 内滚动。地点类型使用自适应网格，不能把最后一个选项单独挤到窄行。
 - Edit 绑定不可变 `placeId + baseRevisionId`；初始载入不 dirty，只有事实或位置变化才启用发布。
 - preset schema 同时驱动适用字段、默认值、公开标签和本地基础校验；服务器结果仍是最终校验来源。
 - typed draft/diff 自动生成 Changeset comment 与安全 source summary；MVP 固定
