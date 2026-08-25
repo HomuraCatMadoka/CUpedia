@@ -38,12 +38,12 @@ PINME 宣传硬件/ERP 结构化输出。它们都不等于 CUpedia 已取得调
 
 ## Provider 对比
 
-| Provider | 公开身份                                               | 顾客菜单形态                                      | 正式集成证据                                                       | 当前最大未知                                                 |
-| -------- | ------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------ |
-| Aigens   | store、menu、period、category/group、`backendId`       | 当前门店、模式和菜单上下文的投影                  | 官网明确列出 Open API、POS/PMS/ERP/支付整合                        | CUHK 合同适用的 API、SLA、ID 生命周期和内容许可              |
-| iCHEF    | restaurant public ID、menu/category/item snapshot UUID | `menuHoursSnapshot` 引用 category snapshot        | 官方 API/ERP 文档、stage endpoint、版本记录、JSON/CSV/FTP/API 导出 | 顾客 GraphQL 是否属于获支持集成接口及 snapshot UUID 生命周期 |
-| PINME    | store、`menu_group`、group、`product_id`               | `menu_group` 选择 broad group pool 的当前页面投影 | 官网宣传 ERP/硬件结构化输出                                        | 正式 API、版本、授权、拓扑及商品 ID 保证                     |
-| Qmai     | seller/owner、multi-store、category、`goodsId`/SKU     | `buyTime` 决定的点时菜单                          | 白皮书确认开放平台应用独立密钥                                     | 公开合作文档、时段覆盖、goods ID 生命周期和香港合同边界      |
+| Provider | 公开身份                                                                 | 顾客菜单形态                                      | 正式集成证据                                                       | 当前最大未知                                               |
+| -------- | ------------------------------------------------------------------------ | ------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Aigens   | store、menu、period、category/group、`backendId`                         | 当前门店、模式和菜单上下文的投影                  | 官网明确列出 Open API、POS/PMS/ERP/支付整合                        | CUHK 合同适用的 API、SLA、ID 生命周期和内容许可            |
+| iCHEF    | restaurant public ID、menu/category/item snapshot UUID、商品 `ichefUuid` | `menuHoursSnapshot` 引用 category snapshot        | 官方 API/ERP 文档、stage endpoint、版本记录、JSON/CSV/FTP/API 导出 | 顾客 GraphQL 是否属于获支持集成接口及 `ichefUuid` 兼容期限 |
+| PINME    | store、`menu_group`、group、`product_id`                                 | `menu_group` 选择 broad group pool 的当前页面投影 | 官网宣传 ERP/硬件结构化输出                                        | 正式 API、版本、授权、拓扑及商品 ID 保证                   |
+| Qmai     | seller/owner、multi-store、category、`goodsId`/SKU                       | `buyTime` 决定的点时菜单                          | 白皮书确认开放平台应用独立密钥                                     | 公开合作文档、时段覆盖、goods ID 生命周期和香港合同边界    |
 
 ## HTTP / GraphQL route inventory
 
@@ -103,14 +103,50 @@ iCHEF 顾客端把 GraphQL query 和 mutation 都发送到同一个 HTTP POST en
 operation type 和字段路径判断副作用，不能以 HTTP method 判断。当前两个同步 query 不带
 Authorization 或会员凭据，只带 `accept-language` 和 JSON content type。
 
-| Method | Route / operation                                     | 请求参数或 body                                                                          | 认证/上下文                                 | 主要响应或实体                                                      | 状态分类        | 证据                                              |
-| ------ | ----------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------- | --------------- | ------------------------------------------------- |
-| POST   | GraphQL `menuHoursSnapshotQuery`                      | variables：`publicId`、`platformType`；query 读取 `onlineOrderingMenu.menuHoursSnapshot` | 公开餐厅 ID；未观察到 auth                  | `startTime`、`endTime`、`categorySnapshotUuids`                     | read-only query | 静态 bundle + 动态只读 + adapter                  |
-| POST   | GraphQL `storeMenuItemCategoriesQuery`                | variables：`publicId`、`platformType`、第一步取得的 `categoriesSnapshotUuids`            | 同上                                        | category snapshot 的 `uuid/name/menuItemsSnapshot{uuid,name,price}` | read-only query | 静态 bundle + 动态只读 + adapter                  |
-| POST   | GraphQL `instoreOrderingInformationQuery`             | `publicId`、`platformType=ICHEF_INSTORE`                                                 | 公开餐厅 ID                                 | 门店、是否启用、`paymentTiming`、官方 URL                           | read-only query | 静态 bundle + 动态只读                            |
-| POST   | GraphQL `instoreOrderingPaymentOptionsQuery`          | `publicId`、店内点餐上下文                                                               | 公开餐厅 ID                                 | 当次 payment options                                                | read-only query | 静态 bundle + 动态只读                            |
-| POST   | GraphQL `instoreOrderingSessionCreateSessionMutation` | `publicId`、`tableName`                                                                  | 有效桌号；服务端校验模块、配额和 entry code | `sessionUuid` 或 typed error                                        | mutation        | 静态 bundle；仅以明确无效桌号做过无状态可达性探测 |
-| POST   | GraphQL diner/cart/send-order mutations               | `sessionUuid`、diner payload、递归 modifier/cart hash 或 checkout payload                | 有效 session + 浏览器 diner/购物车状态      | diner、cart 或真实订单/payment data                                 | mutation        | 静态 bundle                                       |
+2026-08-25 对官方前端 `2.369.0` 的补充取证确认：菜单基本字段 fragment 同时查询
+`uuid` 与 `ichefUuid`，并在源码注释中把 `ichefUuid` 标为 “original setting item uuid”。公开
+GraphQL schema 也把两者都声明为非空 UUID。`UQftKWxU` 的一次真实菜单重发中，51 个
+`menuItemsSnapshot.uuid` 全部改变，而 51 个名称、价格和餐段事实保持一致；同刻返回的 51 个
+`ichefUuid` 全部非空且唯一。因此 CUpedia 以 `ichefUuid` 作为商品身份，snapshot `uuid` 只描述
+当前发布 occurrence。这个结论来自未承诺兼容的顾客端内部接口，不等于供应商给第三方的长期 ID
+合同。[官方 2.369.0 shared bundle](https://ichef-cloud2-production.s3.ap-northeast-1.amazonaws.com/online_restaurant_frontend/shared/2.369.0/js/5555.42ff7199.js)
+
+#### UQftKWxU 三状态只读证据（2026-08-25 至 2026-08-26）
+
+以下证据只包含公开菜单事实、生产同步元数据和不可逆指纹；没有保存原始响应、凭据或用户数据。
+生产查询通过 Supabase linked project 的只读 SQL 完成，官方菜单只调用上述两个 GraphQL query。
+
+| 状态         | 时间（HKT）与来源                                                                                      | 数量与边界                                                                                | 指纹 / 结果                                                                                                                                                                                                                                                                                                  |
+| ------------ | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 最近成功观察 | 2026-08-25 11:37:07.824，production run `c8fa6ab5-c426-4c1d-9120-350e82e09535` 及其 immutable snapshot | `unchanged`；51 项、51 个唯一 ID；`complete + catalog`                                    | snapshot SHA-256 `c704121e54b37316e1f4faf965d5d3a45b28dab0dd167af6c00400feae5e2dfc`                                                                                                                                                                                                                          |
+| 被阻断观察   | 2026-08-25 17:52:37.320，production run `6de5a687-46ef-4dec-b58f-d6d7ca054253`                         | 51 项；相对当前数据为 51 个缺失、51 个新增、39 个同名疑似替换；`MENU_SYNC_IDENTITY_CHURN` | 旧 adapter 的 occurrence-ID snapshot SHA-256 `31eaf7ff6ad70ee49a8750cd5dfa0c9849c5fdcc1c809651209c808291902c2f`。失败 run 按设计不写 immutable snapshot，只保留该 hash、item count 和 bounded observation                                                                                                    |
+| 新鲜官方读取 | 2026-08-26 00:45:32.218，官方公开 GraphQL                                                              | 51 个 raw occurrence、51 个唯一 `uuid`、51 个唯一且非空 `ichefUuid`；两组 UUID 交集为 0   | 同一响应按旧字段重放的 snapshot SHA-256 **仍为** `31eaf7ff6ad70ee49a8750cd5dfa0c9849c5fdcc1c809651209c808291902c2f`；改用 `ichefUuid` 后为 `e680ba16c1d195255b59b13d13fe052b9b62de858a60c63179558d8ccf834458`，v5 incoming fingerprint 为 `d72d429b5a07ec489667d72553c39be803da5807a2d98e9093fbeb1edcf0b2f8` |
+
+00:47:28.918 HKT 再读 production 时，来源仍有 51 条且全部 active；当前投影的
+existing fingerprint 为
+`56b527bb72102868ff08537d08ba0d8538902f8421e83d2227099ff9f079b7c5`，与已提交的
+v5 artifact 完全相同，双方 external ID 差异均为 0。新鲜官方读取的 incoming fingerprint 也与
+artifact 完全相同，51 条规范化名称、价格、餐段事实的双向差异均为 0。
+
+| 规范化事实                         | 最近成功的 snapshot `uuid`             | 新鲜响应的 `ichefUuid`                 | 餐段      | 价格      |
+| ---------------------------------- | -------------------------------------- | -------------------------------------- | --------- | --------- |
+| 自選粉麵（晨興書院學生八折，午餐） | `014b4679-57d6-41af-842b-85ce5dc4deae` | `0324137d-17de-410d-a56c-18de6cad8961` | lunch     | HKD 33.60 |
+| 自選粉麵（晨興書院學生八折，晚餐） | `c06f91fa-b828-4443-8358-6e8202480c9d` | `e5429971-8c9d-4a99-a819-1766dea29996` | dinner    | HKD 33.60 |
+| 點心拼盤（晨興書院學生八折）       | `e1563880-3455-45d5-af62-c35a38984f59` | `16b51110-ce64-41f6-aca7-2bac1a3bd103` | breakfast | HKD 32.00 |
+
+这个对照只改变“选哪个 UUID 当身份”一个变量：旧解析精确复现生产失败 hash，新解析精确匹配
+审计 artifact，所有可变事实保持不变。因此根因是 adapter 误把发布 occurrence 当长期商品身份，
+不是官方菜单在 11:37 到 17:52 之间换掉了 51 道菜。相同名称的午餐、晚餐 setting item 仍可能是
+两个不同商品，所以餐段和价格只可在完整 catalog 的人工审计中拆分歧义，不能升级为通用身份规则。
+
+| Method | Route / operation                                     | 请求参数或 body                                                                          | 认证/上下文                                 | 主要响应或实体                                                                | 状态分类        | 证据                                              |
+| ------ | ----------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------- | --------------- | ------------------------------------------------- |
+| POST   | GraphQL `menuHoursSnapshotQuery`                      | variables：`publicId`、`platformType`；query 读取 `onlineOrderingMenu.menuHoursSnapshot` | 公开餐厅 ID；未观察到 auth                  | `startTime`、`endTime`、`categorySnapshotUuids`                               | read-only query | 静态 bundle + 动态只读 + adapter                  |
+| POST   | GraphQL `storeMenuItemCategoriesQuery`                | variables：`publicId`、`platformType`、第一步取得的 `categoriesSnapshotUuids`            | 同上                                        | category snapshot 的 `uuid/name/menuItemsSnapshot{uuid,ichefUuid,name,price}` | read-only query | 静态 bundle + 动态只读 + adapter                  |
+| POST   | GraphQL `instoreOrderingInformationQuery`             | `publicId`、`platformType=ICHEF_INSTORE`                                                 | 公开餐厅 ID                                 | 门店、是否启用、`paymentTiming`、官方 URL                                     | read-only query | 静态 bundle + 动态只读                            |
+| POST   | GraphQL `instoreOrderingPaymentOptionsQuery`          | `publicId`、店内点餐上下文                                                               | 公开餐厅 ID                                 | 当次 payment options                                                          | read-only query | 静态 bundle + 动态只读                            |
+| POST   | GraphQL `instoreOrderingSessionCreateSessionMutation` | `publicId`、`tableName`                                                                  | 有效桌号；服务端校验模块、配额和 entry code | `sessionUuid` 或 typed error                                                  | mutation        | 静态 bundle；仅以明确无效桌号做过无状态可达性探测 |
+| POST   | GraphQL diner/cart/send-order mutations               | `sessionUuid`、diner payload、递归 modifier/cart hash 或 checkout payload                | 有效 session + 浏览器 diner/购物车状态      | diner、cart 或真实订单/payment data                                           | mutation        | 静态 bundle                                       |
 
 同步器的两段 query 也揭示后端读模型：`menuHoursSnapshot` 先给出发布时段和 category snapshot
 引用，再按 UUID 批量读取 category/item snapshot。它支持“版本化菜单投影”的推断，但不能证明
@@ -173,7 +209,7 @@ session/diner/cart、会员注册或绑定、领券/兑换、创建或取消订�
 
 ### 已确认
 
-- CUpedia 当前分别使用 Aigens `backendId`、iCHEF item snapshot UUID、PINME
+- CUpedia 当前分别使用 Aigens `backendId`、iCHEF `ichefUuid`、PINME
   `product_id`、Qmai `goodsId` 作为 provider 商品身份。
 - iCHEF 官方商户文档表明，POS 商品可导入 Online Store；线上商品随后可以独立修改或删除，
   而批量导入会整体替换当前线上菜单且不可撤销。这说明 POS 主数据、线上菜单投影和 snapshot
@@ -183,7 +219,7 @@ session/diner/cart、会员注册或绑定、领券/兑换、创建或取消订�
 
 ### 合理推断
 
-- Aigens 的 period/category/group/item 引用、iCHEF 的 snapshot UUID、PINME 的
+- Aigens 的 period/category/group/item 引用、iCHEF 的 snapshot UUID 与 `ichefUuid`、PINME 的
   `menu_group -> group -> product`、Qmai 的 category/goods/SKU 都支持“稳定实体 + 发布投影”模型。
 - 名称和价格不是身份；同一商品可在不同分类、时段和渠道重复出现。
 - 删除后重建、门店复制、菜单复制、批量替换或 POS 迁移，都可能产生新 ID；供应商也可能把旧
@@ -298,8 +334,9 @@ multi-store、category、goods、SKU、sale time 很可能是逻辑实体；也�
 ### iCHEF：snapshot 聚合最明显
 
 公开 GraphQL 使用 `onlineOrderingMenu -> menuHoursSnapshot -> categorySnapshotUuids ->
-categoriesSnapshot -> menuItemsSnapshot`。这强烈支持版本化菜单 snapshot/aggregate 的领域模型，
-但 snapshot 可能是发布时生成的文档或缓存，而非数据库中的同名表。
+categoriesSnapshot -> menuItemsSnapshot`。菜单 item 同时带发布 snapshot `uuid` 和底层设置商品
+`ichefUuid`，进一步支持“稳定设置商品 + 版本化发布 occurrence”的领域模型；但这些对象可能是
+发布时生成的文档或缓存，不能反推为数据库中的同名表。
 
 ### Aigens
 

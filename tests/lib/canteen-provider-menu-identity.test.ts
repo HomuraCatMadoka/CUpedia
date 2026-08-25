@@ -64,7 +64,7 @@ describe("provider menu identity contract (#636)", () => {
       },
       ichef: {
         sourceLocatorFields: ["externalStoreId"],
-        offeringIdentityFields: ["uuid"],
+        offeringIdentityFields: ["ichefUuid"],
       },
       qmai: {
         sourceLocatorFields: ["externalOwnerId", "externalStoreId"],

@@ -30,6 +30,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0024: Allow anonymous canteen votes](0024-canteen-anonymous-vote-only.md)
 - [0025: Separate menu synchronization from ordering handoff](0025-separate-menu-sync-from-ordering-handoff.md)
 - [0026: Refresh current menus across provider publication windows](0026-refresh-current-menus-across-provider-publication-windows.md)
+- [0027: Use iCHEF setting-item UUIDs as product identity](0027-ichef-setting-item-identity.md)
 
 ## Maintain the index
 

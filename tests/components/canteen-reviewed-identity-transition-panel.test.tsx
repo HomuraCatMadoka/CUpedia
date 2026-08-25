@@ -31,6 +31,7 @@ const OPTIONS = [
     externalStoreId: "102830",
     existingCount: 81,
     incomingCount: 154,
+    replacementCount: 0,
     canonicalizationCount: 53,
     mergeCount: 0,
     additionCount: 87,

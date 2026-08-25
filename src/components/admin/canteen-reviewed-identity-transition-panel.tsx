@@ -67,8 +67,9 @@ function TransitionCard({
         </CardTitle>
         <CardDescription>
           已审计：现有 {option.existingCount}，传入 {option.incomingCount}
-          ；规范化 {option.canonicalizationCount}，合并 {option.mergeCount}
-          ，新增 {option.additionCount}，未观察到 {option.removalCount}。
+          ；替换 {option.replacementCount}，规范化
+          {option.canonicalizationCount}，合并 {option.mergeCount}，新增
+          {option.additionCount}，未观察到 {option.removalCount}。
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

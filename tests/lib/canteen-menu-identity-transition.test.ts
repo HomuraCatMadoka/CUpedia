@@ -442,6 +442,240 @@ describe("menu identity transition audit", () => {
     expect(audit.incomingFingerprint).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  it("disambiguates a complete iCHEF identity rollover with exact meal-period facts", () => {
+    const lunch = existing();
+    const dinner = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "old-dinner-product-id",
+      mealPeriods: ["dinner"],
+    });
+    const nextLunch = incoming();
+    const nextDinner = incoming({
+      externalProductId: "new-dinner-product-id",
+      mealPeriods: ["dinner"],
+    });
+
+    const audit = buildTransitionAudit(
+      [dinner, lunch],
+      {
+        snapshotCompleteness: "complete",
+        items: [nextDinner, nextLunch],
+      },
+      "ichef",
+    );
+
+    expect(audit.ambiguities).toEqual([]);
+    expect(
+      audit.replacementCandidates.map((candidate) => ({
+        previousProductId: candidate.previous.externalProductId,
+        nextProductId: candidate.next.externalProductId,
+      })),
+    ).toEqual([
+      {
+        previousProductId: "old-dinner-product-id",
+        nextProductId: "new-dinner-product-id",
+      },
+      {
+        previousProductId: "old-product-id",
+        nextProductId: "new-product-id",
+      },
+    ]);
+  });
+
+  it("keeps non-iCHEF same-name groups ambiguous even when mutable facts pair exactly", () => {
+    const lunch = existing();
+    const dinner = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "old-dinner-product-id",
+      mealPeriods: ["dinner"],
+    });
+    const audit = buildTransitionAudit(
+      [dinner, lunch],
+      {
+        snapshotCompleteness: "complete",
+        items: [
+          incoming({
+            externalProductId: "new-dinner-product-id",
+            mealPeriods: ["dinner"],
+          }),
+          incoming(),
+        ],
+      },
+      "pinme",
+    );
+
+    expect(audit.replacementCandidates).toEqual([]);
+    expect(audit.ambiguities).toHaveLength(1);
+  });
+
+  it("keeps a partial iCHEF identity rollover ambiguous", () => {
+    const lunch = existing();
+    const dinner = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "old-dinner-product-id",
+      mealPeriods: ["dinner"],
+    });
+    const audit = buildTransitionAudit(
+      [dinner, lunch],
+      {
+        snapshotCompleteness: "partial",
+        items: [
+          incoming({
+            externalProductId: "new-dinner-product-id",
+            mealPeriods: ["dinner"],
+          }),
+          incoming(),
+        ],
+      },
+      "ichef",
+    );
+
+    expect(audit.replacementCandidates).toEqual([]);
+    expect(audit.ambiguities).toHaveLength(1);
+  });
+
+  it("keeps a meal-period scoped iCHEF identity rollover ambiguous", () => {
+    const lunch = existing();
+    const dinner = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "old-dinner-product-id",
+      mealPeriods: ["dinner"],
+    });
+    const audit = buildTransitionAudit(
+      [dinner, lunch],
+      {
+        snapshotCompleteness: "complete",
+        observationScope: { kind: "meal-period", mealPeriod: "lunch" },
+        items: [
+          incoming({
+            externalProductId: "new-dinner-product-id",
+            mealPeriods: ["dinner"],
+          }),
+          incoming(),
+        ],
+      },
+      "ichef",
+    );
+
+    expect(audit.replacementCandidates).toEqual([]);
+    expect(audit.ambiguities).toHaveLength(1);
+  });
+
+  it("keeps a non-wholesale iCHEF identity change ambiguous", () => {
+    const lunch = existing();
+    const dinner = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "old-dinner-product-id",
+      mealPeriods: ["dinner"],
+    });
+    const unchanged = existing({
+      id: "44444444-4444-4444-a444-444444444444",
+      externalProductId: "unchanged-product-id",
+      name: "未更換身份的菜品",
+    });
+    const audit = buildTransitionAudit(
+      [dinner, lunch, unchanged],
+      {
+        snapshotCompleteness: "complete",
+        items: [
+          incoming({
+            externalProductId: "new-dinner-product-id",
+            mealPeriods: ["dinner"],
+          }),
+          incoming(),
+          incoming({
+            externalProductId: "unchanged-product-id",
+            name: "未更換身份的菜品",
+          }),
+        ],
+      },
+      "ichef",
+    );
+
+    expect(audit.replacementCandidates).toEqual([]);
+    expect(audit.ambiguities).toHaveLength(1);
+  });
+
+  it("keeps equal-size same-name groups ambiguous without a unique fact mapping", () => {
+    const lunch = existing();
+    const dinner = existing({
+      id: "33333333-3333-4333-a333-333333333333",
+      externalProductId: "old-dinner-product-id",
+      mealPeriods: ["dinner"],
+    });
+    const mismatchedFacts = buildTransitionAudit(
+      [dinner, lunch],
+      {
+        snapshotCompleteness: "complete",
+        items: [
+          incoming(),
+          incoming({
+            externalProductId: "new-breakfast-product-id",
+            mealPeriods: ["breakfast"],
+          }),
+        ],
+      },
+      "ichef",
+    );
+    const duplicatedFacts = buildTransitionAudit(
+      [
+        lunch,
+        existing({
+          id: "44444444-4444-4444-a444-444444444444",
+          externalProductId: "second-old-lunch-product-id",
+        }),
+      ],
+      {
+        snapshotCompleteness: "complete",
+        items: [
+          incoming(),
+          incoming({ externalProductId: "second-new-lunch-product-id" }),
+        ],
+      },
+      "ichef",
+    );
+    const mismatchedPrice = buildTransitionAudit(
+      [dinner, lunch],
+      {
+        snapshotCompleteness: "complete",
+        items: [
+          incoming(),
+          incoming({
+            externalProductId: "new-dinner-product-id",
+            mealPeriods: ["dinner"],
+            priceOptions: [
+              {
+                label: null,
+                amountMinor: 1_600,
+                currency: "HKD",
+                sortOrder: 0,
+              },
+            ],
+          }),
+        ],
+      },
+      "ichef",
+    );
+
+    for (const audit of [mismatchedFacts, duplicatedFacts, mismatchedPrice]) {
+      expect(audit.replacementCandidates).toEqual([]);
+      expect(audit.additions).toEqual([]);
+      expect(audit.removals).toEqual([]);
+      expect(audit.ambiguities).toHaveLength(1);
+      expect(audit.ambiguities[0]).toMatchObject({
+        normalizedName: "凍奶茶",
+        previous: expect.arrayContaining([
+          expect.objectContaining({
+            evidence: expect.objectContaining({ normalizedName: "凍奶茶" }),
+          }),
+        ]),
+        next: expect.arrayContaining([
+          expect.objectContaining({ normalizedName: "凍奶茶" }),
+        ]),
+      });
+    }
+  });
+
   it("fails closed when the same evidence can describe a split or merge", () => {
     const audit = buildMenuIdentityTransitionAudit(
       [
