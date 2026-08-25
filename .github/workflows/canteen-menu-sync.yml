@@ -2,13 +2,10 @@ name: Production canteen menu sync
 
 on:
   schedule:
-    # GitHub schedules are UTC. Minute 17 avoids top-of-hour load.
-    # 00:17 UTC = 08:17 Asia/Hong_Kong (breakfast, after CU CAFE opens).
-    - cron: "17 0 * * *"
-    # 03:17 UTC = 11:17 Asia/Hong_Kong (lunch).
-    - cron: "17 3 * * *"
-    # 09:17 UTC = 17:17 Asia/Hong_Kong (dinner).
-    - cron: "17 9 * * *"
+    # GitHub schedules are UTC. Half-hour ticks let the database scheduler act
+    # on provider publication boundaries; a tick with no due source performs
+    # no provider request. 00:17–11:47 UTC = 08:17–19:47 HKT.
+    - cron: "17,47 0-11 * * *"
   workflow_dispatch:
 
 permissions:

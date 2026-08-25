@@ -1,5 +1,6 @@
 import { MEAL_PERIODS, type MealPeriod } from "@/db/schema";
 import { snapshotAbsenceIsEvidence } from "./canteen-menu-snapshot-completeness";
+import { providerPublicationChanged } from "./canteen-menu-publication";
 import type { ExistingSyncMenuItem } from "./canteen-menu-sync";
 import { menuObservationCanProjectActivity } from "./canteen-menu-sync-window";
 import type {
@@ -32,11 +33,16 @@ type ScopedProjectionSource = {
   syncMealPeriods: readonly MealPeriod[];
 };
 
+type ScopedProjectionHistory = {
+  previousScopeEvidence?: Record<string, unknown> | null;
+};
+
 /** Project a raw scoped observation as one reversible meal-period patch. */
 export function projectScopedMenuObservation(
   source: ScopedProjectionSource,
   context: MenuObservationContext,
   observation: ProviderMenuObservation,
+  history: ScopedProjectionHistory = {},
 ): CurrentMenuProjection {
   if (observation.observationScope?.kind !== "meal-period") {
     return projectSingleMenuObservation(observation);
@@ -50,6 +56,10 @@ export function projectScopedMenuObservation(
   if (!menuObservationCanProjectActivity(context)) {
     return { items: [], absenceAuthority: { kind: "none" } };
   }
+  const publicationChanged = providerPublicationChanged(
+    history.previousScopeEvidence,
+    observation.scopeEvidence,
+  );
   return {
     items: observation.items.map((item) => ({
       ...structuredClone(item),
@@ -59,6 +69,9 @@ export function projectScopedMenuObservation(
       kind: "current-activity",
       coveredMealPeriods: [context.mealPeriod],
       configuredMealPeriods: [...new Set(source.syncMealPeriods)],
+      ...(publicationChanged
+        ? { publicationTransition: "changed" as const }
+        : {}),
     },
   };
 }

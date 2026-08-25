@@ -1,5 +1,8 @@
 # 餐饮供应商黑盒协议与合作边界调研
 
+Status: Research snapshot
+Last verified: 2026-08-25
+
 调查日期：2026-08-24（Asia/Hong_Kong）。对象为 PINME、Aigens、iCHEF、
 Qmai。本文补充：
 
@@ -85,6 +88,13 @@ PINME 使用同源 REST wrapper：一般注入 `Store-id`、`langcode`，取得�
 配置或菜单，没有证据表明会创建订单。相反，`GET /api/payment/pay-order` 虽是 GET，却位于已创建
 订单后的支付编排边界，不能由同步器或探测器调用。当前 adapter 有意只执行 token bootstrap 和
 GET 菜单读取；fixture 只保留 `group/products/prices` 等规范化所需字段，不保存 token。
+
+2026-08-25 对 PINME 5198 的两次同日只读观察进一步确认，`product-menus` 是当前发布投影而非
+一个午餐时段内不变的目录：约 11:36 HKT 返回 61 个正餐商品，约 15:35 HKT 返回
+`menu_id=5151`、14:30–17:00 的 39 个下午茶商品；两者只共享 19 个 `product_id`。静态 bundle
+的菜单调用点不传目标观察时间，由后端按当前时刻选择 `menu_group`。因此 CUpedia 需在同一个
+`lunch` 粗时段低频重读，并以当前 `menu_group` 为商品权威；broad `group` pool 的时段只能作为
+刷新提示，不能把其余 products 合并进当前菜单。
 
 ### iCHEF
 
@@ -327,7 +337,8 @@ Provider account / tenant
   sale window 时按本次观察时段保存。最初实现用各时段最新快照并集保护 scope；#743 的生产
   复盘进一步确认，等待全天并集会让已观察的当前 Tab 长期保留旧菜。现行投影因此改为逐餐段
   局部替换：absence 只移除自己的 scope，未观察 scope 保持不变，最后一个 scope 消失时才全局
-  下线同一 UUID。
+  下线同一 UUID。同一粗餐段也不能只观察一次；PINME 5198 的午餐/下午茶切换要求按发布边界或
+  有界兜底刷新。
 - 两个修复都不能解决长期 ID 重用；另行增加退役 ID 墓碑和不兼容重现阻断更稳妥。
 
 ## 下一步授权验证清单

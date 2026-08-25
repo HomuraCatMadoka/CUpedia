@@ -15,12 +15,19 @@ import {
 const PINME_SIGNING_KEY = "a91f9568fbd23881c2b2c7fa9af5b12a";
 const MAX_PINME_GROUPS = 500;
 const MAX_PINME_GROUP_REFERENCES = 500;
+const MAX_PINME_REFRESH_BOUNDARIES = 128;
 
 type JsonObject = Record<string, unknown>;
 type PinmeServiceWindow = Extract<
   MenuSnapshotScopeEvidence,
   { provider: "pinme" }
 >["serviceWindows"][number];
+type PinmePublicationWindow = NonNullable<
+  Extract<
+    MenuSnapshotScopeEvidence,
+    { provider: "pinme" }
+  >["publicationWindows"]
+>[number];
 
 function object(value: unknown): JsonObject | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -48,6 +55,9 @@ function referencedPinmeGroups(data: JsonObject): {
   referencedGroupIds: string[];
   groups: JsonObject[];
   groupCount: number;
+  publicationKey: string;
+  publicationWindows: PinmePublicationWindow[];
+  refreshBoundaryMinutes: number[];
 } {
   if (!Array.isArray(data.menu_group) || !Array.isArray(data.group)) {
     throw new Error("INVALID_PINME_MENU_TOPOLOGY");
@@ -60,6 +70,14 @@ function referencedPinmeGroups(data: JsonObject): {
   }
 
   const referencedGroupIds = new Set<string>();
+  const publicationDescriptors: Array<{
+    publicationId: string | null;
+    startTime: string | null;
+    endTime: string | null;
+    groupIds: string[];
+  }> = [];
+  const publicationWindows = new Map<string, PinmePublicationWindow>();
+  const refreshBoundaryMinutes = new Set<number>();
   let referenceCount = 0;
   for (const menuGroupValue of data.menu_group) {
     const menuGroup = object(menuGroupValue);
@@ -70,11 +88,33 @@ function referencedPinmeGroups(data: JsonObject): {
     if (referenceCount > MAX_PINME_GROUP_REFERENCES) {
       throw new Error("INVALID_PINME_MENU_TOPOLOGY");
     }
+    const menuGroupIds = new Set<string>();
     for (const groupIdValue of menuGroup.groups) {
       const groupId = pinmeGroupId(groupIdValue);
       if (!groupId) throw new Error("INVALID_PINME_MENU_TOPOLOGY");
       referencedGroupIds.add(groupId);
+      menuGroupIds.add(groupId);
     }
+    const window = serviceWindow(menuGroup);
+    if (window) {
+      refreshBoundaryMinutes.add(minuteOfDay(window.startTime));
+      refreshBoundaryMinutes.add(minuteOfDay(window.endTime));
+    }
+    const publicationId = pinmeGroupId(menuGroup.menu_id);
+    if (publicationId && window) {
+      publicationWindows.set(
+        `${publicationId}/${window.startTime}/${window.endTime}`,
+        { publicationId, ...window },
+      );
+    }
+    publicationDescriptors.push({
+      publicationId,
+      startTime: window?.startTime ?? null,
+      endTime: window?.endTime ?? null,
+      groupIds: [...menuGroupIds].sort((left, right) =>
+        left.localeCompare(right),
+      ),
+    });
   }
   if (referencedGroupIds.size === 0) throw new Error("EMPTY_PINME_MENU");
 
@@ -86,6 +126,11 @@ function referencedPinmeGroups(data: JsonObject): {
       throw new Error("INVALID_PINME_MENU_TOPOLOGY");
     }
     groupsById.set(groupId, group);
+    const window = serviceWindow(group);
+    if (window) {
+      refreshBoundaryMinutes.add(minuteOfDay(window.startTime));
+      refreshBoundaryMinutes.add(minuteOfDay(window.endTime));
+    }
   }
 
   const sortedReferencedGroupIds = [...referencedGroupIds].sort((left, right) =>
@@ -101,6 +146,26 @@ function referencedPinmeGroups(data: JsonObject): {
     referencedGroupIds: sortedReferencedGroupIds,
     groups,
     groupCount: data.group.length,
+    publicationKey: createHash("sha256")
+      .update(
+        JSON.stringify(
+          [
+            ...new Set(
+              publicationDescriptors.map((descriptor) =>
+                JSON.stringify(descriptor),
+              ),
+            ),
+          ].sort((left, right) => left.localeCompare(right)),
+        ),
+      )
+      .digest("hex")
+      .slice(0, 24),
+    publicationWindows: [...publicationWindows.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([, window]) => window),
+    refreshBoundaryMinutes: [...refreshBoundaryMinutes]
+      .sort((left, right) => left - right)
+      .slice(0, MAX_PINME_REFRESH_BOUNDARIES),
   };
 }
 
@@ -132,6 +197,11 @@ function serviceWindow(group: JsonObject): PinmeServiceWindow | null {
     return null;
   }
   return { startTime, endTime };
+}
+
+function minuteOfDay(value: string): number {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
 }
 
 function amountMinor(value: unknown): number | null {
@@ -310,6 +380,9 @@ export function buildPinmeMenuSyncPayload(
       menuGroupCount: topology.menuGroupCount,
       groupCount: topology.groupCount,
       referencedGroupIds: topology.referencedGroupIds,
+      publicationKey: topology.publicationKey,
+      publicationWindows: topology.publicationWindows,
+      refreshBoundaryMinutes: topology.refreshBoundaryMinutes,
       serviceWindows: [...serviceWindows.entries()]
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([, window]) => window),

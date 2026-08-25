@@ -56,4 +56,86 @@ describe("current menu projection", () => {
       },
     });
   });
+
+  it("marks an explicit provider publication change without changing its meal period", () => {
+    const context = menuObservationContextAt(
+      new Date("2026-08-25T06:47:00.000Z"),
+    );
+    const observation: ProviderMenuObservation = {
+      snapshotCompleteness: "partial",
+      observationScope: { kind: "meal-period", mealPeriod: "lunch" },
+      scopeEvidence: {
+        provider: "pinme",
+        menuGroupCount: 1,
+        groupCount: 1,
+        referencedGroupIds: ["tea"],
+        serviceWindows: [{ startTime: "14:30", endTime: "17:00" }],
+        publicationKey: "b".repeat(24),
+      },
+      items: [
+        {
+          externalProductId: "afternoon-item",
+          name: "下午茶菜品",
+          priceOptions: [],
+          mealPeriods: ["lunch"],
+          sortOrder: 0,
+          svgKey: "下午茶",
+        },
+      ],
+    };
+
+    expect(
+      projectScopedMenuObservation(SOURCE, context, observation, {
+        previousScopeEvidence: {
+          ...observation.scopeEvidence,
+          publicationKey: "a".repeat(24),
+        },
+      }).absenceAuthority,
+    ).toEqual({
+      kind: "current-activity",
+      coveredMealPeriods: ["lunch"],
+      configuredMealPeriods: ["breakfast", "lunch", "dinner"],
+      publicationTransition: "changed",
+    });
+  });
+
+  it("recognizes a publication switch against a pre-key PINME snapshot", () => {
+    const context = menuObservationContextAt(
+      new Date("2026-08-25T03:17:00.000Z"),
+    );
+    const observation: ProviderMenuObservation = {
+      snapshotCompleteness: "partial",
+      observationScope: { kind: "meal-period", mealPeriod: "lunch" },
+      scopeEvidence: {
+        provider: "pinme",
+        menuGroupCount: 1,
+        groupCount: 2,
+        referencedGroupIds: ["noon"],
+        serviceWindows: [{ startTime: "11:00", endTime: "14:30" }],
+        publicationKey: "b".repeat(24),
+      },
+      items: [
+        {
+          externalProductId: "noon-item",
+          name: "午餐菜品",
+          priceOptions: [],
+          mealPeriods: ["lunch"],
+          sortOrder: 0,
+          svgKey: "午餐",
+        },
+      ],
+    };
+
+    expect(
+      projectScopedMenuObservation(SOURCE, context, observation, {
+        previousScopeEvidence: {
+          provider: "pinme",
+          menuGroupCount: 1,
+          groupCount: 2,
+          referencedGroupIds: ["tea"],
+          serviceWindows: [{ startTime: "14:30", endTime: "17:00" }],
+        },
+      }).absenceAuthority,
+    ).toMatchObject({ publicationTransition: "changed" });
+  });
 });

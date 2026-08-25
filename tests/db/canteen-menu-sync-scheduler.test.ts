@@ -482,6 +482,176 @@ describe.skipIf(!hasDb)("scheduled due menu source sync", () => {
     expect(fetchMenuFromProvider).toHaveBeenCalledOnce();
   });
 
+  it("reobserves lunch when PINME changes from noon to afternoon publication (#743)", async () => {
+    const noonAt = new Date("2099-08-20T06:17:00.000Z"); // 14:17 HKT
+    const beforeBoundary = new Date("2099-08-20T06:29:00.000Z");
+    const afternoonAt = new Date("2099-08-20T06:47:00.000Z");
+    const { sourceId } = await createEligibleSource("发布窗口切换来源", {
+      syncMealPeriods: ["lunch"],
+    });
+    const providerPayload = (
+      publicationId: string,
+      startTime: string,
+      endTime: string,
+      products: Array<{ product_id: string; local_name: string }>,
+    ) =>
+      buildPinmeMenuSyncPayload({
+        code: 200,
+        data: {
+          menu_group: [
+            {
+              menu_id: publicationId,
+              start_time: startTime,
+              end_time: endTime,
+              groups: ["101"],
+            },
+          ],
+          group: [
+            {
+              group_id: "101",
+              local_name: publicationId,
+              start_time: startTime,
+              end_time: endTime,
+              products: products.map((product) => ({
+                ...product,
+                status: "1",
+                price: 20,
+              })),
+            },
+          ],
+        },
+      });
+    const noon = providerPayload(
+      "5150",
+      "11:00",
+      "14:30",
+      Array.from({ length: 61 }, (_, index) => ({
+        product_id: `product-${index}`,
+        local_name: `午餐菜品 ${index}`,
+      })),
+    );
+    const afternoon = providerPayload("5151", "14:30", "17:00", [
+      ...Array.from({ length: 19 }, (_, index) => ({
+        product_id: `product-${index}`,
+        local_name: `午餐菜品 ${index}`,
+      })),
+      ...Array.from({ length: 20 }, (_, index) => ({
+        product_id: `afternoon-${index}`,
+        local_name: `下午茶菜品 ${index}`,
+      })),
+    ]);
+    fetchMenuFromProvider
+      .mockImplementationOnce(async (_source, context) => ({
+        ...noon,
+        observationScope: {
+          kind: "meal-period" as const,
+          mealPeriod: context.mealPeriod,
+        },
+      }))
+      .mockImplementationOnce(async (_source, context) => ({
+        ...afternoon,
+        observationScope: {
+          kind: "meal-period" as const,
+          mealPeriod: context.mealPeriod,
+        },
+      }));
+
+    readMenuSyncDatabaseNow.mockResolvedValue(noonAt);
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "continue",
+      sourceId,
+      result: { status: "applied", itemCount: 61 },
+    });
+    const [sharedAtNoon] = await db
+      .select({ id: canteenMenuItems.id })
+      .from(canteenMenuItems)
+      .where(
+        and(
+          eq(canteenMenuItems.menuSourceId, sourceId),
+          eq(canteenMenuItems.externalProductId, "product-0"),
+        ),
+      );
+
+    readMenuSyncDatabaseNow.mockResolvedValue(beforeBoundary);
+    await expect(syncNextDueMenuSource()).resolves.toEqual({
+      disposition: "no-work",
+      window: "2099-08-20/lunch",
+    });
+
+    readMenuSyncDatabaseNow.mockResolvedValue(afternoonAt);
+    await expect(syncNextDueMenuSource()).resolves.toMatchObject({
+      disposition: "continue",
+      sourceId,
+      result: { status: "applied", itemCount: 39 },
+    });
+
+    const [items, runs, snapshots] = await Promise.all([
+      db
+        .select({
+          id: canteenMenuItems.id,
+          externalProductId: canteenMenuItems.externalProductId,
+          isAvailable: canteenMenuItems.isAvailable,
+          mealPeriods: canteenMenuItems.mealPeriods,
+        })
+        .from(canteenMenuItems)
+        .where(eq(canteenMenuItems.menuSourceId, sourceId)),
+      db
+        .select({
+          status: canteenMenuSyncRuns.status,
+          itemCount: canteenMenuSyncRuns.itemCount,
+          deactivatedCount: canteenMenuSyncRuns.deactivatedCount,
+          errorCode: canteenMenuSyncRuns.errorCode,
+        })
+        .from(canteenMenuSyncRuns)
+        .where(eq(canteenMenuSyncRuns.menuSourceId, sourceId)),
+      db
+        .select({
+          itemCount: canteenMenuSyncSnapshots.itemCount,
+          syncWindowKey: canteenMenuSyncSnapshots.syncWindowKey,
+          scopeEvidence: canteenMenuSyncSnapshots.scopeEvidence,
+        })
+        .from(canteenMenuSyncSnapshots)
+        .where(eq(canteenMenuSyncSnapshots.menuSourceId, sourceId)),
+    ]);
+    const activeLunch = items.filter(
+      (item) => item.isAvailable && item.mealPeriods.includes("lunch"),
+    );
+    expect(activeLunch.map((item) => item.externalProductId).sort()).toEqual(
+      afternoon.items.map((item) => item.externalProductId).sort(),
+    );
+    expect(
+      items.find((item) => item.externalProductId === "product-0")?.id,
+    ).toBe(sharedAtNoon.id);
+    expect(
+      items.filter(
+        (item) =>
+          item.externalProductId?.startsWith("product-") && !item.isAvailable,
+      ),
+    ).toHaveLength(42);
+    expect(runs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "applied",
+          itemCount: 39,
+          deactivatedCount: 42,
+          errorCode: null,
+        }),
+      ]),
+    );
+    expect(snapshots).toHaveLength(2);
+    expect(snapshots.map((snapshot) => snapshot.itemCount).sort()).toEqual([
+      39, 61,
+    ]);
+    expect(
+      new Set(snapshots.map((snapshot) => snapshot.syncWindowKey)),
+    ).toEqual(new Set(["2099-08-20/lunch"]));
+    expect(
+      new Set(
+        snapshots.map((snapshot) => snapshot.scopeEvidence.publicationKey),
+      ).size,
+    ).toBe(2);
+  });
+
   it("keeps Cafe Tolo out of the 2026-08-22 breakfast drain while leaving seven sources claimable", async () => {
     const incidentBreakfast = new Date("2026-08-22T00:00:00.000Z");
     const cafeTolo = await createEligibleSource("Cafe Tolo", {

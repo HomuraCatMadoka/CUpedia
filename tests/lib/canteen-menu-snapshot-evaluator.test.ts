@@ -291,6 +291,98 @@ describe("menu snapshot evaluator", () => {
     });
   });
 
+  it("allows a provider-declared noon to afternoon publication transition (#743)", () => {
+    const noon = Array.from({ length: 61 }, (_, index) =>
+      existing({
+        id: `noon-${index}`,
+        externalProductId: `product-${index}`,
+        name: `午餐菜品 ${index}`,
+        mealPeriods: ["lunch"],
+      }),
+    );
+    const afternoon = [
+      ...noon.slice(0, 19).map((item, index) => ({
+        externalProductId: item.externalProductId!,
+        name: item.name,
+        priceOptions: item.priceOptions,
+        mealPeriods: ["lunch" as const],
+        sortOrder: index,
+        svgKey: item.svgKey,
+      })),
+      ...Array.from({ length: 20 }, (_, index) => ({
+        externalProductId: `afternoon-${index}`,
+        name: `下午茶菜品 ${index}`,
+        priceOptions: [],
+        mealPeriods: ["lunch" as const],
+        sortOrder: 19 + index,
+        svgKey: "下午茶",
+      })),
+    ];
+
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["breakfast", "lunch", "dinner"],
+          publicationTransition: "changed",
+        },
+        items: afternoon,
+      },
+      noon,
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 20,
+      missingProductCount: 42,
+      suspectedReplacementCount: 0,
+    });
+    expect(
+      result.plan.actions.filter((action) => action.action === "create"),
+    ).toHaveLength(20);
+    expect(
+      result.plan.actions.filter((action) => action.action === "deactivate"),
+    ).toHaveLength(42);
+    expect(result.blockingReasons).toEqual([]);
+  });
+
+  it("still blocks same-name ID replacement during a publication transition", () => {
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["lunch"],
+          publicationTransition: "changed",
+        },
+        items: [
+          {
+            externalProductId: "new-id",
+            name: "同一道菜",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐",
+          },
+        ],
+      },
+      [
+        existing({
+          externalProductId: "old-id",
+          name: "同一道菜",
+        }),
+      ],
+    );
+
+    expect(result.identityObservation.suspectedReplacementCount).toBe(1);
+    expect(result.blockingDecision).toMatchObject({
+      blocked: true,
+      code: "MENU_SYNC_IDENTITY_CHURN",
+    });
+  });
+
   it("removes only the observed meal period from missing identities (#743)", () => {
     const persisted = [
       existing({

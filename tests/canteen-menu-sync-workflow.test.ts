@@ -30,18 +30,11 @@ const vercel = JSON.parse(
   readFileSync(resolve(process.cwd(), "vercel.json"), "utf8"),
 );
 
-describe("production canteen menu sync workflow (#635, #746)", () => {
-  it("runs at the documented non-peak breakfast, lunch, and dinner times", () => {
-    expect(workflow.on.schedule).toEqual([
-      { cron: "17 0 * * *" },
-      { cron: "17 3 * * *" },
-      { cron: "17 9 * * *" },
-    ]);
-    expect(workflowText).toContain(
-      "00:17 UTC = 08:17 Asia/Hong_Kong (breakfast, after CU CAFE opens)",
-    );
-    expect(workflowText).toContain("03:17 UTC = 11:17 Asia/Hong_Kong (lunch)");
-    expect(workflowText).toContain("09:17 UTC = 17:17 Asia/Hong_Kong (dinner)");
+describe("production canteen menu sync workflow (#635, #743, #746)", () => {
+  it("wakes every half hour across the documented daytime window", () => {
+    expect(workflow.on.schedule).toEqual([{ cron: "17,47 0-11 * * *" }]);
+    expect(workflowText).toContain("00:17–11:47 UTC = 08:17–19:47 HKT");
+    expect(workflowText).toContain("no provider request");
   });
 
   it("keeps manual recovery input-free and production drains non-overlapping", () => {

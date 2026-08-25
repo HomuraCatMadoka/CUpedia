@@ -4,10 +4,13 @@ import {
   canteenMenuSyncSnapshots,
   type HktWeekday,
 } from "@/db/schema";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { menuSnapshotComparisonContext } from "./canteen-menu-snapshot-completeness";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
-import { menuSyncWindowAt } from "./canteen-menu-sync-window";
+import {
+  menuObservationCanProjectActivity,
+  menuSyncWindowAt,
+} from "./canteen-menu-sync-window";
 import type {
   MenuObservationContext,
   ProviderMenuObservation,
@@ -96,6 +99,46 @@ export async function insertMenuSyncSnapshot(
       svgKey: item.svgKey,
     })),
   );
+}
+
+/** Reads the last activity-bearing scoped evidence before the current snapshot. */
+export async function readLatestScopedPublicationEvidence(
+  tx: MenuSyncTransaction,
+  sourceId: string,
+  mealPeriod: MenuObservationContext["mealPeriod"],
+): Promise<Record<string, unknown> | null> {
+  const snapshots = await tx
+    .select({
+      scopeEvidence: canteenMenuSyncSnapshots.scopeEvidence,
+      observedAt: canteenMenuSyncSnapshots.observedAt,
+      syncWindowKey: canteenMenuSyncSnapshots.syncWindowKey,
+      mealPeriod: canteenMenuSyncSnapshots.mealPeriod,
+    })
+    .from(canteenMenuSyncSnapshots)
+    .where(
+      and(
+        eq(canteenMenuSyncSnapshots.menuSourceId, sourceId),
+        eq(canteenMenuSyncSnapshots.observationScope, "meal-period"),
+        eq(canteenMenuSyncSnapshots.mealPeriod, mealPeriod),
+      ),
+    )
+    .orderBy(
+      desc(canteenMenuSyncSnapshots.observedAt),
+      desc(canteenMenuSyncSnapshots.runId),
+    )
+    .limit(128);
+  const snapshot = snapshots.find((candidate) => {
+    try {
+      return menuObservationCanProjectActivity({
+        observedAt: candidate.observedAt,
+        syncWindowKey: candidate.syncWindowKey,
+        mealPeriod: candidate.mealPeriod,
+      });
+    } catch {
+      return false;
+    }
+  });
+  return snapshot?.scopeEvidence ?? null;
 }
 
 function sameJson(left: unknown, right: unknown): boolean {

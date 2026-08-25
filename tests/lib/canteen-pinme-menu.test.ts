@@ -89,8 +89,48 @@ describe("PINME menu adapter", () => {
       menuGroupCount: 2,
       groupCount: 2,
       referencedGroupIds: ["101"],
+      publicationKey: expect.stringMatching(/^[a-f0-9]{24}$/),
+      publicationWindows: [],
+      refreshBoundaryMinutes: [7 * 60, 11 * 60],
       serviceWindows: [{ startTime: "07:00", endTime: "11:00" }],
     });
+  });
+
+  it("keeps publication identity stable across equivalent duplicate topology", () => {
+    const single = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [{ groups: ["101"] }],
+        group: [
+          {
+            group_id: "101",
+            products: [{ product_id: "42", local_name: "早餐", price: 10 }],
+          },
+        ],
+      },
+    });
+    const repeated = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [{ groups: ["101", "101"] }, { groups: [101] }],
+        group: [
+          {
+            group_id: 101,
+            products: [{ product_id: "42", local_name: "早餐", price: 10 }],
+          },
+        ],
+      },
+    });
+
+    if (
+      single.scopeEvidence?.provider !== "pinme" ||
+      repeated.scopeEvidence?.provider !== "pinme"
+    ) {
+      throw new Error("expected PINME evidence");
+    }
+    expect(repeated.scopeEvidence.publicationKey).toBe(
+      single.scopeEvidence.publicationKey,
+    );
   });
 
   it("fails closed when a published group reference is missing", () => {
@@ -359,10 +399,65 @@ describe("PINME menu adapter", () => {
       menuGroupCount: 1,
       groupCount: 2,
       referencedGroupIds: ["1", "2"],
+      publicationKey: expect.stringMatching(/^[a-f0-9]{24}$/),
+      publicationWindows: [],
+      refreshBoundaryMinutes: [11 * 60, 14 * 60, 17 * 60, 21 * 60],
       serviceWindows: [
         { startTime: "11:00", endTime: "14:00" },
         { startTime: "17:00", endTime: "21:00" },
       ],
+    });
+  });
+
+  it("retains current publication windows and bounded refresh boundaries", () => {
+    const result = buildPinmeMenuSyncPayload({
+      code: 200,
+      data: {
+        menu_group: [
+          {
+            menu_id: "5150",
+            start_time: "11:00",
+            end_time: "14:30",
+            groups: ["101"],
+          },
+        ],
+        group: [
+          {
+            group_id: "101",
+            local_name: "午餐",
+            start_time: "11:00",
+            end_time: "14:30",
+            products: [
+              { product_id: "noon", local_name: "午餐菜品", price: 30 },
+            ],
+          },
+          {
+            group_id: "102",
+            local_name: "下午茶候选",
+            start_time: "14:30",
+            end_time: "17:00",
+            products: [
+              { product_id: "tea", local_name: "下午茶菜品", price: 20 },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(result.items.map((item) => item.externalProductId)).toEqual([
+      "noon",
+    ]);
+    expect(result.scopeEvidence).toEqual({
+      provider: "pinme",
+      menuGroupCount: 1,
+      groupCount: 2,
+      referencedGroupIds: ["101"],
+      serviceWindows: [{ startTime: "11:00", endTime: "14:30" }],
+      publicationKey: expect.stringMatching(/^[a-f0-9]{24}$/),
+      publicationWindows: [
+        { publicationId: "5150", startTime: "11:00", endTime: "14:30" },
+      ],
+      refreshBoundaryMinutes: [11 * 60, 14 * 60 + 30, 17 * 60],
     });
   });
 

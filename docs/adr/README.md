@@ -29,6 +29,7 @@ Architectural decision records (ADRs) explain why CUpedia accepted a durable bou
 - [0023: Hard-delete canteen records and support development mock mode](0023-canteen-hard-delete-and-mock-mode.md)
 - [0024: Allow anonymous canteen votes](0024-canteen-anonymous-vote-only.md)
 - [0025: Separate menu synchronization from ordering handoff](0025-separate-menu-sync-from-ordering-handoff.md)
+- [0026: Refresh current menus across provider publication windows](0026-refresh-current-menus-across-provider-publication-windows.md)
 
 ## Maintain the index
 
