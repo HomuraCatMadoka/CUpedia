@@ -40,7 +40,7 @@ export const providerMenuIdentityContracts = {
   },
   ichef: {
     sourceLocatorFields: ["externalStoreId"],
-    offeringIdentityFields: ["uuid"],
+    offeringIdentityFields: ["ichefUuid"],
     mutableAttributeFields: MUTABLE_ATTRIBUTE_FIELDS,
   },
   qmai: {

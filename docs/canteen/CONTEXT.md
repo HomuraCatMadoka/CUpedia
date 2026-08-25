@@ -27,7 +27,7 @@ _Avoid_: 用字符串 `localeCompare` 排序餐段；把「全天」做成可见
 
 **JSON 菜单输入**: 菜品输入字段含 name、pricing.options、mealPeriods（或旧 mealPeriod）、sortOrder、svgKey。`svgKey` 存分区键：爬虫来源有店家分类时写入原文分类名；无分类时才按菜名推断为旧版 `rice`/`noodle`/…。迁移期仍接受整数港币 `price` 并转换为单一 HKD 选项。旧 append-only action 仅为兼容保留，不用于周期性来源同步。善衡多规格示例见 [`examples/shho-pricing-sample.json`](examples/shho-pricing-sample.json)。
 
-**外部商品身份（External product identity）**: 一道供应商菜品在某个菜单来源内的稳定标识。CUpedia 的托管菜品身份是菜单来源 + provider-scoped product ID；PinMe 使用 product ID，Aigens 使用 backend ID。餐段、名称、价格、分类和排序都是菜品事实或出现语境，不进入身份。同一商品跨餐段共享一个 CUpedia UUID；同一次供应商响应内，同一身份若出现不兼容名称或无法表达的价格事实则中止。不同时间的已接受观察之间允许正常改名和调价，由最新观察提供可变事实。
+**外部商品身份（External product identity）**: 一道供应商菜品在某个菜单来源内的稳定标识。CUpedia 的托管菜品身份是菜单来源 + provider-scoped product ID；PinMe 使用 product ID，Aigens 使用 backend ID，iCHEF 使用 `ichefUuid`（官方前端标注为 original setting item UUID）。iCHEF `menuItemsSnapshot.uuid` 是一次发布快照内的 occurrence，不是长期商品身份。餐段、名称、价格、分类和排序都是菜品事实或出现语境，不进入身份。同一商品跨餐段共享一个 CUpedia UUID；同一次供应商响应内，同一身份若出现不兼容名称或无法表达的价格事实则中止。不同时间的已接受观察之间允许正常改名和调价，由最新观察提供可变事实。
 _Avoid_: 用菜名或供应商数组顺序作为长期身份；对所有供应商套用同一种 product ID 粒度；把 5198 的 product ID 放进 5203 的菜单来源。
 
 **供应商菜单 occurrence（Provider menu occurrence）**: 供应商原始分类树在某个餐段或分类中对一道菜品的一次引用，不等于新的菜品身份。同一 PinMe product 可同时出现在推荐区和常规分类；同一 Aigens backend product 可同时出现在午餐、晚餐和多个分类。兼容 occurrence 合并餐段与价格语境；不兼容名称或同一语境的冲突价格必须中止。适配器先在供应商边界聚合 occurrence，再对最终商品身份执行唯一性校验；分类选择和价格排序采用固定规则，等价 occurrence 的排列不改变快照。

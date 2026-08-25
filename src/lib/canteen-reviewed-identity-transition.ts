@@ -4,8 +4,12 @@ import { and, eq, isNull } from "drizzle-orm";
 
 import transition102830Json from "../../docs/operations/artifacts/aigens-102830-identity-transition-v5.json";
 import transition112891Json from "../../docs/operations/artifacts/aigens-112891-identity-transition-v4.json";
+import transitionIchefUqftKwxuJson from "../../docs/operations/artifacts/ichef-uqft-kwxu-identity-transition-v5.json";
 import { db } from "@/db";
-import { canteenMenuSources } from "@/db/schema";
+import {
+  canteenMenuSources,
+  type CanteenMenuSourceProvider,
+} from "@/db/schema";
 import { parseMenuIdentityTransitionArtifact } from "./canteen-menu-identity-transition";
 import { fetchMenuFromProvider } from "./canteen-menu-source-adapters";
 import {
@@ -20,16 +24,20 @@ import { menuObservationContextAt } from "./canteen-menu-sync-window";
 const REVIEWED_TRANSITIONS = {
   "aigens-102830": parseMenuIdentityTransitionArtifact(transition102830Json),
   "aigens-112891": parseMenuIdentityTransitionArtifact(transition112891Json),
+  "ichef-uqft-kwxu": parseMenuIdentityTransitionArtifact(
+    transitionIchefUqftKwxuJson,
+  ),
 } as const;
 
 export type ReviewedIdentityTransitionKey = keyof typeof REVIEWED_TRANSITIONS;
 
 export type ReviewedIdentityTransitionOption = {
   key: ReviewedIdentityTransitionKey;
-  provider: "aigens";
+  provider: CanteenMenuSourceProvider;
   externalStoreId: string;
   existingCount: number;
   incomingCount: number;
+  replacementCount: number;
   canonicalizationCount: number;
   mergeCount: number;
   additionCount: number;
@@ -70,10 +78,11 @@ export function listReviewedIdentityTransitions(): ReviewedIdentityTransitionOpt
     const artifact = artifactFor(key);
     return {
       key,
-      provider: artifact.source.provider as "aigens",
+      provider: artifact.source.provider,
       externalStoreId: artifact.source.externalStoreId,
       existingCount: artifact.audit.summary.existingCount,
       incomingCount: artifact.audit.summary.incomingCount,
+      replacementCount: artifact.audit.summary.replacementCandidateCount,
       canonicalizationCount:
         artifact.audit.summary.canonicalizationCandidateCount,
       mergeCount: artifact.audit.summary.mergeCandidateCount,

@@ -28,14 +28,24 @@
               "uuid": "breakfast",
               "name": "飯類",
               "menuItemsSnapshot": [
-                { "uuid": "item-1", "name": "雞扒飯", "price": 32 }
+                {
+                  "uuid": "breakfast-item-snapshot",
+                  "ichefUuid": "11111111-1111-4111-a111-111111111111",
+                  "name": "雞扒飯",
+                  "price": 32
+                }
               ]
             },
             {
               "uuid": "daytime",
               "name": "飯類",
               "menuItemsSnapshot": [
-                { "uuid": "item-1", "name": "雞扒飯", "price": 32 }
+                {
+                  "uuid": "daytime-item-snapshot",
+                  "ichefUuid": "11111111-1111-4111-a111-111111111111",
+                  "name": "雞扒飯",
+                  "price": 32
+                }
               ]
             }
           ]

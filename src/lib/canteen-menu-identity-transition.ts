@@ -315,6 +315,16 @@ export function buildMenuIdentityTransitionAudit(
   const unmatchedIncoming = incoming.filter(
     (item) => !knownExistingIds.has(item.externalProductId),
   );
+  const canPairIchefPublicationRollover =
+    provider === "ichef" &&
+    snapshotAbsenceIsEvidence(input.snapshotCompleteness) &&
+    (input.observationScope === undefined ||
+      input.observationScope.kind === "catalog") &&
+    activeExistingIds.size > 0 &&
+    unmatchedExisting.filter((item) => activeExistingIds.has(item.itemId))
+      .length === activeExistingIds.size &&
+    unmatchedIncoming.length === incoming.length &&
+    activeExistingIds.size === incoming.length;
   const mergeCandidates: MenuIdentityMergeCandidate[] = [];
   const canonicalizationCandidates: MenuIdentityCanonicalizationCandidate[] =
     [];
@@ -390,11 +400,20 @@ export function buildMenuIdentityTransitionAudit(
         next: next[0],
       });
     } else if (previous.length > 0 && next.length > 0) {
-      ambiguities.push({
-        normalizedName,
-        previous,
-        next,
-      });
+      const exactPairs =
+        canPairIchefPublicationRollover &&
+        previous.every((item) => activeExistingIds.has(item.itemId))
+          ? pairExactReplacementEvidence(previous, next)
+          : null;
+      if (exactPairs) {
+        replacementCandidates.push(...exactPairs);
+      } else {
+        ambiguities.push({
+          normalizedName,
+          previous,
+          next,
+        });
+      }
     } else if (previous.length > 0) {
       removals.push(
         ...previous.filter((item) => activeExistingIds.has(item.itemId)),
@@ -1113,23 +1132,68 @@ function normalizeName(value: string): string {
 function groupExistingByNormalizedName(
   items: readonly ExistingEvidence[],
 ): Map<string, ExistingEvidence[]> {
-  const grouped = new Map<string, ExistingEvidence[]>();
-  for (const item of items) {
-    const key = item.evidence.normalizedName;
-    grouped.set(key, [...(grouped.get(key) ?? []), item]);
-  }
-  return grouped;
+  return groupByKey(items, (item) => item.evidence.normalizedName);
 }
 
 function groupByNormalizedName(
   items: readonly MenuIdentityTransitionEvidence[],
 ): Map<string, MenuIdentityTransitionEvidence[]> {
-  const grouped = new Map<string, MenuIdentityTransitionEvidence[]>();
+  return groupByKey(items, (item) => item.normalizedName);
+}
+
+/**
+ * Mutable facts are review evidence, never product identity. They may only
+ * split a same-name ambiguity when they form a complete one-to-one mapping.
+ */
+function pairExactReplacementEvidence(
+  previous: readonly ExistingEvidence[],
+  next: readonly MenuIdentityTransitionEvidence[],
+): MenuIdentityReplacementCandidate[] | null {
+  if (previous.length !== next.length) return null;
+
+  const previousByFacts = groupByKey(previous, (item) =>
+    replacementFactsKey(item.evidence),
+  );
+  const nextByFacts = groupByKey(next, replacementFactsKey);
+  if (
+    previousByFacts.size !== nextByFacts.size ||
+    [...previousByFacts.values(), ...nextByFacts.values()].some(
+      (group) => group.length !== 1,
+    )
+  ) {
+    return null;
+  }
+
+  const pairs: MenuIdentityReplacementCandidate[] = [];
+  for (const item of previous) {
+    const matched = nextByFacts.get(replacementFactsKey(item.evidence));
+    if (!matched) return null;
+    pairs.push({
+      itemId: item.itemId,
+      previous: item.evidence,
+      next: matched[0],
+    });
+  }
+  return pairs;
+}
+
+function groupByKey<T>(
+  items: readonly T[],
+  keyFor: (item: T) => string,
+): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
   for (const item of items) {
-    const key = item.normalizedName;
+    const key = keyFor(item);
     grouped.set(key, [...(grouped.get(key) ?? []), item]);
   }
   return grouped;
+}
+
+function replacementFactsKey(evidence: MenuIdentityTransitionEvidence): string {
+  return JSON.stringify({
+    mealPeriods: evidence.mealPeriods,
+    priceOptions: evidence.priceOptions,
+  });
 }
 
 function compareExistingEvidence(

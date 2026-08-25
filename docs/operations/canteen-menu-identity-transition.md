@@ -68,6 +68,16 @@ Approve every replacement, canonicalization, and merge exactly once:
   investigate provider semantics instead. Candidate mappings are evidence for
   review, not automatic approval.
 
+When one complete, catalog-scoped published iCHEF menu replaces every snapshot
+UUID, repeated dish names may still represent distinct lunch and dinner setting
+items. A partial or meal-period-scoped observation never receives this
+authority. The audit may split such a same-name group only when meal periods and
+canonical prices form a complete one-to-one mapping. These mutable facts are
+review evidence, not a new identity rule: every resulting old snapshot UUID to
+`ichefUuid` replacement still requires an explicit reviewed decision. Any
+duplicate, incomplete, or many-to-many fact match remains an ambiguity and
+fails closed.
+
 ## Apply the reviewed artifact
 
 With the separately reviewed artifact checked out and the write credential

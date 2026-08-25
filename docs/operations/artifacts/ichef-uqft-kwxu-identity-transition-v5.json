@@ -1,0 +1,1825 @@
+{
+  "schemaVersion": 5,
+  "source": {
+    "provider": "ichef",
+    "externalOwnerId": null,
+    "externalStoreId": "UQftKWxU",
+    "configurationFingerprint": "1ce27c2e1e5640591df26e399f2b6c55808667ba54796ab8cc41fc1069d3d422"
+  },
+  "audit": {
+    "snapshotCompleteness": "complete",
+    "scopeEvidence": null,
+    "summary": {
+      "existingCount": 51,
+      "incomingCount": 51,
+      "missingIdentityCount": 51,
+      "newIdentityCount": 51,
+      "replacementCandidateCount": 51,
+      "canonicalizationCandidateCount": 0,
+      "mergeCandidateCount": 0,
+      "additionCount": 0,
+      "removalCount": 0,
+      "ambiguityCount": 0
+    },
+    "existingFingerprint": "56b527bb72102868ff08537d08ba0d8538902f8421e83d2227099ff9f079b7c5",
+    "incomingFingerprint": "d72d429b5a07ec489667d72553c39be803da5807a2d98e9093fbeb1edcf0b2f8",
+    "replacementCandidates": [
+      {
+        "itemId": "1894e82f-32f9-4c5d-9223-7cf935a76a49",
+        "previous": {
+          "externalProductId": "93ae287e-6351-4909-9485-56695da45787",
+          "normalizedName": "(凍)卡布奇諾",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "9b9a5b94-df59-4b31-88c6-530368ed6f8b",
+          "normalizedName": "(凍)卡布奇諾",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4548adb4-801b-4458-8bea-07a822f85bfa",
+        "previous": {
+          "externalProductId": "6b698016-936a-4dac-bb70-289d93257492",
+          "normalizedName": "(凍)手工花茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "19397d8c-a891-4848-b180-adc7fd78052b",
+          "normalizedName": "(凍)手工花茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "070bdfd9-f6c1-4bfe-bbff-217b996ad94f",
+        "previous": {
+          "externalProductId": "6f23b243-4be4-4af7-84f6-7683255c63fe",
+          "normalizedName": "(凍)拿鐵",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "57c4a403-4a44-40ce-bdc4-bd67ba556f6c",
+          "normalizedName": "(凍)拿鐵",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "ff5d2b03-7060-4984-820a-1164a3b5a6ac",
+        "previous": {
+          "externalProductId": "08862640-ca4c-455c-a62b-8673aa58c0c1",
+          "normalizedName": "(凍)檸檬水",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "3841b06c-483c-463e-925f-67ffa54d1012",
+          "normalizedName": "(凍)檸檬水",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "e5325897-729d-4af9-b739-a882677a88f9",
+        "previous": {
+          "externalProductId": "fc51b29d-2dba-41a8-8bbd-413110ba3a7d",
+          "normalizedName": "(凍)港式奶茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "bbd4300d-9da9-4674-a44f-c264b12f5c75",
+          "normalizedName": "(凍)港式奶茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "06e5bff0-c9a2-4624-a6a6-ba283b82f36d",
+        "previous": {
+          "externalProductId": "593d054a-cc28-42d0-9a1f-9772db1684c5",
+          "normalizedName": "(凍)港式檸檬茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "66474a34-25d5-47f7-8d87-b530beb38797",
+          "normalizedName": "(凍)港式檸檬茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "a092bd35-2a63-4258-a9d4-9f0c02f1e55a",
+        "previous": {
+          "externalProductId": "4b0eb1bc-14f4-45e5-b53a-0f3fc73853b8",
+          "normalizedName": "(熱)卡布奇諾",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "c628949a-da11-482e-a51d-2290693da942",
+          "normalizedName": "(熱)卡布奇諾",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "ea3dc170-9fc7-4481-88cf-a7b7a5b94880",
+        "previous": {
+          "externalProductId": "6c504f01-862e-4bd2-b819-ac9a5e149b22",
+          "normalizedName": "(熱)咖啡",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "30490047-f01b-4167-a7f2-1a8a341cead2",
+          "normalizedName": "(熱)咖啡",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "b41b1e5d-5257-4d39-96ad-2e22465e7d72",
+        "previous": {
+          "externalProductId": "04697f22-63d0-4d0b-914f-c6544d722442",
+          "normalizedName": "(熱)手工花茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "37ced7bc-ca76-4c13-bbe0-4cfda7a13b7c",
+          "normalizedName": "(熱)手工花茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "531b998f-53db-420e-8b5b-42feb782f384",
+        "previous": {
+          "externalProductId": "1aef9571-0dc4-47a8-91e5-26ee4e611fd4",
+          "normalizedName": "(熱)拿鐵",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "a8a142e3-ac70-4885-bab1-fbec1a6afa9c",
+          "normalizedName": "(熱)拿鐵",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "03c7cdb0-27eb-4e3e-9650-858cf0035b88",
+        "previous": {
+          "externalProductId": "97ddb798-cfc9-439c-a3a3-205126d1c042",
+          "normalizedName": "(熱)檸檬水",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "27284a47-a3f1-4965-becb-19f66b29123c",
+          "normalizedName": "(熱)檸檬水",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "87027993-f90f-42f1-86fb-1ab16dc16042",
+        "previous": {
+          "externalProductId": "9e62bc39-f6eb-4102-a89e-f04b9335f21b",
+          "normalizedName": "(熱)港式奶茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "4d9ff082-a1ae-4998-9bf6-2a05634e6b39",
+          "normalizedName": "(熱)港式奶茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "03181178-5b49-4dec-9a33-6ccae336d28f",
+        "previous": {
+          "externalProductId": "ef2fa80e-eec3-42d0-87d9-0e871f55fb78",
+          "normalizedName": "(熱)港式檸檬茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "332a3716-48bd-439b-a797-a1016886a60a",
+          "normalizedName": "(熱)港式檸檬茶",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 1800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "5a5754dd-473c-4f10-8a2b-cd50364d9c23",
+        "previous": {
+          "externalProductId": "1380ddff-f3e5-4580-ac20-512be459f30a",
+          "normalizedName": "a la carte 飯/麵",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 0,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "27c4a9a5-bc70-402b-a653-c4f09c473a35",
+          "normalizedName": "a la carte 飯/麵",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 0,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "0c767e26-ddad-4426-bc78-d0ee747f0f4c",
+        "previous": {
+          "externalProductId": "48625ed2-4ea8-45f2-aa62-08af765e3c94",
+          "normalizedName": "a la carte 飯/麵(所有學生/職員九折)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 0,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "f34b49f2-0845-4b7f-adbd-9f739494e5a6",
+          "normalizedName": "a la carte 飯/麵(所有學生/職員九折)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 0,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "15ddcb9c-56e6-4ead-8407-bff63f780db7",
+        "previous": {
+          "externalProductId": "7acda14b-1f3d-4f3c-9b5e-b8df7da8a9eb",
+          "normalizedName": "a la carte 飯/麵(晨興書院學生八折)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 0,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "2d04a3c3-a797-4dbc-882f-95fa6d24de29",
+          "normalizedName": "a la carte 飯/麵(晨興書院學生八折)",
+          "mealPeriods": ["dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 0,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "9ba09101-2b61-4da2-b11c-d0d23d40529b",
+        "previous": {
+          "externalProductId": "f87f8d8a-bc0c-4754-a5d2-b8cafeb0aaf8",
+          "normalizedName": "一餸飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "f83da64c-9c47-4c1d-824c-f9f3ca8aaa25",
+          "normalizedName": "一餸飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c1589409-5573-4831-a7a1-42ce126f4808",
+        "previous": {
+          "externalProductId": "2736fdee-7532-46b7-bb06-4761e089005f",
+          "normalizedName": "一餸飯(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "295a803c-81f4-41ec-9362-fa7851f240c0",
+          "normalizedName": "一餸飯(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "9544ee37-f743-4953-ab5d-dd557cb24ba9",
+        "previous": {
+          "externalProductId": "29bf7a88-8e92-49ce-a3ad-35f79bda041c",
+          "normalizedName": "一餸飯(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "ff19d427-ba12-4662-9346-d8a1af47fa4d",
+          "normalizedName": "一餸飯(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "973b2606-e5dd-4c33-8abd-4efbb1a89877",
+        "previous": {
+          "externalProductId": "53d493f9-1130-4760-bf26-a9084a2616b8",
+          "normalizedName": "三明治",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "2040211c-5f88-453d-a8f7-ea08b177b125",
+          "normalizedName": "三明治",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "1848296f-d58f-4c30-b6c8-9ef126a49917",
+        "previous": {
+          "externalProductId": "d7c71633-cbea-40aa-b006-2b31d83204b1",
+          "normalizedName": "三明治(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2700,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "9beb3144-0096-4397-a134-0c88156dfc43",
+          "normalizedName": "三明治(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2700,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4ae57db6-cc78-4c92-9a23-cb638edd6585",
+        "previous": {
+          "externalProductId": "8aba7e7b-843d-4913-89f0-35b13428fa96",
+          "normalizedName": "三明治(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "b51d4fb3-82e9-4d41-8f06-e643c2038fb9",
+          "normalizedName": "三明治(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2400,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "17a88b1c-f37c-4159-af31-e4c327865c5a",
+        "previous": {
+          "externalProductId": "341595fa-0348-4fc2-8bf3-2cd7a9fd6cb8",
+          "normalizedName": "三餸飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "fdcc7195-a0d0-47fd-88b6-55329f0b2926",
+          "normalizedName": "三餸飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "0fab4eb3-4550-4ddb-8943-61b1ff8a09f4",
+        "previous": {
+          "externalProductId": "e4fffd36-ba3f-4e16-bbb3-ce35f78159a0",
+          "normalizedName": "三餸飯(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5580,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "aa4e8bac-20c8-4bf7-a845-341b20ea23c4",
+          "normalizedName": "三餸飯(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5580,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "8065cad2-41c7-4572-89af-d3a5825f9e96",
+        "previous": {
+          "externalProductId": "54897294-c4fb-41a0-9372-45f59db6af30",
+          "normalizedName": "三餸飯(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4980,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "171845ca-8d85-4cd2-a328-3bb2f44169db",
+          "normalizedName": "三餸飯(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4980,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "45b056b0-0c3e-4636-a716-b7b89450f5d5",
+        "previous": {
+          "externalProductId": "6f210819-a8a9-4610-bee5-a40c641780de",
+          "normalizedName": "二餸飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "a0b4ee74-ad5d-42c6-a0df-94dcba49ae43",
+          "normalizedName": "二餸飯",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "46ef9c73-883a-477b-863d-7b21d574d96d",
+        "previous": {
+          "externalProductId": "66e96046-ecb7-418a-8bc3-d555aea93c48",
+          "normalizedName": "二餸飯(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5040,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "5d57c5c8-c421-486c-b55b-a0f6f4e5bf33",
+          "normalizedName": "二餸飯(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5040,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "75a0f19b-4422-459c-817f-e8e4446edcbb",
+        "previous": {
+          "externalProductId": "c34840db-c540-475b-b5b1-305d0abb0008",
+          "normalizedName": "二餸飯(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4480,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "7ea16dd8-9c90-4d96-8b51-9715613c025b",
+          "normalizedName": "二餸飯(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4480,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "4f995c31-1d1c-40da-90c8-b66da1ba3f7c",
+        "previous": {
+          "externalProductId": "ec6b4344-5a45-4f45-8fd8-45e15c5a5b4a",
+          "normalizedName": "凍美式咖啡",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "6671e362-57ca-4f8c-996a-ff4106ebf904",
+          "normalizedName": "凍美式咖啡",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "70b9f69a-8468-4963-96d8-5fabb5910b7d",
+        "previous": {
+          "externalProductId": "eaed04bf-c24b-49c3-962a-a6d225e7ea03",
+          "normalizedName": "汽水",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "54811295-6e16-4786-b9db-86ec42ef9009",
+          "normalizedName": "汽水",
+          "mealPeriods": ["breakfast", "dinner", "lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "bfc8cf2d-5e50-4de9-9d89-066f007a5ea2",
+        "previous": {
+          "externalProductId": "33d397cb-d4b5-4609-b622-415ade5c6fdb",
+          "normalizedName": "泰式船麵",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "e7940aba-498a-4c0a-8c82-cb35dc97758d",
+          "normalizedName": "泰式船麵",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "6bdd4335-86bd-4ba1-b04a-10e950299256",
+        "previous": {
+          "externalProductId": "854459a9-72d8-4484-85dc-d921d984d2a2",
+          "normalizedName": "泰式船麵",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "90400afb-ffe4-4391-9b49-2ebd887f114d",
+          "normalizedName": "泰式船麵",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "58ab4a4d-007c-498d-9aa1-a40136b78df6",
+        "previous": {
+          "externalProductId": "64217b1f-df3d-49e4-8fac-b97c00c8ae03",
+          "normalizedName": "泰式船麵(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6120,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "63f5dd5c-a08a-4ec7-947b-4cc51c80d51e",
+          "normalizedName": "泰式船麵(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6120,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "bfc05a17-6531-4d33-97ed-d44e6419b7c4",
+        "previous": {
+          "externalProductId": "7930092c-20ee-49ae-b089-9bf679e04e2d",
+          "normalizedName": "泰式船麵(所有學生/職員九折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6120,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "e1e4958f-8fcd-42bc-829b-8b4742203c96",
+          "normalizedName": "泰式船麵(所有學生/職員九折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 6120,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "1af78d43-b1cc-4b93-adb0-4caba24498fc",
+        "previous": {
+          "externalProductId": "14c4c6ac-09d5-4910-95cc-88dc42b615ff",
+          "normalizedName": "泰式船麵(晨興書院學生八折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5440,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "4bf55118-d6ed-4587-b573-c0fc848151de",
+          "normalizedName": "泰式船麵(晨興書院學生八折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5440,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "b8a0c569-eaa1-45be-a458-6dc2becc965d",
+        "previous": {
+          "externalProductId": "d44e4913-82f7-4e0d-a17c-411b778c0f8f",
+          "normalizedName": "泰式船麵(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5440,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "ca049353-a802-474d-a89d-6202954f308c",
+          "normalizedName": "泰式船麵(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 5440,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "62bf5ec8-e3b9-4bfa-aa08-6b9894047362",
+        "previous": {
+          "externalProductId": "31e2776f-a1f5-4915-af64-00d06fb9d291",
+          "normalizedName": "粉麵 noodles set",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "d291ddab-c06a-4f91-9e5d-273b13c036c7",
+          "normalizedName": "粉麵 noodles set",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "7e119a96-b744-4058-85c0-18134e34d03a",
+        "previous": {
+          "externalProductId": "126eff19-1830-4af7-9fee-67f091d8cde9",
+          "normalizedName": "粉麵餐(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "d9ede3d3-5658-4ec1-b15e-378b7bbe3c81",
+          "normalizedName": "粉麵餐(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c8148ed0-5163-4b47-a584-33676380b38e",
+        "previous": {
+          "externalProductId": "6a8061b7-ec5c-4be9-8ded-8b9f83784909",
+          "normalizedName": "粉麵餐(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "fe6cb695-c073-4385-853f-1e61c25227e0",
+          "normalizedName": "粉麵餐(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "db3c3ab6-45f2-4a0f-963f-c4f65b9c1be0",
+        "previous": {
+          "externalProductId": "40174620-7bc0-421f-b6cd-eb4da5712f92",
+          "normalizedName": "素食點心拼盤",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "8c0a6148-c460-46f4-a01b-4cdd2418f681",
+          "normalizedName": "素食點心拼盤",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3500,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "7efebdb1-fa9a-41c7-b241-f53eeed980de",
+        "previous": {
+          "externalProductId": "c4a67c8e-d4be-421f-b028-bdeef7d44be8",
+          "normalizedName": "素食點心拼盤(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3150,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "5046a7d7-b2d9-4371-81d7-2ca2d9a9c759",
+          "normalizedName": "素食點心拼盤(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3150,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "810d52ee-0f75-4730-9c6d-fdb03e4d448f",
+        "previous": {
+          "externalProductId": "616c192a-bd5b-4e96-a8f6-16eaa606ece4",
+          "normalizedName": "素食點心拼盤(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "b70ca9cb-6c03-420f-a18c-6cc4970a7eaf",
+          "normalizedName": "素食點心拼盤(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 2800,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "2663728a-c801-460b-ada4-3d5f290eb129",
+        "previous": {
+          "externalProductId": "4e39b0cd-07bc-4ba8-bed2-659e7c2e40db",
+          "normalizedName": "自選粉麵",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "f17b3a35-379d-46c0-9ecb-8571d9b007d8",
+          "normalizedName": "自選粉麵",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "b0090f61-8b8f-40d0-ac58-581b32419f57",
+        "previous": {
+          "externalProductId": "e661a4a3-2ae9-4e85-96ea-0398699a6cec",
+          "normalizedName": "自選粉麵",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "f084a8e3-41f2-4a39-b697-0b36ea114c9e",
+          "normalizedName": "自選粉麵",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "212a4250-6a4e-4f58-bcfe-bad078fe5d0c",
+        "previous": {
+          "externalProductId": "23699c79-a035-4994-99c4-7f3f3c761653",
+          "normalizedName": "自選粉麵(所有學生/職員九折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3780,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "bb6e51d1-425d-4431-a8aa-799a9e03b2ce",
+          "normalizedName": "自選粉麵(所有學生/職員九折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3780,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "cb9f015a-f2e6-4b5f-bb06-5b253431bd16",
+        "previous": {
+          "externalProductId": "92e5f784-b1a2-46f5-87ee-e5a2dccef6e0",
+          "normalizedName": "自選粉麵(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3780,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "a4f601bd-a870-432d-9ccd-49a68cef22c1",
+          "normalizedName": "自選粉麵(所有學生/職員九折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3780,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "c879753e-b872-4e29-bb6d-78b3a37b439e",
+        "previous": {
+          "externalProductId": "014b4679-57d6-41af-842b-85ce5dc4deae",
+          "normalizedName": "自選粉麵(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3360,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "0324137d-17de-410d-a56c-18de6cad8961",
+          "normalizedName": "自選粉麵(晨興書院學生八折)",
+          "mealPeriods": ["lunch"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3360,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "435afb49-6388-45a7-a6ed-f538832f447f",
+        "previous": {
+          "externalProductId": "c06f91fa-b828-4443-8358-6e8202480c9d",
+          "normalizedName": "自選粉麵(晨興書院學生八折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3360,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "e5429971-8c9d-4a99-a819-1766dea29996",
+          "normalizedName": "自選粉麵(晨興書院學生八折)",
+          "mealPeriods": ["dinner"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3360,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "fc259459-5267-4e90-af53-a395235c161b",
+        "previous": {
+          "externalProductId": "270ec48b-2dfc-4689-b96b-4ca8dec2e917",
+          "normalizedName": "點心拼盤",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "e8fe2056-a2d4-48d4-a410-c3b9ffaf46c6",
+          "normalizedName": "點心拼盤",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 4000,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "106b9297-bdb0-45a7-b119-8a3b554c5e1f",
+        "previous": {
+          "externalProductId": "63d51b98-6b5e-44a2-a74e-eecd88b5dd7c",
+          "normalizedName": "點心拼盤(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "b622a5d6-0169-4b2e-a240-e5dfb5d22198",
+          "normalizedName": "點心拼盤(所有學生/職員九折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3600,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      },
+      {
+        "itemId": "10bcf86a-6666-45e5-83ed-dcec512e3228",
+        "previous": {
+          "externalProductId": "e1563880-3455-45d5-af62-c35a38984f59",
+          "normalizedName": "點心拼盤(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        },
+        "next": {
+          "externalProductId": "16b51110-ce64-41f6-aca7-2bac1a3bd103",
+          "normalizedName": "點心拼盤(晨興書院學生八折)",
+          "mealPeriods": ["breakfast"],
+          "priceOptions": [
+            {
+              "label": null,
+              "amountMinor": 3200,
+              "currency": "HKD",
+              "sortOrder": 0
+            }
+          ]
+        }
+      }
+    ],
+    "canonicalizationCandidates": [],
+    "mergeCandidates": [],
+    "additions": [],
+    "removals": [],
+    "ambiguities": []
+  },
+  "decisions": {
+    "replacements": [
+      {
+        "itemId": "1894e82f-32f9-4c5d-9223-7cf935a76a49",
+        "previousProductId": "93ae287e-6351-4909-9485-56695da45787",
+        "nextProductId": "9b9a5b94-df59-4b31-88c6-530368ed6f8b",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "4548adb4-801b-4458-8bea-07a822f85bfa",
+        "previousProductId": "6b698016-936a-4dac-bb70-289d93257492",
+        "nextProductId": "19397d8c-a891-4848-b180-adc7fd78052b",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "070bdfd9-f6c1-4bfe-bbff-217b996ad94f",
+        "previousProductId": "6f23b243-4be4-4af7-84f6-7683255c63fe",
+        "nextProductId": "57c4a403-4a44-40ce-bdc4-bd67ba556f6c",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "ff5d2b03-7060-4984-820a-1164a3b5a6ac",
+        "previousProductId": "08862640-ca4c-455c-a62b-8673aa58c0c1",
+        "nextProductId": "3841b06c-483c-463e-925f-67ffa54d1012",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "e5325897-729d-4af9-b739-a882677a88f9",
+        "previousProductId": "fc51b29d-2dba-41a8-8bbd-413110ba3a7d",
+        "nextProductId": "bbd4300d-9da9-4674-a44f-c264b12f5c75",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "06e5bff0-c9a2-4624-a6a6-ba283b82f36d",
+        "previousProductId": "593d054a-cc28-42d0-9a1f-9772db1684c5",
+        "nextProductId": "66474a34-25d5-47f7-8d87-b530beb38797",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "a092bd35-2a63-4258-a9d4-9f0c02f1e55a",
+        "previousProductId": "4b0eb1bc-14f4-45e5-b53a-0f3fc73853b8",
+        "nextProductId": "c628949a-da11-482e-a51d-2290693da942",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "ea3dc170-9fc7-4481-88cf-a7b7a5b94880",
+        "previousProductId": "6c504f01-862e-4bd2-b819-ac9a5e149b22",
+        "nextProductId": "30490047-f01b-4167-a7f2-1a8a341cead2",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "b41b1e5d-5257-4d39-96ad-2e22465e7d72",
+        "previousProductId": "04697f22-63d0-4d0b-914f-c6544d722442",
+        "nextProductId": "37ced7bc-ca76-4c13-bbe0-4cfda7a13b7c",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "531b998f-53db-420e-8b5b-42feb782f384",
+        "previousProductId": "1aef9571-0dc4-47a8-91e5-26ee4e611fd4",
+        "nextProductId": "a8a142e3-ac70-4885-bab1-fbec1a6afa9c",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "03c7cdb0-27eb-4e3e-9650-858cf0035b88",
+        "previousProductId": "97ddb798-cfc9-439c-a3a3-205126d1c042",
+        "nextProductId": "27284a47-a3f1-4965-becb-19f66b29123c",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "87027993-f90f-42f1-86fb-1ab16dc16042",
+        "previousProductId": "9e62bc39-f6eb-4102-a89e-f04b9335f21b",
+        "nextProductId": "4d9ff082-a1ae-4998-9bf6-2a05634e6b39",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "03181178-5b49-4dec-9a33-6ccae336d28f",
+        "previousProductId": "ef2fa80e-eec3-42d0-87d9-0e871f55fb78",
+        "nextProductId": "332a3716-48bd-439b-a797-a1016886a60a",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "5a5754dd-473c-4f10-8a2b-cd50364d9c23",
+        "previousProductId": "1380ddff-f3e5-4580-ac20-512be459f30a",
+        "nextProductId": "27c4a9a5-bc70-402b-a653-c4f09c473a35",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "0c767e26-ddad-4426-bc78-d0ee747f0f4c",
+        "previousProductId": "48625ed2-4ea8-45f2-aa62-08af765e3c94",
+        "nextProductId": "f34b49f2-0845-4b7f-adbd-9f739494e5a6",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "15ddcb9c-56e6-4ead-8407-bff63f780db7",
+        "previousProductId": "7acda14b-1f3d-4f3c-9b5e-b8df7da8a9eb",
+        "nextProductId": "2d04a3c3-a797-4dbc-882f-95fa6d24de29",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "9ba09101-2b61-4da2-b11c-d0d23d40529b",
+        "previousProductId": "f87f8d8a-bc0c-4754-a5d2-b8cafeb0aaf8",
+        "nextProductId": "f83da64c-9c47-4c1d-824c-f9f3ca8aaa25",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "c1589409-5573-4831-a7a1-42ce126f4808",
+        "previousProductId": "2736fdee-7532-46b7-bb06-4761e089005f",
+        "nextProductId": "295a803c-81f4-41ec-9362-fa7851f240c0",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "9544ee37-f743-4953-ab5d-dd557cb24ba9",
+        "previousProductId": "29bf7a88-8e92-49ce-a3ad-35f79bda041c",
+        "nextProductId": "ff19d427-ba12-4662-9346-d8a1af47fa4d",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "973b2606-e5dd-4c33-8abd-4efbb1a89877",
+        "previousProductId": "53d493f9-1130-4760-bf26-a9084a2616b8",
+        "nextProductId": "2040211c-5f88-453d-a8f7-ea08b177b125",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "1848296f-d58f-4c30-b6c8-9ef126a49917",
+        "previousProductId": "d7c71633-cbea-40aa-b006-2b31d83204b1",
+        "nextProductId": "9beb3144-0096-4397-a134-0c88156dfc43",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "4ae57db6-cc78-4c92-9a23-cb638edd6585",
+        "previousProductId": "8aba7e7b-843d-4913-89f0-35b13428fa96",
+        "nextProductId": "b51d4fb3-82e9-4d41-8f06-e643c2038fb9",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "17a88b1c-f37c-4159-af31-e4c327865c5a",
+        "previousProductId": "341595fa-0348-4fc2-8bf3-2cd7a9fd6cb8",
+        "nextProductId": "fdcc7195-a0d0-47fd-88b6-55329f0b2926",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "0fab4eb3-4550-4ddb-8943-61b1ff8a09f4",
+        "previousProductId": "e4fffd36-ba3f-4e16-bbb3-ce35f78159a0",
+        "nextProductId": "aa4e8bac-20c8-4bf7-a845-341b20ea23c4",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "8065cad2-41c7-4572-89af-d3a5825f9e96",
+        "previousProductId": "54897294-c4fb-41a0-9372-45f59db6af30",
+        "nextProductId": "171845ca-8d85-4cd2-a328-3bb2f44169db",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "45b056b0-0c3e-4636-a716-b7b89450f5d5",
+        "previousProductId": "6f210819-a8a9-4610-bee5-a40c641780de",
+        "nextProductId": "a0b4ee74-ad5d-42c6-a0df-94dcba49ae43",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "46ef9c73-883a-477b-863d-7b21d574d96d",
+        "previousProductId": "66e96046-ecb7-418a-8bc3-d555aea93c48",
+        "nextProductId": "5d57c5c8-c421-486c-b55b-a0f6f4e5bf33",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "75a0f19b-4422-459c-817f-e8e4446edcbb",
+        "previousProductId": "c34840db-c540-475b-b5b1-305d0abb0008",
+        "nextProductId": "7ea16dd8-9c90-4d96-8b51-9715613c025b",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "4f995c31-1d1c-40da-90c8-b66da1ba3f7c",
+        "previousProductId": "ec6b4344-5a45-4f45-8fd8-45e15c5a5b4a",
+        "nextProductId": "6671e362-57ca-4f8c-996a-ff4106ebf904",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "70b9f69a-8468-4963-96d8-5fabb5910b7d",
+        "previousProductId": "eaed04bf-c24b-49c3-962a-a6d225e7ea03",
+        "nextProductId": "54811295-6e16-4786-b9db-86ec42ef9009",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "bfc8cf2d-5e50-4de9-9d89-066f007a5ea2",
+        "previousProductId": "33d397cb-d4b5-4609-b622-415ade5c6fdb",
+        "nextProductId": "e7940aba-498a-4c0a-8c82-cb35dc97758d",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "6bdd4335-86bd-4ba1-b04a-10e950299256",
+        "previousProductId": "854459a9-72d8-4484-85dc-d921d984d2a2",
+        "nextProductId": "90400afb-ffe4-4391-9b49-2ebd887f114d",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "58ab4a4d-007c-498d-9aa1-a40136b78df6",
+        "previousProductId": "64217b1f-df3d-49e4-8fac-b97c00c8ae03",
+        "nextProductId": "63f5dd5c-a08a-4ec7-947b-4cc51c80d51e",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "bfc05a17-6531-4d33-97ed-d44e6419b7c4",
+        "previousProductId": "7930092c-20ee-49ae-b089-9bf679e04e2d",
+        "nextProductId": "e1e4958f-8fcd-42bc-829b-8b4742203c96",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "1af78d43-b1cc-4b93-adb0-4caba24498fc",
+        "previousProductId": "14c4c6ac-09d5-4910-95cc-88dc42b615ff",
+        "nextProductId": "4bf55118-d6ed-4587-b573-c0fc848151de",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "b8a0c569-eaa1-45be-a458-6dc2becc965d",
+        "previousProductId": "d44e4913-82f7-4e0d-a17c-411b778c0f8f",
+        "nextProductId": "ca049353-a802-474d-a89d-6202954f308c",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "62bf5ec8-e3b9-4bfa-aa08-6b9894047362",
+        "previousProductId": "31e2776f-a1f5-4915-af64-00d06fb9d291",
+        "nextProductId": "d291ddab-c06a-4f91-9e5d-273b13c036c7",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "7e119a96-b744-4058-85c0-18134e34d03a",
+        "previousProductId": "126eff19-1830-4af7-9fee-67f091d8cde9",
+        "nextProductId": "d9ede3d3-5658-4ec1-b15e-378b7bbe3c81",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "c8148ed0-5163-4b47-a584-33676380b38e",
+        "previousProductId": "6a8061b7-ec5c-4be9-8ded-8b9f83784909",
+        "nextProductId": "fe6cb695-c073-4385-853f-1e61c25227e0",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "db3c3ab6-45f2-4a0f-963f-c4f65b9c1be0",
+        "previousProductId": "40174620-7bc0-421f-b6cd-eb4da5712f92",
+        "nextProductId": "8c0a6148-c460-46f4-a01b-4cdd2418f681",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "7efebdb1-fa9a-41c7-b241-f53eeed980de",
+        "previousProductId": "c4a67c8e-d4be-421f-b028-bdeef7d44be8",
+        "nextProductId": "5046a7d7-b2d9-4371-81d7-2ca2d9a9c759",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "810d52ee-0f75-4730-9c6d-fdb03e4d448f",
+        "previousProductId": "616c192a-bd5b-4e96-a8f6-16eaa606ece4",
+        "nextProductId": "b70ca9cb-6c03-420f-a18c-6cc4970a7eaf",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "2663728a-c801-460b-ada4-3d5f290eb129",
+        "previousProductId": "4e39b0cd-07bc-4ba8-bed2-659e7c2e40db",
+        "nextProductId": "f17b3a35-379d-46c0-9ecb-8571d9b007d8",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "b0090f61-8b8f-40d0-ac58-581b32419f57",
+        "previousProductId": "e661a4a3-2ae9-4e85-96ea-0398699a6cec",
+        "nextProductId": "f084a8e3-41f2-4a39-b697-0b36ea114c9e",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "212a4250-6a4e-4f58-bcfe-bad078fe5d0c",
+        "previousProductId": "23699c79-a035-4994-99c4-7f3f3c761653",
+        "nextProductId": "bb6e51d1-425d-4431-a8aa-799a9e03b2ce",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "cb9f015a-f2e6-4b5f-bb06-5b253431bd16",
+        "previousProductId": "92e5f784-b1a2-46f5-87ee-e5a2dccef6e0",
+        "nextProductId": "a4f601bd-a870-432d-9ccd-49a68cef22c1",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "c879753e-b872-4e29-bb6d-78b3a37b439e",
+        "previousProductId": "014b4679-57d6-41af-842b-85ce5dc4deae",
+        "nextProductId": "0324137d-17de-410d-a56c-18de6cad8961",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "435afb49-6388-45a7-a6ed-f538832f447f",
+        "previousProductId": "c06f91fa-b828-4443-8358-6e8202480c9d",
+        "nextProductId": "e5429971-8c9d-4a99-a819-1766dea29996",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "fc259459-5267-4e90-af53-a395235c161b",
+        "previousProductId": "270ec48b-2dfc-4689-b96b-4ca8dec2e917",
+        "nextProductId": "e8fe2056-a2d4-48d4-a410-c3b9ffaf46c6",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "106b9297-bdb0-45a7-b119-8a3b554c5e1f",
+        "previousProductId": "63d51b98-6b5e-44a2-a74e-eecd88b5dd7c",
+        "nextProductId": "b622a5d6-0169-4b2e-a240-e5dfb5d22198",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      },
+      {
+        "itemId": "10bcf86a-6666-45e5-83ed-dcec512e3228",
+        "previousProductId": "e1563880-3455-45d5-af62-c35a38984f59",
+        "nextProductId": "16b51110-ce64-41f6-aca7-2bac1a3bd103",
+        "rationale": "Official iCHEF original setting UUID; exact name, meal periods, and prices across snapshot rollover."
+      }
+    ],
+    "canonicalizations": [],
+    "merges": []
+  }
+}

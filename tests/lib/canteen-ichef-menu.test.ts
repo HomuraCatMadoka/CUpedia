@@ -1,30 +1,40 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildIchefMenuSyncPayload } from "@/lib/canteen-ichef-menu";
+import { evaluateMenuSnapshot } from "@/lib/canteen-menu-snapshot-evaluator";
+import type { ExistingSyncMenuItem } from "@/lib/canteen-menu-sync";
 import { mealPeriodsForOperatingWindow } from "@/lib/canteen-provider-menu-periods";
 import { fetchIchefMenu } from "@/lib/canteen-menu-source-adapters";
 import ichefCurrent from "./fixtures/canteen-providers/ichef-current.json";
 
+const ICHEF_PRODUCT_UUID = "11111111-1111-4111-a111-111111111111";
+
 describe("iCHEF menu adapter", () => {
-  it("fails closed when the same UUID repeats in one category period", () => {
-    const item = { uuid: "item-1", name: "同一菜品", price: 10 };
-    expect(() =>
-      buildIchefMenuSyncPayload(
-        [
-          {
-            startTime: "11:00",
-            endTime: "14:00",
-            categorySnapshotUuids: ["a"],
-          },
-        ],
-        [
-          {
-            uuid: "a",
-            name: "飯類",
-            menuItemsSnapshot: [item, item],
-          },
-        ],
-      ),
-    ).toThrowError(expect.objectContaining({ code: "DUPLICATE_IDENTITY" }));
+  it("deduplicates the same iCHEF product occurrence in one category period", () => {
+    const item = {
+      uuid: "published-snapshot-item-1",
+      ichefUuid: ICHEF_PRODUCT_UUID,
+      name: "同一菜品",
+      price: 10,
+    };
+    const payload = buildIchefMenuSyncPayload(
+      [
+        {
+          startTime: "11:00",
+          endTime: "14:00",
+          categorySnapshotUuids: ["a"],
+        },
+      ],
+      [
+        {
+          uuid: "a",
+          name: "飯類",
+          menuItemsSnapshot: [item, item],
+        },
+      ],
+    );
+
+    expect(payload.items).toHaveLength(1);
+    expect(payload.items[0].externalProductId).toBe(ICHEF_PRODUCT_UUID);
   });
 
   it("maps menu-hour ranges to every overlapping meal period", () => {
@@ -52,14 +62,76 @@ describe("iCHEF menu adapter", () => {
     expect(payload).not.toHaveProperty("takeOverLegacyItems");
     expect(payload.items).toHaveLength(1);
     expect(payload.items[0]).toMatchObject({
-      externalProductId: "item-1",
+      externalProductId: ICHEF_PRODUCT_UUID,
       name: "雞扒飯",
       mealPeriods: ["breakfast", "lunch", "dinner"],
       priceOptions: [{ amountMinor: 3200, currency: "HKD" }],
     });
   });
 
-  it("fails closed when duplicate UUID rows disagree on mutable facts", () => {
+  it("keeps one product identity across published snapshot UUID rollovers", () => {
+    const menuHours = [
+      {
+        startTime: "11:00",
+        endTime: "20:00",
+        categorySnapshotUuids: ["category-snapshot"],
+      },
+    ];
+    const categories = (snapshotUuid: string) => [
+      {
+        uuid: "category-snapshot",
+        name: "飯類",
+        menuItemsSnapshot: [
+          {
+            uuid: snapshotUuid,
+            ichefUuid: ICHEF_PRODUCT_UUID,
+            name: "同一菜品",
+            price: 32,
+          },
+        ],
+      },
+    ];
+    const previous = buildIchefMenuSyncPayload(
+      menuHours,
+      categories("published-snapshot-before"),
+    );
+    const incoming = buildIchefMenuSyncPayload(
+      menuHours,
+      categories("published-snapshot-after"),
+    );
+    const previousItem = previous.items[0];
+    const existingItem: ExistingSyncMenuItem = {
+      id: "existing-menu-item",
+      name: previousItem.name,
+      mealPeriods: previousItem.mealPeriods,
+      sortOrder: previousItem.sortOrder,
+      svgKey: previousItem.svgKey,
+      priceOptions: previousItem.priceOptions,
+      menuSourceId: "11111111-1111-4111-a111-111111111111",
+      externalProductId: previousItem.externalProductId,
+      isAvailable: true,
+    };
+
+    const evaluation = evaluateMenuSnapshot(
+      {
+        id: existingItem.menuSourceId!,
+        provider: "ichef",
+        legacyAdoptionOpen: false,
+      },
+      { ...incoming, takeOverLegacyItems: false },
+      [existingItem],
+    );
+
+    expect(evaluation.blockingDecision).toEqual({
+      blocked: false,
+      code: null,
+      samples: [],
+    });
+    expect(previousItem.externalProductId).toBe(ICHEF_PRODUCT_UUID);
+    expect(incoming.items[0].externalProductId).toBe(ICHEF_PRODUCT_UUID);
+  });
+
+  it("fails closed when duplicate iCHEF UUID rows disagree on mutable facts", () => {
     expect(() =>
       buildIchefMenuSyncPayload(
         [
@@ -73,19 +145,33 @@ describe("iCHEF menu adapter", () => {
           {
             uuid: "a",
             name: "A",
-            menuItemsSnapshot: [{ uuid: "item-1", name: "菜品 A", price: 10 }],
+            menuItemsSnapshot: [
+              {
+                uuid: "published-a",
+                ichefUuid: ICHEF_PRODUCT_UUID,
+                name: "菜品 A",
+                price: 10,
+              },
+            ],
           },
           {
             uuid: "b",
             name: "B",
-            menuItemsSnapshot: [{ uuid: "item-1", name: "菜品 B", price: 20 }],
+            menuItemsSnapshot: [
+              {
+                uuid: "published-b",
+                ichefUuid: ICHEF_PRODUCT_UUID,
+                name: "菜品 B",
+                price: 20,
+              },
+            ],
           },
         ],
       ),
     ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
   });
 
-  it("fails closed when duplicate UUID rows rename at the same price", () => {
+  it("fails closed when duplicate iCHEF UUID rows rename at the same price", () => {
     expect(() =>
       buildIchefMenuSyncPayload(
         [{ categorySnapshotUuids: ["a", "b"] }],
@@ -93,35 +179,25 @@ describe("iCHEF menu adapter", () => {
           {
             uuid: "a",
             name: "A",
-            menuItemsSnapshot: [{ uuid: "item-1", name: "菜品 A", price: 10 }],
+            menuItemsSnapshot: [
+              {
+                uuid: "published-a",
+                ichefUuid: ICHEF_PRODUCT_UUID,
+                name: "菜品 A",
+                price: 10,
+              },
+            ],
           },
           {
             uuid: "b",
             name: "B",
-            menuItemsSnapshot: [{ uuid: "item-1", name: "菜品 B", price: 10 }],
-          },
-        ],
-      ),
-    ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
-  });
-
-  it("fails closed when duplicate UUID rows disagree only on category", () => {
-    expect(() =>
-      buildIchefMenuSyncPayload(
-        [{ categorySnapshotUuids: ["a", "b"] }],
-        [
-          {
-            uuid: "a",
-            name: "飯類",
             menuItemsSnapshot: [
-              { uuid: "item-1", name: "同一菜品", price: 10 },
-            ],
-          },
-          {
-            uuid: "b",
-            name: "飲品",
-            menuItemsSnapshot: [
-              { uuid: "item-1", name: "同一菜品", price: 10 },
+              {
+                uuid: "published-b",
+                ichefUuid: ICHEF_PRODUCT_UUID,
+                name: "菜品 B",
+                price: 10,
+              },
             ],
           },
         ],
@@ -129,7 +205,46 @@ describe("iCHEF menu adapter", () => {
     ).toThrowError(expect.objectContaining({ code: "COLLIDING_IDENTITY" }));
   });
 
-  it("fails closed when an emitted item UUID is empty", () => {
+  it("aggregates compatible category occurrences deterministically", () => {
+    const categories = [
+      {
+        uuid: "a",
+        name: "飯類",
+        menuItemsSnapshot: [
+          {
+            uuid: "published-a",
+            ichefUuid: ICHEF_PRODUCT_UUID,
+            name: "同一菜品",
+            price: 10,
+          },
+        ],
+      },
+      {
+        uuid: "b",
+        name: "飲品",
+        menuItemsSnapshot: [
+          {
+            uuid: "published-b",
+            ichefUuid: ICHEF_PRODUCT_UUID,
+            name: "同一菜品",
+            price: 10,
+          },
+        ],
+      },
+    ];
+    const menuHours = [{ categorySnapshotUuids: ["a", "b"] }];
+    const forward = buildIchefMenuSyncPayload(menuHours, categories);
+    const reverse = buildIchefMenuSyncPayload(
+      menuHours,
+      [...categories].reverse(),
+    );
+
+    expect(forward.items).toHaveLength(1);
+    expect(reverse.items).toHaveLength(1);
+    expect(reverse.items[0]).toEqual(forward.items[0]);
+  });
+
+  it("fails closed instead of falling back to a snapshot UUID", () => {
     expect(() =>
       buildIchefMenuSyncPayload(
         [{ categorySnapshotUuids: ["a"] }],
@@ -137,7 +252,13 @@ describe("iCHEF menu adapter", () => {
           {
             uuid: "a",
             name: "A",
-            menuItemsSnapshot: [{ name: "不能當 ID", price: 10 }],
+            menuItemsSnapshot: [
+              {
+                uuid: "published-snapshot-only",
+                name: "不能當 ID",
+                price: 10,
+              },
+            ],
           },
         ],
       ),
@@ -163,12 +284,14 @@ describe("iCHEF menu adapter", () => {
       );
     }
     const secondBody = JSON.parse(String(fetchImpl.mock.calls[1][1]?.body)) as {
+      query: string;
       variables: { categoriesSnapshotUuids: string[] };
     };
     expect(secondBody.variables.categoriesSnapshotUuids).toEqual([
       "breakfast",
       "daytime",
     ]);
+    expect(secondBody.query).toContain("ichefUuid");
   });
 
   it("rejects empty snapshots before they can deactivate existing dishes", () => {
@@ -187,6 +310,51 @@ describe("iCHEF menu adapter", () => {
         }),
       ),
     );
+
+    await expect(fetchIchefMenu("UQftKWxU", { fetchImpl })).rejects.toThrow(
+      "INVALID_ICHEF_MENU",
+    );
+  });
+
+  it("rejects a non-string stable iCHEF UUID at the provider boundary", async () => {
+    const malformedCategories = structuredClone(
+      ichefCurrent.categoriesResponse,
+    ) as unknown as {
+      data: {
+        restaurant: {
+          onlineOrderingMenu: {
+            categoriesSnapshot: Array<{
+              menuItemsSnapshot: Array<{ ichefUuid: unknown }>;
+            }>;
+          };
+        };
+      };
+    };
+    malformedCategories.data.restaurant.onlineOrderingMenu.categoriesSnapshot[0].menuItemsSnapshot[0].ichefUuid = 123;
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(ichefCurrent.menuHoursResponse)),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(malformedCategories)));
+
+    await expect(fetchIchefMenu("UQftKWxU", { fetchImpl })).rejects.toThrow(
+      "INVALID_ICHEF_MENU",
+    );
+  });
+
+  it("rejects a malformed string stable iCHEF UUID at the provider boundary", async () => {
+    const malformedCategories = structuredClone(
+      ichefCurrent.categoriesResponse,
+    );
+    malformedCategories.data.restaurant.onlineOrderingMenu.categoriesSnapshot[0].menuItemsSnapshot[0].ichefUuid =
+      "not-a-uuid";
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(ichefCurrent.menuHoursResponse)),
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify(malformedCategories)));
 
     await expect(fetchIchefMenu("UQftKWxU", { fetchImpl })).rejects.toThrow(
       "INVALID_ICHEF_MENU",

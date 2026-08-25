@@ -3,7 +3,10 @@ import type {
   CanteenMenuSourceProvider,
 } from "@/db/schema";
 import { buildAigensMenuSyncPayload } from "@/lib/canteen-aigens-menu";
-import { buildIchefMenuSyncPayload } from "@/lib/canteen-ichef-menu";
+import {
+  buildIchefMenuSyncPayload,
+  isIchefProductUuid,
+} from "@/lib/canteen-ichef-menu";
 import {
   buildPinmeMenuSyncPayload,
   createPinmeSignedParams,
@@ -47,6 +50,7 @@ query storeMenuItemCategoriesQuery(
         uuid
         menuItemsSnapshot {
           uuid
+          ichefUuid
           name
           price
         }
@@ -182,6 +186,7 @@ function validateIchefData(payload: unknown) {
                 return (
                   item !== null &&
                   optionalString(item.uuid) &&
+                  isIchefProductUuid(item.ichefUuid) &&
                   optionalString(item.name) &&
                   (item.price === undefined || typeof item.price === "number")
                 );
@@ -204,6 +209,7 @@ function validateIchefData(payload: unknown) {
           name?: string;
           menuItemsSnapshot?: Array<{
             uuid?: string;
+            ichefUuid: string;
             name?: string;
             price?: number;
           }>;
