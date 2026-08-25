@@ -261,6 +261,7 @@ describe("menu snapshot evaluator", () => {
         absenceAuthority: {
           kind: "current-activity",
           coveredMealPeriods: ["breakfast", "lunch", "dinner"],
+          configuredMealPeriods: ["breakfast", "lunch", "dinner"],
         },
         items: persisted.slice(0, 150).map((item) => ({
           externalProductId: item.externalProductId!,
@@ -288,6 +289,248 @@ describe("menu snapshot evaluator", () => {
       code: null,
       samples: [],
     });
+  });
+
+  it("allows a provider-declared noon to afternoon publication transition (#743)", () => {
+    const noon = Array.from({ length: 61 }, (_, index) =>
+      existing({
+        id: `noon-${index}`,
+        externalProductId: `product-${index}`,
+        name: `午餐菜品 ${index}`,
+        mealPeriods: ["lunch"],
+      }),
+    );
+    const afternoon = [
+      ...noon.slice(0, 19).map((item, index) => ({
+        externalProductId: item.externalProductId!,
+        name: item.name,
+        priceOptions: item.priceOptions,
+        mealPeriods: ["lunch" as const],
+        sortOrder: index,
+        svgKey: item.svgKey,
+      })),
+      ...Array.from({ length: 20 }, (_, index) => ({
+        externalProductId: `afternoon-${index}`,
+        name: `下午茶菜品 ${index}`,
+        priceOptions: [],
+        mealPeriods: ["lunch" as const],
+        sortOrder: 19 + index,
+        svgKey: "下午茶",
+      })),
+    ];
+
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["breakfast", "lunch", "dinner"],
+          publicationTransition: "changed",
+        },
+        items: afternoon,
+      },
+      noon,
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 20,
+      missingProductCount: 42,
+      suspectedReplacementCount: 0,
+    });
+    expect(
+      result.plan.actions.filter((action) => action.action === "create"),
+    ).toHaveLength(20);
+    expect(
+      result.plan.actions.filter((action) => action.action === "deactivate"),
+    ).toHaveLength(42);
+    expect(result.blockingReasons).toEqual([]);
+  });
+
+  it("still blocks same-name ID replacement during a publication transition", () => {
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["lunch"],
+          publicationTransition: "changed",
+        },
+        items: [
+          {
+            externalProductId: "new-id",
+            name: "同一道菜",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐",
+          },
+        ],
+      },
+      [
+        existing({
+          externalProductId: "old-id",
+          name: "同一道菜",
+        }),
+      ],
+    );
+
+    expect(result.identityObservation.suspectedReplacementCount).toBe(1);
+    expect(result.blockingDecision).toMatchObject({
+      blocked: true,
+      code: "MENU_SYNC_IDENTITY_CHURN",
+    });
+  });
+
+  it("removes only the observed meal period from missing identities (#743)", () => {
+    const persisted = [
+      existing({
+        id: "observed",
+        externalProductId: "observed",
+        name: "午餐仍供应",
+        mealPeriods: ["breakfast", "lunch", "dinner"],
+      }),
+      existing({
+        id: "other-periods",
+        externalProductId: "other-periods",
+        name: "只在其他餐段供应",
+        mealPeriods: ["breakfast", "lunch", "dinner"],
+      }),
+      existing({
+        id: "lunch-only",
+        externalProductId: "lunch-only",
+        name: "午餐已下架",
+        mealPeriods: ["lunch"],
+      }),
+    ];
+
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["breakfast", "lunch", "dinner"],
+        },
+        items: [
+          {
+            externalProductId: "observed",
+            name: "午餐仍供应",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐",
+          },
+        ],
+      },
+      persisted,
+    );
+
+    expect(
+      result.canonicalState.input.items.find(
+        (item) => item.externalProductId === "other-periods",
+      )?.mealPeriods,
+    ).toEqual(["breakfast", "dinner"]);
+    expect(result.plan.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "update",
+          itemId: "other-periods",
+          changedFields: ["mealPeriods"],
+        }),
+        expect.objectContaining({
+          action: "deactivate",
+          itemId: "lunch-only",
+        }),
+      ]),
+    );
+    expect(
+      result.plan.actions.some(
+        (action) =>
+          action.action === "deactivate" && action.itemId === "other-periods",
+      ),
+    ).toBe(false);
+  });
+
+  it("expands legacy allday visibility only across configured source periods", () => {
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["lunch", "dinner"],
+        },
+        items: [
+          {
+            externalProductId: "current-lunch",
+            name: "当前午餐",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐",
+          },
+        ],
+      },
+      [
+        existing({
+          id: "legacy-allday",
+          externalProductId: "legacy-allday",
+          mealPeriods: ["allday"],
+        }),
+      ],
+    );
+
+    expect(
+      result.canonicalState.input.items.find(
+        (item) => item.externalProductId === "legacy-allday",
+      ),
+    ).toMatchObject({ mealPeriods: ["dinner"] });
+  });
+
+  it("recognizes an identity already known in another meal period", () => {
+    const result = evaluateCurrentMenuProjection(
+      SOURCE,
+      {
+        absenceAuthority: {
+          kind: "current-activity",
+          coveredMealPeriods: ["lunch"],
+          configuredMealPeriods: ["breakfast", "lunch", "dinner"],
+        },
+        items: [
+          {
+            externalProductId: "known-other-period",
+            name: "同名菜品",
+            priceOptions: [],
+            mealPeriods: ["lunch"],
+            sortOrder: 0,
+            svgKey: "午餐",
+          },
+        ],
+      },
+      [
+        existing({
+          id: "known-other-period",
+          externalProductId: "known-other-period",
+          name: "同名菜品",
+          mealPeriods: ["breakfast"],
+        }),
+        existing({
+          id: "old-current-period",
+          externalProductId: "old-current-period",
+          name: "同名菜品",
+          mealPeriods: ["lunch"],
+        }),
+      ],
+    );
+
+    expect(result.identityObservation).toMatchObject({
+      newProductCount: 0,
+      missingProductCount: 1,
+      suspectedReplacementCount: 0,
+    });
+    expect(result.blockingDecision.blocked).toBe(false);
   });
 
   it("observes absences without blocking or deactivating a partial snapshot", () => {

@@ -176,6 +176,17 @@ export type MenuSnapshotScopeEvidence =
       menuGroupCount: number;
       groupCount: number;
       referencedGroupIds: string[];
+      /** Stable fingerprint of the provider's currently selected menu groups. */
+      publicationKey?: string;
+      /** Rollout-compatible fingerprint of referenced groups and service time. */
+      publicationCompatibilityKey?: string;
+      publicationWindows?: Array<{
+        publicationId: string;
+        startTime: string;
+        endTime: string;
+      }>;
+      /** Advisory HKT clock boundaries; never menu-content authority. */
+      refreshBoundaryMinutes?: number[];
       serviceWindows: Array<{
         startTime: string;
         endTime: string;
@@ -201,6 +212,8 @@ export type MenuAbsenceAuthority =
   | {
       kind: "current-activity";
       coveredMealPeriods: MealPeriod[];
+      configuredMealPeriods: MealPeriod[];
+      publicationTransition?: "changed";
     };
 
 /** Derived current-menu state; deliberately not a provider observation. */

@@ -29,6 +29,15 @@ vi.mock("@/lib/canteen-menu-source-adapters", () => ({
   fetchMenuFromProvider,
 }));
 
+vi.mock("@/lib/canteen-menu-sync-window", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/canteen-menu-sync-window")>();
+  return {
+    ...actual,
+    menuObservationCanProjectActivity: () => true,
+  };
+});
+
 import {
   syncCanteenMenuSource,
   syncNextDueMenuSource,
@@ -38,6 +47,7 @@ import {
   getCanteenMenuItemCounts,
   getCanteenMenuItems,
 } from "@/lib/canteen-actions";
+import { filterItemsByMealPeriod } from "@/lib/canteen-meal-periods";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -213,7 +223,7 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     ]);
   });
 
-  it("keeps global absence non-authoritative until every configured scope has an observation", async () => {
+  it("keeps an identity visible only in an unobserved scope active", async () => {
     await db
       .update(canteenMenuSources)
       .set({
@@ -234,14 +244,23 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
         isAvailable: true,
       })
       .returning({ id: canteenMenuItems.id });
-    fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => ({
-      snapshotCompleteness: "complete",
-      observationScope: {
-        kind: "meal-period",
-        mealPeriod: context.mealPeriod,
-      },
-      items: [item("current-scope", { mealPeriods: [context.mealPeriod] })],
-    }));
+    fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
+      const unobservedPeriod = (["breakfast", "lunch", "dinner"] as const).find(
+        (period) => period !== context.mealPeriod,
+      )!;
+      await db
+        .update(canteenMenuItems)
+        .set({ mealPeriods: [unobservedPeriod] })
+        .where(eq(canteenMenuItems.id, existing.id));
+      return {
+        snapshotCompleteness: "complete",
+        observationScope: {
+          kind: "meal-period",
+          mealPeriod: context.mealPeriod,
+        },
+        items: [item("current-scope", { mealPeriods: [context.mealPeriod] })],
+      };
+    });
 
     await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
       status: "applied",
@@ -253,7 +272,72 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     expect(preserved.isAvailable).toBe(true);
   });
 
-  it("removes stale partial-provider activity after every configured scope is observed (#743)", async () => {
+  it("converges one observed public meal period without changing unobserved periods (#743)", async () => {
+    await db
+      .update(canteenMenuSources)
+      .set({ syncMealPeriods: ["breakfast", "lunch", "dinner"] })
+      .where(eq(canteenMenuSources.id, sourceId));
+    await db.insert(canteenMenuItems).values(
+      Array.from({ length: 160 }, (_, index) => ({
+        canteenId,
+        menuSourceId: sourceId,
+        externalProductId: `united-${index}`,
+        name: `联合书院菜品 ${index}`,
+        mealPeriods: ["breakfast", "lunch", "dinner"],
+        sortOrder: index,
+        svgKey: "菜单",
+        isAvailable: true,
+      })),
+    );
+    let observedPeriod: "breakfast" | "lunch" | "dinner" | undefined;
+    fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
+      observedPeriod = context.mealPeriod;
+      return {
+        snapshotCompleteness: "partial",
+        observationScope: {
+          kind: "meal-period",
+          mealPeriod: context.mealPeriod,
+        },
+        items: Array.from({ length: 61 }, (_, index) =>
+          item(`united-${index}`, {
+            name: `联合书院菜品 ${index}`,
+            mealPeriods: [context.mealPeriod],
+            sortOrder: index,
+            svgKey: "菜单",
+          }),
+        ),
+      };
+    });
+
+    await expect(syncCanteenMenuSource(sourceId)).resolves.toMatchObject({
+      status: "applied",
+      itemCount: 61,
+    });
+
+    expect(observedPeriod).toBeDefined();
+    const publicMenu = await getCanteenMenuItems(canteenId);
+    expect(filterItemsByMealPeriod(publicMenu, observedPeriod!)).toHaveLength(
+      61,
+    );
+    for (const otherPeriod of (
+      ["breakfast", "lunch", "dinner"] as const
+    ).filter((period) => period !== observedPeriod)) {
+      expect(filterItemsByMealPeriod(publicMenu, otherPeriod)).toHaveLength(
+        160,
+      );
+    }
+    const [stale] = await db
+      .select({
+        isAvailable: canteenMenuItems.isAvailable,
+        mealPeriods: canteenMenuItems.mealPeriods,
+      })
+      .from(canteenMenuItems)
+      .where(eq(canteenMenuItems.externalProductId, "united-159"));
+    expect(stale.isAvailable).toBe(true);
+    expect(stale.mealPeriods).not.toContain(observedPeriod);
+  });
+
+  it("deactivates a stale identity when its last visible period is removed (#743)", async () => {
     await db
       .update(canteenMenuSources)
       .set({ syncMealPeriods: ["breakfast", "lunch", "dinner"] })
@@ -284,35 +368,10 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
       });
 
     fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
-      const retainedPeriods = (
-        ["breakfast", "lunch", "dinner"] as const
-      ).filter((period) => period !== context.mealPeriod);
-      for (const [index, period] of retainedPeriods.entries()) {
-        const runId = randomUUID();
-        await db.insert(canteenMenuSyncRuns).values({
-          id: runId,
-          menuSourceId: sourceId,
-          status: "unchanged",
-        });
-        await db.insert(canteenMenuSyncSnapshots).values({
-          runId,
-          menuSourceId: sourceId,
-          snapshotHash: String(index + 4).repeat(64),
-          snapshotCompleteness: "partial",
-          observationScope: "meal-period",
-          itemCount: 1,
-          syncWindowKey: `retained/${period}`,
-          mealPeriod: period,
-          hktWeekday: 1,
-          observedMinuteOfDay: 60 + index,
-          scopeEvidence: {},
-          observedAt: new Date(Date.now() - (index + 1) * 60_000),
-        });
-        await db.insert(canteenMenuSyncSnapshotItems).values({
-          runId,
-          ...item("still-published", { mealPeriods: [period] }),
-        });
-      }
+      await db
+        .update(canteenMenuItems)
+        .set({ mealPeriods: [context.mealPeriod] })
+        .where(eq(canteenMenuItems.menuSourceId, sourceId));
       return {
         snapshotCompleteness: "partial",
         observationScope: {
@@ -438,38 +497,10 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
       }),
     );
     fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
-      const retainedPeriods = (
-        ["breakfast", "lunch", "dinner"] as const
-      ).filter((period) => period !== context.mealPeriod);
-      for (const [index, period] of retainedPeriods.entries()) {
-        const runId = randomUUID();
-        await db.insert(canteenMenuSyncRuns).values({
-          id: runId,
-          menuSourceId: sourceId,
-          status: "unchanged",
-        });
-        await db.insert(canteenMenuSyncSnapshots).values({
-          runId,
-          menuSourceId: sourceId,
-          snapshotHash: String(index + 6).repeat(64),
-          snapshotCompleteness: "partial",
-          observationScope: "meal-period",
-          itemCount: publishedItems.length,
-          syncWindowKey: `retained/${period}`,
-          mealPeriod: period,
-          hktWeekday: 1,
-          observedMinuteOfDay: 60 + index,
-          scopeEvidence: {},
-          observedAt: new Date(Date.now() - (index + 1) * 60_000),
-        });
-        await db.insert(canteenMenuSyncSnapshotItems).values(
-          publishedItems.map((published) => ({
-            runId,
-            ...published,
-            mealPeriods: [period],
-          })),
-        );
-      }
+      await db
+        .update(canteenMenuItems)
+        .set({ mealPeriods: [context.mealPeriod] })
+        .where(eq(canteenMenuItems.menuSourceId, sourceId));
       return {
         snapshotCompleteness: "partial",
         observationScope: {
@@ -558,7 +589,7 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     expect(historyAfterRestore.map(([row]) => row.value)).toEqual([1, 1]);
   });
 
-  it("materializes the latest configured meal scopes without replacing other periods", async () => {
+  it("patches the current scope without replacing other periods", async () => {
     await db
       .update(canteenMenuSources)
       .set({
@@ -568,48 +599,30 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
         syncMealPeriods: ["breakfast", "lunch", "dinner"],
       })
       .where(eq(canteenMenuSources.id, sourceId));
-
     let observedPeriod: "breakfast" | "lunch" | "dinner" | undefined;
     fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
       observedPeriod = context.mealPeriod;
       const otherPeriods = (["breakfast", "lunch", "dinner"] as const).filter(
         (period) => period !== context.mealPeriod,
       );
-      for (const [index, period] of otherPeriods.entries()) {
-        const runId = randomUUID();
-        await db.insert(canteenMenuSyncRuns).values({
-          id: runId,
+      await db.insert(canteenMenuItems).values([
+        {
+          canteenId,
           menuSourceId: sourceId,
-          status: "unchanged",
-        });
-        await db.insert(canteenMenuSyncSnapshots).values({
-          runId,
+          externalProductId: "shared",
+          name: "菜品 shared",
+          mealPeriods: otherPeriods,
+          isAvailable: true,
+        },
+        ...otherPeriods.map((period) => ({
+          canteenId,
           menuSourceId: sourceId,
-          snapshotHash: String(index + 1).repeat(64),
-          snapshotCompleteness: "complete",
-          observationScope: "meal-period",
-          itemCount: 2,
-          syncWindowKey: `retained/${period}`,
-          mealPeriod: period,
-          hktWeekday: 1,
-          observedMinuteOfDay: 60 + index,
-          scopeEvidence: {},
-          observedAt: new Date(Date.now() - (index + 1) * 60_000),
-        });
-        await db.insert(canteenMenuSyncSnapshotItems).values([
-          {
-            runId,
-            ...item("shared", { mealPeriods: [period] }),
-          },
-          {
-            runId,
-            ...item(`only-${period}`, {
-              mealPeriods: [period],
-              sortOrder: 1,
-            }),
-          },
-        ]);
-      }
+          externalProductId: `only-${period}`,
+          name: `菜品 only-${period}`,
+          mealPeriods: [period],
+          isAvailable: true,
+        })),
+      ]);
       return {
         snapshotCompleteness: "complete",
         observationScope: {
@@ -710,7 +723,7 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     ]);
   });
 
-  it("uses the newest facts when a shared product changes across scoped observations", async () => {
+  it("uses current facts while retaining other-period visibility", async () => {
     await db
       .update(canteenMenuSources)
       .set({
@@ -737,46 +750,6 @@ describe.skipIf(!hasDb)("canteen menu sync observation snapshots #724", () => {
     });
 
     fetchMenuFromProvider.mockImplementationOnce(async (_source, context) => {
-      const retainedPeriods = (
-        ["breakfast", "lunch", "dinner"] as const
-      ).filter((period) => period !== context.mealPeriod);
-      for (const [index, period] of retainedPeriods.entries()) {
-        const runId = randomUUID();
-        await db.insert(canteenMenuSyncRuns).values({
-          id: runId,
-          menuSourceId: sourceId,
-          status: "unchanged",
-        });
-        await db.insert(canteenMenuSyncSnapshots).values({
-          runId,
-          menuSourceId: sourceId,
-          snapshotHash: String(index + 7).repeat(64),
-          snapshotCompleteness: "complete",
-          observationScope: "meal-period",
-          itemCount: 1,
-          syncWindowKey: `retained/${period}`,
-          mealPeriod: period,
-          hktWeekday: 1,
-          observedMinuteOfDay: 60 + index,
-          scopeEvidence: {},
-          observedAt: new Date(Date.now() - (index + 1) * 60_000),
-        });
-        await db.insert(canteenMenuSyncSnapshotItems).values({
-          runId,
-          ...item("shared-changing-facts", {
-            name: "舊菜名",
-            priceOptions: [
-              {
-                label: null,
-                amountMinor: 2_000,
-                currency: "HKD",
-                sortOrder: 0,
-              },
-            ],
-            mealPeriods: [period],
-          }),
-        });
-      }
       return {
         snapshotCompleteness: "complete",
         observationScope: {

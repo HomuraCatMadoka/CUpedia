@@ -106,6 +106,12 @@ export function isSuspiciousMenuIdentityChurn(
 ): boolean {
   if (observation.suspectedReplacementCount > 0) return true;
   if (absenceAuthority.kind === "none") return false;
+  if (
+    absenceAuthority.kind === "current-activity" &&
+    absenceAuthority.publicationTransition === "changed"
+  ) {
+    return false;
+  }
 
   const changed = Math.min(
     observation.newProductCount,

@@ -17,7 +17,10 @@ import {
   type ExistingSyncMenuItem,
   type MenuSyncPlan,
 } from "./canteen-menu-sync";
-import { projectSingleMenuObservation } from "./canteen-menu-projection";
+import {
+  materializeMealPeriodActivityProjection,
+  projectSingleMenuObservation,
+} from "./canteen-menu-projection";
 import type {
   CurrentMenuProjection,
   MenuAbsenceAuthority,
@@ -107,12 +110,19 @@ export function evaluateCurrentMenuProjection(
     existingItems,
     options,
   );
+  const observedItems = canonicalState.input.items;
+  const materialized = materializeMealPeriodActivityProjection(
+    source.id,
+    canonicalState.input,
+    canonicalState.existingItems,
+  );
   return evaluateCanonicalMenuSnapshot(
     source,
-    canonicalState,
-    canonicalState.input,
+    { ...canonicalState, input: materialized },
+    materialized,
     false,
     [],
+    observedItems,
   );
 }
 
@@ -157,6 +167,7 @@ function evaluateCanonicalMenuSnapshot<TInput extends MenuEvaluationInput>(
   projection: CurrentMenuProjection,
   takeOverLegacyItems: boolean,
   approvedIdentityReplacements: readonly ApprovedMenuIdentityReplacement[],
+  observedItems = projection.items,
 ): MenuSnapshotEvaluation<TInput> {
   const plan = planMenuSync(
     source.id,
@@ -168,6 +179,10 @@ function evaluateCanonicalMenuSnapshot<TInput extends MenuEvaluationInput>(
       approvedIdentityReplacements,
     },
   );
+  const coveredMealPeriods =
+    projection.absenceAuthority.kind === "current-activity"
+      ? new Set(projection.absenceAuthority.coveredMealPeriods)
+      : null;
   const managedIdentityProjection = canonicalState.existingItems.flatMap(
     (item) =>
       item.menuSourceId === source.id && item.externalProductId !== null
@@ -175,7 +190,14 @@ function evaluateCanonicalMenuSnapshot<TInput extends MenuEvaluationInput>(
             {
               externalProductId: item.externalProductId,
               name: item.name,
-              isAvailable: item.isAvailable,
+              isAvailable:
+                item.isAvailable &&
+                (!coveredMealPeriods ||
+                  item.mealPeriods.includes("allday") ||
+                  item.mealPeriods.some(
+                    (period) =>
+                      period !== "allday" && coveredMealPeriods.has(period),
+                  )),
             },
           ]
         : [],
@@ -185,13 +207,13 @@ function evaluateCanonicalMenuSnapshot<TInput extends MenuEvaluationInput>(
   ).length;
   const identityObservation = observeMenuIdentityChurn(
     managedIdentityProjection,
-    projection.items,
+    observedItems,
   );
   const blockingReasons = collectMenuSnapshotBlockingReasons(
     plan,
     identityObservation,
     activeManagedCount,
-    projection.items.length,
+    observedItems.length,
     projection.absenceAuthority,
   );
 

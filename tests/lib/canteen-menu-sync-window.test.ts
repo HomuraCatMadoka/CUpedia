@@ -1,6 +1,10 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { HktWeekday } from "@/db/schema";
-import { menuSyncWindowAt } from "@/lib/canteen-menu-sync-window";
+import {
+  menuObservationCanProjectActivity,
+  menuObservationContextAt,
+  menuSyncWindowAt,
+} from "@/lib/canteen-menu-sync-window";
 
 describe("canteen menu sync windows", () => {
   it.each([
@@ -22,5 +26,18 @@ describe("canteen menu sync windows", () => {
     expect(window?.endsAt.getTime()).toBeGreaterThan(
       new Date(timestamp).getTime(),
     );
+  });
+
+  it("opens breakfast activity authority at 08:00 HKT", () => {
+    expect(
+      menuObservationCanProjectActivity(
+        menuObservationContextAt(new Date("2026-08-24T19:05:00.000Z")),
+      ),
+    ).toBe(false);
+    expect(
+      menuObservationCanProjectActivity(
+        menuObservationContextAt(new Date("2026-08-25T00:00:00.000Z")),
+      ),
+    ).toBe(true);
   });
 });

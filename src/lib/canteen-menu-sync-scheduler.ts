@@ -1,16 +1,93 @@
-import { canteenMenuSources, canteenMenuSyncRuns } from "@/db/schema";
+import {
+  canteenMenuSources,
+  canteenMenuSyncRuns,
+  canteenMenuSyncSnapshots,
+} from "@/db/schema";
 import { sql } from "drizzle-orm";
 import type { MenuSyncTransaction } from "./canteen-menu-sync-store";
-import type { MenuSyncWindow } from "./canteen-menu-sync-window";
+import {
+  menuSyncWindowAcceptsActivity,
+  type MenuSyncWindow,
+} from "./canteen-menu-sync-window";
 
 const MAX_WINDOW_FAILURES = 3;
 const FIRST_RETRY_DELAY_MS = 2 * 60 * 1_000;
 const LATER_RETRY_DELAY_MS = 5 * 60 * 1_000;
+const MIN_SCOPED_OBSERVATION_INTERVAL_MS = 10 * 60 * 1_000;
+const SCOPED_OBSERVATION_REFRESH_MS = 45 * 60 * 1_000;
+const MAX_REFRESH_BOUNDARIES = 128;
 const REVIEW_REQUIRED_CODES = new Set([
   "MENU_SYNC_CONFLICT",
   "MENU_SYNC_IDENTITY_CHURN",
   "MENU_SYNC_SUSPICIOUS_DROP",
 ]);
+
+export type LatestMenuSourceObservation = {
+  observedAt: Date;
+  observedMinuteOfDay: number;
+  observationScope: "catalog" | "meal-period" | null;
+  scopeEvidence: Record<string, unknown>;
+};
+
+function refreshBoundaryMinutes(evidence: Record<string, unknown>): number[] {
+  if (!Array.isArray(evidence.refreshBoundaryMinutes)) return [];
+  return evidence.refreshBoundaryMinutes
+    .slice(0, MAX_REFRESH_BOUNDARIES)
+    .filter(
+      (value): value is number =>
+        Number.isInteger(value) && value >= 0 && value <= 1439,
+    )
+    .sort((left, right) => left - right);
+}
+
+/**
+ * Returns the next time a successful observation becomes stale in this coarse
+ * meal period. Provider boundaries can advance the bounded fallback refresh.
+ */
+export function nextMenuSourceObservationAt(
+  window: MenuSyncWindow,
+  latest: LatestMenuSourceObservation,
+): Date | null {
+  if (latest.observationScope !== "meal-period") return null;
+
+  const earliestRepeatAt = new Date(
+    latest.observedAt.getTime() + MIN_SCOPED_OBSERVATION_INTERVAL_MS,
+  );
+  const candidates = [
+    new Date(latest.observedAt.getTime() + SCOPED_OBSERVATION_REFRESH_MS),
+  ];
+  if (
+    Number.isInteger(latest.observedMinuteOfDay) &&
+    latest.observedMinuteOfDay >= 0 &&
+    latest.observedMinuteOfDay <= 1439
+  ) {
+    const millisecondsIntoMinute =
+      latest.observedAt.getUTCSeconds() * 1_000 +
+      latest.observedAt.getUTCMilliseconds();
+    const nextBoundary = refreshBoundaryMinutes(latest.scopeEvidence).find(
+      (minute) => minute > latest.observedMinuteOfDay,
+    );
+    if (nextBoundary !== undefined) {
+      const boundaryAt = new Date(
+        latest.observedAt.getTime() +
+          (nextBoundary - latest.observedMinuteOfDay) * 60 * 1_000 -
+          millisecondsIntoMinute,
+      );
+      candidates.push(
+        boundaryAt < earliestRepeatAt ? earliestRepeatAt : boundaryAt,
+      );
+    }
+  }
+
+  return (
+    candidates
+      .filter(
+        (candidate) =>
+          candidate >= window.claimsStartAt && candidate < window.endsAt,
+      )
+      .sort((left, right) => left.getTime() - right.getTime())[0] ?? null
+  );
+}
 
 type MenuSourceScheduleFacts = {
   sourceId: string;
@@ -19,6 +96,12 @@ type MenuSourceScheduleFacts = {
   failureCount: number;
   latestErrorCode: string | null;
   latestFailedAt: Date | null;
+};
+
+type MenuSourceFailedRun = {
+  startedAt: Date;
+  completedAt: Date | null;
+  errorCode: string | null;
 };
 
 export type MenuSourceScheduleCandidate =
@@ -34,6 +117,32 @@ function parseDatabaseDate(value: unknown): Date | null {
   const parsed = new Date(String(value));
   if (Number.isNaN(parsed.getTime())) throw new Error("INVALID_DATABASE_TIME");
   return parsed;
+}
+
+function parseFailedRuns(value: unknown): MenuSourceFailedRun[] {
+  let input = value;
+  if (typeof input === "string") {
+    try {
+      input = JSON.parse(input);
+    } catch {
+      throw new Error("INVALID_MENU_SYNC_FAILURE_HISTORY");
+    }
+  }
+  if (!Array.isArray(input))
+    throw new Error("INVALID_MENU_SYNC_FAILURE_HISTORY");
+  return input.map((entry) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error("INVALID_MENU_SYNC_FAILURE_HISTORY");
+    }
+    const row = entry as Record<string, unknown>;
+    const startedAt = parseDatabaseDate(row.startedAt);
+    if (!startedAt) throw new Error("INVALID_MENU_SYNC_FAILURE_HISTORY");
+    return {
+      startedAt,
+      completedAt: parseDatabaseDate(row.completedAt),
+      errorCode: typeof row.errorCode === "string" ? row.errorCode : null,
+    };
+  });
 }
 
 export function isReviewRequiredMenuSyncCode(code: string): boolean {
@@ -100,6 +209,7 @@ function candidateRank(candidate: MenuSourceScheduleCandidate): number {
 async function readMenuSourceScheduleFacts(
   tx: MenuSyncTransaction,
   window: MenuSyncWindow,
+  databaseNow: Date,
   sourceId?: string,
 ): Promise<MenuSourceScheduleFacts[]> {
   const sourceFilter = sourceId ? sql`source.id = ${sourceId}` : sql`true`;
@@ -107,49 +217,100 @@ async function readMenuSourceScheduleFacts(
     source_id: string;
     created_at: string | Date;
     active_claim: boolean;
-    failure_count: number;
-    latest_error_code: string | null;
-    latest_failed_at: string | Date | null;
+    latest_success_at: string | Date | null;
+    latest_observed_minute_of_day: number | null;
+    latest_observation_scope: "catalog" | "meal-period" | null;
+    latest_scope_evidence: Record<string, unknown> | null;
+    failed_runs: unknown;
   }>(sql`
     select
       source.id as source_id,
       source.created_at,
       coalesce(source.sync_claim_expires_at > now(), false) as active_claim,
-      count(run.id) filter (
-        where run.status = 'failed'
-          and coalesce(run.error_code, '') <> 'MENU_SYNC_SUPERSEDED'
-      )::integer as failure_count,
-      (array_agg(run.error_code order by run.started_at desc, run.id desc)
-        filter (
+      latest.observed_at as latest_success_at,
+      latest.observed_minute_of_day as latest_observed_minute_of_day,
+      latest.observation_scope as latest_observation_scope,
+      latest.scope_evidence as latest_scope_evidence,
+      coalesce(
+        jsonb_agg(
+          jsonb_build_object(
+            'startedAt', run.started_at,
+            'completedAt', run.completed_at,
+            'errorCode', run.error_code
+          )
+          order by run.started_at, run.id
+        ) filter (
           where run.status = 'failed'
             and coalesce(run.error_code, '') <> 'MENU_SYNC_SUPERSEDED'
-        ))[1] as latest_error_code,
-      max(coalesce(run.completed_at, run.started_at)) filter (
-        where run.status = 'failed'
-          and coalesce(run.error_code, '') <> 'MENU_SYNC_SUPERSEDED'
-      ) as latest_failed_at
+        ),
+        '[]'::jsonb
+      ) as failed_runs
     from ${canteenMenuSources} as source
+    left join lateral (
+      select
+        coalesce(snapshot.observed_at, success.started_at) as observed_at,
+        snapshot.observed_minute_of_day,
+        snapshot.observation_scope,
+        snapshot.scope_evidence
+      from ${canteenMenuSyncRuns} as success
+      left join ${canteenMenuSyncSnapshots} as snapshot
+        on snapshot.run_id = success.id
+      where success.menu_source_id = source.id
+        and success.status in ('applied', 'unchanged')
+        and success.started_at >= ${window.claimsStartAt}
+        and success.started_at < ${window.endsAt}
+      order by success.started_at desc, success.id desc
+      limit 1
+    ) as latest on true
     left join ${canteenMenuSyncRuns} as run
       on run.menu_source_id = source.id
-      and run.started_at >= ${window.startsAt}
+      and run.started_at >= ${window.claimsStartAt}
       and run.started_at < ${window.endsAt}
     where source.enabled = true
       and not (${window.hktWeekday} = any(source.closed_weekdays))
       and ${window.period} = any(source.sync_meal_periods)
       and ${sourceFilter}
-    group by source.id
-    having count(run.id) filter (
-      where run.status in ('applied', 'unchanged')
-    ) = 0
+    group by
+      source.id,
+      latest.observed_at,
+      latest.observed_minute_of_day,
+      latest.observation_scope,
+      latest.scope_evidence
   `);
-  return result.rows.map((row) => ({
-    sourceId: row.source_id,
-    createdAt: parseDatabaseDate(row.created_at)!,
-    activeClaim: row.active_claim,
-    failureCount: Number(row.failure_count),
-    latestErrorCode: row.latest_error_code,
-    latestFailedAt: parseDatabaseDate(row.latest_failed_at),
-  }));
+  return result.rows.flatMap((row) => {
+    const latestObservedAt = parseDatabaseDate(row.latest_success_at);
+    const latest: LatestMenuSourceObservation | null = latestObservedAt
+      ? {
+          observedAt: latestObservedAt,
+          observedMinuteOfDay: Number(row.latest_observed_minute_of_day ?? -1),
+          observationScope: row.latest_observation_scope,
+          scopeEvidence: row.latest_scope_evidence ?? {},
+        }
+      : null;
+    const dueAt = latest
+      ? nextMenuSourceObservationAt(window, latest)
+      : window.claimsStartAt;
+    if (!dueAt || dueAt > databaseNow) return [];
+
+    const failures = parseFailedRuns(row.failed_runs)
+      .filter((failure) => failure.startedAt >= dueAt)
+      .sort(
+        (left, right) => right.startedAt.getTime() - left.startedAt.getTime(),
+      );
+    const latestFailure = failures[0] ?? null;
+    return [
+      {
+        sourceId: row.source_id,
+        createdAt: parseDatabaseDate(row.created_at)!,
+        activeClaim: row.active_claim,
+        failureCount: failures.length,
+        latestErrorCode: latestFailure?.errorCode ?? null,
+        latestFailedAt: latestFailure
+          ? (latestFailure.completedAt ?? latestFailure.startedAt)
+          : null,
+      },
+    ];
+  });
 }
 
 export async function listMenuSourceScheduleCandidates(
@@ -157,7 +318,8 @@ export async function listMenuSourceScheduleCandidates(
   window: MenuSyncWindow,
   databaseNow: Date,
 ): Promise<MenuSourceScheduleCandidate[]> {
-  const facts = await readMenuSourceScheduleFacts(tx, window);
+  if (!menuSyncWindowAcceptsActivity(window, databaseNow)) return [];
+  const facts = await readMenuSourceScheduleFacts(tx, window, databaseNow);
   return facts
     .map((item) => ({
       candidate: classifyMenuSourceSchedule(item, databaseNow),
@@ -180,6 +342,12 @@ export async function recheckMenuSourceScheduleCandidate(
   sourceId: string,
   databaseNow: Date,
 ): Promise<MenuSourceScheduleCandidate | null> {
-  const facts = await readMenuSourceScheduleFacts(tx, window, sourceId);
+  if (!menuSyncWindowAcceptsActivity(window, databaseNow)) return null;
+  const facts = await readMenuSourceScheduleFacts(
+    tx,
+    window,
+    databaseNow,
+    sourceId,
+  );
   return facts[0] ? classifyMenuSourceSchedule(facts[0], databaseNow) : null;
 }

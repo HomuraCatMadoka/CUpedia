@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded in part by [ADR 0026](0026-refresh-current-menus-across-provider-publication-windows.md)
 
 ## Context
 

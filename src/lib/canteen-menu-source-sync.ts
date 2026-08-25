@@ -24,9 +24,11 @@ import {
 } from "./canteen-menu-sync-scheduler";
 import { readMenuSyncDatabaseNow } from "./canteen-menu-sync-clock";
 import type { MenuIdentityObservation } from "./canteen-menu-sync-observation";
+import { projectScopedMenuObservation } from "./canteen-menu-projection";
+import { menuPublicationIdentityForProvider } from "./canteen-menu-source-publication";
 import {
   insertMenuSyncSnapshot,
-  materializeScopedMenuProjection,
+  readLatestScopedPublicationEvidence,
 } from "./canteen-menu-sync-snapshots";
 import { assertProviderSnapshotCompleteness } from "./canteen-menu-snapshot-completeness";
 import {
@@ -619,11 +621,23 @@ async function commitClaimedRecurringMenuSync(
       source.externalStoreId,
       input.observationScope,
     );
-    const projectionInput = await materializeScopedMenuProjection(
-      tx,
+    const previousScopeEvidence =
+      input.observationScope?.kind === "meal-period"
+        ? await readLatestScopedPublicationEvidence(
+            tx,
+            source.id,
+            claim.observationContext.mealPeriod,
+          )
+        : null;
+    const previousPublicationIdentity = menuPublicationIdentityForProvider(
+      source.provider,
+      previousScopeEvidence,
+    );
+    const projectionInput = projectScopedMenuObservation(
       source,
       claim.observationContext,
       input,
+      { previousPublicationIdentity },
     );
     const projection = await applyRecurringMenuProjection(
       tx,
