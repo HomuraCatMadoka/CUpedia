@@ -343,6 +343,35 @@ GCJ-02 偏移 `[+0.004877, -0.002832]` 做近似逆转换，再以 Haversine 距
 - 校园至少 9 个 WGS84 校验点（中心、四角、四边中点），记录近似逆转换的最大水平误差。
 - 发布前确认高德 POI 名称/ID没有自动进入 canonical `placeId`、source 或稳定身份。
 
+## 2026-08-26 真实高德验收记录
+
+在本地产品页加载真实高德 JS API、真实 canvas 和正常 Geocoder 网络响应；密钥只从被忽略的
+`.env.local` 读取，未写入日志、截图或仓库。验收结果如下：
+
+- 轻点真实底图的 `ScienceCentre科学馆` 标签后，Sheet 显示精确选择提示；随后慢拖立即回到
+  “地图中心位置 / 正在确定位置…”，完成后只显示新的高德参考地址。
+- 两次快速连续拖动返回时，center pin 的 `data-moving` 仍为 `true`；释放和惯性结束 1.6 秒后变为
+  `false`，只渲染最终中心的地址，旧标签和旧请求没有复活。
+- 拖动后“使用此位置”进入同一 Add Sheet；锁定后继续拖地图不再改写位置。拖动后在 Geocoder
+  未完成时关闭，1.6 秒后仍停留 Browse，旧回调没有重新打开 Sheet。
+- 未确认的 placing candidate 刷新后恢复到同一任务，读屏 live region 宣布“已恢复未发布的地图
+  编辑草稿”；已确认的 editing draft 刷新后也恢复，并继续显示锁定位置。
+
+| 真实 viewport | Sheet                                       | 主操作       | 整页滚动 |
+| ------------- | ------------------------------------------- | ------------ | -------- |
+| 390 × 720     | `top 259.2 / bottom 720`，保留 36% 地图     | `bottom 704` | `720`    |
+| 720 × 390     | `top 140.4 / bottom 390`，保留 36% 地图     | `bottom 374` | `390`    |
+| 1440 × 900    | 右侧栏 `left 1034 / width 390 / bottom 884` | `bottom 867` | `900`    |
+
+真实 SDK 下，键盘可依次激活重新定位、坐标入口和坐标确认；确认后焦点落到名称输入框。Sheet 使用
+`aria-labelledby="campus-map-panel-title"`，地点类型暴露为命名单选组，live region 宣布“位置已锁定，
+请填写地点资料”。填写名称后按 Escape 会打开 `alertdialog`，选择继续编辑后输入仍保留。
+
+错误分支没有故意耗尽真实高德配额。验收保留真实高德地图、相机和 canvas，只在 Geocoder adapter
+边界替换一次回调：`no_data`、`SERVER_IS_BUSY/10016`、`CUQPS_HAS_EXCEEDED_THE_LIMIT/10021`
+分别显示空结果、短暂失败和限额文案，三种状态都保持“使用此位置”可用。配合 adapter 单测，这既
+覆盖产品错误状态，也避免把模拟限额冒充真实线上限额事件。
+
 ## 来源清单
 
 - [高德 PositionPicker](https://lbs.amap.com/api/amap-ui/reference-amap-ui/other/positionpicker)
